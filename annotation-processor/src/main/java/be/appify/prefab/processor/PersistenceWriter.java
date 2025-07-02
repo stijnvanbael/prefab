@@ -3,6 +3,7 @@ package be.appify.prefab.processor;
 import be.appify.prefab.core.service.AggregateEnvelope;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.core.util.Objects;
+import be.appify.prefab.processor.spring.RepositorySupport;
 import be.appify.prefab.processor.spring.SpringDataReferenceProvider;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ArrayTypeName;
@@ -76,7 +77,7 @@ public class PersistenceWriter {
                         .addAnnotation(Override.class)
                         .addParameter(ParameterSpec.builder(aggregatedEnvelopeOf(manifest.className()), "envelope").build())
                         .returns(aggregatedEnvelopeOf(manifest.className()))
-                        .addStatement("repository.save($T.from(envelope))", dataType(manifest.type()))
+                        .addStatement("$T.handleErrors(() -> repository.save($T.from(envelope)))", ClassName.get(RepositorySupport.class), dataType(manifest.type()))
                         .addStatement("return envelope")
                         .build())
                 .addMethod(MethodSpec.methodBuilder("getById")
@@ -84,7 +85,7 @@ public class PersistenceWriter {
                         .addAnnotation(Override.class)
                         .addParameter(String.class, "id")
                         .returns(optionalOf(aggregatedEnvelopeOf(manifest.className())))
-                        .addStatement("return repository.findById(id).map(data -> data.toAggregate(referenceProvider))")
+                        .addStatement("return $T.handleErrors(() -> repository.findById(id).map(data -> data.toAggregate(referenceProvider)))", ClassName.get(RepositorySupport.class))
                         .build())
                 .addMethod(MethodSpec.methodBuilder("findAll")
                         .addModifiers(Modifier.PUBLIC)
@@ -92,16 +93,17 @@ public class PersistenceWriter {
                         .returns(
                                 ParameterizedTypeName.get(ClassName.get(Stream.class), aggregatedEnvelopeOf(manifest.className())))
                         .addStatement(
-                                "return $T.stream(repository.findAll().spliterator(), false)\n" +
-                                        ".map(data -> data.toAggregate(referenceProvider))",
-                                StreamSupport.class)
+                                "return $T.handleErrors(() -> $T.stream(repository.findAll().spliterator(), false)\n" +
+                                        ".map(data -> data.toAggregate(referenceProvider)))",
+                                ClassName.get(RepositorySupport.class),
+                                ClassName.get(StreamSupport.class))
                         .build())
                 .addMethod(MethodSpec.methodBuilder("exists")
                         .addModifiers(Modifier.PUBLIC)
                         .addAnnotation(Override.class)
                         .addParameter(String.class, "id")
                         .returns(boolean.class)
-                        .addStatement("return repository.existsById(id)")
+                        .addStatement("return $T.handleErrors(() -> repository.existsById(id))", ClassName.get(RepositorySupport.class))
                         .build());
         context.plugins().forEach(plugin -> plugin.writeRepositoryAdapter(manifest, type));
         fileWriter.writeFile(manifest.packageName(), "%sRepositoryAdapter".formatted(manifest.simpleName()),

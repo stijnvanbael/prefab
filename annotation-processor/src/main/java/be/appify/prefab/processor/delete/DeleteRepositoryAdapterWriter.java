@@ -1,5 +1,7 @@
 package be.appify.prefab.processor.delete;
 
+import be.appify.prefab.processor.spring.RepositorySupport;
+import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
 
 import javax.lang.model.element.Modifier;
@@ -9,7 +11,7 @@ public class DeleteRepositoryAdapterWriter {
             .addModifiers(Modifier.PUBLIC)
             .addAnnotation(Override.class)
             .addParameter(String.class, "id")
-            .addStatement("repository.deleteById(id)")
+            .addStatement("$T.handleErrors(() -> repository.deleteById(id))", ClassName.get(RepositorySupport.class))
             .build();
 
     public MethodSpec deleteMethod() {

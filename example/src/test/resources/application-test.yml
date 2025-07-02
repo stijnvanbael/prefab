@@ -4,3 +4,4 @@ spring:
     driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
   flyway:
     clean-disabled: false
+    clean-on-validation-error: true

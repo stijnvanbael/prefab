@@ -33,7 +33,7 @@ public class PrefabProcessor extends AbstractProcessor {
                 .filter(element -> element.getKind().isClass() && !element.getModifiers().contains(Modifier.ABSTRACT))
                 .map(element -> new ClassManifest((TypeElement) element, processingEnv))
                 .toList();
-        var context = new PrefabContext(processingEnv, plugins);
+        var context = new PrefabContext(processingEnv, plugins, environment);
         manifests.forEach(manifest -> {
             new HttpWriter(context).writeHttpLayer(manifest);
             new ApplicationWriter(context).writeApplicationLayer(manifest);

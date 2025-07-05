@@ -8,3 +8,5 @@ be.appify.prefab.processor.eventhandler.broadcast.BroadcastEventHandlerPlugin
 be.appify.prefab.processor.eventhandler.byreference.ByReferenceEventHandlerPlugin
 be.appify.prefab.processor.dbmigration.DbMigrationPlugin
 be.appify.prefab.processor.binary.BinaryPlugin
+be.appify.prefab.processor.kafka.KafkaPlugin
+be.appify.prefab.processor.pubsub.PubSubPlugin

@@ -9,4 +9,22 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.SOURCE)
 public @interface Event {
     String topic();
+
+    Platform platform() default Platform.KAFKA;
+
+    Serialization serialization() default Serialization.JSON;
+
+    enum Platform {
+        KAFKA,
+        PUB_SUB,
+//        SNS_SQS,
+//        EVENT_HUBS,
+    }
+
+    enum Serialization {
+        JSON,
+//        AVRO,
+//        PROTOBUF,
+//        PLAIN_TEXT,
+    }
 }

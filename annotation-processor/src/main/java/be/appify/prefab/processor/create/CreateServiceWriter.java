@@ -25,6 +25,7 @@ public class CreateServiceWriter {
             return MethodSpec.methodBuilder("create")
                     .addModifiers(Modifier.PUBLIC)
                     .returns(String.class)
+                    .addStatement("log.debug($S, $T.class.getSimpleName())", "Creating new {}", manifest.className())
                     .addStatement("var aggregate = new $T()", manifest.type().asTypeName())
                     .addStatement("var envelope = $T.createNew(aggregate)", AggregateEnvelope.class)
                     .addStatement("%sRepository.save(envelope)".formatted(uncapitalize(manifest.simpleName())))
@@ -39,6 +40,7 @@ public class CreateServiceWriter {
                             .addAnnotation(Valid.class)
                             .build())
                     .returns(String.class)
+                    .addStatement("log.debug($S, $T.class.getSimpleName())", "Creating new {}", manifest.className())
                     .addStatement("var aggregate = new $T($L)", manifest.type().asTypeName(),
                             controller.getParameters().stream()
                                     .map(param -> new VariableManifest(param, manifest.processingEnvironment()))

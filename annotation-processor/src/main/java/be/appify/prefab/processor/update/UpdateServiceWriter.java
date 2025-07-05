@@ -4,7 +4,12 @@ import be.appify.prefab.core.service.AggregateEnvelope;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.VariableManifest;
-import com.palantir.javapoet.*;
+import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.CodeBlock;
+import com.palantir.javapoet.MethodSpec;
+import com.palantir.javapoet.ParameterSpec;
+import com.palantir.javapoet.ParameterizedTypeName;
+import com.palantir.javapoet.TypeName;
 import jakarta.validation.Valid;
 
 import javax.lang.model.element.Modifier;
@@ -26,6 +31,7 @@ public class UpdateServiceWriter {
                     .addAnnotation(Valid.class)
                     .build());
         }
+        method.addStatement("log.debug($S, $T.class.getSimpleName(), id)", "Updating {} with id: {}", manifest.className());
         var aggregateFunction = update.stateless()
                 ? CodeBlock.of("""
                     aggregate.%s(%s);

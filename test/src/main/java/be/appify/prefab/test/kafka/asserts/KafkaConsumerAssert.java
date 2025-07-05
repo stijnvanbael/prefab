@@ -24,9 +24,9 @@ import java.util.stream.StreamSupport;
 ///       .containsExactlyInAnyOrder(expectedValues));
 ///```
 public final class KafkaConsumerAssert<K, V> implements
-    KafkaConsumerAssertNumberOfMessagesStep<K, V>,
-    KafkaConsumerAssertTimeoutStep<K, V>,
-    KafkaConsumerAssertWhereStep<K, V> {
+        KafkaConsumerAssertNumberOfMessagesStep<K, V>,
+        KafkaConsumerAssertTimeoutStep<K, V>,
+        KafkaConsumerAssertWhereStep<K, V> {
     private final Consumer<K, V> consumer;
     private int numberOfMessages;
     private Duration timeout;
@@ -47,6 +47,12 @@ public final class KafkaConsumerAssert<K, V> implements
     }
 
     @Override
+    public KafkaConsumerAssertWhereStep<K, V> hasReceivedMessagesWithin(int timeout, TimeUnit timeUnit) {
+        this.timeout = DurationFactory.of(timeout, timeUnit);
+        return this;
+    }
+
+    @Override
     public KafkaConsumerAssertWhereStep<K, V> within(long timeout, TimeUnit timeUnit) {
         this.timeout = DurationFactory.of(timeout, timeUnit);
         return this;
@@ -56,9 +62,15 @@ public final class KafkaConsumerAssert<K, V> implements
     public void where(java.util.function.Consumer<ListAssert<ConsumerRecord<K, V>>> assertion) {
         var allRecords = new ArrayList<ConsumerRecord<K, V>>();
         Awaitility.await().atMost(timeout).untilAsserted(() -> {
-            var records = KafkaTestUtils.getRecords(consumer, Duration.ofSeconds(1), numberOfMessages);
+            var records = numberOfMessages != 0
+                    ? KafkaTestUtils.getRecords(consumer, Duration.ofSeconds(1), numberOfMessages)
+                    : KafkaTestUtils.getRecords(consumer, Duration.ofSeconds(1));
             allRecords.addAll(StreamSupport.stream(records.spliterator(), false).toList());
-            assertion.accept(Assertions.assertThat(allRecords).hasSize(numberOfMessages));
+            if (numberOfMessages > 0) {
+                Assertions.assertThat(allRecords).hasSizeGreaterThanOrEqualTo(numberOfMessages);
+            } else {
+                Assertions.assertThat(allRecords).isNotEmpty();
+            }
         });
     }
 

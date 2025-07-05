@@ -1,0 +1,18 @@
+tasks:
+  - name: JSON Kafka event use case
+    status: in progress
+    subtasks:
+      - name: Setup @TestConsumer
+        status: done
+      - name: Write test
+        status: done
+      - name: Define @Event
+        status: done
+      - name: Implement event publisher
+        status: done
+      - name: Implement event consumer
+        status: todo
+    tags:
+      - kafka
+      - json
+      - solar-engine

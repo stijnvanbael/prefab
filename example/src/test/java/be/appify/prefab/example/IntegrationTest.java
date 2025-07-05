@@ -1,10 +1,13 @@
 package be.appify.prefab.example;
 
 
+import be.appify.prefab.test.kafka.JsonTestConsumerFactoryAutoConfiguration;
+import be.appify.prefab.test.pubsub.PubSubTestAutoConfiguration;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.lang.annotation.Documented;
@@ -21,5 +24,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @ExtendWith(OutputCaptureExtension.class)
+@Import({JsonTestConsumerFactoryAutoConfiguration.class, PubSubTestAutoConfiguration.class})
 public @interface IntegrationTest {
 }

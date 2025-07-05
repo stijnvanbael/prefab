@@ -5,3 +5,6 @@ spring:
   flyway:
     clean-disabled: false
     clean-on-validation-error: true
+
+  logging.level:
+    be.appify.prefab.example: DEBUG

@@ -12,6 +12,7 @@ public class DeleteServiceWriter {
         return MethodSpec.methodBuilder("delete")
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(String.class, "id")
+                .addStatement("log.debug($S, $T.class.getSimpleName(), id)", "Deleting {} with id: {}", manifest.className())
                 .addStatement("%sRepository.deleteById(id)".formatted(uncapitalize(manifest.simpleName())))
                 .build();
     }

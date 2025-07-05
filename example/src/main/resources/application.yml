@@ -1,10 +1,22 @@
-logging:
-  level:
-    org.springframework.jdbc.core.JdbcTemplate: DEBUG
-
 spring:
+  application:
+    name: example
+  cloud:
+    gcp:
+      project-id: example
+
   datasource:
     driver-class-name: org.postgresql.Driver
     url: jdbc:postgresql://localhost:5432/prefab_example
     username: example
     password: example
+
+pubsub:
+  topics:
+    sale:
+      name: sale
+
+
+logging.level:
+  root: WARN
+  be.appify.prefab.example: DEBUG

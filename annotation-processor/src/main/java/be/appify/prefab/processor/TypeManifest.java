@@ -11,9 +11,11 @@ import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import java.lang.annotation.Annotation;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class TypeManifest {
@@ -146,5 +148,9 @@ public class TypeManifest {
         } catch (Exception e) {
             throw new RuntimeException("Failed to resolve class for " + this, e);
         }
+    }
+
+    public <T extends Annotation> Set<T> annotationsOfType(Class<T> annotationType) {
+        return Set.of(element.getAnnotationsByType(annotationType));
     }
 }

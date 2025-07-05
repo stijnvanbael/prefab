@@ -36,5 +36,18 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>kafka</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>gcloud</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-gcp-starter-pubsub</artifactId>
+            <version>${spring-cloud.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-annotation-processor</artifactId>
+        </dependency>
     </dependencies>
 </project>

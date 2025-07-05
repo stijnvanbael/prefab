@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static be.appify.prefab.processor.CaseUtil.toKebabCase;
+import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
@@ -50,7 +51,7 @@ public class HttpWriter {
                 .addAnnotation(AnnotationSpec.builder(RequestMapping.class)
                         .addMember("path", "$S", parentName + toKebabCase(plural(manifest.simpleName())))
                         .build())
-                .addField(serviceType, "service")
+                .addField(serviceType, "service", PRIVATE, FINAL)
                 .addMethod(MethodSpec.constructorBuilder()
                         .addParameter(serviceType, "service")
                         .addStatement("this.service = service")

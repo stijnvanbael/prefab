@@ -34,13 +34,13 @@ public class TestConsumerExecutionListener extends AbstractTestExecutionListener
         Class<?> testClazz = testContext.getTestClass();
 
         List<TestConsumerField> testConsumers = Arrays.stream(testClazz.getDeclaredFields())
-            .map(field -> new TestConsumerField(field,
-                AnnotationUtils.getAnnotation(field, TestConsumer.class)))
-            .filter(testConsumer -> testConsumer.testConsumer != null)
-            .toList();
+                .map(field -> new TestConsumerField(field,
+                        AnnotationUtils.getAnnotation(field, TestConsumer.class)))
+                .filter(testConsumer -> testConsumer.testConsumer != null)
+                .toList();
 
         if (!testConsumers.isEmpty()) {
-            this.consumerFactory = testContext.getApplicationContext().getBean(ConsumerFactory.class);
+            this.consumerFactory = testContext.getApplicationContext().getBean("jsonTestConsumerFactory", ConsumerFactory.class);
             this.environment = testContext.getApplicationContext().getBean(Environment.class);
             this.typeResolver = testContext.getApplicationContext().getBean(TestJsonTypeResolver.class);
             injectTestConsumers(testConsumers, testInstance);
@@ -53,10 +53,10 @@ public class TestConsumerExecutionListener extends AbstractTestExecutionListener
         var fields = Arrays.asList(testClazz.getDeclaredFields());
 
         var fieldsToRemove = consumerByField.entrySet().stream()
-            .filter(entry -> fields.contains(entry.getKey()))
-            .peek(entry -> entry.getValue().close())
-            .map(Map.Entry::getKey)
-            .collect(Collectors.toSet());
+                .filter(entry -> fields.contains(entry.getKey()))
+                .peek(entry -> entry.getValue().close())
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
         fieldsToRemove.forEach(consumerByField::remove);
     }
 
@@ -82,24 +82,24 @@ public class TestConsumerExecutionListener extends AbstractTestExecutionListener
             if (valueType instanceof Class<?> valueClass) {
                 if (consumerFactory == null) {
                     throw new IllegalArgumentException("Json consumer factory not available, please add a " +
-                        "ConsumerFactory bean to your context named `jsonTestConsumerFactory` capable of " +
-                        "deserializing Json messages");
+                            "ConsumerFactory bean to your context named `jsonTestConsumerFactory` capable of " +
+                            "deserializing Json messages");
                 }
                 if (typeResolver == null) {
                     throw new IllegalArgumentException("Json type resolver not available, please add a " +
-                        "TestJsonTypeResolver bean to your context capable of resolving the type of Json " +
-                        "messages");
+                            "TestJsonTypeResolver bean to your context capable of resolving the type of Json " +
+                            "messages");
                 }
                 typeResolver.registerType(topic, valueClass);
                 String id = testInstance.getClass().getSimpleName() + "-%s-json".formatted(index++);
                 return consumerFactory.createConsumer(id, id);
             } else {
                 throw new IllegalArgumentException(
-                    "Unsupported value type: " + valueType + " for field: " + field.field);
+                        "Unsupported value type: " + valueType + " for field: " + field.field);
             }
         } else {
             throw new IllegalArgumentException(
-                "Unsupported type: " + type + " for field: " + field.field + ". Expected: Consumer<K, V>");
+                    "Unsupported type: " + type + " for field: " + field.field + ". Expected: Consumer<K, V>");
         }
     }
 

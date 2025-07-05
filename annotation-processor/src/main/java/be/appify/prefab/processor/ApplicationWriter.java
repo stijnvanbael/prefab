@@ -9,6 +9,8 @@ import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,11 +36,15 @@ public class ApplicationWriter {
     }
 
     private void writeService(ClassManifest manifest) {
-        var type = TypeSpec.classBuilder("%sService".formatted(manifest.simpleName()))
+        var serviceName = "%sService".formatted(manifest.simpleName());
+        var type = TypeSpec.classBuilder(serviceName)
                 .addModifiers(Modifier.PUBLIC)
                 .addSuperinterface(ClassName.get(SpringService.class))
                 .addAnnotation(ClassName.get(Component.class))
-                .addAnnotation(ClassName.get(Transactional.class));
+                .addAnnotation(ClassName.get(Transactional.class))
+                .addField(FieldSpec.builder(Logger.class, "log", Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
+                        .initializer("$T.getLogger($T.class)", ClassName.get(LoggerFactory.class), ClassName.get(manifest.packageName() + ".application", serviceName))
+                        .build());
         var dependencies = collectDependencies(manifest);
         dependencies.forEach(dependency -> type.addField(FieldSpec.builder(
                         dependency,
@@ -54,7 +60,7 @@ public class ApplicationWriter {
         dependencies.forEach(dependency -> constructor.addStatement("this.$N = $N", nameOf(dependency), nameOf(dependency)));
         type.addMethod(constructor.build());
         context.plugins().forEach(plugin -> plugin.writeService(manifest, type, context));
-        fileWriter.writeFile(manifest.packageName(), "%sService".formatted(manifest.simpleName()), type.build());
+        fileWriter.writeFile(manifest.packageName(), serviceName, type.build());
     }
 
     private String nameOf(TypeName type) {

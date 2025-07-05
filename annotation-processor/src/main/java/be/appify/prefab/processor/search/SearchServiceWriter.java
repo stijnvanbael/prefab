@@ -24,10 +24,15 @@ public class SearchServiceWriter {
             method.addParameter(searchProperty.type().asTypeName(), searchProperty.name());
         }
         TypeName typeName = manifest.type().asTypeName();
-        return method
-                .returns(ParameterizedTypeName.get(ClassName.get(Page.class),
-                        ParameterizedTypeName.get(ClassName.get(AggregateEnvelope.class), typeName)))
-                .addStatement("return $N.search($L)",
+        method.returns(ParameterizedTypeName.get(ClassName.get(Page.class),
+                ParameterizedTypeName.get(ClassName.get(AggregateEnvelope.class), typeName)));
+        if (searchProperty != null) {
+            method.addStatement("log.debug($S, $T.class.getSimpleName(), $S, $L)",
+                    "Searching {} by {}: {}", manifest.className(), searchProperty.name(), searchProperty.name());
+        } else {
+            method.addStatement("log.debug($S, $T.class.getSimpleName())", "Searching all {}", manifest.className());
+        }
+        return method.addStatement("return $N.search($L)",
                         uncapitalize(manifest.simpleName()) + "Repository",
                         "pageable"
                                 + (manifest.parent().map(parent -> ", %sId".formatted(uncapitalize(parent.type().parameters().getFirst().simpleName()))).orElse(""))

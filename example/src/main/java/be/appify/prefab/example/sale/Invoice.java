@@ -3,12 +3,14 @@ package be.appify.prefab.example.sale;
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.DbMigration;
 import be.appify.prefab.core.annotations.EventHandler;
+import be.appify.prefab.core.annotations.rest.Search;
 
 import java.math.BigDecimal;
 import java.util.Optional;
 
 @Aggregate
 @DbMigration(version = 5)
+@Search
 public class Invoice {
     private final BigDecimal total;
 
@@ -22,8 +24,10 @@ public class Invoice {
 
     @EventHandler
     public static Optional<Invoice> onSaleCompleted(SaleCompleted event) {
-        if (event.sale().type() == SaleType.INVOICE) {
-            return Optional.of(new Invoice(event.sale().total()));
+        if (event.type() == SaleType.INVOICE) {
+            return Optional.of(new Invoice(event.items().stream()
+                    .map(saleItem -> saleItem.price().multiply(saleItem.quantity()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add)));
         }
         return Optional.empty();
     }

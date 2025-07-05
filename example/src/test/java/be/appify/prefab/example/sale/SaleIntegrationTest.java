@@ -1,9 +1,10 @@
 package be.appify.prefab.example.sale;
 
 import be.appify.prefab.example.IntegrationTest;
+import be.appify.prefab.example.sale.infrastructure.persistence.InvoiceCrudRepository;
 import be.appify.prefab.example.sale.infrastructure.persistence.SaleCrudRepository;
-import be.appify.prefab.test.kafka.KafkaContainerSupport;
 import be.appify.prefab.test.kafka.TestConsumer;
+import be.appify.prefab.test.pubsub.PubSubContainerSupport;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,10 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import java.util.concurrent.TimeUnit;
+
+import static be.appify.prefab.test.kafka.asserts.KafkaAssertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.http.HttpHeaders.LOCATION;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -20,22 +25,25 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @IntegrationTest
-class SaleIntegrationTest implements KafkaContainerSupport {
+class SaleIntegrationTest implements PubSubContainerSupport {
     @Autowired
     private MockMvc mockMvc;
     @Autowired
     private SaleCrudRepository saleRepository;
-    @TestConsumer(topic = "${topics.sale}")
-    private Consumer<String, SaleEvent> saleConsumer;
+    @TestConsumer(topic = "${kafka.topics.sale.name}")
+    private Consumer<String, SaleCompleted> saleConsumer;
+    @Autowired
+    private InvoiceCrudRepository invoiceRepository;
 
     @BeforeEach
     void setup() {
         saleRepository.deleteAll();
+        invoiceRepository.deleteAll();
     }
 
     @Test
     void simpleSale() throws Exception {
-        var sale = startNewSale();
+        var sale = startNewSale(SaleType.REGULAR);
         addItem(sale);
         addPayment(sale);
 
@@ -46,18 +54,18 @@ class SaleIntegrationTest implements KafkaContainerSupport {
                 .andExpect(jsonPath("$.returned").value(0.0))
                 .andExpect(jsonPath("$.state").value("COMPLETED"));
 
-//        assertThat(saleConsumer).hasReceivedMessages(1)
-//                .within(5, TimeUnit.SECONDS)
-//                .where(records -> records.hasSize(1)
-//                        .allSatisfy(record ->
-//                                assertThat(record.value()).isInstanceOf(SaleCompleted.class)));
+        assertThat(saleConsumer).hasReceivedMessages(1)
+                .within(5, TimeUnit.SECONDS)
+                .where(records -> records.hasSizeGreaterThanOrEqualTo(1)
+                        .anySatisfy(rec ->
+                                assertThat(rec.value()).isInstanceOf(SaleCompleted.class)));
     }
 
     @Test
     void saleWithCustomer() throws Exception {
         var customer = createCustomer();
 
-        var sale = startNewSale();
+        var sale = startNewSale(SaleType.REGULAR);
         addItem(sale);
         addCustomer(sale, customer);
         addPayment(sale);
@@ -70,7 +78,7 @@ class SaleIntegrationTest implements KafkaContainerSupport {
     @Test
     void saleWithGiftVoucherPayment() throws Exception {
         var giftVoucher = createGiftVoucher(25.0);
-        var sale = startNewSale();
+        var sale = startNewSale(SaleType.REGULAR);
         addItem(sale);
         addGiftVoucherPayment(sale, giftVoucher);
 
@@ -86,7 +94,7 @@ class SaleIntegrationTest implements KafkaContainerSupport {
 
     @Test
     void saleWithGiftVoucherPaymentMissingGiftVoucher() throws Exception {
-        var sale = startNewSale();
+        var sale = startNewSale(SaleType.REGULAR);
         addItem(sale);
 
         addGiftVoucherPaymentMissingGiftVoucher(sale)
@@ -96,7 +104,7 @@ class SaleIntegrationTest implements KafkaContainerSupport {
     @Test
     void saleWithGiftVoucherPaymentWithInsufficientBalance() throws Exception {
         var giftVoucher = createGiftVoucher(10.0);
-        var sale = startNewSale();
+        var sale = startNewSale(SaleType.REGULAR);
         addItem(sale);
 
         addGiftVoucherPayment(sale, giftVoucher)
@@ -105,12 +113,23 @@ class SaleIntegrationTest implements KafkaContainerSupport {
 
     @Test
     void addItemWhenPaid() throws Exception {
-        var sale = startNewSale();
+        var sale = startNewSale(SaleType.REGULAR);
         addItem(sale);
         addPayment(sale);
 
         addItem(sale)
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void saleWithInvoice() throws Exception {
+        var sale = startNewSale(SaleType.INVOICE);
+        addItem(sale);
+        addPayment(sale);
+
+        await().untilAsserted(() -> mockMvc.perform(get("/invoices"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1))));
     }
 
     private ResultActions addGiftVoucherPayment(String sale, String giftVoucher) throws Exception {
@@ -214,8 +233,14 @@ class SaleIntegrationTest implements KafkaContainerSupport {
                         """));
     }
 
-    private String startNewSale() throws Exception {
-        var location = mockMvc.perform(post("/sales"))
+    private String startNewSale(SaleType type) throws Exception {
+        var location = mockMvc.perform(post("/sales")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "type": "%s"
+                                }
+                                """.formatted(type.name())))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getHeader(LOCATION);
         assert location != null;

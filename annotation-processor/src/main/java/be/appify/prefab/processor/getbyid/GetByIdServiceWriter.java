@@ -20,6 +20,7 @@ public class GetByIdServiceWriter {
                 .addParameter(String.class, "id")
                 .returns(ParameterizedTypeName.get(ClassName.get(Optional.class),
                         ParameterizedTypeName.get(ClassName.get(AggregateEnvelope.class), typeName)))
+                .addStatement("log.debug($S, $T.class.getSimpleName(), id)", "Getting {} by id: {}", manifest.className())
                 .addStatement(
                         "return %sRepository.getById(id)".formatted(uncapitalize(manifest.simpleName())))
                 .build();

@@ -6,6 +6,7 @@ import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.core.domain.PublishesEvents;
+import be.appify.prefab.core.service.IdCache;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.problem.BadRequestProblem;
 import be.appify.prefab.processor.problem.ConflictProblem;
@@ -34,8 +35,8 @@ public class Sale implements PublishesEvents {
     private SaleType type;
 
     @Create
-    public Sale() {
-        this(Instant.now(), List.of(), List.of(), BigDecimal.ZERO, State.OPEN, null, SaleType.REGULAR);
+    public Sale(SaleType type) {
+        this(Instant.now(), List.of(), List.of(), BigDecimal.ZERO, State.OPEN, null, type);
     }
 
     public Sale(
@@ -131,7 +132,16 @@ public class Sale implements PublishesEvents {
 
     private void complete() {
         state = State.COMPLETED;
-        publish(new SaleCompleted(this));
+        publish(new SaleCompleted(
+                IdCache.INSTANCE.getId(this),
+                start,
+                items,
+                payments,
+                returned,
+                state,
+                customer,
+                type
+        ));
     }
 
     private void resolveGiftVoucher(BigDecimal amount, PaymentMethod method, Reference<GiftVoucher> giftVoucher) {

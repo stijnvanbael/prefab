@@ -1,6 +1,7 @@
 package be.appify.prefab.processor;
 
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.annotation.processing.RoundEnvironment;
 import java.util.List;
 
 public class PrefabContext {
@@ -8,10 +9,16 @@ public class PrefabContext {
     private final RequestParameterBuilder requestParameterBuilder;
     private final List<PrefabPlugin> plugins;
     private final RequestParameterMapper requestParameterMapper;
+    private final RoundEnvironment roundEnvironment;
 
-    public PrefabContext(ProcessingEnvironment processingEnvironment, List<PrefabPlugin> plugins) {
+    public PrefabContext(
+            ProcessingEnvironment processingEnvironment,
+            List<PrefabPlugin> plugins,
+            RoundEnvironment roundEnvironment
+    ) {
         this.processingEnvironment = processingEnvironment;
         this.plugins = plugins;
+        this.roundEnvironment = roundEnvironment;
         requestParameterBuilder = new RequestParameterBuilder(plugins);
         requestParameterMapper = new RequestParameterMapper(plugins);
     }
@@ -22,6 +29,10 @@ public class PrefabContext {
 
     public ProcessingEnvironment processingEnvironment() {
         return processingEnvironment;
+    }
+
+    public RoundEnvironment roundEnvironment() {
+        return roundEnvironment;
     }
 
     public List<PrefabPlugin> plugins() {

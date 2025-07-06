@@ -3,6 +3,7 @@
   <component name="EntryPointsManager">
     <writeAnnotations>
       <writeAnnotation name="be.appify.prefab.test.kafka.TestConsumer" />
+      <writeAnnotation name="be.appify.prefab.test.pubsub.TestSubscriber" />
     </writeAnnotations>
   </component>
   <component name="ExternalStorageConfigurationManager" enabled="true" />

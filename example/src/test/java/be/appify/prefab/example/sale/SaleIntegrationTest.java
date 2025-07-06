@@ -3,9 +3,8 @@ package be.appify.prefab.example.sale;
 import be.appify.prefab.example.IntegrationTest;
 import be.appify.prefab.example.sale.infrastructure.persistence.InvoiceCrudRepository;
 import be.appify.prefab.example.sale.infrastructure.persistence.SaleCrudRepository;
-import be.appify.prefab.test.kafka.TestConsumer;
 import be.appify.prefab.test.pubsub.PubSubContainerSupport;
-import org.apache.kafka.clients.consumer.Consumer;
+import be.appify.prefab.test.pubsub.TestSubscriber;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-import java.util.concurrent.TimeUnit;
+import java.util.List;
 
 import static be.appify.prefab.test.kafka.asserts.KafkaAssertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -30,8 +29,8 @@ class SaleIntegrationTest implements PubSubContainerSupport {
     private MockMvc mockMvc;
     @Autowired
     private SaleCrudRepository saleRepository;
-    @TestConsumer(topic = "${kafka.topics.sale.name}")
-    private Consumer<String, SaleCompleted> saleConsumer;
+    @TestSubscriber(topic = "${pubsub.topics.sale.name}")
+    private List<SaleCompleted> saleSubscriber;
     @Autowired
     private InvoiceCrudRepository invoiceRepository;
 
@@ -54,11 +53,10 @@ class SaleIntegrationTest implements PubSubContainerSupport {
                 .andExpect(jsonPath("$.returned").value(0.0))
                 .andExpect(jsonPath("$.state").value("COMPLETED"));
 
-        assertThat(saleConsumer).hasReceivedMessages(1)
-                .within(5, TimeUnit.SECONDS)
-                .where(records -> records.hasSizeGreaterThanOrEqualTo(1)
-                        .anySatisfy(rec ->
-                                assertThat(rec.value()).isInstanceOf(SaleCompleted.class)));
+        await().untilAsserted(() ->
+                assertThat(saleSubscriber).hasSizeGreaterThanOrEqualTo(1)
+                        .anySatisfy(event ->
+                                assertThat(event).isInstanceOf(SaleCompleted.class)));
     }
 
     @Test

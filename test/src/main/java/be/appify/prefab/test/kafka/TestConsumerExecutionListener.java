@@ -30,10 +30,7 @@ public class TestConsumerExecutionListener extends AbstractTestExecutionListener
 
     @Override
     public void prepareTestInstance(TestContext testContext) {
-        Object testInstance = testContext.getTestInstance();
-        Class<?> testClazz = testContext.getTestClass();
-
-        List<TestConsumerField> testConsumers = Arrays.stream(testClazz.getDeclaredFields())
+        var testConsumers = Arrays.stream(testContext.getTestClass().getDeclaredFields())
                 .map(field -> new TestConsumerField(field,
                         AnnotationUtils.getAnnotation(field, TestConsumer.class)))
                 .filter(testConsumer -> testConsumer.testConsumer != null)
@@ -43,14 +40,14 @@ public class TestConsumerExecutionListener extends AbstractTestExecutionListener
             this.consumerFactory = testContext.getApplicationContext().getBean("jsonTestConsumerFactory", ConsumerFactory.class);
             this.environment = testContext.getApplicationContext().getBean(Environment.class);
             this.typeResolver = testContext.getApplicationContext().getBean(TestJsonTypeResolver.class);
-            injectTestConsumers(testConsumers, testInstance);
+            injectTestConsumers(testConsumers, testContext.getTestInstance());
         }
     }
 
     @Override
     public void afterTestClass(TestContext testContext) {
-        Class<?> testClazz = testContext.getTestClass();
-        var fields = Arrays.asList(testClazz.getDeclaredFields());
+        var testClass = testContext.getTestClass();
+        var fields = Arrays.asList(testClass.getDeclaredFields());
 
         var fieldsToRemove = consumerByField.entrySet().stream()
                 .filter(entry -> fields.contains(entry.getKey()))
@@ -65,9 +62,9 @@ public class TestConsumerExecutionListener extends AbstractTestExecutionListener
     }
 
     private void injectTestConsumer(TestConsumerField testConsumerField, Object testInstance) {
-        Consumer<?, ?> consumer = consumerByField.get(testConsumerField.field);
+        var consumer = consumerByField.get(testConsumerField.field);
         if (consumer == null) {
-            String topic = this.environment.resolvePlaceholders(testConsumerField.testConsumer.topic());
+            var topic = this.environment.resolvePlaceholders(testConsumerField.testConsumer.topic());
             consumer = createConsumer(testInstance, testConsumerField, topic);
             consumer.subscribe(List.of(topic));
             consumerByField.put(testConsumerField.field, consumer);

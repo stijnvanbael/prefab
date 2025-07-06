@@ -73,4 +73,11 @@ public class PubSubUtil {
         }
         return subscriptionName;
     }
+
+    public void deleteSubscription(String subscription) {
+        var subscriptionName = ProjectSubscriptionName.of(projectId, subscription).toString();
+        if (pubSubAdmin.getSubscription(subscriptionName) != null) {
+            pubSubAdmin.deleteSubscription(subscriptionName);
+        }
+    }
 }

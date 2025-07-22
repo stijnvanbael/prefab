@@ -49,7 +49,7 @@ public class JsonTestConsumerFactoryAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = "testJsonTypeResolver")
     public TestJsonTypeResolver testJsonTypeResolver(ObjectProvider<JsonTypeResolver> delegate) {
-        return new TestJsonTypeResolver(delegate.getIfAvailable(() -> (topic, _, _) -> {
+        return new TestJsonTypeResolver(delegate.getIfAvailable(() -> (topic, data, headers) -> {
             throw new IllegalStateException("No type resolver configured for topic: " + topic);
         }));
     }

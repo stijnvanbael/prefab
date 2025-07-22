@@ -1,7 +1,9 @@
 package be.appify.prefab.processor.dbmigration;
 
 import be.appify.prefab.core.service.Reference;
+import be.appify.prefab.processor.AnnotationManifest;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -49,7 +51,7 @@ public class DbMigrationWriter {
             var last = field == fields.getLast();
             writer.write("  %s %s%s%s\n".formatted(
                     toSnakeCase(field.name()),
-                    sqlTypeOf(field),
+                    sqlTypeOf(field.property().toBoxed().type(), field.property().annotations(), field.name()),
                     constraintOf(field.property()),
                     last ? "" : ","));
         }
@@ -64,8 +66,7 @@ public class DbMigrationWriter {
     ) {
         parent.fields().stream().filter(field -> field.type().is(List.class)).forEach(field -> {
             if (field.type().parameters().getFirst().isStandardType()) {
-                throw new IllegalArgumentException(
-                        "Only a list of entities is supported, found [%s] in %s".formatted(field, parent));
+                return;
             }
             try {
                 writeChildEntityTable(aggregateRootTable, parents,
@@ -116,7 +117,7 @@ public class DbMigrationWriter {
 
     private List<Field> fieldsOf(ClassManifest manifest, String prefix) {
         return manifest.fields().stream()
-                .filter(field -> !field.type().is(List.class))
+                .filter(field -> !field.type().is(List.class) || field.type().parameters().getFirst().isStandardType())
                 .flatMap(field -> field.type().isRecord()
                         ? fieldsOf(field.type().asClassManifest(),
                         prefix != null ? prefix + "_" + field.name() : field.name()).stream()
@@ -125,16 +126,22 @@ public class DbMigrationWriter {
     }
 
     private String sqlTypeOf(Field field) {
-        var type = field.property().toBoxed().type();
-        if (type.is(String.class) || type.is(Reference.class) || type.isEnum()) {
-            var length = field.property().annotations().stream()
+        return sqlTypeOf(
+                field.property().toBoxed().type(),
+                field.property().annotations(),
+                field.name());
+    }
+
+    private static String sqlTypeOf(TypeManifest type, List<AnnotationManifest> annotations, String name) {
+        if (type.is(String.class) || type.is(Reference.class) || type.isEnum() || type.is(Duration.class)) {
+            var length = annotations.stream()
                     .filter(annotation -> annotation.type().is(Size.class))
                     .map(annotation -> (Integer) annotation.value("max"))
                     .findFirst().orElse(255);
             return "VARCHAR(%d)".formatted(length);
         } else if (type.is(Integer.class)) {
             return "INTEGER";
-        } else if (type.is(Long.class) || type.is(Duration.class)) {
+        } else if (type.is(Long.class)) {
             return "BIGINT";
         } else if (type.is(Boolean.class)) {
             return "BOOLEAN";
@@ -144,9 +151,11 @@ public class DbMigrationWriter {
             return "TIMESTAMP";
         } else if (type.is(byte[].class) || type.is(File.class)) {
             return "BYTEA";
+        } else if (type.is(List.class)) {
+            return sqlTypeOf(type.parameters().getFirst(), annotations, name) + "[]";
         } else {
             throw new IllegalArgumentException(
-                    "Unsupported type [%s] for field %s".formatted(type, field.name()));
+                    "Unsupported type [%s] for field %s".formatted(type, name));
         }
     }
 

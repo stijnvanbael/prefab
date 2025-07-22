@@ -22,19 +22,19 @@ public class DeletePlugin implements PrefabPlugin {
 
     @Override
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        deleteAnnotation(manifest).ifPresent(_ ->
+        deleteAnnotation(manifest).ifPresent(ignored ->
                 builder.addMethod(serviceWriter.deleteMethod(manifest)));
     }
 
     @Override
     public void writeRepository(ClassManifest manifest, TypeSpec.Builder builder) {
-        deleteAnnotation(manifest).ifPresent(_ ->
+        deleteAnnotation(manifest).ifPresent(ignored ->
                 builder.addMethod(repositoryWriter.deleteMethod()));
     }
 
     @Override
     public void writeRepositoryAdapter(ClassManifest manifest, TypeSpec.Builder builder) {
-        deleteAnnotation(manifest).ifPresent(_ ->
+        deleteAnnotation(manifest).ifPresent(ignored ->
                 builder.addMethod(repositoryAdapterWriter.deleteMethod()));
     }
 

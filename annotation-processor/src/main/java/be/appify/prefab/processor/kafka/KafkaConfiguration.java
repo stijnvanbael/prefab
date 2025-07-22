@@ -93,7 +93,7 @@ public class KafkaConfiguration {
         var properties = kafkaProperties.buildConsumerProperties(sslBundles.getIfAvailable());
         properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, connectionDetails.getConsumerBootstrapServers());
         properties.putIfAbsent(ConsumerConfig.GROUP_ID_CONFIG, applicationName);
-        kafkaTransactionManager.ifAvailable(_ ->
+        kafkaTransactionManager.ifAvailable(ignored ->
                 properties.putIfAbsent(ConsumerConfig.ISOLATION_LEVEL_CONFIG, KafkaProperties.IsolationLevel.READ_COMMITTED.name()));
         var jsonDeserializer = new JsonDeserializer<>();
         jsonDeserializer.setTypeResolver(jsonTypeResolver);

@@ -8,6 +8,7 @@ import com.google.api.gax.rpc.FixedTransportChannelProvider;
 import com.google.api.gax.rpc.TransportChannelProvider;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.cloud.gcp.autoconfigure.pubsub.GcpPubSubProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -22,6 +23,7 @@ public class PubSubTestAutoConfiguration {
     private ManagedChannel channel;
 
     @Bean
+    @ConditionalOnBean(PubSubConnectionDetails.class)
     DynamicPropertyRegistrar pubSubPropertiesRegistrar(PubSubConnectionDetails connectionDetails) {
         return registry -> registry.add("spring.cloud.gcp.pubsub.emulator-host", connectionDetails::getEmulatorHost);
     }
@@ -32,6 +34,7 @@ public class PubSubTestAutoConfiguration {
     }
 
     @Bean(name = {"subscriberTransportChannelProvider", "publisherTransportChannelProvider"})
+    @ConditionalOnBean(PubSubConnectionDetails.class)
     TransportChannelProvider transportChannelProvider(GcpPubSubProperties gcpPubSubProperties) {
         this.channel = ManagedChannelBuilder
                 .forTarget("dns:///" + gcpPubSubProperties.getEmulatorHost())

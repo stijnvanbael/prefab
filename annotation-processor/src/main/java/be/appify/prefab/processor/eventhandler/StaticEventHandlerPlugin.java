@@ -15,6 +15,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static javax.lang.model.type.TypeKind.VOID;
+
 public class StaticEventHandlerPlugin implements PrefabPlugin {
     private final StaticEventHandlerWriter staticEventHandlerWriter = new StaticEventHandlerWriter();
 
@@ -33,6 +35,12 @@ public class StaticEventHandlerPlugin implements PrefabPlugin {
                 .map(ExecutableElement.class::cast)
                 .filter(element -> element.getAnnotationsByType(EventHandler.class).length > 0)
                 .map(element -> {
+                    if (element.getReturnType().getKind() == VOID) {
+                        throw new IllegalArgumentException(
+                                "Domain event handler method %s must return either %s or Optional<%s>".formatted(
+                                        element,
+                                        typeElement, typeElement));
+                    }
                     var returnType = new TypeManifest(element.getReturnType(), manifest.processingEnvironment());
                     if (returnType.is(Optional.class)) {
                         returnType = returnType.parameters().getFirst();

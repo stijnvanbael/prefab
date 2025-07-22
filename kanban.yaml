@@ -1,6 +1,18 @@
 tasks:
-  - name: JSON Kafka event use case
+  - name: Store list of primitives in a database
     status: in progress
+    subtasks:
+      - name: Create table with array column
+        status: in progress
+      - name: Insert data into array column
+        status: todo
+      - name: Query data from array column
+        status: todo
+    tags:
+      - postgres
+      - electricity-insight
+  - name: JSON Kafka event use case
+    status: done
     subtasks:
       - name: Setup @TestConsumer
         status: done

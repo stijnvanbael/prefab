@@ -20,7 +20,7 @@ public class GetByIdPlugin implements PrefabPlugin {
 
     @Override
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        getByIdAnnotation(manifest).ifPresent(_ ->
+        getByIdAnnotation(manifest).ifPresent(ignored ->
                 builder.addMethod(serviceWriter.getByIdMethod(manifest)));
     }
 

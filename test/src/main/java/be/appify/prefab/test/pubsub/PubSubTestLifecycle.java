@@ -1,11 +1,13 @@
 package be.appify.prefab.test.pubsub;
 
 import be.appify.prefab.processor.pubsub.PubSubUtil;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PreDestroy;
 
 @Component
+@ConditionalOnBean(PubSubUtil.class)
 public class PubSubTestLifecycle {
     private final PubSubUtil pubSubUtil;
 

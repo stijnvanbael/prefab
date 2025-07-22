@@ -24,20 +24,24 @@ public class TestSubscriberExecutionListener extends AbstractTestExecutionListen
     @Override
     public void prepareTestInstance(TestContext testContext) {
         environment = testContext.getApplicationContext().getBean(Environment.class);
-        pubSubUtil = testContext.getApplicationContext().getBean(PubSubUtil.class);
-        Arrays.stream(testContext.getTestClass().getDeclaredFields())
-                .filter(field -> field.getType().isAssignableFrom(List.class) && field.isAnnotationPresent(TestSubscriber.class))
-                .map(field -> new TestSubscriberField(field, field.getAnnotation(TestSubscriber.class)))
-                .forEach(testSubscriberField ->
-                        injectTestSubscriber(testSubscriberField, testContext.getTestInstance()));
-        subscriberByField.values().forEach(List::clear);
+        testContext.getApplicationContext().getBeanProvider(PubSubUtil.class).ifAvailable(pubSubUtil -> {
+            this.pubSubUtil = pubSubUtil;
+            Arrays.stream(testContext.getTestClass().getDeclaredFields())
+                    .filter(field -> field.getType().isAssignableFrom(List.class) && field.isAnnotationPresent(TestSubscriber.class))
+                    .map(field -> new TestSubscriberField(field, field.getAnnotation(TestSubscriber.class)))
+                    .forEach(testSubscriberField ->
+                            injectTestSubscriber(testSubscriberField, testContext.getTestInstance()));
+            subscriberByField.values().forEach(List::clear);
+        });
     }
 
     @Override
     public void afterTestExecution(TestContext testContext) {
-        var subscriptionName = testContext.getTestInstance().getClass().getSimpleName();
-        pubSubUtil.deleteSubscription(subscriptionName);
-        subscriberByField.clear();
+        if (pubSubUtil != null) {
+            var subscriptionName = testContext.getTestInstance().getClass().getSimpleName();
+            pubSubUtil.deleteSubscription(subscriptionName);
+            subscriberByField.clear();
+        }
     }
 
     private void injectTestSubscriber(TestSubscriberField testSubscriberField, Object testInstance) {

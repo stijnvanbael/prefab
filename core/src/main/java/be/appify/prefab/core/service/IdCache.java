@@ -10,8 +10,8 @@ public class IdCache {
     private final ThreadLocal<Map<Class<?>, Map<Object, String>>> localCache = new ThreadLocal<>();
 
     public String getId(Object aggregate) {
-        return cache().computeIfAbsent(aggregate.getClass(), _ -> new HashMap<>())
-                .computeIfAbsent(aggregate, _ -> generateId());
+        return cache().computeIfAbsent(aggregate.getClass(), ignored -> new HashMap<>())
+                .computeIfAbsent(aggregate, ignored -> generateId());
     }
 
     private String generateId() {
@@ -19,7 +19,7 @@ public class IdCache {
     }
 
     public void flush(Object aggregate) { // TODO: flush on save
-        cache().computeIfAbsent(aggregate.getClass(), _ -> new HashMap<>())
+        cache().computeIfAbsent(aggregate.getClass(), ignored -> new HashMap<>())
                 .remove(aggregate);
     }
 

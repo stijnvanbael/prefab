@@ -1,6 +1,6 @@
 package be.appify.prefab.processor.pubsub;
 
-import org.springframework.cloud.gcp.autoconfigure.pubsub.GcpPubSubProperties;
+import com.google.cloud.spring.autoconfigure.pubsub.GcpPubSubProperties;
 
 public class PropertiesPubSubConnectionDetails implements PubSubConnectionDetails {
     private final GcpPubSubProperties properties;

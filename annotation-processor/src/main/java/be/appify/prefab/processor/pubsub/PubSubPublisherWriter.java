@@ -6,6 +6,7 @@ import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.spring.JsonUtil;
+import com.google.cloud.spring.pubsub.core.PubSubTemplate;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.FieldSpec;
@@ -15,7 +16,6 @@ import com.palantir.javapoet.TypeSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cloud.gcp.pubsub.core.PubSubTemplate;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 

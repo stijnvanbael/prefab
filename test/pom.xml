@@ -41,9 +41,9 @@
             <artifactId>gcloud</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.springframework.cloud</groupId>
+            <groupId>com.google.cloud</groupId>
             <artifactId>spring-cloud-gcp-starter-pubsub</artifactId>
-            <version>${spring-cloud.version}</version>
+            <version>${google-cloud.version}</version>
         </dependency>
         <dependency>
             <groupId>be.appify.prefab</groupId>

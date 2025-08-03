@@ -136,10 +136,7 @@ public class Sale implements PublishesEvents {
                 IdCache.INSTANCE.getId(this),
                 start,
                 items,
-                payments,
                 returned,
-                state,
-                customer,
                 type
         ));
     }

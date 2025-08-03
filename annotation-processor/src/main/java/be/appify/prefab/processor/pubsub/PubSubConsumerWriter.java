@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.pubsub;
 
+import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.processor.CaseUtil;
 import be.appify.prefab.processor.JavaFileWriter;
@@ -10,6 +11,7 @@ import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
+import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,29 +26,64 @@ import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 
 public class PubSubConsumerWriter {
+
     public void writePubSubConsumer(ExecutableElement eventHandler, PrefabContext context) {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.pubsub");
 
-        var aggregate = new TypeManifest(eventHandler.getEnclosingElement().asType(), context.processingEnvironment());
+        var target = new TypeManifest(eventHandler.getEnclosingElement().asType(), context.processingEnvironment());
         var event = eventType(eventHandler, context);
-        var name = "%s%sPubSubConsumer".formatted(aggregate.simpleName(), event.simpleName());
+        var name = "%s%sPubSubConsumer".formatted(target.simpleName(), event.simpleName());
         var annotation = event.annotationsOfType(Event.class).stream().findFirst().orElseThrow();
+        TypeSpec type;
+
+        if (!target.annotationsOfType(Aggregate.class).isEmpty()) {
+            type = writeAggregateConsumer(target, name, event, annotation);
+        } else if (!target.annotationsOfType(Component.class).isEmpty()) {
+            type = writeComponentConsumer(target, name, event, annotation, eventHandler);
+        } else {
+            throw new IllegalStateException("Cannot write PubSub consumer for %s, it is neither an Aggregate nor a Component".formatted(target.simpleName()));
+        }
+
+        fileWriter.writeFile(target.packageName(), name, type);
+    }
+
+    private TypeSpec writeComponentConsumer(TypeManifest component, String name, TypeManifest event, Event annotation, ExecutableElement eventHandler) {
+        return TypeSpec.classBuilder(name)
+                .addAnnotation(Component.class)
+                .addModifiers(PUBLIC)
+                .addField(FieldSpec.builder(Logger.class, "log", Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
+                        .initializer("$T.getLogger($T.class)", ClassName.get(LoggerFactory.class), ClassName.get(component.packageName() + ".infrastructure.pubsub", name))
+                        .build())
+                .addField(component.asTypeName(), "component", PRIVATE, FINAL)
+                .addMethod(componentConstructor(component, event, annotation))
+                .addMethod(componentEventListener(event, eventHandler))
+                .build();
+    }
+
+    private static MethodSpec componentEventListener(TypeManifest event, ExecutableElement eventHandler) {
+        return MethodSpec.methodBuilder("on%s".formatted(event.simpleName()))
+                .addModifiers(PUBLIC)
+                .addParameter(event.asTypeName(), "event")
+                .addStatement("log.debug($S, event)", "Received event {}")
+                .addStatement("component.$L(event)", eventHandler.getSimpleName())
+                .build();
+    }
+
+    private static TypeSpec writeAggregateConsumer(TypeManifest aggregate, String name, TypeManifest event, Event annotation) {
         var serviceClass = ClassName.get(
                 "%s.application".formatted(aggregate.packageName()),
                 "%sService".formatted(aggregate.simpleName())
         );
-        var type = TypeSpec.classBuilder(name)
+        return TypeSpec.classBuilder(name)
                 .addAnnotation(Component.class)
                 .addModifiers(PUBLIC)
                 .addField(FieldSpec.builder(Logger.class, "log", Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
-                        .initializer("$T.getLogger($T.class)", ClassName.get(LoggerFactory.class), ClassName.get(event.packageName() + ".infrastructure.pubsub", name))
+                        .initializer("$T.getLogger($T.class)", ClassName.get(LoggerFactory.class), ClassName.get(aggregate.packageName() + ".infrastructure.pubsub", name))
                         .build())
                 .addField(serviceClass, "service", PRIVATE, FINAL)
-                .addMethod(constructor(aggregate, serviceClass, event, annotation))
-                .addMethod(eventListener(event))
+                .addMethod(aggregateConstructor(aggregate, serviceClass, event, annotation))
+                .addMethod(aggregateEventListener(event))
                 .build();
-
-        fileWriter.writeFile(aggregate.packageName(), name, type);
     }
 
     private static TypeManifest eventType(ExecutableElement eventHandler, PrefabContext context) {
@@ -58,7 +95,7 @@ public class PubSubConsumerWriter {
                 .asType(), context.processingEnvironment());
     }
 
-    private static MethodSpec constructor(TypeManifest aggregate, ClassName serviceClass, TypeManifest event, Event annotation) {
+    private static MethodSpec aggregateConstructor(TypeManifest aggregate, TypeName serviceClass, TypeManifest event, Event annotation) {
         return MethodSpec.constructorBuilder()
                 .addParameter(serviceClass, "service")
                 .addParameter(PubSubUtil.class, "pubSub")
@@ -75,7 +112,24 @@ public class PubSubConsumerWriter {
                 .build();
     }
 
-    private static MethodSpec eventListener(TypeManifest event) {
+    private static MethodSpec componentConstructor(TypeManifest component, TypeManifest event, Event annotation) {
+        return MethodSpec.constructorBuilder()
+                .addParameter(component.asTypeName(), "component")
+                .addParameter(PubSubUtil.class, "pubSub")
+                .addParameter(ParameterSpec.builder(String.class, "topic")
+                        .addAnnotation(AnnotationSpec.builder(Value.class)
+                                .addMember("value", "$S", annotation.topic())
+                                .build())
+                        .build())
+                .addStatement("this.component = component")
+                .addStatement("pubSub.subscribe(topic, $S, $T.class, this::on$L)",
+                        CaseUtil.toKebabCase(component.simpleName()) + "-on-" + CaseUtil.toKebabCase(event.simpleName()),
+                        event.asTypeName(),
+                        event.simpleName())
+                .build();
+    }
+
+    private static MethodSpec aggregateEventListener(TypeManifest event) {
         return MethodSpec.methodBuilder("on%s".formatted(event.simpleName()))
                 .addModifiers(PUBLIC)
                 .addParameter(event.asTypeName(), "event")

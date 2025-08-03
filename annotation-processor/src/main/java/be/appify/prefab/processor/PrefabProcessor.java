@@ -7,6 +7,8 @@ import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
+import javax.annotation.processing.SupportedSourceVersion;
+import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import java.util.List;
@@ -18,7 +20,7 @@ import java.util.stream.StreamSupport;
 @SupportedAnnotationTypes({
         "be.appify.prefab.core.annotations.*",
 })
-//@SupportedSourceVersion(SourceVersion.RELEASE_21)
+@SupportedSourceVersion(SourceVersion.RELEASE_21)
 @AutoService(Processor.class)
 @SuppressWarnings("unused")
 public class PrefabProcessor extends AbstractProcessor {

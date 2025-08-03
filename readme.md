@@ -323,37 +323,43 @@ Annotate a `Reference` field with `@Parent` to indicate that the reference is th
 requests to the aggregate will be prefixed with the path of the parent aggregate. Any `@Search` endpoints will also
 be limited to the parent aggregate. This is useful for creating a hierarchy of aggregates with lots of children.
 
+## 🦆 Supported data types
+
+The types below are the only types you can currently use in Prefab aggregates or nested records.
+Any type that is not listed is currently not supported.
+Support may be added later on popular request.
+Alternatively, you can write your own Prefab plugin to provide database and JSON mappings.
+
+### 🐒 Primitives
+
+Prefab supports the following Java primitives and their boxed variants:
+
+- `boolean` / `Boolean`
+- `int` / `Integer`
+- `long` / `Long`
+- `float` / `Float`
+- `double` / `Double`
+
+### ☕️ Standard Java types
+
+In addition to the primitives above, Prefab supports the following standard Java types:
+
+- `String`
+- `BigDecimal`
+- `Duration`
+- `Instant`
+- Any `enum`
+- Any `record`
+- Any `List` of supported types
+
+### 🧩 Prefab built-in types
+
+Prefab adds the following types for you to use as well:
+
+- `Reference`
+- `Binary`
+
 ## ⚠️ Known issues and limitations
-
-### 📋 No support for collections of primitives and maps
-
-If you want to use a collection or map in your aggregate, you must use a `List` of non-primitive types. `Map` or `Set`
-won't work at all.
-
-Won't work:
-
-```java
-public record Question(
-        String question,
-        List<String> options // This will not work
-) {
-}
-```
-
-Solution:
-
-```java
-public record Question(
-        String question,
-        List<Option> options // Only use non-primitive types in collections
-) {
-}
-
-public record Option(
-        String value
-) {
-}
-```
 
 ### 🧑‍💼 Limited support for type hierarchies
 

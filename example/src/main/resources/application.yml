@@ -11,7 +11,7 @@ spring:
     username: example
     password: example
 
-pubsub:
+kafka:
   topics:
     sale:
       name: sale

@@ -1,7 +1,7 @@
 package be.appify.prefab.processor.pubsub;
 
+import com.google.cloud.spring.autoconfigure.pubsub.GcpPubSubProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.cloud.gcp.autoconfigure.pubsub.GcpPubSubProperties;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 

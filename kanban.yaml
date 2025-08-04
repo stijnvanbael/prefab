@@ -1,5 +1,6 @@
 tasks:
   - name: Store list of primitives in a database
+    type: story
     status: in progress
     subtasks:
       - name: Create table with array column
@@ -12,6 +13,7 @@ tasks:
       - postgres
       - electricity-insight
   - name: JSON Kafka event use case
+    type: story
     status: done
     subtasks:
       - name: Setup @TestConsumer
@@ -28,3 +30,6 @@ tasks:
       - kafka
       - json
       - solar-engine
+  - name: Required identifier property not found for class
+    type: bug
+    status: todo

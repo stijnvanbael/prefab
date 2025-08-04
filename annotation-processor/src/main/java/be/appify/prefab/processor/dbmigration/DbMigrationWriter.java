@@ -7,6 +7,8 @@ import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
+import static java.util.Collections.emptyList;
 
 import javax.lang.model.element.Element;
 import javax.tools.FileObject;
@@ -21,9 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
-import static java.util.Collections.emptyList;
 
 // TODO: prefix nested properties with the name of the parent property
 public class DbMigrationWriter {
@@ -95,7 +94,7 @@ public class DbMigrationWriter {
         var fields = fieldsOf(manifest, null);
         for (Field field : fields) {
             writer.write("  %s %s%s,\n".formatted(
-                    toSnakeCase(field.property().name()),
+                    toSnakeCase(field.name()),
                     sqlTypeOf(field),
                     constraintOf(field.property())));
         }
@@ -109,10 +108,11 @@ public class DbMigrationWriter {
         return (field.annotations().stream()
                 .anyMatch(annotation -> annotation.type().is(NotNull.class))
                 ? " NOT NULL" : "") + (
-                field.type().is(Reference.class)
-                        ? " REFERENCES %s(id)".formatted(toSnakeCase(field.type().parameters().getFirst().simpleName()))
-                        : ""
-        );
+                       field.type().is(Reference.class)
+                               ? " REFERENCES %s(id)".formatted(
+                               toSnakeCase(field.type().parameters().getFirst().simpleName()))
+                               : ""
+               );
     }
 
     private List<Field> fieldsOf(ClassManifest manifest, String prefix) {

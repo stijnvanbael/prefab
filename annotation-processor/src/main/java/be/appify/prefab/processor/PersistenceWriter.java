@@ -24,6 +24,9 @@ import org.springframework.data.relational.core.mapping.Table;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.stereotype.Component;
+import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
+import static java.util.Collections.emptyList;
+import static org.apache.commons.text.WordUtils.capitalize;
 
 import javax.lang.model.element.Modifier;
 import java.io.File;
@@ -33,10 +36,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-
-import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
-import static java.util.Collections.emptyList;
-import static org.apache.commons.text.WordUtils.capitalize;
 
 public class PersistenceWriter {
     private final JavaFileWriter fileWriter;
@@ -66,7 +65,8 @@ public class PersistenceWriter {
                         .addModifiers(Modifier.PUBLIC)
                         .addParameter(ParameterSpec.builder(crudRepository(manifest), "repository").build())
                         .addParameter(
-                                ParameterSpec.builder(ClassName.get(SpringDataReferenceProvider.class), "referenceProvider")
+                                ParameterSpec.builder(ClassName.get(SpringDataReferenceProvider.class),
+                                                "referenceProvider")
                                         .build())
                         .addStatement("this.repository = repository")
                         .addStatement("this.referenceProvider = referenceProvider")
@@ -75,9 +75,11 @@ public class PersistenceWriter {
                 .addMethod(MethodSpec.methodBuilder("save")
                         .addModifiers(Modifier.PUBLIC)
                         .addAnnotation(Override.class)
-                        .addParameter(ParameterSpec.builder(aggregatedEnvelopeOf(manifest.className()), "envelope").build())
+                        .addParameter(
+                                ParameterSpec.builder(aggregatedEnvelopeOf(manifest.className()), "envelope").build())
                         .returns(aggregatedEnvelopeOf(manifest.className()))
-                        .addStatement("$T.handleErrors(() -> repository.save($T.from(envelope)))", ClassName.get(RepositorySupport.class), dataType(manifest.type()))
+                        .addStatement("$T.handleErrors(() -> repository.save($T.from(envelope)))",
+                                ClassName.get(RepositorySupport.class), dataType(manifest.type()))
                         .addStatement("return envelope")
                         .build())
                 .addMethod(MethodSpec.methodBuilder("getById")
@@ -85,16 +87,19 @@ public class PersistenceWriter {
                         .addAnnotation(Override.class)
                         .addParameter(String.class, "id")
                         .returns(optionalOf(aggregatedEnvelopeOf(manifest.className())))
-                        .addStatement("return $T.handleErrors(() -> repository.findById(id).map(data -> data.toAggregate(referenceProvider)))", ClassName.get(RepositorySupport.class))
+                        .addStatement(
+                                "return $T.handleErrors(() -> repository.findById(id).map(data -> data.toAggregate(referenceProvider)))",
+                                ClassName.get(RepositorySupport.class))
                         .build())
                 .addMethod(MethodSpec.methodBuilder("findAll")
                         .addModifiers(Modifier.PUBLIC)
                         .addAnnotation(Override.class)
                         .returns(
-                                ParameterizedTypeName.get(ClassName.get(Stream.class), aggregatedEnvelopeOf(manifest.className())))
+                                ParameterizedTypeName.get(ClassName.get(Stream.class),
+                                        aggregatedEnvelopeOf(manifest.className())))
                         .addStatement(
                                 "return $T.handleErrors(() -> $T.stream(repository.findAll().spliterator(), false)\n" +
-                                        ".map(data -> data.toAggregate(referenceProvider)))",
+                                ".map(data -> data.toAggregate(referenceProvider)))",
                                 ClassName.get(RepositorySupport.class),
                                 ClassName.get(StreamSupport.class))
                         .build())
@@ -103,7 +108,8 @@ public class PersistenceWriter {
                         .addAnnotation(Override.class)
                         .addParameter(String.class, "id")
                         .returns(boolean.class)
-                        .addStatement("return $T.handleErrors(() -> repository.existsById(id))", ClassName.get(RepositorySupport.class))
+                        .addStatement("return $T.handleErrors(() -> repository.existsById(id))",
+                                ClassName.get(RepositorySupport.class))
                         .build());
         context.plugins().forEach(plugin -> plugin.writeRepositoryAdapter(manifest, type));
         fileWriter.writeFile(manifest.packageName(), "%sRepositoryAdapter".formatted(manifest.simpleName()),
@@ -170,7 +176,8 @@ public class PersistenceWriter {
                 .returns(dataType(manifest.type()))
                 .addStatement("return new $T(envelope.id(), envelope.version(), $L)",
                         dataType(manifest.type()), manifest.fields().stream()
-                                .map(field -> entityField("envelope.aggregate().%s()".formatted(field.name()), field.type()))
+                                .map(field -> entityField("envelope.aggregate().%s()".formatted(field.name()),
+                                        field.type()))
                                 .collect(CodeBlock.joining(",\n")))
                 .build();
     }
@@ -216,7 +223,7 @@ public class PersistenceWriter {
                             context.processingEnvironment())),
                     Collectors.class, ArrayList.class);
         } else if (field.type().isRecord()) {
-            return CodeBlock.of("$L.toEntity(reference)", field.name());
+            return CodeBlock.of("$L != null ? $L.toEntity(reference) : null", field.name(), field.name());
         } else if (field.type().is(File.class)) {
             return CodeBlock.of("$T.toFile($L)", ClassName.get(BinaryUtil.class), field.name());
         }
@@ -228,7 +235,7 @@ public class PersistenceWriter {
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .addParameter(manifest.className(), "entity")
                 .returns(dataType(manifest.type()))
-                .addStatement("return new $T($L)",
+                .addStatement("return entity != null ? new $T($L) : null",
                         dataType(manifest.type()), manifest.fields().stream()
                                 .map(field -> entityField("entity.%s()".formatted(field.name()), field.type()))
                                 .collect(CodeBlock.joining(",\n")))
@@ -252,8 +259,8 @@ public class PersistenceWriter {
                         .map(param -> {
                             var builder = ParameterSpec.builder(parameterType(param.type()), param.name());
                             if (!param.type().packageName().startsWith("java")
-                                    && !param.type().is(Reference.class)
-                                    && !param.type().isEnum()) {
+                                && !param.type().is(Reference.class)
+                                && !param.type().isEnum()) {
                                 builder.addAnnotation(AnnotationSpec.builder(Embedded.Nullable.class)
                                         .addMember("prefix", "$S", toSnakeCase(param.name()) + "_")
                                         .build());
@@ -296,12 +303,13 @@ public class PersistenceWriter {
     }
 
     private void findByParentMethod(ClassManifest manifest, TypeSpec.Builder type) {
-        manifest.parent().ifPresent(parent -> type.addMethod(MethodSpec.methodBuilder("findBy%s".formatted(capitalize(parent.name())))
-                .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-                .addParameter(ParameterSpec.builder(String.class, parent.name()).build())
-                .addParameter(ParameterSpec.builder(Pageable.class, "pageable").build())
-                .returns(pageOf(dataType(manifest.type())))
-                .build()));
+        manifest.parent().ifPresent(
+                parent -> type.addMethod(MethodSpec.methodBuilder("findBy%s".formatted(capitalize(parent.name())))
+                        .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
+                        .addParameter(ParameterSpec.builder(String.class, parent.name()).build())
+                        .addParameter(ParameterSpec.builder(Pageable.class, "pageable").build())
+                        .returns(pageOf(dataType(manifest.type())))
+                        .build()));
     }
 
     private ClassName dataType(TypeManifest manifest) {

@@ -159,7 +159,7 @@ public class PersistenceWriter {
     private MethodSpec toAggregate(ClassManifest manifest) {
         return MethodSpec.methodBuilder("toAggregate")
                 .addModifiers(Modifier.PUBLIC)
-                .addParameter(SpringDataReferenceProvider.class, "reference")
+                .addParameter(SpringDataReferenceProvider.class, "referenceProvider")
                 .returns(aggregatedEnvelopeOf(manifest.className()))
                 .addStatement("return new $T($L, id, version)",
                         AggregateEnvelope.class,
@@ -205,7 +205,7 @@ public class PersistenceWriter {
     private MethodSpec toEntity(ClassManifest manifest) {
         return MethodSpec.methodBuilder("toEntity")
                 .addModifiers(Modifier.PUBLIC)
-                .addParameter(SpringDataReferenceProvider.class, "reference")
+                .addParameter(SpringDataReferenceProvider.class, "referenceProvider")
                 .returns(manifest.className())
                 .addStatement("return new $T($L)", manifest.type().asTypeName(), manifest.fields().stream()
                         .map(this::dataField).collect(CodeBlock.joining(",\n")))
@@ -214,7 +214,7 @@ public class PersistenceWriter {
 
     private CodeBlock dataField(VariableManifest field) {
         if (field.type().is(Reference.class)) {
-            return CodeBlock.of("reference.referenceTo($N, $T.class)",
+            return CodeBlock.of("referenceProvider.referenceTo(this.$N, $T.class)",
                     field.name(), field.type().parameters().getFirst().asTypeName());
         } else if (field.type().is(List.class)) {
             return CodeBlock.of("$L.stream().map(item -> $L).collect($T.toCollection($T::new))",
@@ -223,7 +223,7 @@ public class PersistenceWriter {
                             context.processingEnvironment())),
                     Collectors.class, ArrayList.class);
         } else if (field.type().isRecord()) {
-            return CodeBlock.of("$L != null ? $L.toEntity(reference) : null", field.name(), field.name());
+            return CodeBlock.of("$L != null ? $L.toEntity(referenceProvider) : null", field.name(), field.name());
         } else if (field.type().is(File.class)) {
             return CodeBlock.of("$T.toFile($L)", ClassName.get(BinaryUtil.class), field.name());
         }

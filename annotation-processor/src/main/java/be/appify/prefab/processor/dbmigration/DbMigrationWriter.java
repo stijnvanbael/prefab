@@ -19,6 +19,8 @@ import java.io.Writer;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -147,8 +149,10 @@ public class DbMigrationWriter {
             return "BOOLEAN";
         } else if (type.is(BigDecimal.class) || type.is(Double.class) || type.is(Float.class)) {
             return "DECIMAL(19, 4)";
-        } else if (type.is(Instant.class)) {
+        } else if (type.is(Instant.class) || type.is(OffsetDateTime.class)) {
             return "TIMESTAMP";
+        } else if (type.is(LocalDate.class)) {
+            return "DATE";
         } else if (type.is(byte[].class) || type.is(File.class)) {
             return "BYTEA";
         } else if (type.is(List.class)) {

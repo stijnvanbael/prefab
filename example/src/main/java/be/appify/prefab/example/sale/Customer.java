@@ -8,11 +8,11 @@ import jakarta.validation.constraints.NotNull;
 
 @Aggregate
 @GetById
-@DbMigration(version = 2)
+@DbMigration
 public record Customer(
-    @NotNull PersonName name,
-    @NotNull Address address,
-    @NotNull String email
+        @NotNull PersonName name,
+        @NotNull Address address,
+        @NotNull String email
 ) {
     @Create
     public Customer {

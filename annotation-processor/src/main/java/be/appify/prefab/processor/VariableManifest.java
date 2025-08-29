@@ -1,10 +1,12 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.core.service.Reference;
 import com.palantir.javapoet.ParameterSpec;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.VariableElement;
 import java.util.List;
+import java.util.Optional;
 
 public class VariableManifest {
     private final TypeManifest type;
@@ -24,7 +26,7 @@ public class VariableManifest {
     }
 
     public VariableManifest(TypeManifest type, String name, List<AnnotationManifest> annotations,
-                            ProcessingEnvironment processingEnvironment) {
+            ProcessingEnvironment processingEnvironment) {
         this.type = type;
         this.name = name;
         this.annotations = annotations;
@@ -51,8 +53,8 @@ public class VariableManifest {
     @Override
     public boolean equals(Object obj) {
         return obj instanceof VariableManifest other
-                && type.equals(other.type)
-                && name.equals(other.name);
+               && type.equals(other.type)
+               && name.equals(other.name);
     }
 
     @Override
@@ -87,11 +89,27 @@ public class VariableManifest {
     }
 
     public VariableManifest withType(Class<?> type) {
-        return new VariableManifest(TypeManifest.of(type, processingEnvironment), name, annotations, processingEnvironment);
+        return new VariableManifest(TypeManifest.of(type, processingEnvironment), name, annotations,
+                processingEnvironment);
     }
 
     public boolean hasAnnotation(Class<?> annotationClass) {
         return annotations.stream()
                 .anyMatch(annotation -> annotation.type().is(annotationClass));
+    }
+
+    public Optional<AnnotationManifest> getAnnotation(Class<?> annotationClass) {
+        return annotations.stream()
+                .filter(annotation -> annotation.type().is(annotationClass))
+                .findFirst();
+    }
+
+    public boolean dependsOn(TypeManifest type) {
+        return this.type == type
+               || (this.type.isRecord() && this.type.asClassManifest().fields().stream()
+                .anyMatch(field -> field.dependsOn(type)))
+               || (this.type.is(Reference.class) && this.type.parameters().getFirst() == type)
+               || (this.type.is(List.class) && this.type.parameters().getFirst().asClassManifest()
+                .dependsOn(type.asClassManifest()));
     }
 }

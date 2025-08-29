@@ -62,7 +62,7 @@ public class ClassManifest {
         boolean hasConstructor = typeElement.getEnclosedElements()
                 .stream()
                 .filter(element -> element.getKind() == ElementKind.CONSTRUCTOR
-                        && element.getModifiers().contains(Modifier.PUBLIC))
+                                   && element.getModifiers().contains(Modifier.PUBLIC))
                 .anyMatch(element -> {
                     var parameters = getParametersOf(element);
                     return fields.size() == parameters.size() && new HashSet<>(fields).containsAll(parameters);
@@ -93,7 +93,7 @@ public class ClassManifest {
         return typeElement.getEnclosedElements()
                 .stream()
                 .filter(element -> element.getKind() == ElementKind.FIELD
-                        && !element.getModifiers().contains(Modifier.STATIC))
+                                   && !element.getModifiers().contains(Modifier.STATIC))
                 .map(VariableElement.class::cast)
                 .map(element -> new VariableManifest(element, processingEnvironment))
                 .toList();
@@ -153,8 +153,8 @@ public class ClassManifest {
         return typeElement.getEnclosedElements()
                 .stream()
                 .filter(element -> element.getAnnotationsByType(annotationType).length > 0
-                        && element.getKind() == ElementKind.CONSTRUCTOR
-                        && element.getModifiers().contains(Modifier.PUBLIC))
+                                   && element.getKind() == ElementKind.CONSTRUCTOR
+                                   && element.getModifiers().contains(Modifier.PUBLIC))
                 .map(ExecutableElement.class::cast)
                 .toList();
     }
@@ -167,10 +167,13 @@ public class ClassManifest {
         return typeElement.getEnclosedElements()
                 .stream()
                 .filter(element -> element.getKind() == ElementKind.METHOD
-                        && element.getModifiers().contains(Modifier.PUBLIC))
+                                   && element.getModifiers().contains(Modifier.PUBLIC))
                 .map(ExecutableElement.class::cast)
                 .filter(element -> element.getAnnotationsByType(annotation).length > 0)
                 .toList();
     }
 
+    public boolean dependsOn(ClassManifest manifest) {
+        return fields.stream().anyMatch(field -> field.dependsOn(manifest.type));
+    }
 }

@@ -186,7 +186,8 @@ public record Sale(
 ) {
     @Create
     public Sale(Instant start, Double amount, Reference<Customer> customer) {
-        this(start, amount, customer, customer.resolveReadOnly().name()); // Resolve the customer reference to get the name
+        this(start, amount, customer,
+                customer.resolveReadOnly().name()); // Resolve the customer reference to get the name
     }
 }
 ```
@@ -282,14 +283,15 @@ public record Sale(
 
 ### 🗃️ Alpha: Database migrations
 
-Annotate an aggregate with `@DbMigration` to generate a Flyway database migration script for PostgreSQL. Add a version
-parameter to the annotation to specify the version of the migration so Flyway can execute them in the right order. Mind
-that the migration scripts will be altered when you change the class.
+Annotate an aggregate with `@DbMigration` to generate a Flyway database migration script for PostgreSQL.
+A migration script will be generated in the target/classes/db/migration folder.
+If you're satisfied with the generated script, you should copy it to the src/main/resources/db/migration folder so it
+doesn't get overwritten the next time you compile your project.
 
 ```java
 
 @Aggregate
-@DbMigration(version = 1) // This will generate a Flyway migration script for the Sale class starting with V1.
+@DbMigration // This will include the Sale class in the generated Flyway migration script
 public record Sale(
         Instant start,
         Double amount

@@ -12,16 +12,15 @@ import be.appify.prefab.processor.problem.BadRequestProblem;
 import be.appify.prefab.processor.problem.ConflictProblem;
 import be.appify.prefab.processor.problem.RequiredProblem;
 import jakarta.validation.constraints.NotNull;
+import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
-import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
-
 @Aggregate
 @GetById
-@DbMigration(version = 4)
+@DbMigration
 public class Sale implements PublishesEvents {
     @NotNull
     private final Instant start;

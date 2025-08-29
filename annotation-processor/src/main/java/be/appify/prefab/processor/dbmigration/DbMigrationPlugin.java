@@ -6,7 +6,6 @@ import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class DbMigrationPlugin implements PrefabPlugin {
 
@@ -14,10 +13,11 @@ public class DbMigrationPlugin implements PrefabPlugin {
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests, PrefabContext prefabContext) {
-        manifests.stream()
+        var classManifests = manifests.stream()
                 .filter(manifest -> !manifest.annotationsOfType(DbMigration.class).isEmpty())
-                .collect(Collectors.groupingBy(manifest ->
-                        manifest.annotationsOfType(DbMigration.class).stream().findFirst().orElseThrow().version()))
-                .forEach(dbMigrationWriter::writeDbMigration);
+                .toList();
+        if (!classManifests.isEmpty()) {
+            dbMigrationWriter.writeDbMigration(prefabContext.processingEnvironment(), classManifests);
+        }
     }
 }

@@ -1,41 +1,55 @@
 package be.appify.prefab.processor.dbmigration;
 
-import be.appify.prefab.core.service.Reference;
-import be.appify.prefab.processor.AnnotationManifest;
 import be.appify.prefab.processor.ClassManifest;
-import be.appify.prefab.processor.TypeManifest;
-import be.appify.prefab.processor.VariableManifest;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
+import be.appify.prefab.processor.ListUtil;
+import net.sf.jsqlparser.parser.CCJSqlParser;
+import net.sf.jsqlparser.statement.alter.Alter;
+import net.sf.jsqlparser.statement.create.table.CreateTable;
 import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
-import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.groupingBy;
 
+import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
-import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.Writer;
-import java.math.BigDecimal;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
 import java.util.stream.Stream;
 
-// TODO: prefix nested properties with the name of the parent property
 public class DbMigrationWriter {
 
-    public void writeDbMigration(int version, List<ClassManifest> classManifests) {
+    private static final Column ID_COLUMN = new Column("id", new DataType.Varchar(255), false, null, null);
+    private static final Column VERSION_COLUMN = new Column("version", DataType.Primitive.INTEGER, false, null, null);
+
+    public void writeDbMigration(
+            ProcessingEnvironment processingEnvironment,
+            List<ClassManifest> classManifests
+    ) {
+        var sortedManifests = sortByDependencies(classManifests);
+        var currentDatabaseState = currentDatabaseState(processingEnvironment);
+        var desiredDatabaseState = desiredDatabaseState(sortedManifests);
+        var changes = detectChanges(currentDatabaseState.tables(), desiredDatabaseState);
+        if (!changes.isEmpty()) {
+            writeChanges(processingEnvironment, sortedManifests, changes, currentDatabaseState.version());
+        }
+    }
+
+    private void writeChanges(
+            ProcessingEnvironment processingEnvironment,
+            List<ClassManifest> sortedManifests,
+            List<DatabaseChange> changes,
+            int version
+    ) {
         try {
-            var resource = createResource(classManifests, version);
+            var resource = createResource(processingEnvironment, sortedManifests, version + 1);
             try (var writer = resource.openWriter()) {
-                for (ClassManifest manifest : classManifests) {
-                    writeAggregateRootTable(manifest, writer);
-                    writeChildEntityTables(toSnakeCase(manifest.simpleName()), manifest, writer, emptyList());
+                for (DatabaseChange change : changes) {
+                    writer.write(change.toSql());
+                    writer.write("\n");
                 }
             }
         } catch (IOException e) {
@@ -43,140 +57,162 @@ public class DbMigrationWriter {
         }
     }
 
-    private void writeAggregateRootTable(ClassManifest manifest, Writer writer) throws IOException {
-        writer.write("CREATE TABLE %s (\n".formatted(toSnakeCase(manifest.simpleName())));
-        writer.write("  id VARCHAR(255) PRIMARY KEY,\n");
-        writer.write("  version INTEGER NOT NULL,\n");
-        var fields = fieldsOf(manifest, null);
-        for (Field field : fields) {
-            var last = field == fields.getLast();
-            writer.write("  %s %s%s%s\n".formatted(
-                    toSnakeCase(field.name()),
-                    sqlTypeOf(field.property().toBoxed().type(), field.property().annotations(), field.name()),
-                    constraintOf(field.property()),
-                    last ? "" : ","));
+    private List<DatabaseChange> detectChanges(List<Table> currentDatabaseState, List<Table> desiredDatabaseState) {
+        var changes = new ArrayList<DatabaseChange>();
+        for (Table desired : desiredDatabaseState) {
+            var existing = findTable(currentDatabaseState, desired.name());
+            if (existing == null) {
+                changes.add(new DatabaseChange.CreateTable(desired));
+            } else if (!existing.equals(desired)) {
+                changes.add(DatabaseChange.AlterTable.from(existing, desired));
+            }
         }
-        writer.write(");\n\n");
+        for (Table existing : currentDatabaseState) {
+            var desired = findTable(desiredDatabaseState, existing.name());
+            if (desired == null) {
+                changes.add(new DatabaseChange.DropTable(existing.name()));
+            }
+        }
+        return changes;
     }
 
-    private void writeChildEntityTables(
-            String aggregateRootTable,
-            ClassManifest parent,
-            Writer writer,
-            List<String> parents
-    ) {
-        parent.fields().stream().filter(field -> field.type().is(List.class)).forEach(field -> {
-            if (field.type().parameters().getFirst().isStandardType()) {
-                return;
-            }
+    private Table findTable(List<Table> tables, String name) {
+        return tables.stream()
+                .filter(t -> t.name().equals(name))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private DatabaseState currentDatabaseState(ProcessingEnvironment processingEnvironment) {
+        try {
+            var tablesByName = new HashMap<String, Table>();
+            var migrations = existingMigrations(processingEnvironment);
+            var tables = migrations.stream()
+                    .flatMap(file -> parseSql(file, tablesByName))
+                    .collect(groupingBy(Table::name))
+                    .values()
+                    .stream()
+                    .map(List::getLast)
+                    .toList();
+            return new DatabaseState(tables, migrations.size());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static List<FileObject> existingMigrations(ProcessingEnvironment processingEnvironment) throws IOException {
+        var files = new ArrayList<FileObject>();
+        for (int i = 1; ; i++) {
             try {
-                writeChildEntityTable(aggregateRootTable, parents,
-                        field.type().parameters().getFirst().asClassManifest(), writer);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+                var file = processingEnvironment.getFiler().getResource(StandardLocation.CLASS_PATH, "db.migration",
+                        "V%d__generated.sql".formatted(i));
+                files.add(file);
+            } catch (FileNotFoundException e) {
+                break;
             }
-        });
-    }
-
-    private void writeChildEntityTable(
-            String aggregateRootTable,
-            List<String> parents,
-            ClassManifest manifest,
-            Writer writer
-    ) throws IOException {
-        var tableName = toSnakeCase(manifest.simpleName());
-        writer.write("CREATE TABLE %s (\n".formatted(tableName));
-        var keys = new ArrayList<>(List.of(aggregateRootTable, aggregateRootTable + "_key"));
-        writer.write("  %s VARCHAR(255) NOT NULL,\n".formatted(aggregateRootTable));
-        writer.write("  %s_key INTEGER NOT NULL,\n".formatted(aggregateRootTable));
-        for (String parent : parents) {
-            writer.write("  %s_key INTEGER NOT NULL,\n".formatted(parent));
-            keys.add(parent + "_key");
         }
-        var fields = fieldsOf(manifest, null);
-        for (Field field : fields) {
-            writer.write("  %s %s%s,\n".formatted(
-                    toSnakeCase(field.name()),
-                    sqlTypeOf(field),
-                    constraintOf(field.property())));
+        return files;
+    }
+
+    private static Stream<Table> parseSql(FileObject file, Map<String, Table> tables) {
+        try (var input = file.openInputStream()) {
+            var content = new String(input.readAllBytes());
+            return new CCJSqlParser(content).Statements().stream()
+                    .map(statement -> {
+                        if (statement instanceof CreateTable createTable) {
+                            var table = Table.fromCreateTable(createTable);
+                            tables.put(table.name(), table);
+                            return table;
+                        } else if (statement instanceof Alter alter) {
+                            var table = tables.get(alter.getTable().getName());
+                            if (table == null) {
+                                throw new IllegalStateException(
+                                        "Found ALTER TABLE on table not previously created: " + alter.getTable()
+                                                .getName());
+                            }
+                            return table.apply(alter);
+                        }
+                        return null;
+                    });
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
-        writer.write("  PRIMARY KEY (%s)\n".formatted(String.join(", ", keys)));
-        writer.write(");\n\n");
-        var newParents = Stream.concat(parents.stream(), Stream.of(tableName)).toList();
-        writeChildEntityTables(aggregateRootTable, manifest, writer, newParents);
     }
 
-    private String constraintOf(VariableManifest field) {
-        return (field.annotations().stream()
-                .anyMatch(annotation -> annotation.type().is(NotNull.class))
-                ? " NOT NULL" : "") + (
-                       field.type().is(Reference.class)
-                               ? " REFERENCES %s(id)".formatted(
-                               toSnakeCase(field.type().parameters().getFirst().simpleName()))
-                               : ""
-               );
+    private List<Table> desiredDatabaseState(List<ClassManifest> classManifests) {
+        return classManifests.stream().flatMap(manifest -> {
+            var tables = new ArrayList<Table>();
+            var aggregateRootTable = toSnakeCase(manifest.simpleName());
+            var columns = ListUtil.concat(List.of(ID_COLUMN, VERSION_COLUMN), columnsOf(manifest, null));
+            tables.add(new Table(aggregateRootTable, columns, List.of("id")));
+            tables.addAll(childEntityTables(aggregateRootTable, manifest));
+            return tables.stream();
+        }).toList();
     }
 
-    private List<Field> fieldsOf(ClassManifest manifest, String prefix) {
-        return manifest.fields().stream()
-                .filter(field -> !field.type().is(List.class) || field.type().parameters().getFirst().isStandardType())
-                .flatMap(field -> field.type().isRecord()
-                        ? fieldsOf(field.type().asClassManifest(),
-                        prefix != null ? prefix + "_" + field.name() : field.name()).stream()
-                        : Stream.of(new Field(prefix, field)))
+    private List<Table> childEntityTables(String aggregateRootTable, ClassManifest manifest) {
+        return manifest.fields().stream().filter(field -> field.type().is(List.class))
+                .map(field -> field.type().parameters().getFirst())
+                .flatMap(child -> {
+                    if (child.isRecord()) {
+                        var columns = ListUtil.concat(List.of(
+                                new Column(aggregateRootTable, new DataType.Varchar(255), false,
+                                        new ForeignKey(aggregateRootTable, "id"), null),
+                                new Column(aggregateRootTable + "_key", DataType.Primitive.INTEGER, false, null, null)
+                        ), columnsOf(child.asClassManifest(), null));
+                        var table = new Table(toSnakeCase(child.simpleName()), columns, List.of(
+                                aggregateRootTable,
+                                aggregateRootTable + "_key"
+                        ));
+                        return Stream.of(table);
+                    } else {
+                        return Stream.empty();
+                    }
+                })
                 .toList();
     }
 
-    private String sqlTypeOf(Field field) {
-        return sqlTypeOf(
-                field.property().toBoxed().type(),
-                field.property().annotations(),
-                field.name());
+    private List<Column> columnsOf(ClassManifest manifest, String prefix) {
+        return manifest.fields().stream()
+                .filter(field -> !field.type().is(List.class) || field.type().parameters().getFirst().isStandardType())
+                .flatMap(field -> field.type().isRecord()
+                        ? columnsOf(field.type().asClassManifest(),
+                        prefix != null ? prefix + "_" + field.name() : field.name()).stream()
+                        : Stream.of(Column.fromField(prefix, field)))
+                .toList();
     }
 
-    private static String sqlTypeOf(TypeManifest type, List<AnnotationManifest> annotations, String name) {
-        if (type.is(String.class) || type.is(Reference.class) || type.isEnum() || type.is(Duration.class)) {
-            var length = annotations.stream()
-                    .filter(annotation -> annotation.type().is(Size.class))
-                    .map(annotation -> (Integer) annotation.value("max"))
-                    .findFirst().orElse(255);
-            return "VARCHAR(%d)".formatted(length);
-        } else if (type.is(Integer.class)) {
-            return "INTEGER";
-        } else if (type.is(Long.class)) {
-            return "BIGINT";
-        } else if (type.is(Boolean.class)) {
-            return "BOOLEAN";
-        } else if (type.is(BigDecimal.class) || type.is(Double.class) || type.is(Float.class)) {
-            return "DECIMAL(19, 4)";
-        } else if (type.is(Instant.class) || type.is(OffsetDateTime.class)) {
-            return "TIMESTAMP";
-        } else if (type.is(LocalDate.class)) {
-            return "DATE";
-        } else if (type.is(byte[].class) || type.is(File.class)) {
-            return "BYTEA";
-        } else if (type.is(List.class)) {
-            return sqlTypeOf(type.parameters().getFirst(), annotations, name) + "[]";
-        } else {
-            throw new IllegalArgumentException(
-                    "Unsupported type [%s] for field %s".formatted(type, name));
-        }
+    private List<ClassManifest> sortByDependencies(List<ClassManifest> classManifests) {
+        return classManifests.stream()
+                .sorted((m1, m2) -> {
+                    if (m1.dependsOn(m2)) {
+                        if (m2.dependsOn(m1)) {
+                            throw new IllegalArgumentException("Circular dependency between %s and %s"
+                                    .formatted(m1.qualifiedName(), m2.qualifiedName()));
+                        }
+                        return 1;
+                    } else if (m2.dependsOn(m1)) {
+                        return -1;
+                    } else {
+                        return m1.simpleName().compareTo(m2.simpleName());
+                    }
+                })
+                .toList();
     }
 
-    private FileObject createResource(List<ClassManifest> classManifests, int version) throws IOException {
-        return classManifests.getFirst().processingEnvironment().getFiler().createResource(
+    private FileObject createResource(
+            ProcessingEnvironment processingEnvironment,
+            List<ClassManifest> classManifests,
+            int version
+    ) throws IOException {
+        return processingEnvironment.getFiler().createResource(
                 StandardLocation.CLASS_OUTPUT,
                 "",
-                "db/migration/V%d__%s.sql".formatted(version,
-                        classManifests.stream().map(manifest -> toSnakeCase(manifest.simpleName())).collect(
-                                Collectors.joining("_"))),
+                "db/migration/V%d__generated.sql".formatted(version),
                 classManifests.stream().map(manifest -> manifest.type().asElement()).toArray(Element[]::new)
         );
     }
 
-    record Field(String prefix, VariableManifest property) {
-        String name() {
-            return prefix != null ? prefix + "_" + property.name() : property.name();
-        }
+    record DatabaseState(List<Table> tables, int version) {
     }
 }

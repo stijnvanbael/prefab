@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 import java.util.Optional;
 
 @Aggregate
-@DbMigration(version = 5)
+@DbMigration
 @Search
 public class Invoice {
     private final BigDecimal total;

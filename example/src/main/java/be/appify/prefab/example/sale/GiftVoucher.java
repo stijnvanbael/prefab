@@ -14,7 +14,7 @@ import java.math.BigDecimal;
 @Aggregate
 @Search(property = "code")
 @GetById
-@DbMigration(version = 3)
+@DbMigration
 public class GiftVoucher {
     @NotNull
     private final String code;

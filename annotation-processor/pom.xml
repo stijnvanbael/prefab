@@ -10,6 +10,9 @@
     </parent>
 
     <artifactId>prefab-annotation-processor</artifactId>
+    <properties>
+        <jsqlparser.version>5.3</jsqlparser.version>
+    </properties>
 
     <dependencies>
         <dependency>
@@ -67,6 +70,11 @@
             <artifactId>spring-cloud-gcp-starter-pubsub</artifactId>
             <version>${google-cloud.version}</version>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.jsqlparser</groupId>
+            <artifactId>jsqlparser</artifactId>
+            <version>${jsqlparser.version}</version>
         </dependency>
     </dependencies>
 </project>

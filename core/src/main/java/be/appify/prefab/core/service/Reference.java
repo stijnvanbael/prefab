@@ -1,10 +1,12 @@
 package be.appify.prefab.core.service;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+
 /**
  * A reference to another aggregate root.
  *
  * @param <T>
- *     the type of the referenced aggregate root
+ *         the type of the referenced aggregate root
  */
 public interface Reference<T> {
     /**
@@ -25,4 +27,21 @@ public interface Reference<T> {
      * @return a read-only version of the referenced aggregate root
      */
     T resolveReadOnly();
+
+    @JsonCreator
+    static <T> Reference<T> fromId(String id) {
+        return new SimpleReference<>(id);
+    }
+
+    record SimpleReference<T>(String id) implements Reference<T> {
+        @Override
+        public boolean exists() {
+            return true;
+        }
+
+        @Override
+        public T resolveReadOnly() {
+            throw new UnsupportedOperationException();
+        }
+    }
 }

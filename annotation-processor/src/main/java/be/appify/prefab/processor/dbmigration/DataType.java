@@ -85,6 +85,11 @@ public interface DataType {
             var elementTypeSql = sql.substring(0, sql.length() - 2).trim();
             return new Array(DataType.parse(elementTypeSql));
         }
+
+        @Override
+        public String toString() {
+            return toSql();
+        }
     }
 
     record Varchar(int length) implements DataType {

@@ -1,6 +1,12 @@
 package be.appify.prefab.example.sale;
 
 import be.appify.prefab.example.IntegrationTest;
+import be.appify.prefab.example.sale.application.CreateCustomerRequest;
+import be.appify.prefab.example.sale.application.CreateGiftVoucherRequest;
+import be.appify.prefab.example.sale.application.CreateSaleRequest;
+import be.appify.prefab.example.sale.application.SaleAddCustomerRequest;
+import be.appify.prefab.example.sale.application.SaleAddItemRequest;
+import be.appify.prefab.example.sale.application.SaleAddPaymentRequest;
 import be.appify.prefab.example.sale.infrastructure.persistence.InvoiceCrudRepository;
 import be.appify.prefab.example.sale.infrastructure.persistence.SaleCrudRepository;
 import be.appify.prefab.test.kafka.KafkaContainerSupport;
@@ -9,31 +15,31 @@ import org.apache.kafka.clients.consumer.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.ResultActions;
-
-import java.util.concurrent.TimeUnit;
-
+import org.springframework.data.domain.Pageable;
+import static be.appify.prefab.example.sale.PaymentMethod.GIFT_VOUCHER;
 import static be.appify.prefab.test.kafka.asserts.KafkaAssertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
-import static org.hamcrest.Matchers.hasSize;
-import static org.springframework.http.HttpHeaders.LOCATION;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.math.BigDecimal;
+import java.util.concurrent.TimeUnit;
 
 @IntegrationTest
 class SaleIntegrationTest implements KafkaContainerSupport {
-    @Autowired
-    private MockMvc mockMvc;
     @Autowired
     private SaleCrudRepository saleRepository;
     @TestConsumer(topic = "${kafka.topics.sale.name}")
     private Consumer<String, SaleCompleted> saleConsumer;
     @Autowired
     private InvoiceCrudRepository invoiceRepository;
+    @Autowired
+    SaleFixture sales;
+    @Autowired
+    CustomerFixture customers;
+    @Autowired
+    GiftVoucherFixture giftVouchers;
+    @Autowired
+    InvoiceFixture invoices;
 
     @BeforeEach
     void setup() {
@@ -43,16 +49,15 @@ class SaleIntegrationTest implements KafkaContainerSupport {
 
     @Test
     void simpleSale() throws Exception {
-        var sale = startNewSale(SaleType.REGULAR);
-        addItem(sale);
-        addPayment(sale);
+        var saleId = sales.givenSaleCreated(new CreateSaleRequest(SaleType.REGULAR));
+        addItem(saleId);
+        addPayment(saleId);
 
-        mockMvc.perform(get(sale))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.items", hasSize(1)))
-                .andExpect(jsonPath("$.payments", hasSize(1)))
-                .andExpect(jsonPath("$.returned").value(0.0))
-                .andExpect(jsonPath("$.state").value("COMPLETED"));
+        var sale = sales.getSaleById(saleId);
+        assertThat(sale.items()).hasSize(1);
+        assertThat(sale.payments()).hasSize(1);
+        assertThat(sale.returned()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(sale.state()).isEqualTo(State.COMPLETED);
 
         await().untilAsserted(() ->
                 assertThat(saleConsumer).hasReceivedMessagesWithin(5, TimeUnit.SECONDS)
@@ -63,187 +68,106 @@ class SaleIntegrationTest implements KafkaContainerSupport {
 
     @Test
     void saleWithCustomer() throws Exception {
-        var customer = createCustomer();
+        var customerId = createCustomer();
 
-        var sale = startNewSale(SaleType.REGULAR);
-        addItem(sale);
-        addCustomer(sale, customer);
-        addPayment(sale);
+        var saleId = sales.createSale(new CreateSaleRequest(SaleType.REGULAR));
+        addItem(saleId);
+        addCustomer(saleId, customerId);
+        addPayment(saleId);
 
-        mockMvc.perform(get(sale))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.customer").value(customer));
+        var sale = sales.getSaleById(saleId);
+        assertThat(sale.customer().id()).isEqualTo(customerId);
     }
 
     @Test
     void saleWithGiftVoucherPayment() throws Exception {
-        var giftVoucher = createGiftVoucher(25.0);
-        var sale = startNewSale(SaleType.REGULAR);
-        addItem(sale);
-        addGiftVoucherPayment(sale, giftVoucher);
+        var giftVoucherId = createGiftVoucher(25.0);
+        var saleId = sales.createSale(new CreateSaleRequest(SaleType.REGULAR));
+        addItem(saleId);
+        addGiftVoucherPayment(saleId, giftVoucherId);
 
-        mockMvc.perform(get(sale))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.payments", hasSize(1)))
-                .andExpect(jsonPath("$.payments[0].method").value("GIFT_VOUCHER"));
+        var sale = sales.getSaleById(saleId);
+        assertThat(sale.payments()).hasSize(1);
+        assertThat(sale.payments().getFirst().method()).isEqualTo(GIFT_VOUCHER);
 
-        mockMvc.perform(get("/gift-vouchers/" + giftVoucher))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.remainingValue").value(12.5));
+        var giftVoucher = giftVouchers.getGiftVoucherById(giftVoucherId);
+        assertThat(giftVoucher.remainingValue()).isEqualByComparingTo(new BigDecimal("12.5"));
     }
 
     @Test
     void saleWithGiftVoucherPaymentMissingGiftVoucher() throws Exception {
-        var sale = startNewSale(SaleType.REGULAR);
-        addItem(sale);
+        var saleId = sales.createSale(new CreateSaleRequest(SaleType.REGULAR));
+        addItem(saleId);
 
-        addGiftVoucherPaymentMissingGiftVoucher(sale)
-                .andExpect(status().isBadRequest());
+        assertThatThrownBy(() -> addGiftVoucherPaymentMissingGiftVoucher(saleId))
+                .isInstanceOf(AssertionError.class);
     }
 
     @Test
     void saleWithGiftVoucherPaymentWithInsufficientBalance() throws Exception {
         var giftVoucher = createGiftVoucher(10.0);
-        var sale = startNewSale(SaleType.REGULAR);
-        addItem(sale);
+        var saleId = sales.createSale(new CreateSaleRequest(SaleType.REGULAR));
+        addItem(saleId);
 
-        addGiftVoucherPayment(sale, giftVoucher)
-                .andExpect(status().isBadRequest());
+        assertThatThrownBy(() -> addGiftVoucherPayment(saleId, giftVoucher))
+                .isInstanceOf(AssertionError.class);
     }
 
     @Test
     void addItemWhenPaid() throws Exception {
-        var sale = startNewSale(SaleType.REGULAR);
-        addItem(sale);
-        addPayment(sale);
+        var saleId = sales.createSale(new CreateSaleRequest(SaleType.REGULAR));
+        var sale = "/sales/" + saleId;
+        addItem(saleId);
+        addPayment(saleId);
 
-        addItem(sale)
-                .andExpect(status().isConflict());
+        assertThatThrownBy(() -> addItem(sale))
+                .isInstanceOf(AssertionError.class);
     }
 
     @Test
     void saleWithInvoice() throws Exception {
-        var sale = startNewSale(SaleType.INVOICE);
-        addItem(sale);
-        addPayment(sale);
+        var saleId = sales.createSale(new CreateSaleRequest(SaleType.INVOICE));
+        addItem(saleId);
+        addPayment(saleId);
 
-        await().untilAsserted(() -> mockMvc.perform(get("/invoices"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content", hasSize(1))));
+        await().untilAsserted(() -> assertThat(invoices.findInvoices(Pageable.unpaged())).hasSize(1));
     }
 
-    private ResultActions addGiftVoucherPayment(String sale, String giftVoucher) throws Exception {
-        return mockMvc.perform(post(sale + "/payments")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                          {
-                            "amount": 12.5,
-                            "method": "GIFT_VOUCHER",
-                            "giftVoucher": "%s"
-                          }
-                        """.formatted(giftVoucher))
-        );
+    private void addGiftVoucherPayment(String saleId, String giftVoucher) throws Exception {
+        sales.addPayment(saleId,
+                new SaleAddPaymentRequest(new BigDecimal("12.5"), GIFT_VOUCHER, giftVoucher));
     }
 
-    private ResultActions addGiftVoucherPaymentMissingGiftVoucher(String sale) throws Exception {
-        return mockMvc.perform(post(sale + "/payments")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                          {
-                            "amount": 12.5,
-                            "method": "GIFT_VOUCHER"
-                          }
-                        """)
-        );
+    private void addGiftVoucherPaymentMissingGiftVoucher(String saleId) throws Exception {
+        sales.addPayment(saleId,
+                new SaleAddPaymentRequest(new BigDecimal("12.5"), GIFT_VOUCHER, null));
     }
 
     private String createGiftVoucher(Double value) throws Exception {
-        var location = mockMvc.perform(post("/gift-vouchers")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                  {
-                                    "code": "1234",
-                                    "remainingValue": %f
-                                  }
-                                """.formatted(value)))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getHeader(LOCATION);
-
-        assert location != null;
-        return location.substring(location.lastIndexOf('/') + 1);
+        return giftVouchers.createGiftVoucher(new CreateGiftVoucherRequest(
+                "1234",
+                new BigDecimal(value)
+        ));
     }
 
-    private void addCustomer(String sale, String customer) throws Exception {
-        mockMvc.perform(post(sale + "/customer")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                  {
-                                    "customer": "%s"
-                                  }
-                                """.formatted(customer)))
-                .andExpect(status().isOk());
+    private void addCustomer(String saleId, String customerId) throws Exception {
+        sales.addCustomer(saleId, new SaleAddCustomerRequest(customerId));
     }
 
     private String createCustomer() throws Exception {
-        var location = mockMvc.perform(post("/customers")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                    "name": {
-                                      "firstName": "John",
-                                      "lastName": "Doe"
-                                    },
-                                    "address": {
-                                      "street": "Main Street",
-                                      "number": "1",
-                                      "postalCode": "1234",
-                                      "city": "Springfield",
-                                      "country": "US"
-                                    },
-                                    "email": "john.doe@test.com"
-                                }
-                                """))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getHeader(LOCATION);
-        assert location != null;
-        return location.substring(location.lastIndexOf('/') + 1);
+        return customers.createCustomer(new CreateCustomerRequest(
+                new PersonName("John", "Doe"),
+                new Address("Main Street", "1", "1234", "Springfield", "US"),
+                "john.doe@test.com"
+        ));
     }
 
-    private void addPayment(String location) throws Exception {
-        mockMvc.perform(post(location + "/payments")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                  {
-                                    "amount": 12.5,
-                                    "method": "CASH"
-                                  }
-                                """))
-                .andExpect(status().isOk());
+    private void addPayment(String id) throws Exception {
+        sales.addPayment(id, new SaleAddPaymentRequest(new BigDecimal("12.5"), PaymentMethod.CASH, null));
     }
 
-    private ResultActions addItem(String location) throws Exception {
-        return mockMvc.perform(post(location + "/items")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                          {
-                            "description": "Llama spray",
-                            "quantity": 1,
-                            "price": 12.5
-                          }
-                        """));
+    private void addItem(String id) throws Exception {
+        sales.addItem(id, new SaleAddItemRequest("Llama spray", BigDecimal.ONE, new BigDecimal("12.5")));
     }
 
-    private String startNewSale(SaleType type) throws Exception {
-        var location = mockMvc.perform(post("/sales")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "type": "%s"
-                                }
-                                """.formatted(type.name())))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getHeader(LOCATION);
-        assert location != null;
-        return location;
-    }
 }

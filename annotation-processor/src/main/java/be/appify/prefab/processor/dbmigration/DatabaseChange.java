@@ -14,11 +14,11 @@ public interface DatabaseChange {
         public String toSql() {
             var columnsSql = table.columns().stream()
                     .map(Column::toString)
-                    .collect(joining(",\n"));
+                    .collect(joining(",\n  "));
             var primaryKeySql = table.primaryKey().isEmpty() ? "" :
-                    ", PRIMARY KEY(" + String.join(", ", table.primaryKey()) + ")\n";
-            return "CREATE TABLE " + table.name() + " (\n" +
-                   columnsSql + "\n" +
+                    ",\n  PRIMARY KEY(" + String.join(", ", table.primaryKey()) + ")\n";
+            return "CREATE TABLE " + table.name() + " (\n  " +
+                   columnsSql +
                    primaryKeySql +
                    ");\n";
         }

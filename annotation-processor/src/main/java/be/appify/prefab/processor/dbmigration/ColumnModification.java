@@ -9,7 +9,7 @@ public interface ColumnModification {
     ) implements ColumnModification {
         @Override
         public String toSql() {
-            return "TYPE %s USING %s::%s".formatted(dataType, name, dataType);
+            return "TYPE %s USING CAST(%s AS %s)".formatted(dataType, name, dataType);
         }
 
         @Override

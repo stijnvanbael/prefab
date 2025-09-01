@@ -33,6 +33,9 @@ public interface PrefabPlugin {
     default void writeRepository(ClassManifest manifest, TypeSpec.Builder builder) {
     }
 
+    default void writeTestFixture(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    }
+
     default Optional<ParameterSpec> requestBodyParameter(VariableManifest parameter) {
         return Optional.empty();
     }

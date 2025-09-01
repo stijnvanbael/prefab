@@ -11,6 +11,7 @@ import java.util.Optional;
 public class GetByIdPlugin implements PrefabPlugin {
     private final GetByIdControllerWriter controllerWriter = new GetByIdControllerWriter();
     private final GetByIdServiceWriter serviceWriter = new GetByIdServiceWriter();
+    private final GetByIdTestFixtureWriter testFixtureWriter = new GetByIdTestFixtureWriter();
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
@@ -22,6 +23,12 @@ public class GetByIdPlugin implements PrefabPlugin {
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
         getByIdAnnotation(manifest).ifPresent(ignored ->
                 builder.addMethod(serviceWriter.getByIdMethod(manifest)));
+    }
+
+    @Override
+    public void writeTestFixture(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+        getByIdAnnotation(manifest).ifPresent(ignored ->
+                builder.addMethod(testFixtureWriter.getByIdMethod(manifest)));
     }
 
     private Optional<GetById> getByIdAnnotation(ClassManifest manifest) {

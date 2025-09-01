@@ -6,6 +6,7 @@ import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.spring.StorageService;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
@@ -22,10 +23,20 @@ public class BinaryPlugin implements PrefabPlugin {
     @Override
     public Optional<ParameterSpec> requestMethodParameter(VariableManifest parameter) {
         if (parameter.type().is(Binary.class)) {
+            return Optional.of(ParameterSpec.builder(MultipartFile.class, parameter.name()).build());
+        } else {
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public Optional<ParameterSpec> requestBodyParameter(VariableManifest parameter) {
+        if (parameter.type().is(Binary.class)) {
             return Optional.of(ParameterSpec.builder(MultipartFile.class, parameter.name())
                     .addAnnotation(AnnotationSpec.builder(RequestPart.class)
                             .addMember("name", "$S", parameter.name())
                             .build())
+                    .addAnnotation(JsonIgnore.class)
                     .build());
         } else {
             return Optional.empty();

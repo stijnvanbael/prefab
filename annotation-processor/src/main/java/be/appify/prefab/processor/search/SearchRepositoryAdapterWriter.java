@@ -9,12 +9,12 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import static org.apache.commons.lang3.StringUtils.capitalize;
 
 import javax.lang.model.element.Modifier;
-
-import static org.apache.commons.lang3.StringUtils.capitalize;
 
 public class SearchRepositoryAdapterWriter {
     public MethodSpec searchMethod(ClassManifest manifest, VariableManifest searchProperty) {
@@ -23,19 +23,27 @@ public class SearchRepositoryAdapterWriter {
                     .addModifiers(Modifier.PUBLIC)
                     .addAnnotation(Override.class)
                     .addParameter(Pageable.class, "pageable");
-            manifest.parent().ifPresent(parent -> method.addParameter(ParameterSpec.builder(String.class, parent.name()).build()));
+            manifest.parent().ifPresent(
+                    parent -> method.addParameter(ParameterSpec.builder(String.class, parent.name()).build()));
             return method
                     .addParameter(searchProperty.asParameterSpec())
                     .returns(pageOf(aggregatedEnvelopeOf(manifest.className())))
                     .addStatement(
-                            "return $T.handleErrors(() -> ($N != null ? repository.$N($L, pageable) : repository.$N($L))\n" +
-                                    ".map(data -> data.toAggregate(referenceProvider)))",
+                            """
+                                    return $T.handleErrors(() ->
+                                        (!$T.isBlank($N)
+                                            ? repository.$N($L, pageable)
+                                            : repository.$N($L))
+                                    .map(data -> data.toAggregate(referenceProvider)))""",
                             ClassName.get(RepositorySupport.class),
+                            StringUtils.class,
                             searchProperty.name(),
-                            "findBy%sLike".formatted(manifest.parent().map(parent -> capitalize(parent.name()) + "And").orElse("")
+                            "findBy%sLike".formatted(
+                                    manifest.parent().map(parent -> capitalize(parent.name()) + "And").orElse("")
                                     + capitalize(searchProperty.name())),
                             manifest.parent().map(parent -> parent.name() + ", ").orElse("") + searchProperty.name(),
-                            "find%s".formatted(manifest.parent().map(parent -> "By" + capitalize(parent.name())).orElse("All")),
+                            "find%s".formatted(
+                                    manifest.parent().map(parent -> "By" + capitalize(parent.name())).orElse("All")),
                             manifest.parent().map(parent -> parent.name() + ", ").orElse("") + "pageable"
                     )
                     .build();
@@ -44,13 +52,18 @@ public class SearchRepositoryAdapterWriter {
                     .addModifiers(Modifier.PUBLIC)
                     .addAnnotation(Override.class)
                     .addParameter(Pageable.class, "pageable");
-            manifest.parent().ifPresent(parent -> method.addParameter(ParameterSpec.builder(String.class, parent.name()).build()));
+            manifest.parent().ifPresent(
+                    parent -> method.addParameter(ParameterSpec.builder(String.class, parent.name()).build()));
             return method
                     .returns(pageOf(aggregatedEnvelopeOf(manifest.className())))
                     .addStatement(
-                            "return $T.handleErrors(() -> repository.$N($L).map(data -> data.toAggregate(referenceProvider)))",
+                            """
+                                    return $T.handleErrors(() ->
+                                        repository.$N($L)
+                                            .map(data -> data.toAggregate(referenceProvider)))""",
                             ClassName.get(RepositorySupport.class),
-                            "find%s".formatted(manifest.parent().map(parent -> "By" + capitalize(parent.name())).orElse("All")),
+                            "find%s".formatted(
+                                    manifest.parent().map(parent -> "By" + capitalize(parent.name())).orElse("All")),
                             manifest.parent().map(parent -> parent.name() + ", ").orElse("") + "pageable"
                     )
                     .build();

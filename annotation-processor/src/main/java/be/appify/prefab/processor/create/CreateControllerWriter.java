@@ -15,22 +15,21 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestPart;
-
-import javax.lang.model.element.ExecutableElement;
-import java.net.URI;
-import java.util.List;
-import java.util.stream.Collectors;
-
 import static be.appify.prefab.processor.CaseUtil.toKebabCase;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static org.apache.commons.text.WordUtils.capitalize;
 import static org.atteo.evo.inflector.English.plural;
 import static org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE;
 
+import javax.lang.model.element.ExecutableElement;
+import java.net.URI;
+import java.util.List;
+import java.util.stream.Collectors;
+
 public class CreateControllerWriter {
-    public MethodSpec createMethod(ClassManifest manifest, ExecutableElement controller, PrefabContext context) {
-        var create = controller.getAnnotation(Create.class);
-        var requestParts = controller.getParameters().stream()
+    public MethodSpec createMethod(ClassManifest manifest, ExecutableElement constructor, PrefabContext context) {
+        var create = constructor.getAnnotation(Create.class);
+        var requestParts = constructor.getParameters().stream()
                 .flatMap(parameter -> context.requestParameterBuilder()
                         .buildMethodParameter(new VariableManifest(parameter, context.processingEnvironment()))
                         .stream()).toList();
@@ -38,7 +37,7 @@ public class CreateControllerWriter {
                 .addModifiers(PUBLIC)
                 .addAnnotation(requestMapping(create.method(), create.path(), requestParts))
                 .returns(ParameterizedTypeName.get(ResponseEntity.class, Void.class));
-        if (controller.getParameters().isEmpty()) {
+        if (constructor.getParameters().isEmpty()) {
             method.addStatement("var id = service.create()");
         } else {
             method.addParameter(ParameterSpec.builder(
@@ -49,8 +48,8 @@ public class CreateControllerWriter {
                     .addAnnotation(requestParts.isEmpty()
                             ? AnnotationSpec.builder(RequestBody.class).build()
                             : AnnotationSpec.builder(RequestPart.class)
-                            .addMember("name", "$S", "body")
-                            .build())
+                                    .addMember("name", "$S", "body")
+                                    .build())
                     .build());
             requestParts.forEach(method::addParameter);
             method.addStatement("var id = service.create(request$L)", String.join(", ", requestParts.stream()

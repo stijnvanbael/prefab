@@ -16,6 +16,7 @@ import javax.lang.model.element.VariableElement;
 import java.lang.annotation.Annotation;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -175,5 +176,18 @@ public class ClassManifest {
 
     public boolean dependsOn(ClassManifest manifest) {
         return fields.stream().anyMatch(field -> field.dependsOn(manifest.type));
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass())
+            return false;
+        ClassManifest that = (ClassManifest) o;
+        return Objects.equals(type, that.type);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(type);
     }
 }

@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.dbmigration;
 
+import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.ListUtil;
 import net.sf.jsqlparser.parser.CCJSqlParser;
@@ -18,6 +19,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class DbMigrationWriter {
@@ -183,21 +186,33 @@ public class DbMigrationWriter {
     }
 
     private List<ClassManifest> sortByDependencies(List<ClassManifest> classManifests) {
-        return classManifests.stream()
-                .sorted((m1, m2) -> {
-                    if (m1.dependsOn(m2)) {
-                        if (m2.dependsOn(m1)) {
-                            throw new IllegalArgumentException("Circular dependency between %s and %s"
-                                    .formatted(m1.qualifiedName(), m2.qualifiedName()));
-                        }
-                        return 1;
-                    } else if (m2.dependsOn(m1)) {
-                        return -1;
-                    } else {
-                        return m1.simpleName().compareTo(m2.simpleName());
-                    }
-                })
-                .toList();
+        var dependencyTree = new HashMap<ClassManifest, Set<ClassManifest>>();
+        var types = classManifests.stream()
+                .map(ClassManifest::type)
+                .collect(Collectors.toSet());
+        for (ClassManifest manifest : classManifests) {
+            var dependencies = manifest.fields().stream()
+                    .filter(field -> field.type().is(Reference.class)
+                                     && types.contains(field.type().parameters().getFirst()))
+                    .map(field -> field.type().parameters().getFirst().asClassManifest())
+                    .collect(Collectors.toSet());
+            dependencyTree.put(manifest, dependencies);
+        }
+        var result = new ArrayList<ClassManifest>();
+        while (!dependencyTree.isEmpty()) {
+            var added = false;
+            for (var entry : new HashMap<>(dependencyTree).entrySet()) {
+                if (entry.getValue().isEmpty() || result.containsAll(entry.getValue())) {
+                    result.add(entry.getKey());
+                    dependencyTree.remove(entry.getKey());
+                    added = true;
+                }
+            }
+            if (!added) {
+                throw new IllegalArgumentException("Circular dependency detected between: " + dependencyTree.keySet());
+            }
+        }
+        return result;
     }
 
     private FileObject createResource(

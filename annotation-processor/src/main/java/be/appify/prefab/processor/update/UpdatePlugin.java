@@ -22,16 +22,17 @@ public class UpdatePlugin implements PrefabPlugin {
     private final UpdateControllerWriter updateControllerWriter = new UpdateControllerWriter();
     private final UpdateServiceWriter updateServiceWriter = new UpdateServiceWriter();
     private final UpdateRequestRecordWriter updateRequestRecordWriter = new UpdateRequestRecordWriter();
+    private final UpdateTestFixtureWriter updateTestFixtureWriter = new UpdateTestFixtureWriter();
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        updateMethodsOf(manifest).forEach(update ->
+        updateMethodsOf(manifest, context).forEach(update ->
                 builder.addMethod(updateControllerWriter.updateMethod(manifest, update, context)));
     }
 
     @Override
     public Set<TypeName> getServiceDependencies(ClassManifest classManifest, PrefabContext context) {
-        return updateMethodsOf(classManifest).stream()
+        return updateMethodsOf(classManifest, context).stream()
                 .flatMap(update -> update.parameters().stream()
                         .filter(param -> param.type().is(Reference.class)))
                 .map(param -> {
@@ -44,7 +45,7 @@ public class UpdatePlugin implements PrefabPlugin {
 
     @Override
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        updateMethodsOf(manifest).forEach(update ->
+        updateMethodsOf(manifest, context).forEach(update ->
                 builder.addMethod(updateServiceWriter.updateMethod(manifest, update)));
     }
 
@@ -52,21 +53,28 @@ public class UpdatePlugin implements PrefabPlugin {
     public void writeAdditionalFiles(List<ClassManifest> manifests, PrefabContext context) {
         if (!manifests.isEmpty()) {
             var fileWriter = new JavaFileWriter(context.processingEnvironment(), "application");
-            manifests.forEach(manifest -> updateMethodsOf(manifest).forEach(update -> {
+            manifests.forEach(manifest -> updateMethodsOf(manifest, context).forEach(update -> {
                 if (!update.parameters().isEmpty()) {
-                    updateRequestRecordWriter.writeUpdateRequestRecord(fileWriter, manifest, update, context.requestParameterBuilder());
+                    updateRequestRecordWriter.writeUpdateRequestRecord(fileWriter, manifest, update,
+                            context.requestParameterBuilder());
                 }
             }));
         }
     }
 
-    private List<UpdateManifest> updateMethodsOf(ClassManifest manifest) {
+    @Override
+    public void writeTestFixture(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+        updateMethodsOf(manifest, context).forEach(update ->
+                builder.addMethod(updateTestFixtureWriter.updateMethod(manifest, update, context)));
+    }
+
+    private List<UpdateManifest> updateMethodsOf(ClassManifest manifest, PrefabContext context) {
         return manifest.methodsWith(Update.class).stream()
                 .map(element -> {
                     var update = element.getAnnotationsByType(Update.class)[0];
                     return new UpdateManifest(
                             element.getSimpleName().toString(),
-                            getParametersOf(element, manifest.processingEnvironment()),
+                            getParametersOf(element, context.processingEnvironment()),
                             element.getReturnType().toString().equals("void"),
                             update.method(),
                             update.path());
@@ -74,7 +82,8 @@ public class UpdatePlugin implements PrefabPlugin {
                 .toList();
     }
 
-    private List<VariableManifest> getParametersOf(Element createConstructor, ProcessingEnvironment processingEnvironment) {
+    private List<VariableManifest> getParametersOf(Element createConstructor,
+            ProcessingEnvironment processingEnvironment) {
         return ((ExecutableElement) createConstructor).getParameters()
                 .stream()
                 .map(element -> new VariableManifest(element, processingEnvironment))

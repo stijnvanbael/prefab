@@ -10,12 +10,11 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
+import static org.apache.commons.text.WordUtils.capitalize;
 
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import java.util.List;
-
-import static org.apache.commons.text.WordUtils.capitalize;
 
 public class CreateRequestRecordWriter {
     public void writeRequestRecord(
@@ -25,7 +24,8 @@ public class CreateRequestRecordWriter {
             PrefabContext context
     ) {
         var name = "Create%sRequest".formatted(manifest.simpleName());
-        var type = writeRecord(ClassName.get(manifest.packageName() + ".application", name), controller.getParameters().stream()
+        var type = writeRecord(ClassName.get(manifest.packageName() + ".application", name),
+                controller.getParameters().stream()
                         .map(param ->
                                 new VariableManifest(param, context.processingEnvironment()))
                         .toList(),
@@ -33,13 +33,14 @@ public class CreateRequestRecordWriter {
         fileWriter.writeFile(manifest.packageName(), name, type);
     }
 
-    private TypeSpec writeRecord(ClassName name, List<VariableManifest> fields, RequestParameterBuilder parameterBuilder) {
+    private TypeSpec writeRecord(ClassName name, List<VariableManifest> fields,
+            RequestParameterBuilder parameterBuilder) {
         var type = TypeSpec.recordBuilder(name.simpleName())
                 .addModifiers(Modifier.PUBLIC)
                 .recordConstructor(MethodSpec.compactConstructorBuilder()
                         .addParameters(fields.stream()
-                                .flatMap(param -> parameterBuilder.buildMethodParameter(param)
-                                        .or(() -> parameterBuilder.buildBodyParameter(param))
+                                .flatMap(param -> parameterBuilder.buildBodyParameter(param)
+                                        .or(() -> parameterBuilder.buildMethodParameter(param))
                                         .stream())
                                 .toList())
                         .build());

@@ -16,6 +16,7 @@ public class SearchPlugin implements PrefabPlugin {
     private final SearchRepositoryWriter searchRepositoryWriter = new SearchRepositoryWriter();
     private final SearchRepositoryAdapterWriter searchRepositoryAdapterWriter = new SearchRepositoryAdapterWriter();
     private final SearchCrudRepositoryWriter searchCrudRepositoryWriter = new SearchCrudRepositoryWriter();
+    private final SearchTestFixtureWriter searchTestFixtureWriter = new SearchTestFixtureWriter();
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
@@ -38,13 +39,22 @@ public class SearchPlugin implements PrefabPlugin {
     @Override
     public void writeRepositoryAdapter(ClassManifest manifest, TypeSpec.Builder builder) {
         searchAnnotation(manifest).ifPresent(search ->
-                builder.addMethod(searchRepositoryAdapterWriter.searchMethod(manifest, getSearchProperty(manifest, search))));
+                builder.addMethod(
+                        searchRepositoryAdapterWriter.searchMethod(manifest, getSearchProperty(manifest, search))));
     }
 
     @Override
     public void writeCrudRepository(ClassManifest manifest, TypeSpec.Builder builder) {
         searchAnnotation(manifest)
-                .flatMap(search -> searchCrudRepositoryWriter.searchMethod(manifest, getSearchProperty(manifest, search)))
+                .flatMap(search -> searchCrudRepositoryWriter.searchMethod(manifest,
+                        getSearchProperty(manifest, search)))
+                .ifPresent(builder::addMethod);
+    }
+
+    @Override
+    public void writeTestFixture(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+        searchAnnotation(manifest)
+                .map(search -> searchTestFixtureWriter.searchMethod(manifest))
                 .ifPresent(builder::addMethod);
     }
 

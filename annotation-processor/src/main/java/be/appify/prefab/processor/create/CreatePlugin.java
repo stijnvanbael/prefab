@@ -21,6 +21,7 @@ public class CreatePlugin implements PrefabPlugin {
     private final CreateControllerWriter controllerWriter = new CreateControllerWriter();
     private final CreateServiceWriter serviceWriter = new CreateServiceWriter();
     private final CreateRequestRecordWriter requestRecordWriter = new CreateRequestRecordWriter();
+    private final CreateTestFixtureWriter testFixtureWriter = new CreateTestFixtureWriter();
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
@@ -48,7 +49,14 @@ public class CreatePlugin implements PrefabPlugin {
     @Override
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
         createConstructorOf(manifest).ifPresent(createConstructor ->
-                builder.addMethod(serviceWriter.createMethod(manifest, createConstructor, context.requestParameterMapper())));
+                builder.addMethod(
+                        serviceWriter.createMethod(manifest, createConstructor, context.requestParameterMapper())));
+    }
+
+    @Override
+    public void writeTestFixture(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+        createConstructorOf(manifest).ifPresent(createConstructor ->
+                testFixtureWriter.createMethods(manifest, createConstructor, context).forEach(builder::addMethod));
     }
 
     @Override
@@ -69,7 +77,8 @@ public class CreatePlugin implements PrefabPlugin {
             return Optional.empty();
         }
         if (createConstructors.size() > 1) {
-            throw new IllegalStateException("Multiple constructors with @Create annotation found in " + manifest.qualifiedName());
+            throw new IllegalStateException(
+                    "Multiple constructors with @Create annotation found in " + manifest.qualifiedName());
         }
         return createConstructors.stream().findFirst();
     }

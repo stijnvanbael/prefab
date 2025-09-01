@@ -18,25 +18,27 @@ public class BroadcastEventHandlerPlugin implements PrefabPlugin {
 
     @Override
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        broadcastEventHandlers(manifest)
+        broadcastEventHandlers(manifest, context)
                 .forEach(handler ->
                         builder.addMethod(broadcastEventHandlerWriter.broadcastEventHandlerMethod(manifest, handler)));
     }
 
-    private Stream<BroadcastEventHandlerManifest> broadcastEventHandlers(ClassManifest manifest) {
+    private Stream<BroadcastEventHandlerManifest> broadcastEventHandlers(ClassManifest manifest,
+            PrefabContext context) {
         var typeElement = manifest.type().asElement();
         return typeElement.getEnclosedElements()
                 .stream()
 
                 .filter(element -> element.getKind() == ElementKind.METHOD
-                        && element.getModifiers().contains(Modifier.PUBLIC))
+                                   && element.getModifiers().contains(Modifier.PUBLIC))
                 .map(ExecutableElement.class::cast)
                 .filter(element -> element.getAnnotationsByType(EventHandler.Broadcast.class).length > 0)
                 .map(element -> {
-                    var eventType = getEventType(element, manifest.processingEnvironment());
+                    var eventType = getEventType(element, context.processingEnvironment());
                     return new BroadcastEventHandlerManifest(
                             element.getSimpleName().toString(),
-                            eventType);
+                            eventType,
+                            new TypeManifest(element.getReturnType(), context.processingEnvironment()));
                 });
     }
 

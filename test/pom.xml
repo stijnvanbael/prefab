@@ -49,5 +49,9 @@
             <groupId>be.appify.prefab</groupId>
             <artifactId>prefab-annotation-processor</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-core</artifactId>
+        </dependency>
     </dependencies>
 </project>

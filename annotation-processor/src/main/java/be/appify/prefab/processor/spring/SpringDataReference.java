@@ -1,22 +1,21 @@
 package be.appify.prefab.processor.spring;
 
-import be.appify.prefab.core.repository.Repository;
-import be.appify.prefab.core.service.AggregateEnvelope;
 import be.appify.prefab.core.service.Reference;
 import com.fasterxml.jackson.annotation.JsonValue;
 import org.springframework.data.jdbc.core.mapping.AggregateReference;
+import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.util.Lazy;
 
 public class SpringDataReference<T> extends AggregateReference.IdOnlyAggregateReference<T, String>
         implements Reference<T> {
 
-    private final Repository<T> repository;
-    private final Lazy<AggregateEnvelope<T>> resolved;
+    private final CrudRepository<T, String> repository;
+    private final Lazy<T> resolved;
 
-    public SpringDataReference(String id, Repository<T> repository) {
+    public SpringDataReference(String id, CrudRepository<T, String> repository) {
         super(id);
         this.repository = repository;
-        resolved = Lazy.of(() -> repository.getById(id()).orElseThrow());
+        resolved = Lazy.of(() -> repository.findById(id()).orElseThrow());
     }
 
     @Override
@@ -27,11 +26,11 @@ public class SpringDataReference<T> extends AggregateReference.IdOnlyAggregateRe
 
     @Override
     public boolean exists() {
-        return repository.exists(id());
+        return repository.existsById(id());
     }
 
     @Override
     public T resolveReadOnly() {
-        return resolved.get().aggregate();
+        return resolved.get();
     }
 }

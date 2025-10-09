@@ -18,16 +18,17 @@ public class BroadcastEventHandlerWriter {
             method.addAnnotation(EventListener.class);
         }
         return method.addParameter(event.asTypeName(), "event").addStatement(CodeBlock.builder()
-                        .add("$L.findAll().forEach(envelope -> envelope.map(aggregate -> {\n$L}).apply($L::save))",
+                        .add("""
+                                        $L.findAll()
+                                        .forEach(aggregate -> {
+                                            $L
+                                            $L.save(aggregate);
+                                        })
+                                        """,
                                 uncapitalize(manifest.simpleName()) + "Repository",
                                 eventHandler.returnType().equals(manifest.type())
-                                        ? CodeBlock.of("""
-                                            return aggregate.$L(event);
-                                        """, eventHandler.methodName())
-                                        : CodeBlock.of("""
-                                                    aggregate.$L(event);
-                                                    return aggregate;
-                                                """, eventHandler.methodName()),
+                                        ? CodeBlock.of("aggregate = aggregate.$L(event);", eventHandler.methodName())
+                                        : CodeBlock.of("aggregate.$L(event);", eventHandler.methodName()),
                                 uncapitalize(manifest.simpleName()) + "Repository")
                         .build())
                 .build();

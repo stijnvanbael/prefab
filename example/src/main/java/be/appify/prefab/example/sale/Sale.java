@@ -6,22 +6,29 @@ import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.core.domain.PublishesEvents;
-import be.appify.prefab.core.service.IdCache;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.problem.BadRequestProblem;
 import be.appify.prefab.processor.problem.ConflictProblem;
 import be.appify.prefab.processor.problem.RequiredProblem;
 import jakarta.validation.constraints.NotNull;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.PersistenceCreator;
+import org.springframework.data.annotation.Version;
 import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 @Aggregate
 @GetById
 @DbMigration
 public class Sale implements PublishesEvents {
+    @Id
+    private String id;
+    @Version
+    private long version;
     @NotNull
     private final Instant start;
     private final List<SaleItem> items;
@@ -35,10 +42,23 @@ public class Sale implements PublishesEvents {
 
     @Create
     public Sale(SaleType type) {
-        this(Instant.now(), List.of(), List.of(), BigDecimal.ZERO, State.OPEN, null, type);
+        this(
+                UUID.randomUUID().toString(),
+                0,
+                Instant.now(),
+                List.of(),
+                List.of(),
+                BigDecimal.ZERO,
+                State.OPEN,
+                null,
+                type
+        );
     }
 
+    @PersistenceCreator
     public Sale(
+            String id,
+            long version,
             Instant start,
             List<SaleItem> items,
             List<Payment> payments,
@@ -47,6 +67,8 @@ public class Sale implements PublishesEvents {
             Reference<Customer> customer,
             SaleType type
     ) {
+        this.id = id;
+        this.version = version;
         this.start = start;
         this.items = items;
         this.payments = payments;
@@ -54,6 +76,14 @@ public class Sale implements PublishesEvents {
         this.state = state;
         this.customer = customer;
         this.type = type;
+    }
+
+    public String id() {
+        return id;
+    }
+
+    public long version() {
+        return version;
     }
 
     public Instant start() {
@@ -132,7 +162,7 @@ public class Sale implements PublishesEvents {
     private void complete() {
         state = State.COMPLETED;
         publish(new SaleCompleted(
-                IdCache.INSTANCE.getId(this),
+                id,
                 start,
                 items,
                 returned,

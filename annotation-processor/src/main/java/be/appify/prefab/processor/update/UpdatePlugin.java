@@ -7,6 +7,7 @@ import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.spring.ReferenceFactory;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
@@ -14,9 +15,9 @@ import com.palantir.javapoet.TypeSpec;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public class UpdatePlugin implements PrefabPlugin {
     private final UpdateControllerWriter updateControllerWriter = new UpdateControllerWriter();
@@ -33,14 +34,9 @@ public class UpdatePlugin implements PrefabPlugin {
     @Override
     public Set<TypeName> getServiceDependencies(ClassManifest classManifest, PrefabContext context) {
         return updateMethodsOf(classManifest, context).stream()
-                .flatMap(update -> update.parameters().stream()
-                        .filter(param -> param.type().is(Reference.class)))
-                .map(param -> {
-                    var type = param.type().parameters().getFirst();
-                    return ClassName.get("%s.application".formatted(type.packageName()),
-                            "%sRepository".formatted(type.simpleName()));
-                })
-                .collect(Collectors.toSet());
+                .flatMap(method -> method.parameters().stream())
+                .anyMatch(param -> param.type().is(Reference.class))
+                ? Set.of(ClassName.get(ReferenceFactory.class)) : Collections.emptySet();
     }
 
     @Override

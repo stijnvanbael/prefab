@@ -25,9 +25,6 @@ import java.util.stream.Stream;
 
 public class DbMigrationWriter {
 
-    private static final Column ID_COLUMN = new Column("id", new DataType.Varchar(255), false, null, null);
-    private static final Column VERSION_COLUMN = new Column("version", DataType.Primitive.INTEGER, false, null, null);
-
     public void writeDbMigration(
             ProcessingEnvironment processingEnvironment,
             List<ClassManifest> classManifests
@@ -146,7 +143,7 @@ public class DbMigrationWriter {
         return classManifests.stream().flatMap(manifest -> {
             var tables = new ArrayList<Table>();
             var aggregateRootTable = toSnakeCase(manifest.simpleName());
-            var columns = ListUtil.concat(List.of(ID_COLUMN, VERSION_COLUMN), columnsOf(manifest, null));
+            var columns = columnsOf(manifest, null, false);
             tables.add(new Table(aggregateRootTable, columns, List.of("id")));
             tables.addAll(childEntityTables(aggregateRootTable, manifest));
             return tables.stream();
@@ -162,7 +159,7 @@ public class DbMigrationWriter {
                                 new Column(aggregateRootTable, new DataType.Varchar(255), false,
                                         new ForeignKey(aggregateRootTable, "id"), null),
                                 new Column(aggregateRootTable + "_key", DataType.Primitive.INTEGER, false, null, null)
-                        ), columnsOf(child.asClassManifest(), null));
+                        ), columnsOf(child.asClassManifest(), null, false));
                         var table = new Table(toSnakeCase(child.simpleName()), columns, List.of(
                                 aggregateRootTable,
                                 aggregateRootTable + "_key"
@@ -175,13 +172,14 @@ public class DbMigrationWriter {
                 .toList();
     }
 
-    private List<Column> columnsOf(ClassManifest manifest, String prefix) {
+    private List<Column> columnsOf(ClassManifest manifest, String prefix, boolean parentNullable) {
         return manifest.fields().stream()
                 .filter(field -> !field.type().is(List.class) || field.type().parameters().getFirst().isStandardType())
                 .flatMap(field -> field.type().isRecord()
                         ? columnsOf(field.type().asClassManifest(),
-                        prefix != null ? prefix + "_" + field.name() : field.name()).stream()
-                        : Stream.of(Column.fromField(prefix, field)))
+                        prefix != null ? prefix + "_" + field.name() : field.name(),
+                        parentNullable || field.nullable()).stream()
+                        : Stream.of(Column.fromField(prefix, field, parentNullable)))
                 .toList();
     }
 

@@ -12,7 +12,6 @@ public class DeletePlugin implements PrefabPlugin {
     private final DeleteControllerWriter controllerWriter = new DeleteControllerWriter();
     private final DeleteServiceWriter serviceWriter = new DeleteServiceWriter();
     private final DeleteRepositoryWriter repositoryWriter = new DeleteRepositoryWriter();
-    private final DeleteRepositoryAdapterWriter repositoryAdapterWriter = new DeleteRepositoryAdapterWriter();
     private final DeleteTestFixtureWriter testFixtureWriter = new DeleteTestFixtureWriter();
 
     @Override
@@ -25,18 +24,6 @@ public class DeletePlugin implements PrefabPlugin {
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
         deleteAnnotation(manifest).ifPresent(ignored ->
                 builder.addMethod(serviceWriter.deleteMethod(manifest)));
-    }
-
-    @Override
-    public void writeRepository(ClassManifest manifest, TypeSpec.Builder builder) {
-        deleteAnnotation(manifest).ifPresent(ignored ->
-                builder.addMethod(repositoryWriter.deleteMethod()));
-    }
-
-    @Override
-    public void writeRepositoryAdapter(ClassManifest manifest, TypeSpec.Builder builder) {
-        deleteAnnotation(manifest).ifPresent(ignored ->
-                builder.addMethod(repositoryAdapterWriter.deleteMethod()));
     }
 
     @Override

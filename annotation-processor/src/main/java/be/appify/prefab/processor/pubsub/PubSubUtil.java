@@ -3,8 +3,12 @@ package be.appify.prefab.processor.pubsub;
 import be.appify.prefab.processor.spring.JsonUtil;
 import com.google.cloud.spring.pubsub.PubSubAdmin;
 import com.google.cloud.spring.pubsub.core.subscriber.PubSubSubscriberTemplate;
+import com.google.cloud.spring.pubsub.support.BasicAcknowledgeablePubsubMessage;
 import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.ProjectTopicName;
+import com.google.pubsub.v1.PubsubMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -12,6 +16,7 @@ import java.util.function.Consumer;
 
 @Component
 public class PubSubUtil {
+    private static final Logger log = LoggerFactory.getLogger(PubSubUtil.class);
     private final String projectId;
     private final PubSubAdmin pubSubAdmin;
     private final PubSubSubscriberTemplate subscriberTemplate;
@@ -32,16 +37,31 @@ public class PubSubUtil {
     public <T> void subscribe(String topic, String subscription, Class<T> type, Consumer<T> consumer) {
         var topicName = ensureTopicExists(topic);
         var subscriptionName = ensureSubscriptionExists(subscription, topicName);
-        subscriberTemplate.subscribe(subscriptionName, message -> {
-            try {
-                var payload = message.getPubsubMessage().getData().toStringUtf8();
-                consumer.accept(jsonUtil.parseJson(payload, type));
-                message.ack();
-            } catch (Exception e) {
-                message.nack();
-                throw e;
+        subscriberTemplate.subscribe(subscriptionName, message ->
+                consume(type, consumer, message));
+    }
+
+    private <T> void consume(Class<T> type, Consumer<T> consumer, BasicAcknowledgeablePubsubMessage message) {
+        try {
+            var pubsubMessage = message.getPubsubMessage();
+            if (pubsubMessage.containsAttributes("type")) {
+                consumeTyped(type, consumer, pubsubMessage);
+            } else {
+                consumer.accept(jsonUtil.parseJson(pubsubMessage.getData().toStringUtf8(), type));
             }
-        });
+        } catch (Exception e) {
+            log.error("Error processing Pub/Sub message", e);
+            throw e;
+        } finally {
+            message.ack(); // TODO: delivery semantics
+        }
+    }
+
+    private <T> void consumeTyped(Class<T> type, Consumer<T> consumer, PubsubMessage pubsubMessage) {
+        var typeName = pubsubMessage.getAttributesOrThrow("type");
+        if (type.getName().equals(typeName)) {
+            consumer.accept(jsonUtil.parseJson(pubsubMessage.getData().toStringUtf8(), type));
+        }
     }
 
     public String ensureTopicExists(String topic) {

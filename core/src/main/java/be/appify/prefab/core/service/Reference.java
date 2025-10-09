@@ -1,6 +1,7 @@
 package be.appify.prefab.core.service;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 
 /**
  * A reference to another aggregate root.
@@ -12,6 +13,7 @@ public interface Reference<T> {
     /**
      * @return the ID of the referenced aggregate root
      */
+    @JsonValue
     String id();
 
     /**

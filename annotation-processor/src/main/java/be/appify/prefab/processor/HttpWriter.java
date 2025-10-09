@@ -1,12 +1,10 @@
 package be.appify.prefab.processor;
 
-import be.appify.prefab.core.service.AggregateEnvelope;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
-import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -63,9 +61,10 @@ public class HttpWriter {
                 .returns(ParameterizedTypeName.get(ClassName.get(ResponseEntity.class),
                         responseType(manifest)))
                 .addParameter(ParameterizedTypeName.get(ClassName.get(Optional.class),
-                        aggregateEnvelopeOf(ClassName.get(manifest.packageName(), manifest.simpleName()))), "envelope")
+                                ClassName.get(manifest.packageName(), manifest.simpleName())),
+                        "aggregateRoot")
                 .addStatement("""
-                                return envelope
+                                return aggregateRoot
                                     .map($T::from)
                                     .map(ResponseEntity::ok)
                                     .orElse(ResponseEntity.notFound().build())""".stripIndent(),
@@ -77,7 +76,6 @@ public class HttpWriter {
         var type = TypeSpec.recordBuilder("%sResponse".formatted(manifest.simpleName()))
                 .addModifiers(PUBLIC)
                 .recordConstructor(MethodSpec.compactConstructorBuilder()
-                        .addParameter(ParameterSpec.builder(String.class, "id").build())
                         .addParameters(manifest.fields().stream()
                                 .map(field -> ParameterSpec.builder(
                                         field.type().asTypeName(),
@@ -88,21 +86,17 @@ public class HttpWriter {
                         .addModifiers(PUBLIC, STATIC)
                         .returns(responseType(manifest))
                         .addParameter(ParameterSpec.builder(
-                                aggregateEnvelopeOf(ClassName.get(manifest.packageName(), manifest.simpleName())),
-                                "envelope"
+                                ClassName.get(manifest.packageName(), manifest.simpleName()),
+                                "aggregateRoot"
                         ).build())
-                        .addStatement("return new $T(envelope.id(), %s)".formatted(
-                                        manifest.fields().stream()
-                                                .map(field -> "envelope.aggregate().%s()".formatted(field.name()))
-                                                .collect(Collectors.joining(",\n"))),
-                                responseType(manifest)
+                        .addStatement("return new $T($L)",
+                                responseType(manifest),
+                                manifest.fields().stream()
+                                        .map(field -> "aggregateRoot.%s()".formatted(field.name()))
+                                        .collect(Collectors.joining(",\n"))
                         )
                         .build())
                 .build();
         fileWriter.writeFile(manifest.packageName(), "%sResponse".formatted(manifest.simpleName()), type);
-    }
-
-    private TypeName aggregateEnvelopeOf(TypeName typeName) {
-        return ParameterizedTypeName.get(ClassName.get(AggregateEnvelope.class), typeName);
     }
 }

@@ -12,7 +12,7 @@ public class ControllerUtil {
         var parentPath = manifest.parent()
                 .map(parent -> "%s/{%sId}/".formatted(
                         toKebabCase(plural(parent.type().parameters().getFirst().simpleName())),
-                        uncapitalize(parent.type().parameters().getFirst().simpleName())))
+                        uncapitalize(parent.name())))
                 .orElse("");
         return parentPath + toKebabCase(plural(manifest.simpleName()));
     }

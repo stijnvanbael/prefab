@@ -20,6 +20,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import javax.lang.model.element.Modifier;
+import java.util.Map;
 
 public class PubSubPublisherWriter {
     public void writePubSubPublisher(ClassManifest event, PrefabContext context) {
@@ -33,7 +34,8 @@ public class PubSubPublisherWriter {
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(Component.class)
                 .addField(FieldSpec.builder(Logger.class, "log", Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
-                        .initializer("$T.getLogger($T.class)", ClassName.get(LoggerFactory.class), ClassName.get(event.packageName() + ".infrastructure.pubsub", name))
+                        .initializer("$T.getLogger($T.class)", ClassName.get(LoggerFactory.class),
+                                ClassName.get(event.packageName() + ".infrastructure.pubsub", name))
                         .build())
                 .addField(PubSubTemplate.class, "pubSubTemplate", Modifier.PRIVATE, Modifier.FINAL)
                 .addField(JsonUtil.class, "jsonSupport", Modifier.PRIVATE, Modifier.FINAL)
@@ -68,13 +70,17 @@ public class PubSubPublisherWriter {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Event %s does not have a field annotated with @Key".formatted(event.simpleName())))
-                .name();
+                .name(); // TODO: add ordering key
         return MethodSpec.methodBuilder("publish")
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(event.type().asTypeName(), "event")
                 .addAnnotation(EventListener.class)
                 .addStatement("log.debug($S, event, topic)", "Publishing event {} on topic {}")
-                .addStatement("pubSubTemplate.publish(topic, jsonSupport.toJson(event))", keyField)
+                .addStatement(
+                        "pubSubTemplate.publish(topic, jsonSupport.toJson(event), $T.of($S, event.getClass().getName()))",
+                        Map.class,
+                        "type"
+                )
                 .build();
     }
 }

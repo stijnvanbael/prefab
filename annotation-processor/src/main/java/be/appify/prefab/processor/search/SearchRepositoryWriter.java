@@ -1,6 +1,5 @@
 package be.appify.prefab.processor.search;
 
-import be.appify.prefab.core.service.AggregateEnvelope;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.ClassName;
@@ -22,8 +21,7 @@ public class SearchRepositoryWriter {
             method.addParameter(searchProperty.type().asTypeName(), searchProperty.name());
         }
         return method
-                .returns(ParameterizedTypeName.get(ClassName.get(Page.class),
-                        ParameterizedTypeName.get(ClassName.get(AggregateEnvelope.class), aggregateType)))
+                .returns(ParameterizedTypeName.get(ClassName.get(Page.class), aggregateType))
                 .build();
     }
 }

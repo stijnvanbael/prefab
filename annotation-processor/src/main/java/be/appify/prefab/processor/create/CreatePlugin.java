@@ -7,15 +7,16 @@ import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.spring.ReferenceFactory;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 
 import javax.lang.model.element.ExecutableElement;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public class CreatePlugin implements PrefabPlugin {
     private final CreateControllerWriter controllerWriter = new CreateControllerWriter();
@@ -37,20 +38,15 @@ public class CreatePlugin implements PrefabPlugin {
                         .stream()
                         .map(param ->
                                 new VariableManifest(param, context.processingEnvironment())))
-                .filter(param -> param.type().is(Reference.class))
-                .map(param -> {
-                    var type = param.type().parameters().getFirst();
-                    return ClassName.get("%s.application".formatted(type.packageName()),
-                            "%sRepository".formatted(type.simpleName()));
-                })
-                .collect(Collectors.toSet());
+                .anyMatch(param -> param.type().is(Reference.class))
+                ? Set.of(ClassName.get(ReferenceFactory.class)) : Collections.emptySet();
     }
 
     @Override
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
         createConstructorOf(manifest).ifPresent(createConstructor ->
                 builder.addMethod(
-                        serviceWriter.createMethod(manifest, createConstructor, context.requestParameterMapper())));
+                        serviceWriter.createMethod(manifest, createConstructor, context)));
     }
 
     @Override

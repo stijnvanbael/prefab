@@ -14,7 +14,6 @@ public class SearchPlugin implements PrefabPlugin {
     private final SearchControllerWriter searchControllerWriter = new SearchControllerWriter();
     private final SearchServiceWriter searchServiceWriter = new SearchServiceWriter();
     private final SearchRepositoryWriter searchRepositoryWriter = new SearchRepositoryWriter();
-    private final SearchRepositoryAdapterWriter searchRepositoryAdapterWriter = new SearchRepositoryAdapterWriter();
     private final SearchCrudRepositoryWriter searchCrudRepositoryWriter = new SearchCrudRepositoryWriter();
     private final SearchTestFixtureWriter searchTestFixtureWriter = new SearchTestFixtureWriter();
 
@@ -28,19 +27,6 @@ public class SearchPlugin implements PrefabPlugin {
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
         searchAnnotation(manifest).ifPresent(search ->
                 builder.addMethod(searchServiceWriter.searchMethod(manifest, getSearchProperty(manifest, search))));
-    }
-
-    @Override
-    public void writeRepository(ClassManifest manifest, TypeSpec.Builder builder) {
-        searchAnnotation(manifest).ifPresent(search ->
-                builder.addMethod(searchRepositoryWriter.searchMethod(manifest, getSearchProperty(manifest, search))));
-    }
-
-    @Override
-    public void writeRepositoryAdapter(ClassManifest manifest, TypeSpec.Builder builder) {
-        searchAnnotation(manifest).ifPresent(search ->
-                builder.addMethod(
-                        searchRepositoryAdapterWriter.searchMethod(manifest, getSearchProperty(manifest, search))));
     }
 
     @Override

@@ -4,11 +4,11 @@ import be.appify.prefab.example.IntegrationTest;
 import be.appify.prefab.example.sale.application.CreateCustomerRequest;
 import be.appify.prefab.example.sale.application.CreateGiftVoucherRequest;
 import be.appify.prefab.example.sale.application.CreateSaleRequest;
+import be.appify.prefab.example.sale.application.InvoiceRepository;
 import be.appify.prefab.example.sale.application.SaleAddCustomerRequest;
 import be.appify.prefab.example.sale.application.SaleAddItemRequest;
 import be.appify.prefab.example.sale.application.SaleAddPaymentRequest;
-import be.appify.prefab.example.sale.infrastructure.persistence.InvoiceCrudRepository;
-import be.appify.prefab.example.sale.infrastructure.persistence.SaleCrudRepository;
+import be.appify.prefab.example.sale.application.SaleRepository;
 import be.appify.prefab.test.kafka.KafkaContainerSupport;
 import be.appify.prefab.test.kafka.TestConsumer;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -27,11 +27,11 @@ import java.util.concurrent.TimeUnit;
 @IntegrationTest
 class SaleIntegrationTest implements KafkaContainerSupport {
     @Autowired
-    private SaleCrudRepository saleRepository;
+    private SaleRepository saleRepository;
     @TestConsumer(topic = "${kafka.topics.sale.name}")
     private Consumer<String, SaleCompleted> saleConsumer;
     @Autowired
-    private InvoiceCrudRepository invoiceRepository;
+    private InvoiceRepository invoiceRepository;
     @Autowired
     SaleFixture sales;
     @Autowired

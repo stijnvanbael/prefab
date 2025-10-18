@@ -81,6 +81,7 @@ e.g.:
 
 @Aggregate
 public record Sale(
+        @Id String id,
         Instant start,
         Double amount
 ) {
@@ -103,12 +104,17 @@ signature of the constructor.
 
 @Aggregate
 public record Sale(
+        @Id String id,
         Instant start,
         Double amount
 ) {
-    @Create
+    @Create // This constructor will be exposed as a REST endpoint to create a new Sale instance
+    public Sale(Instant start, Double amount) {
+        this(UUID.randomUUID().toString(), start, amount);
+    }
+
+    @PersistenceCreator // Prefab generates Spring Data JDBC code that requires a constructor with all properties
     public Sale {
-        // This constructor will be exposed as a REST endpoint to create a new Sale instance
     }
 }
 ```
@@ -124,6 +130,7 @@ is the plural of the class name in kebab case. Both method and path can be custo
 @Aggregate
 @GetById // This will expose a GET endpoint for the Sale class
 public record Sale(
+        @Id String id,
         Instant start,
         Double amount
 ) {
@@ -142,6 +149,7 @@ or `void`. When it is `void`, Prefab assumes the method modifies the existing in
 
 @Aggregate
 public record Sale(
+        @Id String id,
         Instant start,
         Double amount
 ) {
@@ -163,6 +171,7 @@ of the class name in kebab case. Both method and path can be customized with the
 @Aggregate
 @Delete // This will expose a DELETE endpoint for the Sale class
 public record Sale(
+        @Id String id,
         Instant start,
         Double amount
 ) {
@@ -179,6 +188,7 @@ ID of the referenced aggregate. References can also be resolved to the actual in
 
 @Aggregate
 public record Sale(
+        @Id String id,
         Instant start,
         Double amount,
         Reference<Customer> customer, // Reference to another aggregate
@@ -186,8 +196,13 @@ public record Sale(
 ) {
     @Create
     public Sale(Instant start, Double amount, Reference<Customer> customer) {
-        this(start, amount, customer,
-                customer.resolveReadOnly().name()); // Resolve the customer reference to get the name
+        this(
+                UUID.randomUUID().toString(),
+                start,
+                amount,
+                customer,
+                customer.resolveReadOnly().name() // Resolve the customer reference to get the name
+        );
     }
 }
 ```
@@ -203,6 +218,7 @@ the parent aggregate.
 
 @Aggregate
 public record Sale(
+        @Id String id,
         Instant start,
         List<SaleItem> items // List of SaleItem children
 ) {
@@ -228,8 +244,10 @@ will be stored as `amount_value` and `amount_currency` in the database.
 
 @Aggregate
 public record Sale(
+        @Id String id,
         Instant start,
-        Money amount // Money is a value object that will be embedded in the Sale aggregate
+        @Embedded.Nullable(prefix = "amount_") Money amount
+        // Money is a value object that will be embedded in the Sale aggregate
 ) {
 }
 
@@ -250,10 +268,19 @@ of `@Create` and `@Update` endpoints and return a `400 Bad Request` response if 
 
 @Aggregate
 public record Sale(
-        @NotNull Instant start, // Must not be null
-        @NotNull @Min(0) Double amount // Must be greater than or equal to 0
+        @Id String id,
+        @NotNull Instant start,
+        @NotNull Double amount
 ) {
     @Create
+    public Sale(
+            @NotNull Instant start, // Must not be null
+            @NotNull @Min(0) Double amount // Must be greater than or equal to 0
+    ) {
+        this(UUID.randomUUID().toString(), start, amount);
+    }
+
+    @PersistenceCreator
     public Sale {
     }
 
@@ -274,6 +301,7 @@ in the database as a `bytea` field.
 
 @Aggregate
 public record Sale(
+        @Id String id,
         Instant start,
         Double amount,
         Binary receipt // Binary file field
@@ -293,6 +321,7 @@ doesn't get overwritten the next time you compile your project.
 @Aggregate
 @DbMigration // This will include the Sale class in the generated Flyway migration script
 public record Sale(
+        @Id String id,
         Instant start,
         Double amount
 ) {
@@ -312,6 +341,7 @@ match.
 @Aggregate
 @Search(property = "product") // This will generate a search endpoint for the Sale class on the product property
 public record Sale(
+        @Id String id,
         Instant start,
         Double amount,
         String product

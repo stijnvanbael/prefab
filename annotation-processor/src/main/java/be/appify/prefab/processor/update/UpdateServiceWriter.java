@@ -1,6 +1,5 @@
 package be.appify.prefab.processor.update;
 
-import be.appify.prefab.core.service.AggregateEnvelope;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.VariableManifest;
@@ -9,20 +8,18 @@ import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
-import com.palantir.javapoet.TypeName;
 import jakarta.validation.Valid;
+import static org.apache.commons.text.WordUtils.capitalize;
+import static org.apache.commons.text.WordUtils.uncapitalize;
 
 import javax.lang.model.element.Modifier;
 import java.util.Optional;
-
-import static org.apache.commons.text.WordUtils.capitalize;
-import static org.apache.commons.text.WordUtils.uncapitalize;
 
 public class UpdateServiceWriter {
     public MethodSpec updateMethod(ClassManifest manifest, UpdateManifest update) {
         var method = MethodSpec.methodBuilder(update.operationName())
                 .addModifiers(Modifier.PUBLIC)
-                .returns(ParameterizedTypeName.get(ClassName.get(Optional.class), aggregateEnvelopeOf(manifest.type().asTypeName())))
+                .returns(ParameterizedTypeName.get(ClassName.get(Optional.class), manifest.type().asTypeName()))
                 .addParameter(String.class, "id");
         if (!update.parameters().isEmpty()) {
             method.addParameter(ParameterSpec.builder(
@@ -31,35 +28,33 @@ public class UpdateServiceWriter {
                     .addAnnotation(Valid.class)
                     .build());
         }
-        method.addStatement("log.debug($S, $T.class.getSimpleName(), id)", "Updating {} with id: {}", manifest.className());
-        var aggregateFunction = update.stateless()
-                ? CodeBlock.of("""
-                    aggregate.%s(%s);
-                    return aggregate;
-                """.formatted(update.operationName(),
-                update.parameters().stream().map(this::fromRequest)
-                        .collect(CodeBlock.joining(", "))))
-                : CodeBlock.of("return aggregate.%s(%s);".formatted(update.operationName(),
-                update.parameters().stream().map(this::fromRequest)
-                        .collect(CodeBlock.joining(", "))));
-
-        method.addStatement(
-                "return %sRepository.getById(id).map(envelope -> %sRepository.save(envelope.map(aggregate -> { %n$L })))"
-                        .formatted(uncapitalize(manifest.simpleName()), uncapitalize(manifest.simpleName())),
-                aggregateFunction);
+        method.addStatement("log.debug($S, $T.class.getSimpleName(), id)", "Updating {} with id: {}",
+                manifest.className());
+        var aggregateFunction = update.stateful()
+                ? CodeBlock.of("aggregate.%s(%s);"
+                .formatted(update.operationName(),
+                        update.parameters().stream().map(this::fromRequest)
+                                .collect(CodeBlock.joining(", "))))
+                : CodeBlock.of("aggregate = aggregate.%s(%s);".formatted(update.operationName(),
+                        update.parameters().stream().map(this::fromRequest)
+                                .collect(CodeBlock.joining(", "))));
+        var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
+        method.addStatement("""
+                        return $N.findById(id).map(aggregate -> {
+                            $L
+                            return $N.save(aggregate);
+                        })""",
+                repositoryName,
+                aggregateFunction,
+                repositoryName);
         return method.build();
     }
 
-    private TypeName aggregateEnvelopeOf(TypeName typeName) {
-        return ParameterizedTypeName.get(ClassName.get(AggregateEnvelope.class), typeName);
-    }
-
-    private CodeBlock fromRequest(VariableManifest param) {
-        if (param.type().is(Reference.class)) {
-            var type = param.type().parameters().getFirst().simpleName();
-            return CodeBlock.of("toReference($S, %sRepository, request.%s())".formatted(
-                    uncapitalize(type), param.name()), type);
+    private CodeBlock fromRequest(VariableManifest parameter) {
+        if (parameter.type().is(Reference.class)) {
+            var type = parameter.type().parameters().getFirst().asTypeName();
+            return CodeBlock.of("referenceFactory.referenceTo($T.class, request.$N())", type, parameter.name());
         }
-        return CodeBlock.of("request.%s()".formatted(param.name()));
+        return CodeBlock.of("request.%s()".formatted(parameter.name()));
     }
 }

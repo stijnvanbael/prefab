@@ -24,13 +24,7 @@ public interface PrefabPlugin {
     default void writeAdditionalFiles(List<ClassManifest> manifests, PrefabContext context) {
     }
 
-    default void writeRepositoryAdapter(ClassManifest manifest, TypeSpec.Builder builder) {
-    }
-
     default void writeCrudRepository(ClassManifest manifest, TypeSpec.Builder builder) {
-    }
-
-    default void writeRepository(ClassManifest manifest, TypeSpec.Builder builder) {
     }
 
     default void writeTestFixture(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {

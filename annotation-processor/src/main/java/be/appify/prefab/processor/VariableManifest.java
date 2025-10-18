@@ -2,6 +2,8 @@ package be.appify.prefab.processor;
 
 import be.appify.prefab.core.service.Reference;
 import com.palantir.javapoet.ParameterSpec;
+import jakarta.validation.constraints.NotNull;
+import org.springframework.data.annotation.Id;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.VariableElement;
@@ -43,6 +45,11 @@ public class VariableManifest {
 
     public List<AnnotationManifest> annotations() {
         return annotations;
+    }
+
+    public boolean nullable() {
+        return !isPrimitive() && annotations.stream()
+                .noneMatch(annotation -> annotation.type().is(NotNull.class) || annotation.type().is(Id.class));
     }
 
     @Override
@@ -111,5 +118,12 @@ public class VariableManifest {
                || (this.type.is(Reference.class) && this.type.parameters().getFirst() == type)
                || (this.type.is(List.class) && this.type.parameters().getFirst().asClassManifest()
                 .dependsOn(type.asClassManifest()));
+    }
+
+    public boolean isPrimitive() {
+        return type.packageName().isEmpty() && switch (type.simpleName()) {
+            case "int", "long", "double", "float", "boolean", "char", "byte", "short" -> true;
+            default -> false;
+        };
     }
 }

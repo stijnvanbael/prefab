@@ -3,7 +3,6 @@ package be.appify.prefab.processor.dbmigration;
 import be.appify.prefab.core.annotations.DbDefaultValue;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.VariableManifest;
-import jakarta.validation.constraints.NotNull;
 import net.sf.jsqlparser.statement.alter.AlterExpression;
 import net.sf.jsqlparser.statement.create.table.ColDataType;
 import net.sf.jsqlparser.statement.create.table.ColumnDefinition;
@@ -48,13 +47,12 @@ public record Column(
         );
     }
 
-    public static Column fromField(String prefix, VariableManifest property) {
+    public static Column fromField(String prefix, VariableManifest property, boolean parentNullable) {
         var name = prefix != null ? prefix + "_" + property.name() : property.name();
         return new Column(
                 toSnakeCase(name),
                 DataType.typeOf(property.toBoxed().type(), property.annotations()),
-                property.annotations().stream()
-                        .noneMatch(annotation -> annotation.type().is(NotNull.class)),
+                parentNullable || property.nullable(),
                 property.type().is(Reference.class) ? new ForeignKey(
                         toSnakeCase(property.type().parameters().getFirst().simpleName()),
                         "id"

@@ -8,10 +8,13 @@ import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.Search;
 import be.appify.prefab.core.annotations.rest.Update;
 import jakarta.validation.constraints.NotNull;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.PersistenceCreator;
+import org.springframework.data.annotation.Version;
+import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
 
 import java.time.Instant;
-
-import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
+import java.util.UUID;
 
 @Aggregate
 @GetById
@@ -19,6 +22,10 @@ import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
 @Delete
 @DbMigration
 public class Todo {
+    @Id
+    private String id;
+    @Version
+    private long version;
     @NotNull
     private final String description;
     @NotNull
@@ -28,13 +35,30 @@ public class Todo {
 
     @Create
     public Todo(@NotNull String description) {
-        this(description, false, Instant.now());
+        this(UUID.randomUUID().toString(), 0, description, false, Instant.now());
     }
 
-    public Todo(String description, Boolean done, Instant created) {
+    @PersistenceCreator
+    public Todo(
+            String id,
+            long version,
+            String description,
+            Boolean done,
+            Instant created
+    ) {
+        this.id = id;
+        this.version = version;
         this.description = description;
         this.done = done;
         this.created = created;
+    }
+
+    public String id() {
+        return id;
+    }
+
+    public long version() {
+        return version;
     }
 
     public String description() {
@@ -51,11 +75,11 @@ public class Todo {
 
     @Update(method = POST, path = "/done")
     public Todo markDone() {
-        return new Todo(description, true, created);
+        return new Todo(id, version, description, true, created);
     }
 
     @Update(path = "/description")
     public Todo updateDescription(@NotNull String description) {
-        return new Todo(description, done, created);
+        return new Todo(id, version, description, done, created);
     }
 }

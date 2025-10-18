@@ -8,23 +8,46 @@ import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.Search;
 import be.appify.prefab.processor.problem.BadRequestProblem;
 import jakarta.validation.constraints.NotNull;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.PersistenceCreator;
+import org.springframework.data.annotation.Version;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Aggregate
 @Search(property = "code")
 @GetById
 @DbMigration
 public class GiftVoucher {
+    @Id
+    private String id;
+    @Version
+    private long version;
     @NotNull
     private final String code;
     @NotNull
     private BigDecimal remainingValue;
 
-    @Create
-    public GiftVoucher(@NotNull String code, @NotNull BigDecimal remainingValue) {
+    @PersistenceCreator
+    public GiftVoucher(String id, long version, String code, BigDecimal remainingValue) {
+        this.id = id;
+        this.version = version;
         this.code = code;
         this.remainingValue = remainingValue;
+    }
+
+    public String id() {
+        return id;
+    }
+
+    public long version() {
+        return version;
+    }
+
+    @Create
+    public GiftVoucher(@NotNull String code, @NotNull BigDecimal remainingValue) {
+        this(UUID.randomUUID().toString(), 0, code, remainingValue);
     }
 
     public String code() {

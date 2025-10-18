@@ -2,7 +2,7 @@ package be.appify.prefab.example.todo;
 
 import be.appify.prefab.example.IntegrationTest;
 import be.appify.prefab.example.todo.application.CreateTodoRequest;
-import be.appify.prefab.example.todo.infrastructure.persistence.TodoCrudRepository;
+import be.appify.prefab.example.todo.application.TodoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +25,7 @@ class TodoIntegrationTest {
     private MockMvc mockMvc;
 
     @Autowired
-    private TodoCrudRepository todoRepository;
+    private TodoRepository todoRepository;
 
     @Autowired
     TodoFixture todos;

@@ -4,19 +4,22 @@ import be.appify.prefab.core.annotations.rest.Search;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.VariableManifest;
-import com.palantir.javapoet.*;
+import com.palantir.javapoet.AnnotationSpec;
+import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.MethodSpec;
+import com.palantir.javapoet.ParameterSpec;
+import com.palantir.javapoet.ParameterizedTypeName;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import static javax.lang.model.element.Modifier.PUBLIC;
+import static org.apache.commons.text.WordUtils.uncapitalize;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import static javax.lang.model.element.Modifier.PUBLIC;
-import static org.apache.commons.text.WordUtils.uncapitalize;
 
 public class SearchControllerWriter {
     public MethodSpec searchMethod(ClassManifest manifest, Search search) {
@@ -58,14 +61,14 @@ public class SearchControllerWriter {
     }
 
     private ParameterSpec parentParameter(VariableManifest parent) {
-        return ParameterSpec.builder(String.class, uncapitalize(parent.type().parameters().getFirst().simpleName()) + "Id")
+        return ParameterSpec.builder(String.class, uncapitalize(parent.name()) + "Id")
                 .addAnnotation(PathVariable.class)
                 .build();
     }
 
     private static String searchParameters(ClassManifest manifest) {
         var parameters = new ArrayList<>(List.of("pageable"));
-        manifest.parent().ifPresent(parent -> parameters.add(uncapitalize(parent.type().parameters().getFirst().simpleName()) + "Id"));
+        manifest.parent().ifPresent(parent -> parameters.add(uncapitalize(parent.name()) + "Id"));
         return String.join(", ", parameters);
     }
 

@@ -7,7 +7,7 @@ import java.util.List;
 public record UpdateManifest(
         String operationName,
         List<VariableManifest> parameters,
-        boolean stateless,
+        boolean stateful,
         String method,
         String path
 ) {

@@ -5,8 +5,6 @@ import com.palantir.javapoet.CodeBlock;
 
 import java.util.List;
 
-import static org.apache.commons.text.WordUtils.uncapitalize;
-
 public class RequestParameterMapper {
     private final List<PrefabPlugin> plugins;
 
@@ -23,9 +21,8 @@ public class RequestParameterMapper {
 
     private CodeBlock defaultMapping(VariableManifest parameter) {
         if (parameter.type().is(Reference.class)) {
-            var type = uncapitalize(parameter.type().parameters().getFirst().simpleName());
-            return CodeBlock.of("toReference($S, $N, request.$N())",
-                    type, type + "Repository", parameter.name());
+            var type = parameter.type().parameters().getFirst().asTypeName();
+            return CodeBlock.of("referenceFactory.referenceTo($T.class, request.$N())", type, parameter.name());
         }
         return CodeBlock.of("request.$N()", parameter.name());
     }

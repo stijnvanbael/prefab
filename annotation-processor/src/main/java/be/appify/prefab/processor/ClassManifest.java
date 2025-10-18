@@ -5,6 +5,7 @@ import be.appify.prefab.core.annotations.rest.Parent;
 import be.appify.prefab.core.service.Reference;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
+import org.springframework.data.annotation.Id;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
@@ -28,6 +29,7 @@ public class ClassManifest {
     private final TypeManifest type;
     private final boolean isAggregate;
     private final TypeElement typeElement;
+    private final VariableManifest idField;
 
     public ClassManifest(TypeElement typeElement, ProcessingEnvironment processingEnvironment) {
         this.processingEnvironment = processingEnvironment;
@@ -36,7 +38,15 @@ public class ClassManifest {
         this.type = new TypeManifest(typeElement.asType(), processingEnvironment);
         this.isAggregate = typeElement.getAnnotationsByType(Aggregate.class).length > 0;
         this.typeElement = typeElement;
+        this.idField = getIdField();
         validate(typeElement);
+    }
+
+    private VariableManifest getIdField() {
+        return fields.stream()
+                .filter(field -> field.hasAnnotation(Id.class))
+                .findFirst()
+                .orElse(null);
     }
 
     @Deprecated
@@ -68,6 +78,10 @@ public class ClassManifest {
                     var parameters = getParametersOf(element);
                     return fields.size() == parameters.size() && new HashSet<>(fields).containsAll(parameters);
                 });
+        if (isAggregate && idField == null) {
+            throw new IllegalArgumentException(
+                    "Aggregate %s must have a field with @Id annotation".formatted(qualifiedName()));
+        }
         if (!hasConstructor) {
             throw new IllegalArgumentException(
                     """
@@ -189,5 +203,9 @@ public class ClassManifest {
     @Override
     public int hashCode() {
         return Objects.hashCode(type);
+    }
+
+    public VariableManifest idField() {
+        return idField;
     }
 }

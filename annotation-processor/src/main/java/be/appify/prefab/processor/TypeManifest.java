@@ -59,7 +59,7 @@ public class TypeManifest {
     }
 
     public TypeManifest(String packageName, String simpleName, List<TypeManifest> parameters, ElementKind kind,
-                        ProcessingEnvironment processingEnvironment) {
+            ProcessingEnvironment processingEnvironment) {
         this.packageName = packageName;
         this.simpleName = simpleName;
         this.parameters = parameters;
@@ -87,9 +87,9 @@ public class TypeManifest {
     @Override
     public boolean equals(Object obj) {
         return obj instanceof TypeManifest other
-                && packageName.equals(other.packageName)
-                && simpleName.equals(other.simpleName)
-                && parameters.equals(other.parameters);
+               && packageName.equals(other.packageName)
+               && simpleName.equals(other.simpleName)
+               && parameters.equals(other.parameters);
     }
 
     @Override
@@ -140,14 +140,6 @@ public class TypeManifest {
 
     public ClassManifest asClassManifest() {
         return new ClassManifest(asElement(), processingEnvironment);
-    }
-
-    public Class<?> asClass() {
-        try {
-            return Class.forName(packageName + '.' + simpleName);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to resolve class for " + this, e);
-        }
     }
 
     public <T extends Annotation> Set<T> annotationsOfType(Class<T> annotationType) {

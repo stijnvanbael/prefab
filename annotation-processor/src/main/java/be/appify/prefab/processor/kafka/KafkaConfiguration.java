@@ -46,7 +46,7 @@ public class KafkaConfiguration {
             @Value("${kafka.transactions.enabled:true}") boolean transactionsEnabled
     ) {
         var properties = kafkaProperties.buildProducerProperties(sslBundles.getIfAvailable());
-        properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, connectionDetails.getProducerBootstrapServers());
+        properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, connectionDetails.getProducer().getBootstrapServers());
 
         var serializer = new DynamicSerializer(kafkaProperties);
 
@@ -91,7 +91,7 @@ public class KafkaConfiguration {
             @Value("${spring.application.name}") String applicationName
     ) {
         var properties = kafkaProperties.buildConsumerProperties(sslBundles.getIfAvailable());
-        properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, connectionDetails.getConsumerBootstrapServers());
+        properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, connectionDetails.getConsumer().getBootstrapServers());
         properties.putIfAbsent(ConsumerConfig.GROUP_ID_CONFIG, applicationName);
         kafkaTransactionManager.ifAvailable(ignored ->
                 properties.putIfAbsent(ConsumerConfig.ISOLATION_LEVEL_CONFIG, KafkaProperties.IsolationLevel.READ_COMMITTED.name()));

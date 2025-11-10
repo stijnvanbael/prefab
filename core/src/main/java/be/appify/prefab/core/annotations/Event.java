@@ -12,6 +12,8 @@ public @interface Event {
 
     Platform platform() default Platform.KAFKA;
 
+    Class<?> ownedBy();
+
     Serialization serialization() default Serialization.JSON;
 
     enum Platform {

@@ -8,4 +8,8 @@ public class CaseUtil {
     public static String toSnakeCase(String value) {
         return value.replaceAll("([a-z])([A-Z]+)", "$1_$2").toLowerCase();
     }
+
+    public static String toCamelCase(String value) {
+        return value.replaceAll("(\\w)[_\\-](\\w)", "$1$2"); // TODO: correct impl
+    }
 }

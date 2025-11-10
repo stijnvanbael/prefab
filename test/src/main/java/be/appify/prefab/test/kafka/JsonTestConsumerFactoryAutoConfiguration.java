@@ -36,7 +36,7 @@ public class JsonTestConsumerFactoryAutoConfiguration {
     ) {
         var consumerProperties = this.properties.buildConsumerProperties(sslBundles.getIfAvailable());
         consumerProperties.putIfAbsent(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        consumerProperties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, connectionDetails.getConsumerBootstrapServers());
+        consumerProperties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, connectionDetails.getConsumer().getBootstrapServers());
         var factory = new DefaultKafkaConsumerFactory<String, Object>(consumerProperties);
         try (var jsonDeserializer = new JsonDeserializer<>(objectMapper)) {
             jsonDeserializer.typeResolver(jsonTypeResolver::resolveType);

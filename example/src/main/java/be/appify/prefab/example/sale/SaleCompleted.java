@@ -9,7 +9,7 @@ import java.util.List;
 
 import static be.appify.prefab.core.annotations.Event.Platform.KAFKA;
 
-@Event(topic = "${kafka.topics.sale.name}", platform = KAFKA)
+@Event(topic = "${kafka.topics.sale.name}", platform = KAFKA, ownedBy = Sale.class)
 public record SaleCompleted(
         @Key String id,
         Instant start,

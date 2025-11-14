@@ -12,6 +12,7 @@ import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
+import com.palantir.javapoet.TypeSpec;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -20,6 +21,9 @@ import java.util.Optional;
 import java.util.Set;
 
 public class BinaryPlugin implements PrefabPlugin {
+    private final BinaryControllerWriter binaryControllerWriter = new BinaryControllerWriter();
+    private final BinaryTestFixtureWriter binaryTestFixtureWriter = new BinaryTestFixtureWriter();
+
     @Override
     public Optional<ParameterSpec> requestMethodParameter(VariableManifest parameter) {
         if (parameter.type().is(Binary.class)) {
@@ -54,10 +58,26 @@ public class BinaryPlugin implements PrefabPlugin {
 
     @Override
     public Set<TypeName> getServiceDependencies(ClassManifest classManifest, PrefabContext context) {
-        if (classManifest.fields().stream()
-                .anyMatch(f -> f.type().is(Binary.class))) {
+        if (classManifest.fields().stream().anyMatch(f -> f.type().is(Binary.class))) {
             return Set.of(ClassName.get(StorageService.class));
         }
         return Collections.emptySet();
     }
+
+    @Override
+    public void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+        manifest.fields().stream()
+                .filter(f -> f.type().is(Binary.class))
+                .forEach(field ->
+                        builder.addMethod(binaryControllerWriter.downloadMethod(manifest, field)));
+    }
+
+    @Override
+    public void writeTestFixture(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+        manifest.fields().stream()
+                .filter(f -> f.type().is(Binary.class))
+                .forEach(field ->
+                        builder.addMethod(binaryTestFixtureWriter.downloadMethod(manifest, field)));
+    }
+
 }

@@ -4,8 +4,9 @@ import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.DbMigration;
 import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.annotations.rest.Create;
+import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.GetById;
-import be.appify.prefab.core.annotations.rest.Search;
+import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.processor.problem.BadRequestProblem;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.annotation.Id;
@@ -16,8 +17,8 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 @Aggregate
-@Search(property = "code")
 @GetById
+@GetList
 @DbMigration
 public class GiftVoucher {
     @Id
@@ -25,6 +26,7 @@ public class GiftVoucher {
     @Version
     private long version;
     @NotNull
+    @Filter(operator = Filter.Operator.STARTS_WITH)
     private final String code;
     @NotNull
     private BigDecimal remainingValue;
@@ -67,3 +69,6 @@ public class GiftVoucher {
         remainingValue = remainingValue.subtract(amount);
     }
 }
+
+
+

@@ -4,21 +4,23 @@ import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.DbMigration;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.Delete;
+import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.GetById;
-import be.appify.prefab.core.annotations.rest.Search;
+import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.annotations.rest.Update;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
-import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
 
 import java.time.Instant;
 import java.util.UUID;
 
+import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
+
 @Aggregate
 @GetById
-@Search(property = "description")
+@GetList
 @Delete
 @DbMigration
 public class Todo {
@@ -27,6 +29,7 @@ public class Todo {
     @Version
     private long version;
     @NotNull
+    @Filter
     private final String description;
     @NotNull
     private final Boolean done;
@@ -83,3 +86,9 @@ public class Todo {
         return new Todo(id, version, description, done, created);
     }
 }
+
+
+
+
+
+

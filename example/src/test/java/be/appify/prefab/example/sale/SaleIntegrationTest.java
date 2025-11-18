@@ -1,28 +1,31 @@
 package be.appify.prefab.example.sale;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 import be.appify.prefab.example.IntegrationTest;
 import be.appify.prefab.example.sale.application.CreateCustomerRequest;
 import be.appify.prefab.example.sale.application.CreateGiftVoucherRequest;
 import be.appify.prefab.example.sale.application.CreateSaleRequest;
-import be.appify.prefab.example.sale.application.InvoiceRepository;
 import be.appify.prefab.example.sale.application.SaleAddCustomerRequest;
 import be.appify.prefab.example.sale.application.SaleAddItemRequest;
 import be.appify.prefab.example.sale.application.SaleAddPaymentRequest;
 import be.appify.prefab.example.sale.application.SaleRepository;
+import be.appify.prefab.example.sale.invoice.InvoiceFixture;
+import be.appify.prefab.example.sale.invoice.application.InvoiceRepository;
 import be.appify.prefab.test.kafka.KafkaContainerSupport;
 import be.appify.prefab.test.kafka.TestConsumer;
 import org.apache.kafka.clients.consumer.Consumer;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
+
+import java.math.BigDecimal;
+import java.util.concurrent.TimeUnit;
+
 import static be.appify.prefab.example.sale.PaymentMethod.GIFT_VOUCHER;
 import static be.appify.prefab.test.kafka.asserts.KafkaAssertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
-
-import java.math.BigDecimal;
-import java.util.concurrent.TimeUnit;
 
 @IntegrationTest
 class SaleIntegrationTest implements KafkaContainerSupport {
@@ -130,7 +133,7 @@ class SaleIntegrationTest implements KafkaContainerSupport {
         addItem(saleId);
         addPayment(saleId);
 
-        await().untilAsserted(() -> assertThat(invoices.findInvoices(Pageable.unpaged())).hasSize(1));
+        await().untilAsserted(() -> assertThat(invoices.findInvoices(Pageable.unpaged(), null)).hasSize(1));
     }
 
     private void addGiftVoucherPayment(String saleId, String giftVoucher) throws Exception {

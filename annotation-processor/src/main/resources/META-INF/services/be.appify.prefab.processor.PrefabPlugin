@@ -1,7 +1,7 @@
 be.appify.prefab.processor.create.CreatePlugin
 be.appify.prefab.processor.getbyid.GetByIdPlugin
 be.appify.prefab.processor.delete.DeletePlugin
-be.appify.prefab.processor.search.SearchPlugin
+be.appify.prefab.processor.getlist.GetListPlugin
 be.appify.prefab.processor.update.UpdatePlugin
 be.appify.prefab.processor.eventhandler.StaticEventHandlerPlugin
 be.appify.prefab.processor.eventhandler.broadcast.BroadcastEventHandlerPlugin

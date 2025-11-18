@@ -1,5 +1,5 @@
-
 <!-- BACKLOG.MD GUIDELINES START -->
+
 # Instructions for the usage of Backlog.md CLI Tool
 
 ## Backlog.md: Comprehensive Project Management Tool via CLI
@@ -149,7 +149,7 @@ Summary of what was done.
 | Remove AC #3            | `backlog task edit 42 --remove-ac 3`                     |
 | Add Plan                | `backlog task edit 42 --plan "1. Step one\n2. Step two"` |
 | Add Notes (replace)     | `backlog task edit 42 --notes "What I did"`              |
-| Append Notes            | `backlog task edit 42 --append-notes "Another note"` |
+| Append Notes            | `backlog task edit 42 --append-notes "Another note"`     |
 
 ---
 
@@ -302,7 +302,8 @@ implementation.
 - When you begin work, switch to edit, set the task in progress and assign to yourself
   `backlog task edit <id> -s "In Progress" -a "..."`.
 - Think about how you would solve the task and add the plan: `backlog task edit <id> --plan "..."`.
-- Add Implementation Notes only after completing the work: `backlog task edit <id> --notes "..."` (replace) or append progressively using `--append-notes`.
+- Add Implementation Notes only after completing the work: `backlog task edit <id> --notes "..."` (replace) or append
+  progressively using `--append-notes`.
 
 ## Phase discipline: What goes where
 
@@ -388,6 +389,7 @@ backlog search "bug" --priority high --plain
 ```
 
 **Key points:**
+
 - Uses fuzzy matching - finds "authentication" when searching "auth"
 - Searches task titles, descriptions, and content
 - Also searches documents and decisions unless filtered with `--type task`
@@ -399,12 +401,12 @@ backlog search "bug" --priority high --plain
 
 ### Viewing and Finding Tasks
 
-| Task         | ✅ DO                        | ❌ DON'T                         |
-|--------------|-----------------------------|---------------------------------|
-| View task    | `backlog task 42 --plain`   | Open and read .md file directly |
-| List tasks   | `backlog task list --plain` | Browse backlog/tasks folder     |
-| Check status | `backlog task 42 --plain`   | Look at file content            |
-| Find by topic| `backlog search "auth" --plain` | Manually grep through files |
+| Task          | ✅ DO                            | ❌ DON'T                         |
+|---------------|---------------------------------|---------------------------------|
+| View task     | `backlog task 42 --plain`       | Open and read .md file directly |
+| List tasks    | `backlog task list --plain`     | Browse backlog/tasks folder     |
+| Check status  | `backlog task 42 --plain`       | Look at file content            |
+| Find by topic | `backlog search "auth" --plain` | Manually grep through files     |
 
 ### Modifying Tasks
 
@@ -463,21 +465,23 @@ backlog search "bug" --priority high --plain
 
 ### Multi‑line Input (Description/Plan/Notes)
 
-The CLI preserves input literally. Shells do not convert `\n` inside normal quotes. Use one of the following to insert real newlines:
+The CLI preserves input literally. Shells do not convert `\n` inside normal quotes. Use one of the following to insert
+real newlines:
 
 - Bash/Zsh (ANSI‑C quoting):
-  - Description: `backlog task edit 42 --desc $'Line1\nLine2\n\nFinal'`
-  - Plan: `backlog task edit 42 --plan $'1. A\n2. B'`
-  - Notes: `backlog task edit 42 --notes $'Done A\nDoing B'`
-  - Append notes: `backlog task edit 42 --append-notes $'Progress update line 1\nLine 2'`
+    - Description: `backlog task edit 42 --desc $'Line1\nLine2\n\nFinal'`
+    - Plan: `backlog task edit 42 --plan $'1. A\n2. B'`
+    - Notes: `backlog task edit 42 --notes $'Done A\nDoing B'`
+    - Append notes: `backlog task edit 42 --append-notes $'Progress update line 1\nLine 2'`
 - POSIX portable (printf):
-  - `backlog task edit 42 --notes "$(printf 'Line1\nLine2')"`
+    - `backlog task edit 42 --notes "$(printf 'Line1\nLine2')"`
 - PowerShell (backtick n):
-  - `backlog task edit 42 --notes "Line1`nLine2"`
+    - `backlog task edit 42 --notes "Line1`nLine2"`
 
 Do not expect `"...\n..."` to become a newline. That passes the literal backslash + n to the CLI by design.
 
-Descriptions support literal newlines; shell examples may show escaped `\\n`, but enter a single `\n` to create a newline.
+Descriptions support literal newlines; shell examples may show escaped `\\n`, but enter a single `\n` to create a
+newline.
 
 ### Implementation Notes Formatting
 
@@ -496,16 +500,16 @@ Descriptions support literal newlines; shell examples may show escaped `\\n`, bu
 
 ### Task Operations
 
-| Action             | Command                                      |
-|--------------------|----------------------------------------------|
-| View task          | `backlog task 42 --plain`                    |
-| List tasks         | `backlog task list --plain`                  |
-| Search tasks       | `backlog search "topic" --plain`              |
+| Action             | Command                                         |
+|--------------------|-------------------------------------------------|
+| View task          | `backlog task 42 --plain`                       |
+| List tasks         | `backlog task list --plain`                     |
+| Search tasks       | `backlog search "topic" --plain`                |
 | Search with filter | `backlog search "api" --status "To Do" --plain` |
-| Filter by status   | `backlog task list -s "In Progress" --plain` |
-| Filter by assignee | `backlog task list -a @sara --plain`         |
-| Archive task       | `backlog task archive 42`                    |
-| Demote to draft    | `backlog task demote 42`                     |
+| Filter by status   | `backlog task list -s "In Progress" --plain`    |
+| Filter by assignee | `backlog task list -a @sara --plain`            |
+| Archive task       | `backlog task archive 42`                       |
+| Demote to draft    | `backlog task demote 42`                        |
 
 ---
 

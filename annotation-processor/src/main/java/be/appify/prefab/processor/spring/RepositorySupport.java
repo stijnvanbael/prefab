@@ -15,8 +15,10 @@ public final class RepositorySupport {
         try {
             return call.get();
         } catch (IllegalStateException e) {
-            if (e.getMessage().startsWith("Required identifier property not found for class ")) {
-                throw new IllegalStateException(e.getMessage() + ". This usually indicates a compilation problem. Try cleaning the output folder an running a full compile again (eg. mvn clean compile)", e);
+            if (e.getMessage().startsWith("Required identifier field not found for class ")) {
+                throw new IllegalStateException(
+                        e.getMessage() + ". This usually indicates a compilation problem. Try cleaning the output folder an running a full compile again (eg. mvn clean compile)",
+                        e);
             }
             throw e;
         }

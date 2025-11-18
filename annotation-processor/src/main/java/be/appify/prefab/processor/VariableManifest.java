@@ -1,7 +1,6 @@
 package be.appify.prefab.processor;
 
 import be.appify.prefab.core.service.Reference;
-import com.palantir.javapoet.ParameterSpec;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.annotation.Id;
 
@@ -60,8 +59,8 @@ public class VariableManifest {
     @Override
     public boolean equals(Object obj) {
         return obj instanceof VariableManifest other
-               && type.equals(other.type)
-               && name.equals(other.name);
+                && type.equals(other.type)
+                && name.equals(other.name);
     }
 
     @Override
@@ -90,11 +89,6 @@ public class VariableManifest {
         };
     }
 
-    public ParameterSpec asParameterSpec() {
-        return ParameterSpec.builder(type.asTypeName(), name)
-                .build();
-    }
-
     public VariableManifest withType(Class<?> type) {
         return new VariableManifest(TypeManifest.of(type, processingEnvironment), name, annotations,
                 processingEnvironment);
@@ -113,10 +107,10 @@ public class VariableManifest {
 
     public boolean dependsOn(TypeManifest type) {
         return this.type == type
-               || (this.type.isRecord() && this.type.asClassManifest().fields().stream()
+                || (this.type.isRecord() && this.type.asClassManifest().fields().stream()
                 .anyMatch(field -> field.dependsOn(type)))
-               || (this.type.is(Reference.class) && this.type.parameters().getFirst() == type)
-               || (this.type.is(List.class) && this.type.parameters().getFirst().asClassManifest()
+                || (this.type.is(Reference.class) && this.type.parameters().getFirst() == type)
+                || (this.type.is(List.class) && this.type.parameters().getFirst().asClassManifest()
                 .dependsOn(type.asClassManifest()));
     }
 

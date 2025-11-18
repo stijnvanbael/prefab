@@ -40,7 +40,7 @@ public class TypeManifest {
                     .substring(0, element.toString().lastIndexOf('.'));
             this.simpleName = element.getSimpleName().toString();
             this.parameters = declaredType.getTypeArguments().stream()
-                    .map(typeMirror1 -> new TypeManifest(typeMirror1, processingEnvironment))
+                    .map(type -> new TypeManifest(type, processingEnvironment))
                     .toList();
             this.kind = element.getKind();
         } else if (Objects.requireNonNull(typeMirror.getKind()) == TypeKind.ARRAY) {
@@ -87,9 +87,9 @@ public class TypeManifest {
     @Override
     public boolean equals(Object obj) {
         return obj instanceof TypeManifest other
-               && packageName.equals(other.packageName)
-               && simpleName.equals(other.simpleName)
-               && parameters.equals(other.parameters);
+                && packageName.equals(other.packageName)
+                && simpleName.equals(other.simpleName)
+                && parameters.equals(other.parameters);
     }
 
     @Override
@@ -140,6 +140,14 @@ public class TypeManifest {
 
     public ClassManifest asClassManifest() {
         return new ClassManifest(asElement(), processingEnvironment);
+    }
+
+    public Class<?> asClass() {
+        try {
+            return TypeManifest.class.getClassLoader().loadClass("%s.%s".formatted(packageName, simpleName));
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public <T extends Annotation> Set<T> annotationsOfType(Class<T> annotationType) {

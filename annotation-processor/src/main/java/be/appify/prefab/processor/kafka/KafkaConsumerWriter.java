@@ -94,7 +94,7 @@ public class KafkaConsumerWriter {
             if (!target.annotationsOfType(Aggregate.class).isEmpty()) {
                 type.addMethod(aggregateConsumer(target, event, annotation));
             } else if (!target.annotationsOfType(Component.class).isEmpty()) {
-                type.addMethod(componentConsumer(target, event, eventHandler));
+                type.addMethod(componentConsumer(target, event, annotation, eventHandler));
             } else {
                 throw new IllegalStateException(
                         "Cannot write Kafka consumer for %s, it is neither an Aggregate nor a Component".formatted(
@@ -103,9 +103,13 @@ public class KafkaConsumerWriter {
         }
     }
 
-    private MethodSpec componentConsumer(TypeManifest target, TypeManifest event, ExecutableElement eventHandler) {
+    private MethodSpec componentConsumer(TypeManifest target, TypeManifest event, Event annotation,
+            ExecutableElement eventHandler) {
         return MethodSpec.methodBuilder("on%s".formatted(event.simpleName()))
                 .addModifiers(PUBLIC)
+                .addAnnotation(AnnotationSpec.builder(KafkaListener.class)
+                        .addMember("topics", "$S", annotation.topic())
+                        .build())
                 .addParameter(event.asTypeName(), "event")
                 .addStatement("log.debug($S, event)", "Received event {}")
                 .addStatement("$N.$L(event)", uncapitalize(target.simpleName()), eventHandler.getSimpleName())

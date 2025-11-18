@@ -7,6 +7,8 @@ import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.spring.JsonUtil;
 import com.google.cloud.spring.pubsub.core.PubSubTemplate;
+import com.google.protobuf.ByteString;
+import com.google.pubsub.v1.PubsubMessage;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.FieldSpec;
@@ -20,7 +22,6 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import javax.lang.model.element.Modifier;
-import java.util.Map;
 
 public class PubSubPublisherWriter {
     public void writePubSubPublisher(ClassManifest event, PrefabContext context) {
@@ -76,9 +77,17 @@ public class PubSubPublisherWriter {
                 .addParameter(event.type().asTypeName(), "event")
                 .addAnnotation(EventListener.class)
                 .addStatement("log.debug($S, event, topic)", "Publishing event {} on topic {}")
-                .addStatement(
-                        "pubSubTemplate.publish(topic, jsonSupport.toJson(event), $T.of($S, event.getClass().getName()))",
-                        Map.class,
+                .addStatement("""
+                                pubSubTemplate.publish(
+                                    topic,
+                                    $T.newBuilder()
+                                        .setData($T.copyFromUtf8(jsonSupport.toJson(event)))
+                                        .setOrderingKey(event.$L())
+                                        .putAttributes($S, event.getClass().getName())
+                                        .build())""",
+                        PubsubMessage.class,
+                        ByteString.class,
+                        keyField,
                         "type"
                 )
                 .build();

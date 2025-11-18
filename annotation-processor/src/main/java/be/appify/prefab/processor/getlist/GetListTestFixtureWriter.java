@@ -1,8 +1,11 @@
-package be.appify.prefab.processor.search;
+package be.appify.prefab.processor.getlist;
 
-import be.appify.prefab.core.annotations.rest.Search;
+import be.appify.prefab.core.annotations.rest.Filter;
+import be.appify.prefab.core.annotations.rest.GetList;
+import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.ControllerUtil;
+import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.spring.Page;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.palantir.javapoet.ClassName;
@@ -12,20 +15,27 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
-import static org.atteo.evo.inflector.English.plural;
 
 import javax.lang.model.element.Modifier;
+import java.util.List;
 
-public class SearchTestFixtureWriter {
-    public MethodSpec searchMethod(ClassManifest manifest) {
-        var search = manifest.annotationsOfType(Search.class).stream().findFirst().orElseThrow();
-        var property = search.property().isEmpty() ? null : search.property();
+import static org.atteo.evo.inflector.English.plural;
+
+public class GetListTestFixtureWriter {
+    public MethodSpec getListMethod(ClassManifest manifest) {
+        var search = manifest.annotationsOfType(GetList.class).stream().findFirst().orElseThrow();
+        var filterProperties = manifest.fields().stream()
+                .filter(field -> field.hasAnnotation(Filter.class))
+                .map(field -> field.type().is(Reference.class) ? field.withType(String.class) : field)
+                .toList();
         var returnType = returnType(manifest);
-        var method = methodSignature(manifest, returnType, property);
+        var method = methodSignature(manifest, returnType, filterProperties);
         createRequest(manifest, method, search);
         addPaging(method);
         addSorting(method);
-        addSearchParam(property, method);
+        for (var property : filterProperties) {
+            addFilterParam(property.name(), method);
+        }
         return performRequest(method, returnType);
     }
 
@@ -38,31 +48,34 @@ public class SearchTestFixtureWriter {
     private static MethodSpec.Builder methodSignature(
             ClassManifest manifest,
             ParameterizedTypeName returnType,
-            String property
+            List<VariableManifest> filterProperties
     ) {
         var method = MethodSpec.methodBuilder("find" + plural(manifest.simpleName()))
                 .addModifiers(Modifier.PUBLIC)
                 .returns(returnType)
                 .addParameter(Pageable.class, "pageable");
-        if (property != null) {
-            method.addParameter(String.class, property);
+
+        for (VariableManifest filterProperty : filterProperties) {
+            method.addParameter(
+                    ClassName.get(filterProperty.type().packageName(), filterProperty.type().simpleName()),
+                    filterProperty.name());
         }
         manifest.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
         method.addException(Exception.class);
         return method;
     }
 
-    private static void createRequest(ClassManifest manifest, MethodSpec.Builder method, Search search) {
+    private static void createRequest(ClassManifest manifest, MethodSpec.Builder method, GetList getList) {
         manifest.parent().ifPresentOrElse(
                 parent -> method.addStatement("var request = $T.$N($S, $L)",
                         MockMvcRequestBuilders.class,
-                        search.method().toLowerCase(),
-                        "/" + ControllerUtil.pathOf(manifest) + search.path(),
+                        getList.method().toLowerCase(),
+                        "/" + ControllerUtil.pathOf(manifest) + getList.path(),
                         parent.name()),
                 () -> method.addStatement("var request = $T.$N($S)",
                         MockMvcRequestBuilders.class,
-                        search.method().toLowerCase(),
-                        "/" + ControllerUtil.pathOf(manifest) + search.path()));
+                        getList.method().toLowerCase(),
+                        "/" + ControllerUtil.pathOf(manifest) + getList.path()));
     }
 
     private static void addPaging(MethodSpec.Builder method) {
@@ -83,7 +96,7 @@ public class SearchTestFixtureWriter {
                 ControllerUtil.class);
     }
 
-    private static void addSearchParam(String property, MethodSpec.Builder method) {
+    private static void addFilterParam(String property, MethodSpec.Builder method) {
         if (property != null) {
             method.addCode("""
                     if ($N != null) {

@@ -1,7 +1,6 @@
-package be.appify.prefab.processor.search;
+package be.appify.prefab.processor.getlist;
 
-import be.appify.prefab.core.annotations.rest.Search;
-import be.appify.prefab.core.service.Reference;
+import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.AnnotationSpec;
@@ -15,41 +14,44 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
-import static javax.lang.model.element.Modifier.PUBLIC;
-import static org.apache.commons.text.WordUtils.uncapitalize;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class SearchControllerWriter {
-    public MethodSpec searchMethod(ClassManifest manifest, Search search) {
-        var searchProperty = search.property().isBlank() ? null : manifest.fieldByName(search.property())
-                .orElseThrow(() -> new IllegalArgumentException("Property %s.%s defined in Http.Search not found"
-                        .formatted(manifest.qualifiedName(), search.property())));
-        if (searchProperty != null && searchProperty.type().is(Reference.class)) {
-            searchProperty = searchProperty.withType(String.class);
-        }
+import static be.appify.prefab.processor.getlist.GetListUtil.filterPropertiesOf;
+import static javax.lang.model.element.Modifier.PUBLIC;
+import static org.apache.commons.text.WordUtils.uncapitalize;
+
+public class GetListControllerWriter {
+
+    public MethodSpec getListMethod(ClassManifest manifest, GetList getList) {
+        var filters = filterPropertiesOf(manifest);
+
         var responseType = responseType(manifest);
-        var method = MethodSpec.methodBuilder("search")
+        var method = MethodSpec.methodBuilder("getList")
                 .addModifiers(PUBLIC)
-                .addAnnotation(requestMapping(search.method(), search.path()))
+                .addAnnotation(requestMapping(getList.method(), getList.path()))
                 .returns(ParameterizedTypeName.get(
                         ClassName.get(ResponseEntity.class),
                         ParameterizedTypeName.get(
                                 ClassName.get(PagedModel.class),
                                 responseType)));
         manifest.parent().ifPresent(parent -> method.addParameter(parentParameter(parent)));
-        var parameters = searchParameters(manifest);
+        var parameters = getListParameters(manifest);
         method.addParameter(Pageable.class, "pageable");
-        if (searchProperty != null) {
-            return method.addParameter(ParameterSpec.builder(
-                                    ClassName.get(searchProperty.type().packageName(), searchProperty.type().simpleName()),
-                                    searchProperty.name())
-                            .build()).addStatement("return $T.ok(new $T(service.search($L, $N).map($T::from)))",
-                            ResponseEntity.class, PagedModel.class, parameters, searchProperty.name(), responseType)
-                    .build();
+        if (!filters.isEmpty()) {
+            for (var filter : filters) {
+                method.addParameter(ParameterSpec.builder(
+                                ClassName.get(filter.field().type().packageName(), filter.field().type().simpleName()),
+                                filter.field().name())
+                        .build());
+            }
+            method.addStatement("return $T.ok(new $T(service.getList($L, $L).map($T::from)))",
+                    ResponseEntity.class, PagedModel.class, parameters, String.join(", ",
+                            filters.stream().map(filter -> filter.field().name()).toList()), responseType);
+            return method.build();
         } else {
-            return method.addStatement("return $T.ok(new $T(service.search($L).map($T::from)))",
+            return method.addStatement("return $T.ok(new $T(service.getList($L).map($T::from)))",
                             ResponseEntity.class, PagedModel.class, parameters, responseType)
                     .build();
         }
@@ -66,7 +68,7 @@ public class SearchControllerWriter {
                 .build();
     }
 
-    private static String searchParameters(ClassManifest manifest) {
+    private static String getListParameters(ClassManifest manifest) {
         var parameters = new ArrayList<>(List.of("pageable"));
         manifest.parent().ifPresent(parent -> parameters.add(uncapitalize(parent.name()) + "Id"));
         return String.join(", ", parameters);

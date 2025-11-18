@@ -8,7 +8,11 @@ By adding annotations to your domain classes, Prefab will generate the following
 - Request and response classes
 - Services
 - Repositories
-- Data classes
+
+Additionally, Prefab supports:
+
+- Event publishers and consumers
+- Database migrations
 
 Prefab is designed to work with Spring Boot and PostgreSQL. Other databases might be added in the future.
 
@@ -82,6 +86,7 @@ e.g.:
 @Aggregate
 public record Sale(
         @Id String id,
+        @Version long version,
         Instant start,
         Double amount
 ) {
@@ -95,8 +100,8 @@ Prefab will generate a REST controller, a service, and a repository for the anno
 ### 🐣 Create
 
 Annotate any public constructor with `@Create` to expose it as a REST endpoint to create a new instance of the class.
-For a record, this can also be the canonical constructor. By default, the constructor will be exposed at the
-`POST /{plural-class-name}` endpoint, where `{plural-class-name}` is the plural of the class name in kebab case. Both
+For records, this can also be the canonical constructor. By default, the constructor will be exposed at
+`POST /{plural-class-name}`, where `{plural-class-name}` is the plural of the class name in kebab case. Both
 method and path can be customized with the `@Create` annotation. The endpoint will accept a JSON body that matches the
 signature of the constructor.
 
@@ -105,12 +110,13 @@ signature of the constructor.
 @Aggregate
 public record Sale(
         @Id String id,
+        @Version long version,
         Instant start,
         Double amount
 ) {
     @Create // This constructor will be exposed as a REST endpoint to create a new Sale instance
     public Sale(Instant start, Double amount) {
-        this(UUID.randomUUID().toString(), start, amount);
+        this(UUID.randomUUID().toString(), 0, start, amount);
     }
 
     @PersistenceCreator // Prefab generates Spring Data JDBC code that requires a constructor with all properties
@@ -122,7 +128,7 @@ public record Sale(
 ### 📘 Get by ID
 
 Annotate an aggregate with `@GetById` to expose a REST endpoint to retrieve an instance of the class by its ID. By
-default, the endpoint will be exposed at the `GET /{plural-class-name}/{id}` endpoint, where `{plural-class-name}`
+default, the endpoint will be exposed at `GET /{plural-class-name}/{id}`, where `{plural-class-name}`
 is the plural of the class name in kebab case. Both method and path can be customized with the`@GetById` annotation.
 
 ```java
@@ -131,8 +137,34 @@ is the plural of the class name in kebab case. Both method and path can be custo
 @GetById // This will expose a GET endpoint for the Sale class
 public record Sale(
         @Id String id,
+        @Version long version,
         Instant start,
         Double amount
+) {
+}
+```
+
+### 📋 Get list
+
+Annotate an aggregate with `@GetList` to generate a list endpoint for the class. The list endpoint will be exposed
+at `GET /{plural-class-name}`, where `{plural-class-name}` is the plural of the class name in kebab case.
+Annotate one or more fields with `@Filter` to allow filtering on these fields. The filter will be
+a case-insensitive like (contains) query on the specified field by default, but this behavior can be customized by
+providing
+with the `operator` and `ignoreCase` attributes of the `@Filter` annotation. The endpoint supports Spring Data REST
+paging and sorting out of the box.
+
+```java
+
+@Aggregate
+@GetList // This will generate a list endpoint for the Sale class
+public record Sale(
+        @Id String id,
+        @Version long version,
+        Instant start,
+        Double amount,
+        @Filter // This property can be filtered on in the list endpoint
+        String product
 ) {
 }
 ```
@@ -140,7 +172,7 @@ public record Sale(
 ### ✍️ Update
 
 Annotate any public method with `@Update` to expose a REST endpoint to update an instance of the class. By default, the
-endpoint will be exposed at the `PUT /{plural-class-name}/{id}` endpoint, where `{plural-class-name}` is the plural
+endpoint will be exposed at `PUT /{plural-class-name}/{id}`, where `{plural-class-name}` is the plural
 of the class name in kebab case. Both method and path can be customized with the `@Update` annotation. The endpoint
 will accept a JSON body that matches the signature of the method. The method can either return the updated instance
 or `void`. When it is `void`, Prefab assumes the method modifies the existing instance.
@@ -150,6 +182,7 @@ or `void`. When it is `void`, Prefab assumes the method modifies the existing in
 @Aggregate
 public record Sale(
         @Id String id,
+        @Version long version,
         Instant start,
         Double amount
 ) {
@@ -163,7 +196,7 @@ public record Sale(
 ### 🗑️ Delete
 
 Annotate an aggregate with `@Delete` to expose a REST endpoint to delete an instance of the class. By default, the
-endpoint will be exposed at the `DELETE /{plural-class-name}/{id}` endpoint, where `{plural-class-name}` is the plural
+endpoint will be exposed at `DELETE /{plural-class-name}/{id}`, where `{plural-class-name}` is the plural
 of the class name in kebab case. Both method and path can be customized with the `@Delete` annotation.
 
 ```java
@@ -172,6 +205,7 @@ of the class name in kebab case. Both method and path can be customized with the
 @Delete // This will expose a DELETE endpoint for the Sale class
 public record Sale(
         @Id String id,
+        @Version long version,
         Instant start,
         Double amount
 ) {
@@ -189,10 +223,11 @@ ID of the referenced aggregate. References can also be resolved to the actual in
 @Aggregate
 public record Sale(
         @Id String id,
+        @Version long version,
         Instant start,
         Double amount,
         Reference<Customer> customer, // Reference to another aggregate
-        String customerName // Not set through the constructor, but resolved from the customer reference
+        String customerName // Not set through the constructor but resolved from the customer reference
 ) {
     @Create
     public Sale(Instant start, Double amount, Reference<Customer> customer) {
@@ -219,6 +254,7 @@ the parent aggregate.
 @Aggregate
 public record Sale(
         @Id String id,
+        @Version long version,
         Instant start,
         List<SaleItem> items // List of SaleItem children
 ) {
@@ -245,6 +281,7 @@ will be stored as `amount_value` and `amount_currency` in the database.
 @Aggregate
 public record Sale(
         @Id String id,
+        @Version long version,
         Instant start,
         @Embedded.Nullable(prefix = "amount_") Money amount
         // Money is a value object that will be embedded in the Sale aggregate
@@ -269,6 +306,7 @@ of `@Create` and `@Update` endpoints and return a `400 Bad Request` response if 
 @Aggregate
 public record Sale(
         @Id String id,
+        @Version long version,
         @NotNull Instant start,
         @NotNull Double amount
 ) {
@@ -291,7 +329,7 @@ public record Sale(
 }
 ```
 
-### 💾 Alpha: Binary files
+### 💾 Binary files
 
 You can use the `Binary` type to store binary files in your aggregates. Any `Binary` field in the aggregate won't be
 included in JSON request bodies, but will be a separate part of a multipart request. Prefab will store the binary file
@@ -302,10 +340,58 @@ in the database as a `bytea` field.
 @Aggregate
 public record Sale(
         @Id String id,
+        @Version long version,
         Instant start,
         Double amount,
         Binary receipt // Binary file field
 ) {
+}
+```
+
+### 🔥 Events
+
+Any record can be an event in Prefab. Events can be published by implementing `PublishesEvents` and calling `publish()`.
+By default, events are published on the Spring application event bus.
+
+```java
+
+@Aggregate
+public record Sale(
+        @Id String id,
+        @Version long version,
+        Instant start,
+        Double amount
+) implements PublishesEvents {
+    void completeSale() {
+        publish(new SaleCompletedEvent(id, Instant.now()));
+    }
+}
+```
+
+Alternatively, you can annotate the event with `@Event` to generate a publisher for the event that publishes to a
+message broker. Supported platforms right now are `KAFKA`, and `PUB_SUB`.
+
+```java
+
+@Event(topic = "${kafka.topics.sale.name}", platform = KAFKA, ownedBy = Sale.class)
+public record SaleCompletedEvent(
+        String saleId,
+        Instant completedAt
+) {
+}
+```
+
+Events can be consumed by annotating a method that takes a single argument with `@EventHandler`. This can be either an
+instance method on a Spring bean or a static method on any class.
+
+```java
+
+@Component
+public class CreateInvoiceUseCase {
+    @EventHandler
+    public void handleSaleCompleted(SaleCompletedEvent event) {
+        // Handle the event
+    }
 }
 ```
 
@@ -322,29 +408,9 @@ doesn't get overwritten the next time you compile your project.
 @DbMigration // This will include the Sale class in the generated Flyway migration script
 public record Sale(
         @Id String id,
+        @Version long version,
         Instant start,
         Double amount
-) {
-}
-```
-
-### 🔍 Alpha: Search
-
-Annotate an aggregate with `@Search` to generate a search endpoint for the class. The search endpoint will be exposed
-at the `GET /{plural-class-name}` endpoint, where `{plural-class-name}` is the plural of the class name in kebab case.
-Provide a `property` parameter to the annotation to specify which property to search on. The search will be
-a case-insensitive like query on the specified property. The search will return a paged list of the instances that
-match.
-
-```java
-
-@Aggregate
-@Search(property = "product") // This will generate a search endpoint for the Sale class on the product property
-public record Sale(
-        @Id String id,
-        Instant start,
-        Double amount,
-        String product
 ) {
 }
 ```
@@ -414,23 +480,14 @@ You can work around this issue by running:
 mvn clean compile
 ```
 
-### ❌ Required identifier property not found for class ...
-
-This error occurs when annotation processors are not run in the correct order by your IDE.
-You can work around this issue by running:
-
-```bash
-mvn clean compile
-```
-
 ## 🧭 What's next?
 
 Prefab is still in its early stages, and many features are planned for the future. Some of the upcoming features
 include:
 
 - Support for Kafka, PubSub, and SNS/SQS
-- Support for more complex search queries
-- Full-text search
+- Support for more complex filter queries
+- Full-text filter
 - Support for Spring Security
 - Projections
 - Support for class hierarchies

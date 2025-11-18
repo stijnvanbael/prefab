@@ -12,7 +12,6 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import javax.lang.model.element.Modifier;
 
 public class GetByIdTestFixtureWriter {
-    // TODO: parent ID
     public MethodSpec getByIdMethod(ClassManifest manifest) {
         var getById = manifest.annotationsOfType(GetById.class).stream().findFirst().orElseThrow();
         var returnType = ClassName.get(manifest.packageName() + ".infrastructure.http",

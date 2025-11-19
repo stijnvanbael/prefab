@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.binary;
 
+import be.appify.prefab.core.annotations.rest.Download;
 import be.appify.prefab.core.domain.Binary;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
@@ -67,7 +68,7 @@ public class BinaryPlugin implements PrefabPlugin {
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
         manifest.fields().stream()
-                .filter(f -> f.type().is(Binary.class))
+                .filter(f -> f.type().is(Binary.class) && f.hasAnnotation(Download.class))
                 .forEach(field ->
                         builder.addMethod(binaryControllerWriter.downloadMethod(manifest, field)));
     }
@@ -75,7 +76,7 @@ public class BinaryPlugin implements PrefabPlugin {
     @Override
     public void writeTestFixture(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
         manifest.fields().stream()
-                .filter(f -> f.type().is(Binary.class))
+                .filter(f -> f.type().is(Binary.class) && f.hasAnnotation(Download.class))
                 .forEach(field ->
                         builder.addMethod(binaryTestFixtureWriter.downloadMethod(manifest, field)));
     }

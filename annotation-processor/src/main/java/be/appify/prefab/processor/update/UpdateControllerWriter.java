@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static be.appify.prefab.processor.ControllerUtil.securedAnnotation;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static org.apache.commons.text.WordUtils.capitalize;
 import static org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE;
@@ -35,6 +36,7 @@ public class UpdateControllerWriter {
                 .addParameter(ParameterSpec.builder(String.class, "id")
                         .addAnnotation(PathVariable.class)
                         .build());
+        securedAnnotation(update.security()).ifPresent(method::addAnnotation);
         if (update.parameters().isEmpty()) {
             method.addStatement("return toResponse(service.$N(id))", update.operationName());
         } else {
@@ -46,8 +48,8 @@ public class UpdateControllerWriter {
                     .addAnnotation(requestParts.isEmpty()
                             ? AnnotationSpec.builder(RequestBody.class).build()
                             : AnnotationSpec.builder(RequestPart.class)
-                            .addMember("name", "$S", "body")
-                            .build())
+                                    .addMember("name", "$S", "body")
+                                    .build())
                     .build());
             requestParts.forEach(method::addParameter);
             method.addStatement("return toResponse(service.$N(id, request$L))", update.operationName(),

@@ -10,13 +10,16 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 
+import static be.appify.prefab.processor.ControllerUtil.securedAnnotation;
 import static javax.lang.model.element.Modifier.PUBLIC;
 
 public class DeleteControllerWriter {
     public MethodSpec deleteMethod(Delete delete) {
-        return MethodSpec.methodBuilder("delete")
+        var method = MethodSpec.methodBuilder("delete")
                 .addModifiers(PUBLIC)
-                .addAnnotation(requestMapping(delete.method(), delete.path()))
+                .addAnnotation(requestMapping(delete.method(), delete.path()));
+        securedAnnotation(delete.security()).ifPresent(method::addAnnotation);
+        return method
                 .returns(ParameterizedTypeName.get(ResponseEntity.class, Void.class))
                 .addParameter(ParameterSpec.builder(String.class, "id")
                         .addAnnotation(PathVariable.class)

@@ -13,4 +13,6 @@ public @interface GetList {
     String method() default HttpMethod.GET;
 
     String path() default "";
+
+    Security security() default @Security;
 }

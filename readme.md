@@ -329,6 +329,35 @@ public record Sale(
 }
 ```
 
+### 🛡️ Security
+
+By default, all generated REST endpoints are secured. They require the user to be authenticated. You can customize the
+security requirements of any REST endpoint by setting the security attribute on it.
+
+To make an endpoint publicly accessible, set enabled to false on the security attribute.
+
+```java
+
+@Create(security = @Security(enabled = false)) // Publicly accessible create endpoint
+public Sale(Instant start, Double amount) {
+    this(UUID.randomUUID().toString(), 0, start, amount);
+}
+```
+
+To restrict access to users with a specific authority, set the authority attribute on the `@Security` annotation.
+
+```java
+
+@Delete(security = @Security(authority = "sale:delete")) // Only users with the sale:delete authority can delete
+public record Sale(
+        @Id String id,
+        @Version long version,
+        Instant start,
+        Double amount
+) {
+}
+```
+
 ### 💾 Binary files
 
 You can use the `Binary` type to store binary files in your aggregates. Any `Binary` field in the aggregate won't be
@@ -425,7 +454,7 @@ be limited to the parent aggregate. This is useful for creating a hierarchy of a
 
 The types below are the only types you can currently use in Prefab aggregates or nested records.
 Any type that is not listed is currently not supported.
-Support may be added later on popular request.
+Support may be added later on request.
 Alternatively, you can write your own Prefab plugin to provide database and JSON mappings.
 
 ### 🐒 Primitives
@@ -485,14 +514,11 @@ mvn clean compile
 Prefab is still in its early stages, and many features are planned for the future. Some of the upcoming features
 include:
 
-- Support for Kafka, PubSub, and SNS/SQS
+- Support for SNS/SQS
 - Support for more complex filter queries
 - Full-text filter
-- Support for Spring Security
 - Projections
 - Support for class hierarchies
 - Support for generic types
-- Simplify mixing in your own code with generated code
 - Simplify Maven configuration
-- Generate test fixtures
 - Support for more databases

@@ -7,6 +7,7 @@ import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.GetList;
+import be.appify.prefab.core.annotations.rest.Security;
 import be.appify.prefab.processor.problem.BadRequestProblem;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.annotation.Id;
@@ -17,8 +18,8 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 @Aggregate
-@GetById
-@GetList
+@GetById(security = @Security(authority = "gift-voucher:view"))
+@GetList(security = @Security(authority = "gift-voucher:view"))
 @DbMigration
 public class GiftVoucher {
     @Id
@@ -47,7 +48,7 @@ public class GiftVoucher {
         return version;
     }
 
-    @Create
+    @Create(security = @Security(authority = "gift-voucher:create"))
     public GiftVoucher(@NotNull String code, @NotNull BigDecimal remainingValue) {
         this(UUID.randomUUID().toString(), 0, code, remainingValue);
     }

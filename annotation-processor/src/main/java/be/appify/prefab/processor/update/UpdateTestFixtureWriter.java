@@ -13,13 +13,14 @@ import org.springframework.mock.web.MockPart;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import org.springframework.web.multipart.MultipartFile;
-import static org.apache.commons.lang3.StringUtils.capitalize;
-import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 import javax.lang.model.element.Modifier;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.apache.commons.lang3.StringUtils.capitalize;
+import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 public class UpdateTestFixtureWriter {
     public MethodSpec updateMethod(
@@ -71,13 +72,14 @@ public class UpdateTestFixtureWriter {
             String pathVariables
     ) {
         return method.addStatement("""
-                                mockMvc.perform($T.$N($L, id)
+                                mockMvc.perform($T.$N($L, id)$L
                                         .contentType($T.APPLICATION_JSON)
                                         $L
                                         .andExpect($T.status().isOk())""",
                         MockMvcRequestBuilders.class,
                         update.method().toLowerCase(),
                         pathVariables(manifest, update, pathVariables),
+                        ControllerUtil.withMockUser(update.security()),
                         MediaType.class,
                         update.parameters().isEmpty() ? ")" : ".content(objectMapper.writeValueAsString(request)))",
                         MockMvcResultMatchers.class)
@@ -107,11 +109,12 @@ public class UpdateTestFixtureWriter {
             }
         });
         return method.addStatement("""
-                                return mockMvc.perform($T.multipart($L, id)
+                                return mockMvc.perform($T.multipart($L, id)$L
                                         $L
                                         ).andExpect($T.status().isOk())""",
                         MockMvcRequestBuilders.class,
                         pathVariables(manifest, update, pathVariables),
+                        ControllerUtil.withMockUser(update.security()),
                         requestParts.stream()
                                 .map(part -> {
                                     if (part.type().equals(ClassName.get(MultipartFile.class))) {

@@ -15,13 +15,14 @@ import org.springframework.mock.web.MockPart;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import org.springframework.web.multipart.MultipartFile;
-import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 public class CreateTestFixtureWriter {
     public List<MethodSpec> createMethods(ClassManifest manifest, ExecutableElement constructor,
@@ -89,13 +90,14 @@ public class CreateTestFixtureWriter {
             String createRequest
     ) {
         return method.addStatement("""
-                                var result = mockMvc.perform($T.$N($L)
+                                var result = mockMvc.perform($T.$N($L)$L
                                 .contentType($T.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString($L)))
                                 .andExpect($T.status().isCreated())""",
                         MockMvcRequestBuilders.class,
                         create.method().toLowerCase(),
                         pathVariables(manifest, create, pathVariables),
+                        ControllerUtil.withMockUser(create.security()),
                         MediaType.class,
                         createRequest,
                         MockMvcResultMatchers.class)

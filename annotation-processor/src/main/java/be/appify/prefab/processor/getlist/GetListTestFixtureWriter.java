@@ -67,15 +67,17 @@ public class GetListTestFixtureWriter {
 
     private static void createRequest(ClassManifest manifest, MethodSpec.Builder method, GetList getList) {
         manifest.parent().ifPresentOrElse(
-                parent -> method.addStatement("var request = $T.$N($S, $L)",
+                parent -> method.addStatement("var request = $T.$N($S, $L)$L",
                         MockMvcRequestBuilders.class,
                         getList.method().toLowerCase(),
                         "/" + ControllerUtil.pathOf(manifest) + getList.path(),
-                        parent.name()),
-                () -> method.addStatement("var request = $T.$N($S)",
+                        parent.name(),
+                        ControllerUtil.withMockUser(getList.security())),
+                () -> method.addStatement("var request = $T.$N($S)$L",
                         MockMvcRequestBuilders.class,
                         getList.method().toLowerCase(),
-                        "/" + ControllerUtil.pathOf(manifest) + getList.path()));
+                        "/" + ControllerUtil.pathOf(manifest) + getList.path(),
+                        ControllerUtil.withMockUser(getList.security())));
     }
 
     private static void addPaging(MethodSpec.Builder method) {

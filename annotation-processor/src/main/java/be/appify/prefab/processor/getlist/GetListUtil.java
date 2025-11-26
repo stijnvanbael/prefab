@@ -27,21 +27,17 @@ public class GetListUtil {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private static Stream<FilterManifest> multipleFilters(VariableManifest field) {
-        var filters = field.getAnnotation(Filters.class).stream().flatMap(filtersAnnotation ->
-                        ((List<AnnotationManifest>) filtersAnnotation.value("value")).stream())
-                .toList();
-        return filters.stream().map(filter ->
-                new FilterManifest(field, (Filter.Operator) filter.value("operator"),
-                        (boolean) filter.value("ignoreCase")));
+        return field.getAnnotation(Filters.class).stream().flatMap(filtersAnnotation ->
+                        Stream.of(filtersAnnotation.value().value()))
+                .map(filter -> new FilterManifest(field, filter.operator(), filter.ignoreCase()));
     }
 
     private static Stream<FilterManifest> singleFilter(VariableManifest field) {
         return field.getAnnotation(Filter.class)
+                .map(AnnotationManifest::value)
                 .map(filter ->
-                        new FilterManifest(field, (Filter.Operator) filter.value("operator"),
-                                (boolean) filter.value("ignoreCase")))
+                        new FilterManifest(field, filter.operator(), filter.ignoreCase()))
                 .stream();
     }
 

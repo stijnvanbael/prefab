@@ -73,7 +73,8 @@ public class UpdatePlugin implements PrefabPlugin {
                             getParametersOf(element, context.processingEnvironment()),
                             element.getReturnType().toString().equals("void"),
                             update.method(),
-                            update.path());
+                            update.path(),
+                            update.security());
                 })
                 .toList();
     }

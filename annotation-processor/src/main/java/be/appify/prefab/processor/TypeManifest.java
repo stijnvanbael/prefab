@@ -36,9 +36,9 @@ public class TypeManifest {
         } else if (Objects.requireNonNull(typeMirror.getKind()) == TypeKind.DECLARED) {
             var declaredType = (DeclaredType) typeMirror;
             this.element = (TypeElement) declaredType.asElement();
-            this.packageName = element.toString()
-                    .substring(0, element.toString().lastIndexOf('.'));
-            this.simpleName = element.getSimpleName().toString();
+            this.packageName = element.getQualifiedName().toString()
+                    .replaceAll("\\.[A-Z].+$", "");
+            this.simpleName = element.getQualifiedName().toString().substring(packageName.length() + 1);
             this.parameters = declaredType.getTypeArguments().stream()
                     .map(type -> new TypeManifest(type, processingEnvironment))
                     .toList();
@@ -144,7 +144,8 @@ public class TypeManifest {
 
     public Class<?> asClass() {
         try {
-            return TypeManifest.class.getClassLoader().loadClass("%s.%s".formatted(packageName, simpleName));
+            return TypeManifest.class.getClassLoader()
+                    .loadClass("%s.%s".formatted(packageName, simpleName.replace('.', '$')));
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }

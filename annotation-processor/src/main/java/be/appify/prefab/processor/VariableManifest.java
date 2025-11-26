@@ -5,14 +5,16 @@ import jakarta.validation.constraints.NotNull;
 import org.springframework.data.annotation.Id;
 
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.VariableElement;
+import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Optional;
 
 public class VariableManifest {
     private final TypeManifest type;
     private final String name;
-    private final List<AnnotationManifest> annotations;
+    private final List<? extends AnnotationManifest<?>> annotations;
     private final ProcessingEnvironment processingEnvironment;
 
     public VariableManifest(VariableElement variableElement, ProcessingEnvironment processingEnvironment) {
@@ -20,14 +22,31 @@ public class VariableManifest {
                 new TypeManifest(variableElement.asType(), processingEnvironment),
                 variableElement.getSimpleName().toString(),
                 variableElement.getAnnotationMirrors().stream()
-                        .map(annotationMirror -> new AnnotationManifest(annotationMirror, processingEnvironment))
+                        .map(annotationMirror ->
+                                new AnnotationManifest<>(annotationMirror,
+                                        processingEnvironment,
+                                        resolveAnnotation(variableElement, annotationMirror, processingEnvironment)))
                         .toList(),
                 processingEnvironment
         );
     }
 
-    public VariableManifest(TypeManifest type, String name, List<AnnotationManifest> annotations,
-            ProcessingEnvironment processingEnvironment) {
+    private static Annotation resolveAnnotation(
+            VariableElement variableElement,
+            AnnotationMirror annotationMirror,
+            ProcessingEnvironment processingEnvironment
+    ) {
+        return variableElement.getAnnotation((Class<? extends Annotation>) new TypeManifest(
+                annotationMirror.getAnnotationType().asElement().asType(),
+                processingEnvironment).asClass());
+    }
+
+    public VariableManifest(
+            TypeManifest type,
+            String name,
+            List<? extends AnnotationManifest<?>> annotations,
+            ProcessingEnvironment processingEnvironment
+    ) {
         this.type = type;
         this.name = name;
         this.annotations = annotations;
@@ -42,7 +61,7 @@ public class VariableManifest {
         return name;
     }
 
-    public List<AnnotationManifest> annotations() {
+    public List<? extends AnnotationManifest<?>> annotations() {
         return annotations;
     }
 
@@ -99,10 +118,11 @@ public class VariableManifest {
                 .anyMatch(annotation -> annotation.type().is(annotationClass));
     }
 
-    public Optional<AnnotationManifest> getAnnotation(Class<?> annotationClass) {
+    public <A extends Annotation> Optional<AnnotationManifest<A>> getAnnotation(Class<A> annotationClass) {
         return annotations.stream()
                 .filter(annotation -> annotation.type().is(annotationClass))
-                .findFirst();
+                .findFirst()
+                .map(annotation -> (AnnotationManifest<A>) annotation);
     }
 
     public boolean dependsOn(TypeManifest type) {

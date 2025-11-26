@@ -6,10 +6,11 @@ import be.appify.prefab.processor.VariableManifest;
 import net.sf.jsqlparser.statement.alter.AlterExpression;
 import net.sf.jsqlparser.statement.create.table.ColDataType;
 import net.sf.jsqlparser.statement.create.table.ColumnDefinition;
-import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
 
 import java.util.Collections;
 import java.util.List;
+
+import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
 
 public record Column(
         String name,
@@ -58,7 +59,7 @@ public record Column(
                         "id"
                 ) : null,
                 property.getAnnotation(DbDefaultValue.class)
-                        .map(defaultValue -> (String) defaultValue.value("value"))
+                        .map(defaultValue -> defaultValue.value().value())
                         .orElse(null)
         );
     }
@@ -86,8 +87,8 @@ public record Column(
     @Override
     public String toString() {
         return name + " " + type
-               + (nullable ? "" : " NOT NULL")
-               + (defaultValue != null ? " DEFAULT " + defaultValue : "")
-               + (foreignKey != null ? " " + foreignKey : "");
+                + (nullable ? "" : " NOT NULL")
+                + (defaultValue != null ? " DEFAULT " + defaultValue : "")
+                + (foreignKey != null ? " " + foreignKey : "");
     }
 }

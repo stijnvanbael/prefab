@@ -12,4 +12,6 @@ public @interface GetById {
     String method() default HttpMethod.GET;
 
     String path() default "/{id}";
+
+    Security security() default @Security;
 }

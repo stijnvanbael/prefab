@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import java.util.ArrayList;
 import java.util.List;
 
+import static be.appify.prefab.processor.ControllerUtil.securedAnnotation;
 import static be.appify.prefab.processor.getlist.GetListUtil.filterPropertiesOf;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static org.apache.commons.text.WordUtils.uncapitalize;
@@ -36,6 +37,7 @@ public class GetListControllerWriter {
                         ParameterizedTypeName.get(
                                 ClassName.get(PagedModel.class),
                                 responseType)));
+        securedAnnotation(getList.security()).ifPresent(method::addAnnotation);
         manifest.parent().ifPresent(parent -> method.addParameter(parentParameter(parent)));
         var parameters = getListParameters(manifest);
         method.addParameter(Pageable.class, "pageable");

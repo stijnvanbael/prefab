@@ -4,6 +4,7 @@ import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.DbMigration;
 import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.GetList;
+import be.appify.prefab.core.annotations.rest.Security;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
@@ -13,7 +14,7 @@ import java.time.Instant;
 
 @Aggregate
 @DbMigration
-@GetList
+@GetList(security = @Security(authority = "invoice:view"))
 public record Invoice(
         @Id String id,
         @Version long version,

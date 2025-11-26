@@ -2,19 +2,26 @@ package be.appify.prefab.processor.getbyid;
 
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.processor.ClassManifest;
-import com.palantir.javapoet.*;
+import com.palantir.javapoet.AnnotationSpec;
+import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.MethodSpec;
+import com.palantir.javapoet.ParameterSpec;
+import com.palantir.javapoet.ParameterizedTypeName;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 
+import static be.appify.prefab.processor.ControllerUtil.securedAnnotation;
 import static javax.lang.model.element.Modifier.PUBLIC;
 
 public class GetByIdControllerWriter {
     public MethodSpec getByIdMethod(ClassManifest manifest, GetById getById) {
-        return MethodSpec.methodBuilder("getById")
+        var method = MethodSpec.methodBuilder("getById")
                 .addModifiers(PUBLIC)
-                .addAnnotation(requestMapping(getById.method(), getById.path()))
+                .addAnnotation(requestMapping(getById.method(), getById.path()));
+        securedAnnotation(getById.security()).ifPresent(method::addAnnotation);
+        return method
                 .returns(ParameterizedTypeName.get(ClassName.get(ResponseEntity.class),
                         responseType(manifest)))
                 .addParameter(ParameterSpec.builder(String.class, "id")

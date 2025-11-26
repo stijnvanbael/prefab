@@ -23,7 +23,7 @@ public class GetByIdTestFixtureWriter {
                 .addParameter(String.class, "id");
         manifest.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
         return method.addStatement("""
-                                var json = mockMvc.perform($T.$N($S, $L)
+                                var json = mockMvc.perform($T.$N($S, $L)$L
                                                 .accept($T.APPLICATION_JSON))
                                         .andExpect($T.status().isOk())
                                         .andReturn()
@@ -33,6 +33,7 @@ public class GetByIdTestFixtureWriter {
                         getById.method().toLowerCase(),
                         "/" + ControllerUtil.pathOf(manifest) + getById.path(),
                         manifest.parent().map(parent -> parent.name() + ", ").orElse("") + "id",
+                        ControllerUtil.withMockUser(getById.security()),
                         MediaType.class,
                         MockMvcResultMatchers.class)
                 .addStatement("return objectMapper.readValue(json, $T.class)", returnType)

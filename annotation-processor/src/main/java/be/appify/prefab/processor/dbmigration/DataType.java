@@ -33,11 +33,11 @@ public interface DataType {
         }
     }
 
-    static DataType typeOf(TypeManifest type, List<AnnotationManifest> annotations) {
+    static DataType typeOf(TypeManifest type, List<? extends AnnotationManifest<?>> annotations) {
         if (type.is(String.class) || type.is(Reference.class) || type.isEnum() || type.is(Duration.class)) {
             var length = annotations.stream()
                     .filter(annotation -> annotation.type().is(Size.class))
-                    .map(annotation -> (Integer) annotation.value("max"))
+                    .map(annotation -> ((AnnotationManifest<Size>) annotation).value().max())
                     .findFirst().orElse(255);
             return new Varchar(length);
         } else if (type.is(Integer.class)) {

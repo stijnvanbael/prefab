@@ -4,6 +4,7 @@ import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.DbMigration;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.GetById;
+import be.appify.prefab.core.annotations.rest.Security;
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.core.domain.PublishesEvents;
 import be.appify.prefab.core.service.Reference;
@@ -14,15 +15,16 @@ import jakarta.validation.constraints.NotNull;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
-import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
+
 @Aggregate
-@GetById
+@GetById(security = @Security(authority = "sale:view"))
 @DbMigration
 public class Sale implements PublishesEvents {
     @Id
@@ -40,7 +42,7 @@ public class Sale implements PublishesEvents {
     private Reference<Customer> customer;
     private SaleType type;
 
-    @Create
+    @Create(security = @Security(authority = "sale:create"))
     public Sale(SaleType type) {
         this(
                 UUID.randomUUID().toString(),
@@ -120,7 +122,7 @@ public class Sale implements PublishesEvents {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    @Update(method = POST, path = "/items")
+    @Update(method = POST, path = "/items", security = @Security(authority = "sale:add-item"))
     public void addItem(
             @NotNull String description,
             @NotNull BigDecimal quantity,
@@ -132,7 +134,7 @@ public class Sale implements PublishesEvents {
         items.add(new SaleItem(description, quantity, price));
     }
 
-    @Update(method = POST, path = "/payments")
+    @Update(method = POST, path = "/payments", security = @Security(authority = "sale:add-payment"))
     public void addPayment(
             @NotNull BigDecimal amount,
             @NotNull PaymentMethod method,
@@ -154,7 +156,7 @@ public class Sale implements PublishesEvents {
         }
     }
 
-    @Update(method = POST, path = "/type")
+    @Update(method = POST, path = "/type", security = @Security(authority = "sale:set-type"))
     public void setType(@NotNull SaleType type) {
         this.type = type;
     }
@@ -194,7 +196,7 @@ public class Sale implements PublishesEvents {
         }
     }
 
-    @Update(method = POST, path = "/cancel")
+    @Update(method = POST, path = "/cancel", security = @Security(authority = "sale:cancel"))
     public void cancel() {
         if (state != State.OPEN) {
             throw new ConflictProblem("Sale is not open");
@@ -202,7 +204,7 @@ public class Sale implements PublishesEvents {
         state = State.CANCELLED;
     }
 
-    @Update(method = POST, path = "/customer")
+    @Update(method = POST, path = "/customer", security = @Security(authority = "sale:add-customer"))
     public void addCustomer(Reference<Customer> customer) {
         this.customer = customer;
     }

@@ -4,7 +4,6 @@
 
 | Tag                 | TODO                                                                                               | In progress | Done                                                 |
 |---------------------|----------------------------------------------------------------------------------------------------|-------------|------------------------------------------------------|
-| self-study          | Security                                                                                           |             |                                                      |
 | self-study          | Pub/Sub delivery semantics - at least once, exactly once, ...                                      |             |                                                      |
 | self-study          | Use parent parameter from path for all requests                                                    |             |                                                      |
 | self-study          | Generic value types - to refine                                                                    |             |                                                      |
@@ -75,3 +74,4 @@
 | electricity-insight |                                                                                                    |             | Custom queries / Repository mixins                   |                                                      
 | self-study          |                                                                                                    |             | Download files                                       |
 | self-study          |                                                                                                    |             | Search by multiple fields - rework filter            |
+| self-study          |                                                                                                    |             | Security                                             |

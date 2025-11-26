@@ -12,4 +12,6 @@ public @interface Update {
     String method() default HttpMethod.PUT;
 
     String path() default "/{id}";
+
+    Security security() default @Security;
 }

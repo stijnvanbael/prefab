@@ -12,4 +12,6 @@ public @interface Delete {
     String method() default HttpMethod.DELETE;
 
     String path() default "/{id}";
+
+    Security security() default @Security;
 }

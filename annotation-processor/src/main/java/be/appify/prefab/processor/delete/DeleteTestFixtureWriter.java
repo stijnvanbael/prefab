@@ -41,11 +41,12 @@ public class DeleteTestFixtureWriter {
                 .addParameter(String.class, "id")
                 .addException(Exception.class)
                 .addStatement("""
-                                mockMvc.perform($T.$N($S, id))
+                                mockMvc.perform($T.$N($S, id)$L)
                                         .andExpect($T.status().isNoContent())""",
                         MockMvcRequestBuilders.class,
                         delete.method().toLowerCase(),
                         "/" + ControllerUtil.pathOf(manifest) + delete.path(),
+                        ControllerUtil.withMockUser(delete.security()),
                         MockMvcResultMatchers.class)
                 .build();
     }

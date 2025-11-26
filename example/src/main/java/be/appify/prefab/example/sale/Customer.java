@@ -4,6 +4,7 @@ import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.DbMigration;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.GetById;
+import be.appify.prefab.core.annotations.rest.Security;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
@@ -12,7 +13,7 @@ import org.springframework.data.relational.core.mapping.Embedded;
 import java.util.UUID;
 
 @Aggregate
-@GetById
+@GetById(security = @Security(authority = "customer:view"))
 @DbMigration
 public record Customer(
         @Id String id,
@@ -21,7 +22,7 @@ public record Customer(
         @NotNull @Embedded.Nullable(prefix = "address_") Address address,
         @NotNull String email
 ) {
-    @Create
+    @Create(security = @Security(authority = "customer:create"))
     public Customer(
             @NotNull PersonName name,
             @NotNull Address address,

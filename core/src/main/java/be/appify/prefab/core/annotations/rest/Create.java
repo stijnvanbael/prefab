@@ -12,4 +12,6 @@ public @interface Create {
     String method() default HttpMethod.POST;
 
     String path() default "";
+
+    Security security() default @Security;
 }

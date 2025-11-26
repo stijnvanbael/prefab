@@ -15,16 +15,18 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestPart;
-import static be.appify.prefab.processor.CaseUtil.toKebabCase;
-import static javax.lang.model.element.Modifier.PUBLIC;
-import static org.apache.commons.text.WordUtils.capitalize;
-import static org.atteo.evo.inflector.English.plural;
-import static org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE;
 
 import javax.lang.model.element.ExecutableElement;
 import java.net.URI;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static be.appify.prefab.processor.CaseUtil.toKebabCase;
+import static be.appify.prefab.processor.ControllerUtil.securedAnnotation;
+import static javax.lang.model.element.Modifier.PUBLIC;
+import static org.apache.commons.text.WordUtils.capitalize;
+import static org.atteo.evo.inflector.English.plural;
+import static org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE;
 
 public class CreateControllerWriter {
     public MethodSpec createMethod(ClassManifest manifest, ExecutableElement constructor, PrefabContext context) {
@@ -37,6 +39,7 @@ public class CreateControllerWriter {
                 .addModifiers(PUBLIC)
                 .addAnnotation(requestMapping(create.method(), create.path(), requestParts))
                 .returns(ParameterizedTypeName.get(ResponseEntity.class, Void.class));
+        securedAnnotation(create.security()).ifPresent(method::addAnnotation);
         if (constructor.getParameters().isEmpty()) {
             method.addStatement("var id = service.create()");
         } else {

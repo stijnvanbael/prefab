@@ -9,4 +9,5 @@ import java.lang.annotation.Target;
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.SOURCE)
 public @interface Download {
+    Security security() default @Security;
 }

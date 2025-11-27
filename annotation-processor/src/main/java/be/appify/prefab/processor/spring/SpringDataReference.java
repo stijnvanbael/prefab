@@ -6,14 +6,14 @@ import org.springframework.data.jdbc.core.mapping.AggregateReference;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.util.Lazy;
 
-public class SpringDataReference<T> extends AggregateReference.IdOnlyAggregateReference<T, String>
-        implements Reference<T> {
+public class SpringDataReference<T> implements AggregateReference<T, String>, Reference<T> {
 
     private final CrudRepository<T, String> repository;
     private final Lazy<T> resolved;
+    private final String id;
 
     public SpringDataReference(String id, CrudRepository<T, String> repository) {
-        super(id);
+        this.id = id;
         this.repository = repository;
         resolved = Lazy.of(() -> repository.findById(id()).orElseThrow());
     }
@@ -32,5 +32,10 @@ public class SpringDataReference<T> extends AggregateReference.IdOnlyAggregateRe
     @Override
     public T resolveReadOnly() {
         return resolved.get();
+    }
+
+    @Override
+    public String getId() {
+        return id;
     }
 }

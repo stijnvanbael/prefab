@@ -119,6 +119,20 @@ To get started with Prefab, you need to add the following to your `pom.xml`:
 </build>
 ```
 
+Create a Spring Boot application class and annotate it with `@EnablePrefab` so the Prefab framework dependencies are
+wired:
+
+```java
+
+@SpringBootApplication
+@EnablePrefab
+public class Application {
+    public static void main(String[] args) {
+        SpringApplication.run(Application.class, args);
+    }
+}
+```
+
 Prefab will generate code for any domain entity annotated with `@Aggregate`. This can be a concrete class or a record,
 e.g.:
 

@@ -23,6 +23,7 @@
         <dependency>
             <groupId>org.springframework.kafka</groupId>
             <artifactId>spring-kafka</artifactId>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -56,6 +57,7 @@
             <groupId>com.google.cloud</groupId>
             <artifactId>spring-cloud-gcp-starter-pubsub</artifactId>
             <version>${google-cloud.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>be.appify.prefab</groupId>

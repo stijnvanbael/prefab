@@ -10,11 +10,13 @@ import com.google.pubsub.v1.PubsubMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.stereotype.Component;
 
 import java.util.function.Consumer;
 
 @Component
+@ConditionalOnClass(PubSubAdmin.class)
 public class PubSubUtil {
     private static final Logger log = LoggerFactory.getLogger(PubSubUtil.class);
     private final String projectId;

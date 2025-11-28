@@ -1,4 +1,4 @@
-package be.appify.prefab.processor.binary;
+package be.appify.prefab.core.binary;
 
 import be.appify.prefab.core.domain.Binary;
 import org.springframework.core.io.InputStreamResource;

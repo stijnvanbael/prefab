@@ -1,6 +1,6 @@
 package be.appify.prefab.test.pubsub;
 
-import be.appify.prefab.processor.pubsub.PubSubUtil;
+import be.appify.prefab.core.pubsub.PubSubUtil;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Component;
 

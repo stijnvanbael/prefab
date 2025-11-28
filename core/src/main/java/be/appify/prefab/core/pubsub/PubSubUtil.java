@@ -1,4 +1,4 @@
-package be.appify.prefab.processor.pubsub;
+package be.appify.prefab.core.pubsub;
 
 import be.appify.prefab.core.spring.JsonUtil;
 import com.google.cloud.spring.pubsub.PubSubAdmin;

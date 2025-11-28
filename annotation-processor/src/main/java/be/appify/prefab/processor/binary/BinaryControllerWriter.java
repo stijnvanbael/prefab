@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.binary;
 
 import be.appify.prefab.core.annotations.rest.Download;
+import be.appify.prefab.core.binary.BinaryControllerUtil;
 import be.appify.prefab.processor.AnnotationManifest;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.VariableManifest;

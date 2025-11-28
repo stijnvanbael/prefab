@@ -15,24 +15,28 @@ import com.palantir.javapoet.TypeSpec;
 import javax.lang.model.element.ExecutableElement;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.WeakHashMap;
 
 public class CreatePlugin implements PrefabPlugin {
     private final CreateControllerWriter controllerWriter = new CreateControllerWriter();
     private final CreateServiceWriter serviceWriter = new CreateServiceWriter();
     private final CreateRequestRecordWriter requestRecordWriter = new CreateRequestRecordWriter();
     private final CreateTestFixtureWriter testFixtureWriter = new CreateTestFixtureWriter();
+    private final Map<ClassManifest, Optional<ExecutableElement>> createConstructorsCache =
+            Collections.synchronizedMap(new WeakHashMap<>());
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        createConstructorOf(manifest).ifPresent(createConstructor ->
+        createConstructorOf(manifest, context).ifPresent(createConstructor ->
                 builder.addMethod(controllerWriter.createMethod(manifest, createConstructor, context)));
     }
 
     @Override
     public Set<TypeName> getServiceDependencies(ClassManifest classManifest, PrefabContext context) {
-        return createConstructorOf(classManifest)
+        return createConstructorOf(classManifest, context)
                 .stream()
                 .flatMap(constructor -> constructor.getParameters()
                         .stream()
@@ -44,14 +48,14 @@ public class CreatePlugin implements PrefabPlugin {
 
     @Override
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        createConstructorOf(manifest).ifPresent(createConstructor ->
+        createConstructorOf(manifest, context).ifPresent(createConstructor ->
                 builder.addMethod(
                         serviceWriter.createMethod(manifest, createConstructor, context)));
     }
 
     @Override
     public void writeTestFixture(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        createConstructorOf(manifest).ifPresent(createConstructor ->
+        createConstructorOf(manifest, context).ifPresent(createConstructor ->
                 testFixtureWriter.createMethods(manifest, createConstructor, context).forEach(builder::addMethod));
     }
 
@@ -59,7 +63,7 @@ public class CreatePlugin implements PrefabPlugin {
     public void writeAdditionalFiles(List<ClassManifest> manifests, PrefabContext context) {
         if (!manifests.isEmpty()) {
             var fileWriter = new JavaFileWriter(context.processingEnvironment(), "application");
-            manifests.forEach(manifest -> createConstructorOf(manifest).ifPresent(createConstructor -> {
+            manifests.forEach(manifest -> createConstructorOf(manifest, context).ifPresent(createConstructor -> {
                 if (!createConstructor.getParameters().isEmpty()) {
                     requestRecordWriter.writeRequestRecord(fileWriter, manifest, createConstructor, context);
                 }
@@ -67,15 +71,18 @@ public class CreatePlugin implements PrefabPlugin {
         }
     }
 
-    private Optional<ExecutableElement> createConstructorOf(ClassManifest manifest) {
-        var createConstructors = manifest.constructorsWith(Create.class);
-        if (createConstructors.isEmpty()) {
-            return Optional.empty();
-        }
-        if (createConstructors.size() > 1) {
-            throw new IllegalStateException(
-                    "Multiple constructors with @Create annotation found in " + manifest.qualifiedName());
-        }
-        return createConstructors.stream().findFirst();
+    private Optional<ExecutableElement> createConstructorOf(ClassManifest manifest, PrefabContext context) {
+        return createConstructorsCache.computeIfAbsent(manifest, m -> {
+            var createConstructors = m.constructorsWith(Create.class);
+            if (createConstructors.isEmpty()) {
+                return Optional.empty();
+            }
+            if (createConstructors.size() > 1) {
+                context.logError(
+                        "Multiple constructors with @Create annotation found in " + m.qualifiedName(),
+                        createConstructors.get(1));
+            }
+            return createConstructors.stream().findFirst();
+        });
     }
 }

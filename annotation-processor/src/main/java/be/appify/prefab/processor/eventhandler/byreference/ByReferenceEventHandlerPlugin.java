@@ -2,11 +2,19 @@ package be.appify.prefab.processor.eventhandler.byreference;
 
 import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.service.Reference;
-import be.appify.prefab.processor.*;
+import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.PrefabContext;
+import be.appify.prefab.processor.PrefabPlugin;
+import be.appify.prefab.processor.TypeManifest;
+import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.TypeSpec;
 
 import javax.annotation.processing.ProcessingEnvironment;
-import javax.lang.model.element.*;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -15,11 +23,13 @@ public class ByReferenceEventHandlerPlugin implements PrefabPlugin {
 
     @Override
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        byReferenceEventHandlers(manifest).forEach(handler ->
+        byReferenceEventHandlers(manifest, context).forEach(handler ->
                 builder.addMethod(byReferenceEventHandlerWriter.byReferenceEventHandlerMethod(manifest, handler)));
     }
 
-    private Stream<ByReferenceEventHandlerManifest> byReferenceEventHandlers(ClassManifest manifest) {
+    private Stream<ByReferenceEventHandlerManifest> byReferenceEventHandlers(
+            ClassManifest manifest,
+            PrefabContext context) {
         var typeElement = manifest.type().asElement();
         return typeElement.getEnclosedElements()
                 .stream()
@@ -29,8 +39,8 @@ public class ByReferenceEventHandlerPlugin implements PrefabPlugin {
                 .filter(element -> element.getAnnotationsByType(EventHandler.ByReference.class).length > 0)
                 .map(element -> {
                     var annotation = element.getAnnotationsByType(EventHandler.ByReference.class)[0];
-                    var eventType = getEventType(element, manifest.processingEnvironment());
-                    var referenceField = getFields(eventType.asElement(), manifest.processingEnvironment()).stream()
+                    var eventType = getEventType(element, context);
+                    var referenceField = getFields(eventType.asElement(), context.processingEnvironment()).stream()
                             .filter(field -> field.name().equals(annotation.value()) && field.type()
                                     .is(Reference.class))
                             .findFirst()
@@ -45,17 +55,20 @@ public class ByReferenceEventHandlerPlugin implements PrefabPlugin {
                 });
     }
 
-    private TypeManifest getEventType(ExecutableElement element, ProcessingEnvironment processingEnvironment) {
+    private TypeManifest getEventType(ExecutableElement element, PrefabContext context) {
         var parameters = element.getParameters();
         if (parameters.size() != 1) {
-            throw new IllegalArgumentException(
-                    "Domain event handler method %s must have exactly one parameter".formatted(element));
+            context.logError(
+                    "Domain event handler method %s must have exactly one parameter".formatted(element),
+                    element);
         }
-        var eventType = new TypeManifest(parameters.getFirst().asType(), processingEnvironment);
+        var eventType = new TypeManifest(parameters.getFirst().asType(), context.processingEnvironment());
         if (eventType.asElement() == null) {
-            throw new IllegalArgumentException(
+            context.logError(
                     "Domain event handler method %s must have a parameter that is a declared class or record".formatted(
-                            element));
+                            element),
+                    element
+            );
         }
         return eventType;
     }

@@ -8,10 +8,11 @@ import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import jakarta.validation.Valid;
-import static org.apache.commons.text.WordUtils.uncapitalize;
 
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+
+import static org.apache.commons.text.WordUtils.uncapitalize;
 
 public class CreateServiceWriter {
     public MethodSpec createMethod(
@@ -26,7 +27,7 @@ public class CreateServiceWriter {
                     .addStatement("log.debug($S, $T.class.getSimpleName())", "Creating new {}", manifest.className())
                     .addStatement("var aggregate = new $T()", manifest.type().asTypeName())
                     .addStatement("%sRepository.save(aggregate)".formatted(uncapitalize(manifest.simpleName())))
-                    .addStatement("return aggregate.$N()", manifest.idField().name())
+                    .addStatement("return aggregate.$N()", manifest.idField().map(VariableManifest::name).orElse("id"))
                     .build();
         } else {
             return MethodSpec.methodBuilder("create")
@@ -44,7 +45,7 @@ public class CreateServiceWriter {
                                     .map(context.requestParameterMapper()::mapRequestParameter)
                                     .collect(CodeBlock.joining(", ")))
                     .addStatement("%sRepository.save(aggregate)".formatted(uncapitalize(manifest.simpleName())))
-                    .addStatement("return aggregate.$N()", manifest.idField().name())
+                    .addStatement("return aggregate.$N()", manifest.idField().map(VariableManifest::name).orElse("id"))
                     .build();
         }
     }

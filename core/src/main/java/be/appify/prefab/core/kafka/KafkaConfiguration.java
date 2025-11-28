@@ -1,4 +1,4 @@
-package be.appify.prefab.processor.kafka;
+package be.appify.prefab.core.kafka;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -94,7 +94,8 @@ public class KafkaConfiguration {
         properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, connectionDetails.getConsumer().getBootstrapServers());
         properties.putIfAbsent(ConsumerConfig.GROUP_ID_CONFIG, applicationName);
         kafkaTransactionManager.ifAvailable(ignored ->
-                properties.putIfAbsent(ConsumerConfig.ISOLATION_LEVEL_CONFIG, KafkaProperties.IsolationLevel.READ_COMMITTED.name()));
+                properties.putIfAbsent(ConsumerConfig.ISOLATION_LEVEL_CONFIG,
+                        KafkaProperties.IsolationLevel.READ_COMMITTED.name()));
         var jsonDeserializer = new JsonDeserializer<>();
         jsonDeserializer.setTypeResolver(jsonTypeResolver);
         var deserializer = new ErrorHandlingDeserializer<>(jsonDeserializer);

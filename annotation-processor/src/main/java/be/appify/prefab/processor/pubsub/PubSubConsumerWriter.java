@@ -2,6 +2,7 @@ package be.appify.prefab.processor.pubsub;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.pubsub.PubSubUtil;
 import be.appify.prefab.processor.CaseUtil;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
@@ -54,7 +55,6 @@ public class PubSubConsumerWriter {
         addEventHandlers(eventHandlers, context, type);
         type.addMethod(constructor(topic, fields, eventHandlers, context));
         fileWriter.writeFile(packageName, name, type.build());
-        ;
     }
 
     private static Set<FieldSpec> addFields(
@@ -80,9 +80,10 @@ public class PubSubConsumerWriter {
                 fields.add(field);
                 type.addField(field);
             } else {
-                throw new IllegalStateException(
+                context.logError(
                         "Cannot write PubSub consumer for %s, it is neither an Aggregate nor a Component".formatted(
-                                target.simpleName()));
+                                target.simpleName()),
+                        eventHandler);
             }
         }
         return fields;
@@ -99,9 +100,10 @@ public class PubSubConsumerWriter {
             } else if (!target.annotationsOfType(Component.class).isEmpty()) {
                 type.addMethod(componentConsumer(target, event, eventHandler));
             } else {
-                throw new IllegalStateException(
+                context.logError(
                         "Cannot write PubSub consumer for %s, it is neither an Aggregate nor a Component".formatted(
-                                target.simpleName()));
+                                target.simpleName()),
+                        eventHandler);
             }
         }
     }

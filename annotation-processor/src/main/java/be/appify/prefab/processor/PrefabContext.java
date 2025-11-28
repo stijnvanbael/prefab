@@ -2,6 +2,8 @@ package be.appify.prefab.processor;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
+import javax.lang.model.element.Element;
+import javax.tools.Diagnostic;
 import java.util.List;
 
 public class PrefabContext {
@@ -41,5 +43,9 @@ public class PrefabContext {
 
     public RequestParameterMapper requestParameterMapper() {
         return requestParameterMapper;
+    }
+
+    public void logError(String message, Element element) {
+        processingEnvironment.getMessager().printMessage(Diagnostic.Kind.ERROR, message, element);
     }
 }

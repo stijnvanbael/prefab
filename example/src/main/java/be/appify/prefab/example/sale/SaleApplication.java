@@ -1,7 +1,7 @@
 package be.appify.prefab.example.sale;
 
+import be.appify.prefab.core.kafka.KafkaConfiguration;
 import be.appify.prefab.core.spring.PrefabConfiguration;
-import be.appify.prefab.processor.kafka.KafkaConfiguration;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Import;

@@ -2,6 +2,7 @@ package be.appify.prefab.processor.kafka;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -77,9 +78,10 @@ public class KafkaConsumerWriter {
                 fields.add(field);
                 type.addField(field);
             } else {
-                throw new IllegalStateException(
+                context.logError(
                         "Cannot write Kafka consumer for %s, it is neither an Aggregate nor a Component".formatted(
-                                target.simpleName()));
+                                target.simpleName()),
+                        eventHandler);
             }
         }
         return fields;
@@ -96,9 +98,10 @@ public class KafkaConsumerWriter {
             } else if (!target.annotationsOfType(Component.class).isEmpty()) {
                 type.addMethod(componentConsumer(target, event, annotation, eventHandler));
             } else {
-                throw new IllegalStateException(
+                context.logError(
                         "Cannot write Kafka consumer for %s, it is neither an Aggregate nor a Component".formatted(
-                                target.simpleName()));
+                                target.simpleName()),
+                        eventHandler);
             }
         }
     }

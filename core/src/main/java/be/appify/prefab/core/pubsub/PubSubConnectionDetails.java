@@ -1,4 +1,4 @@
-package be.appify.prefab.processor.pubsub;
+package be.appify.prefab.core.pubsub;
 
 import org.springframework.boot.autoconfigure.service.connection.ConnectionDetails;
 

@@ -14,6 +14,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.tools.Diagnostic;
 import java.lang.annotation.Annotation;
 import java.util.HashSet;
 import java.util.List;
@@ -59,48 +60,61 @@ public class ClassManifest {
                 .filter(field -> field.type().is(Reference.class) && field.hasAnnotation(Parent.class))
                 .toList();
         if (parents.size() > 1) {
-            throw new IllegalArgumentException(
+            processingEnvironment.getMessager().printMessage(
+                    Diagnostic.Kind.ERROR,
                     "Class %s has multiple fields with @Parent annotation. Only one is allowed.".formatted(
-                            qualifiedName()));
+                            qualifiedName()),
+                    parents.get(1).element());
+            return null;
         }
         return parents.isEmpty() ? null : parents.getFirst();
     }
 
     private void validate(TypeElement typeElement) {
         if (typeElement.getModifiers().contains(Modifier.ABSTRACT)) {
-            throw new IllegalArgumentException("Class %s must not be abstract".formatted(qualifiedName()));
+            processingEnvironment.getMessager().printMessage(
+                    Diagnostic.Kind.ERROR,
+                    "Class %s must not be abstract".formatted(qualifiedName()),
+                    typeElement);
         }
         boolean hasConstructor = typeElement.getEnclosedElements()
                 .stream()
                 .filter(element -> element.getKind() == ElementKind.CONSTRUCTOR
-                                   && element.getModifiers().contains(Modifier.PUBLIC))
+                        && element.getModifiers().contains(Modifier.PUBLIC))
                 .anyMatch(element -> {
                     var parameters = getParametersOf(element);
                     return fields.size() == parameters.size() && new HashSet<>(fields).containsAll(parameters);
                 });
         if (isAggregate && idField == null) {
-            throw new IllegalArgumentException(
-                    "Aggregate %s must have a field with @Id annotation".formatted(qualifiedName()));
+            processingEnvironment.getMessager().printMessage(
+                    Diagnostic.Kind.ERROR,
+                    "Aggregate %s is missing a field with @Id annotation".formatted(qualifiedName()),
+                    typeElement
+            );
         }
         if (!hasConstructor) {
-            throw new IllegalArgumentException(
-                    """
-                            Class %s must have a public constructor with all fields with exact types and names.
-                            Suggested fix: add following constructor to %s:
-                            
-                                public %s(%s) {
-                                    %s;
-                                }
-                            """.formatted(
-                            qualifiedName(),
-                            qualifiedName(),
-                            simpleName(),
-                            fields.stream()
-                                    .map(field -> "%s %s".formatted(field.type().simpleName(), field.name()))
-                                    .collect(Collectors.joining(", ")),
-                            fields.stream()
-                                    .map(field -> "this.%s = %s".formatted(field.name(), field.name()))
-                                    .collect(Collectors.joining(";\n        "))));
+            String message = """
+                    Class %s must have a public constructor with all fields with exact types and names.
+                    Suggested fix: add following constructor to %s:
+                    
+                        public %s(%s) {
+                            %s;
+                        }
+                    """.formatted(
+                    qualifiedName(),
+                    qualifiedName(),
+                    simpleName(),
+                    fields.stream()
+                            .map(field -> "%s %s".formatted(field.type().simpleName(), field.name()))
+                            .collect(Collectors.joining(", ")),
+                    fields.stream()
+                            .map(field -> "this.%s = %s".formatted(field.name(), field.name()))
+                            .collect(Collectors.joining(";\n        ")));
+            processingEnvironment.getMessager().printMessage(
+                    Diagnostic.Kind.ERROR,
+                    message,
+                    typeElement
+            );
         }
     }
 
@@ -108,7 +122,7 @@ public class ClassManifest {
         return typeElement.getEnclosedElements()
                 .stream()
                 .filter(element -> element.getKind() == ElementKind.FIELD
-                                   && !element.getModifiers().contains(Modifier.STATIC))
+                        && !element.getModifiers().contains(Modifier.STATIC))
                 .map(VariableElement.class::cast)
                 .map(element -> new VariableManifest(element, processingEnvironment))
                 .toList();
@@ -141,12 +155,6 @@ public class ClassManifest {
         return type;
     }
 
-    public Optional<VariableManifest> fieldByName(String property) {
-        return fields.stream()
-                .filter(field -> field.name().equals(property))
-                .findFirst();
-    }
-
     public Optional<VariableManifest> parent() {
         return Optional.ofNullable(parent);
     }
@@ -168,8 +176,8 @@ public class ClassManifest {
         return typeElement.getEnclosedElements()
                 .stream()
                 .filter(element -> element.getAnnotationsByType(annotationType).length > 0
-                                   && element.getKind() == ElementKind.CONSTRUCTOR
-                                   && element.getModifiers().contains(Modifier.PUBLIC))
+                        && element.getKind() == ElementKind.CONSTRUCTOR
+                        && element.getModifiers().contains(Modifier.PUBLIC))
                 .map(ExecutableElement.class::cast)
                 .toList();
     }
@@ -182,7 +190,7 @@ public class ClassManifest {
         return typeElement.getEnclosedElements()
                 .stream()
                 .filter(element -> element.getKind() == ElementKind.METHOD
-                                   && element.getModifiers().contains(Modifier.PUBLIC))
+                        && element.getModifiers().contains(Modifier.PUBLIC))
                 .map(ExecutableElement.class::cast)
                 .filter(element -> element.getAnnotationsByType(annotation).length > 0)
                 .toList();
@@ -205,7 +213,7 @@ public class ClassManifest {
         return Objects.hashCode(type);
     }
 
-    public VariableManifest idField() {
-        return idField;
+    public Optional<VariableManifest> idField() {
+        return Optional.ofNullable(idField);
     }
 }

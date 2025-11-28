@@ -7,12 +7,11 @@ import com.palantir.javapoet.TypeName;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.tools.Diagnostic;
 import java.lang.annotation.Annotation;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -43,18 +42,15 @@ public class TypeManifest {
                     .map(type -> new TypeManifest(type, processingEnvironment))
                     .toList();
             this.kind = element.getKind();
-        } else if (Objects.requireNonNull(typeMirror.getKind()) == TypeKind.ARRAY) {
-            var arrayType = ((ArrayType) typeMirror).getComponentType();
-            if (arrayType.getKind() != TypeKind.BYTE) {
-                throw new IllegalArgumentException("Only byte is supported for arrays, found: " + arrayType);
-            }
-            this.element = null;
-            this.packageName = "java.lang";
-            this.simpleName = "byte[]";
-            this.parameters = Collections.emptyList();
-            this.kind = ElementKind.CLASS;
         } else {
-            throw new IllegalArgumentException("Unsupported type: " + typeMirror);
+            processingEnvironment.getMessager().printMessage(
+                    Diagnostic.Kind.ERROR,
+                    "Unsupported type: " + typeMirror
+            );
+            packageName = null;
+            simpleName = null;
+            parameters = null;
+            kind = null;
         }
     }
 

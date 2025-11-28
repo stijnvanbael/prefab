@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Optional;
 
 public class VariableManifest {
+    private final VariableElement element;
     private final TypeManifest type;
     private final String name;
     private final List<? extends AnnotationManifest<?>> annotations;
@@ -19,6 +20,7 @@ public class VariableManifest {
 
     public VariableManifest(VariableElement variableElement, ProcessingEnvironment processingEnvironment) {
         this(
+                variableElement,
                 new TypeManifest(variableElement.asType(), processingEnvironment),
                 variableElement.getSimpleName().toString(),
                 variableElement.getAnnotationMirrors().stream()
@@ -42,11 +44,13 @@ public class VariableManifest {
     }
 
     public VariableManifest(
+            VariableElement element,
             TypeManifest type,
             String name,
             List<? extends AnnotationManifest<?>> annotations,
             ProcessingEnvironment processingEnvironment
     ) {
+        this.element = element;
         this.type = type;
         this.name = name;
         this.annotations = annotations;
@@ -59,6 +63,10 @@ public class VariableManifest {
 
     public String name() {
         return name;
+    }
+
+    public VariableElement element() {
+        return element;
     }
 
     public List<? extends AnnotationManifest<?>> annotations() {
@@ -89,27 +97,30 @@ public class VariableManifest {
 
     public VariableManifest toBoxed() {
         return switch (type.simpleName()) {
-            case "int" -> new VariableManifest(TypeManifest.of(Integer.class, processingEnvironment), name, annotations,
+            case "int" -> new VariableManifest(element, TypeManifest.of(Integer.class, processingEnvironment), name,
+                    annotations,
                     processingEnvironment);
-            case "long" -> new VariableManifest(TypeManifest.of(Long.class, processingEnvironment), name, annotations,
+            case "long" ->
+                    new VariableManifest(element, TypeManifest.of(Long.class, processingEnvironment), name, annotations,
+                            processingEnvironment);
+            case "double" -> new VariableManifest(element, TypeManifest.of(Double.class, processingEnvironment), name,
+                    annotations,
                     processingEnvironment);
-            case "double" ->
-                    new VariableManifest(TypeManifest.of(Double.class, processingEnvironment), name, annotations,
-                            processingEnvironment);
-            case "float" -> new VariableManifest(TypeManifest.of(Float.class, processingEnvironment), name, annotations,
+            case "float" -> new VariableManifest(element, TypeManifest.of(Float.class, processingEnvironment), name,
+                    annotations,
                     processingEnvironment);
-            case "boolean" ->
-                    new VariableManifest(TypeManifest.of(Boolean.class, processingEnvironment), name, annotations,
-                            processingEnvironment);
-            case "char" ->
-                    new VariableManifest(TypeManifest.of(Character.class, processingEnvironment), name, annotations,
-                            processingEnvironment);
+            case "boolean" -> new VariableManifest(element, TypeManifest.of(Boolean.class, processingEnvironment), name,
+                    annotations,
+                    processingEnvironment);
+            case "char" -> new VariableManifest(element, TypeManifest.of(Character.class, processingEnvironment), name,
+                    annotations,
+                    processingEnvironment);
             default -> this;
         };
     }
 
     public VariableManifest withType(Class<?> type) {
-        return new VariableManifest(TypeManifest.of(type, processingEnvironment), name, annotations,
+        return new VariableManifest(element, TypeManifest.of(type, processingEnvironment), name, annotations,
                 processingEnvironment);
     }
 

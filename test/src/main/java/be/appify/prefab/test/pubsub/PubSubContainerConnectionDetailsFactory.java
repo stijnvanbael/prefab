@@ -1,14 +1,16 @@
 package be.appify.prefab.test.pubsub;
 
-import be.appify.prefab.processor.pubsub.PubSubConnectionDetails;
+import be.appify.prefab.core.pubsub.PubSubConnectionDetails;
 import org.springframework.boot.testcontainers.service.connection.ContainerConnectionDetailsFactory;
 import org.springframework.boot.testcontainers.service.connection.ContainerConnectionSource;
 import org.testcontainers.containers.PubSubEmulatorContainer;
 
-public class PubSubContainerConnectionDetailsFactory extends ContainerConnectionDetailsFactory<PubSubEmulatorContainer, PubSubConnectionDetails> {
+public class PubSubContainerConnectionDetailsFactory
+        extends ContainerConnectionDetailsFactory<PubSubEmulatorContainer, PubSubConnectionDetails> {
 
     @Override
-    protected PubSubConnectionDetails getContainerConnectionDetails(ContainerConnectionSource<PubSubEmulatorContainer> source) {
+    protected PubSubConnectionDetails getContainerConnectionDetails(
+            ContainerConnectionSource<PubSubEmulatorContainer> source) {
         return new PubSubContainerConnectionDetails(source);
     }
 

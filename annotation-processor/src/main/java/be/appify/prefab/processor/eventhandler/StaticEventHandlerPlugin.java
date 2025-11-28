@@ -6,7 +6,6 @@ import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
 import com.palantir.javapoet.TypeSpec;
-import static javax.lang.model.type.TypeKind.VOID;
 
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
@@ -15,6 +14,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
+
+import static javax.lang.model.type.TypeKind.VOID;
 
 public class StaticEventHandlerPlugin implements PrefabPlugin {
     private final StaticEventHandlerWriter staticEventHandlerWriter = new StaticEventHandlerWriter();
@@ -31,30 +32,34 @@ public class StaticEventHandlerPlugin implements PrefabPlugin {
         return typeElement.getEnclosedElements()
                 .stream()
                 .filter(element -> element.getKind() == ElementKind.METHOD
-                                   && element.getModifiers().containsAll(Set.of(Modifier.PUBLIC, Modifier.STATIC)))
+                        && element.getModifiers().containsAll(Set.of(Modifier.PUBLIC, Modifier.STATIC)))
                 .map(ExecutableElement.class::cast)
                 .filter(element -> element.getAnnotationsByType(EventHandler.class).length > 0)
                 .map(element -> {
                     if (element.getReturnType().getKind() == VOID) {
-                        throw new IllegalArgumentException(
+                        context.logError(
                                 "Domain event handler method %s must return either %s or Optional<%s>".formatted(
                                         element,
-                                        typeElement, typeElement));
+                                        typeElement, typeElement),
+                                element);
                     }
                     var returnType = new TypeManifest(element.getReturnType(), context.processingEnvironment());
                     if (returnType.is(Optional.class)) {
                         returnType = returnType.parameters().getFirst();
                     }
                     if (!Objects.equals(returnType.asElement(), typeElement)) {
-                        throw new IllegalArgumentException(
+                        context.logError(
                                 "Domain event handler method %s must return either %s or Optional<%s>".formatted(
                                         element,
-                                        typeElement, typeElement));
+                                        typeElement, typeElement),
+                                element);
                     }
                     var parameters = element.getParameters();
                     if (parameters.size() != 1) {
-                        throw new IllegalArgumentException(
-                                "Domain event handler method %s must have exactly one parameter".formatted(element));
+                        context.logError(
+                                "Domain event handler method %s must have exactly one parameter".formatted(element),
+                                element
+                        );
                     }
                     var eventType = new TypeManifest(parameters.getFirst().asType(), context.processingEnvironment());
                     return new StaticEventHandlerManifest(

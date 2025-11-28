@@ -1,6 +1,6 @@
 package be.appify.prefab.test.pubsub;
 
-import be.appify.prefab.processor.pubsub.PubSubConnectionDetails;
+import be.appify.prefab.core.pubsub.PubSubConnectionDetails;
 import com.google.api.gax.core.CredentialsProvider;
 import com.google.api.gax.core.NoCredentialsProvider;
 import com.google.api.gax.grpc.GrpcTransportChannel;
@@ -33,7 +33,7 @@ public class PubSubTestAutoConfiguration {
         return NoCredentialsProvider.create();
     }
 
-    @Bean(name = {"subscriberTransportChannelProvider", "publisherTransportChannelProvider"})
+    @Bean(name = { "subscriberTransportChannelProvider", "publisherTransportChannelProvider" })
     @ConditionalOnBean(PubSubConnectionDetails.class)
     TransportChannelProvider transportChannelProvider(GcpPubSubProperties gcpPubSubProperties) {
         this.channel = ManagedChannelBuilder

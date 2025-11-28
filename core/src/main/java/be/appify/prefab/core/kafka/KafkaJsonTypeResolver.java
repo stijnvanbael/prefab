@@ -1,4 +1,4 @@
-package be.appify.prefab.processor.kafka;
+package be.appify.prefab.core.kafka;
 
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.type.TypeFactory;

@@ -1,4 +1,4 @@
-package be.appify.prefab.processor.kafka;
+package be.appify.prefab.core.kafka;
 
 import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.common.serialization.StringSerializer;

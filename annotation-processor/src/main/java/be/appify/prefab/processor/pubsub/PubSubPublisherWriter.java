@@ -2,6 +2,7 @@ package be.appify.prefab.processor.pubsub;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.Key;
+import be.appify.prefab.core.pubsub.PubSubUtil;
 import be.appify.prefab.core.spring.JsonUtil;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.JavaFileWriter;

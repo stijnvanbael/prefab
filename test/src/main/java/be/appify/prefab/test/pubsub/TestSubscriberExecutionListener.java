@@ -1,6 +1,6 @@
 package be.appify.prefab.test.pubsub;
 
-import be.appify.prefab.processor.pubsub.PubSubUtil;
+import be.appify.prefab.core.pubsub.PubSubUtil;
 import org.springframework.core.env.Environment;
 import org.springframework.test.context.TestContext;
 import org.springframework.test.context.support.AbstractTestExecutionListener;
@@ -27,7 +27,8 @@ public class TestSubscriberExecutionListener extends AbstractTestExecutionListen
         testContext.getApplicationContext().getBeanProvider(PubSubUtil.class).ifAvailable(pubSubUtil -> {
             this.pubSubUtil = pubSubUtil;
             Arrays.stream(testContext.getTestClass().getDeclaredFields())
-                    .filter(field -> field.getType().isAssignableFrom(List.class) && field.isAnnotationPresent(TestSubscriber.class))
+                    .filter(field -> field.getType().isAssignableFrom(List.class) && field.isAnnotationPresent(
+                            TestSubscriber.class))
                     .map(field -> new TestSubscriberField(field, field.getAnnotation(TestSubscriber.class)))
                     .forEach(testSubscriberField ->
                             injectTestSubscriber(testSubscriberField, testContext.getTestInstance()));
@@ -60,7 +61,8 @@ public class TestSubscriberExecutionListener extends AbstractTestExecutionListen
             Field field
     ) {
         var subscriber = new ArrayList<T>();
-        pubSubUtil.subscribe(topic, subscriptionName, (Class<T>) ((ParameterizedType) field.getGenericType()).getActualTypeArguments()[0], subscriber::add);
+        pubSubUtil.subscribe(topic, subscriptionName,
+                (Class<T>) ((ParameterizedType) field.getGenericType()).getActualTypeArguments()[0], subscriber::add);
         return subscriber;
     }
 

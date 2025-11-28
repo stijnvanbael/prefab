@@ -1,13 +1,13 @@
 ---
 id: task-007
 title: Compiler errors visualized in IDE
-status: To Do
+status: Done
 assignee: []
 created_date: '2025-10-10 13:32'
-updated_date: '2025-11-27 10:13'
+updated_date: '2025-11-28 10:54'
 labels: []
 dependencies: []
-ordinal: 875
+ordinal: 10000
 ---
 
 

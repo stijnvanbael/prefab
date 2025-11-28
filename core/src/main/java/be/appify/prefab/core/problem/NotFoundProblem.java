@@ -1,4 +1,4 @@
-package be.appify.prefab.processor.problem;
+package be.appify.prefab.core.problem;
 
 import org.zalando.problem.AbstractThrowableProblem;
 

@@ -1,4 +1,4 @@
-package be.appify.prefab.processor.spring;
+package be.appify.prefab.core.spring;
 
 import be.appify.prefab.core.util.ServiceLocator;
 import org.springframework.context.ApplicationContext;

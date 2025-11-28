@@ -1,6 +1,6 @@
 package be.appify.prefab.processor.pubsub;
 
-import be.appify.prefab.processor.spring.JsonUtil;
+import be.appify.prefab.core.spring.JsonUtil;
 import com.google.cloud.spring.pubsub.PubSubAdmin;
 import com.google.cloud.spring.pubsub.core.subscriber.PubSubSubscriberTemplate;
 import com.google.cloud.spring.pubsub.support.BasicAcknowledgeablePubsubMessage;

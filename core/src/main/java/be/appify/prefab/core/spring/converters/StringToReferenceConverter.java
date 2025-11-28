@@ -1,7 +1,7 @@
-package be.appify.prefab.processor.spring.converters;
+package be.appify.prefab.core.spring.converters;
 
 import be.appify.prefab.core.service.Reference;
-import be.appify.prefab.processor.spring.ReferenceFactory;
+import be.appify.prefab.core.spring.ReferenceFactory;
 import org.springframework.core.convert.TypeDescriptor;
 import org.springframework.core.convert.converter.GenericConverter;
 import org.springframework.data.convert.ReadingConverter;

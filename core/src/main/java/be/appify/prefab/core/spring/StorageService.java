@@ -1,4 +1,4 @@
-package be.appify.prefab.processor.spring;
+package be.appify.prefab.core.spring;
 
 import be.appify.prefab.core.domain.Binary;
 import org.springframework.stereotype.Component;

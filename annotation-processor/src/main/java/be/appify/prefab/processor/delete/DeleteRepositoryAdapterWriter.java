@@ -1,6 +1,6 @@
 package be.appify.prefab.processor.delete;
 
-import be.appify.prefab.processor.spring.RepositorySupport;
+import be.appify.prefab.core.spring.RepositorySupport;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
 

@@ -1,9 +1,9 @@
-package be.appify.prefab.processor.spring;
+package be.appify.prefab.core.spring;
 
-import be.appify.prefab.processor.spring.converters.ByteArrayToFileConverter;
-import be.appify.prefab.processor.spring.converters.FileToByteArrayConverter;
-import be.appify.prefab.processor.spring.converters.ReferenceToStringConverter;
-import be.appify.prefab.processor.spring.converters.StringToReferenceConverter;
+import be.appify.prefab.core.spring.converters.ByteArrayToFileConverter;
+import be.appify.prefab.core.spring.converters.FileToByteArrayConverter;
+import be.appify.prefab.core.spring.converters.ReferenceToStringConverter;
+import be.appify.prefab.core.spring.converters.StringToReferenceConverter;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jdbc.repository.config.AbstractJdbcConfiguration;
@@ -11,7 +11,7 @@ import org.springframework.data.jdbc.repository.config.AbstractJdbcConfiguration
 import java.util.List;
 
 @Configuration
-@ComponentScan({ "be.appify.prefab.processor.spring", "be.appify.prefab.processor.problem" })
+@ComponentScan({ "be.appify.prefab.core.spring", "be.appify.prefab.core.problem" })
 public class PrefabConfiguration extends AbstractJdbcConfiguration {
 
     private final ReferenceFactory referenceFactory;

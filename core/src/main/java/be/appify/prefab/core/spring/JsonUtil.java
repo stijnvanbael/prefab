@@ -1,4 +1,4 @@
-package be.appify.prefab.processor.spring;
+package be.appify.prefab.core.spring;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;

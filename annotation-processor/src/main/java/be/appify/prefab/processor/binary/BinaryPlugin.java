@@ -2,11 +2,11 @@ package be.appify.prefab.processor.binary;
 
 import be.appify.prefab.core.annotations.rest.Download;
 import be.appify.prefab.core.domain.Binary;
+import be.appify.prefab.core.spring.StorageService;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.VariableManifest;
-import be.appify.prefab.processor.spring.StorageService;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;

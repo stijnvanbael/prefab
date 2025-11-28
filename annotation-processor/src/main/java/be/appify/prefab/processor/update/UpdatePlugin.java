@@ -2,12 +2,12 @@ package be.appify.prefab.processor.update;
 
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.core.service.Reference;
+import be.appify.prefab.core.spring.ReferenceFactory;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.VariableManifest;
-import be.appify.prefab.processor.spring.ReferenceFactory;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;

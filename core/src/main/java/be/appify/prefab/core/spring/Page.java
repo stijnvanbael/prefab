@@ -1,4 +1,4 @@
-package be.appify.prefab.processor.spring;
+package be.appify.prefab.core.spring;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;

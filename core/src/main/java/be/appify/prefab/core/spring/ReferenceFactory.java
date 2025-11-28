@@ -1,4 +1,4 @@
-package be.appify.prefab.processor.spring;
+package be.appify.prefab.core.spring;
 
 import be.appify.prefab.core.service.Reference;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -28,8 +28,8 @@ public class ReferenceFactory {
 
     private static boolean isCrudRepository(Type type) {
         return type instanceof ParameterizedType parameterizedType &&
-               parameterizedType.getRawType() instanceof Class<?> rawClass &&
-               CrudRepository.class.isAssignableFrom(rawClass);
+                parameterizedType.getRawType() instanceof Class<?> rawClass &&
+                CrudRepository.class.isAssignableFrom(rawClass);
     }
 
     public <T> Reference<T> referenceTo(Class<T> clazz, String id) {

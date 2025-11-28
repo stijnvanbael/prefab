@@ -1,4 +1,4 @@
-package be.appify.prefab.processor.spring.converters;
+package be.appify.prefab.core.spring.converters;
 
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.data.convert.ReadingConverter;

@@ -1,6 +1,6 @@
 package be.appify.prefab.example.todo;
 
-import be.appify.prefab.processor.spring.PrefabConfiguration;
+import be.appify.prefab.core.spring.PrefabConfiguration;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Import;

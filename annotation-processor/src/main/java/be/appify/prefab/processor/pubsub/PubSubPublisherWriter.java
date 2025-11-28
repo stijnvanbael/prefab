@@ -2,10 +2,10 @@ package be.appify.prefab.processor.pubsub;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.Key;
+import be.appify.prefab.core.spring.JsonUtil;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
-import be.appify.prefab.processor.spring.JsonUtil;
 import com.google.cloud.spring.pubsub.core.PubSubTemplate;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.PubsubMessage;

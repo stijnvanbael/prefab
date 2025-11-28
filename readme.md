@@ -1,4 +1,25 @@
-# Prefab
+# 📦 Prefab
+
+The purpose of the software we build is to solve business problems. However, a lot of time is spent
+on boilerplate code that doesn't add any business value. Prefab aims to reduce this boilerplate
+by generating the necessary code for you based on your domain model.
+
+With Prefab, you can focus on defining your domain classes with the business logic and let the
+framework handle the application infrastructure. This leads to faster development cycles, fewer bugs,
+and a more maintainable codebase. You are essentially coding at a higher level of abstraction,
+focusing on the "what" instead of the "how".
+
+There are several use cases where Prefab can help you:
+
+- Rapid prototyping
+- Rapid application development
+- Learning and experimenting with Spring Boot and Domain-Driven Design
+- Scaffolding for larger applications
+
+While Prefab is not intended to build very complex applications out of the box, it can serve as a solid foundation
+that you can extend and customize to fit your specific needs.
+
+## ⚙️ How it works
 
 Prefab is a Java annotation processor that generates an entire application from domain classes.
 
@@ -39,43 +60,63 @@ To get started with Prefab, you need to add the following to your `pom.xml`:
 <dependency>
     <groupId>be.appify.prefab</groupId>
     <artifactId>prefab-annotation-processor</artifactId>
+    <scope>provided</scope>
 </dependency>
-<!-- Required to support compilation in IntelliJ -->
+<!-- Optional, only when using Kafka -->
 <dependency>
-    <groupId>com.palantir.javapoet</groupId>
-    <artifactId>javapoet</artifactId>
-    <version>${javapoet.version}</version>
+    <groupId>org.springframework.kafka</groupId>
+    <artifactId>spring-kafka</artifactId>
 </dependency>
+<!-- Optional, only when using Pub/Sub -->
 <dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-web</artifactId>
+    <groupId>com.google.cloud</groupId>
+    <artifactId>spring-cloud-gcp-starter-pubsub</artifactId>
+    <version>${google-cloud.version}</version>
 </dependency>
+
 <dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-validation</artifactId>
-</dependency>
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-data-jdbc</artifactId>
-</dependency>
-<dependency>
-    <groupId>org.postgresql</groupId>
-    <artifactId>postgresql</artifactId>
-</dependency>
-<dependency>
-    <groupId>org.flywaydb</groupId>
-    <artifactId>flyway-core</artifactId>
-</dependency>
-<dependency>
-    <groupId>org.flywaydb</groupId>
-    <artifactId>flyway-database-postgresql</artifactId>
-</dependency>
-<dependency>
-    <groupId>org.zalando</groupId>
-    <artifactId>problem-spring-web-starter</artifactId>
-    <version>${problem-spring-web.version}</version>
+    <groupId>be.appify.prefab</groupId>
+    <artifactId>prefab-test</artifactId>
+    <scope>test</scope>
 </dependency>
 </dependencies>
+<build>
+<plugins>
+    <!-- Optional, to generate test fixtures -->
+    <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.4.0</version>
+        <executions>
+            <execution>
+                <id>add-main-as-test-source</id>
+                <phase>generate-test-sources</phase>
+                <goals>
+                    <goal>add-test-source</goal>
+                </goals>
+                <configuration>
+                    <sources>
+                        <source>target/prefab-test-sources</source>
+                    </sources>
+                </configuration>
+            </execution>
+        </executions>
+    </plugin>
+    <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+            <source>${maven.compiler.release}</source>
+            <target>${maven.compiler.release}</target>
+            <!-- Required to run the annotation processor -->
+            <annotationProcessors>
+                <annotationProcessor>be.appify.prefab.processor.PrefabProcessor</annotationProcessor>
+            </annotationProcessors>
+        </configuration>
+    </plugin>
+</plugins>
+</build>
 ```
 
 Prefab will generate code for any domain entity annotated with `@Aggregate`. This can be a concrete class or a record,
@@ -511,14 +552,6 @@ mvn clean compile
 
 ## 🧭 What's next?
 
-Prefab is still in its early stages, and many features are planned for the future. Some of the upcoming features
-include:
+Prefab is still in its early stages, and many more features are planned for the future.
 
-- Support for SNS/SQS
-- Support for more complex filter queries
-- Full-text filter
-- Projections
-- Support for class hierarchies
-- Support for generic types
-- Simplify Maven configuration
-- Support for more databases
+See the [backlog](backlog/tasks) for a list of planned features and improvements.

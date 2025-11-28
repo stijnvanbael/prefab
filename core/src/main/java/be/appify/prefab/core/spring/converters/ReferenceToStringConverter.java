@@ -1,4 +1,4 @@
-package be.appify.prefab.processor.spring.converters;
+package be.appify.prefab.core.spring.converters;
 
 import be.appify.prefab.core.service.Reference;
 import org.springframework.core.convert.converter.Converter;

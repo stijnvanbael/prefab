@@ -8,7 +8,7 @@ import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.annotations.rest.Security;
-import be.appify.prefab.processor.problem.BadRequestProblem;
+import be.appify.prefab.core.problem.BadRequestProblem;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;

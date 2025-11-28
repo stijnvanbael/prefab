@@ -3,7 +3,6 @@ package be.appify.prefab.example.sale;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import be.appify.prefab.example.IntegrationTest;
 import be.appify.prefab.example.sale.application.CreateCustomerRequest;
 import be.appify.prefab.example.sale.application.CreateGiftVoucherRequest;
 import be.appify.prefab.example.sale.application.CreateSaleRequest;
@@ -13,6 +12,7 @@ import be.appify.prefab.example.sale.application.SaleAddPaymentRequest;
 import be.appify.prefab.example.sale.application.SaleRepository;
 import be.appify.prefab.example.sale.invoice.InvoiceFixture;
 import be.appify.prefab.example.sale.invoice.application.InvoiceRepository;
+import be.appify.prefab.test.IntegrationTest;
 import be.appify.prefab.test.kafka.KafkaContainerSupport;
 import be.appify.prefab.test.kafka.TestConsumer;
 import org.apache.kafka.clients.consumer.Consumer;

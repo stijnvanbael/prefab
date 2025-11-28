@@ -40,7 +40,11 @@ public class TestSubscriberExecutionListener extends AbstractTestExecutionListen
     public void afterTestExecution(TestContext testContext) {
         if (pubSubUtil != null) {
             var subscriptionName = testContext.getTestInstance().getClass().getSimpleName();
-            pubSubUtil.deleteSubscription(subscriptionName);
+            try {
+                pubSubUtil.deleteSubscription(subscriptionName);
+            } catch (Exception e) {
+                // Ignore
+            }
             subscriberByField.clear();
         }
     }

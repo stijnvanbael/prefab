@@ -5,6 +5,7 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.kafka.ConcurrentKafkaListenerContainerFactoryConfigurer;
 import org.springframework.boot.autoconfigure.kafka.DefaultKafkaConsumerFactoryCustomizer;
@@ -33,6 +34,7 @@ import java.time.Duration;
 import java.util.UUID;
 
 @Configuration
+@ConditionalOnClass(KafkaListenerContainerFactory.class)
 @ComponentScan(basePackageClasses = KafkaJsonTypeResolver.class)
 public class KafkaConfiguration {
     @Bean

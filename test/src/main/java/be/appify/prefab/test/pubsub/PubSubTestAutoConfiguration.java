@@ -7,6 +7,7 @@ import com.google.api.gax.grpc.GrpcTransportChannel;
 import com.google.api.gax.rpc.FixedTransportChannelProvider;
 import com.google.api.gax.rpc.TransportChannelProvider;
 import com.google.cloud.spring.autoconfigure.pubsub.GcpPubSubProperties;
+import com.google.cloud.spring.pubsub.PubSubAdmin;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -19,7 +20,7 @@ import org.springframework.test.context.DynamicPropertyRegistrar;
 import javax.annotation.PreDestroy;
 
 @Configuration
-@ConditionalOnClass(GcpPubSubProperties.class)
+@ConditionalOnClass(PubSubAdmin.class)
 @ComponentScan(basePackageClasses = PubSubTestLifecycle.class)
 public class PubSubTestAutoConfiguration {
     private ManagedChannel channel;

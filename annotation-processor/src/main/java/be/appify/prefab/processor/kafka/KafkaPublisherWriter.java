@@ -1,7 +1,7 @@
 package be.appify.prefab.processor.kafka;
 
 import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.core.annotations.Key;
+import be.appify.prefab.core.annotations.PartitioningKey;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
@@ -45,7 +45,7 @@ public class KafkaPublisherWriter {
 
     private MethodSpec publisher(ClassManifest event) {
         var keyField = event.fields().stream()
-                .filter(field -> field.hasAnnotation(Key.class))
+                .filter(field -> field.hasAnnotation(PartitioningKey.class))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Event %s does not have a field annotated with @Key".formatted(event.simpleName())))

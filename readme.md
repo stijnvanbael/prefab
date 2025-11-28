@@ -386,6 +386,16 @@ public record Sale(
 
 ### 🛡️ Security
 
+Define an OAuth2 client registration in your `application.yml` to enable security:
+
+```yaml
+spring:
+  security.oauth2.client.registration:
+    google:
+      client-id: ${GOOGLE_OAUTH2_CLIENT_ID}
+      client-secret: ${GOOGLE_OAUTH2_CLIENT_SECRET}
+```
+
 By default, all generated REST endpoints are secured. They require the user to be authenticated. You can customize the
 security requirements of any REST endpoint by setting the security attribute on it.
 

@@ -3,9 +3,9 @@ package be.appify.prefab.example.todo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import be.appify.prefab.example.IntegrationTest;
 import be.appify.prefab.example.todo.application.CreateTodoRequest;
 import be.appify.prefab.example.todo.application.TodoRepository;
+import be.appify.prefab.test.IntegrationTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;

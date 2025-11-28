@@ -1,7 +1,7 @@
 package be.appify.prefab.processor.pubsub;
 
 import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.core.annotations.Key;
+import be.appify.prefab.core.annotations.PartitioningKey;
 import be.appify.prefab.core.pubsub.PubSubUtil;
 import be.appify.prefab.core.spring.JsonUtil;
 import be.appify.prefab.processor.ClassManifest;
@@ -68,7 +68,7 @@ public class PubSubPublisherWriter {
 
     private MethodSpec publisher(ClassManifest event) {
         var keyField = event.fields().stream()
-                .filter(field -> field.hasAnnotation(Key.class))
+                .filter(field -> field.hasAnnotation(PartitioningKey.class))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Event %s does not have a field annotated with @Key".formatted(event.simpleName())))

@@ -40,7 +40,8 @@ public class KafkaPlugin implements PrefabPlugin {
                 .filter(method -> isKafkaEvent(context, method))
                 .collect(groupingBy(method -> topicAndOwnerOf(context, method)))
                 .forEach((topicAndOwner, eventHandlers) ->
-                        kafkaConsumerWriter.writeKafkaConsumer(topicAndOwner.getLeft(), topicAndOwner.getRight(), eventHandlers, context));
+                        kafkaConsumerWriter.writeKafkaConsumer(topicAndOwner.getLeft(), topicAndOwner.getRight(),
+                                eventHandlers, context));
     }
 
     private Pair<String, TypeManifest> topicAndOwnerOf(PrefabContext context, ExecutableElement method) {
@@ -49,7 +50,8 @@ public class KafkaPlugin implements PrefabPlugin {
                         new TypeManifest(parameter.asType(), context.processingEnvironment())
                                 .annotationsOfType(Event.class).stream()
                                 .findFirst()
-                                .map(event -> Pair.of(event.topic(), getMirroredType(event::ownedBy, context.processingEnvironment())))
+                                .map(event -> Pair.of(event.topic(),
+                                        getMirroredType(event::publishedBy, context.processingEnvironment())))
                                 .stream())
                 .findFirst()
                 .orElseThrow();
@@ -58,7 +60,7 @@ public class KafkaPlugin implements PrefabPlugin {
     private TypeManifest getMirroredType(Supplier<Class<?>> getter, ProcessingEnvironment environment) {
         try {
             return TypeManifest.of(getter.get(), environment);
-        } catch (MirroredTypeException e){
+        } catch (MirroredTypeException e) {
             return new TypeManifest(e.getTypeMirror(), environment);
         }
     }
@@ -66,7 +68,8 @@ public class KafkaPlugin implements PrefabPlugin {
     private static boolean isKafkaEvent(PrefabContext context, ExecutableElement method) {
         return method.getParameters().stream()
                 .anyMatch(parameter ->
-                        new TypeManifest(parameter.asType(), context.processingEnvironment()).annotationsOfType(Event.class).stream()
+                        new TypeManifest(parameter.asType(), context.processingEnvironment()).annotationsOfType(
+                                        Event.class).stream()
                                 .anyMatch(event -> event.platform() == Event.Platform.KAFKA));
     }
 

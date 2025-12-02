@@ -4,10 +4,10 @@ title: Protobuf message support
 status: To Do
 assignee: []
 created_date: '2025-10-10 13:37'
-updated_date: '2025-11-27 10:12'
+updated_date: '2025-11-29 11:14'
 labels: []
 dependencies: []
-ordinal: 16000
+ordinal: 687.5
 ---
 
 

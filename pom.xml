@@ -12,7 +12,8 @@
 
     <groupId>be.appify.prefab</groupId>
     <artifactId>prefab-parent</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <name>Prefab Parent</name>
+    <version>0.1.0</version>
     <packaging>pom</packaging>
     <modules>
         <module>core</module>
@@ -28,6 +29,7 @@
         <commons-text.version>1.11.0</commons-text.version>
         <problem-spring-web.version>0.29.1</problem-spring-web.version>
         <google-cloud.version>7.4.1</google-cloud.version>
+        <central-publishing-maven-plugin.version>0.9.0</central-publishing-maven-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -47,6 +49,41 @@
                 <artifactId>prefab-test</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>${central-publishing-maven-plugin.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <extensions>true</extensions>
+                <configuration>
+                    <publishingServerId>central</publishingServerId>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+    <distributionManagement>
+        <repository>
+            <id>central</id>
+        </repository>
+    </distributionManagement>
 </project>

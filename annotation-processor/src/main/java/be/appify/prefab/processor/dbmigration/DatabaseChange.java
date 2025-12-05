@@ -1,10 +1,11 @@
 package be.appify.prefab.processor.dbmigration;
 
 import be.appify.prefab.processor.ListUtil;
-import static java.util.stream.Collectors.joining;
 
 import java.util.List;
 import java.util.Objects;
+
+import static java.util.stream.Collectors.joining;
 
 public interface DatabaseChange {
     String toSql();
@@ -16,11 +17,12 @@ public interface DatabaseChange {
                     .map(Column::toString)
                     .collect(joining(",\n  "));
             var primaryKeySql = table.primaryKey().isEmpty() ? "" :
-                    ",\n  PRIMARY KEY(" + String.join(", ", table.primaryKey()) + ")\n";
-            return "CREATE TABLE " + table.name() + " (\n  " +
-                   columnsSql +
-                   primaryKeySql +
-                   ");\n";
+                    ",\n  PRIMARY KEY(" + table.primaryKey().stream().map(column -> "\"" + column + "\"")
+                            .collect(joining(", ")) + ")\n";
+            return "CREATE TABLE \"" + table.name() + "\" (\n  " +
+                    columnsSql +
+                    primaryKeySql +
+                    ");\n";
         }
 
         @Override
@@ -48,8 +50,8 @@ public interface DatabaseChange {
                     .map(TableModification::toSql)
                     .collect(joining(",\n"));
             return "ALTER TABLE " + tableName + "\n" +
-                   modificationsSql +
-                   ";\n";
+                    modificationsSql +
+                    ";\n";
         }
 
         @Override

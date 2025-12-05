@@ -12,8 +12,8 @@ public record ForeignKey(
         var referencedTable = columnSpecs.get(columnSpecs.indexOf("REFERENCES") + 1);
         var referencedColumn = columnSpecs.get(columnSpecs.indexOf("REFERENCES") + 2);
         return new ForeignKey(
-                referencedTable,
-                referencedColumn.substring(1, referencedColumn.length() - 1)
+                referencedTable.replace("\"", ""),
+                referencedColumn.substring(1, referencedColumn.length() - 1).replace("\"", "")
         );
     }
 
@@ -26,6 +26,6 @@ public record ForeignKey(
 
     @Override
     public String toString() {
-        return "REFERENCES " + referencedTable + "(" + referencedColumn + ")";
+        return "REFERENCES \"" + referencedTable + "\"(\"" + referencedColumn + "\")";
     }
 }

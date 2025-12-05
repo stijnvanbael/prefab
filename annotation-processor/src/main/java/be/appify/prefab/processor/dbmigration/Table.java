@@ -3,7 +3,6 @@ package be.appify.prefab.processor.dbmigration;
 import net.sf.jsqlparser.statement.alter.Alter;
 import net.sf.jsqlparser.statement.alter.AlterExpression;
 import net.sf.jsqlparser.statement.alter.AlterOperation;
-import net.sf.jsqlparser.statement.create.table.ColumnDefinition;
 import net.sf.jsqlparser.statement.create.table.CreateTable;
 import net.sf.jsqlparser.statement.create.table.ForeignKeyIndex;
 
@@ -25,7 +24,7 @@ public record Table(
 
     public static Table fromCreateTable(CreateTable createTable) {
         return new Table(
-                createTable.getTable().getName(),
+                createTable.getTable().getName().replace("\"", ""),
                 createTable.getColumnDefinitions().stream()
                         .map(Column::fromColumnDefinition)
                         .toList(),
@@ -38,12 +37,13 @@ public record Table(
             return createTable.getColumnDefinitions().stream()
                     .filter(column -> column.getColumnSpecs() != null && Collections.indexOfSubList(
                             column.getColumnSpecs(), PRIMARY_KEY) != -1)
-                    .map(ColumnDefinition::getColumnName)
+                    .map(column -> column.getColumnName().replace("\"", ""))
                     .toList();
         }
         return createTable.getIndexes().stream()
                 .filter(idx -> idx.getType().equals("PRIMARY KEY"))
-                .flatMap(idx -> idx.getColumnsNames().stream())
+                .flatMap(idx -> idx.getColumnsNames().stream()
+                        .map(name -> name.replace("\"", "")))
                 .toList();
     }
 

@@ -70,13 +70,15 @@ public class KafkaConsumerWriter {
                 );
                 var field = FieldSpec.builder(serviceClass, "%sService".formatted(uncapitalize(target.simpleName())),
                         PRIVATE, FINAL).build();
-                fields.add(field);
-                type.addField(field);
+                if (fields.add(field)) {
+                    type.addField(field);
+                }
             } else if (!target.annotationsOfType(Component.class).isEmpty()) {
                 var field = FieldSpec.builder(target.asTypeName(), uncapitalize(target.simpleName()), PRIVATE, FINAL)
                         .build();
-                fields.add(field);
-                type.addField(field);
+                if (fields.add(field)) {
+                    type.addField(field);
+                }
             } else {
                 context.logError(
                         "Cannot write Kafka consumer for %s, it is neither an Aggregate nor a Component".formatted(

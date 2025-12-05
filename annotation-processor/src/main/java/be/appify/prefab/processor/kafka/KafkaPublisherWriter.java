@@ -48,7 +48,7 @@ public class KafkaPublisherWriter {
                 .filter(field -> field.hasAnnotation(PartitioningKey.class))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "Event %s does not have a field annotated with @Key".formatted(event.simpleName())))
+                        "Event %s does not have a field annotated with @PartitioningKey".formatted(event.simpleName())))
                 .name();
         return MethodSpec.methodBuilder("publish")
                 .addModifiers(Modifier.PUBLIC)

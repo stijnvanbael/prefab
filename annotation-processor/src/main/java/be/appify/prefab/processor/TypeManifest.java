@@ -54,6 +54,16 @@ public class TypeManifest {
         }
     }
 
+    public TypeManifest(Class<?> type, ProcessingEnvironment processingEnvironment) {
+        this(
+                type.getPackageName(),
+                type.getSimpleName(),
+                List.of(),
+                ElementKind.CLASS,
+                processingEnvironment
+        );
+    }
+
     public TypeManifest(String packageName, String simpleName, List<TypeManifest> parameters, ElementKind kind,
             ProcessingEnvironment processingEnvironment) {
         this.packageName = packageName;

@@ -41,8 +41,8 @@ public class ByReferenceEventHandlerPlugin implements PrefabPlugin {
                     var annotation = element.getAnnotationsByType(EventHandler.ByReference.class)[0];
                     var eventType = getEventType(element, context);
                     var referenceField = getFields(eventType.asElement(), context.processingEnvironment()).stream()
-                            .filter(field -> field.name().equals(annotation.value()) && field.type()
-                                    .is(Reference.class))
+                            .filter(field -> field.name().equals(annotation.value())
+                                    && (field.type().is(Reference.class) || field.type().is(String.class)))
                             .findFirst()
                             .orElseThrow(() -> new IllegalArgumentException(
                                     "Event type %s does not have a field named %s, or the field is not of type Reference".formatted(
@@ -51,7 +51,8 @@ public class ByReferenceEventHandlerPlugin implements PrefabPlugin {
                             element.getSimpleName().toString(),
                             annotation,
                             eventType,
-                            referenceField.type().parameters().getFirst());
+                            referenceField.type().parameters().stream().findFirst()
+                                    .orElse(new TypeManifest(String.class, context.processingEnvironment())));
                 });
     }
 

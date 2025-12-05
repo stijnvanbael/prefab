@@ -19,10 +19,10 @@ public interface TableModification {
             }
             if (!Objects.equals(original.foreignKey(), desired.foreignKey())) {
                 if (original.foreignKey() != null) {
-                    modifications.add(new DropForeignKey(original.name()));
+                    modifications.add(new DropForeignKey(table, original.name()));
                 }
                 if (desired.foreignKey() != null) {
-                    modifications.add(new AddForeignKey(desired.name(), desired.foreignKey()));
+                    modifications.add(new AddForeignKey(table, desired.name(), desired.foreignKey()));
                 }
             }
             return modifications;
@@ -78,10 +78,10 @@ public interface TableModification {
         }
     }
 
-    record AddForeignKey(String columnName, ForeignKey foreignKey) implements TableModification {
+    record AddForeignKey(String tableName, String columnName, ForeignKey foreignKey) implements TableModification {
         @Override
         public String toSql() {
-            return "ADD CONSTRAINT fk_" + columnName + " FOREIGN KEY (" + columnName + ") " + foreignKey.toString();
+            return "ADD CONSTRAINT fk_" + tableName + "_" + columnName + " FOREIGN KEY (\"" + columnName + "\") " + foreignKey.toString();
         }
 
         @Override
@@ -90,10 +90,10 @@ public interface TableModification {
         }
     }
 
-    record DropForeignKey(String columnName) implements TableModification {
+    record DropForeignKey(String tableName, String columnName) implements TableModification {
         @Override
         public String toSql() {
-            return "DROP CONSTRAINT fk_" + columnName;
+            return "DROP CONSTRAINT fk_" + tableName + "_" + columnName;
         }
 
         @Override

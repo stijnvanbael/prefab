@@ -13,13 +13,14 @@
     <groupId>be.appify.prefab</groupId>
     <artifactId>prefab-parent</artifactId>
     <name>Prefab Parent</name>
-    <version>0.1.0</version>
+    <version>0.1.1-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
         <module>core</module>
         <module>example</module>
         <module>annotation-processor</module>
         <module>test</module>
+        <module>examples/kafka</module>
     </modules>
 
     <properties>

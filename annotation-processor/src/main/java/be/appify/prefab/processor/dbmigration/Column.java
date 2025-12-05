@@ -40,7 +40,7 @@ public record Column(
 
     private static Column createColumn(String name, ColDataType dataType, List<String> columnSpecs) {
         return new Column(
-                name,
+                name.replace("\"", ""),
                 DataType.parse(dataType.toString()),
                 Collections.indexOfSubList(columnSpecs, NOT_NULL) == -1,
                 columnSpecs.contains("REFERENCES") ? ForeignKey.fromColumnSpecs(columnSpecs) : null,
@@ -86,7 +86,7 @@ public record Column(
 
     @Override
     public String toString() {
-        return name + " " + type
+        return "\"" + name + "\" " + type
                 + (nullable ? "" : " NOT NULL")
                 + (defaultValue != null ? " DEFAULT " + defaultValue : "")
                 + (foreignKey != null ? " " + foreignKey : "");

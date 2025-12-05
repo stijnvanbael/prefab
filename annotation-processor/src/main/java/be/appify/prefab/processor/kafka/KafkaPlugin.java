@@ -87,7 +87,9 @@ public class KafkaPlugin implements PrefabPlugin {
         return StreamUtil.concat(
                 aggregate.methodsWith(EventHandler.class).stream(),
                 aggregate.methodsWith(EventHandler.ByReference.class).stream(),
-                aggregate.methodsWith(EventHandler.Broadcast.class).stream()
+                aggregate.methodsWith(EventHandler.Broadcast.class).stream(),
+                aggregate.methodsWith(EventHandler.Multicast.class)
+                        .stream() // TODO: make this pluggable so other plugins can add their own handlers
         );
     }
 

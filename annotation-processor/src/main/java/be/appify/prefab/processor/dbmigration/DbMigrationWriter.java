@@ -6,8 +6,6 @@ import be.appify.prefab.processor.ListUtil;
 import net.sf.jsqlparser.parser.CCJSqlParser;
 import net.sf.jsqlparser.statement.alter.Alter;
 import net.sf.jsqlparser.statement.create.table.CreateTable;
-import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
-import static java.util.stream.Collectors.groupingBy;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
@@ -22,6 +20,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
+import static java.util.stream.Collectors.groupingBy;
 
 public class DbMigrationWriter {
 
@@ -174,7 +175,8 @@ public class DbMigrationWriter {
 
     private List<Column> columnsOf(ClassManifest manifest, String prefix, boolean parentNullable) {
         return manifest.fields().stream()
-                .filter(field -> !field.type().is(List.class) || field.type().parameters().getFirst().isStandardType())
+                .filter(field -> !field.type().is(List.class) || field.type().parameters().getFirst()
+                        .isStandardType() || field.type().parameters().getFirst().is(Reference.class))
                 .flatMap(field -> field.type().isRecord()
                         ? columnsOf(field.type().asClassManifest(),
                         prefix != null ? prefix + "_" + field.name() : field.name(),
@@ -191,7 +193,7 @@ public class DbMigrationWriter {
         for (ClassManifest manifest : classManifests) {
             var dependencies = manifest.fields().stream()
                     .filter(field -> field.type().is(Reference.class)
-                                     && types.contains(field.type().parameters().getFirst()))
+                            && types.contains(field.type().parameters().getFirst()))
                     .map(field -> field.type().parameters().getFirst().asClassManifest())
                     .collect(Collectors.toSet());
             dependencyTree.put(manifest, dependencies);

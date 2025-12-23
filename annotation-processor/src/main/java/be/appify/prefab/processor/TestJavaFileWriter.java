@@ -2,7 +2,6 @@ package be.appify.prefab.processor;
 
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.TypeSpec;
-import static org.apache.commons.lang3.StringUtils.isBlank;
 
 import javax.lang.model.element.TypeElement;
 import javax.tools.JavaFileObject;
@@ -17,6 +16,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Locale;
+
+import static org.apache.commons.lang3.StringUtils.isBlank;
 
 public class TestJavaFileWriter {
     private final StandardJavaFileManager fileManager = getJavaFileManager();
@@ -33,8 +34,8 @@ public class TestJavaFileWriter {
         var rootPath = getRootPath();
         if (rootPath != null) {
             var testSourcePath = rootPath + "/target/prefab-test-sources/"
-                                 + packagePrefix.replace(".", "/")
-                                 + (packageSuffix != null ? "/" + packageSuffix.replace(".", "/") : "");
+                    + packagePrefix.replace(".", "/")
+                    + (packageSuffix != null ? "/" + packageSuffix.replace(".", "/") : "");
             try {
                 var outputPath = new File(testSourcePath).toPath();
                 if (!Files.exists(outputPath)) {
@@ -88,7 +89,13 @@ public class TestJavaFileWriter {
             var sourcePath = context.processingEnvironment().getFiler()
                     .getResource(StandardLocation.SOURCE_PATH, packageName, fileName)
                     .toUri().getPath();
-            return sourcePath.substring(0, sourcePath.indexOf("/src/main/java"));
+            if (sourcePath.contains("/src/main/java")) {
+                return sourcePath.substring(0, sourcePath.indexOf("/src/main/java"));
+            } else if (sourcePath.contains("/src/test/java")) {
+                return sourcePath.substring(0, sourcePath.indexOf("/src/test/java"));
+            } else {
+                return null;
+            }
         } catch (IOException e) {
             System.err.println(e.getMessage());
             return null;

@@ -11,4 +11,5 @@ spring:
             client-secret: ${GOOGLE_OAUTH2_CLIENT_SECRET}
 
 topics:
-  message.name: kafka-example.message
+  message.name: prefab.kafka-example.message
+  user.name: prefab.kafka-example.user

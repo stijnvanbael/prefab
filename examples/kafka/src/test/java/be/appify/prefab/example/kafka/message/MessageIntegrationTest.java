@@ -21,7 +21,7 @@ import static org.assertj.core.groups.Tuple.tuple;
 import static org.awaitility.Awaitility.await;
 
 @IntegrationTest
-public class MessageIntegrationTest implements KafkaContainerSupport {
+class MessageIntegrationTest implements KafkaContainerSupport {
 
     @Autowired
     ChannelFixture channels;

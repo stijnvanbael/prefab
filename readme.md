@@ -12,7 +12,7 @@ focusing on the "what" instead of the "how".
 There are several use cases where Prefab can help you:
 
 - Rapid prototyping
-- Rapid application development
+- Iterate quickly on domain models
 - Reducing boilerplate and maintenance overhead
 - Learning and experimenting with Spring Boot and Domain-Driven Design
 - Scaffolding for larger applications
@@ -33,7 +33,7 @@ By adding annotations to your domain classes, Prefab will generate the following
 
 Additionally, Prefab supports:
 
-- Event publishers and consumers
+- Event producers and consumers
 - Database migrations
 
 Prefab is designed to work with Spring Boot and PostgreSQL. Other databases might be added in the future.
@@ -463,7 +463,7 @@ public record Sale(
 }
 ```
 
-Alternatively, you can annotate the event with `@Event` to generate a publisher for the event that publishes to a
+Alternatively, you can annotate the event with `@Event` to generate a producer for the event that publishes to a
 message broker. Supported platforms right now are `KAFKA`, and `PUB_SUB`.
 
 ```java

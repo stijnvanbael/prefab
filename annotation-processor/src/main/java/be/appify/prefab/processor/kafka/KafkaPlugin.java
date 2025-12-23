@@ -13,17 +13,16 @@ import org.springframework.stereotype.Component;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.MirroredTypeException;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
 
 public class KafkaPlugin implements PrefabPlugin {
-    private final KafkaPublisherWriter kafkaPublisherWriter = new KafkaPublisherWriter();
+    private final KafkaProducerWriter kafkaProducerWriter = new KafkaProducerWriter();
     private final KafkaConsumerWriter kafkaConsumerWriter = new KafkaConsumerWriter();
 
     @Override
@@ -34,7 +33,7 @@ public class KafkaPlugin implements PrefabPlugin {
 
     private void writeConsumers(List<ClassManifest> aggregates, PrefabContext context) {
         Stream.concat(
-                        aggregates.stream().flatMap(aggregate -> kafkaEventHandlers(aggregate, context)),
+                        aggregates.stream().flatMap(KafkaPlugin::kafkaEventHandlers),
                         componentHandlers(context)
                 )
                 .filter(method -> isKafkaEvent(context, method))
@@ -48,7 +47,7 @@ public class KafkaPlugin implements PrefabPlugin {
         return method.getParameters().stream()
                 .flatMap(parameter ->
                         new TypeManifest(parameter.asType(), context.processingEnvironment())
-                                .annotationsOfType(Event.class).stream()
+                                .inheritedAnnotationsOfType(Event.class).stream()
                                 .findFirst()
                                 .map(event -> Pair.of(event.topic(),
                                         getMirroredType(event::publishedBy, context.processingEnvironment())))
@@ -68,28 +67,28 @@ public class KafkaPlugin implements PrefabPlugin {
     private static boolean isKafkaEvent(PrefabContext context, ExecutableElement method) {
         return method.getParameters().stream()
                 .anyMatch(parameter ->
-                        new TypeManifest(parameter.asType(), context.processingEnvironment()).annotationsOfType(
-                                        Event.class).stream()
+                        new TypeManifest(parameter.asType(), context.processingEnvironment())
+                                .inheritedAnnotationsOfType(Event.class)
+                                .stream()
                                 .anyMatch(event -> event.platform() == Event.Platform.KAFKA));
     }
 
     private void writePublishers(PrefabContext context) {
         var events = context.roundEnvironment().getElementsAnnotatedWith(Event.class)
                 .stream()
-                .filter(e -> e.getAnnotation(Event.class).platform() == Event.Platform.KAFKA)
-                .filter(element -> element.getKind().isClass() && !element.getModifiers().contains(Modifier.ABSTRACT))
-                .map(element -> new ClassManifest((TypeElement) element, context.processingEnvironment()))
+                .filter(e -> requireNonNull(e.getAnnotation(Event.class)).platform() == Event.Platform.KAFKA)
+                .map(element -> new TypeManifest(element.asType(), context.processingEnvironment()))
                 .toList();
-        events.forEach(event -> kafkaPublisherWriter.writeKafkaPublisher(event, context));
+        events.forEach(event -> kafkaProducerWriter.writeKafkaProducer(event, context));
     }
 
-    private static Stream<ExecutableElement> kafkaEventHandlers(ClassManifest aggregate, PrefabContext context) {
+    private static Stream<ExecutableElement> kafkaEventHandlers(ClassManifest aggregate) {
         return StreamUtil.concat(
                 aggregate.methodsWith(EventHandler.class).stream(),
                 aggregate.methodsWith(EventHandler.ByReference.class).stream(),
                 aggregate.methodsWith(EventHandler.Broadcast.class).stream(),
-                aggregate.methodsWith(EventHandler.Multicast.class)
-                        .stream() // TODO: make this pluggable so other plugins can add their own handlers
+                aggregate.methodsWith(EventHandler.Multicast.class).stream()
+                // TODO: make this pluggable so other plugins can add their own handlers
         );
     }
 

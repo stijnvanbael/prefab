@@ -4,9 +4,9 @@ import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.PartitioningKey;
 import be.appify.prefab.core.pubsub.PubSubUtil;
 import be.appify.prefab.core.spring.JsonUtil;
-import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
+import be.appify.prefab.processor.TypeManifest;
 import com.google.cloud.spring.pubsub.core.PubSubTemplate;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.PubsubMessage;
@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
 import javax.lang.model.element.Modifier;
 
 public class PubSubPublisherWriter {
-    public void writePubSubPublisher(ClassManifest event, PrefabContext context) {
+    public void writePubSubPublisher(TypeManifest event, PrefabContext context) {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.pubsub");
 
         var name = "%sPubSubPublisher".formatted(event.simpleName());
@@ -43,7 +43,7 @@ public class PubSubPublisherWriter {
                 .addField(JsonUtil.class, "jsonSupport", Modifier.PRIVATE, Modifier.FINAL)
                 .addField(String.class, "topic", Modifier.PRIVATE, Modifier.FINAL)
                 .addMethod(constructor(annotation.topic()))
-                .addMethod(publisher(event))
+                .addMethod(producer(event))
                 .build();
 
         fileWriter.writeFile(event.packageName(), name, type);
@@ -66,16 +66,15 @@ public class PubSubPublisherWriter {
                 .build();
     }
 
-    private MethodSpec publisher(ClassManifest event) {
-        var keyField = event.fields().stream()
-                .filter(field -> field.hasAnnotation(PartitioningKey.class))
+    private MethodSpec producer(TypeManifest event) {
+        var keyField = event.methodsWith(PartitioningKey.class).stream()
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Event %s does not have a field annotated with @Key".formatted(event.simpleName())))
-                .name(); // TODO: add ordering key
+                .getSimpleName().toString(); // TODO: add ordering key
         return MethodSpec.methodBuilder("publish")
                 .addModifiers(Modifier.PUBLIC)
-                .addParameter(event.type().asTypeName(), "event")
+                .addParameter(event.asTypeName(), "event")
                 .addAnnotation(EventListener.class)
                 .addStatement("log.debug($S, event, topic)", "Publishing event {} on topic {}")
                 .addStatement("""

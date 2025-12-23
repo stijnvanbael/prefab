@@ -30,12 +30,11 @@ public class DbMigrationWriter {
             ProcessingEnvironment processingEnvironment,
             List<ClassManifest> classManifests
     ) {
-        var sortedManifests = sortByDependencies(classManifests);
         var currentDatabaseState = currentDatabaseState(processingEnvironment);
-        var desiredDatabaseState = desiredDatabaseState(sortedManifests);
+        var desiredDatabaseState = desiredDatabaseState(classManifests);
         var changes = detectChanges(currentDatabaseState.tables(), desiredDatabaseState);
         if (!changes.isEmpty()) {
-            writeChanges(processingEnvironment, sortedManifests, changes, currentDatabaseState.version());
+            writeChanges(processingEnvironment, classManifests, changes, currentDatabaseState.version());
         }
     }
 
@@ -141,14 +140,14 @@ public class DbMigrationWriter {
     }
 
     private List<Table> desiredDatabaseState(List<ClassManifest> classManifests) {
-        return classManifests.stream().flatMap(manifest -> {
+        return sortByDependencies(classManifests.stream().flatMap(manifest -> {
             var tables = new ArrayList<Table>();
             var aggregateRootTable = toSnakeCase(manifest.simpleName());
             var columns = columnsOf(manifest, null, false);
             tables.add(new Table(aggregateRootTable, columns, List.of("id")));
             tables.addAll(childEntityTables(aggregateRootTable, manifest));
             return tables.stream();
-        }).toList();
+        }).toList());
     }
 
     private List<Table> childEntityTables(String aggregateRootTable, ClassManifest manifest) {
@@ -185,20 +184,18 @@ public class DbMigrationWriter {
                 .toList();
     }
 
-    private List<ClassManifest> sortByDependencies(List<ClassManifest> classManifests) {
-        var dependencyTree = new HashMap<ClassManifest, Set<ClassManifest>>();
-        var types = classManifests.stream()
-                .map(ClassManifest::type)
-                .collect(Collectors.toSet());
-        for (ClassManifest manifest : classManifests) {
-            var dependencies = manifest.fields().stream()
-                    .filter(field -> field.type().is(Reference.class)
-                            && types.contains(field.type().parameters().getFirst()))
-                    .map(field -> field.type().parameters().getFirst().asClassManifest())
+    private List<Table> sortByDependencies(List<Table> tables) {
+        var tableMap = tables.stream().collect(Collectors.toMap(Table::name, table -> table));
+        var dependencyTree = new HashMap<Table, Set<Table>>();
+        for (Table table : tables) {
+            var dependencies = table.columns().stream()
+                    .map(Column::foreignKey)
+                    .filter(fk -> fk != null && tableMap.containsKey(fk.referencedTable()))
+                    .map(fk -> tableMap.get(fk.referencedTable()))
                     .collect(Collectors.toSet());
-            dependencyTree.put(manifest, dependencies);
+            dependencyTree.put(table, dependencies);
         }
-        var result = new ArrayList<ClassManifest>();
+        var result = new ArrayList<Table>();
         while (!dependencyTree.isEmpty()) {
             var added = false;
             for (var entry : new HashMap<>(dependencyTree).entrySet()) {

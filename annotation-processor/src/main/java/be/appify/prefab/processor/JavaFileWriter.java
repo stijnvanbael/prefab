@@ -32,6 +32,7 @@ public class JavaFileWriter {
             try (var writer = builderFile.openWriter()) {
                 var javaFile = JavaFile
                         .builder(packageName, type)
+                        .skipJavaLangImports(true)
                         .indent("    ")
                         .build();
                 javaFile.writeTo(writer);

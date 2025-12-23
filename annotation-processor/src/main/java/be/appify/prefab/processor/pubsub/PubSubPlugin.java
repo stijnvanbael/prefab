@@ -13,18 +13,17 @@ import org.springframework.stereotype.Component;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.MirroredTypeException;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
 
 public class PubSubPlugin implements PrefabPlugin {
     private final PubSubPublisherWriter pubSubPublisherWriter = new PubSubPublisherWriter();
-    private final PubSubConsumerWriter pubSubConsumerWriter = new PubSubConsumerWriter();
+    private final PubSubSubscriberWriter pubSubSubscriberWriter = new PubSubSubscriberWriter();
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> aggregates, PrefabContext context) {
@@ -34,13 +33,13 @@ public class PubSubPlugin implements PrefabPlugin {
 
     private void writeConsumers(List<ClassManifest> aggregates, PrefabContext context) {
         Stream.concat(
-                        aggregates.stream().flatMap(aggregate -> pubSubEventHandlers(aggregate, context)),
+                        aggregates.stream().flatMap(this::pubSubEventHandlers),
                         componentHandlers(context)
                 )
                 .filter(method -> isPubSubEvent(context, method))
                 .collect(groupingBy(method -> topicAndOwnerOf(context, method)))
                 .forEach((topicAndOwner, eventHandlers) ->
-                        pubSubConsumerWriter.writePubSubConsumer(topicAndOwner.getLeft(), topicAndOwner.getRight(),
+                        pubSubSubscriberWriter.writePubSubSubscriber(topicAndOwner.getLeft(), topicAndOwner.getRight(),
                                 eventHandlers, context));
     }
 
@@ -48,7 +47,7 @@ public class PubSubPlugin implements PrefabPlugin {
         return method.getParameters().stream()
                 .flatMap(parameter ->
                         new TypeManifest(parameter.asType(), context.processingEnvironment())
-                                .annotationsOfType(Event.class).stream()
+                                .inheritedAnnotationsOfType(Event.class).stream()
                                 .findFirst()
                                 .map(event -> Pair.of(event.topic(),
                                         getMirroredType(event::publishedBy, context.processingEnvironment())))
@@ -68,26 +67,28 @@ public class PubSubPlugin implements PrefabPlugin {
     private static boolean isPubSubEvent(PrefabContext context, ExecutableElement method) {
         return method.getParameters().stream()
                 .anyMatch(parameter ->
-                        new TypeManifest(parameter.asType(), context.processingEnvironment()).annotationsOfType(
-                                        Event.class).stream()
+                        new TypeManifest(parameter.asType(), context.processingEnvironment())
+                                .inheritedAnnotationsOfType(Event.class)
+                                .stream()
                                 .anyMatch(event -> event.platform() == Event.Platform.PUB_SUB));
     }
 
     private void writePublishers(PrefabContext context) {
         var events = context.roundEnvironment().getElementsAnnotatedWith(Event.class)
                 .stream()
-                .filter(e -> e.getAnnotation(Event.class).platform() == Event.Platform.PUB_SUB)
-                .filter(element -> element.getKind().isClass() && !element.getModifiers().contains(Modifier.ABSTRACT))
-                .map(element -> new ClassManifest((TypeElement) element, context.processingEnvironment()))
+                .filter(e -> requireNonNull(e.getAnnotation(Event.class)).platform() == Event.Platform.PUB_SUB)
+                .map(element -> new TypeManifest(element.asType(), context.processingEnvironment()))
                 .toList();
         events.forEach(event -> pubSubPublisherWriter.writePubSubPublisher(event, context));
     }
 
-    private Stream<ExecutableElement> pubSubEventHandlers(ClassManifest aggregate, PrefabContext context) {
+    private Stream<ExecutableElement> pubSubEventHandlers(ClassManifest aggregate) {
         return StreamUtil.concat(
                 aggregate.methodsWith(EventHandler.class).stream(),
                 aggregate.methodsWith(EventHandler.ByReference.class).stream(),
-                aggregate.methodsWith(EventHandler.Broadcast.class).stream()
+                aggregate.methodsWith(EventHandler.Broadcast.class).stream(),
+                aggregate.methodsWith(EventHandler.Multicast.class).stream()
+                // TODO: make this pluggable so other plugins can add their own handlers
         );
     }
 

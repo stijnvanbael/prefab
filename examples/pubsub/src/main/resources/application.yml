@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: prefab-pubsub-example
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_OAUTH2_CLIENT_ID}
+            client-secret: ${GOOGLE_OAUTH2_CLIENT_SECRET}
+
+  cloud:
+    gcp:
+      project-id: prefab-pubsub-example
+      pubsub:
+        publisher:
+          enable-message-ordering: true
+
+topics:
+  message.name: message
+  user.name: user

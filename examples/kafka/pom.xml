@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>kafka-example</artifactId>
-    <name>Prefab Events Example</name>
+    <name>Prefab Kafka Example</name>
 
     <dependencies>
         <dependency>

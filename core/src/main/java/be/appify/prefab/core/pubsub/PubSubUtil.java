@@ -13,6 +13,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 
 @Component
@@ -23,6 +25,7 @@ public class PubSubUtil {
     private final PubSubAdmin pubSubAdmin;
     private final PubSubSubscriberTemplate subscriberTemplate;
     private final JsonUtil jsonUtil;
+    private final ConcurrentMap<String, Class<?>> messageTypes = new ConcurrentHashMap<>();
 
     public PubSubUtil(
             @Value("${spring.cloud.gcp.project-id}") String projectId,
@@ -61,7 +64,14 @@ public class PubSubUtil {
 
     private <T> void consumeTyped(Class<T> type, Consumer<T> consumer, PubsubMessage pubsubMessage) {
         var typeName = pubsubMessage.getAttributesOrThrow("type");
-        if (type.getName().equals(typeName)) {
+        var consumedType = messageTypes.computeIfAbsent(typeName, key -> {
+            try {
+                return Class.forName(typeName);
+            } catch (ClassNotFoundException e) {
+                throw new IllegalArgumentException("Could not find class for type found in message: " + typeName, e);
+            }
+        });
+        if (type.isAssignableFrom(consumedType)) {
             consumer.accept(jsonUtil.parseJson(pubsubMessage.getData().toStringUtf8(), type));
         }
     }

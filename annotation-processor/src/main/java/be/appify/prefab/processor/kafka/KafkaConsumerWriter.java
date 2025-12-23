@@ -22,8 +22,11 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.groupingBy;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -49,6 +52,7 @@ public class KafkaConsumerWriter {
                         .initializer("$T.getLogger($T.class)", ClassName.get(LoggerFactory.class),
                                 ClassName.get(packageName + ".infrastructure.kafka", name))
                         .build());
+
         var fields = addFields(eventHandlers, context, type);
         addEventHandlers(eventHandlers, context, type);
         type.addMethod(constructor(topic, fields, eventHandlers, context));
@@ -89,58 +93,80 @@ public class KafkaConsumerWriter {
         return fields;
     }
 
-    private void addEventHandlers(List<ExecutableElement> eventHandlers, PrefabContext context, TypeSpec.Builder type) {
-        for (ExecutableElement eventHandler : eventHandlers) {
-            var event = eventType(eventHandler, context);
-            var target = new TypeManifest(eventHandler.getEnclosingElement().asType(), context.processingEnvironment());
+    private void addEventHandlers(List<ExecutableElement> allEventHandlers, PrefabContext context,
+            TypeSpec.Builder type) {
+        var eventHandlersByEventType = allEventHandlers.stream().collect(groupingBy(e -> eventType(e, context)));
+        for (Map.Entry<TypeManifest, List<ExecutableElement>> eventHandlersForEvent : eventHandlersByEventType.entrySet()) {
+            var event = eventHandlersForEvent.getKey();
             var annotation = event.annotationsOfType(Event.class).stream().findFirst().orElseThrow();
-
-            if (!target.annotationsOfType(Aggregate.class).isEmpty()) {
-                type.addMethod(aggregateConsumer(target, event, annotation));
-            } else if (!target.annotationsOfType(Component.class).isEmpty()) {
-                type.addMethod(componentConsumer(target, event, annotation, eventHandler));
+            var method = MethodSpec.methodBuilder("on%s".formatted(event.simpleName()))
+                    .addModifiers(PUBLIC)
+                    .addAnnotation(AnnotationSpec.builder(KafkaListener.class)
+                            .addMember("topics", "$S", annotation.topic())
+                            .build())
+                    .addParameter(event.asTypeName(), "event")
+                    .addStatement("log.debug($S, event)", "Received event {}");
+            var eventHandlers = eventHandlersForEvent.getValue();
+            if (eventHandlers.size() == 1) {
+                singleTypeHandler(context, eventHandlers.getFirst(), method, event, "event");
+                type.addMethod(method.build());
             } else {
-                context.logError(
-                        "Cannot write Kafka consumer for %s, it is neither an Aggregate nor a Component".formatted(
-                                target.simpleName()),
-                        eventHandler);
+                multiTypeHandler(context, eventHandlers, method, event);
+                type.addMethod(method.build());
             }
         }
     }
 
-    private MethodSpec componentConsumer(TypeManifest target, TypeManifest event, Event annotation,
-            ExecutableElement eventHandler) {
-        return MethodSpec.methodBuilder("on%s".formatted(event.simpleName()))
-                .addModifiers(PUBLIC)
-                .addAnnotation(AnnotationSpec.builder(KafkaListener.class)
-                        .addMember("topics", "$S", annotation.topic())
-                        .build())
-                .addParameter(event.asTypeName(), "event")
-                .addStatement("log.debug($S, event)", "Received event {}")
-                .addStatement("$N.$L(event)", uncapitalize(target.simpleName()), eventHandler.getSimpleName())
-                .build();
+    private void multiTypeHandler(
+            PrefabContext context,
+            List<ExecutableElement> eventHandlers,
+            MethodSpec.Builder method,
+            TypeManifest event
+    ) {
+        method.addCode("switch (event) {\n");
+        for (ExecutableElement eventHandler : eventHandlers) {
+            var parameter = eventHandler.getParameters().getFirst();
+            var type = new TypeManifest(parameter.asType(), context.processingEnvironment());
+            method.addCode("    case $T e -> ", type.asTypeName());
+            singleTypeHandler(context, eventHandler, method, event, "e");
+        }
+        method.addCode("}");
     }
 
-    private static MethodSpec aggregateConsumer(TypeManifest target, TypeManifest event, Event annotation) {
-        return MethodSpec.methodBuilder("on%s".formatted(event.simpleName()))
-                .addModifiers(PUBLIC)
-                .addAnnotation(AnnotationSpec.builder(KafkaListener.class)
-                        .addMember("topics", "$S", annotation.topic())
-                        .build())
-                .addParameter(event.asTypeName(), "event")
-                .addStatement("log.debug($S, event)", "Received event {}")
-                .addStatement("$NService.on$L(event)", uncapitalize(target.simpleName()), event.simpleName())
-                .build();
+    private void singleTypeHandler(
+            PrefabContext context,
+            ExecutableElement eventHandler,
+            MethodSpec.Builder method,
+            TypeManifest event,
+            String variableName
+    ) {
+        var target = new TypeManifest(eventHandler.getEnclosingElement().asType(),
+                context.processingEnvironment());
+        if (!target.annotationsOfType(Aggregate.class).isEmpty()) {
+            method.addStatement("$NService.on$L($L)",
+                    uncapitalize(target.simpleName()), event.simpleName(), variableName);
+        } else if (!target.annotationsOfType(Component.class).isEmpty()) {
+            method.addStatement("$N.$L($L)",
+                    uncapitalize(target.simpleName()), eventHandler.getSimpleName(), variableName);
+        } else {
+            context.logError(
+                    "Cannot write Kafka consumer for %s, it is neither an Aggregate nor a Component".formatted(
+                            target.simpleName()),
+                    eventHandler);
+        }
     }
 
     private static TypeManifest eventType(ExecutableElement eventHandler, PrefabContext context) {
-        return new TypeManifest(eventHandler.getParameters().stream()
-                .filter(parameter -> new TypeManifest(parameter.asType(),
-                        context.processingEnvironment()).annotationsOfType(Event.class)
-                        .stream().anyMatch(event -> event.platform() == Event.Platform.KAFKA))
-                .findFirst()
-                .orElseThrow()
-                .asType(), context.processingEnvironment());
+        var type = new TypeManifest(eventHandler.getParameters().getFirst().asType(), context.processingEnvironment());
+        if (type.annotationsOfType(Event.class).isEmpty()) {
+            return type.supertypeWithAnnotation(Event.class)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Event parameter type %s or one of its supertypes of method %s is not annotated with @Event".formatted(
+                                    type.simpleName(),
+                                    eventHandler.getSimpleName()
+                            )));
+        }
+        return type;
     }
 
     private static MethodSpec constructor(
@@ -149,7 +175,7 @@ public class KafkaConsumerWriter {
             List<ExecutableElement> eventHandlers,
             PrefabContext context
     ) {
-        var constructor = MethodSpec.constructorBuilder();
+        var constructor = MethodSpec.constructorBuilder().addModifiers(PUBLIC);
         fields.forEach(field -> constructor.addParameter(ParameterSpec.builder(field.type(), field.name()).build()));
         constructor
                 .addParameter(KafkaJsonTypeResolver.class, "typeResolver")
@@ -159,8 +185,27 @@ public class KafkaConsumerWriter {
                                 .build())
                         .build());
         fields.forEach(field -> constructor.addStatement("this.$L = $L", field.name(), field.name()));
-        eventHandlers.forEach(eventHandler -> constructor.addStatement("typeResolver.registerType(topic, $T.class)",
-                eventType(eventHandler, context).asTypeName()));
+        var eventType = eventTypeOf(eventHandlers, context, topic);
+        constructor.addStatement("typeResolver.registerType(topic, $T.class)", eventType.asTypeName());
         return constructor.build();
+    }
+    private static TypeManifest eventTypeOf(List<ExecutableElement> eventHandlers, PrefabContext context, String topic) {
+        var eventTypes = eventHandlers.stream()
+                .map(e -> eventType(e, context))
+                .collect(Collectors.toSet());
+        if(eventTypes.size() > 1) {
+            reportNoCommonAncestor(eventHandlers, context, topic, eventTypes);
+        }
+        return eventTypes.stream().findFirst().orElseThrow();
+    }
+
+    private static void reportNoCommonAncestor(List<ExecutableElement> eventHandlers, PrefabContext context, String topic,
+            Set<TypeManifest> eventTypes) {
+        context.logError("Events [%s] share the same topic [%s] but have no common ancestor. Make sure they extend the same supertype and there is a single @Event annotation on the supertype.".formatted(
+                eventTypes.stream()
+                        .map(TypeManifest::simpleName)
+                        .collect(Collectors.joining(", ")),
+                topic
+        ), eventHandlers.getFirst());
     }
 }

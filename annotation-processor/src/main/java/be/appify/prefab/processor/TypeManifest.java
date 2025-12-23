@@ -6,16 +6,21 @@ import com.palantir.javapoet.TypeName;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import java.lang.annotation.Annotation;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class TypeManifest {
     private final String packageName;
@@ -145,6 +150,9 @@ public class TypeManifest {
     }
 
     public ClassManifest asClassManifest() {
+        if(kind != ElementKind.CLASS && kind != ElementKind.RECORD) {
+            throw new IllegalStateException("Type %s is not a class".formatted(this));
+        }
         return new ClassManifest(asElement(), processingEnvironment);
     }
 
@@ -158,6 +166,40 @@ public class TypeManifest {
     }
 
     public <T extends Annotation> Set<T> annotationsOfType(Class<T> annotationType) {
-        return Set.of(element.getAnnotationsByType(annotationType));
+        return element != null ? Set.of(element.getAnnotationsByType(annotationType)) : Collections.emptySet();
+    }
+
+    public <T extends Annotation> Set<T> inheritedAnnotationsOfType(Class<T> annotationType) {
+        return Stream.concat(
+                annotationsOfType(annotationType).stream(),
+                supertypes().flatMap(superType -> superType.inheritedAnnotationsOfType(annotationType).stream())
+        ).collect(Collectors.toSet());
+    }
+
+    private Stream<TypeManifest> supertypes() {
+        return Stream.concat(
+                Optional.ofNullable(element.getSuperclass())
+                        .filter(e -> e.getKind() == TypeKind.DECLARED)
+                        .map(e -> new TypeManifest(e, processingEnvironment)).stream(),
+                element.getInterfaces().stream()
+                        .filter(type -> type.getKind() == TypeKind.DECLARED)
+                        .map(type -> new TypeManifest(type, processingEnvironment))
+        );
+    }
+
+    public Optional<TypeManifest> supertypeWithAnnotation(Class<? extends Annotation> annotationType) {
+        return supertypes()
+                .filter(superType -> !superType.annotationsOfType(annotationType).isEmpty())
+                .findFirst();
+    }
+
+    public List<ExecutableElement> methodsWith(Class<? extends Annotation> annotation) {
+        return element.getEnclosedElements()
+                .stream()
+                .filter(element -> element.getKind() == ElementKind.METHOD
+                        && element.getModifiers().contains(Modifier.PUBLIC))
+                .map(ExecutableElement.class::cast)
+                .filter(element -> element.getAnnotationsByType(annotation).length > 0)
+                .toList();
     }
 }

@@ -11,13 +11,13 @@ import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
+import static be.appify.prefab.processor.CaseUtil.toKebabCase;
 import static org.springframework.util.ReflectionUtils.setField;
 
 public class TestSubscriberExecutionListener extends AbstractTestExecutionListener {
-    private final Map<Field, List<?>> subscriberByField = new HashMap<>();
+    private final Map<Field, Subscriber<?>> subscriberByField = new HashMap<>();
     private Environment environment;
     private PubSubUtil pubSubUtil;
 
@@ -27,19 +27,19 @@ public class TestSubscriberExecutionListener extends AbstractTestExecutionListen
         testContext.getApplicationContext().getBeanProvider(PubSubUtil.class).ifAvailable(pubSubUtil -> {
             this.pubSubUtil = pubSubUtil;
             Arrays.stream(testContext.getTestClass().getDeclaredFields())
-                    .filter(field -> field.getType().isAssignableFrom(List.class) && field.isAnnotationPresent(
+                    .filter(field -> field.getType().isAssignableFrom(Subscriber.class) && field.isAnnotationPresent(
                             TestSubscriber.class))
                     .map(field -> new TestSubscriberField(field, field.getAnnotation(TestSubscriber.class)))
                     .forEach(testSubscriberField ->
                             injectTestSubscriber(testSubscriberField, testContext.getTestInstance()));
-            subscriberByField.values().forEach(List::clear);
+            subscriberByField.values().forEach(Subscriber::reset);
         });
     }
 
     @Override
     public void afterTestExecution(TestContext testContext) {
         if (pubSubUtil != null) {
-            var subscriptionName = testContext.getTestInstance().getClass().getSimpleName();
+            var subscriptionName = subscriptionNameFor(testContext.getTestInstance());
             try {
                 pubSubUtil.deleteSubscription(subscriptionName);
             } catch (Exception e) {
@@ -52,22 +52,26 @@ public class TestSubscriberExecutionListener extends AbstractTestExecutionListen
     private void injectTestSubscriber(TestSubscriberField testSubscriberField, Object testInstance) {
         var subscriber = subscriberByField.computeIfAbsent(testSubscriberField.field(), field -> {
             var topic = environment.resolvePlaceholders(testSubscriberField.annotation.topic());
-            var subscriptionName = testInstance.getClass().getSimpleName();
+            var subscriptionName = subscriptionNameFor(testInstance);
             return createSubscriber(subscriptionName, topic, field);
         });
         ReflectionUtils.makeAccessible(testSubscriberField.field());
         setField(testSubscriberField.field(), testInstance, subscriber);
     }
 
-    private <T> List<T> createSubscriber(
+    private static String subscriptionNameFor(Object testInstance) {
+        return toKebabCase(testInstance.getClass().getSimpleName());
+    }
+
+    private <T> Subscriber<T> createSubscriber(
             String subscriptionName,
             String topic,
             Field field
     ) {
-        var subscriber = new ArrayList<T>();
+        var messages = new ArrayList<T>();
         pubSubUtil.subscribe(topic, subscriptionName,
-                (Class<T>) ((ParameterizedType) field.getGenericType()).getActualTypeArguments()[0], subscriber::add);
-        return subscriber;
+                (Class<T>) ((ParameterizedType) field.getGenericType()).getActualTypeArguments()[0], messages::add);
+        return new Subscriber<>(messages);
     }
 
     private record TestSubscriberField(Field field, TestSubscriber annotation) {

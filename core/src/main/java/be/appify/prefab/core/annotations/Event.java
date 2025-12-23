@@ -5,7 +5,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/// Annotate an event class to specify its messaging topic, platform, publisher, and serialization format.
+/// Annotate an event class to specify its messaging topic, platform, producer, and serialization format.
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.SOURCE)
 public @interface Event {

@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:tc:postgresql:16.1:///prefab_example_kafka?TC_REUSABLE=true&currentSchema=prefab_example_kafka
+    url: jdbc:tc:postgresql:16.1:///prefab_kafka_example?TC_REUSABLE=true&currentSchema=prefab_kafka_example
     driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
   flyway:
     clean-disabled: false

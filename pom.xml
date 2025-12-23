@@ -17,10 +17,10 @@
     <packaging>pom</packaging>
     <modules>
         <module>core</module>
-        <module>example</module>
         <module>annotation-processor</module>
         <module>test</module>
         <module>examples/kafka</module>
+        <module>examples/pubsub</module>
     </modules>
 
     <properties>

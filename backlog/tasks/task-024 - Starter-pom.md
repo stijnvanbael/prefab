@@ -4,8 +4,9 @@ title: Starter pom
 status: To Do
 assignee: []
 created_date: '2025-10-10 13:38'
-updated_date: '2025-11-27 10:20'
-labels: []
+updated_date: '2025-12-23 14:59'
+labels:
+  - "\U0001F4E6feature"
 dependencies: []
 ordinal: 500
 ---

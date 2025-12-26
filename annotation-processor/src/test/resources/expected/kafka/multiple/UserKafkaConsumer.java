@@ -2,9 +2,6 @@ package kafka.multiple.infrastructure.kafka;
 
 import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
 import kafka.multiple.UserEvent;
-import kafka.multiple.UserEvent.Created;
-import kafka.multiple.UserEvent.Deleted;
-import kafka.multiple.UserEvent.Updated;
 import kafka.multiple.UserEventHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +30,7 @@ public class UserKafkaConsumer {
             case UserEvent.Created e -> userEventHandler.onUserCreated(e);
             case UserEvent.Updated e -> userEventHandler.onUserUpdated(e);
             case UserEvent.Deleted e -> userEventHandler.onUserDeleted(e);
+            default -> {}
         }
     }
 }

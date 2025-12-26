@@ -23,6 +23,7 @@ import javax.lang.model.element.Modifier;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -98,37 +99,42 @@ public class PubSubSubscriberWriter {
             PrefabContext context,
             TypeSpec.Builder type
     ) {
-        var eventHandlersByEventType = allEventHandlers.stream().collect(groupingBy(e -> eventType(e, context)));
+        var eventHandlersByEventType = allEventHandlers.stream().collect(groupingBy(e -> rootEventType(e, context)));
         for (Map.Entry<TypeManifest, List<ExecutableElement>> eventHandlersForEvent : eventHandlersByEventType.entrySet()) {
-            var event = eventHandlersForEvent.getKey();
-            var method = MethodSpec.methodBuilder("on%s".formatted(event.simpleName()))
+            var eventType = eventHandlersForEvent.getKey();
+            var method = MethodSpec.methodBuilder("on%s".formatted(eventType.simpleName()))
                     .addModifiers(PUBLIC)
-                    .addParameter(event.asTypeName(), "event")
+                    .addParameter(eventType.asTypeName(), "event")
                     .addStatement("log.debug($S, event)", "Received event {}");
             var eventHandlers = eventHandlersForEvent.getValue();
-            if (eventHandlers.size() == 1) {
-                singleTypeHandler(context, eventHandlers.getFirst(), method, event, "event");
+            if (eventHandlers.size() == 1 && sameType(eventType, eventHandlers.getFirst(), context)) {
+                singleTypeHandler(context, eventHandlers.getFirst(), method, "event");
                 type.addMethod(method.build());
             } else {
-                multiTypeHandler(context, eventHandlers, method, event);
+                multiTypeHandler(context, eventHandlers, method);
                 type.addMethod(method.build());
             }
         }
     }
 
+    private static boolean sameType(TypeManifest eventType, ExecutableElement eventHandler, PrefabContext context) {
+        var parameter = eventType(eventHandler, context);
+        return Objects.equals(parameter, eventType);
+    }
+
     private void multiTypeHandler(
             PrefabContext context,
             List<ExecutableElement> eventHandlers,
-            MethodSpec.Builder method,
-            TypeManifest event
+            MethodSpec.Builder method
     ) {
         method.addCode("switch (event) {\n");
         for (ExecutableElement eventHandler : eventHandlers) {
             var parameter = eventHandler.getParameters().getFirst();
             var type = new TypeManifest(parameter.asType(), context.processingEnvironment());
             method.addCode("    case $T e -> ", type.asTypeName());
-            singleTypeHandler(context, eventHandler, method, event, "e");
+            singleTypeHandler(context, eventHandler, method, "e");
         }
+        method.addCode("    default -> {}\n");
         method.addCode("}");
     }
 
@@ -136,14 +142,12 @@ public class PubSubSubscriberWriter {
             PrefabContext context,
             ExecutableElement eventHandler,
             MethodSpec.Builder method,
-            TypeManifest event,
             String variableName
     ) {
-        var target = new TypeManifest(eventHandler.getEnclosingElement().asType(),
-                context.processingEnvironment());
+        var target = new TypeManifest(eventHandler.getEnclosingElement().asType(), context.processingEnvironment());
         if (!target.annotationsOfType(Aggregate.class).isEmpty()) {
-            method.addStatement("$NService.on$L($L)",
-                    uncapitalize(target.simpleName()), event.simpleName(), variableName);
+            method.addStatement("$NService.$L($L)",
+                    uncapitalize(target.simpleName()), eventHandler.getSimpleName(), variableName);
         } else if (!target.annotationsOfType(Component.class).isEmpty()) {
             method.addStatement("$N.$L($L)",
                     uncapitalize(target.simpleName()), eventHandler.getSimpleName(), variableName);
@@ -155,8 +159,8 @@ public class PubSubSubscriberWriter {
         }
     }
 
-    private static TypeManifest eventType(ExecutableElement eventHandler, PrefabContext context) {
-        var type = new TypeManifest(eventHandler.getParameters().getFirst().asType(), context.processingEnvironment());
+    private static TypeManifest rootEventType(ExecutableElement eventHandler, PrefabContext context) {
+        var type = eventType(eventHandler, context);
         if (type.annotationsOfType(Event.class).isEmpty()) {
             return type.supertypeWithAnnotation(Event.class)
                     .orElseThrow(() -> new IllegalStateException(
@@ -166,6 +170,10 @@ public class PubSubSubscriberWriter {
                             )));
         }
         return type;
+    }
+
+    private static TypeManifest eventType(ExecutableElement eventHandler, PrefabContext context) {
+        return new TypeManifest(eventHandler.getParameters().getFirst().asType(), context.processingEnvironment());
     }
 
     private static MethodSpec constructor(
@@ -193,23 +201,26 @@ public class PubSubSubscriberWriter {
         return constructor.build();
     }
 
-    private static TypeManifest eventTypeOf(List<ExecutableElement> eventHandlers, PrefabContext context, String topic) {
+    private static TypeManifest eventTypeOf(List<ExecutableElement> eventHandlers, PrefabContext context,
+            String topic) {
         var eventTypes = eventHandlers.stream()
-                .map(e -> eventType(e, context))
+                .map(e -> rootEventType(e, context))
                 .collect(Collectors.toSet());
-        if(eventTypes.size() > 1) {
+        if (eventTypes.size() > 1) {
             reportNoCommonAncestor(eventHandlers, context, topic, eventTypes);
         }
         return eventTypes.stream().findFirst().orElseThrow();
     }
 
-    private static void reportNoCommonAncestor(List<ExecutableElement> eventHandlers, PrefabContext context, String topic,
+    private static void reportNoCommonAncestor(List<ExecutableElement> eventHandlers, PrefabContext context,
+            String topic,
             Set<TypeManifest> eventTypes) {
-        context.logError("Events [%s] share the same topic [%s] but have no common ancestor. Make sure they extend the same supertype and there is a single @Event annotation on the supertype.".formatted(
-                eventTypes.stream()
-                        .map(TypeManifest::simpleName)
-                        .collect(Collectors.joining(", ")),
-                topic
-        ), eventHandlers.getFirst());
+        context.logError(
+                "Events [%s] share the same topic [%s] but have no common ancestor. Make sure they extend the same supertype and there is a single @Event annotation on the supertype.".formatted(
+                        eventTypes.stream()
+                                .map(TypeManifest::simpleName)
+                                .collect(Collectors.joining(", ")),
+                        topic
+                ), eventHandlers.getFirst());
     }
 }

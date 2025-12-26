@@ -4,8 +4,9 @@ title: Create example module showcasing REST endpoint security
 status: To Do
 assignee: []
 created_date: '2025-12-05 12:00'
-updated_date: '2025-12-05 12:02'
-labels: []
+updated_date: '2025-12-23 14:55'
+labels:
+  - "\U0001F4D8docs"
 dependencies: []
 ordinal: 234.375
 ---

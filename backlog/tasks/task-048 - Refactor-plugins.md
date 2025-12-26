@@ -4,8 +4,9 @@ title: Refactor plugins
 status: To Do
 assignee: []
 created_date: '2025-12-23 13:24'
-updated_date: '2025-12-23 13:24'
-labels: []
+updated_date: '2025-12-23 14:55'
+labels:
+  - ⚙️technical
 dependencies: []
 ordinal: 195.3125
 ---

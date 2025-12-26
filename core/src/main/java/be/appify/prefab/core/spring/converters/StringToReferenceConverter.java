@@ -9,8 +9,7 @@ import org.springframework.data.convert.ReadingConverter;
 import java.util.Set;
 
 @ReadingConverter
-public class StringToReferenceConverter
-        implements GenericConverter {
+public class StringToReferenceConverter implements GenericConverter {
     private final ReferenceFactory referenceFactory;
 
     public StringToReferenceConverter(ReferenceFactory referenceFactory) {

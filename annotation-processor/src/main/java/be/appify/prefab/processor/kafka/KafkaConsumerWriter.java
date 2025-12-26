@@ -23,6 +23,7 @@ import javax.lang.model.element.Modifier;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -93,43 +94,51 @@ public class KafkaConsumerWriter {
         return fields;
     }
 
-    private void addEventHandlers(List<ExecutableElement> allEventHandlers, PrefabContext context,
-            TypeSpec.Builder type) {
-        var eventHandlersByEventType = allEventHandlers.stream().collect(groupingBy(e -> eventType(e, context)));
+    private void addEventHandlers(
+            List<ExecutableElement> allEventHandlers,
+            PrefabContext context,
+            TypeSpec.Builder type
+    ) {
+        var eventHandlersByEventType = allEventHandlers.stream().collect(groupingBy(e -> rootEventType(e, context)));
         for (Map.Entry<TypeManifest, List<ExecutableElement>> eventHandlersForEvent : eventHandlersByEventType.entrySet()) {
-            var event = eventHandlersForEvent.getKey();
-            var annotation = event.annotationsOfType(Event.class).stream().findFirst().orElseThrow();
-            var method = MethodSpec.methodBuilder("on%s".formatted(event.simpleName()))
+            var eventType = eventHandlersForEvent.getKey();
+            var annotation = eventType.annotationsOfType(Event.class).stream().findFirst().orElseThrow();
+            var method = MethodSpec.methodBuilder("on%s".formatted(eventType.simpleName()))
                     .addModifiers(PUBLIC)
                     .addAnnotation(AnnotationSpec.builder(KafkaListener.class)
                             .addMember("topics", "$S", annotation.topic())
                             .build())
-                    .addParameter(event.asTypeName(), "event")
+                    .addParameter(eventType.asTypeName(), "event")
                     .addStatement("log.debug($S, event)", "Received event {}");
             var eventHandlers = eventHandlersForEvent.getValue();
-            if (eventHandlers.size() == 1) {
-                singleTypeHandler(context, eventHandlers.getFirst(), method, event, "event");
+            if (eventHandlers.size() == 1 && sameType(eventType, eventHandlers.getFirst(), context)) {
+                singleTypeHandler(context, eventHandlers.getFirst(), method, "event");
                 type.addMethod(method.build());
             } else {
-                multiTypeHandler(context, eventHandlers, method, event);
+                multiTypeHandler(context, eventHandlers, method);
                 type.addMethod(method.build());
             }
         }
     }
 
+    private static boolean sameType(TypeManifest eventType, ExecutableElement eventHandler, PrefabContext context) {
+        var parameter = eventType(eventHandler, context);
+        return Objects.equals(parameter, eventType);
+    }
+
     private void multiTypeHandler(
             PrefabContext context,
             List<ExecutableElement> eventHandlers,
-            MethodSpec.Builder method,
-            TypeManifest event
+            MethodSpec.Builder method
     ) {
         method.addCode("switch (event) {\n");
         for (ExecutableElement eventHandler : eventHandlers) {
             var parameter = eventHandler.getParameters().getFirst();
             var type = new TypeManifest(parameter.asType(), context.processingEnvironment());
             method.addCode("    case $T e -> ", type.asTypeName());
-            singleTypeHandler(context, eventHandler, method, event, "e");
+            singleTypeHandler(context, eventHandler, method, "e");
         }
+        method.addCode("    default -> {}\n");
         method.addCode("}");
     }
 
@@ -137,14 +146,12 @@ public class KafkaConsumerWriter {
             PrefabContext context,
             ExecutableElement eventHandler,
             MethodSpec.Builder method,
-            TypeManifest event,
             String variableName
     ) {
-        var target = new TypeManifest(eventHandler.getEnclosingElement().asType(),
-                context.processingEnvironment());
+        var target = new TypeManifest(eventHandler.getEnclosingElement().asType(), context.processingEnvironment());
         if (!target.annotationsOfType(Aggregate.class).isEmpty()) {
-            method.addStatement("$NService.on$L($L)",
-                    uncapitalize(target.simpleName()), event.simpleName(), variableName);
+            method.addStatement("$NService.$L($L)",
+                    uncapitalize(target.simpleName()), eventHandler.getSimpleName(), variableName);
         } else if (!target.annotationsOfType(Component.class).isEmpty()) {
             method.addStatement("$N.$L($L)",
                     uncapitalize(target.simpleName()), eventHandler.getSimpleName(), variableName);
@@ -156,8 +163,8 @@ public class KafkaConsumerWriter {
         }
     }
 
-    private static TypeManifest eventType(ExecutableElement eventHandler, PrefabContext context) {
-        var type = new TypeManifest(eventHandler.getParameters().getFirst().asType(), context.processingEnvironment());
+    private static TypeManifest rootEventType(ExecutableElement eventHandler, PrefabContext context) {
+        var type = eventType(eventHandler, context);
         if (type.annotationsOfType(Event.class).isEmpty()) {
             return type.supertypeWithAnnotation(Event.class)
                     .orElseThrow(() -> new IllegalStateException(
@@ -167,6 +174,10 @@ public class KafkaConsumerWriter {
                             )));
         }
         return type;
+    }
+
+    private static TypeManifest eventType(ExecutableElement eventHandler, PrefabContext context) {
+        return new TypeManifest(eventHandler.getParameters().getFirst().asType(), context.processingEnvironment());
     }
 
     private static MethodSpec constructor(
@@ -191,7 +202,7 @@ public class KafkaConsumerWriter {
     }
     private static TypeManifest eventTypeOf(List<ExecutableElement> eventHandlers, PrefabContext context, String topic) {
         var eventTypes = eventHandlers.stream()
-                .map(e -> eventType(e, context))
+                .map(e -> rootEventType(e, context))
                 .collect(Collectors.toSet());
         if(eventTypes.size() > 1) {
             reportNoCommonAncestor(eventHandlers, context, topic, eventTypes);

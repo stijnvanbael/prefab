@@ -15,7 +15,7 @@ public class UserPubSubSubscriber {
     private final UserEventHandler userEventHandler;
 
     public UserPubSubSubscriber(UserEventHandler userEventHandler, PubSubUtil pubSub,
-            @Value("prefab.user") String topic) {
+            @Value("user") String topic) {
         this.userEventHandler = userEventHandler;
         pubSub.subscribe(topic, "user-on-user-created", UserCreated.class, this::onUserCreated);
     }

@@ -3,6 +3,7 @@ package be.appify.prefab.processor;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
+import org.springframework.util.ClassUtils;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
@@ -125,16 +126,21 @@ public class TypeManifest {
     }
 
     public TypeName asTypeName() {
-        return asTypeName("%s", "%s");
-    }
-
-    public TypeName asTypeName(String packageFormat, String nameFormat) {
-        if (parameters.isEmpty()) {
-            return ClassName.get(packageFormat.formatted(packageName), nameFormat.formatted(simpleName));
+        if(packageName.isEmpty()) {
+            return TypeName.get(asClass());
+        } else if (parameters.isEmpty()) {
+            return getClassName();
         }
         return ParameterizedTypeName.get(
-                ClassName.get(packageFormat.formatted(packageName), nameFormat.formatted(simpleName)),
+                getClassName(),
                 parameters.stream().map(TypeManifest::asTypeName).toArray(TypeName[]::new));
+    }
+
+    private ClassName getClassName() {
+        boolean hasDot = simpleName.contains(".");
+        return ClassName.get(packageName,
+                hasDot ? simpleName.substring(0, simpleName.indexOf(".")) : simpleName,
+                hasDot ? simpleName.substring(simpleName.indexOf(".") + 1).split("\\.") : new String[] {});
     }
 
     public boolean isStandardType() {
@@ -158,6 +164,9 @@ public class TypeManifest {
 
     public Class<?> asClass() {
         try {
+            if(packageName.isEmpty()) {
+                return ClassUtils.forName(simpleName, TypeManifest.class.getClassLoader());
+            }
             return TypeManifest.class.getClassLoader()
                     .loadClass("%s.%s".formatted(packageName, simpleName.replace('.', '$')));
         } catch (ClassNotFoundException e) {

@@ -16,16 +16,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 class UserIntegrationTest implements PubSubContainerSupport {
     @Autowired
     UserFixture userFixture;
+    @Autowired
+    UserExporter userExporter;
     @TestSubscriber(topic = "${topics.user.name}")
     Subscriber<UserEvent> userSubscriber;
 
     @Test
     void createUser() throws Exception {
-        userFixture.createUser(new CreateUserRequest("Alice"));
+        var userId = userFixture.createUser(new CreateUserRequest("Alice"));
 
         PubSubAssertions.assertThat(userSubscriber).hasReceivedValueSatisfying(UserEvent.Created.class, userEvent -> {
             assertThat(userEvent.id()).isNotNull();
             assertThat(userEvent.name()).isEqualTo("Alice");
         });
+
+        assertThat(userExporter.exportedUserIds()).contains(userId);
     }
 }

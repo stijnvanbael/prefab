@@ -27,7 +27,7 @@ public record User(
         @Id String id,
         @Version long version,
         @NotNull String name,
-        @NotNull List<String> channelSubscriptions,
+        @NotNull List<String> channelSubscriptions, // Currently, Spring Data JDBC cannot support List<Reference<T>>
         @NotNull List<UnreadMessage> unreadMessages
 ) implements PublishesEvents {
     @PersistenceCreator

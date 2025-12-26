@@ -23,7 +23,7 @@ public class UserEventPubSubPublisher {
     private final String topic;
 
     public UserEventPubSubPublisher(PubSubTemplate pubSubTemplate, PubSubUtil pubSub,
-            JsonUtil jsonSupport, @Value("prefab.user") String topic) {
+            JsonUtil jsonSupport, @Value("user") String topic) {
         this.pubSubTemplate = pubSubTemplate;
         this.jsonSupport = jsonSupport;
         this.topic = pubSub.ensureTopicExists(topic);

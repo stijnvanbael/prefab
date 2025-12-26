@@ -50,20 +50,24 @@ public class PubSubPublisherWriter {
     }
 
     private MethodSpec constructor(String topic) {
-        return MethodSpec.constructorBuilder()
+        var constructor = MethodSpec.constructorBuilder()
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(PubSubTemplate.class, "pubSubTemplate")
                 .addParameter(PubSubUtil.class, "pubSub")
                 .addParameter(JsonUtil.class, "jsonSupport")
-                .addParameter(ParameterSpec.builder(String.class, "topic")
-                        .addAnnotation(AnnotationSpec.builder(Value.class)
-                                .addMember("value", "$S", topic)
-                                .build())
-                        .build())
                 .addStatement("this.pubSubTemplate = pubSubTemplate")
-                .addStatement("this.jsonSupport = jsonSupport")
-                .addStatement("this.topic = pubSub.ensureTopicExists(topic)")
-                .build();
+                .addStatement("this.jsonSupport = jsonSupport");
+        if (topic.matches("\\$\\{.+}")) {
+            constructor.addParameter(ParameterSpec.builder(String.class, "topic")
+                            .addAnnotation(AnnotationSpec.builder(Value.class)
+                                    .addMember("value", "$S", topic)
+                                    .build())
+                            .build())
+                    .addStatement("this.topic = pubSub.ensureTopicExists(topic)");
+        } else {
+            constructor.addStatement("this.topic = pubSub.ensureTopicExists($S)", topic);
+        }
+        return constructor.build();
     }
 
     private MethodSpec producer(TypeManifest event) {

@@ -188,35 +188,42 @@ public class KafkaConsumerWriter {
     ) {
         var constructor = MethodSpec.constructorBuilder().addModifiers(PUBLIC);
         fields.forEach(field -> constructor.addParameter(ParameterSpec.builder(field.type(), field.name()).build()));
-        constructor
-                .addParameter(KafkaJsonTypeResolver.class, "typeResolver")
-                .addParameter(ParameterSpec.builder(String.class, "topic")
-                        .addAnnotation(AnnotationSpec.builder(Value.class)
-                                .addMember("value", "$S", topic)
-                                .build())
-                        .build());
-        fields.forEach(field -> constructor.addStatement("this.$L = $L", field.name(), field.name()));
+        constructor.addParameter(KafkaJsonTypeResolver.class, "typeResolver");
         var eventType = eventTypeOf(eventHandlers, context, topic);
-        constructor.addStatement("typeResolver.registerType(topic, $T.class)", eventType.asTypeName());
+        if (topic.matches("\\$\\{.+}")) {
+            constructor.addParameter(ParameterSpec.builder(String.class, "topic")
+                            .addAnnotation(AnnotationSpec.builder(Value.class)
+                                    .addMember("value", "$S", topic)
+                                    .build())
+                            .build())
+                    .addStatement("typeResolver.registerType(topic, $T.class)", eventType.asTypeName());
+        } else {
+            constructor.addStatement("typeResolver.registerType($S, $T.class)", topic, eventType.asTypeName());
+        }
+        fields.forEach(field -> constructor.addStatement("this.$L = $L", field.name(), field.name()));
         return constructor.build();
     }
-    private static TypeManifest eventTypeOf(List<ExecutableElement> eventHandlers, PrefabContext context, String topic) {
+
+    private static TypeManifest eventTypeOf(List<ExecutableElement> eventHandlers, PrefabContext context,
+            String topic) {
         var eventTypes = eventHandlers.stream()
                 .map(e -> rootEventType(e, context))
                 .collect(Collectors.toSet());
-        if(eventTypes.size() > 1) {
+        if (eventTypes.size() > 1) {
             reportNoCommonAncestor(eventHandlers, context, topic, eventTypes);
         }
         return eventTypes.stream().findFirst().orElseThrow();
     }
 
-    private static void reportNoCommonAncestor(List<ExecutableElement> eventHandlers, PrefabContext context, String topic,
+    private static void reportNoCommonAncestor(List<ExecutableElement> eventHandlers, PrefabContext context,
+            String topic,
             Set<TypeManifest> eventTypes) {
-        context.logError("Events [%s] share the same topic [%s] but have no common ancestor. Make sure they extend the same supertype and there is a single @Event annotation on the supertype.".formatted(
-                eventTypes.stream()
-                        .map(TypeManifest::simpleName)
-                        .collect(Collectors.joining(", ")),
-                topic
-        ), eventHandlers.getFirst());
+        context.logError(
+                "Events [%s] share the same topic [%s] but have no common ancestor. Make sure they extend the same supertype and there is a single @Event annotation on the supertype.".formatted(
+                        eventTypes.stream()
+                                .map(TypeManifest::simpleName)
+                                .collect(Collectors.joining(", ")),
+                        topic
+                ), eventHandlers.getFirst());
     }
 }

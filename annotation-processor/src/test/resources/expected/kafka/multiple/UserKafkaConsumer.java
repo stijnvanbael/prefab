@@ -16,13 +16,13 @@ public class UserKafkaConsumer {
     private final UserEventHandler userEventHandler;
 
     public UserKafkaConsumer(UserEventHandler userEventHandler, KafkaJsonTypeResolver typeResolver,
-            @Value("prefab.user") String topic) {
-        this.userEventHandler = userEventHandler;
+            @Value("${topic.user.name}") String topic) {
         typeResolver.registerType(topic, UserEvent.class);
+        this.userEventHandler = userEventHandler;
     }
 
     @KafkaListener(
-            topics = "prefab.user"
+            topics = "${topic.user.name}"
     )
     public void onUserEvent(UserEvent event) {
         log.debug("Received event {}", event);

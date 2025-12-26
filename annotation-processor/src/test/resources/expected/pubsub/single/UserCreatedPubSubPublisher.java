@@ -7,7 +7,6 @@ import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.PubsubMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import pubsub.single.UserCreated;
@@ -23,10 +22,10 @@ public class UserCreatedPubSubPublisher {
     private final String topic;
 
     public UserCreatedPubSubPublisher(PubSubTemplate pubSubTemplate, PubSubUtil pubSub,
-            JsonUtil jsonSupport, @Value("user") String topic) {
+            JsonUtil jsonSupport) {
         this.pubSubTemplate = pubSubTemplate;
         this.jsonSupport = jsonSupport;
-        this.topic = pubSub.ensureTopicExists(topic);
+        this.topic = pubSub.ensureTopicExists("user");
     }
 
     @EventListener

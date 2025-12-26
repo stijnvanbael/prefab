@@ -5,7 +5,6 @@ import kafka.single.UserCreated;
 import kafka.single.UserEventHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
@@ -15,10 +14,10 @@ public class UserKafkaConsumer {
 
     private final UserEventHandler userEventHandler;
 
-    public UserKafkaConsumer(UserEventHandler userEventHandler, KafkaJsonTypeResolver typeResolver,
-            @Value("prefab.user") String topic) {
+    public UserKafkaConsumer(UserEventHandler userEventHandler,
+            KafkaJsonTypeResolver typeResolver) {
+        typeResolver.registerType("prefab.user", UserCreated.class);
         this.userEventHandler = userEventHandler;
-        typeResolver.registerType(topic, UserCreated.class);
     }
 
     @KafkaListener(

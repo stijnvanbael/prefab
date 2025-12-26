@@ -185,19 +185,28 @@ public class PubSubSubscriberWriter {
     ) {
         var constructor = MethodSpec.constructorBuilder().addModifiers(PUBLIC);
         fields.forEach(field -> constructor.addParameter(ParameterSpec.builder(field.type(), field.name()).build()));
-        constructor
-                .addParameter(PubSubUtil.class, "pubSub")
-                .addParameter(ParameterSpec.builder(String.class, "topic")
-                        .addAnnotation(AnnotationSpec.builder(Value.class)
-                                .addMember("value", "$S", topic)
-                                .build())
-                        .build());
-        fields.forEach(field -> constructor.addStatement("this.$L = $L", field.name(), field.name()));
         var eventType = eventTypeOf(eventHandlers, context, topic);
-        constructor.addStatement("pubSub.subscribe(topic, $S, $T.class, this::on$L)",
-                CaseUtil.toKebabCase(owner.simpleName()) + "-on-" + CaseUtil.toKebabCase(eventType.simpleName()),
-                eventType.asTypeName(),
-                eventType.simpleName());
+        constructor.addParameter(PubSubUtil.class, "pubSub");
+        if (topic.matches("\\$\\{.+}")) {
+            constructor.addParameter(ParameterSpec.builder(String.class, "topic")
+                            .addAnnotation(AnnotationSpec.builder(Value.class)
+                                    .addMember("value", "$S", topic)
+                                    .build())
+                            .build())
+                    .addStatement("pubSub.subscribe(topic, $S, $T.class, this::on$L)",
+                            CaseUtil.toKebabCase(owner.simpleName()) + "-on-" + CaseUtil.toKebabCase(
+                                    eventType.simpleName()),
+                            eventType.asTypeName(),
+                            eventType.simpleName());
+        } else {
+            constructor.addStatement("pubSub.subscribe($S, $S, $T.class, this::on$L)",
+                    topic,
+                    CaseUtil.toKebabCase(owner.simpleName()) + "-on-" + CaseUtil.toKebabCase(
+                            eventType.simpleName()),
+                    eventType.asTypeName(),
+                    eventType.simpleName());
+        }
+        fields.forEach(field -> constructor.addStatement("this.$L = $L", field.name(), field.name()));
         return constructor.build();
     }
 

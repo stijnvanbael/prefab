@@ -15,9 +15,9 @@ public class UserPubSubSubscriber {
     private final UserEventHandler userEventHandler;
 
     public UserPubSubSubscriber(UserEventHandler userEventHandler, PubSubUtil pubSub,
-            @Value("user") String topic) {
-        this.userEventHandler = userEventHandler;
+            @Value("${topic.user.name}") String topic) {
         pubSub.subscribe(topic, "user-on-user-event", UserEvent.class, this::onUserEvent);
+        this.userEventHandler = userEventHandler;
     }
 
     public void onUserEvent(UserEvent event) {

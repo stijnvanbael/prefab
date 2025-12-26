@@ -5,7 +5,7 @@ import be.appify.prefab.core.annotations.PartitioningKey;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
-@Event(topic = "user", platform = Event.Platform.PUB_SUB, publishedBy = User.class)
+@Event(topic = "${topic.user.name}", platform = Event.Platform.PUB_SUB, publishedBy = User.class)
 public sealed interface UserEvent permits UserEvent.Created, UserEvent.Updated, UserEvent.Deleted {
     @PartitioningKey
     String id();

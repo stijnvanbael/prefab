@@ -21,7 +21,7 @@ class KafkaProducerWriterTest {
                 .compile(
                         sourceOf("kafka/single/User.java"),
                         sourceOf("kafka/single/UserCreated.java"),
-                        sourceOf("kafka/single/UserEventHandler.java"));
+                        sourceOf("kafka/single/UserExporter.java"));
         assertThat(compilation).succeeded();
         assertThat(compilation).generatedSourceFile("kafka.single.infrastructure.kafka.UserCreatedKafkaProducer")
                 .contentsAsUtf8String()
@@ -35,7 +35,7 @@ class KafkaProducerWriterTest {
                 .compile(
                         sourceOf("kafka/multiple/User.java"),
                         sourceOf("kafka/multiple/UserEvent.java"),
-                        sourceOf("kafka/multiple/UserEventHandler.java"));
+                        sourceOf("kafka/multiple/UserExporter.java"));
         assertThat(compilation).succeeded();
         assertThat(compilation).generatedSourceFile("kafka.multiple.infrastructure.kafka.UserEventKafkaProducer")
                 .contentsAsUtf8String()

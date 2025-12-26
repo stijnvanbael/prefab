@@ -1,14 +1,14 @@
 ---
 id: task-054
 title: Multiple consumers for the same event
-status: To Do
+status: Done
 assignee: []
 created_date: '2025-12-26 09:55'
-updated_date: '2025-12-26 09:55'
+updated_date: '2025-12-26 13:39'
 labels:
   - "\U0001F4E6feature"
 dependencies: []
-ordinal: 122.0703125
+ordinal: 17000
 ---
 
 ## Description

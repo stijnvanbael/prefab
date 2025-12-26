@@ -15,9 +15,6 @@ public @interface Event {
     /// The messaging platform used for the event.
     Platform platform() default Platform.KAFKA;
 
-    /// The aggregate root class that publishes this event.
-    Class<?> publishedBy();
-
     /// The serialization format used for the event.
     Serialization serialization() default Serialization.JSON;
 

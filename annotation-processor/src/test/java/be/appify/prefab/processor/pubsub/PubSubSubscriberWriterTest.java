@@ -21,11 +21,11 @@ class PubSubSubscriberWriterTest {
                 .compile(
                         sourceOf("pubsub/single/User.java"),
                         sourceOf("pubsub/single/UserCreated.java"),
-                        sourceOf("pubsub/single/UserEventHandler.java"));
+                        sourceOf("pubsub/single/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("pubsub.single.infrastructure.pubsub.UserPubSubSubscriber")
+        assertThat(compilation).generatedSourceFile("pubsub.single.infrastructure.pubsub.UserExporterPubSubSubscriber")
                 .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/pubsub/single/UserPubSubSubscriber.java"));
+                .isEqualTo(contentsOf("expected/pubsub/single/UserExporterPubSubSubscriber.java"));
     }
 
     @Test
@@ -35,11 +35,11 @@ class PubSubSubscriberWriterTest {
                 .compile(
                         sourceOf("pubsub/multiple/User.java"),
                         sourceOf("pubsub/multiple/UserEvent.java"),
-                        sourceOf("pubsub/multiple/UserEventHandler.java"));
+                        sourceOf("pubsub/multiple/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("pubsub.multiple.infrastructure.pubsub.UserPubSubSubscriber")
+        assertThat(compilation).generatedSourceFile("pubsub.multiple.infrastructure.pubsub.UserExporterPubSubSubscriber")
                 .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/pubsub/multiple/UserPubSubSubscriber.java"));
+                .isEqualTo(contentsOf("expected/pubsub/multiple/UserExporterPubSubSubscriber.java"));
     }
 
     @Test
@@ -49,7 +49,7 @@ class PubSubSubscriberWriterTest {
                 .compile(
                         sourceOf("pubsub/noparent/User.java"),
                         sourceOf("pubsub/noparent/UserEvent.java"),
-                        sourceOf("pubsub/noparent/UserEventHandler.java"));
+                        sourceOf("pubsub/noparent/UserExporter.java"));
         assertThat(compilation).hadErrorContaining("share the same topic [user] but have no common ancestor");
     }
 

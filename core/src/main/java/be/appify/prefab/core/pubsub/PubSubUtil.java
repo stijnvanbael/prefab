@@ -78,8 +78,14 @@ public class PubSubUtil {
 
     public String ensureTopicExists(String topic) {
         var topicName = ProjectTopicName.of(projectId, topic).toString();
-        if (pubSubAdmin.getTopic(topicName) == null) {
-            pubSubAdmin.createTopic(topicName);
+        try {
+            if (pubSubAdmin.getTopic(topicName) == null) {
+                pubSubAdmin.createTopic(topicName);
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Failed to create topic [%s], make sure Pub/Sub is available at the specified endpoint".formatted(
+                            topicName), e);
         }
         return topicName;
     }

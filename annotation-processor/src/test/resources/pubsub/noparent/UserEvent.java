@@ -7,7 +7,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
 public interface UserEvent {
 
-    @Event(topic = "user", platform = Event.Platform.PUB_SUB, publishedBy = User.class)
+    @Event(topic = "user", platform = Event.Platform.PUB_SUB)
     public record Created(
             @PartitioningKey
             String id,
@@ -15,7 +15,7 @@ public interface UserEvent {
     ) {
     }
 
-    @Event(topic = "user", platform = Event.Platform.PUB_SUB, publishedBy = User.class)
+    @Event(topic = "user", platform = Event.Platform.PUB_SUB)
     public record Updated(
             @PartitioningKey
             String id,
@@ -23,7 +23,7 @@ public interface UserEvent {
     ) {
     }
 
-    @Event(topic = "user", platform = Event.Platform.PUB_SUB, publishedBy = User.class)
+    @Event(topic = "user", platform = Event.Platform.PUB_SUB)
     public record Deleted(
             @PartitioningKey
             String id

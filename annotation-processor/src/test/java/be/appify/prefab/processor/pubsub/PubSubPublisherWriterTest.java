@@ -21,7 +21,7 @@ class PubSubPublisherWriterTest {
                 .compile(
                         sourceOf("pubsub/single/User.java"),
                         sourceOf("pubsub/single/UserCreated.java"),
-                        sourceOf("pubsub/single/UserEventHandler.java"));
+                        sourceOf("pubsub/single/UserExporter.java"));
         assertThat(compilation).succeeded();
         assertThat(compilation).generatedSourceFile("pubsub.single.infrastructure.pubsub.UserCreatedPubSubPublisher")
                 .contentsAsUtf8String()
@@ -35,7 +35,7 @@ class PubSubPublisherWriterTest {
                 .compile(
                         sourceOf("pubsub/multiple/User.java"),
                         sourceOf("pubsub/multiple/UserEvent.java"),
-                        sourceOf("pubsub/multiple/UserEventHandler.java"));
+                        sourceOf("pubsub/multiple/UserExporter.java"));
         assertThat(compilation).succeeded();
         assertThat(compilation).generatedSourceFile("pubsub.multiple.infrastructure.pubsub.UserEventPubSubPublisher")
                 .contentsAsUtf8String()

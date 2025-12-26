@@ -21,11 +21,11 @@ class KafkaConsumerWriterTest {
                 .compile(
                         sourceOf("kafka/single/User.java"),
                         sourceOf("kafka/single/UserCreated.java"),
-                        sourceOf("kafka/single/UserEventHandler.java"));
+                        sourceOf("kafka/single/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("kafka.single.infrastructure.kafka.UserKafkaConsumer")
+        assertThat(compilation).generatedSourceFile("kafka.single.infrastructure.kafka.UserExporterKafkaConsumer")
                 .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/kafka/single/UserKafkaConsumer.java"));
+                .isEqualTo(contentsOf("expected/kafka/single/UserExporterKafkaConsumer.java"));
     }
 
     @Test
@@ -35,11 +35,11 @@ class KafkaConsumerWriterTest {
                 .compile(
                         sourceOf("kafka/multiple/User.java"),
                         sourceOf("kafka/multiple/UserEvent.java"),
-                        sourceOf("kafka/multiple/UserEventHandler.java"));
+                        sourceOf("kafka/multiple/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("kafka.multiple.infrastructure.kafka.UserKafkaConsumer")
+        assertThat(compilation).generatedSourceFile("kafka.multiple.infrastructure.kafka.UserExporterKafkaConsumer")
                 .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/kafka/multiple/UserKafkaConsumer.java"));
+                .isEqualTo(contentsOf("expected/kafka/multiple/UserExporterKafkaConsumer.java"));
     }
 
     @Test
@@ -49,7 +49,7 @@ class KafkaConsumerWriterTest {
                 .compile(
                         sourceOf("kafka/noparent/User.java"),
                         sourceOf("kafka/noparent/UserEvent.java"),
-                        sourceOf("kafka/noparent/UserEventHandler.java"));
+                        sourceOf("kafka/noparent/UserExporter.java"));
         assertThat(compilation).hadErrorContaining("share the same topic [user] but have no common ancestor");
     }
 

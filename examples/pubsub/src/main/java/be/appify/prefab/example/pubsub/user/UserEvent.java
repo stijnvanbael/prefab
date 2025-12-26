@@ -15,7 +15,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         @JsonSubTypes.Type(UserEvent.SubscribedToChannel.class),
         @JsonSubTypes.Type(UserEvent.MessageRead.class)
 })
-@Event(topic = "${topics.user.name}", platform = Event.Platform.PUB_SUB, publishedBy = User.class)
+@Event(topic = "${topics.user.name}", platform = Event.Platform.PUB_SUB)
 public sealed interface UserEvent permits UserEvent.Created, UserEvent.MessageRead, UserEvent.SubscribedToChannel {
     @PartitioningKey
     String id();

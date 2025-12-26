@@ -4,7 +4,7 @@ import be.appify.prefab.core.annotations.EventHandler;
 import org.springframework.stereotype.Component;
 
 @Component
-public class UserEventHandler {
+public class UserExporter {
     @EventHandler
     public void onUserCreated(UserEvent.Created event) {
         // handle the event

@@ -10,12 +10,9 @@ import be.appify.prefab.processor.TypeManifest;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.type.MirroredTypeException;
 import java.util.List;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
@@ -50,18 +47,11 @@ public class KafkaPlugin implements PrefabPlugin {
                                 .inheritedAnnotationsOfType(Event.class).stream()
                                 .findFirst()
                                 .map(event -> Pair.of(event.topic(),
-                                        getMirroredType(event::publishedBy, context.processingEnvironment())))
+                                        new TypeManifest(method.getEnclosingElement().asType(),
+                                                context.processingEnvironment())))
                                 .stream())
                 .findFirst()
                 .orElseThrow();
-    }
-
-    private TypeManifest getMirroredType(Supplier<Class<?>> getter, ProcessingEnvironment environment) {
-        try {
-            return TypeManifest.of(getter.get(), environment);
-        } catch (MirroredTypeException e) {
-            return new TypeManifest(e.getTypeMirror(), environment);
-        }
     }
 
     private static boolean isKafkaEvent(PrefabContext context, ExecutableElement method) {

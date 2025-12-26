@@ -7,7 +7,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
 public interface UserEvent {
 
-    @Event(topic = "user", platform = Event.Platform.KAFKA, publishedBy = User.class)
+    @Event(topic = "user", platform = Event.Platform.KAFKA)
     public record Created(
             @PartitioningKey
             String id,
@@ -15,7 +15,7 @@ public interface UserEvent {
     ) {
     }
 
-    @Event(topic = "user", platform = Event.Platform.KAFKA, publishedBy = User.class)
+    @Event(topic = "user", platform = Event.Platform.KAFKA)
     public record Updated(
             @PartitioningKey
             String id,
@@ -23,7 +23,7 @@ public interface UserEvent {
     ) {
     }
 
-    @Event(topic = "user", platform = Event.Platform.KAFKA, publishedBy = User.class)
+    @Event(topic = "user", platform = Event.Platform.KAFKA)
     public record Deleted(
             @PartitioningKey
             String id

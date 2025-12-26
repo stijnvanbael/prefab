@@ -3,6 +3,7 @@ package be.appify.prefab.processor.kafka;
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
+import be.appify.prefab.processor.CaseUtil;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -55,7 +56,7 @@ public class KafkaConsumerWriter {
                         .build());
 
         var fields = addFields(eventHandlers, context, type);
-        addEventHandlers(eventHandlers, context, type);
+        addEventHandlers(eventHandlers, owner, context, type);
         type.addMethod(constructor(topic, fields, eventHandlers, context));
         fileWriter.writeFile(packageName, name, type.build());
     }
@@ -96,6 +97,7 @@ public class KafkaConsumerWriter {
 
     private void addEventHandlers(
             List<ExecutableElement> allEventHandlers,
+            TypeManifest owner,
             PrefabContext context,
             TypeSpec.Builder type
     ) {
@@ -107,6 +109,8 @@ public class KafkaConsumerWriter {
                     .addModifiers(PUBLIC)
                     .addAnnotation(AnnotationSpec.builder(KafkaListener.class)
                             .addMember("topics", "$S", annotation.topic())
+                            .addMember("groupId", "$S", "${spring.application.name}." + CaseUtil.toKebabCase(owner.simpleName())
+                                    + "-on-" + CaseUtil.toKebabCase(eventType.simpleName()))
                             .build())
                     .addParameter(eventType.asTypeName(), "event")
                     .addStatement("log.debug($S, event)", "Received event {}");

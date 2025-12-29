@@ -28,7 +28,7 @@ public class PubSubPublisherWriter {
     public void writePubSubPublisher(TypeManifest event, PrefabContext context) {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.pubsub");
 
-        var name = "%sPubSubPublisher".formatted(event.simpleName());
+        var name = "%sPubSubPublisher".formatted(event.simpleName().replace(".", ""));
         var annotation = event.annotationsOfType(Event.class).stream()
                 .filter(e -> e.platform() == Event.Platform.PUB_SUB)
                 .findFirst().orElseThrow();

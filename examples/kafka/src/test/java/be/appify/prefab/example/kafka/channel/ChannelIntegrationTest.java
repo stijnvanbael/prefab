@@ -8,7 +8,6 @@ import be.appify.prefab.example.kafka.user.application.CreateUserRequest;
 import be.appify.prefab.example.kafka.user.application.UserSubscribeToChannelRequest;
 import be.appify.prefab.test.IntegrationTest;
 import be.appify.prefab.test.kafka.KafkaContainerSupport;
-import be.appify.prefab.test.pubsub.PubSubContainerSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.concurrent.TimeUnit;

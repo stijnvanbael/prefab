@@ -53,6 +53,22 @@ class PubSubSubscriberWriterTest {
         assertThat(compilation).hadErrorContaining("share the same topic [user] but have no common ancestor");
     }
 
+    @Test
+    void multipleTopics() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("pubsub/multitopic/Sale.java"),
+                        sourceOf("pubsub/multitopic/Refund.java"),
+                        sourceOf("pubsub/multitopic/DayTotal.java"),
+                        sourceOf("pubsub/multitopic/DayTotalRepositoryMixin.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("pubsub.multitopic.infrastructure.pubsub.DayTotalPubSubSubscriber")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("expected/pubsub/multitopic/DayTotalPubSubSubscriber.java"));
+    }
+
+
     private String contentsOf(String fileName) throws IOException {
         return new ClassPathResource(fileName).getContentAsString(StandardCharsets.UTF_8);
     }

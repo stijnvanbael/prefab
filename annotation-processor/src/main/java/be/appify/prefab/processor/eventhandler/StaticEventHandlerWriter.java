@@ -16,7 +16,7 @@ public class StaticEventHandlerWriter {
         var method = MethodSpec.methodBuilder(eventHandler.methodName())
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(event.asTypeName(), "event");
-        if (event.annotationsOfType(Event.class).isEmpty()) {
+        if (event.inheritedAnnotationsOfType(Event.class).isEmpty()) {
             method.addAnnotation(EventListener.class);
         }
         return eventHandler.returnType().is(Optional.class)

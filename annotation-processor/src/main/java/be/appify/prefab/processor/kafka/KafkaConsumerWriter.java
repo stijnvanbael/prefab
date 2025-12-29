@@ -37,7 +37,6 @@ import static org.apache.commons.lang3.StringUtils.uncapitalize;
 public class KafkaConsumerWriter {
 
     public void writeKafkaConsumer(
-            String topic,
             TypeManifest owner,
             List<ExecutableElement> eventHandlers,
             PrefabContext context
@@ -57,7 +56,11 @@ public class KafkaConsumerWriter {
 
         var fields = addFields(eventHandlers, context, type);
         addEventHandlers(eventHandlers, owner, context, type);
-        type.addMethod(constructor(topic, fields, eventHandlers, context));
+        var topics = eventHandlers.stream()
+                .map(e -> rootEventType(e, context).annotationsOfType(Event.class).stream().findFirst().orElseThrow()
+                        .topic())
+                .collect(Collectors.toSet());
+        type.addMethod(constructor(topics, fields, eventHandlers, context));
         fileWriter.writeFile(packageName, name, type.build());
     }
 
@@ -105,12 +108,13 @@ public class KafkaConsumerWriter {
         for (Map.Entry<TypeManifest, List<ExecutableElement>> eventHandlersForEvent : eventHandlersByEventType.entrySet()) {
             var eventType = eventHandlersForEvent.getKey();
             var annotation = eventType.annotationsOfType(Event.class).stream().findFirst().orElseThrow();
-            var method = MethodSpec.methodBuilder("on%s".formatted(eventType.simpleName()))
+            var eventName = eventType.simpleName().replace(".", "");
+            var method = MethodSpec.methodBuilder("on%s".formatted(eventName))
                     .addModifiers(PUBLIC)
                     .addAnnotation(AnnotationSpec.builder(KafkaListener.class)
                             .addMember("topics", "$S", annotation.topic())
                             .addMember("groupId", "$S", "${spring.application.name}." + CaseUtil.toKebabCase(owner.simpleName())
-                                    + "-on-" + CaseUtil.toKebabCase(eventType.simpleName()))
+                                    + "-on-" + CaseUtil.toKebabCase(eventName))
                             .build())
                     .addParameter(eventType.asTypeName(), "event")
                     .addStatement("log.debug($S, event)", "Received event {}");
@@ -185,7 +189,7 @@ public class KafkaConsumerWriter {
     }
 
     private static MethodSpec constructor(
-            String topic,
+            Set<String> topics,
             Set<FieldSpec> fields,
             List<ExecutableElement> eventHandlers,
             PrefabContext context
@@ -193,25 +197,33 @@ public class KafkaConsumerWriter {
         var constructor = MethodSpec.constructorBuilder().addModifiers(PUBLIC);
         fields.forEach(field -> constructor.addParameter(ParameterSpec.builder(field.type(), field.name()).build()));
         constructor.addParameter(KafkaJsonTypeResolver.class, "typeResolver");
+        topics.forEach(topic -> addTopic(eventHandlers, context, topic, constructor));
+        fields.forEach(field -> constructor.addStatement("this.$L = $L", field.name(), field.name()));
+        return constructor.build();
+    }
+
+    private static void addTopic(List<ExecutableElement> eventHandlers, PrefabContext context, String topic,
+            MethodSpec.Builder constructor) {
         var eventType = eventTypeOf(eventHandlers, context, topic);
+        var topicVariableName = uncapitalize(eventType.simpleName().replace(".", "")) + "Topic";
         if (topic.matches("\\$\\{.+}")) {
-            constructor.addParameter(ParameterSpec.builder(String.class, "topic")
+            constructor.addParameter(ParameterSpec.builder(String.class, topicVariableName)
                             .addAnnotation(AnnotationSpec.builder(Value.class)
                                     .addMember("value", "$S", topic)
                                     .build())
                             .build())
-                    .addStatement("typeResolver.registerType(topic, $T.class)", eventType.asTypeName());
+                    .addStatement("typeResolver.registerType($L, $T.class)", topicVariableName, eventType.asTypeName());
         } else {
             constructor.addStatement("typeResolver.registerType($S, $T.class)", topic, eventType.asTypeName());
         }
-        fields.forEach(field -> constructor.addStatement("this.$L = $L", field.name(), field.name()));
-        return constructor.build();
     }
 
     private static TypeManifest eventTypeOf(List<ExecutableElement> eventHandlers, PrefabContext context,
             String topic) {
         var eventTypes = eventHandlers.stream()
                 .map(e -> rootEventType(e, context))
+                .filter(type -> type.annotationsOfType(Event.class).stream()
+                        .anyMatch(event -> event.topic().equals(topic)))
                 .collect(Collectors.toSet());
         if (eventTypes.size() > 1) {
             reportNoCommonAncestor(eventHandlers, context, topic, eventTypes);

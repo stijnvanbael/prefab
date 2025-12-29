@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
+import static org.junit.jupiter.api.Assertions.fail;
 
 class KafkaConsumerWriterTest {
     @Test
@@ -51,6 +52,21 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/noparent/UserEvent.java"),
                         sourceOf("kafka/noparent/UserExporter.java"));
         assertThat(compilation).hadErrorContaining("share the same topic [user] but have no common ancestor");
+    }
+
+    @Test
+    void multipleTopics() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/multitopic/Sale.java"),
+                        sourceOf("kafka/multitopic/Refund.java"),
+                        sourceOf("kafka/multitopic/DayTotal.java"),
+                        sourceOf("kafka/multitopic/DayTotalRepositoryMixin.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("kafka.multitopic.infrastructure.kafka.DayTotalKafkaConsumer")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("expected/kafka/multitopic/DayTotalKafkaConsumer.java"));
     }
 
     private String contentsOf(String fileName) throws IOException {

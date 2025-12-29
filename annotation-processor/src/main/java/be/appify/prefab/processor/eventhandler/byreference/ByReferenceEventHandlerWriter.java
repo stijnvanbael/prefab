@@ -15,7 +15,7 @@ public class ByReferenceEventHandlerWriter {
         var event = eventHandler.eventType();
         var method = MethodSpec.methodBuilder(eventHandler.methodName())
                 .addModifiers(Modifier.PUBLIC);
-        if (event.annotationsOfType(Event.class).isEmpty()) {
+        if (event.inheritedAnnotationsOfType(Event.class).isEmpty()) {
             method.addAnnotation(EventListener.class);
         }
         return method.addParameter(event.asTypeName(), "event").addStatement(CodeBlock.builder()

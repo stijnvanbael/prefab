@@ -1,7 +1,12 @@
 package be.appify.prefab.core.kafka;
 
+import com.google.common.collect.Streams;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.InvalidTopicException;
+import org.apache.kafka.common.errors.RecordDeserializationException;
+import org.apache.kafka.common.errors.SerializationException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,27 +21,45 @@ import org.springframework.boot.ssl.SslBundles;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.ContainerCustomizer;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonTypeResolver;
 import org.springframework.kafka.transaction.KafkaTransactionManager;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+
+import static org.apache.commons.lang3.StringUtils.isEmpty;
 
 @Configuration
 @ConditionalOnClass(KafkaListenerContainerFactory.class)
 @ComponentScan(basePackageClasses = KafkaJsonTypeResolver.class)
 public class KafkaConfiguration {
+    private static final List<Class<? extends Exception>> DEFAULT_NOT_RETRYABLE = List.of(
+            SerializationException.class,
+            NullPointerException.class,
+            IllegalArgumentException.class,
+            IllegalStateException.class,
+            RecordDeserializationException.class,
+            InvalidTopicException.class,
+            DataIntegrityViolationException.class);
+
     @Bean
     @ConditionalOnMissingBean(ProducerFactory.class)
     public ProducerFactory<Object, Object> kafkaProducerFactory(
@@ -105,5 +128,51 @@ public class KafkaConfiguration {
         var factory = new DefaultKafkaConsumerFactory<>(properties, new StringDeserializer(), deserializer);
         customizers.orderedStream().forEach(customizer -> customizer.customize(factory));
         return factory;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "dltErrorHandler")
+    public CommonErrorHandler dltErrorHandler(
+            @Value("${prefab.kafka.dlt.retries.limit:5}") Integer maxRetries,
+            @Value("${prefab.kafka.dlt.retries.initial-interval-ms:1000}") Long initialRetryInterval,
+            @Value("${prefab.kafka.dlt.retries.multiplier:1.5}") Float backoffMultiplier,
+            @Value("${prefab.kafka.dlt.retries.max-interval-ms:30000}") Long maxRetryInterval,
+            @Value(("#{'${prefab.kafka.dlt.non-retryable-exceptions:}'.split(',')}")) List<String> nonRetryableExceptions,
+            DeadLetterPublishingRecoverer deadLetterPublishingRecoverer
+    ) {
+        var backoff = new ExponentialBackOffWithMaxRetries(maxRetries);
+        backoff.setInitialInterval(initialRetryInterval);
+        backoff.setMultiplier(backoffMultiplier);
+        backoff.setMaxInterval(maxRetryInterval);
+        var errorHandler = new DefaultErrorHandler(deadLetterPublishingRecoverer, backoff);
+        var customExceptions = nonRetryableExceptions.stream()
+                .filter(name -> !name.isBlank())
+                .map(this::classWithName);
+        var notRetryable = Streams.concat(DEFAULT_NOT_RETRYABLE.stream(), customExceptions)
+                .toArray(Class[]::new);
+        errorHandler.addNotRetryableExceptions(notRetryable);
+        return errorHandler;
+    }
+
+    private Class<?> classWithName(String name) {
+        try {
+            return Class.forName(name);
+        } catch (ClassNotFoundException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    DeadLetterPublishingRecoverer deadLetterPublishingRecoverer(
+            KafkaTemplate<?, ?> kafkaTemplate,
+            @Value("{spring.application.name}") String applicationName,
+            @Value("{prefab.kafka.dlt.topic.name:}") String dltTopicName
+    ) {
+        var dltTopic = !isEmpty(dltTopicName) ? dltTopicName : applicationName + ".dlt";
+        return new DeadLetterPublishingRecoverer(
+                Map.of(Object.class, kafkaTemplate),
+                (record, ex) -> new TopicPartition(dltTopic, -1)
+        );
     }
 }

@@ -27,7 +27,7 @@ public class KafkaProducerWriter {
     public void writeKafkaProducer(TypeManifest event, PrefabContext context) {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.kafka");
 
-        var name = "%sKafkaProducer".formatted(event.simpleName());
+        var name = "%sKafkaProducer".formatted(event.simpleName().replace(".", ""));
         var annotation = event.annotationsOfType(Event.class).stream()
                 .filter(e -> e.platform() == Event.Platform.KAFKA)
                 .findFirst().orElseThrow();

@@ -1,6 +1,6 @@
 spring:
   application:
-    name: prefab-pubsub-example
+    name: prefab.pubsub-example
 
   security:
     oauth2:
@@ -18,5 +18,6 @@ spring:
           enable-message-ordering: true
 
 topics:
+  channel.name: channel
   message.name: message
   user.name: user

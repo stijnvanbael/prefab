@@ -1,6 +1,8 @@
 package pubsub.single.infrastructure.pubsub;
 
 import be.appify.prefab.core.pubsub.PubSubUtil;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -11,14 +13,16 @@ import pubsub.single.UserExporter;
 public class UserExporterPubSubSubscriber {
     private static final Logger log = LoggerFactory.getLogger(UserExporterPubSubSubscriber.class);
 
+    private final Executor executor = Executors.newSingleThreadExecutor();
+
     private final UserExporter userExporter;
 
     public UserExporterPubSubSubscriber(UserExporter userExporter, PubSubUtil pubSub) {
-        pubSub.subscribe("user", "user-exporter-on-user-created", UserCreated.class, this::onUserCreated);
+        pubSub.subscribe("user", "user-exporter-on-user-created", UserCreated.class, this::onUserCreated, executor);
         this.userExporter = userExporter;
     }
 
-    public void onUserCreated(UserCreated event) {
+    private void onUserCreated(UserCreated event) {
         log.debug("Received event {}", event);
         userExporter.onUserCreated(event);
     }

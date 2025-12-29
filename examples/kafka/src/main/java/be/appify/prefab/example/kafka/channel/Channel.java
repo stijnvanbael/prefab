@@ -34,6 +34,7 @@ public record Channel(
     @Create
     public Channel(String name) {
         this(UUID.randomUUID().toString(), 0L, name, new ArrayList<>());
+        publish(new ChannelCreated(id, name));
     }
 
     @EventHandler.ByReference("channel")

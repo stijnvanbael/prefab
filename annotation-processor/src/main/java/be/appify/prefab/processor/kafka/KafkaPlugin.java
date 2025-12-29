@@ -7,7 +7,6 @@ import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.StreamUtil;
 import be.appify.prefab.processor.TypeManifest;
-import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.stereotype.Component;
 
 import javax.lang.model.element.ElementKind;
@@ -34,21 +33,19 @@ public class KafkaPlugin implements PrefabPlugin {
                         componentHandlers(context)
                 )
                 .filter(method -> isKafkaEvent(context, method))
-                .collect(groupingBy(method -> topicAndOwnerOf(context, method)))
-                .forEach((topicAndOwner, eventHandlers) ->
-                        kafkaConsumerWriter.writeKafkaConsumer(topicAndOwner.getLeft(), topicAndOwner.getRight(),
-                                eventHandlers, context));
+                .collect(groupingBy(method -> ownerOf(context, method)))
+                .forEach((owner, eventHandlers) ->
+                        kafkaConsumerWriter.writeKafkaConsumer(owner, eventHandlers, context));
     }
 
-    private Pair<String, TypeManifest> topicAndOwnerOf(PrefabContext context, ExecutableElement method) {
+    private TypeManifest ownerOf(PrefabContext context, ExecutableElement method) {
         return method.getParameters().stream()
                 .flatMap(parameter ->
                         new TypeManifest(parameter.asType(), context.processingEnvironment())
                                 .inheritedAnnotationsOfType(Event.class).stream()
                                 .findFirst()
-                                .map(event -> Pair.of(event.topic(),
-                                        new TypeManifest(method.getEnclosingElement().asType(),
-                                                context.processingEnvironment())))
+                                .map(event -> new TypeManifest(method.getEnclosingElement().asType(),
+                                        context.processingEnvironment()))
                                 .stream())
                 .findFirst()
                 .orElseThrow();

@@ -1,6 +1,6 @@
 spring:
   application:
-    name: prefab-kafka-example
+    name: prefab.kafka-example
 
   security:
     oauth2:
@@ -11,5 +11,6 @@ spring:
             client-secret: ${GOOGLE_OAUTH2_CLIENT_SECRET}
 
 topics:
+  channel.name: prefab.kafka-example.channel
   message.name: prefab.kafka-example.message
   user.name: prefab.kafka-example.user

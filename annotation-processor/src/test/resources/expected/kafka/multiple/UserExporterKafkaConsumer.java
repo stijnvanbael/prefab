@@ -16,8 +16,8 @@ public class UserExporterKafkaConsumer {
     private final UserExporter userExporter;
 
     public UserExporterKafkaConsumer(UserExporter userExporter, KafkaJsonTypeResolver typeResolver,
-            @Value("${topic.user.name}") String topic) {
-        typeResolver.registerType(topic, UserEvent.class);
+            @Value("${topic.user.name}") String userEventTopic) {
+        typeResolver.registerType(userEventTopic, UserEvent.class);
         this.userExporter = userExporter;
     }
 

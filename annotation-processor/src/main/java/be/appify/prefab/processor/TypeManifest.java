@@ -53,10 +53,7 @@ public class TypeManifest {
                     Diagnostic.Kind.ERROR,
                     "Unsupported type: " + typeMirror
             );
-            packageName = null;
-            simpleName = null;
-            parameters = null;
-            kind = null;
+            throw new IllegalArgumentException("Unsupported type: " + typeMirror);
         }
     }
 
@@ -122,7 +119,7 @@ public class TypeManifest {
     }
 
     public boolean is(Class<?> type) {
-        return packageName.equals(type.getPackageName()) && simpleName.equals(type.getSimpleName());
+        return Objects.equals(packageName, type.getPackageName()) && Objects.equals(simpleName, type.getSimpleName());
     }
 
     public TypeName asTypeName() {

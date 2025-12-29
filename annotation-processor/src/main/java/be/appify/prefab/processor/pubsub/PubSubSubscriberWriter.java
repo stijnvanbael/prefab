@@ -19,24 +19,25 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.groupingBy;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
+import static javax.lang.model.element.Modifier.STATIC;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 public class PubSubSubscriberWriter {
 
     public void writePubSubSubscriber(
-            String topic,
             TypeManifest owner,
             List<ExecutableElement> eventHandlers,
             PrefabContext context
@@ -49,14 +50,21 @@ public class PubSubSubscriberWriter {
         var type = TypeSpec.classBuilder(name)
                 .addAnnotation(Component.class)
                 .addModifiers(PUBLIC)
-                .addField(FieldSpec.builder(Logger.class, "log", PRIVATE, Modifier.STATIC, FINAL)
+                .addField(FieldSpec.builder(Logger.class, "log", PRIVATE, STATIC, FINAL)
                         .initializer("$T.getLogger($T.class)", ClassName.get(LoggerFactory.class),
                                 ClassName.get(packageName + ".infrastructure.pubsub", name))
+                        .build())
+                .addField(FieldSpec.builder(Executor.class, "executor", PRIVATE, FINAL)
+                        .initializer("$T.newSingleThreadExecutor()", ClassName.get(Executors.class))
                         .build());
 
         var fields = addFields(eventHandlers, context, type);
         addEventHandlers(eventHandlers, context, type);
-        type.addMethod(constructor(topic, owner, fields, eventHandlers, context));
+        var topics = eventHandlers.stream()
+                .map(e -> rootEventType(e, context).annotationsOfType(Event.class).stream().findFirst().orElseThrow()
+                        .topic())
+                .collect(Collectors.toSet());
+        type.addMethod(constructor(topics, owner, fields, eventHandlers, context));
         fileWriter.writeFile(packageName, name, type.build());
     }
 
@@ -102,8 +110,8 @@ public class PubSubSubscriberWriter {
         var eventHandlersByEventType = allEventHandlers.stream().collect(groupingBy(e -> rootEventType(e, context)));
         for (Map.Entry<TypeManifest, List<ExecutableElement>> eventHandlersForEvent : eventHandlersByEventType.entrySet()) {
             var eventType = eventHandlersForEvent.getKey();
-            var method = MethodSpec.methodBuilder("on%s".formatted(eventType.simpleName()))
-                    .addModifiers(PUBLIC)
+            var method = MethodSpec.methodBuilder("on%s".formatted(eventType.simpleName().replace(".", "")))
+                    .addModifiers(PRIVATE)
                     .addParameter(eventType.asTypeName(), "event")
                     .addStatement("log.debug($S, event)", "Received event {}");
             var eventHandlers = eventHandlersForEvent.getValue();
@@ -177,7 +185,7 @@ public class PubSubSubscriberWriter {
     }
 
     private static MethodSpec constructor(
-            String topic,
+            Set<String> topics,
             TypeManifest owner,
             Set<FieldSpec> fields,
             List<ExecutableElement> eventHandlers,
@@ -185,35 +193,45 @@ public class PubSubSubscriberWriter {
     ) {
         var constructor = MethodSpec.constructorBuilder().addModifiers(PUBLIC);
         fields.forEach(field -> constructor.addParameter(ParameterSpec.builder(field.type(), field.name()).build()));
-        var eventType = eventTypeOf(eventHandlers, context, topic);
         constructor.addParameter(PubSubUtil.class, "pubSub");
+        topics.forEach(topic -> addTopic(owner, eventHandlers, context, topic, constructor));
+        fields.forEach(field -> constructor.addStatement("this.$L = $L", field.name(), field.name()));
+        return constructor.build();
+    }
+
+    private static void addTopic(TypeManifest owner, List<ExecutableElement> eventHandlers, PrefabContext context,
+            String topic, MethodSpec.Builder constructor) {
+        var eventType = eventTypeOf(eventHandlers, context, topic);
+        var topicVariableName = uncapitalize(eventType.simpleName().replace(".", "")) + "Topic";
+        var eventName = eventType.simpleName().replace(".", "");
         if (topic.matches("\\$\\{.+}")) {
-            constructor.addParameter(ParameterSpec.builder(String.class, "topic")
+            constructor.addParameter(ParameterSpec.builder(String.class, topicVariableName)
                             .addAnnotation(AnnotationSpec.builder(Value.class)
                                     .addMember("value", "$S", topic)
                                     .build())
                             .build())
-                    .addStatement("pubSub.subscribe(topic, $S, $T.class, this::on$L)",
+                    .addStatement("pubSub.subscribe($L, $S, $T.class, this::on$L, executor)",
+                            topicVariableName,
                             CaseUtil.toKebabCase(owner.simpleName()) + "-on-" + CaseUtil.toKebabCase(
-                                    eventType.simpleName()),
+                                    eventName),
                             eventType.asTypeName(),
-                            eventType.simpleName());
+                            eventName);
         } else {
-            constructor.addStatement("pubSub.subscribe($S, $S, $T.class, this::on$L)",
+            constructor.addStatement("pubSub.subscribe($S, $S, $T.class, this::on$L, executor)",
                     topic,
                     CaseUtil.toKebabCase(owner.simpleName()) + "-on-" + CaseUtil.toKebabCase(
-                            eventType.simpleName()),
+                            eventName),
                     eventType.asTypeName(),
-                    eventType.simpleName());
+                    eventName);
         }
-        fields.forEach(field -> constructor.addStatement("this.$L = $L", field.name(), field.name()));
-        return constructor.build();
     }
 
     private static TypeManifest eventTypeOf(List<ExecutableElement> eventHandlers, PrefabContext context,
             String topic) {
         var eventTypes = eventHandlers.stream()
                 .map(e -> rootEventType(e, context))
+                .filter(type -> type.annotationsOfType(Event.class).stream()
+                        .anyMatch(event -> event.topic().equals(topic)))
                 .collect(Collectors.toSet());
         if (eventTypes.size() > 1) {
             reportNoCommonAncestor(eventHandlers, context, topic, eventTypes);

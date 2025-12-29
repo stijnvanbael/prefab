@@ -24,7 +24,7 @@ public class MulticastEventHandlerWriter {
         var event = eventHandler.eventType();
         var method = MethodSpec.methodBuilder(eventHandler.methodName())
                 .addModifiers(Modifier.PUBLIC);
-        if (event.annotationsOfType(Event.class).isEmpty()) {
+        if (event.inheritedAnnotationsOfType(Event.class).isEmpty()) {
             method.addAnnotation(EventListener.class);
         }
         method.addParameter(event.asTypeName(), "event");

@@ -3,7 +3,6 @@ package be.appify.prefab.processor.eventhandler.multicast;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
-import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import org.springframework.context.event.EventListener;
@@ -30,8 +29,6 @@ public class MulticastEventHandlerWriter {
         method.addParameter(event.asTypeName(), "event");
 
         var repositoryName = manifest.simpleName() + "Repository";
-        var repositoryTypeName = ClassName.get("%s.application".formatted(manifest.packageName()), repositoryName);
-
         var eventElement = eventHandler.eventType().asElement();
         var eventProperties = eventElement.getEnclosedElements()
                 .stream()
@@ -60,21 +57,19 @@ public class MulticastEventHandlerWriter {
                 })
                 .collect(Collectors.toList());
 
-        return method.addStatement(CodeBlock.builder()
-                        .add("""
-                                        $N.$L($L)
-                                        .forEach(aggregate -> {
-                                            $L
-                                            $N.save(aggregate);
-                                        })""",
-                                uncapitalize(repositoryName),
-                                eventHandler.queryMethod(),
-                                CodeBlock.join(arguments, ", "),
-                                Objects.equals(eventHandler.returnType(), manifest.type())
-                                        ? CodeBlock.of("aggregate = aggregate.$L(event);", eventHandler.methodName())
-                                        : CodeBlock.of("aggregate.$L(event);", eventHandler.methodName()),
-                                uncapitalize(repositoryName))
-                        .build())
+        return method.addStatement("""
+                                var aggregates = $N.$L($L).stream()
+                                    .map(aggregate -> {
+                                        $L
+                                        return aggregate;
+                                    }).toList()""",
+                        uncapitalize(repositoryName),
+                        eventHandler.queryMethod(),
+                        CodeBlock.join(arguments, ", "),
+                        Objects.equals(eventHandler.returnType(), manifest.type())
+                                ? CodeBlock.of("aggregate = aggregate.$L(event);", eventHandler.methodName())
+                                : CodeBlock.of("aggregate.$L(event);", eventHandler.methodName()))
+                .addStatement("$N.saveAll(aggregates)", uncapitalize(repositoryName))
                 .build();
     }
 }

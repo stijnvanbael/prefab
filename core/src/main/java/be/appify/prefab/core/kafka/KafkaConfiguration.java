@@ -132,6 +132,7 @@ public class KafkaConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(name = "dltErrorHandler")
+    @SuppressWarnings("unchecked")
     public CommonErrorHandler dltErrorHandler(
             @Value("${prefab.kafka.dlt.retries.limit:5}") Integer maxRetries,
             @Value("${prefab.kafka.dlt.retries.initial-interval-ms:1000}") Long initialRetryInterval,
@@ -166,8 +167,8 @@ public class KafkaConfiguration {
     @ConditionalOnMissingBean
     DeadLetterPublishingRecoverer deadLetterPublishingRecoverer(
             KafkaTemplate<?, ?> kafkaTemplate,
-            @Value("{spring.application.name}") String applicationName,
-            @Value("{prefab.kafka.dlt.topic.name:}") String dltTopicName
+            @Value("${spring.application.name}") String applicationName,
+            @Value("${prefab.kafka.dlt.topic.name:}") String dltTopicName
     ) {
         var dltTopic = !isEmpty(dltTopicName) ? dltTopicName : applicationName + ".dlt";
         return new DeadLetterPublishingRecoverer(

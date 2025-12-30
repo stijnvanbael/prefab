@@ -14,6 +14,7 @@ import javax.tools.StandardLocation;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -198,7 +199,10 @@ public class DbMigrationWriter {
         var result = new ArrayList<Table>();
         while (!dependencyTree.isEmpty()) {
             var added = false;
-            for (var entry : new HashMap<>(dependencyTree).entrySet()) {
+            var entries = dependencyTree.entrySet().stream()
+                    .sorted(Comparator.comparing(e -> e.getKey().name()))
+                    .toList();
+            for (var entry : entries) {
                 if (entry.getValue().isEmpty() || result.containsAll(entry.getValue())) {
                     result.add(entry.getKey());
                     dependencyTree.remove(entry.getKey());

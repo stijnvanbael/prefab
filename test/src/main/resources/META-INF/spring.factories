@@ -1,5 +1,6 @@
 org.springframework.test.context.TestExecutionListener=\
   be.appify.prefab.test.kafka.TestConsumerExecutionListener,\
-  be.appify.prefab.test.pubsub.TestSubscriberExecutionListener
+  be.appify.prefab.test.pubsub.TestSubscriberExecutionListener,\
+  be.appify.prefab.test.persistence.PersistenceTestExecutionListener
 org.springframework.boot.autoconfigure.service.connection.ConnectionDetailsFactory=\
   be.appify.prefab.test.pubsub.PubSubContainerConnectionDetailsFactory

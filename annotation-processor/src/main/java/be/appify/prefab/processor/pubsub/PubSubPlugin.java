@@ -5,9 +5,8 @@ import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
-import be.appify.prefab.processor.StreamUtil;
 import be.appify.prefab.processor.TypeManifest;
-import org.apache.commons.lang3.tuple.Pair;
+import be.appify.prefab.processor.eventhandler.EventHandlerPlugin;
 import org.springframework.stereotype.Component;
 
 import javax.lang.model.element.ElementKind;
@@ -30,7 +29,7 @@ public class PubSubPlugin implements PrefabPlugin {
 
     private void writeConsumers(List<ClassManifest> aggregates, PrefabContext context) {
         Stream.concat(
-                        aggregates.stream().flatMap(this::pubSubEventHandlers),
+                        aggregates.stream().flatMap(aggregate -> eventHandlers(aggregate, context)),
                         componentHandlers(context)
                 )
                 .filter(method -> isPubSubEvent(context, method))
@@ -70,14 +69,12 @@ public class PubSubPlugin implements PrefabPlugin {
         events.forEach(event -> pubSubPublisherWriter.writePubSubPublisher(event, context));
     }
 
-    private Stream<ExecutableElement> pubSubEventHandlers(ClassManifest aggregate) {
-        return StreamUtil.concat(
-                aggregate.methodsWith(EventHandler.class).stream(),
-                aggregate.methodsWith(EventHandler.ByReference.class).stream(),
-                aggregate.methodsWith(EventHandler.Broadcast.class).stream(),
-                aggregate.methodsWith(EventHandler.Multicast.class).stream()
-                // TODO: make this pluggable so other plugins can add their own handlers
-        );
+    private static Stream<ExecutableElement> eventHandlers(ClassManifest aggregate, PrefabContext context) {
+        return context.plugins()
+                .stream()
+                .filter(plugin -> plugin instanceof EventHandlerPlugin)
+                .map(plugin -> ((EventHandlerPlugin) plugin).annotation())
+                .flatMap(annotation -> aggregate.methodsWith(annotation).stream());
     }
 
     private static Stream<ExecutableElement> componentHandlers(PrefabContext context) {

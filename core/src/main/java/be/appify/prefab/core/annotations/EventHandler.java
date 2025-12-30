@@ -20,17 +20,6 @@ public @interface EventHandler {
         String value();
     }
 
-    /// Annotate the method of an aggregate root to have it process domain events. The method should have a single
-    /// parameter of the desired event type. All aggregate roots will be fetched, and the method will be called on each
-    /// of them.
-    ///
-    /// @deprecated Use `@Multicast` instead for more control over which aggregate roots to deliver the event to.
-    @Target(ElementType.METHOD)
-    @Retention(RetentionPolicy.SOURCE)
-    @Deprecated(forRemoval = true, since = "0.1.1")
-    @interface Broadcast {
-    }
-
     /// Annotate the method of an aggregate root to have it process domain events. The `queryMethod` should reference to
     /// a repository method that will be used to fetch the aggregate roots. The event will be delivered to all fetched
     /// aggregate roots. The method should have a single parameter of the desired event type. The `paramMapping` should

@@ -3,13 +3,13 @@ package be.appify.prefab.processor.eventhandler;
 import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
-import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
 import com.palantir.javapoet.TypeSpec;
 
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import java.lang.annotation.Annotation;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -17,7 +17,7 @@ import java.util.stream.Stream;
 
 import static javax.lang.model.type.TypeKind.VOID;
 
-public class StaticEventHandlerPlugin implements PrefabPlugin {
+public class StaticEventHandlerPlugin implements EventHandlerPlugin {
     private final StaticEventHandlerWriter staticEventHandlerWriter = new StaticEventHandlerWriter();
 
     @Override
@@ -67,5 +67,10 @@ public class StaticEventHandlerPlugin implements PrefabPlugin {
                             eventType,
                             new TypeManifest(element.getReturnType(), context.processingEnvironment()));
                 });
+    }
+
+    @Override
+    public Class<? extends Annotation> annotation() {
+        return EventHandler.class;
     }
 }

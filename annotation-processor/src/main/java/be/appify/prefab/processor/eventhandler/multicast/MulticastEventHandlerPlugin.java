@@ -3,16 +3,17 @@ package be.appify.prefab.processor.eventhandler.multicast;
 import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
-import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
+import be.appify.prefab.processor.eventhandler.EventHandlerPlugin;
 import com.palantir.javapoet.TypeSpec;
 
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import java.lang.annotation.Annotation;
 import java.util.stream.Stream;
 
-public class MulticastEventHandlerPlugin implements PrefabPlugin {
+public class MulticastEventHandlerPlugin implements EventHandlerPlugin {
     private final MulticastEventHandlerWriter multicastEventHandlerWriter = new MulticastEventHandlerWriter();
 
     @Override
@@ -60,5 +61,10 @@ public class MulticastEventHandlerPlugin implements PrefabPlugin {
                     element);
         }
         return eventType;
+    }
+
+    @Override
+    public Class<? extends Annotation> annotation() {
+        return EventHandler.Multicast.class;
     }
 }

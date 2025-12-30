@@ -4,9 +4,9 @@ import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
-import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.eventhandler.EventHandlerPlugin;
 import com.palantir.javapoet.TypeSpec;
 
 import javax.annotation.processing.ProcessingEnvironment;
@@ -15,10 +15,11 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.stream.Stream;
 
-public class ByReferenceEventHandlerPlugin implements PrefabPlugin {
+public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
     private final ByReferenceEventHandlerWriter byReferenceEventHandlerWriter = new ByReferenceEventHandlerWriter();
 
     @Override
@@ -81,5 +82,10 @@ public class ByReferenceEventHandlerPlugin implements PrefabPlugin {
                 .map(VariableElement.class::cast)
                 .map(element -> new VariableManifest(element, processingEnvironment))
                 .toList();
+    }
+
+    @Override
+    public Class<? extends Annotation> annotation() {
+        return EventHandler.ByReference.class;
     }
 }

@@ -4,7 +4,6 @@ be.appify.prefab.processor.delete.DeletePlugin
 be.appify.prefab.processor.getlist.GetListPlugin
 be.appify.prefab.processor.update.UpdatePlugin
 be.appify.prefab.processor.eventhandler.StaticEventHandlerPlugin
-be.appify.prefab.processor.eventhandler.broadcast.BroadcastEventHandlerPlugin
 be.appify.prefab.processor.eventhandler.byreference.ByReferenceEventHandlerPlugin
 be.appify.prefab.processor.eventhandler.multicast.MulticastEventHandlerPlugin
 be.appify.prefab.processor.dbmigration.DbMigrationPlugin

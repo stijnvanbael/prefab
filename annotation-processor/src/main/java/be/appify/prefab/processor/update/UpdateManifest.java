@@ -5,7 +5,7 @@ import be.appify.prefab.processor.VariableManifest;
 
 import java.util.List;
 
-public record UpdateManifest(
+record UpdateManifest(
         String operationName,
         List<VariableManifest> parameters,
         boolean stateful,

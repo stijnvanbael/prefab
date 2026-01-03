@@ -7,18 +7,18 @@ import be.appify.prefab.processor.TypeManifest;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.TypeKind;
 
-public record MulticastEventHandlerManifest(
+record MulticastEventHandlerManifest(
         ExecutableElement methodElement,
         TypeManifest eventType,
         PrefabContext context,
         String queryMethod,
         EventHandler.Param[] paramMapping
 ) {
-    public String methodName() {
+    String methodName() {
         return methodElement.getSimpleName().toString();
     }
 
-    public TypeManifest returnType() {
+    TypeManifest returnType() {
         return methodElement.getReturnType().getKind() == TypeKind.VOID
                 ? null
                 : new TypeManifest(methodElement.getReturnType(), context.processingEnvironment());

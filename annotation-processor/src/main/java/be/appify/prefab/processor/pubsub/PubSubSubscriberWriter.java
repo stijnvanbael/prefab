@@ -35,9 +35,9 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
-public class PubSubSubscriberWriter {
+class PubSubSubscriberWriter {
 
-    public void writePubSubSubscriber(
+    void writePubSubSubscriber(
             TypeManifest owner,
             List<ExecutableElement> eventHandlers,
             PrefabContext context

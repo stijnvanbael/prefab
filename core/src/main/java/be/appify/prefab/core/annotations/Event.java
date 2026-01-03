@@ -5,25 +5,39 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/// Annotate an event class to specify its messaging topic, platform, producer, and serialization format.
+/** Annotate an event class to specify its messaging topic, platform, producer, and serialization format. */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.SOURCE)
 public @interface Event {
-    /// The topic the event is published to or should be consumed from.
+    /**
+     * The topic the event is published to or should be consumed from.
+     * @return The topic the event is published to or should be consumed from.
+     */
     String topic();
 
-    /// The messaging platform used for the event.
+    /**
+     * The messaging platform used for the event.
+     * @return The messaging platform used for the event.
+     */
     Platform platform() default Platform.KAFKA;
 
-    /// The serialization format used for the event.
+    /**
+     * The serialization format used for the event.
+     * @return The serialization format used for the event.
+     */
     Serialization serialization() default Serialization.JSON;
 
+    /** The supported messaging platforms. */
     enum Platform {
+        /** Kafka messaging platform. */
         KAFKA,
+        /** Pub/Sub messaging platform. */
         PUB_SUB,
     }
 
+    /** The supported serialization formats. */
     enum Serialization {
+        /** JSON serialization format. */
         JSON,
     }
 }

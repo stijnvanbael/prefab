@@ -21,9 +21,14 @@ import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
 
+/** Plugin to handle Binary fields in Prefab. */
 public class BinaryPlugin implements PrefabPlugin {
     private final BinaryControllerWriter binaryControllerWriter = new BinaryControllerWriter();
     private final BinaryTestFixtureWriter binaryTestFixtureWriter = new BinaryTestFixtureWriter();
+
+    /** Creates a new instance of BinaryPlugin. */
+    public BinaryPlugin() {
+    }
 
     @Override
     public Optional<ParameterSpec> requestMethodParameter(VariableManifest parameter) {

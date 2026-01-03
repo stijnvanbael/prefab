@@ -9,9 +9,16 @@ import org.springframework.stereotype.Component;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * KafkaJsonTypeResolver resolves Java types for Kafka topics based on a registered mapping.
+ */
 @Component
 public class KafkaJsonTypeResolver implements JsonTypeResolver {
     private final Map<String, Class<?>> types = new HashMap<>();
+
+    /** Constructs a new KafkaJsonTypeResolver. */
+    public KafkaJsonTypeResolver() {
+    }
 
     @Override
     public JavaType resolveType(String topic, byte[] data, Headers headers) {
@@ -22,6 +29,12 @@ public class KafkaJsonTypeResolver implements JsonTypeResolver {
         }
     }
 
+    /**
+     * Registers a Java type for a specific Kafka topic.
+     *
+     * @param topic the Kafka topic
+     * @param type  the Java class type to register
+     */
     public void registerType(String topic, Class<?> type) {
         types.put(topic, type);
     }

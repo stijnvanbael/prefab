@@ -34,9 +34,9 @@ import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
-public class KafkaConsumerWriter {
+class KafkaConsumerWriter {
 
-    public void writeKafkaConsumer(
+    void writeKafkaConsumer(
             TypeManifest owner,
             List<ExecutableElement> eventHandlers,
             PrefabContext context

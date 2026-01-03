@@ -14,7 +14,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-public record Table(
+record Table(
         String name,
         List<Column> columns,
         List<String> primaryKey
@@ -22,7 +22,7 @@ public record Table(
     private static final List<String> PRIMARY_KEY = List.of("PRIMARY", "KEY");
     private static final String FOREIGN_KEY = "FOREIGN KEY";
 
-    public static Table fromCreateTable(CreateTable createTable) {
+    static Table fromCreateTable(CreateTable createTable) {
         return new Table(
                 createTable.getTable().getName().replace("\"", ""),
                 createTable.getColumnDefinitions().stream()

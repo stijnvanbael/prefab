@@ -23,8 +23,8 @@ import javax.lang.model.element.Modifier;
 
 import static javax.lang.model.element.Modifier.PUBLIC;
 
-public class KafkaProducerWriter {
-    public void writeKafkaProducer(TypeManifest event, PrefabContext context) {
+class KafkaProducerWriter {
+    void writeKafkaProducer(TypeManifest event, PrefabContext context) {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.kafka");
 
         var name = "%sKafkaProducer".formatted(event.simpleName().replace(".", ""));

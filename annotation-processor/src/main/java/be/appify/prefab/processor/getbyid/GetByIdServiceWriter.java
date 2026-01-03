@@ -5,13 +5,14 @@ import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
-import static org.apache.commons.text.WordUtils.uncapitalize;
 
 import javax.lang.model.element.Modifier;
 import java.util.Optional;
 
-public class GetByIdServiceWriter {
-    public MethodSpec getByIdMethod(ClassManifest manifest) {
+import static org.apache.commons.text.WordUtils.uncapitalize;
+
+class GetByIdServiceWriter {
+    MethodSpec getByIdMethod(ClassManifest manifest) {
         TypeName typeName = manifest.type().asTypeName();
         return MethodSpec.methodBuilder("getById")
                 .addModifiers(Modifier.PUBLIC)

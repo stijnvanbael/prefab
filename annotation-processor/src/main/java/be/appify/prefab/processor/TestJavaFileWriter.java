@@ -19,17 +19,17 @@ import java.util.Locale;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
-public class TestJavaFileWriter {
+class TestJavaFileWriter {
     private final StandardJavaFileManager fileManager = getJavaFileManager();
     private final PrefabContext context;
     private final String packageSuffix;
 
-    public TestJavaFileWriter(PrefabContext context, String packageSuffix) {
+    TestJavaFileWriter(PrefabContext context, String packageSuffix) {
         this.context = context;
         this.packageSuffix = packageSuffix;
     }
 
-    public void writeFile(String packagePrefix, String typeName, TypeSpec type) {
+    void writeFile(String packagePrefix, String typeName, TypeSpec type) {
         var packageName = !isBlank(packageSuffix) ? "%s.%s".formatted(packagePrefix, packageSuffix) : packagePrefix;
         var rootPath = getRootPath();
         if (rootPath != null) {
@@ -84,7 +84,7 @@ public class TestJavaFileWriter {
         var packageName = qualifiedName.contains(".")
                 ? qualifiedName.substring(0, qualifiedName.lastIndexOf('.'))
                 : "";
-        var fileName = element.getSimpleName().toString() + ".java";
+        var fileName = element.getSimpleName() + ".java";
         try {
             var sourcePath = context.processingEnvironment().getFiler()
                     .getResource(StandardLocation.SOURCE_PATH, packageName, fileName)

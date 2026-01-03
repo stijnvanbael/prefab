@@ -5,11 +5,12 @@ import be.appify.prefab.core.util.ServiceLocator;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
+/** Spring-based implementation of DomainEventPublisher using ApplicationEventPublisher. */
 @Component
 public class SpringDomainEventPublisher extends DomainEventPublisher {
     private final ApplicationEventPublisher applicationEventPublisher;
 
-    public SpringDomainEventPublisher(
+    SpringDomainEventPublisher(
             ApplicationEventPublisher applicationEventPublisher,
             ServiceLocator serviceLocator
     ) {

@@ -23,8 +23,8 @@ import static be.appify.prefab.processor.getlist.GetListUtil.filterPropertiesOf;
 import static org.apache.commons.text.WordUtils.capitalize;
 import static org.apache.commons.text.WordUtils.uncapitalize;
 
-public class GetListServiceWriter {
-    public MethodSpec getListMethod(ClassManifest manifest) {
+class GetListServiceWriter {
+    MethodSpec getListMethod(ClassManifest manifest) {
         var method = MethodSpec.methodBuilder("getList")
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(Pageable.class, "pageable");

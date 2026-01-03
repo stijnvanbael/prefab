@@ -13,8 +13,8 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import static be.appify.prefab.processor.ControllerUtil.securedAnnotation;
 import static javax.lang.model.element.Modifier.PUBLIC;
 
-public class DeleteControllerWriter {
-    public MethodSpec deleteMethod(Delete delete) {
+class DeleteControllerWriter {
+    MethodSpec deleteMethod(Delete delete) {
         var method = MethodSpec.methodBuilder("delete")
                 .addModifiers(PUBLIC)
                 .addAnnotation(requestMapping(delete.method(), delete.path()));

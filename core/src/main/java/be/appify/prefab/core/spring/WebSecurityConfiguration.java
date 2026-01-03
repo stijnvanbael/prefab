@@ -11,11 +11,18 @@ import org.springframework.security.web.SecurityFilterChain;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
+/**
+ * Configuration class for web security settings.
+ */
 @EnableWebSecurity
 @EnableMethodSecurity
 @Configuration
 @ConditionalOnOAuth2ClientRegistrationProperties
 public class WebSecurityConfiguration {
+
+    WebSecurityConfiguration() {
+    }
+
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http

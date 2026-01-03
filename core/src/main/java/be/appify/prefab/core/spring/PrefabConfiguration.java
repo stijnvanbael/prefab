@@ -10,12 +10,19 @@ import org.springframework.data.jdbc.repository.config.AbstractJdbcConfiguration
 
 import java.util.List;
 
+/**
+ * Spring configuration for Prefab core components.
+ */
 @Configuration
 @ComponentScan({ "be.appify.prefab.core.spring", "be.appify.prefab.core.problem" })
 public class PrefabConfiguration extends AbstractJdbcConfiguration {
 
     private final ReferenceFactory referenceFactory;
 
+    /**
+     * Constructs a new PrefabConfiguration with the given ReferenceFactory.
+     * @param referenceFactory the ReferenceFactory to use for reference conversions
+     */
     public PrefabConfiguration(ReferenceFactory referenceFactory) {
         this.referenceFactory = referenceFactory;
     }

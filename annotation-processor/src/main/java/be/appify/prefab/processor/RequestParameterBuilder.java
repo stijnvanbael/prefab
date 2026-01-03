@@ -10,19 +10,39 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Builder class for creating request parameters using plugins and default rules.
+ */
 public class RequestParameterBuilder {
     private final List<PrefabPlugin> plugins;
 
+    /**
+     * Constructs a RequestParameterBuilder with the given plugins.
+     *
+     * @param plugins the list of Prefab plugins
+     */
     public RequestParameterBuilder(List<PrefabPlugin> plugins) {
         this.plugins = plugins;
     }
 
+    /**
+     * Builds a query parameter for the given variable manifest.
+     *
+     * @param parameter the variable manifest
+     * @return an optional ParameterSpec representing the query parameter
+     */
     public Optional<ParameterSpec> buildBodyParameter(VariableManifest parameter) {
         return plugins.stream().flatMap(plugin -> plugin.requestBodyParameter(parameter).stream())
                 .findFirst()
                 .or(() -> defaultParameters(parameter));
     }
 
+    /**
+     * Builds a method parameter for the given variable manifest.
+     *
+     * @param parameter the variable manifest
+     * @return an optional ParameterSpec representing the method parameter
+     */
     public Optional<ParameterSpec> buildMethodParameter(VariableManifest parameter) {
         return plugins.stream().flatMap(plugin -> plugin.requestMethodParameter(parameter).stream())
                 .findFirst();

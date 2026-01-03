@@ -6,13 +6,20 @@ import org.springframework.data.jdbc.core.mapping.AggregateReference;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.util.Lazy;
 
+/**
+ * SpringDataReference is an implementation of AggregateReference and Reference
+ * that uses a Spring Data CrudRepository to resolve the referenced entity.
+ *
+ * @param <T> the type of the referenced entity
+ */
 public class SpringDataReference<T> implements AggregateReference<T, String>, Reference<T> {
 
     private final CrudRepository<T, String> repository;
     private final Lazy<T> resolved;
     private final String id;
 
-    public SpringDataReference(String id, CrudRepository<T, String> repository) {
+
+    SpringDataReference(String id, CrudRepository<T, String> repository) {
         this.id = id;
         this.repository = repository;
         resolved = Lazy.of(() -> repository.findById(id()).orElseThrow());

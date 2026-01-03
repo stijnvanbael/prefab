@@ -15,8 +15,8 @@ import java.util.Optional;
 
 import static be.appify.prefab.processor.getlist.GetListUtil.filterPropertiesOf;
 
-public class GetListRepositoryWriter {
-    public Optional<MethodSpec> getListMethod(ClassManifest manifest) {
+class GetListRepositoryWriter {
+    Optional<MethodSpec> getListMethod(ClassManifest manifest) {
         var filterProperties = filterPropertiesOf(manifest);
         if (!filterProperties.isEmpty()) {
             var method = MethodSpec.methodBuilder("findAll")

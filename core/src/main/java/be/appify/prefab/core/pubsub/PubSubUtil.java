@@ -25,6 +25,10 @@ import java.util.function.Consumer;
 
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 
+/**
+ * Utility class for managing Pub/Sub topics and subscriptions,
+ * and for subscribing to messages with optional dead-letter handling.
+ */
 @Component
 @ConditionalOnClass(PubSubAdmin.class)
 public class PubSubUtil {
@@ -39,6 +43,19 @@ public class PubSubUtil {
     private final ConcurrentMap<String, Class<?>> messageTypes = new ConcurrentHashMap<>();
     private final String dltTopicName;
 
+    /**
+     * Constructs a new PubSubUtil with the given configuration and dependencies.
+     *
+     * @param projectId        the GCP project ID
+     * @param applicationName  the application name
+     * @param dltTopicName     the dead-letter topic name
+     * @param maxRetries      the maximum number of retries for dead-letter handling
+     * @param minimumBackoff  the minimum backoff time in milliseconds
+     * @param maximumBackoff  the maximum backoff time in milliseconds
+     * @param pubSubAdmin     the Pub/Sub admin client
+     * @param subscriberTemplate the Pub/Sub subscriber template
+     * @param jsonUtil        the JSON utility for serialization/deserialization
+     */
     public PubSubUtil(
             @Value("${spring.cloud.gcp.project-id}") String projectId,
             @Value("${spring.application.name}") String applicationName,
@@ -60,6 +77,16 @@ public class PubSubUtil {
         this.dltTopicName = !isEmpty(dltTopicName) ? dltTopicName : applicationName + ".dlt";
     }
 
+    /**
+     * Subscribes to a Pub/Sub topic with the given subscription name and message type,
+     * using the provided consumer to process messages.
+     *
+     * @param topic        the Pub/Sub topic name
+     * @param subscription the subscription name
+     * @param type         the class type of the messages
+     * @param consumer     the consumer to process messages
+     * @param <T>          the type of the messages
+     */
     public <T> void subscribe(
             String topic,
             String subscription,
@@ -69,6 +96,17 @@ public class PubSubUtil {
         subscribe(topic, subscription, type, consumer, Runnable::run);
     }
 
+    /**
+     * Subscribes to a Pub/Sub topic with the given subscription name and message type,
+     * using the provided consumer to process messages asynchronously with the given executor.
+     *
+     * @param topic        the Pub/Sub topic name
+     * @param subscription the subscription name
+     * @param type         the class type of the messages
+     * @param consumer     the consumer to process messages
+     * @param executor     the executor to run the consumer
+     * @param <T>          the type of the messages
+     */
     public <T> void subscribe(
             String topic,
             String subscription,
@@ -112,6 +150,12 @@ public class PubSubUtil {
         }
     }
 
+    /**
+     * Ensures that the specified Pub/Sub topic exists, creating it if necessary.
+     *
+     * @param topic the topic name
+     * @return the fully qualified topic name
+     */
     public String ensureTopicExists(String topic) {
         var topicName = ProjectTopicName.of(projectId, topic).toString();
         try {
@@ -126,6 +170,9 @@ public class PubSubUtil {
         return topicName;
     }
 
+    /**
+     * Deletes all Pub/Sub subscriptions in the project.
+     */
     public void deleteAllSubscriptions() {
         pubSubAdmin.listSubscriptions().forEach(subscription -> {
             var subscriptionName = subscription.getName();
@@ -133,6 +180,9 @@ public class PubSubUtil {
         });
     }
 
+    /**
+     * Deletes all Pub/Sub topics in the project.
+     */
     public void deleteAllTopics() {
         pubSubAdmin.listTopics().forEach(topic -> {
             var topicName = topic.getName();
@@ -175,6 +225,11 @@ public class PubSubUtil {
                 .build();
     }
 
+    /**
+     * Deletes the specified Pub/Sub subscription if it exists.
+     *
+     * @param subscription the subscription name to delete
+     */
     public void deleteSubscription(String subscription) {
         var subscriptionName = ProjectSubscriptionName.of(projectId, subscription).toString();
         if (pubSubAdmin.getSubscription(subscriptionName) != null) {

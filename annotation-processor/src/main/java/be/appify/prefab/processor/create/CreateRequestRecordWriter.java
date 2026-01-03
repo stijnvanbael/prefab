@@ -10,14 +10,15 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
-import static org.apache.commons.text.WordUtils.capitalize;
 
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import java.util.List;
 
-public class CreateRequestRecordWriter {
-    public void writeRequestRecord(
+import static org.apache.commons.text.WordUtils.capitalize;
+
+class CreateRequestRecordWriter {
+    void writeRequestRecord(
             JavaFileWriter fileWriter,
             ClassManifest manifest,
             ExecutableElement controller,

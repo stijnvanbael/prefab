@@ -17,6 +17,9 @@ import java.util.Set;
 import java.util.Spliterators;
 import java.util.stream.StreamSupport;
 
+/**
+ * Annotation processor for Prefab framework that generates code based on annotated aggregates.
+ */
 @SupportedAnnotationTypes({
         "be.appify.prefab.core.annotations.*",
 })
@@ -24,6 +27,10 @@ import java.util.stream.StreamSupport;
 @AutoService(Processor.class)
 @SuppressWarnings("unused")
 public class PrefabProcessor extends AbstractProcessor {
+
+    /** Constructs a new PrefabProcessor. */
+    public PrefabProcessor() {
+    }
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment environment) {

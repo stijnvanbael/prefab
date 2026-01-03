@@ -9,6 +9,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/** Enable Prefab framework features in a Spring application. */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 @Import({ PrefabConfiguration.class, KafkaConfiguration.class, PubSubConfiguration.class })

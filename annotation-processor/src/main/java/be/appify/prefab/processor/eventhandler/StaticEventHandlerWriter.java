@@ -10,8 +10,8 @@ import static org.apache.commons.text.WordUtils.uncapitalize;
 import javax.lang.model.element.Modifier;
 import java.util.Optional;
 
-public class StaticEventHandlerWriter {
-    public MethodSpec staticDomainHandlerMethod(ClassManifest manifest, StaticEventHandlerManifest eventHandler) {
+class StaticEventHandlerWriter {
+    MethodSpec staticDomainHandlerMethod(ClassManifest manifest, StaticEventHandlerManifest eventHandler) {
         var event = eventHandler.eventType();
         var method = MethodSpec.methodBuilder(eventHandler.methodName())
                 .addModifiers(Modifier.PUBLIC)

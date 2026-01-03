@@ -10,8 +10,8 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import javax.lang.model.element.Modifier;
 import java.util.List;
 
-public class DeleteTestFixtureWriter {
-    public List<MethodSpec> deleteMethods(ClassManifest manifest) {
+class DeleteTestFixtureWriter {
+    List<MethodSpec> deleteMethods(ClassManifest manifest) {
         return List.of(deleteMethod(manifest), whenVariant(manifest), givenVariant(manifest));
     }
 

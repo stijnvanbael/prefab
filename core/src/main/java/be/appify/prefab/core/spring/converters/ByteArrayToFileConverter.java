@@ -8,8 +8,14 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
+/** Converter to transform a byte array into a temporary File. */
 @ReadingConverter
 public class ByteArrayToFileConverter implements Converter<byte[], File> {
+
+    /** Constructs a new ByteArrayToFileConverter. */
+    public ByteArrayToFileConverter() {
+    }
+
     @Override
     public File convert(byte[] source) {
         try {

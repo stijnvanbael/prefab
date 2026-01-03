@@ -5,13 +5,13 @@ import be.appify.prefab.processor.ClassManifest;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import org.springframework.context.event.EventListener;
-import static org.apache.commons.text.WordUtils.uncapitalize;
 
 import javax.lang.model.element.Modifier;
 
-public class ByReferenceEventHandlerWriter {
-    public MethodSpec byReferenceEventHandlerMethod(ClassManifest manifest,
-            ByReferenceEventHandlerManifest eventHandler) {
+import static org.apache.commons.text.WordUtils.uncapitalize;
+
+class ByReferenceEventHandlerWriter {
+    MethodSpec byReferenceEventHandlerMethod(ClassManifest manifest, ByReferenceEventHandlerManifest eventHandler) {
         var event = eventHandler.eventType();
         var method = MethodSpec.methodBuilder(eventHandler.methodName())
                 .addModifiers(Modifier.PUBLIC);

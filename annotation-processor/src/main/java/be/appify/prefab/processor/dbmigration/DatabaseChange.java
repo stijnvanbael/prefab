@@ -7,7 +7,7 @@ import java.util.Objects;
 
 import static java.util.stream.Collectors.joining;
 
-public interface DatabaseChange {
+interface DatabaseChange {
     String toSql();
 
     record CreateTable(Table table) implements DatabaseChange {

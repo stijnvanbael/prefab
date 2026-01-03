@@ -7,9 +7,16 @@ import be.appify.prefab.processor.PrefabPlugin;
 
 import java.util.List;
 
+/**
+ * Prefab plugin that generates database migration scripts based on the @DbMigration annotation.
+ */
 public class DbMigrationPlugin implements PrefabPlugin {
 
     private final DbMigrationWriter dbMigrationWriter = new DbMigrationWriter();
+
+    /** Creates a new instance of DbMigrationPlugin. */
+    public DbMigrationPlugin() {
+    }
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests, PrefabContext prefabContext) {

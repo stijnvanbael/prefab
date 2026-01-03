@@ -15,12 +15,20 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonTypeResolver;
 
+/**
+ * Auto-configuration for a JSON Kafka consumer factory for testing purposes.
+ */
 @Configuration
 @ConditionalOnClass(JsonDeserializer.class)
 public class JsonTestConsumerFactoryAutoConfiguration {
 
     private final KafkaProperties properties;
 
+    /**
+     * Constructs a JsonTestConsumerFactoryAutoConfiguration with the given Kafka properties.
+     *
+     * @param properties the Kafka properties
+     */
     public JsonTestConsumerFactoryAutoConfiguration(KafkaProperties properties) {
         this.properties = properties;
     }
@@ -28,7 +36,7 @@ public class JsonTestConsumerFactoryAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = "jsonTestConsumerFactory")
     @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
-    public DefaultKafkaConsumerFactory<String, Object> jsonTestConsumerFactory(
+    DefaultKafkaConsumerFactory<String, Object> jsonTestConsumerFactory(
             KafkaConnectionDetails connectionDetails,
             ObjectProvider<DefaultKafkaConsumerFactoryCustomizer> customizers, ObjectProvider<SslBundles> sslBundles,
             ObjectMapper objectMapper,
@@ -48,7 +56,7 @@ public class JsonTestConsumerFactoryAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(name = "testJsonTypeResolver")
-    public TestJsonTypeResolver testJsonTypeResolver(ObjectProvider<JsonTypeResolver> delegate) {
+    TestJsonTypeResolver testJsonTypeResolver(ObjectProvider<JsonTypeResolver> delegate) {
         return new TestJsonTypeResolver(delegate.getIfAvailable(() -> (topic, data, headers) -> {
             throw new IllegalStateException("No type resolver configured for topic: " + topic);
         }));

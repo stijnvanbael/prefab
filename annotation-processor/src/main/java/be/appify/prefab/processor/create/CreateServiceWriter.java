@@ -14,8 +14,8 @@ import javax.lang.model.element.Modifier;
 
 import static org.apache.commons.text.WordUtils.uncapitalize;
 
-public class CreateServiceWriter {
-    public MethodSpec createMethod(
+class CreateServiceWriter {
+    MethodSpec createMethod(
             ClassManifest manifest,
             ExecutableElement controller,
             PrefabContext context

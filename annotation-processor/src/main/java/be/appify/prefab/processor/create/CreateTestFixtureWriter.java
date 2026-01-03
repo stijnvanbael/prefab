@@ -24,8 +24,8 @@ import java.util.stream.Stream;
 
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
-public class CreateTestFixtureWriter {
-    public List<MethodSpec> createMethods(ClassManifest manifest, ExecutableElement constructor,
+class CreateTestFixtureWriter {
+    List<MethodSpec> createMethods(ClassManifest manifest, ExecutableElement constructor,
             PrefabContext context) {
         return List.of(createMethod(manifest, constructor, context), whenVariant(manifest), givenVariant(manifest));
     }

@@ -4,11 +4,12 @@ import be.appify.prefab.core.util.ServiceLocator;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
+/** Spring-based implementation of ServiceLocator using ApplicationContext. */
 @Component
 public class SpringServiceLocator implements ServiceLocator {
     private final ApplicationContext applicationContext;
 
-    public SpringServiceLocator(ApplicationContext applicationContext) {
+    SpringServiceLocator(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
     }
 

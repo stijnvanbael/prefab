@@ -12,10 +12,21 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
 
+/**
+ * Factory for creating Reference objects for entities managed by Spring Data repositories.
+ */
 @Component
 public class ReferenceFactory {
     private final Map<Class<?>, CrudRepository<?, String>> crudRepositories = new HashMap<>();
 
+    ReferenceFactory() {
+    }
+
+    /**
+     * Handles the ApplicationReadyEvent to populate the map of entity types to their corresponding CrudRepository instances.
+     *
+     * @param event the ApplicationReadyEvent
+     */
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady(ApplicationReadyEvent event) {
         event.getApplicationContext().getBeansOfType(CrudRepository.class).values().forEach(repository -> {
@@ -32,6 +43,15 @@ public class ReferenceFactory {
                 CrudRepository.class.isAssignableFrom(rawClass);
     }
 
+    /**
+     * Creates a Reference object for the specified entity class and identifier.
+     *
+     * @param clazz the entity class
+     * @param id    the identifier of the entity
+     * @param <T>   the type of the entity
+     * @return a Reference to the entity, or null if the id is null
+     * @throws IllegalArgumentException if no repository is found for the specified class
+     */
     public <T> Reference<T> referenceTo(Class<T> clazz, String id) {
         if (id == null) {
             return null;

@@ -7,8 +7,20 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.io.IOException;
 
+/** Service for storing files temporarily. */
 @Component
 public class StorageService {
+
+    StorageService() {
+    }
+
+    /**
+     * Stores the given MultipartFile as a temporary Binary file.
+     *
+     * @param file the MultipartFile to store
+     * @return a Binary representing the stored file
+     * @throws RuntimeException if an I/O error occurs during file storage
+     */
     public Binary store(MultipartFile file) {
         try {
             var tempFile = File.createTempFile("prefab-", ".tmp");

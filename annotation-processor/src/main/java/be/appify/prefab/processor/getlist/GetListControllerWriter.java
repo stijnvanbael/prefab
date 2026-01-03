@@ -23,9 +23,9 @@ import static be.appify.prefab.processor.getlist.GetListUtil.filterPropertiesOf;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static org.apache.commons.text.WordUtils.uncapitalize;
 
-public class GetListControllerWriter {
+class GetListControllerWriter {
 
-    public MethodSpec getListMethod(ClassManifest manifest, GetList getList) {
+    MethodSpec getListMethod(ClassManifest manifest, GetList getList) {
         var filters = filterPropertiesOf(manifest);
 
         var responseType = responseType(manifest);

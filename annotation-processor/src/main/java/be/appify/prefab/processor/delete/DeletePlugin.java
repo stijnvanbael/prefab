@@ -8,11 +8,17 @@ import com.palantir.javapoet.TypeSpec;
 
 import java.util.Optional;
 
+/**
+ * Prefab plugin that generates delete controller, service, and test fixture methods based on the @Delete annotation.
+ */
 public class DeletePlugin implements PrefabPlugin {
     private final DeleteControllerWriter controllerWriter = new DeleteControllerWriter();
     private final DeleteServiceWriter serviceWriter = new DeleteServiceWriter();
-    private final DeleteRepositoryWriter repositoryWriter = new DeleteRepositoryWriter();
     private final DeleteTestFixtureWriter testFixtureWriter = new DeleteTestFixtureWriter();
+
+    /** Creates a new instance of DeletePlugin. */
+    public DeletePlugin() {
+    }
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {

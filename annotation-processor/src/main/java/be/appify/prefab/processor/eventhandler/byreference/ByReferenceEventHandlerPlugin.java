@@ -19,8 +19,13 @@ import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.stream.Stream;
 
+/** Plugin to handle ByReference event handlers in Prefab. */
 public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
     private final ByReferenceEventHandlerWriter byReferenceEventHandlerWriter = new ByReferenceEventHandlerWriter();
+
+    /** Constructs a new ByReferenceEventHandlerPlugin. */
+    public ByReferenceEventHandlerPlugin() {
+    }
 
     @Override
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {

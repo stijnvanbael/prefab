@@ -15,8 +15,8 @@ import static org.apache.commons.text.WordUtils.uncapitalize;
 import javax.lang.model.element.Modifier;
 import java.util.Optional;
 
-public class UpdateServiceWriter {
-    public MethodSpec updateMethod(ClassManifest manifest, UpdateManifest update) {
+class UpdateServiceWriter {
+    MethodSpec updateMethod(ClassManifest manifest, UpdateManifest update) {
         var method = MethodSpec.methodBuilder(update.operationName())
                 .addModifiers(Modifier.PUBLIC)
                 .returns(ParameterizedTypeName.get(ClassName.get(Optional.class), manifest.type().asTypeName()))

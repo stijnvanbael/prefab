@@ -19,11 +19,19 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Plugin responsible for generating update controller and service methods,
+ * as well as related request records and test fixture methods.
+ */
 public class UpdatePlugin implements PrefabPlugin {
     private final UpdateControllerWriter updateControllerWriter = new UpdateControllerWriter();
     private final UpdateServiceWriter updateServiceWriter = new UpdateServiceWriter();
     private final UpdateRequestRecordWriter updateRequestRecordWriter = new UpdateRequestRecordWriter();
     private final UpdateTestFixtureWriter updateTestFixtureWriter = new UpdateTestFixtureWriter();
+
+    /** Constructs a new UpdatePlugin. */
+    public UpdatePlugin() {
+    }
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {

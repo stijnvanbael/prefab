@@ -9,24 +9,25 @@ import com.palantir.javapoet.TypeSpec;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Optional;
+import java.util.stream.Collectors;
+
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 
-import java.util.Optional;
-import java.util.stream.Collectors;
-
-public class HttpWriter {
+class HttpWriter {
     private final JavaFileWriter fileWriter;
     private final PrefabContext context;
 
-    public HttpWriter(PrefabContext context) {
+    HttpWriter(PrefabContext context) {
         this.context = context;
         fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.http");
     }
 
-    public void writeHttpLayer(ClassManifest manifest) {
+    void writeHttpLayer(ClassManifest manifest) {
         writeController(manifest);
         writeResponseRecord(manifest);
     }

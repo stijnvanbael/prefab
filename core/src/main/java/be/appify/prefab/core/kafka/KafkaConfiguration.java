@@ -47,6 +47,10 @@ import java.util.UUID;
 
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 
+/**
+ * Configuration class for setting up Kafka producer and consumer factories,
+ * listener container factory, and error handling with dead-letter publishing.
+ */
 @Configuration
 @ConditionalOnClass(KafkaListenerContainerFactory.class)
 @ComponentScan(basePackageClasses = KafkaJsonTypeResolver.class)
@@ -60,9 +64,13 @@ public class KafkaConfiguration {
             InvalidTopicException.class,
             DataIntegrityViolationException.class);
 
+    /** Constructs a new KafkaConfiguration. */
+    public KafkaConfiguration() {
+    }
+
     @Bean
     @ConditionalOnMissingBean(ProducerFactory.class)
-    public ProducerFactory<Object, Object> kafkaProducerFactory(
+    ProducerFactory<Object, Object> kafkaProducerFactory(
             KafkaProperties kafkaProperties,
             KafkaConnectionDetails connectionDetails,
             ObjectProvider<DefaultKafkaProducerFactoryCustomizer> customizers,
@@ -106,7 +114,7 @@ public class KafkaConfiguration {
     }
 
     @Bean
-    public ConsumerFactory<?, ?> kafkaConsumerFactory(
+    ConsumerFactory<?, ?> kafkaConsumerFactory(
             KafkaProperties kafkaProperties,
             KafkaConnectionDetails connectionDetails,
             ObjectProvider<DefaultKafkaConsumerFactoryCustomizer> customizers,
@@ -133,7 +141,7 @@ public class KafkaConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = "dltErrorHandler")
     @SuppressWarnings("unchecked")
-    public CommonErrorHandler dltErrorHandler(
+    CommonErrorHandler dltErrorHandler(
             @Value("${prefab.kafka.dlt.retries.limit:5}") Integer maxRetries,
             @Value("${prefab.kafka.dlt.retries.initial-interval-ms:1000}") Long initialRetryInterval,
             @Value("${prefab.kafka.dlt.retries.multiplier:1.5}") Float backoffMultiplier,

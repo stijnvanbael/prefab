@@ -18,16 +18,16 @@ import java.util.function.Supplier;
 
 import static org.apache.commons.text.WordUtils.capitalize;
 
-public class PersistenceWriter {
+class PersistenceWriter {
     private final JavaFileWriter fileWriter;
     private final PrefabContext context;
 
-    public PersistenceWriter(PrefabContext context) {
+    PersistenceWriter(PrefabContext context) {
         this.context = context;
         fileWriter = new JavaFileWriter(context.processingEnvironment(), "application");
     }
 
-    public void writePersistenceLayer(ClassManifest manifest) {
+    void writePersistenceLayer(ClassManifest manifest) {
         writeRepository(manifest);
     }
 

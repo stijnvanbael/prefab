@@ -2,6 +2,9 @@ package be.appify.prefab.core.util;
 
 import java.util.function.Function;
 
+/**
+ * Utility class for object-related operations.
+ */
 public abstract class Objects {
     private Objects() {
     }

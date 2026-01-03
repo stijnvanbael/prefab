@@ -25,9 +25,9 @@ import java.util.stream.Stream;
 import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
 import static java.util.stream.Collectors.groupingBy;
 
-public class DbMigrationWriter {
+class DbMigrationWriter {
 
-    public void writeDbMigration(
+    void writeDbMigration(
             ProcessingEnvironment processingEnvironment,
             List<ClassManifest> classManifests
     ) {

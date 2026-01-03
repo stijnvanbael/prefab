@@ -8,10 +8,17 @@ import com.palantir.javapoet.TypeSpec;
 
 import java.util.Optional;
 
+/**
+ * Prefab plugin that generates getById controller, service, and test fixture methods based on the @GetById annotation.
+ */
 public class GetByIdPlugin implements PrefabPlugin {
     private final GetByIdControllerWriter controllerWriter = new GetByIdControllerWriter();
     private final GetByIdServiceWriter serviceWriter = new GetByIdServiceWriter();
     private final GetByIdTestFixtureWriter testFixtureWriter = new GetByIdTestFixtureWriter();
+
+    /** Creates a new instance of GetByIdPlugin. */
+    public GetByIdPlugin() {
+    }
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {

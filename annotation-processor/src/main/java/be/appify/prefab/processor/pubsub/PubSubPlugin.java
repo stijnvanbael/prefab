@@ -17,9 +17,16 @@ import java.util.stream.Stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
 
+/**
+ * Prefab plugin to generate Pub/Sub publishers and subscribers based on event annotations.
+ */
 public class PubSubPlugin implements PrefabPlugin {
     private final PubSubPublisherWriter pubSubPublisherWriter = new PubSubPublisherWriter();
     private final PubSubSubscriberWriter pubSubSubscriberWriter = new PubSubSubscriberWriter();
+
+    /** Constructs a new PubSubPlugin. */
+    public PubSubPlugin() {
+    }
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> aggregates, PrefabContext context) {

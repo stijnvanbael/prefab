@@ -4,8 +4,16 @@ import org.assertj.core.api.ListAssert;
 
 import java.util.function.Consumer;
 
+/**
+ * Asserts messages received by the subscriber.
+ *
+ * @param <V> the type of messages
+ */
 public interface PubSubSubscriberAssertWhereStep<V> {
-    /// Asserts that the subscriber has received messages that satisfy the given assertion. The `ListAssert` in the
-    /// consumer asserts all received messages.
+    /**
+     * Applies the given assertion on the list of received messages.
+     *
+     * @param assertion the assertion to apply
+     */
     void where(Consumer<ListAssert<V>> assertion);
 }

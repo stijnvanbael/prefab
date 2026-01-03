@@ -13,8 +13,15 @@ import javax.lang.model.element.Modifier;
 import java.lang.annotation.Annotation;
 import java.util.stream.Stream;
 
+/**
+ * Prefab plugin to generate multicast event handlers based on EventHandler.Multicast annotations.
+ */
 public class MulticastEventHandlerPlugin implements EventHandlerPlugin {
     private final MulticastEventHandlerWriter multicastEventHandlerWriter = new MulticastEventHandlerWriter();
+
+    /** Constructs a new MulticastEventHandlerPlugin. */
+    public MulticastEventHandlerPlugin() {
+    }
 
     @Override
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {

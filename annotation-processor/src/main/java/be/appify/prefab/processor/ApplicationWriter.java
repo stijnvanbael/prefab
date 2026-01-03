@@ -10,23 +10,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import static org.apache.commons.text.WordUtils.uncapitalize;
 
 import javax.lang.model.element.Modifier;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class ApplicationWriter {
+import static org.apache.commons.text.WordUtils.uncapitalize;
+
+class ApplicationWriter {
     private final JavaFileWriter fileWriter;
     private final PrefabContext context;
 
-    public ApplicationWriter(PrefabContext context) {
+    ApplicationWriter(PrefabContext context) {
         this.context = context;
         fileWriter = new JavaFileWriter(context.processingEnvironment(), "application");
     }
 
-    public void writeApplicationLayer(ClassManifest manifest) {
+    void writeApplicationLayer(ClassManifest manifest) {
         writeService(manifest);
     }
 

@@ -13,16 +13,24 @@ import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.StreamSupport;
 
-/// Asserts messages received by the consumer.
-///
-/// For example:
-/// ```java
-/// KafkaConsumerAssert.assertThat(consumer)
-///    .hasReceivedMessages(3)
-///    .within(5, TimeUnit.SECONDS)
-///    .where(records -> records.extracting(ConsumerRecord::value)
-///       .containsExactlyInAnyOrder(expectedValues));
-///```
+/**
+ * Asserts messages received by the consumer.
+ * <p>
+ * For example:
+ * </p>
+ * <pre>
+ * {@code
+ * KafkaConsumerAssert.assertThat(consumer)
+ *     .hasReceivedMessages(3)
+ *     .within(5, TimeUnit.SECONDS)
+ *     .where(records -> records.extracting(ConsumerRecord::value)
+ *        .containsExactlyInAnyOrder(expectedValues));
+ * }
+ * </pre>
+ *
+ * @param <K> the type of the key
+ * @param <V> the type of the value
+ */
 public final class KafkaConsumerAssert<K, V> implements
         KafkaConsumerAssertNumberOfMessagesStep<K, V>,
         KafkaConsumerAssertTimeoutStep<K, V>,
@@ -35,7 +43,14 @@ public final class KafkaConsumerAssert<K, V> implements
         this.consumer = consumer;
     }
 
-    /// Asserts messages received by the consumer.
+    /**
+     * Asserts messages received by the consumer.
+     *
+     * @param consumer the Kafka consumer to assert on
+     * @param <K>      the type
+     * @param <V>      the type of the value
+     * @return a new {@link KafkaConsumerAssertNumberOfMessagesStep}
+     */
     public static <K, V> KafkaConsumerAssertNumberOfMessagesStep<K, V> assertThat(Consumer<K, V> consumer) {
         return new KafkaConsumerAssert<>(consumer);
     }

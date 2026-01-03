@@ -20,6 +20,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
 
+/**
+ * Plugin that handles the @Create annotation to generate controller methods, service methods,
+ * request records, and test fixture methods for creating new instances of a class.
+ */
 public class CreatePlugin implements PrefabPlugin {
     private final CreateControllerWriter controllerWriter = new CreateControllerWriter();
     private final CreateServiceWriter serviceWriter = new CreateServiceWriter();
@@ -27,6 +31,10 @@ public class CreatePlugin implements PrefabPlugin {
     private final CreateTestFixtureWriter testFixtureWriter = new CreateTestFixtureWriter();
     private final Map<ClassManifest, Optional<ExecutableElement>> createConstructorsCache =
             Collections.synchronizedMap(new WeakHashMap<>());
+
+    /** Creates a new instance of the CreatePlugin. */
+    public CreatePlugin() {
+    }
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {

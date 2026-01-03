@@ -10,12 +10,16 @@ import java.lang.annotation.Annotation;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Represents a manifest of an annotation, including its type and values.
+ * @param <A> The type of the annotation.
+ */
 public class AnnotationManifest<A extends Annotation> {
     private final TypeManifest type;
     private final Map<String, AnnotationValue> values;
     private final A annotationValue;
 
-    public AnnotationManifest(
+    AnnotationManifest(
             AnnotationMirror annotationMirror,
             ProcessingEnvironment processingEnvironment,
             A annotationValue
@@ -31,16 +35,30 @@ public class AnnotationManifest<A extends Annotation> {
                 );
     }
 
+    /**
+     * Returns the type manifest of the annotation.
+     *
+     * @return The type manifest of the annotation.
+     */
     public TypeManifest type() {
         return type;
     }
 
+    /**
+     * Converts the annotation manifest to an AnnotationSpec.
+     * @return The values of the annotation as an AnnotationSpec.
+     */
     public AnnotationSpec asSpec() {
         var builder = AnnotationSpec.builder((ClassName) type.asTypeName());
         values.forEach((name, value) -> builder.addMember(name, value.toString()));
         return builder.build();
     }
 
+    /**
+     * Returns the annotation instance represented by this manifest.
+     *
+     * @return The annotation instance represented by this manifest.
+     */
     public A value() {
         return annotationValue;
     }

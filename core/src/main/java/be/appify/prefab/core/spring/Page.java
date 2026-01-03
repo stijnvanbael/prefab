@@ -7,6 +7,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
 
+/**
+ * Custom implementation of Spring Data's Page interface.
+ * @param content the content of the page
+ * @param pageable the pagination information
+ * @param total the total number of elements
+ * @param <T> the type of the content
+ */
 public record Page<T>(
         List<T> content,
         Pageable pageable,

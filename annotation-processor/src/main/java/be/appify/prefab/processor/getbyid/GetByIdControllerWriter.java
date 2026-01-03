@@ -15,8 +15,8 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import static be.appify.prefab.processor.ControllerUtil.securedAnnotation;
 import static javax.lang.model.element.Modifier.PUBLIC;
 
-public class GetByIdControllerWriter {
-    public MethodSpec getByIdMethod(ClassManifest manifest, GetById getById) {
+class GetByIdControllerWriter {
+    MethodSpec getByIdMethod(ClassManifest manifest, GetById getById) {
         var method = MethodSpec.methodBuilder("getById")
                 .addModifiers(PUBLIC)
                 .addAnnotation(requestMapping(getById.method(), getById.path()));

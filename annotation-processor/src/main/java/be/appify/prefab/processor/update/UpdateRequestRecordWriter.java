@@ -15,8 +15,8 @@ import java.util.List;
 
 import static org.apache.commons.text.WordUtils.capitalize;
 
-public class UpdateRequestRecordWriter {
-    public void writeUpdateRequestRecord(
+class UpdateRequestRecordWriter {
+    void writeUpdateRequestRecord(
             JavaFileWriter fileWriter,
             ClassManifest manifest,
             UpdateManifest update,

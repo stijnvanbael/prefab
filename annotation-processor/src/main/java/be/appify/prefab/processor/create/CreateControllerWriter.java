@@ -28,8 +28,8 @@ import static org.apache.commons.text.WordUtils.capitalize;
 import static org.atteo.evo.inflector.English.plural;
 import static org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE;
 
-public class CreateControllerWriter {
-    public MethodSpec createMethod(ClassManifest manifest, ExecutableElement constructor, PrefabContext context) {
+class CreateControllerWriter {
+    MethodSpec createMethod(ClassManifest manifest, ExecutableElement constructor, PrefabContext context) {
         var create = constructor.getAnnotation(Create.class);
         var requestParts = constructor.getParameters().stream()
                 .flatMap(parameter -> context.requestParameterBuilder()

@@ -17,8 +17,15 @@ import java.util.stream.Stream;
 
 import static javax.lang.model.type.TypeKind.VOID;
 
+/**
+ * Prefab plugin to generate static event handlers based on EventHandler annotations.
+ */
 public class StaticEventHandlerPlugin implements EventHandlerPlugin {
     private final StaticEventHandlerWriter staticEventHandlerWriter = new StaticEventHandlerWriter();
+
+    /** Constructs a new StaticEventHandlerPlugin. */
+    public StaticEventHandlerPlugin() {
+    }
 
     @Override
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {

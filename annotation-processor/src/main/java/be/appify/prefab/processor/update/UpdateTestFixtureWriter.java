@@ -22,8 +22,8 @@ import java.util.stream.Stream;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
-public class UpdateTestFixtureWriter {
-    public MethodSpec updateMethod(
+class UpdateTestFixtureWriter {
+    MethodSpec updateMethod(
             ClassManifest manifest,
             UpdateManifest update,
             PrefabContext context

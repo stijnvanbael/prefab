@@ -12,7 +12,7 @@ import java.util.List;
 
 import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
 
-public record Column(
+record Column(
         String name,
         DataType type,
         boolean nullable,
@@ -21,7 +21,7 @@ public record Column(
 ) {
     private static final List<String> NOT_NULL = List.of("NOT", "NULL");
 
-    public static Column fromColumnDefinition(ColumnDefinition column) {
+    static Column fromColumnDefinition(ColumnDefinition column) {
         return createColumn(
                 column.getColumnName(),
                 column.getColDataType(),
@@ -29,7 +29,7 @@ public record Column(
         );
     }
 
-    public static Column fromAddColumn(AlterExpression alterExpression) {
+    static Column fromAddColumn(AlterExpression alterExpression) {
         var column = alterExpression.getColDataTypeList().getFirst();
         return createColumn(
                 column.getColumnName(),
@@ -48,7 +48,7 @@ public record Column(
         );
     }
 
-    public static Column fromField(String prefix, VariableManifest property, boolean parentNullable) {
+    static Column fromField(String prefix, VariableManifest property, boolean parentNullable) {
         var name = prefix != null ? prefix + "_" + property.name() : property.name();
         return new Column(
                 toSnakeCase(name),
@@ -64,7 +64,7 @@ public record Column(
         );
     }
 
-    public Column withDataType(DataType dataType) {
+    Column withDataType(DataType dataType) {
         return new Column(
                 name,
                 dataType,
@@ -74,7 +74,7 @@ public record Column(
         );
     }
 
-    public Column withForeignKey(ForeignKey foreignKey) {
+    Column withForeignKey(ForeignKey foreignKey) {
         return new Column(
                 name,
                 type,

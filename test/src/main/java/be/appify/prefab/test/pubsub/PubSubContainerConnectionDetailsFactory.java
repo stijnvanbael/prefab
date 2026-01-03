@@ -5,8 +5,15 @@ import org.springframework.boot.testcontainers.service.connection.ContainerConne
 import org.springframework.boot.testcontainers.service.connection.ContainerConnectionSource;
 import org.testcontainers.containers.PubSubEmulatorContainer;
 
+/**
+ * Factory to create {@link PubSubConnectionDetails} for a {@link PubSubEmulatorContainer}.
+ */
 public class PubSubContainerConnectionDetailsFactory
         extends ContainerConnectionDetailsFactory<PubSubEmulatorContainer, PubSubConnectionDetails> {
+
+    /** Constructs a new {@link PubSubContainerConnectionDetailsFactory}. */
+    public PubSubContainerConnectionDetailsFactory() {
+    }
 
     @Override
     protected PubSubConnectionDetails getContainerConnectionDetails(

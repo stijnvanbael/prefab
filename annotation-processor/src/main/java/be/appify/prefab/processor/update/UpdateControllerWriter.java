@@ -23,8 +23,8 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 import static org.apache.commons.text.WordUtils.capitalize;
 import static org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE;
 
-public class UpdateControllerWriter {
-    public MethodSpec updateMethod(ClassManifest manifest, UpdateManifest update, PrefabContext context) {
+class UpdateControllerWriter {
+    MethodSpec updateMethod(ClassManifest manifest, UpdateManifest update, PrefabContext context) {
         var responseType = responseType(manifest);
         var requestParts = update.parameters().stream()
                 .flatMap(parameter -> context.requestParameterBuilder().buildMethodParameter(parameter).stream())

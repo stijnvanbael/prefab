@@ -8,15 +8,9 @@ import org.springframework.kafka.support.serializer.JsonTypeResolver;
 import java.util.HashMap;
 import java.util.Map;
 
-public class TestJsonTypeResolver {
+class TestJsonTypeResolver {
     private final Map<String, Class<?>> types = new HashMap<>();
     private final JsonTypeResolver delegate;
-
-    public TestJsonTypeResolver() {
-        this((topic, data, headers) -> {
-            throw new IllegalArgumentException("No type resolver configured for topic " + topic);
-        });
-    }
 
     public TestJsonTypeResolver(JsonTypeResolver delegate) {
         this.delegate = delegate;

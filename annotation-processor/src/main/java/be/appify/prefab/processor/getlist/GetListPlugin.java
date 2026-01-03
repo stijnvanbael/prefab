@@ -8,11 +8,18 @@ import com.palantir.javapoet.TypeSpec;
 
 import java.util.Optional;
 
+/**
+ * Prefab plugin that generates getList controller, service, repository, and test fixture methods based on the @GetList annotation.
+ */
 public class GetListPlugin implements PrefabPlugin {
     private final GetListControllerWriter controllerWriter = new GetListControllerWriter();
     private final GetListServiceWriter serviceWriter = new GetListServiceWriter();
     private final GetListRepositoryWriter repositoryWriter = new GetListRepositoryWriter();
     private final GetListTestFixtureWriter testFixtureWriter = new GetListTestFixtureWriter();
+
+    /** Creates a new instance of GetListPlugin. */
+    public GetListPlugin() {
+    }
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {

@@ -9,8 +9,15 @@ import org.springframework.test.context.support.AbstractTestExecutionListener;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * Test execution listener that cleans up all CrudRepositories before each test instance is prepared.
+ */
 public class PersistenceTestExecutionListener extends AbstractTestExecutionListener {
     private static final Logger log = LoggerFactory.getLogger(PersistenceTestExecutionListener.class);
+
+    /** Constructs a new PersistenceTestExecutionListener. */
+    public PersistenceTestExecutionListener() {
+    }
 
     @Override
     public void prepareTestInstance(TestContext testContext) {

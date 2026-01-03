@@ -16,6 +16,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Test execution listener that injects Kafka consumers into test fields annotated with {@link TestConsumer}.
+ */
 public class TestConsumerExecutionListener extends AbstractTestExecutionListener {
 
     private static final Map<Field, Consumer<?, ?>> consumerByField = new HashMap<>();
@@ -27,6 +30,10 @@ public class TestConsumerExecutionListener extends AbstractTestExecutionListener
     private ConsumerFactory<?, ?> consumerFactory;
 
     private int index = 0;
+
+    /** Constructs a new TestConsumerExecutionListener. */
+    public TestConsumerExecutionListener() {
+    }
 
     @Override
     public void prepareTestInstance(TestContext testContext) {

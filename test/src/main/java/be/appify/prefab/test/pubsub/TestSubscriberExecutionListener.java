@@ -16,10 +16,17 @@ import java.util.Map;
 import static be.appify.prefab.processor.CaseUtil.toKebabCase;
 import static org.springframework.util.ReflectionUtils.setField;
 
+/**
+ * Test execution listener that injects Pub/Sub subscribers into test fields annotated with {@link TestSubscriber}.
+ */
 public class TestSubscriberExecutionListener extends AbstractTestExecutionListener {
     private final Map<Field, Subscriber<?>> subscriberByField = new HashMap<>();
     private Environment environment;
     private PubSubUtil pubSubUtil;
+
+    /** Constructs a new TestSubscriberExecutionListener. */
+    public TestSubscriberExecutionListener() {
+    }
 
     @Override
     public void prepareTestInstance(TestContext testContext) {

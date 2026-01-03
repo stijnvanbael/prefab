@@ -5,9 +5,13 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/// Annotate a Binary field to expose a download endpoint for that field.
+/** Annotate a Binary field to expose a download endpoint for that field. */
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.SOURCE)
 public @interface Download {
+    /**
+     * Security settings for this endpoint. Default is secured with no required authorities.
+     * @return Security settings for this endpoint.
+     */
     Security security() default @Security;
 }

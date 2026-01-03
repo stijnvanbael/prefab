@@ -7,9 +7,13 @@ import jakarta.validation.ConstraintValidatorContext;
 import java.io.IOException;
 import java.nio.file.Files;
 
+/** Validator to check that a Binary's file size does not exceed a maximum limit. */
 public class FileSizeValidator implements ConstraintValidator<FileSize, Binary> {
 
     private int maxFileSize;
+
+    /** Constructs a new FileSizeValidator. */
+    public FileSizeValidator() {}
 
     @Override
     public void initialize(FileSize constraintAnnotation) {

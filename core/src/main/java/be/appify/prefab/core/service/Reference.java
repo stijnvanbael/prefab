@@ -6,11 +6,12 @@ import com.fasterxml.jackson.annotation.JsonValue;
 /**
  * A reference to another aggregate root.
  *
- * @param <T>
- *         the type of the referenced aggregate root
+ * @param <T> the type of the referenced aggregate root
  */
 public interface Reference<T> {
     /**
+     * Gets the ID of the referenced aggregate root.
+     *
      * @return the ID of the referenced aggregate root
      */
     @JsonValue
@@ -30,11 +31,25 @@ public interface Reference<T> {
      */
     T resolveReadOnly();
 
+    /**
+     * Creates a reference from the given ID.
+     *
+     * @param id the ID of the referenced aggregate root
+     * @param <T> the type of the referenced aggregate root
+     *
+     * @return a reference to the aggregate root with the given ID
+     */
     @JsonCreator
     static <T> Reference<T> fromId(String id) {
         return new SimpleReference<>(id);
     }
 
+    /**
+     * A simple implementation of the Reference interface.
+     *
+     * @param id the ID of the referenced aggregate root
+     * @param <T> the type of the referenced aggregate root
+     */
     record SimpleReference<T>(String id) implements Reference<T> {
         @Override
         public boolean exists() {

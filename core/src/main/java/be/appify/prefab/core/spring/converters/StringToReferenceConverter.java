@@ -8,10 +8,16 @@ import org.springframework.data.convert.ReadingConverter;
 
 import java.util.Set;
 
+/** Converter to transform a String into a Reference. */
 @ReadingConverter
 public class StringToReferenceConverter implements GenericConverter {
     private final ReferenceFactory referenceFactory;
 
+    /**
+     * Constructs a new StringToReferenceConverter with the given ReferenceFactory.
+     *
+     * @param referenceFactory the ReferenceFactory to use for creating references
+     */
     public StringToReferenceConverter(ReferenceFactory referenceFactory) {
         this.referenceFactory = referenceFactory;
     }

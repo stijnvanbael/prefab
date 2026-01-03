@@ -6,9 +6,16 @@ import java.net.URI;
 
 import static org.zalando.problem.Status.NOT_FOUND;
 
+/**
+ * Problem indicating that a requested resource was not found.
+ */
 public class NotFoundProblem extends AbstractThrowableProblem {
     private static final URI TYPE = URI.create("https://prefab.appify.be/problems/not-found");
 
+    /**
+     * Constructs a new NotFoundProblem with the specified detail message.
+     * @param detail The detail message providing additional context about the not found resource.
+     */
     public NotFoundProblem(String detail) {
         super(TYPE, "Not found", NOT_FOUND, "[%s] was not found".formatted(detail));
     }

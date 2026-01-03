@@ -17,8 +17,8 @@ import java.util.stream.Stream;
 import static org.apache.commons.text.WordUtils.capitalize;
 import static org.apache.commons.text.WordUtils.uncapitalize;
 
-public class MulticastEventHandlerWriter {
-    public MethodSpec multicastEventHandlerMethod(ClassManifest manifest, MulticastEventHandlerManifest eventHandler,
+class MulticastEventHandlerWriter {
+    MethodSpec multicastEventHandlerMethod(ClassManifest manifest, MulticastEventHandlerManifest eventHandler,
             PrefabContext context) {
         var event = eventHandler.eventType();
         var method = MethodSpec.methodBuilder(eventHandler.methodName())

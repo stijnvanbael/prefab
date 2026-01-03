@@ -15,7 +15,18 @@ import static be.appify.prefab.processor.CaseUtil.toKebabCase;
 import static org.apache.commons.text.WordUtils.uncapitalize;
 import static org.atteo.evo.inflector.English.plural;
 
+/** Utility class for controller-related operations. */
 public class ControllerUtil {
+
+    private ControllerUtil() {
+    }
+
+    /**
+     * Generates the path for a given ClassManifest, considering its parent if present.
+     *
+     * @param manifest the ClassManifest for which to generate the path
+     * @return the generated path as a String
+     */
     public static String pathOf(ClassManifest manifest) {
         var parentPath = manifest.parent()
                 .map(parent -> "%s/{%sId}/".formatted(
@@ -25,6 +36,12 @@ public class ControllerUtil {
         return parentPath + toKebabCase(plural(manifest.simpleName()));
     }
 
+    /**
+     * Converts a Sort object into an array of request parameters.
+     *
+     * @param sort the Sort object to convert
+     * @return an array of request parameters representing the sort order
+     */
     public static String[] toRequestParams(Sort sort) {
         var params = new ArrayList<String>();
         sort.stream().forEach(order ->
@@ -32,6 +49,12 @@ public class ControllerUtil {
         return params.toArray(new String[0]);
     }
 
+    /**
+     * Generates an Optional AnnotationSpec for security based on the provided Security annotation.
+     *
+     * @param security the Security annotation to evaluate
+     * @return an Optional containing the AnnotationSpec if security is enabled, otherwise an empty Optional
+     */
     public static Optional<AnnotationSpec> securedAnnotation(Security security) {
         if (!security.enabled()) {
             return Optional.empty();
@@ -45,6 +68,12 @@ public class ControllerUtil {
                         .build());
     }
 
+    /**
+     * Generates a CodeBlock for mocking a user in tests based on the provided Security annotation.
+     *
+     * @param security the Security annotation to evaluate
+     * @return a CodeBlock for mocking a user if security is enabled, otherwise an empty CodeBlock
+     */
     public static CodeBlock withMockUser(Security security) {
         return security.enabled() ?
                 CodeBlock.of("\n.with($T.user(\"test\")$L)",

@@ -3,7 +3,7 @@ package be.appify.prefab.processor.dbmigration;
 import java.util.List;
 import java.util.Objects;
 
-public interface TableModification {
+interface TableModification {
     static List<TableModification> from(String table, Column original, Column desired) {
         if (original != null && desired != null) {
             var modifications = new java.util.ArrayList<TableModification>();

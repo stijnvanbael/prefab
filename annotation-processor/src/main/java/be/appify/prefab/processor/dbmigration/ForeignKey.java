@@ -4,11 +4,11 @@ import net.sf.jsqlparser.statement.create.table.ForeignKeyIndex;
 
 import java.util.List;
 
-public record ForeignKey(
+record ForeignKey(
         String referencedTable,
         String referencedColumn
 ) {
-    public static ForeignKey fromColumnSpecs(List<String> columnSpecs) {
+    static ForeignKey fromColumnSpecs(List<String> columnSpecs) {
         var referencedTable = columnSpecs.get(columnSpecs.indexOf("REFERENCES") + 1);
         var referencedColumn = columnSpecs.get(columnSpecs.indexOf("REFERENCES") + 2);
         return new ForeignKey(
@@ -17,7 +17,7 @@ public record ForeignKey(
         );
     }
 
-    public static ForeignKey fromIndex(ForeignKeyIndex index) {
+    static ForeignKey fromIndex(ForeignKeyIndex index) {
         return new ForeignKey(
                 index.getTable().getName(),
                 index.getReferencedColumnNames().getFirst()

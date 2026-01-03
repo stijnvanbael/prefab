@@ -17,9 +17,16 @@ import java.util.stream.Stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
 
+/**
+ * Prefab plugin to generate Kafka producers and consumers based on event annotations.
+ */
 public class KafkaPlugin implements PrefabPlugin {
     private final KafkaProducerWriter kafkaProducerWriter = new KafkaProducerWriter();
     private final KafkaConsumerWriter kafkaConsumerWriter = new KafkaConsumerWriter();
+
+    /** Constructs a new KafkaPlugin. */
+    public KafkaPlugin() {
+    }
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> aggregates, PrefabContext context) {

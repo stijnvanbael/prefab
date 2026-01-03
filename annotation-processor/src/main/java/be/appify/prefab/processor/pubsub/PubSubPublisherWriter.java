@@ -24,8 +24,8 @@ import org.springframework.stereotype.Component;
 
 import javax.lang.model.element.Modifier;
 
-public class PubSubPublisherWriter {
-    public void writePubSubPublisher(TypeManifest event, PrefabContext context) {
+class PubSubPublisherWriter {
+    void writePubSubPublisher(TypeManifest event, PrefabContext context) {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.pubsub");
 
         var name = "%sPubSubPublisher".formatted(event.simpleName().replace(".", ""));

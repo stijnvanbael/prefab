@@ -9,7 +9,18 @@ import org.springframework.web.server.ServerErrorException;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 
+/** Utility class for Binary controller operations */
 public class BinaryControllerUtil {
+
+    private BinaryControllerUtil() {
+        // Utility class
+    }
+
+    /**
+     * Convert a Binary object to a ResponseEntity for file download
+     * @param binary the Binary object to convert
+     * @return ResponseEntity containing the binary data as an InputStreamResource
+     */
     public static ResponseEntity<InputStreamResource> toResponseEntity(Binary binary) {
         try {
             return ResponseEntity.ok()

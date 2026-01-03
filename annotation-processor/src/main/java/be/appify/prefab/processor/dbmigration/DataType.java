@@ -13,7 +13,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 
-public interface DataType {
+interface DataType {
     String toSql();
 
     static DataType parse(String sql) {
@@ -33,6 +33,7 @@ public interface DataType {
         }
     }
 
+    @SuppressWarnings("unchecked")
     static DataType typeOf(TypeManifest type, List<? extends AnnotationManifest<?>> annotations) {
         if (type.is(String.class) || type.is(Reference.class) || type.isEnum() || type.is(Duration.class)) {
             var length = annotations.stream()

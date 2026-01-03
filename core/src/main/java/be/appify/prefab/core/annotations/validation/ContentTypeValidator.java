@@ -7,8 +7,13 @@ import jakarta.validation.ConstraintValidatorContext;
 import java.util.Collections;
 import java.util.Set;
 
+/** Validator for the ContentType annotation */
 public class ContentTypeValidator implements ConstraintValidator<ContentType, Binary> {
     private Set<String> contentTypes = Collections.emptySet();
+
+    /** Constructs a new ContentTypeValidator. */
+    public ContentTypeValidator() {
+    }
 
     @Override
     public void initialize(ContentType constraintAnnotation) {

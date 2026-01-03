@@ -11,16 +11,16 @@ import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 @ControllerAdvice
-public class ExceptionHandling implements ProblemHandling {
+class ExceptionHandling implements ProblemHandling {
     @ResponseStatus(value = UNAUTHORIZED)
     @ExceptionHandler(InsufficientAuthenticationException.class)
-    public void handleInsufficientAuthentication() {
+    void handleInsufficientAuthentication() {
         // Nothing to do
     }
 
     @ResponseStatus(value = FORBIDDEN)
     @ExceptionHandler(AccessDeniedException.class)
-    public void handleAccessDenied() {
+    void handleAccessDenied() {
         // Nothing to do
     }
 }

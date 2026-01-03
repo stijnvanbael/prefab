@@ -10,8 +10,8 @@ import be.appify.prefab.processor.VariableManifest;
 import java.util.List;
 import java.util.stream.Stream;
 
-public class GetListUtil {
-    public static List<FilterManifest> filterPropertiesOf(ClassManifest manifest) {
+class GetListUtil {
+    static List<FilterManifest> filterPropertiesOf(ClassManifest manifest) {
         return manifest.fields().stream()
                 .filter(field -> field.hasAnnotation(Filter.class) || field.hasAnnotation(Filters.class))
                 .map(field -> field.type().is(Reference.class) ? field.withType(String.class) : field)
@@ -41,6 +41,6 @@ public class GetListUtil {
                 .stream();
     }
 
-    public record FilterManifest(VariableManifest field, Filter.Operator operator, boolean ignoreCase) {
+    record FilterManifest(VariableManifest field, Filter.Operator operator, boolean ignoreCase) {
     }
 }

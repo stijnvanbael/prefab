@@ -19,11 +19,18 @@ import org.springframework.test.context.DynamicPropertyRegistrar;
 
 import javax.annotation.PreDestroy;
 
+/**
+ * Auto-configuration for Pub/Sub tests.
+ */
 @Configuration
 @ConditionalOnClass(PubSubAdmin.class)
 @ComponentScan(basePackageClasses = PubSubTestLifecycle.class)
 public class PubSubTestAutoConfiguration {
     private ManagedChannel channel;
+
+    /** Constructs a new PubSubTestAutoConfiguration. */
+    public PubSubTestAutoConfiguration() {
+    }
 
     @Bean
     @ConditionalOnBean(PubSubConnectionDetails.class)
@@ -46,6 +53,9 @@ public class PubSubTestAutoConfiguration {
         return FixedTransportChannelProvider.create(GrpcTransportChannel.create(this.channel));
     }
 
+    /**
+     * Closes the managed channel when the context is destroyed.
+     */
     @PreDestroy
     public void closeManagedChannel() {
         if (this.channel != null) {

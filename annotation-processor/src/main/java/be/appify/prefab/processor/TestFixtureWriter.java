@@ -12,16 +12,16 @@ import org.springframework.web.context.WebApplicationContext;
 
 import javax.lang.model.element.Modifier;
 
-public class TestFixtureWriter {
+class TestFixtureWriter {
     private final TestJavaFileWriter fileWriter;
     private final PrefabContext context;
 
-    public TestFixtureWriter(PrefabContext context) {
+    TestFixtureWriter(PrefabContext context) {
         this.context = context;
         fileWriter = new TestJavaFileWriter(context, null);
     }
 
-    public void writeTestSupport(ClassManifest manifest) {
+    void writeTestSupport(ClassManifest manifest) {
         writeTestFixture(manifest);
     }
 

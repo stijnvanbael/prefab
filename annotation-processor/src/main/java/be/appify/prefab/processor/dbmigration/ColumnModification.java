@@ -1,6 +1,6 @@
 package be.appify.prefab.processor.dbmigration;
 
-public interface ColumnModification {
+interface ColumnModification {
     String toSql();
 
     record ChangeType(

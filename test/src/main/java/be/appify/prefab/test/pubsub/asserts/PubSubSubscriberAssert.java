@@ -10,15 +10,21 @@ import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-/// Asserts messages received by the subscriber.
-///
-/// For example:
-/// ```java
-/// PubSubSubscriberAssert.assertThat(subscriber)
-///    .hasReceivedMessages(3)
-///    .within(5, TimeUnit.SECONDS)
-///    .where(records -> records.containsExactlyInAnyOrder(expectedValues));
-///```
+/**
+ * Asserts messages received by the subscriber.
+ * <p>
+ * For example:
+ * <pre>
+ * {@code
+ * PubSubSubscriberAssert.assertThat(subscriber)
+ *    .hasReceivedMessages(3)
+ *    .within(5, TimeUnit.SECONDS)
+ *    .where(records -> records.containsExactlyInAnyOrder(expectedValues));
+ * }
+ * </pre>
+ *
+ * @param <V> the type of messages
+ */
 public final class PubSubSubscriberAssert<V> implements
         PubSubAssertNumberOfMessagesStep<V>,
         PubSubSubscriberAssertTimeoutStep<V>,
@@ -27,11 +33,23 @@ public final class PubSubSubscriberAssert<V> implements
     private int numberOfMessages;
     private Duration timeout;
 
+    /**
+     * Constructor for PubSubSubscriberAssert.
+     *
+     * @param subscriber the subscriber to assert on
+     */
     public PubSubSubscriberAssert(Subscriber<V> subscriber) {
         this.subscriber = subscriber;
     }
 
-    static <V> PubSubAssertNumberOfMessagesStep<V> assertThat(Subscriber<V> subscriber) {
+    /**
+     * Creates a new PubSubSubscriberAssert for the given subscriber.
+     *
+     * @param subscriber the subscriber to assert on
+     * @param <V>        the type of messages
+     * @return a new PubSubSubscriberAssert instance
+     */
+    public static <V> PubSubAssertNumberOfMessagesStep<V> assertThat(Subscriber<V> subscriber) {
         return new PubSubSubscriberAssert<>(subscriber);
     }
 

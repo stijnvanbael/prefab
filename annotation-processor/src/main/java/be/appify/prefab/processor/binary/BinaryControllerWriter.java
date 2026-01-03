@@ -20,8 +20,8 @@ import javax.lang.model.element.Modifier;
 import static be.appify.prefab.processor.ControllerUtil.securedAnnotation;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 
-public class BinaryControllerWriter {
-    public MethodSpec downloadMethod(ClassManifest manifest, VariableManifest field) {
+class BinaryControllerWriter {
+    MethodSpec downloadMethod(ClassManifest manifest, VariableManifest field) {
         var method = MethodSpec.methodBuilder("download%s".formatted(capitalize(field.name())))
                 .addModifiers(Modifier.PUBLIC)
                 .returns(ParameterizedTypeName.get(ResponseEntity.class, InputStreamResource.class))

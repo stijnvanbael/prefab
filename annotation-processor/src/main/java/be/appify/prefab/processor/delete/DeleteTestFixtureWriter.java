@@ -24,28 +24,35 @@ class DeleteTestFixtureWriter {
     }
 
     private static MethodSpec variant(ClassManifest manifest, String methodName) {
-        return MethodSpec.methodBuilder(methodName)
+        var method = MethodSpec.methodBuilder(methodName)
                 .addModifiers(Modifier.PUBLIC)
                 .returns(void.class)
-                .addParameter(String.class, "id")
+                .addParameter(String.class, "id");
+        manifest.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
+        return method
                 .addException(Exception.class)
-                .addStatement("delete$L(id)", manifest.simpleName())
+                .addStatement("delete$L($L)",
+                        manifest.simpleName(),
+                        "id" + manifest.parent().map(parent -> ", " + parent.name()).orElse(""))
                 .build();
     }
 
     private static MethodSpec deleteMethod(ClassManifest manifest) {
         var delete = manifest.annotationsOfType(Delete.class).stream().findFirst().orElseThrow();
-        return MethodSpec.methodBuilder("delete" + manifest.simpleName())
+        var method = MethodSpec.methodBuilder("delete" + manifest.simpleName())
                 .addModifiers(Modifier.PUBLIC)
                 .returns(void.class)
-                .addParameter(String.class, "id")
+                .addParameter(String.class, "id");
+        manifest.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
+        return method
                 .addException(Exception.class)
                 .addStatement("""
-                                mockMvc.perform($T.$N($S, id)$L)
+                                mockMvc.perform($T.$N($S, $L)$L)
                                         .andExpect($T.status().isNoContent())""",
                         MockMvcRequestBuilders.class,
                         delete.method().toLowerCase(),
                         "/" + ControllerUtil.pathOf(manifest) + delete.path(),
+                        manifest.parent().map(parent -> parent.name() + ", ").orElse("") + "id",
                         ControllerUtil.withMockUser(delete.security()),
                         MockMvcResultMatchers.class)
                 .build();

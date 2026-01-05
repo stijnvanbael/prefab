@@ -57,7 +57,9 @@ public class ControllerUtil {
      */
     public static Optional<AnnotationSpec> securedAnnotation(Security security) {
         if (!security.enabled()) {
-            return Optional.empty();
+            return Optional.of(AnnotationSpec.builder(PreAuthorize.class)
+                    .addMember("value", "$S", "permitAll()")
+                    .build());
         }
         return !security.authority().isEmpty() ?
                 Optional.of(AnnotationSpec.builder(PreAuthorize.class)

@@ -445,6 +445,14 @@ public record Sale(
 
 ### 🔥 Events
 
+Make sure you specify the spring application name in application.yml so the events are namespaced correctly.
+
+```yaml
+spring:
+  application:
+    name: my-application
+```
+
 Any record can be an event in Prefab. Events can be published by implementing `PublishesEvents` and calling `publish()`.
 By default, events are published on the Spring application event bus.
 
@@ -477,11 +485,13 @@ public record SaleCompletedEvent(
 ```
 
 Events can be consumed by annotating a method that takes a single argument with `@EventHandler`. This can be either an
-instance method on a Spring bean or a static method on any class.
+instance method on a Spring bean or a static method on any class. Make sure to annotate event handlers accessing the
+database with `@Transactional` to ensure proper transaction management.
 
 ```java
 
 @Component
+@Transactional // When depending on the database
 public class CreateInvoiceUseCase {
     @EventHandler
     public void handleSaleCompleted(SaleCompletedEvent event) {

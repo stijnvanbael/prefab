@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.getlist;
 
 import be.appify.prefab.core.annotations.rest.Filter;
+import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
@@ -69,33 +70,61 @@ class GetListServiceWriter {
                 repositoryName,
                 Example.class,
                 manifest.className(),
-                manifest.fields().stream()
-                        .map(field -> filters.stream()
-                                .anyMatch(property ->
-                                        property.field().name().equals(field.name())) ? CodeBlock.of(field.name()) :
-                                manifest.parent().filter(parent -> parent.name().equals(field.name()))
-                                        .map(parent -> CodeBlock.of("referenceFactory.referenceTo($T.class, $NId)",
-                                                parent.type().parameters().getFirst().asTypeName(),
-                                                uncapitalize(parent.name())))
-                                        .orElse(defaultValueForType(field.type())))
-                        .collect(CodeBlock.joining(", ")),
+                fields(manifest, filters),
                 ExampleMatcher.class,
-                CodeBlock.of(".withIgnorePaths($L)", manifest.fields().stream()
-                        .filter(field -> isFiltered(manifest, filters, field))
-                        .map(field -> "\"" + field.name() + "\"")
-                        .collect(Collectors.joining(", "))),
-                filters.stream()
-                        .map(property -> CodeBlock.of(".withMatcher($S, $T.$N().$L())",
-                                property.field().name(),
-                                ExampleMatcher.GenericPropertyMatchers.class,
-                                property.ignoreCase() ? "ignoreCase" : "caseSensitive",
-                                matcherMethod(property.operator())))
-                        .collect(CodeBlock.joining("\n")),
-                manifest.parent().map(parent -> CodeBlock.of(".withMatcher($S, $T.caseSensitive().exact())",
-                                parent.name(),
-                                ExampleMatcher.GenericPropertyMatchers.class))
-                        .orElse(CodeBlock.of(""))
+                ignorePaths(manifest, filters),
+                filterMatchers(filters),
+                parentMatcher(manifest)
         );
+    }
+
+    private CodeBlock fields(ClassManifest manifest, List<GetListUtil.FilterManifest> filters) {
+        return manifest.fields().stream()
+                .map(field -> filters.stream()
+                        .anyMatch(property -> property.field().name().equals(field.name()))
+                        ? filterField(field)
+                        : parentField(manifest, field))
+                .collect(CodeBlock.joining(", "));
+    }
+
+    private static CodeBlock filterField(VariableManifest field) {
+        return field.type().is(Reference.class)
+                ? CodeBlock.of("referenceFactory.referenceTo($T.class, $N)",
+                field.type().parameters().getFirst().asTypeName(),
+                field.name())
+                : CodeBlock.of(field.name());
+    }
+
+    private CodeBlock parentField(ClassManifest manifest, VariableManifest field) {
+        return manifest.parent().filter(parent -> parent.name().equals(field.name()))
+                .map(parent -> CodeBlock.of("referenceFactory.referenceTo($T.class, $NId)",
+                        parent.type().parameters().getFirst().asTypeName(),
+                        uncapitalize(parent.name())))
+                .orElse(defaultValueForType(field.type()));
+    }
+
+    private static CodeBlock ignorePaths(ClassManifest manifest, List<GetListUtil.FilterManifest> filters) {
+        return CodeBlock.of(".withIgnorePaths($L)", manifest.fields().stream()
+                .filter(field -> isFiltered(manifest, filters, field))
+                .map(field -> "\"" + field.name() + "\"")
+                .collect(Collectors.joining(", ")));
+    }
+
+    private CodeBlock filterMatchers(List<GetListUtil.FilterManifest> filters) {
+        return filters.stream()
+                .map(property -> CodeBlock.of(".withMatcher($S, $T.$N().$L())",
+                        property.field().name(),
+                        ExampleMatcher.GenericPropertyMatchers.class,
+                        property.ignoreCase() ? "ignoreCase" : "caseSensitive",
+                        matcherMethod(property.operator())))
+                .collect(CodeBlock.joining("\n"));
+    }
+
+    private static CodeBlock parentMatcher(ClassManifest manifest) {
+        return manifest.parent().map(parent -> CodeBlock.of(".withMatcher($S, $T.caseSensitive().exact())",
+                        parent.name(),
+                        ExampleMatcher.GenericPropertyMatchers.class))
+                .orElse(CodeBlock.of(""));
     }
 
     private String matcherMethod(Filter.Operator operator) {

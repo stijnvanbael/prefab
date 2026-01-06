@@ -37,19 +37,18 @@ class PersistenceWriter {
 
     private void writeRepository(ClassManifest manifest) {
         var repositoryName = "%sRepository".formatted(manifest.simpleName());
-        var mixin = context.roundEnvironment().getElementsAnnotatedWith(RepositoryMixin.class)
+        var mixins = context.roundEnvironment().getElementsAnnotatedWith(RepositoryMixin.class)
                 .stream()
                 .filter(element -> new TypeManifest(element.asType(), context.processingEnvironment())
                         .annotationsOfType(RepositoryMixin.class).stream().anyMatch(annotation ->
-                                manifest.type().equals(getMirroredType(annotation::value))))
-                .findFirst();
+                                manifest.type().equals(getMirroredType(annotation::value))));
         var type = TypeSpec.interfaceBuilder(repositoryName)
                 .addModifiers(Modifier.PUBLIC)
                 .addSuperinterface(ParameterizedTypeName.get(ClassName.get(CrudRepository.class),
                         manifest.type().asTypeName(), ClassName.get(String.class)))
                 .addSuperinterface(ParameterizedTypeName.get(ClassName.get(PagingAndSortingRepository.class),
                         manifest.type().asTypeName(), ClassName.get(String.class)));
-        mixin.ifPresent(mixinType -> type.addSuperinterface(mixinType.asType()));
+        mixins.forEach(mixinType -> type.addSuperinterface(mixinType.asType()));
         context.plugins().forEach(plugin -> plugin.writeCrudRepository(manifest, type));
         findByParentMethod(manifest, type);
         fileWriter.writeFile(manifest.packageName(), repositoryName, type.build());

@@ -23,18 +23,20 @@ public class ReferenceFactory {
     }
 
     /**
-     * Handles the ApplicationReadyEvent to populate the map of entity types to their corresponding CrudRepository instances.
+     * Handles the ApplicationReadyEvent to populate the map of entity types to their corresponding CrudRepository
+     * instances.
      *
-     * @param event the ApplicationReadyEvent
+     * @param event
+     *         the ApplicationReadyEvent
      */
+    @SuppressWarnings("unchecked")
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady(ApplicationReadyEvent event) {
-        event.getApplicationContext().getBeansOfType(CrudRepository.class).values().forEach(repository -> {
-            Stream.of(repository.getClass().getInterfaces()[0].getGenericInterfaces())
-                    .filter(ReferenceFactory::isCrudRepository)
-                    .map(type -> (Class<?>) ((ParameterizedType) type).getActualTypeArguments()[0])
-                    .forEach(entityType -> crudRepositories.put(entityType, repository));
-        });
+        event.getApplicationContext().getBeansOfType(CrudRepository.class).values().forEach(repository ->
+                Stream.of(repository.getClass().getInterfaces()[0].getGenericInterfaces())
+                        .filter(ReferenceFactory::isCrudRepository)
+                        .map(type -> (Class<?>) ((ParameterizedType) type).getActualTypeArguments()[0])
+                        .forEach(entityType -> crudRepositories.put(entityType, repository)));
     }
 
     private static boolean isCrudRepository(Type type) {
@@ -46,12 +48,17 @@ public class ReferenceFactory {
     /**
      * Creates a Reference object for the specified entity class and identifier.
      *
-     * @param clazz the entity class
-     * @param id    the identifier of the entity
-     * @param <T>   the type of the entity
+     * @param clazz
+     *         the entity class
+     * @param id
+     *         the identifier of the entity
+     * @param <T>
+     *         the type of the entity
      * @return a Reference to the entity, or null if the id is null
-     * @throws IllegalArgumentException if no repository is found for the specified class
+     * @throws IllegalArgumentException
+     *         if no repository is found for the specified class
      */
+    @SuppressWarnings("unchecked")
     public <T> Reference<T> referenceTo(Class<T> clazz, String id) {
         if (id == null) {
             return null;

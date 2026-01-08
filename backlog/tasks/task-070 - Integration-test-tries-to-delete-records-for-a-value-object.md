@@ -1,14 +1,14 @@
 ---
 id: task-070
 title: Integration test tries to delete records for a value object
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-01-05 18:01'
-updated_date: '2026-01-05 18:02'
+updated_date: '2026-01-08 18:17'
 labels:
   - "\U0001F41Ebug"
 dependencies: []
-ordinal: 152.587890625
+ordinal: 1000
 ---
 
 ## Description
@@ -28,3 +28,9 @@ public record Student(
 
 Prefab integration tests try to delete all records from table `person_name`, but as PersonName is a value object, there is no such table.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Happens when `@Embedded.Nullable` is missing on a value object. Fail compilation if so.
+<!-- SECTION:NOTES:END -->

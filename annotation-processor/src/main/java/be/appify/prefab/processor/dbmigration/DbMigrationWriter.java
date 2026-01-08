@@ -6,6 +6,7 @@ import be.appify.prefab.processor.ListUtil;
 import net.sf.jsqlparser.parser.CCJSqlParser;
 import net.sf.jsqlparser.statement.alter.Alter;
 import net.sf.jsqlparser.statement.create.table.CreateTable;
+import org.springframework.data.relational.core.mapping.Embedded;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
@@ -175,8 +176,16 @@ class DbMigrationWriter {
 
     private List<Column> columnsOf(ClassManifest manifest, String prefix, boolean parentNullable) {
         return manifest.fields().stream()
-                .filter(field -> !field.type().is(List.class) || field.type().parameters().getFirst()
-                        .isStandardType() || field.type().parameters().getFirst().is(Reference.class))
+                .filter(field -> !field.type().is(List.class)
+                        || field.type().parameters().getFirst().isStandardType()
+                        || field.type().parameters().getFirst().is(Reference.class))
+                .peek(field -> {
+                    if (field.type().isRecord() && !field.hasAnnotation(Embedded.Nullable.class)) {
+                        throw new IllegalArgumentException(
+                                "Value type field '%s' in '%s' must be annotated with @Embedded.Nullable"
+                                        .formatted(field.name(), manifest.simpleName()));
+                    }
+                })
                 .flatMap(field -> field.type().isRecord()
                         ? columnsOf(field.type().asClassManifest(),
                         prefix != null ? prefix + "_" + field.name() : field.name(),

@@ -24,8 +24,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Represents a type manifest, encapsulating information about a type such as its package name,
- * simple name, type parameters, and kind.
+ * Represents a type manifest, encapsulating information about a type such as its package name, simple name, type
+ * parameters, and kind.
  */
 public class TypeManifest {
     private final String packageName;
@@ -38,8 +38,10 @@ public class TypeManifest {
     /**
      * Constructs a TypeManifest from a TypeMirror.
      *
-     * @param typeMirror           the TypeMirror representing the type
-     * @param processingEnvironment the processing environment
+     * @param typeMirror
+     *         the TypeMirror representing the type
+     * @param processingEnvironment
+     *         the processing environment
      */
     public TypeManifest(TypeMirror typeMirror, ProcessingEnvironment processingEnvironment) {
         this.processingEnvironment = processingEnvironment;
@@ -70,8 +72,10 @@ public class TypeManifest {
     /**
      * Constructs a TypeManifest from a Class.
      *
-     * @param type                 the Class representing the type
-     * @param processingEnvironment the processing environment
+     * @param type
+     *         the Class representing the type
+     * @param processingEnvironment
+     *         the processing environment
      */
     public TypeManifest(Class<?> type, ProcessingEnvironment processingEnvironment) {
         this(
@@ -86,11 +90,16 @@ public class TypeManifest {
     /**
      * Constructs a TypeManifest with the specified attributes.
      *
-     * @param packageName          the package name of the type
-     * @param simpleName           the simple name of the type
-     * @param parameters           the type parameters of the type
-     * @param kind                 the kind of the type
-     * @param processingEnvironment the processing environment
+     * @param packageName
+     *         the package name of the type
+     * @param simpleName
+     *         the simple name of the type
+     * @param parameters
+     *         the type parameters of the type
+     * @param kind
+     *         the kind of the type
+     * @param processingEnvironment
+     *         the processing environment
      */
     public TypeManifest(String packageName, String simpleName, List<TypeManifest> parameters, ElementKind kind,
             ProcessingEnvironment processingEnvironment) {
@@ -104,8 +113,10 @@ public class TypeManifest {
     /**
      * Creates a TypeManifest from a Class.
      *
-     * @param clazz                the Class representing the type
-     * @param processingEnvironment the processing environment
+     * @param clazz
+     *         the Class representing the type
+     * @param processingEnvironment
+     *         the processing environment
      * @return a TypeManifest representing the specified class
      */
     public static TypeManifest of(Class<?> clazz, ProcessingEnvironment processingEnvironment) {
@@ -115,6 +126,7 @@ public class TypeManifest {
 
     /**
      * Gets the package name of the type.
+     *
      * @return the package name
      */
     public String packageName() {
@@ -123,6 +135,7 @@ public class TypeManifest {
 
     /**
      * Gets the simple name of the type.
+     *
      * @return the simple name
      */
     public String simpleName() {
@@ -131,6 +144,7 @@ public class TypeManifest {
 
     /**
      * Gets the type parameters of the type.
+     *
      * @return the list of type parameters
      */
     public List<TypeManifest> parameters() {
@@ -160,6 +174,7 @@ public class TypeManifest {
 
     /**
      * Checks if the type is an enum.
+     *
      * @return true if the type is an enum, false otherwise
      */
     public boolean isEnum() {
@@ -168,19 +183,22 @@ public class TypeManifest {
 
     /**
      * Checks if the type matches the specified class.
-     * @param type the class to compare with
+     *
+     * @param type
+     *         the class to compare with
      * @return true if the type matches, false otherwise
      */
     public boolean is(Class<?> type) {
-        return Objects.equals(packageName, type.getPackageName()) && Objects.equals(simpleName, type.getSimpleName());
+        return Objects.equals(packageName + "." + simpleName.replace('.', '$'), type.getName());
     }
 
     /**
      * Converts the TypeManifest to a TypeName.
+     *
      * @return the TypeName representation of the type
      */
     public TypeName asTypeName() {
-        if(packageName.isEmpty()) {
+        if (packageName.isEmpty()) {
             return TypeName.get(asClass());
         } else if (parameters.isEmpty()) {
             return getClassName();
@@ -199,6 +217,7 @@ public class TypeManifest {
 
     /**
      * Checks if the type is a standard Java type.
+     *
      * @return true if the type is a standard Java type, false otherwise
      */
     public boolean isStandardType() {
@@ -207,6 +226,7 @@ public class TypeManifest {
 
     /**
      * Converts the TypeManifest to a TypeElement.
+     *
      * @return the TypeElement representation of the type
      */
     public TypeElement asElement() {
@@ -215,6 +235,7 @@ public class TypeManifest {
 
     /**
      * Checks if the type is a record.
+     *
      * @return true if the type is a record, false otherwise
      */
     public boolean isRecord() {
@@ -223,10 +244,11 @@ public class TypeManifest {
 
     /**
      * Converts the TypeManifest to a ClassManifest.
+     *
      * @return the ClassManifest representation of the type
      */
     public ClassManifest asClassManifest() {
-        if(kind != ElementKind.CLASS && kind != ElementKind.RECORD) {
+        if (kind != ElementKind.CLASS && kind != ElementKind.RECORD) {
             throw new IllegalStateException("Type %s is not a class".formatted(this));
         }
         return new ClassManifest(asElement(), processingEnvironment);
@@ -234,11 +256,12 @@ public class TypeManifest {
 
     /**
      * Converts the TypeManifest to a Class.
+     *
      * @return the Class representation of the type
      */
     public Class<?> asClass() {
         try {
-            if(packageName.isEmpty()) {
+            if (packageName.isEmpty()) {
                 return ClassUtils.forName(simpleName, TypeManifest.class.getClassLoader());
             }
             return TypeManifest.class.getClassLoader()
@@ -251,8 +274,10 @@ public class TypeManifest {
     /**
      * Retrieves the annotations of the specified type present on the type.
      *
-     * @param annotationType the class of the annotation type
-     * @param <T>            the type of the annotation
+     * @param annotationType
+     *         the class of the annotation type
+     * @param <T>
+     *         the type of the annotation
      * @return a set of annotations of the specified type
      */
     public <T extends Annotation> Set<T> annotationsOfType(Class<T> annotationType) {
@@ -262,8 +287,10 @@ public class TypeManifest {
     /**
      * Retrieves the inherited annotations of the specified type from the type and its supertypes.
      *
-     * @param annotationType the class of the annotation type
-     * @param <T>            the type of the annotation
+     * @param annotationType
+     *         the class of the annotation type
+     * @param <T>
+     *         the type of the annotation
      * @return a set of inherited annotations of the specified type
      */
     public <T extends Annotation> Set<T> inheritedAnnotationsOfType(Class<T> annotationType) {
@@ -287,7 +314,8 @@ public class TypeManifest {
     /**
      * Finds the first supertype that has the specified annotation.
      *
-     * @param annotationType the class of the annotation type
+     * @param annotationType
+     *         the class of the annotation type
      * @return an Optional containing the supertype with the specified annotation, or empty if none found
      */
     public Optional<TypeManifest> supertypeWithAnnotation(Class<? extends Annotation> annotationType) {
@@ -299,7 +327,8 @@ public class TypeManifest {
     /**
      * Retrieves the public methods of the type that are annotated with the specified annotation.
      *
-     * @param annotation the class of the annotation
+     * @param annotation
+     *         the class of the annotation
      * @return a list of public methods annotated with the specified annotation
      */
     public List<ExecutableElement> methodsWith(Class<? extends Annotation> annotation) {

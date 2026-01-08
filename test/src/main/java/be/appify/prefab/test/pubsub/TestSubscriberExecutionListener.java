@@ -43,19 +43,6 @@ public class TestSubscriberExecutionListener extends AbstractTestExecutionListen
         });
     }
 
-    @Override
-    public void afterTestExecution(TestContext testContext) {
-        if (pubSubUtil != null) {
-            var subscriptionName = subscriptionNameFor(testContext.getTestInstance());
-            try {
-                pubSubUtil.deleteSubscription(subscriptionName);
-            } catch (Exception e) {
-                // Ignore
-            }
-            subscriberByField.clear();
-        }
-    }
-
     private void injectTestSubscriber(TestSubscriberField testSubscriberField, Object testInstance) {
         var subscriber = subscriberByField.computeIfAbsent(testSubscriberField.field(), field -> {
             var topic = environment.resolvePlaceholders(testSubscriberField.annotation.topic());

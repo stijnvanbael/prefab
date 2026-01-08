@@ -1,14 +1,14 @@
 ---
 id: task-069
 title: Exceptions in Pub/Sub example test log
-status: To Do
+status: Done
 assignee: []
 created_date: '2025-12-30 12:53'
-updated_date: '2025-12-30 12:53'
+updated_date: '2026-01-08 18:09'
 labels:
   - "\U0001F41Ebug"
 dependencies: []
-ordinal: 109.86328125
+ordinal: 26000
 ---
 
 ## Description

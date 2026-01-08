@@ -81,7 +81,7 @@ interface TableModification {
     record AddForeignKey(String tableName, String columnName, ForeignKey foreignKey) implements TableModification {
         @Override
         public String toSql() {
-            return "ADD CONSTRAINT fk_" + tableName + "_" + columnName + " FOREIGN KEY (\"" + columnName + "\") " + foreignKey.toString();
+            return "ADD CONSTRAINT " + tableName + "_" + columnName + "_fkey FOREIGN KEY (\"" + columnName + "\") " + foreignKey.toString();
         }
 
         @Override
@@ -93,7 +93,7 @@ interface TableModification {
     record DropForeignKey(String tableName, String columnName) implements TableModification {
         @Override
         public String toSql() {
-            return "DROP CONSTRAINT fk_" + tableName + "_" + columnName;
+            return "DROP CONSTRAINT " + tableName + "_" + columnName + "_fkey";
         }
 
         @Override

@@ -6,6 +6,8 @@ import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import com.palantir.javapoet.TypeSpec;
 
+import javax.lang.model.element.ExecutableElement;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -22,25 +24,57 @@ public class DeletePlugin implements PrefabPlugin {
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        deleteAnnotation(manifest).ifPresent(delete ->
+        var typeDelete = typeDelete(manifest);
+        typeDelete.ifPresent(delete ->
                 builder.addMethod(controllerWriter.deleteMethod(delete)));
+        var deleteMethod = deleteMethod(manifest, context);
+        if (typeDelete.isPresent() && deleteMethod.isPresent()) {
+            context.logError("Delete annotation is present on both type and method. Please choose one.",
+                    deleteMethod.get());
+        } else {
+            deleteMethod.ifPresent(method ->
+                    builder.addMethod(controllerWriter.deleteMethod(
+                            Objects.requireNonNull(method.getAnnotation(Delete.class)))));
+        }
     }
 
     @Override
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        deleteAnnotation(manifest).ifPresent(ignored ->
-                builder.addMethod(serviceWriter.deleteMethod(manifest)));
+        typeDelete(manifest).ifPresentOrElse(ignored ->
+                        builder.addMethod(serviceWriter.deleteMethod(manifest)),
+                () -> deleteMethod(manifest, context).ifPresent(method ->
+                        builder.addMethod(serviceWriter.deleteMethod(manifest, method))));
     }
 
     @Override
     public void writeTestFixture(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        deleteAnnotation(manifest).ifPresent(ignored ->
-                testFixtureWriter.deleteMethods(manifest).forEach(builder::addMethod));
+        typeDelete(manifest).ifPresentOrElse(ignored ->
+                        testFixtureWriter.deleteMethods(manifest).forEach(builder::addMethod),
+                () -> deleteMethod(manifest, context).ifPresent(method ->
+                        testFixtureWriter.deleteMethods(manifest).forEach(builder::addMethod)));
     }
 
-    private Optional<Delete> deleteAnnotation(ClassManifest manifest) {
+    private Optional<Delete> typeDelete(ClassManifest manifest) {
         return manifest.annotationsOfType(Delete.class)
                 .stream()
+                .findFirst();
+    }
+
+    private Optional<ExecutableElement> deleteMethod(ClassManifest manifest, PrefabContext context) {
+        var deleteMethods = manifest.methodsWith(Delete.class)
+                .stream()
+                .toList();
+        if (deleteMethods.size() > 1) {
+            context.logError("Only one delete method is allowed per aggregate root: " +
+                    manifest.className(), deleteMethods.get(1));
+        }
+        return deleteMethods.stream()
+                .peek(method -> {
+                    if (!method.getParameters().isEmpty()) {
+                        context.logError("Delete method should not have any parameters: " +
+                                manifest.className(), method);
+                    }
+                })
                 .findFirst();
     }
 }

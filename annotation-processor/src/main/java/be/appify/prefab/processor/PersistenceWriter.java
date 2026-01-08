@@ -49,7 +49,7 @@ class PersistenceWriter {
                 .addSuperinterface(ParameterizedTypeName.get(ClassName.get(PagingAndSortingRepository.class),
                         manifest.type().asTypeName(), ClassName.get(String.class)));
         mixins.forEach(mixinType -> type.addSuperinterface(mixinType.asType()));
-        context.plugins().forEach(plugin -> plugin.writeCrudRepository(manifest, type));
+        context.plugins().forEach(plugin -> plugin.writeRepository(manifest, type));
         findByParentMethod(manifest, type);
         fileWriter.writeFile(manifest.packageName(), repositoryName, type.build());
     }

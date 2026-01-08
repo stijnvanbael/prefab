@@ -42,12 +42,11 @@ public class WebSecurityConfiguration {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        var security = http
-                .csrf(CsrfConfigurer::disable)
-                .authorizeHttpRequests(auth ->
-                        auth.anyRequest().authenticated());
+        var security = http.csrf(CsrfConfigurer::disable);
         if (!registrations.isEmpty()) {
-            security.oauth2Login(withDefaults());
+            security.authorizeHttpRequests(auth ->
+                            auth.anyRequest().authenticated())
+                    .oauth2Login(withDefaults());
         } else {
             log.warn("No OAuth2 client registration properties found. All security is disabled!");
         }

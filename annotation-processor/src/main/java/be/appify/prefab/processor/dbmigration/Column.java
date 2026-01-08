@@ -1,7 +1,6 @@
 package be.appify.prefab.processor.dbmigration;
 
 import be.appify.prefab.core.annotations.DbDefaultValue;
-import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.VariableManifest;
 import net.sf.jsqlparser.statement.alter.AlterExpression;
 import net.sf.jsqlparser.statement.create.table.ColDataType;
@@ -54,10 +53,7 @@ record Column(
                 toSnakeCase(name),
                 DataType.typeOf(property.toBoxed().type(), property.annotations()),
                 parentNullable || property.nullable(),
-                property.type().is(Reference.class) ? new ForeignKey(
-                        toSnakeCase(property.type().parameters().getFirst().simpleName()),
-                        "id"
-                ) : null,
+                null,
                 property.getAnnotation(DbDefaultValue.class)
                         .map(defaultValue -> defaultValue.value().value())
                         .orElse(null)

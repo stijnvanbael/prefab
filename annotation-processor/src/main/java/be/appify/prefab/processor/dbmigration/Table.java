@@ -14,6 +14,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
+
 record Table(
         String name,
         List<Column> columns,
@@ -79,7 +81,7 @@ record Table(
 
     private static void applyAlterExpression(AlterExpression expr, Map<String, Column> columns) {
         if (!expr.hasColumn()) {
-            throw new IllegalArgumentException("Unsupported ALTER TABLE expression: " + expr);
+            throw new IllegalArgumentException("ALTER TABLE expression currently not supported: " + expr);
         }
         var column = expr.getColDataTypeList().getFirst();
         var original = columns.get(column.getColumnName());
@@ -91,11 +93,21 @@ record Table(
         columns.put(modified.name(), modified);
     }
 
-    private static void applyDropExpression(AlterExpression expr, Map<String, Column> columns) {
-        if (!expr.hasColumn()) {
-            throw new IllegalArgumentException("Unsupported ALTER TABLE expression: " + expr);
+    private void applyDropExpression(AlterExpression expr, Map<String, Column> columns) {
+        if (expr.hasColumn()) {
+            columns.remove(expr.getColumnName());
+        } else if (isNotBlank(expr.getConstraintName())) {
+            columns.values().stream()
+                    .filter(c -> c.foreignKey() != null && (name + "_" + c.name() + "_fkey")
+                            .equals(expr.getConstraintName()))
+                    .findFirst()
+                    .ifPresent(column -> {
+                        var modified = column.withForeignKey(null);
+                        columns.put(modified.name(), modified);
+                    });
+        } else {
+            throw new IllegalArgumentException("ALTER TABLE expression currently not supported: " + expr);
         }
-        columns.remove(expr.getColumnName());
     }
 
     private static void applyAddExpression(AlterExpression expr, Map<String, Column> columns) {

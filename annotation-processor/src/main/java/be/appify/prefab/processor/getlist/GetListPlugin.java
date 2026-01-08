@@ -9,7 +9,8 @@ import com.palantir.javapoet.TypeSpec;
 import java.util.Optional;
 
 /**
- * Prefab plugin that generates getList controller, service, repository, and test fixture methods based on the @GetList annotation.
+ * Prefab plugin that generates getList controller, service, repository, and test fixture methods based on the @GetList
+ * annotation.
  */
 public class GetListPlugin implements PrefabPlugin {
     private final GetListControllerWriter controllerWriter = new GetListControllerWriter();
@@ -34,7 +35,7 @@ public class GetListPlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeCrudRepository(ClassManifest manifest, TypeSpec.Builder builder) {
+    public void writeRepository(ClassManifest manifest, TypeSpec.Builder builder) {
         getListAnnotation(manifest)
                 .flatMap(getList -> repositoryWriter.getListMethod(manifest))
                 .ifPresent(builder::addMethod);

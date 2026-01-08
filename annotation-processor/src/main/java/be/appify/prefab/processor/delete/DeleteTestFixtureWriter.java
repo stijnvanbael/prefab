@@ -38,7 +38,10 @@ class DeleteTestFixtureWriter {
     }
 
     private static MethodSpec deleteMethod(ClassManifest manifest) {
-        var delete = manifest.annotationsOfType(Delete.class).stream().findFirst().orElseThrow();
+        var delete = manifest.annotationsOfType(Delete.class).stream().findFirst()
+                .or(() -> manifest.methodsWith(Delete.class).stream().findFirst()
+                        .map(method -> method.getAnnotation(Delete.class)))
+                .orElseThrow();
         var method = MethodSpec.methodBuilder("delete" + manifest.simpleName())
                 .addModifiers(Modifier.PUBLIC)
                 .returns(void.class)

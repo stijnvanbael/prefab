@@ -35,19 +35,19 @@ public class PrefabProcessor extends AbstractProcessor {
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment environment) {
         var plugins = detectPlugins();
-        var manifests = environment.getElementsAnnotatedWith(Aggregate.class)
+        var aggregates = environment.getElementsAnnotatedWith(Aggregate.class)
                 .stream()
                 .filter(element -> element.getKind().isClass() && !element.getModifiers().contains(Modifier.ABSTRACT))
                 .map(element -> new ClassManifest((TypeElement) element, processingEnv))
                 .toList();
         var context = new PrefabContext(processingEnv, plugins, environment);
-        manifests.forEach(manifest -> {
+        aggregates.forEach(manifest -> {
             new HttpWriter(context).writeHttpLayer(manifest);
             new ApplicationWriter(context).writeApplicationLayer(manifest);
             new PersistenceWriter(context).writePersistenceLayer(manifest);
             new TestFixtureWriter(context).writeTestSupport(manifest);
         });
-        plugins.forEach(plugin -> plugin.writeAdditionalFiles(manifests, context));
+        plugins.forEach(plugin -> plugin.writeAdditionalFiles(aggregates, context));
         return true;
     }
 

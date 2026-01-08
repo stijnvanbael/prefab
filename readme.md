@@ -151,6 +151,21 @@ public record Sale(
 
 Prefab will generate a REST controller, a service, and a repository for the annotated class.
 
+## 🛠️ IDE support
+
+IDEs like IntelliJ IDEA and Eclipse support annotation processors out of the box. However, you might need to enable
+annotation processing and switch to Maven for building as partial compilation by the IDE might not produce the desired
+result.
+
+### 💡 IntelliJ IDEA
+
+1. Go to `Settings > Build, Execution, Deployment > Compiler > Annotation Processors` and make sure
+   `Enable annotation processing` is checked.
+2. It's also recommended to use Maven instead of IntelliJ IDEA's built-in compiler to avoid potential issues
+   with annotation processing. You can do this by going to
+   `Settings > Build, Execution, Deployment > Build Tools > Maven > Runner` and selecting
+   `Delegate IDE build/run actions to Maven`. Tick `Skip tests` to avoid running tests on every build.
+
 ## ⭐️ Features
 
 ### 🐣 Create
@@ -579,11 +594,26 @@ Sometimes IntelliJ IDEA runs into an undefined compiler error when compiling the
 java: Compilation failed: internal java compiler error
 ```
 
-You can work around this issue by running:
+This likely happens due to the way IntelliJ handles annotation processors.
 
-```bash
-mvn clean compile
+To fix this, you can try using Maven instead of IntelliJ IDEA's built-in compiler. You can do this by going to
+`Settings > Build, Execution, Deployment > Build Tools > Maven > Runner` and selecting
+`Delegate IDE build/run actions to Maven`.
+
+### 🤔 Repository mixin interface missing on repository in IntelliJ IDEA
+
+When running tests in IntelliJ IDEA, you might encounter an error like this:
+
 ```
+  java: cannot find symbol
+  symbol:   method someCustomMethod()
+  location: interface package.SomeAggregateRepository
+```
+
+This happens because IntelliJ IDEA will only consider source files that have changed to run through the annotation
+processor. Prefab, however, needs the full classpath to generate the repository mixin interfaces correctly.
+
+To fix this, you can try using Maven instead of IntelliJ IDEA's built-in compiler.
 
 ## 🧭 What's next?
 

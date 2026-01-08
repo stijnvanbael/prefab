@@ -3,16 +3,13 @@ package be.appify.prefab.processor.kafka;
 import org.junit.jupiter.api.Test;
 
 import be.appify.prefab.processor.PrefabProcessor;
-import com.google.testing.compile.JavaFileObjects;
-import org.springframework.core.io.ClassPathResource;
 
-import javax.tools.JavaFileObject;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
+import static be.appify.prefab.processor.ProcessorTestUtil.contentsOf;
+import static be.appify.prefab.processor.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
-import static org.junit.jupiter.api.Assertions.fail;
 
 class KafkaConsumerWriterTest {
     @Test
@@ -67,14 +64,5 @@ class KafkaConsumerWriterTest {
         assertThat(compilation).generatedSourceFile("kafka.multitopic.infrastructure.kafka.DayTotalKafkaConsumer")
                 .contentsAsUtf8String()
                 .isEqualTo(contentsOf("expected/kafka/multitopic/DayTotalKafkaConsumer.java"));
-    }
-
-    private String contentsOf(String fileName) throws IOException {
-        return new ClassPathResource(fileName).getContentAsString(StandardCharsets.UTF_8);
-    }
-
-    private JavaFileObject sourceOf(String name) throws IOException {
-        var resource = new ClassPathResource(name).getURL();
-        return JavaFileObjects.forResource(resource);
     }
 }

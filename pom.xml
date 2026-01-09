@@ -13,7 +13,7 @@
     <groupId>be.appify.prefab</groupId>
     <artifactId>prefab-parent</artifactId>
     <name>Prefab Parent</name>
-    <version>0.1.1</version>
+    <version>0.2.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
         <module>core</module>
@@ -26,7 +26,7 @@
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <prefab.version>0.1.1</prefab.version>
+        <prefab.version>0.2.0-SNAPSHOT</prefab.version>
 
         <commons-text.version>1.11.0</commons-text.version>
         <problem-spring-web.version>0.29.1</problem-spring-web.version>

@@ -3,7 +3,7 @@ package be.appify.prefab.example.kafka.channel;
 import org.junit.jupiter.api.Test;
 
 import be.appify.prefab.example.kafka.channel.application.CreateChannelRequest;
-import be.appify.prefab.example.kafka.user.UserFixture;
+import be.appify.prefab.example.kafka.user.UserClient;
 import be.appify.prefab.example.kafka.user.application.CreateUserRequest;
 import be.appify.prefab.example.kafka.user.application.UserSubscribeToChannelRequest;
 import be.appify.prefab.test.IntegrationTest;
@@ -18,9 +18,9 @@ import static org.awaitility.Awaitility.await;
 @IntegrationTest
 class ChannelIntegrationTest implements KafkaContainerSupport {
     @Autowired
-    ChannelFixture channels;
+    ChannelClient channels;
     @Autowired
-    UserFixture users;
+    UserClient users;
 
     @Test
     void subscribeToChannel() throws Exception {

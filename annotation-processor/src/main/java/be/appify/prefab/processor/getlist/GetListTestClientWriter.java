@@ -21,7 +21,7 @@ import java.util.List;
 
 import static org.atteo.evo.inflector.English.plural;
 
-class GetListTestFixtureWriter {
+class GetListTestClientWriter {
     MethodSpec getListMethod(ClassManifest manifest) {
         var search = manifest.annotationsOfType(GetList.class).stream().findFirst().orElseThrow();
         var filterProperties = manifest.fields().stream()

@@ -1,14 +1,14 @@
 ---
 id: task-070
 title: Integration test tries to delete records for a value object
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-05 18:01'
-updated_date: '2026-01-08 18:17'
+updated_date: '2026-01-08 18:38'
 labels:
   - "\U0001F41Ebug"
 dependencies: []
-ordinal: 1000
+ordinal: 27000
 ---
 
 ## Description

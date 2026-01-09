@@ -11,7 +11,7 @@ import javax.lang.model.element.Modifier;
 
 import static org.apache.commons.lang3.StringUtils.capitalize;
 
-class BinaryTestFixtureWriter {
+class BinaryTestClientWriter {
     MethodSpec downloadMethod(ClassManifest manifest, VariableManifest field) {
         MethodSpec.Builder method = MethodSpec.methodBuilder("download%s".formatted(capitalize(field.name())))
                 .addModifiers(Modifier.PUBLIC)

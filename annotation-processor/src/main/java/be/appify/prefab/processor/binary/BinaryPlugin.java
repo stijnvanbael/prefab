@@ -24,7 +24,7 @@ import java.util.Set;
 /** Plugin to handle Binary fields in Prefab. */
 public class BinaryPlugin implements PrefabPlugin {
     private final BinaryControllerWriter binaryControllerWriter = new BinaryControllerWriter();
-    private final BinaryTestFixtureWriter binaryTestFixtureWriter = new BinaryTestFixtureWriter();
+    private final BinaryTestClientWriter binaryTestClientWriter = new BinaryTestClientWriter();
 
     /** Creates a new instance of BinaryPlugin. */
     public BinaryPlugin() {
@@ -79,11 +79,11 @@ public class BinaryPlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeTestFixture(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
         manifest.fields().stream()
                 .filter(f -> f.type().is(Binary.class) && f.hasAnnotation(Download.class))
                 .forEach(field ->
-                        builder.addMethod(binaryTestFixtureWriter.downloadMethod(manifest, field)));
+                        builder.addMethod(binaryTestClientWriter.downloadMethod(manifest, field)));
     }
 
 }

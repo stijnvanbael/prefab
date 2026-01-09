@@ -9,14 +9,14 @@ import com.palantir.javapoet.TypeSpec;
 import java.util.Optional;
 
 /**
- * Prefab plugin that generates getList controller, service, repository, and test fixture methods based on the @GetList
+ * Prefab plugin that generates getList controller, service, repository, and test client methods based on the @GetList
  * annotation.
  */
 public class GetListPlugin implements PrefabPlugin {
     private final GetListControllerWriter controllerWriter = new GetListControllerWriter();
     private final GetListServiceWriter serviceWriter = new GetListServiceWriter();
     private final GetListRepositoryWriter repositoryWriter = new GetListRepositoryWriter();
-    private final GetListTestFixtureWriter testFixtureWriter = new GetListTestFixtureWriter();
+    private final GetListTestClientWriter testClientWriter = new GetListTestClientWriter();
 
     /** Creates a new instance of GetListPlugin. */
     public GetListPlugin() {
@@ -42,9 +42,9 @@ public class GetListPlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeTestFixture(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
         getListAnnotation(manifest)
-                .map(getList -> testFixtureWriter.getListMethod(manifest))
+                .map(getList -> testClientWriter.getListMethod(manifest))
                 .ifPresent(builder::addMethod);
     }
 

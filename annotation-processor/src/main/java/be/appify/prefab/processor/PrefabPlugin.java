@@ -74,16 +74,16 @@ public interface PrefabPlugin {
     }
 
     /**
-     * Write test fixture code for the given manifest.
+     * Write test REST client code for the given manifest.
      *
      * @param manifest
      *         The class manifest.
      * @param builder
-     *         The TypeSpec builder for the test fixture.
+     *         The TypeSpec builder for the test client.
      * @param context
      *         The Prefab context.
      */
-    default void writeTestFixture(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    default void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
     }
 
     /**

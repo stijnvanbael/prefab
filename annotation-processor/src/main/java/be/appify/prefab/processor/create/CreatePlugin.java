@@ -21,14 +21,14 @@ import java.util.Set;
 import java.util.WeakHashMap;
 
 /**
- * Plugin that handles the @Create annotation to generate controller methods, service methods,
- * request records, and test fixture methods for creating new instances of a class.
+ * Plugin that handles the @Create annotation to generate controller methods, service methods, request records, and test
+ * client methods for creating new instances of a class.
  */
 public class CreatePlugin implements PrefabPlugin {
     private final CreateControllerWriter controllerWriter = new CreateControllerWriter();
     private final CreateServiceWriter serviceWriter = new CreateServiceWriter();
     private final CreateRequestRecordWriter requestRecordWriter = new CreateRequestRecordWriter();
-    private final CreateTestFixtureWriter testFixtureWriter = new CreateTestFixtureWriter();
+    private final CreateTestClientWriter testClientWriter = new CreateTestClientWriter();
     private final Map<ClassManifest, Optional<ExecutableElement>> createConstructorsCache =
             Collections.synchronizedMap(new WeakHashMap<>());
 
@@ -62,9 +62,9 @@ public class CreatePlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeTestFixture(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
         createConstructorOf(manifest, context).ifPresent(createConstructor ->
-                testFixtureWriter.createMethods(manifest, createConstructor, context).forEach(builder::addMethod));
+                testClientWriter.createMethods(manifest, createConstructor, context).forEach(builder::addMethod));
     }
 
     @Override

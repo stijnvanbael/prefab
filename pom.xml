@@ -26,6 +26,7 @@
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <prefab.version>0.1.1-SNAPSHOT</prefab.version>
 
         <commons-text.version>1.11.0</commons-text.version>
         <problem-spring-web.version>0.29.1</problem-spring-web.version>
@@ -40,17 +41,17 @@
             <dependency>
                 <groupId>be.appify.prefab</groupId>
                 <artifactId>prefab-core</artifactId>
-                <version>${project.version}</version>
+                <version>${prefab.version}</version>
             </dependency>
             <dependency>
                 <groupId>be.appify.prefab</groupId>
                 <artifactId>prefab-annotation-processor</artifactId>
-                <version>${project.version}</version>
+                <version>${prefab.version}</version>
             </dependency>
             <dependency>
                 <groupId>be.appify.prefab</groupId>
                 <artifactId>prefab-test</artifactId>
-                <version>${project.version}</version>
+                <version>${prefab.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

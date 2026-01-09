@@ -2,11 +2,11 @@ package be.appify.prefab.example.pubsub.channelsummary;
 
 import org.junit.jupiter.api.Test;
 
-import be.appify.prefab.example.pubsub.channel.ChannelFixture;
+import be.appify.prefab.example.pubsub.channel.ChannelClient;
 import be.appify.prefab.example.pubsub.channel.application.CreateChannelRequest;
-import be.appify.prefab.example.pubsub.message.MessageFixture;
+import be.appify.prefab.example.pubsub.message.MessageClient;
 import be.appify.prefab.example.pubsub.message.application.CreateMessageRequest;
-import be.appify.prefab.example.pubsub.user.UserFixture;
+import be.appify.prefab.example.pubsub.user.UserClient;
 import be.appify.prefab.example.pubsub.user.application.CreateUserRequest;
 import be.appify.prefab.example.pubsub.user.application.UserSubscribeToChannelRequest;
 import be.appify.prefab.test.IntegrationTest;
@@ -23,13 +23,13 @@ import static org.awaitility.Awaitility.await;
 public class ChannelSummaryIntegrationTest implements PubSubContainerSupport {
 
     @Autowired
-    ChannelFixture channels;
+    ChannelClient channels;
     @Autowired
-    UserFixture users;
+    UserClient users;
     @Autowired
-    MessageFixture messages;
+    MessageClient messages;
     @Autowired
-    ChannelSummaryFixture channelSummaries;
+    ChannelSummaryClient channelSummaries;
 
     @Test
     void updateChannelSummaryTotals() throws Exception {

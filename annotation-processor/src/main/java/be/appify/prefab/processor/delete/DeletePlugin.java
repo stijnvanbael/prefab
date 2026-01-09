@@ -11,12 +11,12 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Prefab plugin that generates delete controller, service, and test fixture methods based on the @Delete annotation.
+ * Prefab plugin that generates delete controller, service, and test client methods based on the @Delete annotation.
  */
 public class DeletePlugin implements PrefabPlugin {
     private final DeleteControllerWriter controllerWriter = new DeleteControllerWriter();
     private final DeleteServiceWriter serviceWriter = new DeleteServiceWriter();
-    private final DeleteTestFixtureWriter testFixtureWriter = new DeleteTestFixtureWriter();
+    private final DeleteTestClientWriter testClientWriter = new DeleteTestClientWriter();
 
     /** Creates a new instance of DeletePlugin. */
     public DeletePlugin() {
@@ -47,11 +47,11 @@ public class DeletePlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeTestFixture(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
         typeDelete(manifest).ifPresentOrElse(ignored ->
-                        testFixtureWriter.deleteMethods(manifest).forEach(builder::addMethod),
+                        testClientWriter.deleteMethods(manifest).forEach(builder::addMethod),
                 () -> deleteMethod(manifest, context).ifPresent(method ->
-                        testFixtureWriter.deleteMethods(manifest).forEach(builder::addMethod)));
+                        testClientWriter.deleteMethods(manifest).forEach(builder::addMethod)));
     }
 
     private Optional<Delete> typeDelete(ClassManifest manifest) {

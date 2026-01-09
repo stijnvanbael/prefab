@@ -20,14 +20,14 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Plugin responsible for generating update controller and service methods,
- * as well as related request records and test fixture methods.
+ * Plugin responsible for generating update controller and service methods, as well as related request records and test
+ * client methods.
  */
 public class UpdatePlugin implements PrefabPlugin {
     private final UpdateControllerWriter updateControllerWriter = new UpdateControllerWriter();
     private final UpdateServiceWriter updateServiceWriter = new UpdateServiceWriter();
     private final UpdateRequestRecordWriter updateRequestRecordWriter = new UpdateRequestRecordWriter();
-    private final UpdateTestFixtureWriter updateTestFixtureWriter = new UpdateTestFixtureWriter();
+    private final UpdateTestClientWriter updateTestClientWriter = new UpdateTestClientWriter();
 
     /** Constructs a new UpdatePlugin. */
     public UpdatePlugin() {
@@ -67,9 +67,9 @@ public class UpdatePlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeTestFixture(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
         updateMethodsOf(manifest, context).forEach(update ->
-                builder.addMethod(updateTestFixtureWriter.updateMethod(manifest, update, context)));
+                builder.addMethod(updateTestClientWriter.updateMethod(manifest, update, context)));
     }
 
     private List<UpdateManifest> updateMethodsOf(ClassManifest manifest, PrefabContext context) {

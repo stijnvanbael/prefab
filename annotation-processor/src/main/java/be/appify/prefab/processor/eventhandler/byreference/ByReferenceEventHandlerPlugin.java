@@ -54,9 +54,10 @@ public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
                                     "Event type %s does not have a field named %s, or the field is not of type Reference".formatted(
                                             element, annotation.value())));
                     return new ByReferenceEventHandlerManifest(
-                            element.getSimpleName().toString(),
+                            element,
                             annotation,
                             eventType,
+                            context,
                             referenceField.type().parameters().stream().findFirst()
                                     .orElse(new TypeManifest(String.class, context.processingEnvironment())));
                 });

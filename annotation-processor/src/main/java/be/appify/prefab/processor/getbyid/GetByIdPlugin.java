@@ -9,12 +9,12 @@ import com.palantir.javapoet.TypeSpec;
 import java.util.Optional;
 
 /**
- * Prefab plugin that generates getById controller, service, and test fixture methods based on the @GetById annotation.
+ * Prefab plugin that generates getById controller, service, and test client methods based on the @GetById annotation.
  */
 public class GetByIdPlugin implements PrefabPlugin {
     private final GetByIdControllerWriter controllerWriter = new GetByIdControllerWriter();
     private final GetByIdServiceWriter serviceWriter = new GetByIdServiceWriter();
-    private final GetByIdTestFixtureWriter testFixtureWriter = new GetByIdTestFixtureWriter();
+    private final GetByIdTestClientWriter testClientWriter = new GetByIdTestClientWriter();
 
     /** Creates a new instance of GetByIdPlugin. */
     public GetByIdPlugin() {
@@ -33,9 +33,9 @@ public class GetByIdPlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeTestFixture(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
         getByIdAnnotation(manifest).ifPresent(ignored ->
-                builder.addMethod(testFixtureWriter.getByIdMethod(manifest)));
+                builder.addMethod(testClientWriter.getByIdMethod(manifest)));
     }
 
     private Optional<GetById> getByIdAnnotation(ClassManifest manifest) {

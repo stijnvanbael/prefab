@@ -7,6 +7,7 @@ import com.palantir.javapoet.MethodSpec;
 import org.springframework.context.event.EventListener;
 
 import javax.lang.model.element.Modifier;
+import java.util.Objects;
 
 import static org.apache.commons.text.WordUtils.uncapitalize;
 
@@ -27,7 +28,9 @@ class ByReferenceEventHandlerWriter {
                                             return $L.save(aggregate);
                                         })
                                         """,
-                                CodeBlock.of("aggregate.$L(event);", eventHandler.methodName()),
+                                Objects.equals(eventHandler.returnType(), manifest.type())
+                                        ? CodeBlock.of("aggregate = aggregate.$L(event);", eventHandler.methodName())
+                                        : CodeBlock.of("aggregate.$L(event);", eventHandler.methodName()),
                                 uncapitalize(manifest.simpleName()) + "Repository")
                         .add(".orElseThrow()")
                         .build())

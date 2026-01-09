@@ -15,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @IntegrationTest
 class UserIntegrationTest implements KafkaContainerSupport {
     @Autowired
-    UserFixture userFixture;
+    UserClient userClient;
     @Autowired
     UserExporter userExporter;
     @TestConsumer(topic = "${topics.user.name}")
@@ -23,7 +23,7 @@ class UserIntegrationTest implements KafkaContainerSupport {
 
     @Test
     void createUser() throws Exception {
-        var userId = userFixture.createUser(new CreateUserRequest("Alice"));
+        var userId = userClient.createUser(new CreateUserRequest("Alice"));
 
         KafkaAssertions.assertThat(userConsumer).hasReceivedValueSatisfying(UserEvent.Created.class, userEvent -> {
             assertThat(userEvent.id()).isNotNull();

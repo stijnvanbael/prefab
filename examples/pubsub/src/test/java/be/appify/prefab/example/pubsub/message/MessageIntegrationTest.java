@@ -3,12 +3,12 @@ package be.appify.prefab.example.pubsub.message;
 import org.junit.jupiter.api.Test;
 
 import be.appify.prefab.core.service.Reference;
-import be.appify.prefab.example.pubsub.channel.ChannelFixture;
+import be.appify.prefab.example.pubsub.channel.ChannelClient;
 import be.appify.prefab.example.pubsub.channel.application.CreateChannelRequest;
 import be.appify.prefab.example.pubsub.message.application.CreateMessageRequest;
 import be.appify.prefab.example.pubsub.user.UnreadMessage;
-import be.appify.prefab.example.pubsub.user.UserFixture;
-import be.appify.prefab.example.pubsub.user.UserStatusFixture;
+import be.appify.prefab.example.pubsub.user.UserClient;
+import be.appify.prefab.example.pubsub.user.UserStatusClient;
 import be.appify.prefab.example.pubsub.user.application.CreateUserRequest;
 import be.appify.prefab.example.pubsub.user.application.UserSubscribeToChannelRequest;
 import be.appify.prefab.example.pubsub.user.infrastructure.http.UserStatusResponse;
@@ -27,13 +27,13 @@ import static org.awaitility.Awaitility.await;
 class MessageIntegrationTest implements PubSubContainerSupport {
 
     @Autowired
-    ChannelFixture channels;
+    ChannelClient channels;
     @Autowired
-    UserFixture users;
+    UserClient users;
     @Autowired
-    UserStatusFixture userStatuses;
+    UserStatusClient userStatuses;
     @Autowired
-    MessageFixture messages;
+    MessageClient messages;
 
     @Test
     void addMessageToUnreadMessagesOnAllUsersInChannel() throws Exception {

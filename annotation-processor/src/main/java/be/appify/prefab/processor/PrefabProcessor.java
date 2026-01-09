@@ -45,7 +45,7 @@ public class PrefabProcessor extends AbstractProcessor {
             new HttpWriter(context).writeHttpLayer(manifest);
             new ApplicationWriter(context).writeApplicationLayer(manifest);
             new PersistenceWriter(context).writePersistenceLayer(manifest);
-            new TestFixtureWriter(context).writeTestSupport(manifest);
+            new TestClientWriter(context).writeTestSupport(manifest);
         });
         plugins.forEach(plugin -> plugin.writeAdditionalFiles(aggregates, context));
         return true;

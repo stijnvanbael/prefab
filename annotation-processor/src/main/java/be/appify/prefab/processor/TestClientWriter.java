@@ -12,21 +12,21 @@ import org.springframework.web.context.WebApplicationContext;
 
 import javax.lang.model.element.Modifier;
 
-class TestFixtureWriter {
+class TestClientWriter {
     private final TestJavaFileWriter fileWriter;
     private final PrefabContext context;
 
-    TestFixtureWriter(PrefabContext context) {
+    TestClientWriter(PrefabContext context) {
         this.context = context;
         fileWriter = new TestJavaFileWriter(context, null);
     }
 
     void writeTestSupport(ClassManifest manifest) {
-        writeTestFixture(manifest);
+        writeTestClient(manifest);
     }
 
-    private void writeTestFixture(ClassManifest manifest) {
-        var className = "%sFixture".formatted(manifest.simpleName());
+    private void writeTestClient(ClassManifest manifest) {
+        var className = "%sClient".formatted(manifest.simpleName());
         var type = TypeSpec.classBuilder(className)
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(Component.class)
@@ -49,7 +49,7 @@ class TestFixtureWriter {
                                 SecurityMockMvcConfigurers.class)
                         .addStatement("this.objectMapper = objectMapper")
                         .build());
-        context.plugins().forEach(plugin -> plugin.writeTestFixture(manifest, type, context));
+        context.plugins().forEach(plugin -> plugin.writeTestClient(manifest, type, context));
 
         fileWriter.writeFile(manifest.packageName(), className, type.build());
     }

@@ -22,7 +22,7 @@ import java.util.stream.Stream;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
-class UpdateTestFixtureWriter {
+class UpdateTestClientWriter {
     MethodSpec updateMethod(
             ClassManifest manifest,
             UpdateManifest update,

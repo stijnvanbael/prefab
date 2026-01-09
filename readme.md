@@ -83,7 +83,7 @@ To get started with Prefab, you need to add the following to your `pom.xml`:
 </dependencies>
 <build>
 <plugins>
-    <!-- Optional, to generate test fixtures -->
+    <!-- Optional, to generate test clients -->
     <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>

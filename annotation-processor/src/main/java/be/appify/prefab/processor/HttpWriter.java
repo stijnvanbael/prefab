@@ -1,5 +1,6 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.processor.rest.ControllerUtil;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static be.appify.prefab.processor.rest.ControllerUtil.responseType;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -49,11 +51,6 @@ class HttpWriter {
                 .addMethod(toResponseMethod(manifest));
         context.plugins().forEach(plugin -> plugin.writeController(manifest, type, context));
         fileWriter.writeFile(manifest.packageName(), "%sController".formatted(manifest.simpleName()), type.build());
-    }
-
-    private ClassName responseType(ClassManifest manifest) {
-        return ClassName.get("%s.infrastructure.http".formatted(manifest.packageName()),
-                "%sResponse".formatted(manifest.simpleName()));
     }
 
     private MethodSpec toResponseMethod(ClassManifest manifest) {

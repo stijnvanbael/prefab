@@ -11,18 +11,21 @@ import java.lang.annotation.Target;
 public @interface Event {
     /**
      * The topic the event is published to or should be consumed from.
+     *
      * @return The topic the event is published to or should be consumed from.
      */
     String topic();
 
     /**
      * The messaging platform used for the event.
+     *
      * @return The messaging platform used for the event.
      */
     Platform platform() default Platform.KAFKA;
 
     /**
      * The serialization format used for the event.
+     *
      * @return The serialization format used for the event.
      */
     Serialization serialization() default Serialization.JSON;
@@ -30,9 +33,19 @@ public @interface Event {
     /** The supported messaging platforms. */
     enum Platform {
         /** Kafka messaging platform. */
-        KAFKA,
+        KAFKA {
+            @Override
+            public String toString() {
+                return "Kafka";
+            }
+        },
         /** Pub/Sub messaging platform. */
-        PUB_SUB,
+        PUB_SUB {
+            @Override
+            public String toString() {
+                return "Pub/Sub";
+            }
+        },
     }
 
     /** The supported serialization formats. */

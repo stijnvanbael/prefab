@@ -1,14 +1,14 @@
 ---
 id: task-048
 title: Refactor plugins
-status: To Do
+status: Done
 assignee: []
 created_date: '2025-12-23 13:24'
-updated_date: '2025-12-23 14:55'
+updated_date: '2026-01-10 15:43'
 labels:
   - ⚙️technical
 dependencies: []
-ordinal: 195.3125
+ordinal: 1000
 ---
 
 ## Description

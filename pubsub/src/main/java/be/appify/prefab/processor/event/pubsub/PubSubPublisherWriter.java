@@ -24,13 +24,15 @@ import org.springframework.stereotype.Component;
 
 import javax.lang.model.element.Modifier;
 
+import static be.appify.prefab.processor.event.pubsub.PubSubPlugin.platformIsPubSub;
+
 class PubSubPublisherWriter {
     void writePubSubPublisher(TypeManifest event, PrefabContext context) {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.pubsub");
 
         var name = "%sPubSubPublisher".formatted(event.simpleName().replace(".", ""));
         var annotation = event.annotationsOfType(Event.class).stream()
-                .filter(e -> e.platform() == Event.Platform.PUB_SUB)
+                .filter(e -> platformIsPubSub(e, event.asElement(), context))
                 .findFirst().orElseThrow();
         var type = TypeSpec.classBuilder(name)
                 .addModifiers(Modifier.PUBLIC)

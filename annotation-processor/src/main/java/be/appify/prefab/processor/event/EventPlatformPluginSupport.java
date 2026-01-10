@@ -16,6 +16,9 @@ import java.util.stream.Stream;
  * Utility class for event platform plugins.
  */
 public class EventPlatformPluginSupport {
+    private static Event.Platform derivedPlatform = null;
+    private static boolean multiplePlatformsDetected = false;
+
     private EventPlatformPluginSupport() {
     }
 
@@ -72,4 +75,20 @@ public class EventPlatformPluginSupport {
                 .map(element -> (ExecutableElement) element);
     }
 
+    public static void setDerivedPlatform(Event.Platform platform) {
+        if (derivedPlatform == null && !multiplePlatformsDetected) {
+            derivedPlatform = platform;
+        } else if (derivedPlatform != platform) {
+            multiplePlatformsDetected = true;
+            derivedPlatform = null;
+        }
+    }
+
+    public static Event.Platform derivedPlatform() {
+        return derivedPlatform;
+    }
+
+    public static boolean isMultiplePlatformsDetected() {
+        return multiplePlatformsDetected;
+    }
 }

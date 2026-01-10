@@ -21,6 +21,7 @@ import org.springframework.stereotype.Component;
 
 import javax.lang.model.element.Modifier;
 
+import static be.appify.prefab.processor.event.kafka.KafkaPlugin.platformIsKafka;
 import static javax.lang.model.element.Modifier.PUBLIC;
 
 class KafkaProducerWriter {
@@ -29,7 +30,7 @@ class KafkaProducerWriter {
 
         var name = "%sKafkaProducer".formatted(event.simpleName().replace(".", ""));
         var annotation = event.annotationsOfType(Event.class).stream()
-                .filter(e -> e.platform() == Event.Platform.KAFKA)
+                .filter(e -> platformIsKafka(e, event.asElement(), context))
                 .findFirst().orElseThrow();
         var type = TypeSpec.classBuilder(name)
                 .addModifiers(Modifier.PUBLIC)

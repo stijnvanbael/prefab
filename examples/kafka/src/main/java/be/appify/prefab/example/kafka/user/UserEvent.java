@@ -13,7 +13,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         @JsonSubTypes.Type(UserEvent.Created.class),
         @JsonSubTypes.Type(UserEvent.SubscribedToChannel.class)
 })
-@Event(topic = "${topics.user.name}", platform = Event.Platform.KAFKA)
+@Event(topic = "${topics.user.name}")
 public sealed interface UserEvent permits UserEvent.Created, UserEvent.SubscribedToChannel {
     @PartitioningKey
     String id();

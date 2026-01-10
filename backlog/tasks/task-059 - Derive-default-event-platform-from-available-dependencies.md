@@ -1,14 +1,14 @@
 ---
 id: task-059
 title: Derive default event platform from available dependencies
-status: In Progress
+status: Done
 assignee: []
 created_date: '2025-12-26 13:45'
-updated_date: '2026-01-10 15:50'
+updated_date: '2026-01-10 17:36'
 labels:
   - "\U0001F4E6feature"
 dependencies: []
-ordinal: 1000
+ordinal: 3000
 ---
 
 ## Description

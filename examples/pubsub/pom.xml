@@ -23,9 +23,8 @@
             <artifactId>prefab-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.google.cloud</groupId>
-            <artifactId>spring-cloud-gcp-starter-pubsub</artifactId>
-            <version>${google-cloud.version}</version>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-pubsub</artifactId>
         </dependency>
         <dependency>
             <groupId>be.appify.prefab</groupId>

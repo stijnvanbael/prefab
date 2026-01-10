@@ -21,6 +21,8 @@
         <module>test</module>
         <module>examples/kafka</module>
         <module>examples/pubsub</module>
+        <module>kafka</module>
+        <module>pubsub</module>
     </modules>
 
     <properties>
@@ -34,6 +36,7 @@
         <central-publishing-maven-plugin.version>0.9.0</central-publishing-maven-plugin.version>
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
+        <compile-testing.version>0.23.0</compile-testing.version>
     </properties>
 
     <dependencyManagement>
@@ -41,6 +44,16 @@
             <dependency>
                 <groupId>be.appify.prefab</groupId>
                 <artifactId>prefab-core</artifactId>
+                <version>${prefab.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>be.appify.prefab</groupId>
+                <artifactId>prefab-kafka</artifactId>
+                <version>${prefab.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>be.appify.prefab</groupId>
+                <artifactId>prefab-pubsub</artifactId>
                 <version>${prefab.version}</version>
             </dependency>
             <dependency>

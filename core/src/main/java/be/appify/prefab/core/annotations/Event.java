@@ -17,11 +17,12 @@ public @interface Event {
     String topic();
 
     /**
-     * The messaging platform used for the event.
+     * The messaging platform used for the event. The default is to derive the platform from the application
+     * configuration.
      *
      * @return The messaging platform used for the event.
      */
-    Platform platform() default Platform.KAFKA;
+    Platform platform() default Platform.DERIVED;
 
     /**
      * The serialization format used for the event.
@@ -32,6 +33,11 @@ public @interface Event {
 
     /** The supported messaging platforms. */
     enum Platform {
+        /**
+         * Derive the platform from the from application configuration. The platform can only be derived if there is a
+         * single messaging platform configured. If not, an error will be raised during code generation.
+         */
+        DERIVED,
         /** Kafka messaging platform. */
         KAFKA {
             @Override

@@ -2,8 +2,6 @@ be.appify.prefab.processor.dbmigration.DbMigrationPlugin
 be.appify.prefab.processor.event.handler.StaticEventHandlerPlugin
 be.appify.prefab.processor.event.handler.byreference.ByReferenceEventHandlerPlugin
 be.appify.prefab.processor.event.handler.multicast.MulticastEventHandlerPlugin
-be.appify.prefab.processor.event.kafka.KafkaPlugin
-be.appify.prefab.processor.event.pubsub.PubSubPlugin
 be.appify.prefab.processor.rest.create.CreatePlugin
 be.appify.prefab.processor.rest.getbyid.GetByIdPlugin
 be.appify.prefab.processor.rest.delete.DeletePlugin

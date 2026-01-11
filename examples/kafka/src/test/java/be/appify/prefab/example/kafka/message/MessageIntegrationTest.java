@@ -13,7 +13,6 @@ import be.appify.prefab.example.kafka.user.application.CreateUserRequest;
 import be.appify.prefab.example.kafka.user.application.UserSubscribeToChannelRequest;
 import be.appify.prefab.example.kafka.user.infrastructure.http.UserStatusResponse;
 import be.appify.prefab.test.IntegrationTest;
-import be.appify.prefab.test.kafka.KafkaContainerSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 
@@ -24,7 +23,7 @@ import static be.appify.prefab.test.kafka.asserts.KafkaAssertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 @IntegrationTest
-class MessageIntegrationTest implements KafkaContainerSupport {
+class MessageIntegrationTest {
 
     @Autowired
     ChannelClient channels;

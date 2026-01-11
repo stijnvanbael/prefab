@@ -1,14 +1,14 @@
 ---
 id: task-060
 title: Automatically provision event TestContainers in integration tests
-status: To Do
+status: Done
 assignee: []
 created_date: '2025-12-26 14:15'
-updated_date: '2025-12-26 14:15'
+updated_date: '2026-01-11 07:40'
 labels:
   - "\U0001F4E6feature"
 dependencies: []
-ordinal: 226.4404296875
+ordinal: 4000
 ---
 
 ## Description

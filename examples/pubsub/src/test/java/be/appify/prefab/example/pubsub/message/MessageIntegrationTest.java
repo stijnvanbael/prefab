@@ -13,7 +13,6 @@ import be.appify.prefab.example.pubsub.user.application.CreateUserRequest;
 import be.appify.prefab.example.pubsub.user.application.UserSubscribeToChannelRequest;
 import be.appify.prefab.example.pubsub.user.infrastructure.http.UserStatusResponse;
 import be.appify.prefab.test.IntegrationTest;
-import be.appify.prefab.test.pubsub.PubSubContainerSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 
@@ -24,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 @IntegrationTest
-class MessageIntegrationTest implements PubSubContainerSupport {
+class MessageIntegrationTest {
 
     @Autowired
     ChannelClient channels;

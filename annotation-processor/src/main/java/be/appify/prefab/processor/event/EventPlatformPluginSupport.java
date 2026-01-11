@@ -75,6 +75,12 @@ public class EventPlatformPluginSupport {
                 .map(element -> (ExecutableElement) element);
     }
 
+    /**
+     * Sets the derived event platform.
+     *
+     * @param platform
+     *         event platform to set
+     */
     public static void setDerivedPlatform(Event.Platform platform) {
         if (derivedPlatform == null && !multiplePlatformsDetected) {
             derivedPlatform = platform;
@@ -84,10 +90,20 @@ public class EventPlatformPluginSupport {
         }
     }
 
+    /**
+     * Retrieves the derived event platform.
+     *
+     * @return derived event platform
+     */
     public static Event.Platform derivedPlatform() {
         return derivedPlatform;
     }
 
+    /**
+     * Indicates whether multiple event platforms were detected.
+     *
+     * @return true if multiple platforms were detected, false otherwise
+     */
     public static boolean isMultiplePlatformsDetected() {
         return multiplePlatformsDetected;
     }

@@ -7,7 +7,6 @@ import be.appify.prefab.example.kafka.user.UserClient;
 import be.appify.prefab.example.kafka.user.application.CreateUserRequest;
 import be.appify.prefab.example.kafka.user.application.UserSubscribeToChannelRequest;
 import be.appify.prefab.test.IntegrationTest;
-import be.appify.prefab.test.kafka.KafkaContainerSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.concurrent.TimeUnit;
@@ -16,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 @IntegrationTest
-class ChannelIntegrationTest implements KafkaContainerSupport {
+class ChannelIntegrationTest {
     @Autowired
     ChannelClient channels;
     @Autowired

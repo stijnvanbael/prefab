@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import be.appify.prefab.example.pubsub.user.application.CreateUserRequest;
 import be.appify.prefab.test.IntegrationTest;
-import be.appify.prefab.test.pubsub.PubSubContainerSupport;
 import be.appify.prefab.test.pubsub.Subscriber;
 import be.appify.prefab.test.pubsub.TestSubscriber;
 import be.appify.prefab.test.pubsub.asserts.PubSubAssertions;
@@ -13,7 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @IntegrationTest
-class UserIntegrationTest implements PubSubContainerSupport {
+class UserIntegrationTest {
     @Autowired
     UserClient userClient;
     @Autowired

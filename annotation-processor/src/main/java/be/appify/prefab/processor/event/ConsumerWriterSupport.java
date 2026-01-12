@@ -2,21 +2,21 @@ package be.appify.prefab.processor.event;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeSpec;
-import org.springframework.stereotype.Component;
-
-import javax.lang.model.element.ExecutableElement;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.lang.model.element.ExecutableElement;
+import org.springframework.stereotype.Component;
 
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -127,7 +127,10 @@ public class ConsumerWriterSupport {
             method.addCode("    case $T e -> ", type.asTypeName());
             singleTypeHandler(context, eventHandler, method, "e");
         }
-        method.addCode("    default -> {}\n");
+        method.addCode("""
+                    default -> {
+                    }
+                """);
         method.addCode("}");
     }
 
@@ -212,5 +215,37 @@ public class ConsumerWriterSupport {
                                 .collect(Collectors.joining(", ")),
                         topic
                 ), eventHandlers.getFirst());
+    }
+
+    /**
+     * Determines the concurrency expression for the given event handlers. This can either be a fixed number or a Spring configuration
+     * property expression.
+     *
+     * @param eventHandlers
+     *         list of event handler methods
+     * @param context
+     *         Prefab context
+     * @return concurrency expression
+     */
+    public static String concurrencyExpression(List<ExecutableElement> eventHandlers, PrefabContext context) {
+        return eventHandlers.stream()
+                .reduce((e1, e2) -> {
+                    var concurrency1 = getConcurrency(e1);
+                    var concurrency2 = getConcurrency(e2);
+                    if (!Objects.equals(concurrency1, concurrency2)) {
+                        context.logError(
+                                "Inconsistent concurrency settings for event handlers: %s has [%s], %s has [%s]"
+                                        .formatted(e1.getSimpleName(), concurrency1, e2.getSimpleName(),
+                                                concurrency2),
+                                e2);
+                    }
+                    return e1;
+                })
+                .map(ConsumerWriterSupport::getConcurrency)
+                .orElse("1");
+    }
+
+    private static String getConcurrency(ExecutableElement element) {
+        return Objects.requireNonNull(element.getAnnotation(EventHandler.class)).concurrency();
     }
 }

@@ -5,17 +5,17 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class UserExporter {
-    @EventHandler
+    @EventHandler(concurrency = "${user-exporter.concurrency:4}")
     public void onUserCreated(UserEvent.Created event) {
         // handle the event
     }
 
-    @EventHandler
+    @EventHandler(concurrency = "${user-exporter.concurrency:4}")
     public void onUserUpdated(UserEvent.Updated event) {
         // handle the event
     }
 
-    @EventHandler
+    @EventHandler(concurrency = "${user-exporter.concurrency:4}")
     public void onUserDeleted(UserEvent.Deleted event) {
         // handle the event
     }

@@ -21,7 +21,7 @@ class ByReferenceEventHandlerWriter {
         }
         return method.addParameter(event.asTypeName(), "event").addStatement(CodeBlock.builder()
                         .add("$L.findById(event.$L().id())",
-                                uncapitalize(manifest.simpleName()) + "Repository", eventHandler.annotation().value())
+                                uncapitalize(manifest.simpleName()) + "Repository", eventHandler.annotation().property())
                         .add("""
                                         .map(aggregate -> {
                                             $L

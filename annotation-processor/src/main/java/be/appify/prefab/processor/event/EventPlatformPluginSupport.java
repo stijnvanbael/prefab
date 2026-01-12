@@ -2,11 +2,8 @@ package be.appify.prefab.processor.event;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandler;
-import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
-import be.appify.prefab.processor.event.handler.EventHandlerPlugin;
-import org.springframework.stereotype.Component;
 
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
@@ -45,33 +42,15 @@ public class EventPlatformPluginSupport {
     }
 
     /**
-     * Retrieves all event handler methods for the given aggregate using the registered event handler plugins.
-     *
-     * @param aggregate
-     *         aggregate class manifest
-     * @param context
-     *         prefab context
-     * @return stream of event handler methods
-     */
-    public static Stream<ExecutableElement> eventHandlers(ClassManifest aggregate, PrefabContext context) {
-        return context.plugins()
-                .stream()
-                .filter(plugin -> plugin instanceof EventHandlerPlugin)
-                .map(plugin -> ((EventHandlerPlugin) plugin).annotation())
-                .flatMap(annotation -> aggregate.methodsWith(annotation).stream());
-    }
-
-    /**
      * Retrieves all event handler methods defined within components.
      *
      * @param context
      *         prefab context
      * @return stream of event handler methods
      */
-    public static Stream<ExecutableElement> componentHandlers(PrefabContext context) {
+    public static Stream<ExecutableElement> eventHandlers(PrefabContext context) {
         return context.roundEnvironment().getElementsAnnotatedWith(EventHandler.class).stream()
-                .filter(element -> element.getKind() == ElementKind.METHOD
-                        && element.getEnclosingElement().getAnnotation(Component.class) != null)
+                .filter(element -> element.getKind() == ElementKind.METHOD)
                 .map(element -> (ExecutableElement) element);
     }
 

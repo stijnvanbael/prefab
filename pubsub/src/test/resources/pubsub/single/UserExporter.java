@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class UserExporter {
-    @EventHandler
+    @EventHandler(concurrency = "2")
     public void onUserCreated(UserCreated event) {
         // handle the event
     }

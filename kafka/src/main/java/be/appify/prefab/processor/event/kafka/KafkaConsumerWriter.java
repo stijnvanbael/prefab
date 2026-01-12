@@ -13,19 +13,19 @@ import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeSpec;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-
+import static be.appify.prefab.processor.event.ConsumerWriterSupport.concurrencyExpression;
 import static java.util.stream.Collectors.groupingBy;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -83,6 +83,7 @@ class KafkaConsumerWriter {
                             .addMember("groupId", "$S",
                                     "${spring.application.name}." + CaseUtil.toKebabCase(owner.simpleName())
                                             + "-on-" + CaseUtil.toKebabCase(eventName))
+                            .addMember("concurrency", "$S", concurrencyExpression(eventHandlersForEvent.getValue(), context))
                             .build())
                     .addParameter(eventType.asTypeName(), "event")
                     .addStatement("log.debug($S, event)", "Received event {}");

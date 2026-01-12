@@ -1,6 +1,6 @@
 package be.appify.prefab.processor.event.handler.multicast;
 
-import be.appify.prefab.core.annotations.EventHandler;
+import be.appify.prefab.core.annotations.Multicast;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.event.handler.EventHandlerPlugin;
@@ -38,7 +38,7 @@ public class MulticastEventHandlerPlugin implements EventHandlerPlugin {
                 .filter(element -> element.getKind() == ElementKind.METHOD
                         && element.getModifiers().contains(Modifier.PUBLIC))
                 .map(ExecutableElement.class::cast)
-                .flatMap(element -> Stream.of(element.getAnnotationsByType(EventHandler.Multicast.class))
+                .flatMap(element -> Stream.of(element.getAnnotationsByType(Multicast.class))
                         .map(annotation -> {
                             var eventType = getEventType(element, context);
                             return new MulticastEventHandlerManifest(
@@ -53,6 +53,6 @@ public class MulticastEventHandlerPlugin implements EventHandlerPlugin {
 
     @Override
     public Class<? extends Annotation> annotation() {
-        return EventHandler.Multicast.class;
+        return Multicast.class;
     }
 }

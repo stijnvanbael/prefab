@@ -14,12 +14,14 @@ import pubsub.multiple.UserExporter;
 public class UserExporterPubSubSubscriber {
     private static final Logger log = LoggerFactory.getLogger(UserExporterPubSubSubscriber.class);
 
-    private final Executor executor = Executors.newSingleThreadExecutor();
+    private final Executor executor;
 
     private final UserExporter userExporter;
 
-    public UserExporterPubSubSubscriber(UserExporter userExporter, PubSubUtil pubSub,
+    public UserExporterPubSubSubscriber(@Value("${user-exporter.concurrency:4}") String concurrency,
+            UserExporter userExporter, PubSubUtil pubSub,
             @Value("${topic.user.name}") String userEventTopic) {
+        executor = Executors.newFixedThreadPool(Integer.parseInt(concurrency));
         pubSub.subscribe(userEventTopic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent, executor);
         this.userExporter = userExporter;
     }
@@ -30,7 +32,8 @@ public class UserExporterPubSubSubscriber {
             case UserEvent.Created e -> userExporter.onUserCreated(e);
             case UserEvent.Updated e -> userExporter.onUserUpdated(e);
             case UserEvent.Deleted e -> userExporter.onUserDeleted(e);
-            default -> {}
+            default -> {
+            }
         }
     }
 }

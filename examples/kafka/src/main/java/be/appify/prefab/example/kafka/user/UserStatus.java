@@ -3,6 +3,7 @@ package be.appify.prefab.example.kafka.user;
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.DbMigration;
 import be.appify.prefab.core.annotations.EventHandler;
+import be.appify.prefab.core.annotations.Multicast;
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.core.service.Reference;
@@ -40,9 +41,11 @@ public record UserStatus(
         );
     }
 
-    @EventHandler.Multicast(queryMethod = "findUserStatusesInChannel", paramMapping = {
-            @EventHandler.Param(from = "channel", to = "channel")
-    })
+    @EventHandler(concurrency = "4")
+    @Multicast(
+            queryMethod = "findUserStatusesInChannel",
+            paramMapping = @Multicast.Param(from = "channel", to = "channel")
+    )
     public void onMessageSent(MessageSent event) {
         unreadMessages.add(new UnreadMessage(Reference.fromId(event.id()), event.channel()));
     }

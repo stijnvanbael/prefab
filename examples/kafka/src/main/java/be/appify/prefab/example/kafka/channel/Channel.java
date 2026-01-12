@@ -1,6 +1,7 @@
 package be.appify.prefab.example.kafka.channel;
 
 import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.ByReference;
 import be.appify.prefab.core.annotations.DbMigration;
 import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.annotations.rest.Create;
@@ -37,7 +38,8 @@ public record Channel(
         publish(new ChannelCreated(id, name));
     }
 
-    @EventHandler.ByReference("channel")
+    @EventHandler(concurrency = "4")
+    @ByReference(property = "channel")
     public void onUserSubscribed(UserEvent.SubscribedToChannel event) {
         subscribers.add(event.id());
     }

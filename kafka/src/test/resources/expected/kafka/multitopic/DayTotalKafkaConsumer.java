@@ -27,7 +27,8 @@ public class DayTotalKafkaConsumer {
 
     @KafkaListener(
             topics = "${topic.sale.name}",
-            groupId = "${spring.application.name}.day-total-on-sale-created"
+            groupId = "${spring.application.name}.day-total-on-sale-created",
+            concurrency = "1"
     )
     public void onSaleCreated(Sale.Created event) {
         log.debug("Received event {}", event);
@@ -36,7 +37,8 @@ public class DayTotalKafkaConsumer {
 
     @KafkaListener(
             topics = "${topic.refund.name}",
-            groupId = "${spring.application.name}.day-total-on-refund-created"
+            groupId = "${spring.application.name}.day-total-on-refund-created",
+            concurrency = "1"
     )
     public void onRefundCreated(Refund.Created event) {
         log.debug("Received event {}", event);

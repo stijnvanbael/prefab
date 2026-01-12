@@ -22,7 +22,8 @@ public class UserExporterKafkaConsumer {
 
     @KafkaListener(
             topics = "prefab.user",
-            groupId = "${spring.application.name}.user-exporter-on-user-created"
+            groupId = "${spring.application.name}.user-exporter-on-user-created",
+            concurrency = "2"
     )
     public void onUserCreated(UserCreated event) {
         log.debug("Received event {}", event);

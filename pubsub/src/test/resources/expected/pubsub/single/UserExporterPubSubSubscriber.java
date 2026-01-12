@@ -13,11 +13,12 @@ import pubsub.single.UserExporter;
 public class UserExporterPubSubSubscriber {
     private static final Logger log = LoggerFactory.getLogger(UserExporterPubSubSubscriber.class);
 
-    private final Executor executor = Executors.newSingleThreadExecutor();
+    private final Executor executor;
 
     private final UserExporter userExporter;
 
     public UserExporterPubSubSubscriber(UserExporter userExporter, PubSubUtil pubSub) {
+        executor = Executors.newFixedThreadPool(2);
         pubSub.subscribe("user", "user-exporter-on-user-created", UserCreated.class, this::onUserCreated, executor);
         this.userExporter = userExporter;
     }

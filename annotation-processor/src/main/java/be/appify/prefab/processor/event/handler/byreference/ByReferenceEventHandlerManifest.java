@@ -1,6 +1,6 @@
 package be.appify.prefab.processor.event.handler.byreference;
 
-import be.appify.prefab.core.annotations.EventHandler;
+import be.appify.prefab.core.annotations.ByReference;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 
@@ -9,7 +9,7 @@ import javax.lang.model.type.TypeKind;
 
 record ByReferenceEventHandlerManifest(
         ExecutableElement methodElement,
-        EventHandler.ByReference annotation,
+        ByReference annotation,
         TypeManifest eventType,
         PrefabContext context,
         TypeManifest referencedType

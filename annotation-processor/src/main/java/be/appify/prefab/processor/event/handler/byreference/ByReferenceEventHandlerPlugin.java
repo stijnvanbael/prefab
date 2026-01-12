@@ -1,6 +1,6 @@
 package be.appify.prefab.processor.event.handler.byreference;
 
-import be.appify.prefab.core.annotations.EventHandler;
+import be.appify.prefab.core.annotations.ByReference;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
@@ -17,6 +17,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import java.lang.annotation.Annotation;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 /** Plugin to handle ByReference event handlers in Prefab. */
@@ -42,24 +43,28 @@ public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
                 .filter(element -> element.getKind() == ElementKind.METHOD
                         && element.getModifiers().contains(Modifier.PUBLIC))
                 .map(ExecutableElement.class::cast)
-                .filter(element -> element.getAnnotationsByType(EventHandler.ByReference.class).length > 0)
-                .map(element -> {
-                    var annotation = element.getAnnotationsByType(EventHandler.ByReference.class)[0];
+                .filter(element -> element.getAnnotationsByType(ByReference.class).length > 0)
+                .flatMap(element -> {
+                    var annotation = element.getAnnotationsByType(ByReference.class)[0];
                     var eventType = getEventType(element, context);
-                    var referenceField = getFields(eventType.asElement(), context.processingEnvironment()).stream()
-                            .filter(field -> field.name().equals(annotation.value())
+                    return getFields(eventType.asElement(), context.processingEnvironment()).stream()
+                            .filter(field -> field.name().equals(annotation.property())
                                     && (field.type().is(Reference.class) || field.type().is(String.class)))
                             .findFirst()
-                            .orElseThrow(() -> new IllegalArgumentException(
-                                    "Event type %s does not have a field named %s, or the field is not of type Reference".formatted(
-                                            element, annotation.value())));
-                    return new ByReferenceEventHandlerManifest(
-                            element,
-                            annotation,
-                            eventType,
-                            context,
-                            referenceField.type().parameters().stream().findFirst()
-                                    .orElse(new TypeManifest(String.class, context.processingEnvironment())));
+                            .or(() -> {
+                                context.logError(
+                                        "Event type %s does not have a field named %s, or the field is not of type Reference".formatted(
+                                                element, annotation.property()), element);
+                                return Optional.empty();
+                            })
+                            .map(referenceField -> new ByReferenceEventHandlerManifest(
+                                    element,
+                                    annotation,
+                                    eventType,
+                                    context,
+                                    referenceField.type().parameters().stream().findFirst()
+                                            .orElse(new TypeManifest(String.class, context.processingEnvironment()))))
+                            .stream();
                 });
     }
 
@@ -74,6 +79,6 @@ public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
 
     @Override
     public Class<? extends Annotation> annotation() {
-        return EventHandler.ByReference.class;
+        return ByReference.class;
     }
 }

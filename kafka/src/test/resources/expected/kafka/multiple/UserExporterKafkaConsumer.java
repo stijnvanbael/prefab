@@ -23,7 +23,8 @@ public class UserExporterKafkaConsumer {
 
     @KafkaListener(
             topics = "${topic.user.name}",
-            groupId = "${spring.application.name}.user-exporter-on-user-event"
+            groupId = "${spring.application.name}.user-exporter-on-user-event",
+            concurrency = "${user-exporter.concurrency:4}"
     )
     public void onUserEvent(UserEvent event) {
         log.debug("Received event {}", event);
@@ -31,7 +32,8 @@ public class UserExporterKafkaConsumer {
             case UserEvent.Created e -> userExporter.onUserCreated(e);
             case UserEvent.Updated e -> userExporter.onUserUpdated(e);
             case UserEvent.Deleted e -> userExporter.onUserDeleted(e);
-            default -> {}
+            default -> {
+            }
         }
     }
 }

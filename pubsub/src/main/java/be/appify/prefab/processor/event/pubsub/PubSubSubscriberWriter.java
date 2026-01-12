@@ -13,19 +13,19 @@ import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeSpec;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-import javax.lang.model.element.ExecutableElement;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
+import javax.lang.model.element.ExecutableElement;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
+import static be.appify.prefab.processor.event.ConsumerWriterSupport.concurrencyExpression;
 import static java.util.stream.Collectors.groupingBy;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -54,7 +54,6 @@ class PubSubSubscriberWriter {
                                 ClassName.get(packageName + ".infrastructure.pubsub", name))
                         .build())
                 .addField(FieldSpec.builder(Executor.class, "executor", PRIVATE, FINAL)
-                        .initializer("$T.newSingleThreadExecutor()", ClassName.get(Executors.class))
                         .build());
 
         var fields = support.addFields(eventHandlers, context, type);
@@ -93,6 +92,16 @@ class PubSubSubscriberWriter {
             PrefabContext context
     ) {
         var constructor = MethodSpec.constructorBuilder().addModifiers(PUBLIC);
+        var concurrency = concurrencyExpression(eventHandlers, context);
+        if (concurrency.matches("\\$\\{.+}")) {
+            constructor.addParameter(ParameterSpec.builder(String.class, "concurrency")
+                    .addAnnotation(AnnotationSpec.builder(Value.class)
+                            .addMember("value", "$S", concurrency)
+                            .build())
+                    .build());
+        }
+        constructor.addStatement("executor = $T.newFixedThreadPool($L)", ClassName.get(Executors.class),
+                concurrency.matches("\\$\\{.+}") ? "Integer.parseInt(concurrency)" : concurrency);
         fields.forEach(field -> constructor.addParameter(ParameterSpec.builder(field.type(), field.name()).build()));
         constructor.addParameter(PubSubUtil.class, "pubSub");
         topics.forEach(topic -> addTopic(owner, eventHandlers, context, topic, constructor));

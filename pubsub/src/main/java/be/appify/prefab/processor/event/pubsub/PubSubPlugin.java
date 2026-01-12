@@ -9,9 +9,7 @@ import be.appify.prefab.processor.TypeManifest;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import java.util.List;
-import java.util.stream.Stream;
 
-import static be.appify.prefab.processor.event.EventPlatformPluginSupport.componentHandlers;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.derivedPlatform;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.eventHandlers;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.isMultiplePlatformsDetected;
@@ -35,14 +33,11 @@ public class PubSubPlugin implements PrefabPlugin {
     @Override
     public void writeAdditionalFiles(List<ClassManifest> aggregates, PrefabContext context) {
         writePublishers(context);
-        writeConsumers(aggregates, context);
+        writeConsumers(context);
     }
 
-    private void writeConsumers(List<ClassManifest> aggregates, PrefabContext context) {
-        Stream.concat(
-                        aggregates.stream().flatMap(aggregate -> eventHandlers(aggregate, context)),
-                        componentHandlers(context)
-                )
+    private void writeConsumers(PrefabContext context) {
+        eventHandlers(context)
                 .filter(method -> isPubSubEvent(context, method))
                 .collect(groupingBy(method -> ownerOf(context, method)))
                 .forEach((owner, eventHandlers) ->

@@ -1,7 +1,6 @@
 package be.appify.prefab.processor.event.kafka;
 
 import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.core.annotations.PartitioningKey;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -12,6 +11,7 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeSpec;
+import javax.lang.model.element.Modifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,8 +19,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
-import javax.lang.model.element.Modifier;
-
+import static be.appify.prefab.processor.event.ConsumerWriterSupport.keyField;
 import static be.appify.prefab.processor.event.kafka.KafkaPlugin.platformIsKafka;
 import static javax.lang.model.element.Modifier.PUBLIC;
 
@@ -47,7 +46,7 @@ class KafkaProducerWriter {
                         "kafkaTemplate", Modifier.PRIVATE, Modifier.FINAL)
                 .addField(String.class, "topic", Modifier.PRIVATE, Modifier.FINAL)
                 .addMethod(constructor(annotation.topic()))
-                .addMethod(producer(event))
+                .addMethod(producer(event, context))
                 .build();
 
         fileWriter.writeFile(event.packageName(), name, type);
@@ -77,18 +76,13 @@ class KafkaProducerWriter {
         return constructor.build();
     }
 
-    private MethodSpec producer(TypeManifest event) {
-        var keyField = event.methodsWith(PartitioningKey.class).stream()
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Event %s does not have a field annotated with @PartitioningKey".formatted(event.simpleName())))
-                .getSimpleName().toString();
+    private MethodSpec producer(TypeManifest event, PrefabContext context) {
         return MethodSpec.methodBuilder("publish")
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(event.asTypeName(), "event")
                 .addAnnotation(EventListener.class)
                 .addStatement("log.debug($S, event, topic)", "Publishing event {} on topic {}")
-                .addStatement("kafkaTemplate.send(topic, event.$L(), event)", keyField)
+                .addStatement("kafkaTemplate.send(topic, $L, event)", keyField(event, context))
                 .build();
     }
 }

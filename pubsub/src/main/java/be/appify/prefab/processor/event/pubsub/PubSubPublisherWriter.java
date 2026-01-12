@@ -1,7 +1,6 @@
 package be.appify.prefab.processor.event.pubsub;
 
 import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.core.annotations.PartitioningKey;
 import be.appify.prefab.core.pubsub.PubSubUtil;
 import be.appify.prefab.core.spring.JsonUtil;
 import be.appify.prefab.processor.JavaFileWriter;
@@ -16,14 +15,14 @@ import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeSpec;
+import javax.lang.model.element.Modifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
-import javax.lang.model.element.Modifier;
-
+import static be.appify.prefab.processor.event.ConsumerWriterSupport.keyField;
 import static be.appify.prefab.processor.event.pubsub.PubSubPlugin.platformIsPubSub;
 
 class PubSubPublisherWriter {
@@ -45,7 +44,7 @@ class PubSubPublisherWriter {
                 .addField(JsonUtil.class, "jsonSupport", Modifier.PRIVATE, Modifier.FINAL)
                 .addField(String.class, "topic", Modifier.PRIVATE, Modifier.FINAL)
                 .addMethod(constructor(annotation.topic()))
-                .addMethod(producer(event))
+                .addMethod(producer(event, context))
                 .build();
 
         fileWriter.writeFile(event.packageName(), name, type);
@@ -72,12 +71,7 @@ class PubSubPublisherWriter {
         return constructor.build();
     }
 
-    private MethodSpec producer(TypeManifest event) {
-        var keyField = event.methodsWith(PartitioningKey.class).stream()
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Event %s does not have a field annotated with @Key".formatted(event.simpleName())))
-                .getSimpleName().toString(); // TODO: add ordering key
+    private MethodSpec producer(TypeManifest event, PrefabContext context) {
         return MethodSpec.methodBuilder("publish")
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(event.asTypeName(), "event")
@@ -88,12 +82,12 @@ class PubSubPublisherWriter {
                                     topic,
                                     $T.newBuilder()
                                         .setData($T.copyFromUtf8(jsonSupport.toJson(event)))
-                                        .setOrderingKey(event.$L())
+                                        .setOrderingKey($L)
                                         .putAttributes($S, event.getClass().getName())
                                         .build())""",
                         PubsubMessage.class,
                         ByteString.class,
-                        keyField,
+                        keyField(event, context),
                         "type"
                 )
                 .build();

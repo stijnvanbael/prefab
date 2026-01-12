@@ -35,7 +35,7 @@ public class UserCreatedPubSubPublisher {
                     topic,
                     PubsubMessage.newBuilder()
                         .setData(ByteString.copyFromUtf8(jsonSupport.toJson(event)))
-                        .setOrderingKey(event.id())
+                        .setOrderingKey(event.user().id())
                         .putAttributes("type", event.getClass().getName())
                         .build());
     }

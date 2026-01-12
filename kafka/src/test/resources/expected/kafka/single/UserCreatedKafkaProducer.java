@@ -23,6 +23,6 @@ public class UserCreatedKafkaProducer {
     @EventListener
     public void publish(UserCreated event) {
         log.debug("Publishing event {} on topic {}", event, topic);
-        kafkaTemplate.send(topic, event.id(), event);
+        kafkaTemplate.send(topic, event.user().id(), event);
     }
 }

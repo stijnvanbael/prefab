@@ -3,9 +3,12 @@ package be.appify.prefab.processor.event;
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandler;
+import be.appify.prefab.core.annotations.PartitioningKey;
+import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeSpec;
@@ -247,5 +250,28 @@ public class ConsumerWriterSupport {
 
     private static String getConcurrency(ExecutableElement element) {
         return Objects.requireNonNull(element.getAnnotation(EventHandler.class)).concurrency();
+    }
+
+    /**
+     * Generates a code block to access the partitioning key field of the given event type.
+     *
+     * @param event
+     *         event type manifest
+     * @param context
+     *         prefab context
+     * @return code block for accessing the partitioning key field
+     */
+    public static CodeBlock keyField(TypeManifest event, PrefabContext context) {
+        return event.methodsWith(PartitioningKey.class).stream()
+                .findFirst()
+                .map(method -> {
+                    if (new TypeManifest(method.getReturnType(), context.processingEnvironment()).is(Reference.class)) {
+                        return CodeBlock.of("event.$L().id()", method.getSimpleName().toString());
+                    } else {
+                        return CodeBlock.of("event.$L()", method.getSimpleName().toString());
+                    }
+                })
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Event %s does not have a field annotated with @PartitioningKey".formatted(event.simpleName())));
     }
 }

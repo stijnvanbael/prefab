@@ -1,10 +1,10 @@
 package be.appify.prefab.processor;
 
+import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.Element;
 import javax.tools.Diagnostic;
-import java.util.List;
 
 /**
  * Context class providing access to processing environment, plugins, and utilities during annotation processing.
@@ -19,9 +19,12 @@ public class PrefabContext {
     /**
      * Constructs a PrefabContext.
      *
-     * @param processingEnvironment the processing environment
-     * @param plugins               the list of Prefab plugins
-     * @param roundEnvironment      the round environment
+     * @param processingEnvironment
+     *         the processing environment
+     * @param plugins
+     *         the list of Prefab plugins
+     * @param roundEnvironment
+     *         the round environment
      */
     public PrefabContext(
             ProcessingEnvironment processingEnvironment,
@@ -83,10 +86,24 @@ public class PrefabContext {
     /**
      * Logs an error message associated with a specific element.
      *
-     * @param message the error message
-     * @param element the element associated with the error
+     * @param message
+     *         the error message
+     * @param element
+     *         the element associated with the error
      */
     public void logError(String message, Element element) {
         processingEnvironment.getMessager().printMessage(Diagnostic.Kind.ERROR, message, element);
+    }
+
+    /**
+     * Logs a note message associated with a specific element.
+     *
+     * @param message
+     *         the note message
+     * @param element
+     *         the element associated with the note
+     */
+    public void logNote(String message, Element element) {
+        processingEnvironment.getMessager().printMessage(Diagnostic.Kind.NOTE, message, element);
     }
 }

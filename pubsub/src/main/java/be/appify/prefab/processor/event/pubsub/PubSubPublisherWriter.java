@@ -11,6 +11,7 @@ import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.PubsubMessage;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
@@ -81,13 +82,13 @@ class PubSubPublisherWriter {
                                 pubSubTemplate.publish(
                                     topic,
                                     $T.newBuilder()
-                                        .setData($T.copyFromUtf8(jsonSupport.toJson(event)))
-                                        .setOrderingKey($L)
+                                        .setData($T.copyFromUtf8(jsonSupport.toJson(event)))$L
                                         .putAttributes($S, event.getClass().getName())
                                         .build())""",
                         PubsubMessage.class,
                         ByteString.class,
-                        keyField(event, context),
+                        keyField(event, context).map(kf -> CodeBlock.of("\n        .setOrderingKey($L)", kf))
+                                .orElse(CodeBlock.of("")),
                         "type"
                 )
                 .build();

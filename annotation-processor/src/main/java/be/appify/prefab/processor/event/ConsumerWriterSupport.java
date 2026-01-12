@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.ExecutableElement;
@@ -261,7 +262,7 @@ public class ConsumerWriterSupport {
      *         prefab context
      * @return code block for accessing the partitioning key field
      */
-    public static CodeBlock keyField(TypeManifest event, PrefabContext context) {
+    public static Optional<CodeBlock> keyField(TypeManifest event, PrefabContext context) {
         return event.methodsWith(PartitioningKey.class).stream()
                 .findFirst()
                 .map(method -> {
@@ -271,7 +272,11 @@ public class ConsumerWriterSupport {
                         return CodeBlock.of("event.$L()", method.getSimpleName().toString());
                     }
                 })
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Event %s does not have a field annotated with @PartitioningKey".formatted(event.simpleName())));
+                .or(() -> {
+                    context.logNote(("No partitioning key found on event %s. Annotate a field with @PartitioningKey if you need " +
+                            "guaranteed ordering on all events with the same value for that field.")
+                            .formatted(event.simpleName()), event.asElement());
+                    return Optional.empty();
+                });
     }
 }

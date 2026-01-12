@@ -2,15 +2,13 @@ package kafka.multitopic;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.core.annotations.PartitioningKey;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.domain.PublishesEvents;
 import jakarta.validation.constraints.NotNull;
+import java.time.LocalDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
-
-import java.time.LocalDate;
 
 @Aggregate
 public record Sale(
@@ -30,6 +28,6 @@ public record Sale(
     }
 
     @Event(topic = "${topic.sale.name}", platform = Event.Platform.KAFKA)
-    public record Created(@PartitioningKey String id, Double total, LocalDate date) {
+    public record Created(String id, Double total, LocalDate date) {
     }
 }

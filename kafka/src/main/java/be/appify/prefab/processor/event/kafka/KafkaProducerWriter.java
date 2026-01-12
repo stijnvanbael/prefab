@@ -77,12 +77,14 @@ class KafkaProducerWriter {
     }
 
     private MethodSpec producer(TypeManifest event, PrefabContext context) {
-        return MethodSpec.methodBuilder("publish")
-                .addModifiers(Modifier.PUBLIC)
+        var method = MethodSpec.methodBuilder("publish")
+                .addModifiers(PUBLIC)
                 .addParameter(event.asTypeName(), "event")
                 .addAnnotation(EventListener.class)
-                .addStatement("log.debug($S, event, topic)", "Publishing event {} on topic {}")
-                .addStatement("kafkaTemplate.send(topic, $L, event)", keyField(event, context))
-                .build();
+                .addStatement("log.debug($S, event, topic)", "Publishing event {} on topic {}");
+        keyField(event, context).ifPresentOrElse(
+                keyField -> method.addStatement("kafkaTemplate.send(topic, $L, event)", keyField),
+                () -> method.addStatement("kafkaTemplate.send(topic, event)"));
+        return method.build();
     }
 }

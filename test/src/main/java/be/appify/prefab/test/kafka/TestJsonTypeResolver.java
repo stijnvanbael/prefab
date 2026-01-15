@@ -1,18 +1,17 @@
 package be.appify.prefab.test.kafka;
 
-import com.fasterxml.jackson.databind.JavaType;
-import com.fasterxml.jackson.databind.type.TypeFactory;
-import org.apache.kafka.common.header.Headers;
-import org.springframework.kafka.support.serializer.JsonTypeResolver;
-
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.kafka.common.header.Headers;
+import org.springframework.kafka.support.serializer.JacksonJsonTypeResolver;
+import tools.jackson.databind.JavaType;
+import tools.jackson.databind.type.TypeFactory;
 
 class TestJsonTypeResolver {
     private final Map<String, Class<?>> types = new HashMap<>();
-    private final JsonTypeResolver delegate;
+    private final JacksonJsonTypeResolver delegate;
 
-    public TestJsonTypeResolver(JsonTypeResolver delegate) {
+    public TestJsonTypeResolver(JacksonJsonTypeResolver delegate) {
         this.delegate = delegate;
     }
 
@@ -23,7 +22,7 @@ class TestJsonTypeResolver {
     public JavaType resolveType(String topic, byte[] data, Headers headers) {
         var type = types.get(topic);
         if (type != null) {
-            return TypeFactory.defaultInstance().constructType(type);
+            return TypeFactory.unsafeSimpleType(type);
         }
         return delegate.resolveType(topic, data, headers);
     }

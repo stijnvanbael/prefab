@@ -1,24 +1,23 @@
 package be.appify.prefab.test.kafka;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.kafka.DefaultKafkaConsumerFactoryCustomizer;
-import org.springframework.boot.autoconfigure.kafka.KafkaConnectionDetails;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
-import org.springframework.boot.ssl.SslBundles;
+import org.springframework.boot.kafka.autoconfigure.DefaultKafkaConsumerFactoryCustomizer;
+import org.springframework.boot.kafka.autoconfigure.KafkaConnectionDetails;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnectionAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
-import org.springframework.kafka.support.serializer.JsonTypeResolver;
+import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
+import org.springframework.kafka.support.serializer.JacksonJsonTypeResolver;
 import org.testcontainers.kafka.KafkaContainer;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Autoconfiguration for Kafka test support.
@@ -54,20 +53,20 @@ public class KafkaTestAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(name = "jsonTestConsumerFactory")
-    @ConditionalOnClass(JsonDeserializer.class)
+    @ConditionalOnClass(JacksonJsonDeserializer.class)
     @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
     DefaultKafkaConsumerFactory<String, Object> jsonTestConsumerFactory(
             KafkaConnectionDetails connectionDetails,
-            ObjectProvider<DefaultKafkaConsumerFactoryCustomizer> customizers, ObjectProvider<SslBundles> sslBundles,
-            ObjectMapper objectMapper,
+            ObjectProvider<DefaultKafkaConsumerFactoryCustomizer> customizers,
+            JsonMapper jsonMapper,
             TestJsonTypeResolver jsonTypeResolver
     ) {
-        var consumerProperties = this.properties.buildConsumerProperties(sslBundles.getIfAvailable());
+        var consumerProperties = this.properties.buildConsumerProperties();
         consumerProperties.putIfAbsent(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         consumerProperties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
                 connectionDetails.getConsumer().getBootstrapServers());
         var factory = new DefaultKafkaConsumerFactory<String, Object>(consumerProperties);
-        try (var jsonDeserializer = new JsonDeserializer<>(objectMapper)) {
+        try (var jsonDeserializer = new JacksonJsonDeserializer<>(jsonMapper)) {
             jsonDeserializer.typeResolver(jsonTypeResolver::resolveType);
             factory.setValueDeserializer(jsonDeserializer);
         }
@@ -77,8 +76,8 @@ public class KafkaTestAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(name = "testJsonTypeResolver")
-    @ConditionalOnClass(JsonDeserializer.class)
-    TestJsonTypeResolver testJsonTypeResolver(ObjectProvider<JsonTypeResolver> delegate) {
+    @ConditionalOnClass(JacksonJsonDeserializer.class)
+    TestJsonTypeResolver testJsonTypeResolver(ObjectProvider<JacksonJsonTypeResolver> delegate) {
         return new TestJsonTypeResolver(delegate.getIfAvailable(() -> (topic, data, headers) -> {
             throw new IllegalStateException("No type resolver configured for topic: " + topic);
         }));

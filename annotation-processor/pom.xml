@@ -15,7 +15,7 @@
         <jsqlparser.version>5.3</jsqlparser.version>
         <auto-service.version>1.1.1</auto-service.version>
         <evo-inflector.version>1.3</evo-inflector.version>
-        <javapoet.version>0.9.0</javapoet.version>
+        <javapoet.version>0.10.0</javapoet.version>
     </properties>
 
     <dependencies>
@@ -43,11 +43,6 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-text</artifactId>
             <version>${commons-text.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.zalando</groupId>
-            <artifactId>problem-spring-web-starter</artifactId>
-            <version>${problem-spring-web.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -90,6 +85,7 @@
             <groupId>com.google.testing.compile</groupId>
             <artifactId>compile-testing</artifactId>
             <version>${compile-testing.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

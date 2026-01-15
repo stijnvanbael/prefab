@@ -8,16 +8,15 @@ import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javax.lang.model.element.Modifier;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockPart;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import org.springframework.web.multipart.MultipartFile;
-
-import javax.lang.model.element.Modifier;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static org.apache.commons.lang3.StringUtils.capitalize;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
@@ -81,7 +80,7 @@ class UpdateTestClientWriter {
                         pathVariables(manifest, update, pathVariables),
                         ControllerUtil.withMockUser(update.security()),
                         MediaType.class,
-                        update.parameters().isEmpty() ? ")" : ".content(objectMapper.writeValueAsString(request)))",
+                        update.parameters().isEmpty() ? ")" : ".content(jsonMapper.writeValueAsString(request)))",
                         MockMvcResultMatchers.class)
                 .build();
     }
@@ -102,7 +101,7 @@ class UpdateTestClientWriter {
                         part.name());
             } else {
                 method.addStatement(
-                        "var bodyPart = new $T($S, null, objectMapper.writeValueAsBytes(request), $T.APPLICATION_JSON)",
+                        "var bodyPart = new $T($S, null, jsonMapper.writeValueAsBytes(request), $T.APPLICATION_JSON)",
                         MockPart.class,
                         "body",
                         MediaType.class);

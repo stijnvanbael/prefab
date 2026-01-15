@@ -5,13 +5,12 @@ import org.springframework.security.authentication.InsufficientAuthenticationExc
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
-import org.zalando.problem.spring.web.advice.ProblemHandling;
 
 import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 @ControllerAdvice
-class ExceptionHandling implements ProblemHandling {
+class ExceptionHandling {
     @ResponseStatus(value = UNAUTHORIZED)
     @ExceptionHandler(InsufficientAuthenticationException.class)
     void handleInsufficientAuthentication() {

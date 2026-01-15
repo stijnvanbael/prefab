@@ -1,42 +1,43 @@
 package be.appify.prefab.core.spring;
 
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 /**
  * Custom implementation of Spring Data's Page interface.
- * @param content the content of the page
- * @param pageable the pagination information
- * @param total the total number of elements
- * @param <T> the type of the content
+ *
+ * @param content
+ *         the content of the page
+ * @param page
+ *         the page information
+ * @param <T>
+ *         the type of the content
  */
 public record Page<T>(
         List<T> content,
-        Pageable pageable,
-        long total
+        PageInfo page
 ) implements org.springframework.data.domain.Page<T> {
     @Override
     public int getTotalPages() {
-        return (int) Math.ceil((double) total / getSize());
+        return (int) Math.ceil((double) page.totalElements / getSize());
     }
 
     @Override
     public long getTotalElements() {
-        return total;
+        return page.totalElements;
     }
 
     @Override
     public int getNumber() {
-        return pageable.isPaged() ? pageable.getPageNumber() : 0;
+        return page.number;
     }
 
     @Override
     public int getSize() {
-        return pageable.isPaged() ? pageable.getPageSize() : content.size();
+        return page.size;
     }
 
     @Override
@@ -56,7 +57,7 @@ public record Page<T>(
 
     @Override
     public Sort getSort() {
-        return pageable.getSort();
+        return Sort.unsorted();
     }
 
     @Override
@@ -81,25 +82,27 @@ public record Page<T>(
 
     @Override
     public Pageable nextPageable() {
-        return hasNext() ? pageable.next() : Pageable.unpaged();
+        return Pageable.unpaged();
     }
 
     @Override
     public Pageable previousPageable() {
-        return hasPrevious() ? pageable.previousOrFirst() : Pageable.unpaged();
+        return Pageable.unpaged();
     }
 
     @Override
     public <U> Page<U> map(Function<? super T, ? extends U> converter) {
         return new Page<>(
                 content.stream().map(e -> (U) converter.apply(e)).toList(),
-                pageable,
-                total
+                page
         );
     }
 
     @Override
     public Iterator<T> iterator() {
         return content.iterator();
+    }
+
+    record PageInfo(int size, int number, long totalElements, int totalPages) {
     }
 }

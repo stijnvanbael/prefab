@@ -1,19 +1,19 @@
 package be.appify.prefab.core.spring;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.json.JsonMapper;
 
 /** Utility class for JSON serialization and deserialization. */
 @Component
 public class JsonUtil {
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
     /**
-     * Constructs a new JsonUtil with the given ObjectMapper.
-     * @param objectMapper the ObjectMapper to use for JSON operations
+     * Constructs a new JsonUtil with the given JsonMapper.
+     * @param jsonMapper the JsonMapper to use for JSON operations
      */
-    public JsonUtil(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+    public JsonUtil(JsonMapper jsonMapper) {
+        this.jsonMapper = jsonMapper;
     }
 
     /**
@@ -23,7 +23,7 @@ public class JsonUtil {
      */
     public String toJson(Object object) {
         try {
-            return objectMapper.writeValueAsString(object);
+            return jsonMapper.writeValueAsString(object);
         } catch (Exception e) {
             throw new RuntimeException("Failed to convert object to JSON", e);
         }
@@ -38,7 +38,7 @@ public class JsonUtil {
      */
     public <T> T parseJson(String json, Class<T> type) {
         try {
-            return objectMapper.readValue(json, type);
+            return jsonMapper.readValue(json, type);
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse JSON", e);
         }

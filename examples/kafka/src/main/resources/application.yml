@@ -14,3 +14,6 @@ topics:
   channel.name: prefab.kafka-example.channel
   message.name: prefab.kafka-example.message
   user.name: prefab.kafka-example.user
+
+error.handling:
+    exception-logging: WITH_STACKTRACE

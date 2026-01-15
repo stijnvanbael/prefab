@@ -2,13 +2,13 @@ package be.appify.prefab.core.kafka;
 
 import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
-import org.springframework.kafka.support.serializer.JsonSerializer;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
+import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 
 /** A Kafka serializer that dynamically chooses between StringSerializer and JsonSerializer based on the data type. */
 public class DynamicSerializer implements Serializer<Object> {
     private final StringSerializer stringSerializer = new StringSerializer();
-    private final JsonSerializer<Object> jsonSerializer = new JsonSerializer<>();
+    private final JacksonJsonSerializer<Object> jsonSerializer = new JacksonJsonSerializer<>();
 
     /**
      * Constructs a DynamicSerializer and configures the underlying JsonSerializer with the provided Kafka properties.

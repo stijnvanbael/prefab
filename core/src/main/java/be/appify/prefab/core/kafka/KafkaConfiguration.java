@@ -1,6 +1,10 @@
 package be.appify.prefab.core.kafka;
 
 import com.google.common.collect.Streams;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
@@ -12,12 +16,11 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.kafka.ConcurrentKafkaListenerContainerFactoryConfigurer;
-import org.springframework.boot.autoconfigure.kafka.DefaultKafkaConsumerFactoryCustomizer;
-import org.springframework.boot.autoconfigure.kafka.DefaultKafkaProducerFactoryCustomizer;
-import org.springframework.boot.autoconfigure.kafka.KafkaConnectionDetails;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
-import org.springframework.boot.ssl.SslBundles;
+import org.springframework.boot.kafka.autoconfigure.ConcurrentKafkaListenerContainerFactoryConfigurer;
+import org.springframework.boot.kafka.autoconfigure.DefaultKafkaConsumerFactoryCustomizer;
+import org.springframework.boot.kafka.autoconfigure.DefaultKafkaProducerFactoryCustomizer;
+import org.springframework.boot.kafka.autoconfigure.KafkaConnectionDetails;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -36,14 +39,9 @@ import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
-import org.springframework.kafka.support.serializer.JsonTypeResolver;
+import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
+import org.springframework.kafka.support.serializer.JacksonJsonTypeResolver;
 import org.springframework.kafka.transaction.KafkaTransactionManager;
-
-import java.time.Duration;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 
@@ -74,11 +72,10 @@ public class KafkaConfiguration {
             KafkaProperties kafkaProperties,
             KafkaConnectionDetails connectionDetails,
             ObjectProvider<DefaultKafkaProducerFactoryCustomizer> customizers,
-            ObjectProvider<SslBundles> sslBundles,
             @Value("${spring.application.name}") String applicationName,
             @Value("${kafka.transactions.enabled:true}") boolean transactionsEnabled
     ) {
-        var properties = kafkaProperties.buildProducerProperties(sslBundles.getIfAvailable());
+        var properties = kafkaProperties.buildProducerProperties();
         properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, connectionDetails.getProducer().getBootstrapServers());
 
         var serializer = new DynamicSerializer(kafkaProperties);
@@ -119,17 +116,16 @@ public class KafkaConfiguration {
             KafkaConnectionDetails connectionDetails,
             ObjectProvider<DefaultKafkaConsumerFactoryCustomizer> customizers,
             ObjectProvider<KafkaTransactionManager<?, ?>> kafkaTransactionManager,
-            ObjectProvider<SslBundles> sslBundles,
-            JsonTypeResolver jsonTypeResolver,
+            JacksonJsonTypeResolver jsonTypeResolver,
             @Value("${spring.application.name}") String applicationName
     ) {
-        var properties = kafkaProperties.buildConsumerProperties(sslBundles.getIfAvailable());
+        var properties = kafkaProperties.buildConsumerProperties();
         properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, connectionDetails.getConsumer().getBootstrapServers());
         properties.putIfAbsent(ConsumerConfig.GROUP_ID_CONFIG, applicationName);
         kafkaTransactionManager.ifAvailable(ignored ->
                 properties.putIfAbsent(ConsumerConfig.ISOLATION_LEVEL_CONFIG,
                         KafkaProperties.IsolationLevel.READ_COMMITTED.name()));
-        var jsonDeserializer = new JsonDeserializer<>();
+        var jsonDeserializer = new JacksonJsonDeserializer<>();
         jsonDeserializer.setTypeResolver(jsonTypeResolver);
         var deserializer = new ErrorHandlingDeserializer<>(jsonDeserializer);
         deserializer.configure(properties, false);

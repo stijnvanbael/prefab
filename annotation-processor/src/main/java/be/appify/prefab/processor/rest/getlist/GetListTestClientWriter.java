@@ -7,17 +7,16 @@ import be.appify.prefab.core.spring.Page;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.rest.ControllerUtil;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
+import java.util.List;
+import javax.lang.model.element.Modifier;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
-
-import javax.lang.model.element.Modifier;
-import java.util.List;
+import tools.jackson.core.type.TypeReference;
 
 import static org.atteo.evo.inflector.English.plural;
 
@@ -118,7 +117,7 @@ class GetListTestClientWriter {
                         MediaType.class,
                         MockMvcResultMatchers.class
                 )
-                .addStatement("return objectMapper.readValue(json, new $T() {})",
+                .addStatement("return jsonMapper.readValue(json, new $T() {})",
                         ParameterizedTypeName.get(ClassName.get(TypeReference.class), returnType))
                 .build();
     }

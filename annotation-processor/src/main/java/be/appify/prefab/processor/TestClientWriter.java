@@ -1,16 +1,15 @@
 package be.appify.prefab.processor;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeSpec;
+import javax.lang.model.element.Modifier;
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 import org.springframework.stereotype.Component;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
-
-import javax.lang.model.element.Modifier;
+import tools.jackson.databind.json.JsonMapper;
 
 class TestClientWriter {
     private final TestJavaFileWriter fileWriter;
@@ -33,13 +32,13 @@ class TestClientWriter {
                 .addField(FieldSpec.builder(MockMvc.class, "mockMvc")
                         .addModifiers(Modifier.PRIVATE, Modifier.FINAL)
                         .build())
-                .addField(FieldSpec.builder(ObjectMapper.class, "objectMapper")
+                .addField(FieldSpec.builder(JsonMapper.class, "jsonMapper")
                         .addModifiers(Modifier.PRIVATE, Modifier.FINAL)
                         .build())
                 .addMethod(MethodSpec.constructorBuilder()
                         .addModifiers(Modifier.PUBLIC)
                         .addParameter(WebApplicationContext.class, "context")
-                        .addParameter(ObjectMapper.class, "objectMapper")
+                        .addParameter(JsonMapper.class, "jsonMapper")
                         .addStatement("""
                                         this.mockMvc = $T
                                             .webAppContextSetup(context)
@@ -47,7 +46,7 @@ class TestClientWriter {
                                             .build()""",
                                 MockMvcBuilders.class,
                                 SecurityMockMvcConfigurers.class)
-                        .addStatement("this.objectMapper = objectMapper")
+                        .addStatement("this.jsonMapper = jsonMapper")
                         .build());
         context.plugins().forEach(plugin -> plugin.writeTestClient(manifest, type, context));
 

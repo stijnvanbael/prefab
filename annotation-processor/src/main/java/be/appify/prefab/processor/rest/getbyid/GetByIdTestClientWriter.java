@@ -5,11 +5,10 @@ import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.rest.ControllerUtil;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
+import javax.lang.model.element.Modifier;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
-
-import javax.lang.model.element.Modifier;
 
 class GetByIdTestClientWriter {
     MethodSpec getByIdMethod(ClassManifest manifest) {
@@ -36,7 +35,7 @@ class GetByIdTestClientWriter {
                         ControllerUtil.withMockUser(getById.security()),
                         MediaType.class,
                         MockMvcResultMatchers.class)
-                .addStatement("return objectMapper.readValue(json, $T.class)", returnType)
+                .addStatement("return jsonMapper.readValue(json, $T.class)", returnType)
                 .build();
     }
 }

@@ -1,5 +1,6 @@
 package be.appify.prefab.core.kafka;
 
+import be.appify.prefab.core.util.Classes;
 import com.google.common.collect.Streams;
 import java.time.Duration;
 import java.util.List;
@@ -8,9 +9,6 @@ import java.util.UUID;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.errors.InvalidTopicException;
-import org.apache.kafka.common.errors.RecordDeserializationException;
-import org.apache.kafka.common.errors.SerializationException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,7 +22,7 @@ import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.context.annotation.Primary;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.ContainerCustomizer;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
@@ -43,6 +41,7 @@ import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonTypeResolver;
 import org.springframework.kafka.transaction.KafkaTransactionManager;
 
+import static be.appify.prefab.core.kafka.KafkaUtil.DEFAULT_NOT_RETRYABLE;
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 
 /**
@@ -53,14 +52,6 @@ import static org.apache.commons.lang3.StringUtils.isEmpty;
 @ConditionalOnClass(KafkaListenerContainerFactory.class)
 @ComponentScan(basePackageClasses = KafkaJsonTypeResolver.class)
 public class KafkaConfiguration {
-    private static final List<Class<? extends Exception>> DEFAULT_NOT_RETRYABLE = List.of(
-            SerializationException.class,
-            NullPointerException.class,
-            IllegalArgumentException.class,
-            IllegalStateException.class,
-            RecordDeserializationException.class,
-            InvalidTopicException.class,
-            DataIntegrityViolationException.class);
 
     /** Constructs a new KafkaConfiguration. */
     public KafkaConfiguration() {
@@ -135,14 +126,15 @@ public class KafkaConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean(name = "dltErrorHandler")
+    @Primary
+    @ConditionalOnMissingBean(name = "defaultKafkaErrorHandler")
     @SuppressWarnings("unchecked")
-    CommonErrorHandler dltErrorHandler(
-            @Value("${prefab.kafka.dlt.retries.limit:5}") Integer maxRetries,
-            @Value("${prefab.kafka.dlt.retries.initial-interval-ms:1000}") Long initialRetryInterval,
-            @Value("${prefab.kafka.dlt.retries.multiplier:1.5}") Float backoffMultiplier,
-            @Value("${prefab.kafka.dlt.retries.max-interval-ms:30000}") Long maxRetryInterval,
-            @Value(("#{'${prefab.kafka.dlt.non-retryable-exceptions:}'.split(',')}")) List<String> nonRetryableExceptions,
+    CommonErrorHandler defaultKafkaErrorHandler(
+            @Value("${prefab.dlt.retries.limit:5}") Integer maxRetries,
+            @Value("${prefab.dlt.retries.initial-interval-ms:1000}") Long initialRetryInterval,
+            @Value("${prefab.dlt.retries.multiplier:1.5}") Float backoffMultiplier,
+            @Value("${prefab.dlt.retries.max-interval-ms:30000}") Long maxRetryInterval,
+            @Value("#{'${prefab.dlt.non-retryable-exceptions:}'.split(',')}") List<String> nonRetryableExceptions,
             DeadLetterPublishingRecoverer deadLetterPublishingRecoverer
     ) {
         var backoff = new ExponentialBackOffWithMaxRetries(maxRetries);
@@ -152,27 +144,20 @@ public class KafkaConfiguration {
         var errorHandler = new DefaultErrorHandler(deadLetterPublishingRecoverer, backoff);
         var customExceptions = nonRetryableExceptions.stream()
                 .filter(name -> !name.isBlank())
-                .map(this::classWithName);
+                .map(Classes::classWithName);
         var notRetryable = Streams.concat(DEFAULT_NOT_RETRYABLE.stream(), customExceptions)
                 .toArray(Class[]::new);
         errorHandler.addNotRetryableExceptions(notRetryable);
         return errorHandler;
     }
 
-    private Class<?> classWithName(String name) {
-        try {
-            return Class.forName(name);
-        } catch (ClassNotFoundException e) {
-            throw new IllegalArgumentException(e);
-        }
-    }
-
     @Bean
+    @Primary
     @ConditionalOnMissingBean
     DeadLetterPublishingRecoverer deadLetterPublishingRecoverer(
             KafkaTemplate<?, ?> kafkaTemplate,
             @Value("${spring.application.name}") String applicationName,
-            @Value("${prefab.kafka.dlt.topic.name:}") String dltTopicName
+            @Value("${prefab.dlt.topic.name:}") String dltTopicName
     ) {
         var dltTopic = !isEmpty(dltTopicName) ? dltTopicName : applicationName + ".dlt";
         return new DeadLetterPublishingRecoverer(

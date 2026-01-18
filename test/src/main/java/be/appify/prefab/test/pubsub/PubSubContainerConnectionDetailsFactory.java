@@ -3,7 +3,7 @@ package be.appify.prefab.test.pubsub;
 import be.appify.prefab.core.pubsub.PubSubConnectionDetails;
 import org.springframework.boot.testcontainers.service.connection.ContainerConnectionDetailsFactory;
 import org.springframework.boot.testcontainers.service.connection.ContainerConnectionSource;
-import org.testcontainers.containers.PubSubEmulatorContainer;
+import org.testcontainers.gcloud.PubSubEmulatorContainer;
 
 /**
  * Factory to create {@link PubSubConnectionDetails} for a {@link PubSubEmulatorContainer}.

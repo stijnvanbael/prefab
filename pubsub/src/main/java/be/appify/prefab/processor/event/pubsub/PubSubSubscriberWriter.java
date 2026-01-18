@@ -92,7 +92,7 @@ class PubSubSubscriberWriter {
             PrefabContext context
     ) {
         var constructor = MethodSpec.constructorBuilder().addModifiers(PUBLIC);
-        var concurrency = concurrencyExpression(eventHandlers, context);
+        var concurrency = concurrencyExpression(owner);
         if (concurrency.matches("\\$\\{.+}")) {
             constructor.addParameter(ParameterSpec.builder(String.class, "concurrency")
                     .addAnnotation(AnnotationSpec.builder(Value.class)

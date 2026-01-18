@@ -11,17 +11,16 @@ import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.RetryPolicy;
 import com.google.pubsub.v1.Subscription;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.stereotype.Component;
-
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executor;
-import java.util.function.Consumer;
 
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 
@@ -59,10 +58,10 @@ public class PubSubUtil {
     public PubSubUtil(
             @Value("${spring.cloud.gcp.project-id}") String projectId,
             @Value("${spring.application.name}") String applicationName,
-            @Value("${prefab.pubsub.dlt.topic.name:}") String dltTopicName,
-            @Value("${prefab.pubsub.dlt.retries.limit:5}") Integer maxRetries,
-            @Value("${prefab.pubsub.dlt.retries.minimum-backoff-ms:1000}") Integer minimumBackoff,
-            @Value("${prefab.pubsub.dlt.retries.maximum-backoff-ms:30000}") Integer maximumBackoff,
+            @Value("${prefab.dlt.topic.name:}") String dltTopicName,
+            @Value("${prefab.dlt.retries.limit:5}") Integer maxRetries,
+            @Value("${prefab.dlt.retries.minimum-backoff-ms:1000}") Integer minimumBackoff,
+            @Value("${prefab.dlt.retries.maximum-backoff-ms:30000}") Integer maximumBackoff,
             PubSubAdmin pubSubAdmin,
             PubSubSubscriberTemplate subscriberTemplate,
             JsonUtil jsonUtil

@@ -1,11 +1,11 @@
-package pubsub.multiple;
+package kafka.dltdisabled;
 
 import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
 import org.springframework.stereotype.Component;
 
 @Component
-@EventHandlerConfig(concurrency = "${user-exporter.concurrency:4}")
+@EventHandlerConfig(deadLetteringEnabled = false)
 public class UserExporter {
     @EventHandler
     public void onUserCreated(UserEvent.Created event) {

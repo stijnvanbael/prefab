@@ -4,24 +4,25 @@ import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.ByReference;
 import be.appify.prefab.core.annotations.DbMigration;
 import be.appify.prefab.core.annotations.EventHandler;
+import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.domain.PublishesEvents;
 import be.appify.prefab.example.kafka.user.UserEvent;
 import jakarta.validation.constraints.NotNull;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.PersistenceCreator;
-import org.springframework.data.annotation.Version;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.PersistenceCreator;
+import org.springframework.data.annotation.Version;
 
 @Aggregate
 @GetList
 @DbMigration
 @GetById
+@EventHandlerConfig(concurrency = "4")
 public record Channel(
         @Id String id,
         @Version long version,
@@ -38,7 +39,7 @@ public record Channel(
         publish(new ChannelCreated(id, name));
     }
 
-    @EventHandler(concurrency = "4")
+    @EventHandler
     @ByReference(property = "channel")
     public void onUserSubscribed(UserEvent.SubscribedToChannel event) {
         subscribers.add(event.id());

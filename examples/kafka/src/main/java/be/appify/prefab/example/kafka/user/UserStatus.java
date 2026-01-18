@@ -3,6 +3,7 @@ package be.appify.prefab.example.kafka.user;
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.DbMigration;
 import be.appify.prefab.core.annotations.EventHandler;
+import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.core.annotations.Multicast;
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.annotations.rest.Update;
@@ -10,17 +11,17 @@ import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.example.kafka.message.Message;
 import be.appify.prefab.example.kafka.message.MessageSent;
 import jakarta.validation.constraints.NotNull;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
 @Aggregate
 @DbMigration
 @GetList
+@EventHandlerConfig(concurrency = "4")
 public record UserStatus(
         @Id String id,
         @Version long version,
@@ -41,7 +42,7 @@ public record UserStatus(
         );
     }
 
-    @EventHandler(concurrency = "4")
+    @EventHandler
     @Multicast(
             queryMethod = "findUserStatusesInChannel",
             paramMapping = @Multicast.Param(from = "channel", to = "channel")

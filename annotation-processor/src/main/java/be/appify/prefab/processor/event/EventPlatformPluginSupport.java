@@ -4,10 +4,13 @@ import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
-
+import java.util.List;
+import java.util.Map;
+import java.util.function.BiFunction;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
-import java.util.stream.Stream;
 
 /**
  * Utility class for event platform plugins.
@@ -52,6 +55,24 @@ public class EventPlatformPluginSupport {
         return context.roundEnvironment().getElementsAnnotatedWith(EventHandler.class).stream()
                 .filter(element -> element.getKind() == ElementKind.METHOD)
                 .map(element -> (ExecutableElement) element);
+    }
+
+    /**
+     * Groups event handler methods by their owner type, applying a filter.
+     *
+     * @param context
+     *         prefab context
+     * @param filter
+     *         filter function to apply to each method
+     * @return map of owner type manifests to lists of event handler methods
+     */
+    public static Map<TypeManifest, List<ExecutableElement>> filteredEventHandlersByOwner(
+            PrefabContext context,
+            BiFunction<ExecutableElement, PrefabContext, Boolean> filter
+    ) {
+        return eventHandlers(context)
+                .filter(method -> filter.apply(method, context))
+                .collect(Collectors.groupingBy(method -> ownerOf(context, method)));
     }
 
     /**

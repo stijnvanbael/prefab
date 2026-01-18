@@ -2,7 +2,7 @@ package be.appify.prefab.processor.event;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.core.annotations.EventHandler;
+import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.core.annotations.PartitioningKey;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.PrefabContext;
@@ -222,35 +222,18 @@ public class ConsumerWriterSupport {
     }
 
     /**
-     * Determines the concurrency expression for the given event handlers. This can either be a fixed number or a Spring configuration
-     * property expression.
+     * Retrieves the concurrency expression from the EventHandlerConfig annotation of the given owner type.
      *
-     * @param eventHandlers
-     *         list of event handler methods
-     * @param context
-     *         Prefab context
+     * @param owner
+     *         owner type manifest
      * @return concurrency expression
      */
-    public static String concurrencyExpression(List<ExecutableElement> eventHandlers, PrefabContext context) {
-        return eventHandlers.stream()
-                .reduce((e1, e2) -> {
-                    var concurrency1 = getConcurrency(e1);
-                    var concurrency2 = getConcurrency(e2);
-                    if (!Objects.equals(concurrency1, concurrency2)) {
-                        context.logError(
-                                "Inconsistent concurrency settings for event handlers: %s has [%s], %s has [%s]"
-                                        .formatted(e1.getSimpleName(), concurrency1, e2.getSimpleName(),
-                                                concurrency2),
-                                e2);
-                    }
-                    return e1;
-                })
-                .map(ConsumerWriterSupport::getConcurrency)
+    public static String concurrencyExpression(TypeManifest owner) {
+        return owner.annotationsOfType(EventHandlerConfig.class)
+                .stream()
+                .findFirst()
+                .map(EventHandlerConfig::concurrency)
                 .orElse("1");
-    }
-
-    private static String getConcurrency(ExecutableElement element) {
-        return Objects.requireNonNull(element.getAnnotation(EventHandler.class)).concurrency();
     }
 
     /**

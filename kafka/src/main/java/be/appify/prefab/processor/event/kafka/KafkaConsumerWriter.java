@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.event.kafka;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
 import be.appify.prefab.processor.CaseUtil;
 import be.appify.prefab.processor.JavaFileWriter;
@@ -78,17 +79,27 @@ class KafkaConsumerWriter {
             var eventName = eventType.simpleName().replace(".", "");
             var method = MethodSpec.methodBuilder("on%s".formatted(eventName))
                     .addModifiers(PUBLIC)
-                    .addAnnotation(AnnotationSpec.builder(KafkaListener.class)
-                            .addMember("topics", "$S", annotation.topic())
-                            .addMember("groupId", "$S",
-                                    "${spring.application.name}." + CaseUtil.toKebabCase(owner.simpleName())
-                                            + "-on-" + CaseUtil.toKebabCase(eventName))
-                            .addMember("concurrency", "$S", concurrencyExpression(eventHandlersForEvent.getValue(), context))
-                            .build())
+                    .addAnnotation(kafkaListener(owner, annotation, eventName))
                     .addParameter(eventType.asTypeName(), "event")
                     .addStatement("log.debug($S, event)", "Received event {}");
             support.writeEventHandler(context, type, eventHandlersForEvent, eventType, method);
         }
+    }
+
+    private static AnnotationSpec kafkaListener(TypeManifest owner, Event event, String eventName) {
+        var kafkaListener = AnnotationSpec.builder(KafkaListener.class)
+                .addMember("topics", "$S", event.topic())
+                .addMember("groupId", "$S",
+                        "${spring.application.name}." + CaseUtil.toKebabCase(owner.simpleName())
+                                + "-on-" + CaseUtil.toKebabCase(eventName))
+                .addMember("concurrency", "$S", concurrencyExpression(owner));
+        var customConfig = owner.inheritedAnnotationsOfType(EventHandlerConfig.class).stream().findFirst()
+                .map(EventHandlerConfig.Util::hasCustomConfig)
+                .orElse(false);
+        if (customConfig) {
+            kafkaListener.addMember("errorHandler", "$S", "%sKafkaErrorHandler".formatted(uncapitalize(owner.simpleName())));
+        }
+        return kafkaListener.build();
     }
 
     private static MethodSpec constructor(

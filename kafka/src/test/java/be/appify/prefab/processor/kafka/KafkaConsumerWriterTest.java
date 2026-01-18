@@ -1,10 +1,8 @@
 package be.appify.prefab.processor.kafka;
 
-import org.junit.jupiter.api.Test;
-
 import be.appify.prefab.processor.PrefabProcessor;
-
 import java.io.IOException;
+import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.contentsOf;
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.sourceOf;
@@ -64,5 +62,33 @@ class KafkaConsumerWriterTest {
         assertThat(compilation).generatedSourceFile("kafka.multitopic.infrastructure.kafka.DayTotalKafkaConsumer")
                 .contentsAsUtf8String()
                 .isEqualTo(contentsOf("expected/kafka/multitopic/DayTotalKafkaConsumer.java"));
+    }
+
+    @Test
+    void customDeadLetterTopic() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/customdlt/User.java"),
+                        sourceOf("kafka/customdlt/UserEvent.java"),
+                        sourceOf("kafka/customdlt/UserExporter.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("kafka.customdlt.infrastructure.kafka.UserExporterKafkaConsumer")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("expected/kafka/customdlt/UserExporterKafkaConsumer.java"));
+    }
+
+    @Test
+    void deadLetterTopicDisabled() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/dltdisabled/User.java"),
+                        sourceOf("kafka/dltdisabled/UserEvent.java"),
+                        sourceOf("kafka/dltdisabled/UserExporter.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("kafka.dltdisabled.infrastructure.kafka.UserExporterKafkaConsumer")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("expected/kafka/dltdisabled/UserExporterKafkaConsumer.java"));
     }
 }

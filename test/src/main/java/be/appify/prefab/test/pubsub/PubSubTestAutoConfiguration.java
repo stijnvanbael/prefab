@@ -9,14 +9,13 @@ import com.google.cloud.spring.autoconfigure.pubsub.GcpPubSubProperties;
 import com.google.cloud.spring.pubsub.PubSubAdmin;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import javax.annotation.PreDestroy;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.DynamicPropertyRegistrar;
-import org.testcontainers.containers.PubSubEmulatorContainer;
-
-import javax.annotation.PreDestroy;
+import org.testcontainers.gcloud.PubSubEmulatorContainer;
 
 /**
  * Autoconfiguration for Pub/Sub tests.
@@ -29,7 +28,7 @@ public class PubSubTestAutoConfiguration {
 
     static final PubSubEmulatorContainer pubSubEmulatorContainer = new PubSubEmulatorContainer(
             "gcr.io/google.com/cloudsdktool/cloud-sdk:529.0.0-emulators")
-            .withReuse(true)
+            .withReuse(false)
             .withExposedPorts(8085, 8086);
 
     static {

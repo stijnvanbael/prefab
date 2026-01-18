@@ -12,12 +12,5 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.SOURCE)
 public @interface EventHandler {
-    /**
-     * Configure the number of parallel threads to process events. Concurrency can either be a fixed number (e.g. "4")
-     * or a property placeholder (e.g. "${event.handler.concurrency}").
-     *
-     * @return The number of parallel threads to process events.
-     */
-    String concurrency() default "1";
 
 }

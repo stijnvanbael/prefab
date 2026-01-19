@@ -9,7 +9,7 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 public @interface EventHandlerConfig {
 
-    String DEFAULT_DLT_TOPIC = "${prefab.dlt.topic.name}";
+    String DEFAULT_DEAD_LETTER_TOPIC = "${prefab.dlt.topic.name}";
 
     /**
      * Configure the number of parallel threads to process events. Concurrency can either be a fixed number (e.g. "4") or a property
@@ -31,7 +31,7 @@ public @interface EventHandlerConfig {
      *
      * @return The dead letter topic.
      */
-    String deadLetterTopic() default DEFAULT_DLT_TOPIC;
+    String deadLetterTopic() default DEFAULT_DEAD_LETTER_TOPIC;
 
     /**
      * Utility interface providing helper methods to evaluate configuration properties
@@ -46,7 +46,7 @@ public @interface EventHandlerConfig {
          * @return {@code true} if the configuration is custom, {@code false} otherwise.
          */
         static boolean hasCustomConfig(EventHandlerConfig config) {
-            return !config.deadLetteringEnabled() || !DEFAULT_DLT_TOPIC.equals(config.deadLetterTopic());
+            return config != null && !config.deadLetteringEnabled() || !DEFAULT_DEAD_LETTER_TOPIC.equals(config.deadLetterTopic());
         }
 
         /**
@@ -57,8 +57,8 @@ public @interface EventHandlerConfig {
          * @param config The {@link EventHandlerConfig} to evaluate.
          * @return {@code true} if the dead letter topic is custom, {@code false} otherwise.
          */
-        static boolean hasCustomDltTopic(EventHandlerConfig config) {
-            return config.deadLetteringEnabled() && !DEFAULT_DLT_TOPIC.equals(config.deadLetterTopic());
+        static boolean hasCustomDeadLetterTopic(EventHandlerConfig config) {
+            return config != null && config.deadLetteringEnabled() && !DEFAULT_DEAD_LETTER_TOPIC.equals(config.deadLetterTopic());
         }
     }
 }

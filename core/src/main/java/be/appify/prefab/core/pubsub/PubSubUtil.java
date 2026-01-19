@@ -13,9 +13,7 @@ import com.google.pubsub.v1.RetryPolicy;
 import com.google.pubsub.v1.Subscription;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executor;
 import java.util.function.Consumer;
-import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,8 +23,7 @@ import org.springframework.stereotype.Component;
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 
 /**
- * Utility class for managing Pub/Sub topics and subscriptions,
- * and for subscribing to messages with optional dead-letter handling.
+ * Utility class for managing Pub/Sub topics and subscriptions, and for subscribing to messages with optional dead-letter handling.
  */
 @Component
 @ConditionalOnClass(PubSubAdmin.class)
@@ -40,25 +37,34 @@ public class PubSubUtil {
     private final PubSubSubscriberTemplate subscriberTemplate;
     private final JsonUtil jsonUtil;
     private final ConcurrentMap<String, Class<?>> messageTypes = new ConcurrentHashMap<>();
-    private final String dltTopicName;
+    private final String deadLetterTopicName;
 
     /**
      * Constructs a new PubSubUtil with the given configuration and dependencies.
      *
-     * @param projectId        the GCP project ID
-     * @param applicationName  the application name
-     * @param dltTopicName     the dead-letter topic name
-     * @param maxRetries      the maximum number of retries for dead-letter handling
-     * @param minimumBackoff  the minimum backoff time in milliseconds
-     * @param maximumBackoff  the maximum backoff time in milliseconds
-     * @param pubSubAdmin     the Pub/Sub admin client
-     * @param subscriberTemplate the Pub/Sub subscriber template
-     * @param jsonUtil        the JSON utility for serialization/deserialization
+     * @param projectId
+     *         the GCP project ID
+     * @param applicationName
+     *         the application name
+     * @param deadLetterTopicName
+     *         the dead-letter topic name
+     * @param maxRetries
+     *         the maximum number of retries for dead-letter handling
+     * @param minimumBackoff
+     *         the minimum backoff time in milliseconds
+     * @param maximumBackoff
+     *         the maximum backoff time in milliseconds
+     * @param pubSubAdmin
+     *         the Pub/Sub admin client
+     * @param subscriberTemplate
+     *         the Pub/Sub subscriber template
+     * @param jsonUtil
+     *         the JSON utility for serialization/deserialization
      */
     public PubSubUtil(
             @Value("${spring.cloud.gcp.project-id}") String projectId,
             @Value("${spring.application.name}") String applicationName,
-            @Value("${prefab.dlt.topic.name:}") String dltTopicName,
+            @Value("${prefab.dlt.name:}") String deadLetterTopicName,
             @Value("${prefab.dlt.retries.limit:5}") Integer maxRetries,
             @Value("${prefab.dlt.retries.minimum-backoff-ms:1000}") Integer minimumBackoff,
             @Value("${prefab.dlt.retries.maximum-backoff-ms:30000}") Integer maximumBackoff,
@@ -73,18 +79,22 @@ public class PubSubUtil {
         this.pubSubAdmin = pubSubAdmin;
         this.subscriberTemplate = subscriberTemplate;
         this.jsonUtil = jsonUtil;
-        this.dltTopicName = !isEmpty(dltTopicName) ? dltTopicName : applicationName + ".dlt";
+        this.deadLetterTopicName = !isEmpty(deadLetterTopicName) ? deadLetterTopicName : applicationName + ".dlt";
     }
 
     /**
-     * Subscribes to a Pub/Sub topic with the given subscription name and message type,
-     * using the provided consumer to process messages.
+     * Subscribes to a Pub/Sub topic with the given subscription name and message type, using the provided consumer to process messages.
      *
-     * @param topic        the Pub/Sub topic name
-     * @param subscription the subscription name
-     * @param type         the class type of the messages
-     * @param consumer     the consumer to process messages
-     * @param <T>          the type of the messages
+     * @param topic
+     *         the Pub/Sub topic name
+     * @param subscription
+     *         the subscription name
+     * @param type
+     *         the class type of the messages
+     * @param consumer
+     *         the consumer to process messages
+     * @param <T>
+     *         the type of the messages
      */
     public <T> void subscribe(
             String topic,
@@ -92,31 +102,26 @@ public class PubSubUtil {
             Class<T> type,
             Consumer<T> consumer
     ) {
-        subscribe(topic, subscription, type, consumer, Runnable::run);
+        subscribe(new SubscribeRequest<>(topic, subscription, type, consumer));
     }
 
     /**
-     * Subscribes to a Pub/Sub topic with the given subscription name and message type,
-     * using the provided consumer to process messages asynchronously with the given executor.
+     * Subscribes to a Pub/Sub topic using the provided subscribe request.
      *
-     * @param topic        the Pub/Sub topic name
-     * @param subscription the subscription name
-     * @param type         the class type of the messages
-     * @param consumer     the consumer to process messages
-     * @param executor     the executor to run the consumer
-     * @param <T>          the type of the messages
+     * @param request
+     *         the subscribe request containing subscription details
+     * @param <T>
+     *         the type of the messages
      */
-    public <T> void subscribe(
-            String topic,
-            String subscription,
-            Class<T> type,
-            Consumer<T> consumer,
-            Executor executor
-    ) {
-        var topicName = ensureTopicExists(topic);
-        var subscriptionName = ensureSubscriptionExists(subscription, topicName, true);
+    public <T> void subscribe(SubscribeRequest<T> request) {
+        var topicName = ensureTopicExists(request.topic());
+        var subscriptionName = ensureSubscriptionExists(
+                request.subscription(),
+                topicName,
+                request.isUsingDefaultDeadLetterPolicy() ? deadLetterPolicy(deadLetterTopicName) : request.deadLetterPolicy()
+        );
         subscriberTemplate.subscribe(subscriptionName, message ->
-                executor.execute(() -> consume(type, consumer, message)));
+                request.executor().execute(() -> consume(request.type(), request.consumer(), message)));
     }
 
     private <T> void consume(Class<T> type, Consumer<T> consumer, BasicAcknowledgeablePubsubMessage message) {
@@ -127,7 +132,7 @@ public class PubSubUtil {
             } else {
                 consumer.accept(jsonUtil.parseJson(pubsubMessage.getData().toStringUtf8(), type));
             }
-            message.ack(); // TODO: delivery semantics
+            message.ack();
         } catch (Exception e) {
             log.error("Error processing Pub/Sub message: {}", pubsubMessage.getData().toStringUtf8(), e);
             message.nack();
@@ -152,7 +157,8 @@ public class PubSubUtil {
     /**
      * Ensures that the specified Pub/Sub topic exists, creating it if necessary.
      *
-     * @param topic the topic name
+     * @param topic
+     *         the topic name
      * @return the fully qualified topic name
      */
     public String ensureTopicExists(String topic) {
@@ -192,7 +198,7 @@ public class PubSubUtil {
     private String ensureSubscriptionExists(
             String subscription,
             String fullyQualifiedTopic,
-            boolean withDeadLetterPolicy
+            DeadLetterPolicy deadLetterPolicy
     ) {
         var subscriptionName = ProjectSubscriptionName.of(projectId, subscription).toString();
         if (pubSubAdmin.getSubscription(subscriptionName) == null) {
@@ -200,13 +206,8 @@ public class PubSubUtil {
                     .setName(subscriptionName)
                     .setTopic(fullyQualifiedTopic)
                     .setEnableMessageOrdering(true);
-            if (withDeadLetterPolicy) {
-                var deadLetterTopic = ensureTopicExists(dltTopicName);
-                ensureSubscriptionExists(dltTopicName + "-on-error", deadLetterTopic, false);
-                subscriptionBuilder.setDeadLetterPolicy(DeadLetterPolicy.newBuilder()
-                        .setDeadLetterTopic(deadLetterTopic)
-                        .setMaxDeliveryAttempts(maxRetries)
-                        .build());
+            if (deadLetterPolicy != null) {
+                subscriptionBuilder.setDeadLetterPolicy(deadLetterPolicy);
                 subscriptionBuilder.setRetryPolicy(RetryPolicy.newBuilder()
                         .setMinimumBackoff(toDuration(minimumBackoff))
                         .setMaximumBackoff(toDuration(maximumBackoff)));
@@ -217,7 +218,16 @@ public class PubSubUtil {
         return subscriptionName;
     }
 
-    private @NonNull Duration toDuration(Integer duration) {
+    private DeadLetterPolicy deadLetterPolicy(String deadLetterTopicName) {
+        var deadLetterTopic = ensureTopicExists(deadLetterTopicName);
+        ensureSubscriptionExists(deadLetterTopicName + "-on-error", deadLetterTopic, null);
+        return DeadLetterPolicy.newBuilder()
+                .setDeadLetterTopic(deadLetterTopic)
+                .setMaxDeliveryAttempts(maxRetries)
+                .build();
+    }
+
+    private Duration toDuration(Integer duration) {
         return Duration.newBuilder()
                 .setSeconds(duration / 1000)
                 .setNanos((duration % 1000) * 1000000)
@@ -227,7 +237,8 @@ public class PubSubUtil {
     /**
      * Deletes the specified Pub/Sub subscription if it exists.
      *
-     * @param subscription the subscription name to delete
+     * @param subscription
+     *         the subscription name to delete
      */
     public void deleteSubscription(String subscription) {
         var subscriptionName = ProjectSubscriptionName.of(projectId, subscription).toString();

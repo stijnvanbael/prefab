@@ -1,6 +1,7 @@
 package pubsub.multitopic.infrastructure.pubsub;
 
 import be.appify.prefab.core.pubsub.PubSubUtil;
+import be.appify.prefab.core.pubsub.SubscribeRequest;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
@@ -23,8 +24,10 @@ public class DayTotalPubSubSubscriber {
             @Value("${topic.sale.name}") String saleCreatedTopic,
             @Value("${topic.refund.name}") String refundCreatedTopic) {
         executor = Executors.newFixedThreadPool(1);
-        pubSub.subscribe(saleCreatedTopic, "day-total-on-sale-created", Sale.Created.class, this::onSaleCreated, executor);
-        pubSub.subscribe(refundCreatedTopic, "day-total-on-refund-created", Refund.Created.class, this::onRefundCreated, executor);
+        pubSub.subscribe(new SubscribeRequest<Sale.Created>(saleCreatedTopic, "day-total-on-sale-created", Sale.Created.class, this::onSaleCreated)
+                .withExecutor(executor));
+        pubSub.subscribe(new SubscribeRequest<Refund.Created>(refundCreatedTopic, "day-total-on-refund-created", Refund.Created.class, this::onRefundCreated)
+                .withExecutor(executor));
         this.dayTotalService = dayTotalService;
     }
 

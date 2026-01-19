@@ -1,17 +1,22 @@
 package be.appify.prefab.processor.event.pubsub;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.core.pubsub.PubSubUtil;
+import be.appify.prefab.core.pubsub.SubscribeRequest;
 import be.appify.prefab.processor.CaseUtil;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.event.ConsumerWriterSupport;
+import com.google.pubsub.v1.DeadLetterPolicy;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
+import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import static be.appify.prefab.core.annotations.EventHandlerConfig.Util.hasCustomDeadLetterTopic;
 import static be.appify.prefab.processor.event.ConsumerWriterSupport.concurrencyExpression;
 import static java.util.stream.Collectors.groupingBy;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -116,23 +122,51 @@ class PubSubSubscriberWriter {
         var eventName = eventType.simpleName().replace(".", "");
         if (topic.matches("\\$\\{.+}")) {
             constructor.addParameter(ParameterSpec.builder(String.class, topicVariableName)
-                            .addAnnotation(AnnotationSpec.builder(Value.class)
-                                    .addMember("value", "$S", topic)
-                                    .build())
+                    .addAnnotation(AnnotationSpec.builder(Value.class)
+                            .addMember("value", "$S", topic)
                             .build())
-                    .addStatement("pubSub.subscribe($L, $S, $T.class, this::on$L, executor)",
-                            topicVariableName,
-                            CaseUtil.toKebabCase(owner.simpleName()) + "-on-" + CaseUtil.toKebabCase(
-                                    eventName),
-                            eventType.asTypeName(),
-                            eventName);
-        } else {
-            constructor.addStatement("pubSub.subscribe($S, $S, $T.class, this::on$L, executor)",
-                    topic,
-                    CaseUtil.toKebabCase(owner.simpleName()) + "-on-" + CaseUtil.toKebabCase(
-                            eventName),
-                    eventType.asTypeName(),
-                    eventName);
+                    .build());
         }
+        var eventHandlerConfig = owner.inheritedAnnotationsOfType(EventHandlerConfig.class).stream().findFirst().orElse(null);
+        if (hasCustomDeadLetterTopic(eventHandlerConfig) && eventHandlerConfig.deadLetterTopic().matches("\\$\\{.+}")) {
+            constructor.addParameter(ParameterSpec.builder(String.class, "deadLetterTopic")
+                    .addAnnotation(AnnotationSpec.builder(Value.class)
+                            .addMember("value", "$S", eventHandlerConfig.deadLetterTopic())
+                            .build())
+                    .build());
+        }
+        constructor.addStatement("""
+                        pubSub.subscribe(new $T($L, $S, $T.class, this::on$L)
+                        .withExecutor(executor)$L)""",
+                ParameterizedTypeName.get(ClassName.get(SubscribeRequest.class),
+                        eventType.asTypeName()),
+                topic.matches("\\$\\{.+}") ? topicVariableName : CodeBlock.of("$S", topic),
+                CaseUtil.toKebabCase(owner.simpleName()) + "-on-" + CaseUtil.toKebabCase(
+                        eventName),
+                eventType.asTypeName(),
+                eventName,
+                deadLetterPolicy(eventHandlerConfig));
+    }
+
+    private static CodeBlock deadLetterPolicy(EventHandlerConfig eventHandlerConfig) {
+        if (eventHandlerConfig != null) {
+            if (hasCustomDeadLetterTopic(eventHandlerConfig)) {
+                return CodeBlock.of("""
+                                
+                                .withDeadLetterPolicy($T.newBuilder()
+                                    .setDeadLetterTopic($L)
+                                    .build())""",
+                        DeadLetterPolicy.class,
+                        eventHandlerConfig.deadLetterTopic().matches("\\$\\{.+}")
+                                ? "deadLetterTopic"
+                                : CodeBlock.of("$S", eventHandlerConfig.deadLetterTopic())
+                );
+            } else if (!eventHandlerConfig.deadLetteringEnabled()) {
+                return CodeBlock.of("""
+                        
+                        .withDeadLetterPolicy(null)""");
+            }
+        }
+        return CodeBlock.of("");
     }
 }

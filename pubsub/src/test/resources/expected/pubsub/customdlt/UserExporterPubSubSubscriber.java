@@ -1,15 +1,16 @@
-package pubsub.multiple.infrastructure.pubsub;
+package pubsub.customdlt.infrastructure.pubsub;
 
 import be.appify.prefab.core.pubsub.PubSubUtil;
 import be.appify.prefab.core.pubsub.SubscribeRequest;
+import com.google.pubsub.v1.DeadLetterPolicy;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import pubsub.multiple.UserEvent;
-import pubsub.multiple.UserExporter;
+import pubsub.customdlt.UserEvent;
+import pubsub.customdlt.UserExporter;
 
 @Component
 public class UserExporterPubSubSubscriber {
@@ -19,12 +20,15 @@ public class UserExporterPubSubSubscriber {
 
     private final UserExporter userExporter;
 
-    public UserExporterPubSubSubscriber(@Value("${user-exporter.concurrency:4}") String concurrency,
-            UserExporter userExporter, PubSubUtil pubSub,
-            @Value("${topic.user.name}") String userEventTopic) {
-        executor = Executors.newFixedThreadPool(Integer.parseInt(concurrency));
+    public UserExporterPubSubSubscriber(UserExporter userExporter, PubSubUtil pubSub,
+            @Value("${topic.user.name}") String userEventTopic,
+            @Value("${custom.dlt.name}") String deadLetterTopic) {
+        executor = Executors.newFixedThreadPool(1);
         pubSub.subscribe(new SubscribeRequest<UserEvent>(userEventTopic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
-                .withExecutor(executor));
+                .withExecutor(executor)
+                .withDeadLetterPolicy(DeadLetterPolicy.newBuilder()
+                    .setDeadLetterTopic(deadLetterTopic)
+                    .build()));
         this.userExporter = userExporter;
     }
 

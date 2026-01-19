@@ -1,10 +1,8 @@
 package be.appify.prefab.processor.pubsub;
 
-import org.junit.jupiter.api.Test;
-
 import be.appify.prefab.processor.PrefabProcessor;
-
 import java.io.IOException;
+import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.pubsub.ProcessorTestUtil.contentsOf;
 import static be.appify.prefab.processor.pubsub.ProcessorTestUtil.sourceOf;
@@ -65,5 +63,35 @@ class PubSubSubscriberWriterTest {
         assertThat(compilation).generatedSourceFile("pubsub.multitopic.infrastructure.pubsub.DayTotalPubSubSubscriber")
                 .contentsAsUtf8String()
                 .isEqualTo(contentsOf("expected/pubsub/multitopic/DayTotalPubSubSubscriber.java"));
+    }
+
+    @Test
+    void customDlt() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("pubsub/customdlt/User.java"),
+                        sourceOf("pubsub/customdlt/UserEvent.java"),
+                        sourceOf("pubsub/customdlt/UserExporter.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile(
+                        "pubsub.customdlt.infrastructure.pubsub.UserExporterPubSubSubscriber")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("expected/pubsub/customdlt/UserExporterPubSubSubscriber.java"));
+    }
+
+    @Test
+    void dltDisabled() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("pubsub/dltdisabled/User.java"),
+                        sourceOf("pubsub/dltdisabled/UserEvent.java"),
+                        sourceOf("pubsub/dltdisabled/UserExporter.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile(
+                        "pubsub.dltdisabled.infrastructure.pubsub.UserExporterPubSubSubscriber")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("expected/pubsub/dltdisabled/UserExporterPubSubSubscriber.java"));
     }
 }

@@ -1,14 +1,14 @@
 ---
 id: task-076
 title: Flaky test in PubSub Example
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-08 18:09'
-updated_date: '2026-01-16 07:31'
+updated_date: '2026-01-19 17:32'
 labels:
   - "\U0001F41Ebug"
 dependencies: []
-ordinal: 1000
+ordinal: 9000
 ---
 
 ## Description

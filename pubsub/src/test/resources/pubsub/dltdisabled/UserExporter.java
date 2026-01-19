@@ -1,11 +1,11 @@
-package kafka.customdlt;
+package pubsub.dltdisabled;
 
 import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
 import org.springframework.stereotype.Component;
 
 @Component
-@EventHandlerConfig(deadLetterTopic = "${custom.dlt.name}")
+@EventHandlerConfig(deadLetteringEnabled = false)
 public class UserExporter {
     @EventHandler
     public void onUserCreated(UserEvent.Created event) {

@@ -1,4 +1,4 @@
-package pubsub.multiple.infrastructure.pubsub;
+package pubsub.dltdisabled.infrastructure.pubsub;
 
 import be.appify.prefab.core.pubsub.PubSubUtil;
 import be.appify.prefab.core.pubsub.SubscribeRequest;
@@ -8,8 +8,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import pubsub.multiple.UserEvent;
-import pubsub.multiple.UserExporter;
+import pubsub.dltdisabled.UserEvent;
+import pubsub.dltdisabled.UserExporter;
 
 @Component
 public class UserExporterPubSubSubscriber {
@@ -19,12 +19,12 @@ public class UserExporterPubSubSubscriber {
 
     private final UserExporter userExporter;
 
-    public UserExporterPubSubSubscriber(@Value("${user-exporter.concurrency:4}") String concurrency,
-            UserExporter userExporter, PubSubUtil pubSub,
+    public UserExporterPubSubSubscriber(UserExporter userExporter, PubSubUtil pubSub,
             @Value("${topic.user.name}") String userEventTopic) {
-        executor = Executors.newFixedThreadPool(Integer.parseInt(concurrency));
+        executor = Executors.newFixedThreadPool(1);
         pubSub.subscribe(new SubscribeRequest<UserEvent>(userEventTopic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
-                .withExecutor(executor));
+                .withExecutor(executor)
+                .withDeadLetterPolicy(null));
         this.userExporter = userExporter;
     }
 

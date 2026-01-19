@@ -157,12 +157,12 @@ public class KafkaConfiguration {
     DeadLetterPublishingRecoverer deadLetterPublishingRecoverer(
             KafkaTemplate<?, ?> kafkaTemplate,
             @Value("${spring.application.name}") String applicationName,
-            @Value("${prefab.dlt.topic.name:}") String dltTopicName
+            @Value("${prefab.dlt.topic.name:}") String deadLetterTopicName
     ) {
-        var dltTopic = !isEmpty(dltTopicName) ? dltTopicName : applicationName + ".dlt";
+        var deadLetterTopic = !isEmpty(deadLetterTopicName) ? deadLetterTopicName : applicationName + ".dlt";
         return new DeadLetterPublishingRecoverer(
                 Map.of(Object.class, kafkaTemplate),
-                (record, ex) -> new TopicPartition(dltTopic, -1)
+                (record, ex) -> new TopicPartition(deadLetterTopic, -1)
         );
     }
 }

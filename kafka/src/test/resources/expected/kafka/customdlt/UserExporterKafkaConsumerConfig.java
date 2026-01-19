@@ -47,6 +47,6 @@ public class UserExporterKafkaConsumerConfig {
             KafkaTemplate<?, ?> kafkaTemplate) {
         return new DeadLetterPublishingRecoverer(
                     Map.of(Object.class, kafkaTemplate),
-                    (record, ex) -> new TopicPartition("${custom.dlt.topic}", -1));
+                    (record, ex) -> new TopicPartition("${custom.dlt.name}", -1));
     }
 }

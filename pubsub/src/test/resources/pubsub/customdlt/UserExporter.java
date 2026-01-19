@@ -1,4 +1,4 @@
-package kafka.customdlt;
+package pubsub.customdlt;
 
 import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.annotations.EventHandlerConfig;

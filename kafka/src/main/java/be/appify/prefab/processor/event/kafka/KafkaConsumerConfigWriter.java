@@ -28,7 +28,7 @@ import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
 
-import static be.appify.prefab.core.annotations.EventHandlerConfig.Util.hasCustomDltTopic;
+import static be.appify.prefab.core.annotations.EventHandlerConfig.Util.hasCustomDeadLetterTopic;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
@@ -48,7 +48,7 @@ class KafkaConsumerConfigWriter {
                 .addAnnotation(Configuration.class)
                 .addModifiers(PUBLIC)
                 .addMethod(dltErrorHandlerMethod(owner, config));
-        if (hasCustomDltTopic(config)) {
+        if (hasCustomDeadLetterTopic(config)) {
             type.addMethod(deadLetterPublishingRecovererMethod(owner, config));
         }
         fileWriter.writeFile(packageName, name, type.build());
@@ -71,7 +71,7 @@ class KafkaConsumerConfigWriter {
                                 .build())
                         .build());
         if (config.deadLetteringEnabled()) {
-            if (hasCustomDltTopic(config)) {
+            if (hasCustomDeadLetterTopic(config)) {
                 method.addParameter(ParameterSpec.builder(DeadLetterPublishingRecoverer.class, "deadLetteringRecoverer")
                         .addAnnotation(AnnotationSpec.builder(Qualifier.class)
                                 .addMember("value", "$S", "%sDeadLetterPublishingRecoverer".formatted(uncapitalize(owner.simpleName())))

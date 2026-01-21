@@ -4,6 +4,7 @@ import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.ByReference;
 import be.appify.prefab.core.annotations.DbMigration;
 import be.appify.prefab.core.annotations.EventHandler;
+import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.GetList;
@@ -21,6 +22,7 @@ import org.springframework.data.annotation.Version;
 @GetList
 @DbMigration
 @GetById
+@EventHandlerConfig(concurrency = "4")
 public record Channel(
         @Id String id,
         @Version long version,

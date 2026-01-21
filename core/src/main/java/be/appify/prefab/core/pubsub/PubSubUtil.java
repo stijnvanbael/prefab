@@ -18,6 +18,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.core.retry.RetryException;
+import org.springframework.core.retry.RetryTemplate;
 import org.springframework.stereotype.Component;
 
 import static org.apache.commons.lang3.StringUtils.isEmpty;
@@ -38,6 +40,7 @@ public class PubSubUtil {
     private final JsonUtil jsonUtil;
     private final ConcurrentMap<String, Class<?>> messageTypes = new ConcurrentHashMap<>();
     private final String deadLetterTopicName;
+    private final RetryTemplate retryTemplate;
 
     /**
      * Constructs a new PubSubUtil with the given configuration and dependencies.
@@ -68,6 +71,7 @@ public class PubSubUtil {
             @Value("${prefab.dlt.retries.limit:5}") Integer maxRetries,
             @Value("${prefab.dlt.retries.minimum-backoff-ms:1000}") Integer minimumBackoff,
             @Value("${prefab.dlt.retries.maximum-backoff-ms:30000}") Integer maximumBackoff,
+            @Value("${prefab.dlt.retries.multiplier:1.5}") Float backoffMultiplier,
             PubSubAdmin pubSubAdmin,
             PubSubSubscriberTemplate subscriberTemplate,
             JsonUtil jsonUtil
@@ -80,6 +84,12 @@ public class PubSubUtil {
         this.subscriberTemplate = subscriberTemplate;
         this.jsonUtil = jsonUtil;
         this.deadLetterTopicName = !isEmpty(deadLetterTopicName) ? deadLetterTopicName : applicationName + ".dlt";
+        this.retryTemplate = new RetryTemplate(org.springframework.core.retry.RetryPolicy.builder()
+                .maxRetries(maxRetries)
+                .delay(java.time.Duration.ofMillis(minimumBackoff))
+                .maxDelay(java.time.Duration.ofMillis(maximumBackoff))
+                .multiplier(backoffMultiplier)
+                .build());
     }
 
     /**
@@ -125,18 +135,26 @@ public class PubSubUtil {
     }
 
     private <T> void consume(Class<T> type, Consumer<T> consumer, BasicAcknowledgeablePubsubMessage message) {
-        var pubsubMessage = message.getPubsubMessage();
         try {
-            if (pubsubMessage.containsAttributes("type")) {
-                consumeTyped(type, consumer, pubsubMessage);
-            } else {
-                consumer.accept(jsonUtil.parseJson(pubsubMessage.getData().toStringUtf8(), type));
-            }
-            message.ack();
-        } catch (Exception e) {
-            log.error("Error processing Pub/Sub message: {}", pubsubMessage.getData().toStringUtf8(), e);
+            retryTemplate.execute(() -> {
+                var pubsubMessage = message.getPubsubMessage();
+                try {
+                    if (pubsubMessage.containsAttributes("type")) {
+                        consumeTyped(type, consumer, pubsubMessage);
+                    } else {
+                        consumer.accept(jsonUtil.parseJson(pubsubMessage.getData().toStringUtf8(), type));
+                    }
+                    message.ack();
+                } catch (Exception e) {
+                    log.warn("Error processing Pub/Sub message: {}, cause: {}", pubsubMessage.getData().toStringUtf8(), e.getCause().getMessage());
+                    throw e;
+                }
+                return null;
+            });
+        } catch (RetryException e) {
             message.nack();
-            throw e;
+            log.error("Retries exhausted when processing Pub/Sub message: {}", message, e);
+            throw new RuntimeException(e);
         }
     }
 

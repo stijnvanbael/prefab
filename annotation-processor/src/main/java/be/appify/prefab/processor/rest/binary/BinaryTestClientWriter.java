@@ -3,12 +3,11 @@ package be.appify.prefab.processor.rest.binary;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.rest.ControllerUtil;
+import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
-
 import javax.lang.model.element.Modifier;
 
+import static be.appify.prefab.processor.TestClasses.MOCK_MVC_RESULT_MATCHERS;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 
 class BinaryTestClientWriter {
@@ -26,10 +25,10 @@ class BinaryTestClientWriter {
                                 .andReturn()
                                 .getResponse()
                                 .getContentAsByteArray()""",
-                        MockMvcRequestBuilders.class,
+                        ClassName.get("org.springframework.test.web.servlet.request", "MockMvcRequestBuilders"),
                         "/" + ControllerUtil.pathOf(manifest) + "/{id}/" + field.name(),
                         manifest.parent().map(parent -> parent.name() + ", ").orElse("") + "id",
-                        MockMvcResultMatchers.class)
+                        MOCK_MVC_RESULT_MATCHERS)
                 .build();
     }
 }

@@ -402,7 +402,16 @@ public record Sale(
 
 ### 🛡️ Security
 
-Define an OAuth2 client registration in your `application.yml` to enable security:
+Add the `prefab-security` dependency to your `pom.xml` to enable security features in Prefab.
+
+```xml
+<dependency>
+    <groupId>be.appify.prefab</groupId>
+    <artifactId>prefab-security</artifactId>
+</dependency>
+```
+
+Define an OAuth2 client registration in your `application.yml`:
 
 ```yaml
 spring:

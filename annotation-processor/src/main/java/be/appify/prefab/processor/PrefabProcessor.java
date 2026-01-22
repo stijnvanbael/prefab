@@ -2,7 +2,11 @@ package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import com.google.auto.service.AutoService;
-
+import java.util.List;
+import java.util.ServiceLoader;
+import java.util.Set;
+import java.util.Spliterators;
+import java.util.stream.StreamSupport;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
@@ -11,11 +15,6 @@ import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
-import java.util.List;
-import java.util.ServiceLoader;
-import java.util.Set;
-import java.util.Spliterators;
-import java.util.stream.StreamSupport;
 
 /**
  * Annotation processor for Prefab framework that generates code based on annotated aggregates.

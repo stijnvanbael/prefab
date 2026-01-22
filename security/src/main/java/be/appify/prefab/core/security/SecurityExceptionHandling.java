@@ -1,4 +1,4 @@
-package be.appify.prefab.core.problem;
+package be.appify.prefab.core.security;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
@@ -10,7 +10,7 @@ import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 @ControllerAdvice
-class ExceptionHandling {
+class SecurityExceptionHandling {
     @ResponseStatus(value = UNAUTHORIZED)
     @ExceptionHandler(InsufficientAuthenticationException.class)
     void handleInsufficientAuthentication() {

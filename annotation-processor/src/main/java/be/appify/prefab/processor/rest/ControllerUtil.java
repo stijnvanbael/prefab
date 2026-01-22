@@ -11,17 +11,13 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
-import org.springframework.data.domain.Sort;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-
-import javax.lang.model.element.Modifier;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import javax.lang.model.element.Modifier;
+import org.springframework.data.domain.Sort;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 
 import static be.appify.prefab.processor.CaseUtil.toKebabCase;
 import static org.apache.commons.text.WordUtils.capitalize;
@@ -31,6 +27,18 @@ import static org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE;
 
 /** Utility class for controller-related operations. */
 public class ControllerUtil {
+
+    private static final ClassName PRE_AUTHORIZE = ClassName.get("org.springframework.security.access.prepost", "PreAuthorize");
+    public static final boolean SECURITY_INCLUDED = isSecurityIncluded();
+
+    private static boolean isSecurityIncluded() {
+        try {
+            Class.forName("org.springframework.security.access.prepost.PreAuthorize");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
 
     private ControllerUtil() {
     }
@@ -44,7 +52,7 @@ public class ControllerUtil {
      */
     public static String pathOf(ClassManifest manifest) {
         var parentPath = manifest.parent()
-                .map(parent -> "%s/{%sId}/".formatted(
+                .map(parent -> "%s/{%sId}/" .formatted(
                         toKebabCase(plural(parent.type().parameters().getFirst().simpleName())),
                         uncapitalize(parent.name())))
                 .orElse("");
@@ -73,16 +81,19 @@ public class ControllerUtil {
      * @return an Optional containing the AnnotationSpec if security is enabled, otherwise an empty Optional
      */
     public static Optional<AnnotationSpec> securedAnnotation(Security security) {
+        if (!SECURITY_INCLUDED) {
+            return Optional.empty();
+        }
         if (!security.enabled()) {
-            return Optional.of(AnnotationSpec.builder(PreAuthorize.class)
+            return Optional.of(AnnotationSpec.builder(PRE_AUTHORIZE)
                     .addMember("value", "$S", "permitAll()")
                     .build());
         }
         return !security.authority().isEmpty() ?
-                Optional.of(AnnotationSpec.builder(PreAuthorize.class)
-                        .addMember("value", "$S", "hasAuthority('%s')".formatted(security.authority()))
+                Optional.of(AnnotationSpec.builder(PRE_AUTHORIZE)
+                        .addMember("value", "$S", "hasAuthority('%s')" .formatted(security.authority()))
                         .build()) :
-                Optional.of(AnnotationSpec.builder(PreAuthorize.class)
+                Optional.of(AnnotationSpec.builder(PRE_AUTHORIZE)
                         .addMember("value", "$S", "isAuthenticated()")
                         .build());
     }
@@ -95,13 +106,16 @@ public class ControllerUtil {
      * @return a CodeBlock for mocking a user if security is enabled, otherwise an empty CodeBlock
      */
     public static CodeBlock withMockUser(Security security) {
+        if (!SECURITY_INCLUDED) {
+            return CodeBlock.of("");
+        }
         return security.enabled() ?
                 CodeBlock.of("\n.with($T.user(\"test\")$L)",
-                        SecurityMockMvcRequestPostProcessors.class,
+                        ClassName.get("org.springframework.security.test.web.servlet.request", "SecurityMockMvcRequestPostProcessors"),
                         security.authority().isEmpty()
                                 ? CodeBlock.of("")
                                 : CodeBlock.of(".authorities(new $T($S))",
-                                        SimpleGrantedAuthority.class,
+                                        ClassName.get("org.springframework.security.core.authority", "SimpleGrantedAuthority"),
                                         security.authority()))
                 : CodeBlock.of("");
     }
@@ -151,8 +165,8 @@ public class ControllerUtil {
      * @return the generated response type as a ClassName
      */
     public static ClassName responseType(ClassManifest manifest) {
-        return ClassName.get("%s.infrastructure.http".formatted(manifest.packageName()),
-                "%sResponse".formatted(manifest.simpleName()));
+        return ClassName.get("%s.infrastructure.http" .formatted(manifest.packageName()),
+                "%sResponse" .formatted(manifest.simpleName()));
     }
 
     /**
@@ -188,7 +202,7 @@ public class ControllerUtil {
     }
 
     private static MethodSpec withMethod(TypeName type, ParameterSpec parameter, List<VariableManifest> fields) {
-        return MethodSpec.methodBuilder("with%s".formatted(capitalize(parameter.name())))
+        return MethodSpec.methodBuilder("with%s" .formatted(capitalize(parameter.name())))
                 .addModifiers(Modifier.PUBLIC)
                 .returns(type)
                 .addParameter(parameter)

@@ -1,15 +1,18 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.processor.rest.ControllerUtil;
+import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeSpec;
 import javax.lang.model.element.Modifier;
-import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 import org.springframework.stereotype.Component;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import tools.jackson.databind.json.JsonMapper;
+
+import static be.appify.prefab.processor.TestClasses.MOCK_MVC;
+import static be.appify.prefab.processor.TestClasses.MOCK_MVC_BUILDERS;
+import static be.appify.prefab.processor.TestClasses.SECURITY_MOCK_MVC_CONFIGURERS;
 
 class TestClientWriter {
     private final TestJavaFileWriter fileWriter;
@@ -25,11 +28,11 @@ class TestClientWriter {
     }
 
     private void writeTestClient(ClassManifest manifest) {
-        var className = "%sClient".formatted(manifest.simpleName());
+        var className = "%sClient" .formatted(manifest.simpleName());
         var type = TypeSpec.classBuilder(className)
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(Component.class)
-                .addField(FieldSpec.builder(MockMvc.class, "mockMvc")
+                .addField(FieldSpec.builder(MOCK_MVC, "mockMvc")
                         .addModifiers(Modifier.PRIVATE, Modifier.FINAL)
                         .build())
                 .addField(FieldSpec.builder(JsonMapper.class, "jsonMapper")
@@ -41,11 +44,12 @@ class TestClientWriter {
                         .addParameter(JsonMapper.class, "jsonMapper")
                         .addStatement("""
                                         this.mockMvc = $T
-                                            .webAppContextSetup(context)
-                                            .apply($T.springSecurity())
+                                            .webAppContextSetup(context)$L
                                             .build()""",
-                                MockMvcBuilders.class,
-                                SecurityMockMvcConfigurers.class)
+                                MOCK_MVC_BUILDERS,
+                                ControllerUtil.SECURITY_INCLUDED
+                                        ? CodeBlock.of("\n.apply($T.springSecurity())", SECURITY_MOCK_MVC_CONFIGURERS)
+                                        : CodeBlock.of(""))
                         .addStatement("this.jsonMapper = jsonMapper")
                         .build());
         context.plugins().forEach(plugin -> plugin.writeTestClient(manifest, type, context));

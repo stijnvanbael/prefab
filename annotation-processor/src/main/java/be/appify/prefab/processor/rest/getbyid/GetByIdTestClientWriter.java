@@ -7,8 +7,9 @@ import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
 import javax.lang.model.element.Modifier;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+
+import static be.appify.prefab.processor.TestClasses.MOCK_MVC_REQUEST_BUILDERS;
+import static be.appify.prefab.processor.TestClasses.MOCK_MVC_RESULT_MATCHERS;
 
 class GetByIdTestClientWriter {
     MethodSpec getByIdMethod(ClassManifest manifest) {
@@ -28,13 +29,13 @@ class GetByIdTestClientWriter {
                                         .andReturn()
                                         .getResponse()
                                         .getContentAsString()""",
-                        MockMvcRequestBuilders.class,
+                        MOCK_MVC_REQUEST_BUILDERS,
                         getById.method().toLowerCase(),
                         "/" + ControllerUtil.pathOf(manifest) + getById.path(),
                         manifest.parent().map(parent -> parent.name() + ", ").orElse("") + "id",
                         ControllerUtil.withMockUser(getById.security()),
                         MediaType.class,
-                        MockMvcResultMatchers.class)
+                        MOCK_MVC_RESULT_MATCHERS)
                 .addStatement("return jsonMapper.readValue(json, $T.class)", returnType)
                 .build();
     }

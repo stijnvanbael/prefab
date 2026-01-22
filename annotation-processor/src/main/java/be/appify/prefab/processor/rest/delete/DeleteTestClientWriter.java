@@ -4,11 +4,11 @@ import be.appify.prefab.core.annotations.rest.Delete;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.rest.ControllerUtil;
 import com.palantir.javapoet.MethodSpec;
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
-
-import javax.lang.model.element.Modifier;
 import java.util.List;
+import javax.lang.model.element.Modifier;
+
+import static be.appify.prefab.processor.TestClasses.MOCK_MVC_REQUEST_BUILDERS;
+import static be.appify.prefab.processor.TestClasses.MOCK_MVC_RESULT_MATCHERS;
 
 class DeleteTestClientWriter {
     List<MethodSpec> deleteMethods(ClassManifest manifest) {
@@ -52,12 +52,12 @@ class DeleteTestClientWriter {
                 .addStatement("""
                                 mockMvc.perform($T.$N($S, $L)$L)
                                         .andExpect($T.status().isNoContent())""",
-                        MockMvcRequestBuilders.class,
+                        MOCK_MVC_REQUEST_BUILDERS,
                         delete.method().toLowerCase(),
                         "/" + ControllerUtil.pathOf(manifest) + delete.path(),
                         manifest.parent().map(parent -> parent.name() + ", ").orElse("") + "id",
                         ControllerUtil.withMockUser(delete.security()),
-                        MockMvcResultMatchers.class)
+                        MOCK_MVC_RESULT_MATCHERS)
                 .build();
     }
 }

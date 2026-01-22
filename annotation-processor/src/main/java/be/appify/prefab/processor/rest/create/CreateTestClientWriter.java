@@ -3,7 +3,6 @@ package be.appify.prefab.processor.rest.create;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
-import be.appify.prefab.processor.TestUtil;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.rest.ControllerUtil;
 import com.palantir.javapoet.ClassName;
@@ -16,11 +15,12 @@ import java.util.stream.Stream;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockPart;
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import org.springframework.web.multipart.MultipartFile;
 
+import static be.appify.prefab.processor.TestClasses.MOCK_MVC_REQUEST_BUILDERS;
+import static be.appify.prefab.processor.TestClasses.MOCK_MVC_RESULT_MATCHERS;
+import static be.appify.prefab.processor.TestClasses.MOCK_PART;
+import static be.appify.prefab.processor.TestClasses.TEST_UTIL;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 class CreateTestClientWriter {
@@ -45,7 +45,7 @@ class CreateTestClientWriter {
                         ClassName.get(manifest.packageName() + ".application",
                                 "Create%sRequest".formatted(manifest.simpleName())),
                         uncapitalize(manifest.simpleName())
-                )
+                ) 
                 .addException(Exception.class)
                 .addStatement("return create$L($L)", manifest.simpleName(), uncapitalize(manifest.simpleName()))
                 .build();
@@ -93,14 +93,14 @@ class CreateTestClientWriter {
                                 .contentType($T.APPLICATION_JSON)
                                 .content(jsonMapper.writeValueAsString($L)))
                                 .andExpect($T.status().isCreated())""",
-                        MockMvcRequestBuilders.class,
+                        MOCK_MVC_REQUEST_BUILDERS,
                         create.method().toLowerCase(),
                         pathVariables(manifest, create, pathVariables),
                         ControllerUtil.withMockUser(create.security()),
                         MediaType.class,
                         createRequest,
-                        MockMvcResultMatchers.class)
-                .addStatement("return $T.idOf(result)", TestUtil.class)
+                        MOCK_MVC_RESULT_MATCHERS)
+                .addStatement("return $T.idOf(result)", TEST_UTIL)
                 .build();
     }
 
@@ -116,13 +116,13 @@ class CreateTestClientWriter {
             if (part.type().equals(ClassName.get(MultipartFile.class))) {
                 method.addStatement("var $L = $T.mockMultipartFile($L.$L())",
                         part.name(),
-                        TestUtil.class,
+                        TEST_UTIL,
                         createRequest,
                         part.name());
             } else {
                 method.addStatement(
                         "var bodyPart = new $T($S, null, jsonMapper.writeValueAsBytes($L), $T.APPLICATION_JSON)",
-                        MockPart.class,
+                        MOCK_PART,
                         "body",
                         createRequest,
                         MediaType.class);
@@ -132,7 +132,7 @@ class CreateTestClientWriter {
                                 var result = mockMvc.perform($T.multipart($L)
                                     $L
                                 ).andExpect($T.status().isCreated())""",
-                        MockMvcRequestBuilders.class,
+                        MOCK_MVC_REQUEST_BUILDERS,
                         pathVariables(manifest, create, pathVariables),
                         requestParts.stream().map(part -> {
                             if (part.type().equals(ClassName.get(MultipartFile.class))) {
@@ -141,8 +141,8 @@ class CreateTestClientWriter {
                                 return ".part(bodyPart)";
                             }
                         }).collect(Collectors.joining("\n")),
-                        MockMvcResultMatchers.class)
-                .addStatement("return $T.idOf(result)", TestUtil.class)
+                        MOCK_MVC_RESULT_MATCHERS)
+                .addStatement("return $T.idOf(result)", TEST_UTIL)
                 .build();
     }
 

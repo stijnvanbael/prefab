@@ -2,7 +2,6 @@ package be.appify.prefab.processor.rest.update;
 
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
-import be.appify.prefab.processor.TestUtil;
 import be.appify.prefab.processor.rest.ControllerUtil;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
@@ -13,11 +12,12 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.lang.model.element.Modifier;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockPart;
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import org.springframework.web.multipart.MultipartFile;
 
+import static be.appify.prefab.processor.TestClasses.MOCK_MVC_REQUEST_BUILDERS;
+import static be.appify.prefab.processor.TestClasses.MOCK_MVC_RESULT_MATCHERS;
+import static be.appify.prefab.processor.TestClasses.MOCK_PART;
+import static be.appify.prefab.processor.TestClasses.TEST_UTIL;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
@@ -75,13 +75,13 @@ class UpdateTestClientWriter {
                                         .contentType($T.APPLICATION_JSON)
                                         $L
                                         .andExpect($T.status().isOk())""",
-                        MockMvcRequestBuilders.class,
+                        MOCK_MVC_REQUEST_BUILDERS,
                         update.method().toLowerCase(),
                         pathVariables(manifest, update, pathVariables),
                         ControllerUtil.withMockUser(update.security()),
                         MediaType.class,
                         update.parameters().isEmpty() ? ")" : ".content(jsonMapper.writeValueAsString(request)))",
-                        MockMvcResultMatchers.class)
+                        MOCK_MVC_RESULT_MATCHERS)
                 .build();
     }
 
@@ -97,12 +97,12 @@ class UpdateTestClientWriter {
             if (part.type().equals(ClassName.get(MultipartFile.class))) {
                 method.addStatement("var $L = $T.mockMultipartFile(request.$L())",
                         part.name(),
-                        TestUtil.class,
+                        TEST_UTIL,
                         part.name());
             } else {
                 method.addStatement(
                         "var bodyPart = new $T($S, null, jsonMapper.writeValueAsBytes(request), $T.APPLICATION_JSON)",
-                        MockPart.class,
+                        MOCK_PART,
                         "body",
                         MediaType.class);
             }
@@ -111,7 +111,7 @@ class UpdateTestClientWriter {
                                 return mockMvc.perform($T.multipart($L, id)$L
                                         $L
                                         ).andExpect($T.status().isOk())""",
-                        MockMvcRequestBuilders.class,
+                        MOCK_MVC_REQUEST_BUILDERS,
                         pathVariables(manifest, update, pathVariables),
                         ControllerUtil.withMockUser(update.security()),
                         requestParts.stream()
@@ -124,7 +124,7 @@ class UpdateTestClientWriter {
                                 })
                                 .reduce(CodeBlock.builder(), CodeBlock.Builder::add, (a, b) -> a)
                                 .build(),
-                        MockMvcResultMatchers.class)
+                        MOCK_MVC_RESULT_MATCHERS)
                 .build();
     }
 

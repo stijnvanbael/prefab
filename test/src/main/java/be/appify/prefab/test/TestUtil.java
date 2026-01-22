@@ -1,10 +1,9 @@
-package be.appify.prefab.processor;
+package be.appify.prefab.test;
 
+import java.io.IOException;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
 
 /**
  * Utility class for test-related operations.

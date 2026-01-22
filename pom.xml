@@ -23,6 +23,7 @@
         <module>examples/pubsub</module>
         <module>kafka</module>
         <module>pubsub</module>
+        <module>security</module>
     </modules>
 
     <properties>
@@ -64,6 +65,11 @@
             <dependency>
                 <groupId>be.appify.prefab</groupId>
                 <artifactId>prefab-test</artifactId>
+                <version>${prefab.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>be.appify.prefab</groupId>
+                <artifactId>prefab-security</artifactId>
                 <version>${prefab.version}</version>
             </dependency>
         </dependencies>

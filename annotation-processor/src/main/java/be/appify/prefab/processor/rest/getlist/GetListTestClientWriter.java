@@ -14,10 +14,10 @@ import java.util.List;
 import javax.lang.model.element.Modifier;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import tools.jackson.core.type.TypeReference;
 
+import static be.appify.prefab.processor.TestClasses.MOCK_MVC_REQUEST_BUILDERS;
+import static be.appify.prefab.processor.TestClasses.MOCK_MVC_RESULT_MATCHERS;
 import static org.atteo.evo.inflector.English.plural;
 
 class GetListTestClientWriter {
@@ -41,7 +41,7 @@ class GetListTestClientWriter {
     private static ParameterizedTypeName returnType(ClassManifest manifest) {
         return ParameterizedTypeName.get(ClassName.get(Page.class),
                 ClassName.get(manifest.packageName() + ".infrastructure.http",
-                        "%sResponse".formatted(manifest.simpleName())));
+                        "%sResponse" .formatted(manifest.simpleName())));
     }
 
     private static MethodSpec.Builder methodSignature(
@@ -67,13 +67,13 @@ class GetListTestClientWriter {
     private static void createRequest(ClassManifest manifest, MethodSpec.Builder method, GetList getList) {
         manifest.parent().ifPresentOrElse(
                 parent -> method.addStatement("var request = $T.$N($S, $L)$L",
-                        MockMvcRequestBuilders.class,
+                        MOCK_MVC_REQUEST_BUILDERS,
                         getList.method().toLowerCase(),
                         "/" + ControllerUtil.pathOf(manifest) + getList.path(),
                         parent.name(),
                         ControllerUtil.withMockUser(getList.security())),
                 () -> method.addStatement("var request = $T.$N($S)$L",
-                        MockMvcRequestBuilders.class,
+                        MOCK_MVC_REQUEST_BUILDERS,
                         getList.method().toLowerCase(),
                         "/" + ControllerUtil.pathOf(manifest) + getList.path(),
                         ControllerUtil.withMockUser(getList.security())));
@@ -115,7 +115,7 @@ class GetListTestClientWriter {
                                         .getResponse()
                                         .getContentAsString()""",
                         MediaType.class,
-                        MockMvcResultMatchers.class
+                        MOCK_MVC_RESULT_MATCHERS
                 )
                 .addStatement("return jsonMapper.readValue(json, new $T() {})",
                         ParameterizedTypeName.get(ClassName.get(TypeReference.class), returnType))

@@ -50,7 +50,7 @@ To get started with Prefab, you need to add the following to your `pom.xml`:
 <parent>
     <groupId>be.appify.prefab</groupId>
     <artifactId>prefab-parent</artifactId>
-    <version>0.1.1</version>
+    <version>0.2.0</version>
 </parent>
 
 <dependencies>

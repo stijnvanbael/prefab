@@ -1,14 +1,14 @@
 ---
-id: task-065
+id: TASK-065
 title: Configure event handler retries
-status: To Do
+status: Done
 assignee: []
 created_date: '2025-12-30 10:26'
-updated_date: '2026-01-12 16:41'
+updated_date: '2026-02-03 12:01'
 labels:
   - "\U0001F4E6feature"
 dependencies: []
-ordinal: 227.21856832504272
+ordinal: 14000
 ---
 
 

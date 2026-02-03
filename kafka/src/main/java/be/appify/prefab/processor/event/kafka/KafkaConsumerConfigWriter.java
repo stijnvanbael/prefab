@@ -60,12 +60,20 @@ class KafkaConsumerConfigWriter {
                 .addAnnotation(AnnotationSpec.builder(Qualifier.class)
                         .addMember("value", "$S", "%sKafkaErrorHandler".formatted(uncapitalize(owner.simpleName())))
                         .build())
-                .returns(CommonErrorHandler.class)
-                .addParameter(configParameter(Integer.class, "maxRetries", "${prefab.kafka.consumer.dlt.max-retries:5}"))
-                .addParameter(configParameter(Long.class, "initialRetryInterval", "${prefab.dlt.retries.initial-interval-ms:1000}"))
-                .addParameter(configParameter(Float.class, "backoffMultiplier", "${prefab.dlt.retries.multiplier:1.5}"))
-                .addParameter(configParameter(Long.class, "maxRetryInterval", "${prefab.dlt.retries.max-interval-ms:30000}"))
-                .addParameter(ParameterSpec.builder(ParameterizedTypeName.get(List.class, String.class), "nonRetryableExceptions")
+                .returns(CommonErrorHandler.class);
+        if (config.retryLimit().matches("\\$\\{.+}")) {
+            method.addParameter(configParameter(Integer.class, "maxRetries", config.retryLimit()));
+        }
+        if (config.minimumBackoffMs().matches("\\$\\{.+}")) {
+            method.addParameter(configParameter(Long.class, "initialRetryInterval", config.minimumBackoffMs()));
+        }
+        if(config.maximumBackoffMs().matches("\\$\\{.+}")) {
+            method.addParameter(configParameter(Long.class, "maxRetryInterval", config.maximumBackoffMs()));
+        }
+        if (config.backoffMultiplier().matches("\\$\\{.+}")) {
+            method.addParameter(configParameter(Double.class, "backoffMultiplier", config.backoffMultiplier()));
+        }
+        method.addParameter(ParameterSpec.builder(ParameterizedTypeName.get(List.class, String.class), "nonRetryableExceptions")
                         .addAnnotation(AnnotationSpec.builder(Value.class)
                                 .addMember("value", "$S", "#{'${prefab.dlt.non-retryable-exceptions:}'.split(',')}")
                                 .build())
@@ -81,16 +89,20 @@ class KafkaConsumerConfigWriter {
                 method.addParameter(DeadLetterPublishingRecoverer.class, "deadLetteringRecoverer");
             }
         }
-        method.addStatement("var backoff = new $T(maxRetries)", ExponentialBackOffWithMaxRetries.class)
-                .addStatement("backoff.setInitialInterval(initialRetryInterval)")
-                .addStatement("backoff.setMultiplier(backoffMultiplier)")
-                .addStatement("backoff.setMaxInterval(maxRetryInterval)");
+        method.addStatement("var backoff = new $T($L)", ExponentialBackOffWithMaxRetries.class,
+                        config.retryLimit().matches("\\$\\{.+}") ? "maxRetries" : config.retryLimit())
+                .addStatement("backoff.setInitialInterval($L)",
+                        config.minimumBackoffMs().matches("\\$\\{.+}") ? "initialRetryInterval" : config.minimumBackoffMs() + "L")
+                .addStatement("backoff.setMultiplier($L)",
+                        config.backoffMultiplier().matches("\\$\\{.+}") ? "backoffMultiplier" : config.backoffMultiplier())
+                .addStatement("backoff.setMaxInterval($L)",
+                        config.maximumBackoffMs().matches("\\$\\{.+}") ? "maxRetryInterval" : config.maximumBackoffMs() + "L");
         if (config.deadLetteringEnabled()) {
             method.addStatement("var errorHandler = new $T(deadLetteringRecoverer, backoff)", DefaultErrorHandler.class)
                     .addStatement("""
-                            var customExceptions = nonRetryableExceptions.stream()
-                            .filter(name -> !name.isBlank())
-                            .map($T::classWithName)""",
+                                    var customExceptions = nonRetryableExceptions.stream()
+                                    .filter(name -> !name.isBlank())
+                                    .map($T::classWithName)""",
                             Classes.class)
                     .addStatement("""
                                     var notRetryable = $T.concat($T.DEFAULT_NOT_RETRYABLE.stream(), customExceptions)

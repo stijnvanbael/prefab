@@ -2,13 +2,16 @@ package be.appify.prefab.core.pubsub;
 
 import be.appify.prefab.core.annotations.EventHandlerConfig;
 import com.google.pubsub.v1.DeadLetterPolicy;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
+import org.springframework.core.retry.RetryTemplate;
 
 /**
  * Request to subscribe to a Pub/Sub topic.
  *
- * @param <T> The type of the event to subscribe to.
+ * @param <T>
+ *         The type of the event to subscribe to.
  */
 public class SubscribeRequest<T> {
     public static final DeadLetterPolicy DEFAULT_DEAD_LETTER_POLICY = DeadLetterPolicy.newBuilder()
@@ -18,16 +21,21 @@ public class SubscribeRequest<T> {
     private final String subscription;
     private final Class<T> type;
     private final Consumer<T> consumer;
+    private RetryTemplate retryTemplate = null;
     private Executor executor = Runnable::run;
     private DeadLetterPolicy deadLetterPolicy = DEFAULT_DEAD_LETTER_POLICY;
 
     /**
      * Creates a new subscribe request.
      *
-     * @param topic        The topic to subscribe to.
-     * @param subscription The subscription name.
-     * @param type         The type of the event to subscribe to.
-     * @param consumer     The consumer to handle the events.
+     * @param topic
+     *         The topic to subscribe to.
+     * @param subscription
+     *         The subscription name.
+     * @param type
+     *         The type of the event to subscribe to.
+     * @param consumer
+     *         The consumer to handle the events.
      */
     public SubscribeRequest(
             String topic,
@@ -87,9 +95,19 @@ public class SubscribeRequest<T> {
     }
 
     /**
+     * Gets the retry template for handling retries.
+     *
+     * @return An optional retry template.
+     */
+    public Optional<RetryTemplate> retryTemplate() {
+        return Optional.ofNullable(retryTemplate);
+    }
+
+    /**
      * Sets the executor to run the consumer.
      *
-     * @param executor The executor.
+     * @param executor
+     *         The executor.
      * @return The subscribe request.
      */
     public SubscribeRequest<T> withExecutor(Executor executor) {
@@ -109,11 +127,24 @@ public class SubscribeRequest<T> {
     /**
      * Sets the dead letter policy.
      *
-     * @param deadLetterPolicy The dead letter policy.
+     * @param deadLetterPolicy
+     *         The dead letter policy.
      * @return The subscribe request.
      */
     public SubscribeRequest<T> withDeadLetterPolicy(DeadLetterPolicy deadLetterPolicy) {
         this.deadLetterPolicy = deadLetterPolicy;
+        return this;
+    }
+
+    /**
+     * Sets the retry template for handling retries.
+     *
+     * @param retryTemplate
+     *         The retry template.
+     * @return The subscribe request.
+     */
+    public SubscribeRequest<T> withRetryTemplate(RetryTemplate retryTemplate) {
+        this.retryTemplate = retryTemplate;
         return this;
     }
 

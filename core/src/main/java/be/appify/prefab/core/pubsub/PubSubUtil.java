@@ -131,10 +131,11 @@ public class PubSubUtil {
                 request.isUsingDefaultDeadLetterPolicy() ? deadLetterPolicy(deadLetterTopicName) : request.deadLetterPolicy()
         );
         subscriberTemplate.subscribe(subscriptionName, message ->
-                request.executor().execute(() -> consume(request.type(), request.consumer(), message)));
+                request.executor().execute(
+                        () -> consume(request.type(), request.consumer(), request.retryTemplate().orElse(retryTemplate), message)));
     }
 
-    private <T> void consume(Class<T> type, Consumer<T> consumer, BasicAcknowledgeablePubsubMessage message) {
+    private <T> void consume(Class<T> type, Consumer<T> consumer, RetryTemplate retryTemplate, BasicAcknowledgeablePubsubMessage message) {
         try {
             retryTemplate.execute(() -> {
                 var pubsubMessage = message.getPubsubMessage();
@@ -146,7 +147,8 @@ public class PubSubUtil {
                     }
                     message.ack();
                 } catch (Exception e) {
-                    log.warn("Error processing Pub/Sub message: {}, cause: {}", pubsubMessage.getData().toStringUtf8(), e.getCause().getMessage());
+                    log.warn("Error processing Pub/Sub message: {}, cause: {}", pubsubMessage.getData().toStringUtf8(),
+                            e.getCause().getMessage());
                     throw e;
                 }
                 return null;

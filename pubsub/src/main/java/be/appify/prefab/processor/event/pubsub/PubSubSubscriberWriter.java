@@ -18,6 +18,7 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeSpec;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,9 +29,12 @@ import javax.lang.model.element.ExecutableElement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.retry.RetryPolicy;
+import org.springframework.core.retry.RetryTemplate;
 import org.springframework.stereotype.Component;
 
 import static be.appify.prefab.core.annotations.EventHandlerConfig.Util.hasCustomDeadLetterTopic;
+import static be.appify.prefab.core.annotations.EventHandlerConfig.Util.hasCustomRetries;
 import static be.appify.prefab.processor.event.ConsumerWriterSupport.concurrencyExpression;
 import static java.util.stream.Collectors.groupingBy;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -98,6 +102,7 @@ class PubSubSubscriberWriter {
             PrefabContext context
     ) {
         var constructor = MethodSpec.constructorBuilder().addModifiers(PUBLIC);
+        var config = owner.inheritedAnnotationsOfType(EventHandlerConfig.class).stream().findFirst().orElse(null);
         var concurrency = concurrencyExpression(owner);
         if (concurrency.matches("\\$\\{.+}")) {
             constructor.addParameter(ParameterSpec.builder(String.class, "concurrency")
@@ -110,6 +115,20 @@ class PubSubSubscriberWriter {
                 concurrency.matches("\\$\\{.+}") ? "Integer.parseInt(concurrency)" : concurrency);
         fields.forEach(field -> constructor.addParameter(ParameterSpec.builder(field.type(), field.name()).build()));
         constructor.addParameter(PubSubUtil.class, "pubSub");
+        if (hasCustomRetries(config)) {
+            if (config.retryLimit().matches("\\$\\{.+}")) {
+                constructor.addParameter(configParameter(Integer.class, "maxRetries", config.retryLimit()));
+            }
+            if (config.minimumBackoffMs().matches("\\$\\{.+}")) {
+                constructor.addParameter(configParameter(Long.class, "initialRetryInterval", config.minimumBackoffMs()));
+            }
+            if (config.maximumBackoffMs().matches("\\$\\{.+}")) {
+                constructor.addParameter(configParameter(Long.class, "maxRetryInterval", config.maximumBackoffMs()));
+            }
+            if (config.backoffMultiplier().matches("\\$\\{.+}")) {
+                constructor.addParameter(configParameter(Double.class, "backoffMultiplier", config.backoffMultiplier()));
+            }
+        }
         topics.forEach(topic -> addTopic(owner, eventHandlers, context, topic, constructor));
         fields.forEach(field -> constructor.addStatement("this.$L = $L", field.name(), field.name()));
         return constructor.build();
@@ -148,10 +167,19 @@ class PubSubSubscriberWriter {
                 deadLetterPolicy(eventHandlerConfig));
     }
 
+    private static ParameterSpec configParameter(Class<?> type, String name, String value) {
+        return ParameterSpec.builder(type, name)
+                .addAnnotation(AnnotationSpec.builder(Value.class)
+                        .addMember("value", "$S", value)
+                        .build())
+                .build();
+    }
+
     private static CodeBlock deadLetterPolicy(EventHandlerConfig eventHandlerConfig) {
         if (eventHandlerConfig != null) {
+            var codeBlock = CodeBlock.builder();
             if (hasCustomDeadLetterTopic(eventHandlerConfig)) {
-                return CodeBlock.of("""
+                codeBlock.add(CodeBlock.of("""
                                 
                                 .withDeadLetterPolicy($T.newBuilder()
                                     .setDeadLetterTopic($L)
@@ -160,12 +188,38 @@ class PubSubSubscriberWriter {
                         eventHandlerConfig.deadLetterTopic().matches("\\$\\{.+}")
                                 ? "deadLetterTopic"
                                 : CodeBlock.of("$S", eventHandlerConfig.deadLetterTopic())
-                );
+                ));
             } else if (!eventHandlerConfig.deadLetteringEnabled()) {
-                return CodeBlock.of("""
+                codeBlock.add(CodeBlock.of("""
                         
-                        .withDeadLetterPolicy(null)""");
+                        .withDeadLetterPolicy(null)"""));
             }
+            if (hasCustomRetries(eventHandlerConfig)) {
+                codeBlock.add(CodeBlock.of("""
+                                
+                                .withRetryTemplate(new $T($T.builder()
+                                        .maxRetries($L)
+                                        .delay($T.ofMillis($L))
+                                        .maxDelay($T.ofMillis($L))
+                                        .multiplier($L)
+                                        .build()))""",
+                        RetryTemplate.class,
+                        RetryPolicy.class,
+                        eventHandlerConfig.retryLimit().matches("\\$\\{.+}") ? "maxRetries" : eventHandlerConfig.retryLimit(),
+                        Duration.class,
+                        eventHandlerConfig.minimumBackoffMs().matches("\\$\\{.+}")
+                                ? "initialRetryInterval"
+                                : eventHandlerConfig.minimumBackoffMs() + "L",
+                        Duration.class,
+                        eventHandlerConfig.maximumBackoffMs().matches("\\$\\{.+}")
+                                ? "maxRetryInterval"
+                                : eventHandlerConfig.maximumBackoffMs() + "L",
+                        eventHandlerConfig.backoffMultiplier().matches("\\$\\{.+}")
+                                ? "backoffMultiplier"
+                                : eventHandlerConfig.backoffMultiplier()
+                ));
+            }
+            return codeBlock.build();
         }
         return CodeBlock.of("");
     }

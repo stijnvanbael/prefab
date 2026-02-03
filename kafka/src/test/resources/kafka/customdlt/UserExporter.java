@@ -5,7 +5,12 @@ import be.appify.prefab.core.annotations.EventHandlerConfig;
 import org.springframework.stereotype.Component;
 
 @Component
-@EventHandlerConfig(deadLetterTopic = "${custom.dlt.name}")
+@EventHandlerConfig(
+        deadLetterTopic = "${custom.dlt.name}",
+        retryLimit = "10",
+        minimumBackoffMs = "100",
+        maximumBackoffMs = "10000"
+)
 public class UserExporter {
     @EventHandler
     public void onUserCreated(UserEvent.Created event) {

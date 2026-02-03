@@ -14,10 +14,10 @@ public class UserExporterKafkaConsumerConfig {
     @Bean
     @Qualifier("userExporterKafkaErrorHandler")
     CommonErrorHandler userExporterKafkaErrorHandler(
-            @Value("${prefab.kafka.consumer.dlt.max-retries:5}") Integer maxRetries,
-            @Value("${prefab.dlt.retries.initial-interval-ms:1000}") Long initialRetryInterval,
-            @Value("${prefab.dlt.retries.multiplier:1.5}") Float backoffMultiplier,
-            @Value("${prefab.dlt.retries.max-interval-ms:30000}") Long maxRetryInterval,
+            @Value("${prefab.dlt.retries.limit:5}") Integer maxRetries,
+            @Value("${prefab.dlt.retries.minimum-backoff-ms:1000}") Long initialRetryInterval,
+            @Value("${prefab.dlt.retries.maximum-backoff-ms:30000}") Long maxRetryInterval,
+            @Value("${prefab.dlt.retries.backoff-multiplier:1.5}") Double backoffMultiplier,
             @Value("#{'${prefab.dlt.non-retryable-exceptions:}'.split(',')}") List<String> nonRetryableExceptions) {
         var backoff = new ExponentialBackOffWithMaxRetries(maxRetries);
         backoff.setInitialInterval(initialRetryInterval);

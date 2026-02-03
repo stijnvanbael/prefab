@@ -21,16 +21,13 @@ public class UserExporterKafkaConsumerConfig {
     @Bean
     @Qualifier("userExporterKafkaErrorHandler")
     CommonErrorHandler userExporterKafkaErrorHandler(
-            @Value("${prefab.kafka.consumer.dlt.max-retries:5}") Integer maxRetries,
-            @Value("${prefab.dlt.retries.initial-interval-ms:1000}") Long initialRetryInterval,
-            @Value("${prefab.dlt.retries.multiplier:1.5}") Float backoffMultiplier,
-            @Value("${prefab.dlt.retries.max-interval-ms:30000}") Long maxRetryInterval,
+            @Value("${prefab.dlt.retries.backoff-multiplier:1.5}") Double backoffMultiplier,
             @Value("#{'${prefab.dlt.non-retryable-exceptions:}'.split(',')}") List<String> nonRetryableExceptions,
             @Qualifier("userExporterDeadLetterPublishingRecoverer") DeadLetterPublishingRecoverer deadLetteringRecoverer) {
-        var backoff = new ExponentialBackOffWithMaxRetries(maxRetries);
-        backoff.setInitialInterval(initialRetryInterval);
+        var backoff = new ExponentialBackOffWithMaxRetries(10);
+        backoff.setInitialInterval(100L);
         backoff.setMultiplier(backoffMultiplier);
-        backoff.setMaxInterval(maxRetryInterval);
+        backoff.setMaxInterval(10000L);
         var errorHandler = new DefaultErrorHandler(deadLetteringRecoverer, backoff);
         var customExceptions = nonRetryableExceptions.stream()
                 .filter(name -> !name.isBlank())

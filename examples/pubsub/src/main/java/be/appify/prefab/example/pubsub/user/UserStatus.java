@@ -45,7 +45,7 @@ public record UserStatus(
     @EventHandler
     @Multicast(
             queryMethod = "findUserStatusesInChannel",
-            paramMapping = @Multicast.Param(from = "channel", to = "channel")
+            parameters = "channel"
     )
     public void onMessageSent(MessageSent event) {
         unreadMessages.add(new UnreadMessage(Reference.fromId(event.id()), event.channel()));

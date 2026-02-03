@@ -3,11 +3,10 @@ package pubsub.multitopic;
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.annotations.Multicast;
+import java.time.LocalDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
-
-import java.time.LocalDate;
 
 @Aggregate
 public record DayTotal(
@@ -22,7 +21,7 @@ public record DayTotal(
     }
 
     @EventHandler
-    @Multicast(queryMethod = "findByDate", paramMapping = @Multicast.Param(from = "date", to = "date"))
+    @Multicast(queryMethod = "findByDate", parameters = "date")
     public DayTotal onSaleCreated(Sale.Created event) {
         return new DayTotal(
                 id,
@@ -34,7 +33,7 @@ public record DayTotal(
     }
 
     @EventHandler
-    @Multicast(queryMethod = "findByDate", paramMapping = @Multicast.Param(from = "date", to = "date"))
+    @Multicast(queryMethod = "findByDate", parameters = "date")
     public DayTotal onRefundCreated(Refund.Created event) {
         return new DayTotal(
                 id,

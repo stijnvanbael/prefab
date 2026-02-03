@@ -5,14 +5,13 @@ import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
-import org.springframework.context.event.EventListener;
-
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.VariableElement;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.VariableElement;
+import org.springframework.context.event.EventListener;
 
 import static org.apache.commons.text.WordUtils.capitalize;
 import static org.apache.commons.text.WordUtils.uncapitalize;
@@ -39,13 +38,13 @@ class MulticastEventHandlerWriter {
         var arguments = Stream.of(eventHandler.paramMapping())
                 .map(param -> {
                     var eventProperty = eventProperties.stream()
-                            .filter(p -> p.getSimpleName().toString().equals(param.from()))
+                            .filter(p -> p.getSimpleName().toString().equals(param))
                             .findFirst()
                             .orElse(null);
 
                     if (eventProperty == null) {
                         context.logError("Cannot find property '%s' on event %s"
-                                        .formatted(param.from(), eventHandler.eventType().simpleName()),
+                                        .formatted(param, eventHandler.eventType().simpleName()),
                                 eventHandler.methodElement());
                         return CodeBlock.of("null");
                     }

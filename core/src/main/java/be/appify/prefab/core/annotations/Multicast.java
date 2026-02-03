@@ -25,27 +25,9 @@ public @interface Multicast {
     String queryMethod();
 
     /**
-     * The mapping of event properties to query method parameters.
+     * The event properties to map on the query parameters, in the order of the query parameters.
      *
-     * @return The mapping of event properties to query method parameters.
+     * @return The names of the event properties to map on the query parameters, in the order of the query parameters.
      */
-    Param[] paramMapping() default {};
-
-    /** Mapping of a parameter from an event property to a query method parameter. */
-    @Retention(RetentionPolicy.SOURCE)
-    @interface Param {
-        /**
-         * The name of the property on the event.
-         *
-         * @return The name of the property on the event.
-         */
-        String from();
-
-        /**
-         * The name of the parameter on the query method.
-         *
-         * @return The name of the parameter on the query method.
-         */
-        String to();
-    }
+    String[] parameters() default {};
 }

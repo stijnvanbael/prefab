@@ -12,13 +12,12 @@ import be.appify.prefab.example.pubsub.channel.ChannelCreated;
 import be.appify.prefab.example.pubsub.message.MessageSent;
 import be.appify.prefab.example.pubsub.user.UserEvent;
 import jakarta.validation.constraints.NotNull;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
-
-import java.util.UUID;
 
 @Aggregate
 @GetList
@@ -43,14 +42,14 @@ public record ChannelSummary(
     }
 
     @EventHandler
-    @Multicast(queryMethod = "findByChannel", paramMapping = @Multicast.Param(from = "channel", to = "channel"))
+    @Multicast(queryMethod = "findByChannel", parameters = "channel")
     public ChannelSummary onMessageSent(MessageSent event) {
         log.info("Handling MessageSent event for ChannelSummary: {}", event);
         return new ChannelSummary(id, version, channel, name, totalMessages + 1, totalSubscribers);
     }
 
     @EventHandler
-    @Multicast(queryMethod = "findByChannel", paramMapping = @Multicast.Param(from = "channel", to = "channel"))
+    @Multicast(queryMethod = "findByChannel", parameters = "channel")
     public ChannelSummary onUserSubscribed(UserEvent.SubscribedToChannel event) {
         log.info("Handling SubscribedToChannel event for ChannelSummary: {}", event);
         return new ChannelSummary(id, version, channel, name, totalMessages, totalSubscribers + 1);

@@ -5,12 +5,11 @@ import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.event.handler.EventHandlerPlugin;
 import com.palantir.javapoet.TypeSpec;
-
+import java.lang.annotation.Annotation;
+import java.util.stream.Stream;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
-import java.lang.annotation.Annotation;
-import java.util.stream.Stream;
 
 /**
  * Prefab plugin to generate multicast event handlers based on EventHandler.Multicast annotations.
@@ -46,7 +45,7 @@ public class MulticastEventHandlerPlugin implements EventHandlerPlugin {
                                     eventType,
                                     context,
                                     annotation.queryMethod(),
-                                    annotation.paramMapping()
+                                    annotation.parameters()
                             );
                         }));
     }

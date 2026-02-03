@@ -283,6 +283,22 @@ public record Sale(
 }
 ```
 
+### 💿 Repository mixins
+
+You can extend the generated repository by creating a mixin interface. Annotate the interface with `@RepositoryMixin`
+and define custom query methods in it. The generated repository will extend the mixin interface, so your custom methods 
+will be available on the repository. Spring Data JDBC query method conventions are supported.
+
+```java
+@RepositoryMixin(Sale.class)
+public interface SaleRepositoryMixin {
+    List<Sale> findByAmountGreaterThan(Double amount);
+    
+    @Query("SELECT * FROM sale WHERE start >= :start AND start <= :end")
+    List<Sale> findByStartBetween(Instant start, Instant end);
+}
+```
+
 ### ➡️ Reference
 
 Aggregates can reference other aggregates by using a `Reference<OtherType>` field. Prefab will map the reference to the
@@ -500,7 +516,7 @@ message broker. Supported platforms right now are `KAFKA`, and `PUB_SUB`.
 
 ```java
 
-@Event(topic = "${kafka.topics.sale.name}", platform = KAFKA, ownedBy = Sale.class)
+@Event(topic = "${kafka.topics.sale.name}", platform = KAFKA)
 public record SaleCompletedEvent(
         String saleId,
         Instant completedAt
@@ -509,7 +525,7 @@ public record SaleCompletedEvent(
 ```
 
 Events can be consumed by annotating a method that takes a single argument with `@EventHandler`. This can be either an
-instance method on a Spring bean or a static method on any class. Make sure to annotate event handlers accessing the
+instance method on a Spring bean or a static method on an aggregate root. Make sure to annotate event handlers accessing the
 database with `@Transactional` to ensure proper transaction management.
 
 ```java
@@ -521,6 +537,66 @@ public class CreateInvoiceUseCase {
     public void handleSaleCompleted(SaleCompletedEvent event) {
         // Handle the event
     }
+}
+```
+
+Event handler behaviour can be customized by adding an `@EventHandlerConfig` to the class containing `@EventHandler` methods.
+
+```java
+@EventHandlerConfig(
+        concurrency = "5",
+        retryLimit = "3",
+        minimumBackoffMs = "2000",
+        deadLetterTopic = "my.dlt"
+)
+public class CreateInvoiceUseCase {
+    @EventHandler
+    public void handleSaleCompleted(SaleCompletedEvent event) {
+        // Handle the event
+    }
+}
+```
+
+You can have `@EventHandler` methods in aggregate roots instance methods as well, as long as you provide a strategy for 
+loading the aggregate instance. This can be done by adding either a `@ByReference` or `@Mulicast` annotation to the 
+event handler method.
+
+`@ByReference` will load the aggregate instance by resolving a `Reference` field in the event containing the aggregate ID.
+
+```java
+@Aggregate
+public record Sale(
+        @Id String id,
+        @Version long version,
+        Reference<Invoice> invoice
+) {
+    @EventHandler
+    @ByReference("sale") // Load the Sale aggregate by resolving the sale reference in the event
+    public void onInvoiceCreated(InvoiceCreated event) {
+        this.invoice = Reference.fromId(event.invoiceId());
+    }
+}
+```
+
+`@Multicast` uses a query to load all aggregate instances using a custom query defined in a repository mixin. One or
+more parameters can be extracted from the event to use in the query.
+
+```java
+@Aggregate
+public record Sale(
+        @Id String id,
+        @Version long version,
+        Reference<CashRegister> cashRegister,
+        SaleStatus status
+) {
+   @EventHandler
+   @Multicast(
+           queryMethod = "findByCashRegister",
+           parameters = { "cashRegister" }
+   )
+   public void onCashRegisterClosed(CashRegisterClosed event) {
+      status = SaleStatus.CLOSED;
+   }
 }
 ```
 

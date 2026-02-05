@@ -3,7 +3,7 @@ package be.appify.prefab.processor.event.pubsub;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.core.pubsub.PubSubUtil;
-import be.appify.prefab.core.pubsub.SubscribeRequest;
+import be.appify.prefab.core.pubsub.SubscriptionRequest;
 import be.appify.prefab.processor.CaseUtil;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
@@ -157,7 +157,7 @@ class PubSubSubscriberWriter {
         constructor.addStatement("""
                         pubSub.subscribe(new $T($L, $S, $T.class, this::on$L)
                         .withExecutor(executor)$L)""",
-                ParameterizedTypeName.get(ClassName.get(SubscribeRequest.class),
+                ParameterizedTypeName.get(ClassName.get(SubscriptionRequest.class),
                         eventType.asTypeName()),
                 topic.matches("\\$\\{.+}") ? topicVariableName : CodeBlock.of("$S", topic),
                 CaseUtil.toKebabCase(owner.simpleName()) + "-on-" + CaseUtil.toKebabCase(

@@ -512,11 +512,15 @@ public record Sale(
 ```
 
 Alternatively, you can annotate the event with `@Event` to generate a producer for the event that publishes to a
-message broker. Supported platforms right now are `KAFKA`, and `PUB_SUB`.
+message broker.
+
+Supported platforms right now are `KAFKA`, and `PUB_SUB`. If not specified, the platform is derived from the classpath. If both Kafka and Pub/Sub are on the classpath, you have to specify the platform.
+
+Supported serialization formats are `JSON` and `AVRO`. If not specified, the `JSON` is used by default.
 
 ```java
 
-@Event(topic = "${kafka.topics.sale.name}", platform = KAFKA)
+@Event(topic = "${kafka.topics.sale.name}", platform = Event.Platform.KAFKA, serialization = Event.Serialization.AVRO)
 public record SaleCompletedEvent(
         String saleId,
         Instant completedAt
@@ -699,6 +703,34 @@ This happens because IntelliJ IDEA will only consider source files that have cha
 processor. Prefab, however, needs the full classpath to generate the repository mixin interfaces correctly.
 
 To fix this, you can try using Maven instead of IntelliJ IDEA's built-in compiler.
+
+### 💥 IllegalAccessException when saving an aggregate root
+
+In certain cases, when saving a new aggregate root, you might encounter an `IllegalAccessException` with a message like this:
+
+```
+java.lang.IllegalAccessException: final field has no write access: ...
+```
+
+This is an issue related to Spring Data JDBC. You likely have defined a method on your aggregate root like this:
+```java
+@Update(path = "/name")
+public User setName(String name) {
+    return new User(this.id, this.version, name);
+}
+```
+
+This will cause Spring Data JDBC to generate a proxy for the `User` class that doesn't have access to the private fields
+of the record, which results in the `IllegalAccessException` when trying to save the new instance.
+
+To fix this, name the method something other than `setX` or `withX`, where `X` is the name of a field in the record. For example:
+
+```java
+@Update(path = "/name")
+public User updateName(String name) {
+    return new User(this.id, this.version, name);
+}
+```
 
 ## 🧭 What's next?
 

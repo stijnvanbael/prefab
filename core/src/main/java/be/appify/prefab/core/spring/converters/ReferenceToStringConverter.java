@@ -14,6 +14,6 @@ public class ReferenceToStringConverter implements Converter<Reference<?>, Strin
 
     @Override
     public String convert(Reference<?> source) {
-        return source.id();
+        return source != null ? source.id() : null;
     }
 }

@@ -37,8 +37,6 @@ import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
-import org.springframework.kafka.support.serializer.JacksonJsonTypeResolver;
 import org.springframework.kafka.transaction.KafkaTransactionManager;
 
 import static be.appify.prefab.core.kafka.KafkaUtil.DEFAULT_NOT_RETRYABLE;
@@ -61,6 +59,7 @@ public class KafkaConfiguration {
     @ConditionalOnMissingBean(ProducerFactory.class)
     ProducerFactory<Object, Object> kafkaProducerFactory(
             KafkaProperties kafkaProperties,
+            DynamicSerializer serializer,
             KafkaConnectionDetails connectionDetails,
             ObjectProvider<DefaultKafkaProducerFactoryCustomizer> customizers,
             @Value("${spring.application.name}") String applicationName,
@@ -68,8 +67,6 @@ public class KafkaConfiguration {
     ) {
         var properties = kafkaProperties.buildProducerProperties();
         properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, connectionDetails.getProducer().getBootstrapServers());
-
-        var serializer = new DynamicSerializer(kafkaProperties);
 
         var factory = new DefaultKafkaProducerFactory<>(properties, serializer, serializer);
         if (transactionsEnabled) {
@@ -107,7 +104,7 @@ public class KafkaConfiguration {
             KafkaConnectionDetails connectionDetails,
             ObjectProvider<DefaultKafkaConsumerFactoryCustomizer> customizers,
             ObjectProvider<KafkaTransactionManager<?, ?>> kafkaTransactionManager,
-            JacksonJsonTypeResolver jsonTypeResolver,
+            DynamicDeserializer dynamicDeserializer,
             @Value("${spring.application.name}") String applicationName
     ) {
         var properties = kafkaProperties.buildConsumerProperties();
@@ -116,9 +113,7 @@ public class KafkaConfiguration {
         kafkaTransactionManager.ifAvailable(ignored ->
                 properties.putIfAbsent(ConsumerConfig.ISOLATION_LEVEL_CONFIG,
                         KafkaProperties.IsolationLevel.READ_COMMITTED.name()));
-        var jsonDeserializer = new JacksonJsonDeserializer<>();
-        jsonDeserializer.setTypeResolver(jsonTypeResolver);
-        var deserializer = new ErrorHandlingDeserializer<>(jsonDeserializer);
+        var deserializer = new ErrorHandlingDeserializer<>(dynamicDeserializer);
         deserializer.configure(properties, false);
         var factory = new DefaultKafkaConsumerFactory<>(properties, new StringDeserializer(), deserializer);
         customizers.orderedStream().forEach(customizer -> customizer.customize(factory));

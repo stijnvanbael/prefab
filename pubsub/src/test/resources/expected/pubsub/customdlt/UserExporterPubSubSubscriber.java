@@ -1,7 +1,7 @@
 package pubsub.customdlt.infrastructure.pubsub;
 
 import be.appify.prefab.core.pubsub.PubSubUtil;
-import be.appify.prefab.core.pubsub.SubscribeRequest;
+import be.appify.prefab.core.pubsub.SubscriptionRequest;
 import com.google.pubsub.v1.DeadLetterPolicy;
 import java.time.Duration;
 import java.util.concurrent.Executor;
@@ -28,7 +28,7 @@ public class UserExporterPubSubSubscriber {
             @Value("${topic.user.name}") String userEventTopic,
             @Value("${custom.dlt.name}") String deadLetterTopic) {
         executor = Executors.newFixedThreadPool(1);
-        pubSub.subscribe(new SubscribeRequest<UserEvent>(userEventTopic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
+        pubSub.subscribe(new SubscriptionRequest<UserEvent>(userEventTopic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
                 .withExecutor(executor)
                 .withDeadLetterPolicy(DeadLetterPolicy.newBuilder()
                     .setDeadLetterTopic(deadLetterTopic)

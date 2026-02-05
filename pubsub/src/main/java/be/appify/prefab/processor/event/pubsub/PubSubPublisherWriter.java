@@ -1,8 +1,8 @@
 package be.appify.prefab.processor.event.pubsub;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.pubsub.PubSubSerializer;
 import be.appify.prefab.core.pubsub.PubSubUtil;
-import be.appify.prefab.core.spring.JsonUtil;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -42,7 +42,7 @@ class PubSubPublisherWriter {
                                 ClassName.get(event.packageName() + ".infrastructure.pubsub", name))
                         .build())
                 .addField(PubSubTemplate.class, "pubSubTemplate", Modifier.PRIVATE, Modifier.FINAL)
-                .addField(JsonUtil.class, "jsonSupport", Modifier.PRIVATE, Modifier.FINAL)
+                .addField(PubSubSerializer.class, "serializer", Modifier.PRIVATE, Modifier.FINAL)
                 .addField(String.class, "topic", Modifier.PRIVATE, Modifier.FINAL)
                 .addMethod(constructor(annotation.topic()))
                 .addMethod(producer(event, context))
@@ -56,9 +56,9 @@ class PubSubPublisherWriter {
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(PubSubTemplate.class, "pubSubTemplate")
                 .addParameter(PubSubUtil.class, "pubSub")
-                .addParameter(JsonUtil.class, "jsonSupport")
+                .addParameter(PubSubSerializer.class, "serializer")
                 .addStatement("this.pubSubTemplate = pubSubTemplate")
-                .addStatement("this.jsonSupport = jsonSupport");
+                .addStatement("this.serializer = serializer");
         if (topic.matches("\\$\\{.+}")) {
             constructor.addParameter(ParameterSpec.builder(String.class, "topic")
                             .addAnnotation(AnnotationSpec.builder(Value.class)
@@ -82,11 +82,12 @@ class PubSubPublisherWriter {
                                 pubSubTemplate.publish(
                                     topic,
                                     $T.newBuilder()
-                                        .setData($T.copyFromUtf8(jsonSupport.toJson(event)))$L
+                                        .setData($T.copyFrom(serializer.serialize($T.simpleTopicName(topic), event)))$L
                                         .putAttributes($S, event.getClass().getName())
                                         .build())""",
                         PubsubMessage.class,
                         ByteString.class,
+                        PubSubUtil.class,
                         keyField(event, context).map(kf -> CodeBlock.of("\n        .setOrderingKey($L)", kf))
                                 .orElse(CodeBlock.of("")),
                         "type"

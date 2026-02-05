@@ -3,15 +3,7 @@ package be.appify.prefab.processor.dbmigration;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.ListUtil;
-import net.sf.jsqlparser.parser.CCJSqlParser;
-import net.sf.jsqlparser.statement.alter.Alter;
-import net.sf.jsqlparser.statement.create.table.CreateTable;
-import org.springframework.data.relational.core.mapping.Embedded;
-
-import javax.annotation.processing.ProcessingEnvironment;
-import javax.lang.model.element.Element;
-import javax.tools.FileObject;
-import javax.tools.StandardLocation;
+import be.appify.prefab.processor.TypeManifest;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -22,6 +14,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.Element;
+import javax.tools.FileObject;
+import javax.tools.StandardLocation;
+import net.sf.jsqlparser.parser.CCJSqlParser;
+import net.sf.jsqlparser.statement.alter.Alter;
+import net.sf.jsqlparser.statement.create.table.CreateTable;
+import org.springframework.data.relational.core.mapping.Embedded;
 
 import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
 import static java.util.stream.Collectors.groupingBy;
@@ -144,7 +144,7 @@ class DbMigrationWriter {
     private List<Table> desiredDatabaseState(List<ClassManifest> classManifests) {
         return sortByDependencies(classManifests.stream().flatMap(manifest -> {
             var tables = new ArrayList<Table>();
-            var aggregateRootTable = toSnakeCase(manifest.simpleName());
+            var aggregateRootTable = tableNameOf(manifest.type());
             var columns = columnsOf(manifest, null, false);
             tables.add(new Table(aggregateRootTable, columns, List.of("id")));
             tables.addAll(childEntityTables(aggregateRootTable, manifest));
@@ -162,7 +162,7 @@ class DbMigrationWriter {
                                         new ForeignKey(aggregateRootTable, "id"), null),
                                 new Column(aggregateRootTable + "_key", DataType.Primitive.INTEGER, false, null, null)
                         ), columnsOf(child.asClassManifest(), null, false));
-                        var table = new Table(toSnakeCase(child.simpleName()), columns, List.of(
+                        var table = new Table(tableNameOf(child), columns, List.of(
                                 aggregateRootTable,
                                 aggregateRootTable + "_key"
                         ));
@@ -172,6 +172,10 @@ class DbMigrationWriter {
                     }
                 })
                 .toList();
+    }
+
+    private static String tableNameOf(TypeManifest manifest) {
+        return toSnakeCase(manifest.simpleName()).replace('.', '_');
     }
 
     private List<Column> columnsOf(ClassManifest manifest, String prefix, boolean parentNullable) {

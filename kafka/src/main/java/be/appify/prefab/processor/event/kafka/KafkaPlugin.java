@@ -75,7 +75,7 @@ public class KafkaPlugin implements PrefabPlugin {
         events.forEach(event -> kafkaProducerWriter.writeKafkaProducer(event, context));
     }
 
-    public static boolean platformIsKafka(Event event, Element element, PrefabContext context) {
+    static boolean platformIsKafka(Event event, Element element, PrefabContext context) {
         if (event.platform() == Event.Platform.DERIVED && isMultiplePlatformsDetected()) {
             context.logError(
                     "Cannot derive platform for event [%s] because multiple messaging platforms are configured. Please specify the platform explicitly."

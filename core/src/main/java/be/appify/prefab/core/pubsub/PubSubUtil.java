@@ -1,6 +1,5 @@
 package be.appify.prefab.core.pubsub;
 
-import be.appify.prefab.core.spring.JsonUtil;
 import com.google.cloud.spring.pubsub.PubSubAdmin;
 import com.google.cloud.spring.pubsub.core.subscriber.PubSubSubscriberTemplate;
 import com.google.cloud.spring.pubsub.support.BasicAcknowledgeablePubsubMessage;
@@ -25,7 +24,7 @@ import org.springframework.stereotype.Component;
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 
 /**
- * Utility class for managing Pub/Sub topics and subscriptions, and for subscribing to messages with optional dead-letter handling.
+ * Utility class for managing Pub/Sub topics, subscriptions, and for subscribing to messages with optional dead-letter handling.
  */
 @Component
 @ConditionalOnClass(PubSubAdmin.class)
@@ -37,7 +36,7 @@ public class PubSubUtil {
     private final Integer maximumBackoff;
     private final PubSubAdmin pubSubAdmin;
     private final PubSubSubscriberTemplate subscriberTemplate;
-    private final JsonUtil jsonUtil;
+    private final PubSubDeserializer deserializer;
     private final ConcurrentMap<String, Class<?>> messageTypes = new ConcurrentHashMap<>();
     private final String deadLetterTopicName;
     private final RetryTemplate retryTemplate;
@@ -57,12 +56,14 @@ public class PubSubUtil {
      *         the minimum backoff time in milliseconds
      * @param maximumBackoff
      *         the maximum backoff time in milliseconds
+     * @param backoffMultiplier
+     *        the backoff multiplier
      * @param pubSubAdmin
      *         the Pub/Sub admin client
      * @param subscriberTemplate
      *         the Pub/Sub subscriber template
-     * @param jsonUtil
-     *         the JSON utility for serialization/deserialization
+     * @param deserializer
+     *         the Pub/Sub deserializer
      */
     public PubSubUtil(
             @Value("${spring.cloud.gcp.project-id}") String projectId,
@@ -74,7 +75,7 @@ public class PubSubUtil {
             @Value("${prefab.dlt.retries.multiplier:1.5}") Float backoffMultiplier,
             PubSubAdmin pubSubAdmin,
             PubSubSubscriberTemplate subscriberTemplate,
-            JsonUtil jsonUtil
+            PubSubDeserializer deserializer
     ) {
         this.projectId = projectId;
         this.maxRetries = maxRetries;
@@ -82,7 +83,7 @@ public class PubSubUtil {
         this.maximumBackoff = maximumBackoff;
         this.pubSubAdmin = pubSubAdmin;
         this.subscriberTemplate = subscriberTemplate;
-        this.jsonUtil = jsonUtil;
+        this.deserializer = deserializer;
         this.deadLetterTopicName = !isEmpty(deadLetterTopicName) ? deadLetterTopicName : applicationName + ".dlt";
         this.retryTemplate = new RetryTemplate(org.springframework.core.retry.RetryPolicy.builder()
                 .maxRetries(maxRetries)
@@ -112,18 +113,18 @@ public class PubSubUtil {
             Class<T> type,
             Consumer<T> consumer
     ) {
-        subscribe(new SubscribeRequest<>(topic, subscription, type, consumer));
+        subscribe(new SubscriptionRequest<>(topic, subscription, type, consumer));
     }
 
     /**
-     * Subscribes to a Pub/Sub topic using the provided subscribe request.
+     * Subscribes to a Pub/Sub topic using the provided subscription request.
      *
      * @param request
      *         the subscribe request containing subscription details
      * @param <T>
      *         the type of the messages
      */
-    public <T> void subscribe(SubscribeRequest<T> request) {
+    public <T> void subscribe(SubscriptionRequest<T> request) {
         var topicName = ensureTopicExists(request.topic());
         var subscriptionName = ensureSubscriptionExists(
                 request.subscription(),
@@ -132,18 +133,18 @@ public class PubSubUtil {
         );
         subscriberTemplate.subscribe(subscriptionName, message ->
                 request.executor().execute(
-                        () -> consume(request.type(), request.consumer(), request.retryTemplate().orElse(retryTemplate), message)));
+                        () -> consume(request, message)));
     }
 
-    private <T> void consume(Class<T> type, Consumer<T> consumer, RetryTemplate retryTemplate, BasicAcknowledgeablePubsubMessage message) {
+    private <T> void consume(SubscriptionRequest<T> request, BasicAcknowledgeablePubsubMessage message) {
         try {
-            retryTemplate.execute(() -> {
+            request.retryTemplate().orElse(this.retryTemplate).execute(() -> {
                 var pubsubMessage = message.getPubsubMessage();
                 try {
                     if (pubsubMessage.containsAttributes("type")) {
-                        consumeTyped(type, consumer, pubsubMessage);
+                        consumeTyped(request, pubsubMessage);
                     } else {
-                        consumer.accept(jsonUtil.parseJson(pubsubMessage.getData().toStringUtf8(), type));
+                        request.consumer().accept(deserializer.deserialize(request.topic(), pubsubMessage.getData(), request.type()));
                     }
                     message.ack();
                 } catch (Exception e) {
@@ -160,7 +161,7 @@ public class PubSubUtil {
         }
     }
 
-    private <T> void consumeTyped(Class<T> type, Consumer<T> consumer, PubsubMessage pubsubMessage) {
+    private <T> void consumeTyped(SubscriptionRequest<T> request, PubsubMessage pubsubMessage) {
         var typeName = pubsubMessage.getAttributesOrThrow("type");
         var consumedType = messageTypes.computeIfAbsent(typeName, key -> {
             try {
@@ -169,8 +170,8 @@ public class PubSubUtil {
                 throw new IllegalArgumentException("Could not find class for type found in message: " + typeName, e);
             }
         });
-        if (type.isAssignableFrom(consumedType)) {
-            consumer.accept(jsonUtil.parseJson(pubsubMessage.getData().toStringUtf8(), type));
+        if (request.type().isAssignableFrom(consumedType)) {
+            request.consumer().accept(deserializer.deserialize(request.topic(), pubsubMessage.getData(), request.type()));
         }
     }
 
@@ -193,6 +194,15 @@ public class PubSubUtil {
                             topicName), e);
         }
         return topicName;
+    }
+
+    /**
+     * Extracts the simple topic name from a fully qualified topic name.
+     * @param fullyQualifiedTopic the fully qualified topic name (e.g., "projects/my-project/topics/my-topic")
+     * @return the simple topic name (e.g., "my-topic")
+     */
+    public static String simpleTopicName(String fullyQualifiedTopic) {
+        return fullyQualifiedTopic.substring(fullyQualifiedTopic.lastIndexOf("/") + 1);
     }
 
     /**

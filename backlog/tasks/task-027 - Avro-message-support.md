@@ -1,14 +1,14 @@
 ---
-id: task-027
+id: TASK-027
 title: Avro message support
-status: To Do
+status: Done
 assignee: []
 created_date: '2025-10-10 13:39'
-updated_date: '2026-01-15 10:03'
+updated_date: '2026-02-09 10:04'
 labels:
   - "\U0001F4E6feature"
 dependencies: []
-ordinal: 227.50377655029297
+ordinal: 1000
 ---
 
 ## Description
@@ -23,3 +23,10 @@ SerDes hierarchy:
   - AvroMapping
     - Avro
 <!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [x] #1 Kafka
+- [x] #2 Pub/Sub
+- [x] #3 Example
+<!-- AC:END -->

@@ -58,5 +58,8 @@ public @interface Event {
     enum Serialization {
         /** JSON serialization format. */
         JSON,
+
+        /** AVRO serialization format. */
+        AVRO
     }
 }

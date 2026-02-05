@@ -24,30 +24,35 @@ import static be.appify.prefab.processor.TestClasses.TEST_UTIL;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 class CreateTestClientWriter {
-    List<MethodSpec> createMethods(ClassManifest manifest, ExecutableElement constructor,
-            PrefabContext context) {
-        return List.of(createMethod(manifest, constructor, context), whenVariant(manifest), givenVariant(manifest));
+    List<MethodSpec> createMethods(ClassManifest manifest, ExecutableElement constructor, PrefabContext context) {
+        return List.of(createMethod(manifest, constructor, context), whenVariant(manifest, constructor),
+                givenVariant(manifest, constructor));
     }
 
-    private MethodSpec whenVariant(ClassManifest manifest) {
-        return variant(manifest, "whenCreating" + manifest.simpleName());
+    private MethodSpec whenVariant(ClassManifest manifest, ExecutableElement constructor) {
+        return variant(manifest, constructor, "whenCreating" + manifest.simpleName());
     }
 
-    private MethodSpec givenVariant(ClassManifest manifest) {
-        return variant(manifest, "given" + manifest.simpleName() + "Created");
+    private MethodSpec givenVariant(ClassManifest manifest, ExecutableElement constructor) {
+        return variant(manifest, constructor, "given" + manifest.simpleName() + "Created");
     }
 
-    private static MethodSpec variant(ClassManifest manifest, String methodName) {
-        return MethodSpec.methodBuilder(methodName)
+    private static MethodSpec variant(ClassManifest manifest, ExecutableElement constructor, String methodName) {
+        var method = MethodSpec.methodBuilder(methodName)
                 .addModifiers(Modifier.PUBLIC)
-                .returns(String.class)
-                .addParameter(
-                        ClassName.get(manifest.packageName() + ".application",
-                                "Create%sRequest".formatted(manifest.simpleName())),
-                        uncapitalize(manifest.simpleName())
-                ) 
+                .returns(String.class);
+        if (!constructor.getParameters().isEmpty()) {
+            method.addParameter(
+                    ClassName.get(manifest.packageName() + ".application",
+                            "Create%sRequest".formatted(manifest.simpleName())),
+                    uncapitalize(manifest.simpleName())
+            );
+        }
+        return method
+
                 .addException(Exception.class)
-                .addStatement("return create$L($L)", manifest.simpleName(), uncapitalize(manifest.simpleName()))
+                .addStatement("return create$L($L)", manifest.simpleName(),
+                        !constructor.getParameters().isEmpty() ? uncapitalize(manifest.simpleName()) : "")
                 .build();
     }
 
@@ -71,14 +76,31 @@ class CreateTestClientWriter {
         ).toList();
         var method = MethodSpec.methodBuilder("create" + manifest.simpleName())
                 .addModifiers(Modifier.PUBLIC)
-                .returns(String.class)
-                .addParameter(bodyType, createRequest);
+                .returns(String.class);
+        if (!constructor.getParameters().isEmpty()) {
+            method.addParameter(bodyType, createRequest);
+        }
         method.addException(Exception.class);
-        if (requestParts.size() == 1) {
+        if (constructor.getParameters().isEmpty()) {
+            return withoutRequestBody(manifest, method, create, pathVariables);
+        } else if (requestParts.size() == 1) {
             return withRequestBody(manifest, method, create, pathVariables, createRequest);
         } else {
             return withMultipart(manifest, method, create, pathVariables, createRequest, requestParts);
         }
+    }
+
+    private static MethodSpec withoutRequestBody(ClassManifest manifest, MethodSpec.Builder method, Create create, String pathVariables) {
+        return method.addStatement("""
+                                var result = mockMvc.perform($T.$N($L)$L)
+                                        .andExpect($T.status().isCreated())""",
+                        MOCK_MVC_REQUEST_BUILDERS,
+                        create.method().toLowerCase(),
+                        pathVariables(manifest, create, pathVariables),
+                        ControllerUtil.withMockUser(create.security()),
+                        MOCK_MVC_RESULT_MATCHERS)
+                .addStatement("return $T.idOf(result)", TEST_UTIL)
+                .build();
     }
 
     private static MethodSpec withRequestBody(

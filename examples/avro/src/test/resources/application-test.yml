@@ -1,0 +1,9 @@
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:16.1:///prefab_avro_example?TC_REUSABLE=true&currentSchema=prefab_avro_example
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  flyway:
+    clean-disabled: false
+
+  logging.level:
+    be.appify.prefab.example: DEBUG

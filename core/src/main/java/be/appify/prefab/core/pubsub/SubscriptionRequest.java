@@ -13,7 +13,8 @@ import org.springframework.core.retry.RetryTemplate;
  * @param <T>
  *         The type of the event to subscribe to.
  */
-public class SubscribeRequest<T> {
+public class SubscriptionRequest<T> {
+    /** The default dead letter policy to use if none is provided. */
     public static final DeadLetterPolicy DEFAULT_DEAD_LETTER_POLICY = DeadLetterPolicy.newBuilder()
             .setDeadLetterTopic(EventHandlerConfig.DEFAULT_DEAD_LETTER_TOPIC)
             .build();
@@ -37,7 +38,7 @@ public class SubscribeRequest<T> {
      * @param consumer
      *         The consumer to handle the events.
      */
-    public SubscribeRequest(
+    public SubscriptionRequest(
             String topic,
             String subscription,
             Class<T> type,
@@ -110,7 +111,7 @@ public class SubscribeRequest<T> {
      *         The executor.
      * @return The subscribe request.
      */
-    public SubscribeRequest<T> withExecutor(Executor executor) {
+    public SubscriptionRequest<T> withExecutor(Executor executor) {
         this.executor = executor;
         return this;
     }
@@ -131,7 +132,7 @@ public class SubscribeRequest<T> {
      *         The dead letter policy.
      * @return The subscribe request.
      */
-    public SubscribeRequest<T> withDeadLetterPolicy(DeadLetterPolicy deadLetterPolicy) {
+    public SubscriptionRequest<T> withDeadLetterPolicy(DeadLetterPolicy deadLetterPolicy) {
         this.deadLetterPolicy = deadLetterPolicy;
         return this;
     }
@@ -143,7 +144,7 @@ public class SubscribeRequest<T> {
      *         The retry template.
      * @return The subscribe request.
      */
-    public SubscribeRequest<T> withRetryTemplate(RetryTemplate retryTemplate) {
+    public SubscriptionRequest<T> withRetryTemplate(RetryTemplate retryTemplate) {
         this.retryTemplate = retryTemplate;
         return this;
     }

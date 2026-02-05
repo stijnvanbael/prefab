@@ -700,6 +700,34 @@ processor. Prefab, however, needs the full classpath to generate the repository 
 
 To fix this, you can try using Maven instead of IntelliJ IDEA's built-in compiler.
 
+### 💥 IllegalAccessException when saving an aggregate root
+
+In certain cases, when saving a new aggregate root, you might encounter an `IllegalAccessException` with a message like this:
+
+```
+java.lang.IllegalAccessException: final field has no write access: ...
+```
+
+This is an issue related to Spring Data JDBC. You likely have defined a method on your aggregate root like this:
+```java
+@Update(path = "/name")
+public User setName(String name) {
+    return new User(this.id, this.version, name);
+}
+```
+
+This will cause Spring Data JDBC to generate a proxy for the `User` class that doesn't have access to the private fields
+of the record, which results in the `IllegalAccessException` when trying to save the new instance.
+
+To fix this, name the method something other than `setX` or `withX`, where `X` is the name of a field in the record. For example:
+
+```java
+@Update(path = "/name")
+public User updateName(String name) {
+    return new User(this.id, this.version, name);
+}
+```
+
 ## 🧭 What's next?
 
 Prefab is still in its early stages, and many more features are planned for the future.

@@ -1,4 +1,6 @@
 be.appify.prefab.processor.dbmigration.DbMigrationPlugin
+be.appify.prefab.processor.event.avro.AvroPlugin
+be.appify.prefab.processor.event.SerializationPlugin
 be.appify.prefab.processor.event.handler.StaticEventHandlerPlugin
 be.appify.prefab.processor.event.handler.byreference.ByReferenceEventHandlerPlugin
 be.appify.prefab.processor.event.handler.multicast.MulticastEventHandlerPlugin

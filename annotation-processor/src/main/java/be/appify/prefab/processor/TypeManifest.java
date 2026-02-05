@@ -1,19 +1,9 @@
 package be.appify.prefab.processor;
 
+import com.google.common.collect.Streams;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
-import org.springframework.util.ClassUtils;
-
-import javax.annotation.processing.ProcessingEnvironment;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeKind;
-import javax.lang.model.type.TypeMirror;
-import javax.tools.Diagnostic;
 import java.lang.annotation.Annotation;
 import java.util.Collections;
 import java.util.List;
@@ -22,10 +12,20 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
+import javax.tools.Diagnostic;
+import org.springframework.util.ClassUtils;
 
 /**
- * Represents a type manifest, encapsulating information about a type such as its package name, simple name, type
- * parameters, and kind.
+ * Represents a type manifest, encapsulating information about a type such as its package name, simple name, type parameters, and kind.
  */
 public class TypeManifest {
     private final String packageName;
@@ -53,9 +53,13 @@ public class TypeManifest {
         } else if (Objects.requireNonNull(typeMirror.getKind()) == TypeKind.DECLARED) {
             var declaredType = (DeclaredType) typeMirror;
             this.element = (TypeElement) declaredType.asElement();
-            this.packageName = element.getQualifiedName().toString()
-                    .replaceAll("\\.[A-Z].+$", "");
-            this.simpleName = element.getQualifiedName().toString().substring(packageName.length() + 1);
+            var fullyQualifiedName = element.getQualifiedName().toString();
+            this.packageName = fullyQualifiedName.contains(".")
+                    ? fullyQualifiedName.replaceAll("\\.[A-Z].+$", "")
+                    : "";
+            this.simpleName = packageName.isEmpty()
+                    ? fullyQualifiedName
+                    : fullyQualifiedName.substring(packageName.length() + 1);
             this.parameters = declaredType.getTypeArguments().stream()
                     .map(type -> new TypeManifest(type, processingEnvironment))
                     .toList();
@@ -224,6 +228,17 @@ public class TypeManifest {
         return packageName.isEmpty() || packageName.startsWith("java.");
     }
 
+    public TypeManifest asBoxed() {
+        return switch (simpleName()) {
+            case "int" -> new TypeManifest(Integer.class, processingEnvironment);
+            case "long" -> new TypeManifest(Long.class, processingEnvironment);
+            case "double" -> new TypeManifest(Double.class, processingEnvironment);
+            case "float" -> new TypeManifest(Float.class, processingEnvironment);
+            case "boolean" -> new TypeManifest(Boolean.class, processingEnvironment);
+            default -> this;
+        };
+    }
+
     /**
      * Converts the TypeManifest to a TypeElement.
      *
@@ -264,11 +279,16 @@ public class TypeManifest {
             if (packageName.isEmpty()) {
                 return ClassUtils.forName(simpleName, TypeManifest.class.getClassLoader());
             }
-            return TypeManifest.class.getClassLoader()
-                    .loadClass("%s.%s".formatted(packageName, simpleName.replace('.', '$')));
+            return TypeManifest.class.getClassLoader().loadClass(fullyQualifiedName());
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private String fullyQualifiedName() {
+        return packageName.isEmpty()
+                ? simpleName
+                : "%s.%s".formatted(packageName, simpleName.replace('.', '$'));
     }
 
     /**
@@ -302,7 +322,7 @@ public class TypeManifest {
 
     private Stream<TypeManifest> supertypes() {
         return Stream.concat(
-                Optional.ofNullable(element.getSuperclass())
+                Optional.of(element.getSuperclass())
                         .filter(e -> e.getKind() == TypeKind.DECLARED)
                         .map(e -> new TypeManifest(e, processingEnvironment)).stream(),
                 element.getInterfaces().stream()
@@ -338,6 +358,55 @@ public class TypeManifest {
                         && element.getModifiers().contains(Modifier.PUBLIC))
                 .map(ExecutableElement.class::cast)
                 .filter(element -> element.getAnnotationsByType(annotation).length > 0)
+                .toList();
+    }
+
+    /**
+     * Retrieves the fields of the type.
+     *
+     * @return a list of VariableManifest representing the fields of the type
+     */
+    public List<VariableManifest> fields() {
+        return Streams.concat(
+                        supertypes().flatMap(supertype -> supertype.fields().stream()),
+                        element.getEnclosedElements()
+                                .stream()
+                                .filter(e -> e.getKind() == ElementKind.FIELD)
+                                .map(VariableElement.class::cast)
+                                .map(variableElement -> new VariableManifest(variableElement, processingEnvironment)))
+                .toList();
+    }
+
+    /**
+     * Retrieves the enum constant values of the type if it is an enum.
+     *
+     * @return a list of enum constant values, or an empty list if the type is not an enum
+     */
+    public List<String> enumValues() {
+        return element.getEnclosedElements()
+                .stream()
+                .filter(e -> e.getKind() == ElementKind.ENUM_CONSTANT)
+                .map(e -> e.getSimpleName().toString())
+                .toList();
+    }
+
+    /**
+     * Checks if the type is sealed.
+     *
+     * @return true if the type is sealed, false otherwise
+     */
+    public boolean isSealed() {
+        return element != null && element.getModifiers().contains(Modifier.SEALED);
+    }
+
+    /**
+     * Retrieves the permitted subtypes of the sealed interface.
+     *
+     * @return a list of TypeManifest representing the permitted subtypes
+     */
+    public List<TypeManifest> permittedSubtypes() {
+        return element == null ? Collections.emptyList() : element.getPermittedSubclasses().stream()
+                .map(type -> new TypeManifest(type, processingEnvironment))
                 .toList();
     }
 }

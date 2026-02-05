@@ -29,6 +29,7 @@ import static org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE;
 public class ControllerUtil {
 
     private static final ClassName PRE_AUTHORIZE = ClassName.get("org.springframework.security.access.prepost", "PreAuthorize");
+    /** Flag to indicate if Spring Security is included in the classpath. */
     public static final boolean SECURITY_INCLUDED = isSecurityIncluded();
 
     private static boolean isSecurityIncluded() {

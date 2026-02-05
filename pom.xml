@@ -19,6 +19,7 @@
         <module>core</module>
         <module>annotation-processor</module>
         <module>test</module>
+        <module>examples/avro</module>
         <module>examples/kafka</module>
         <module>examples/pubsub</module>
         <module>kafka</module>
@@ -38,6 +39,8 @@
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
         <compile-testing.version>0.23.0</compile-testing.version>
+        <confluent.version>7.6.1</confluent.version>
+        <avro.version>1.11.3</avro.version>
     </properties>
 
     <dependencyManagement>

@@ -8,11 +8,19 @@ import java.lang.annotation.Target;
  */
 @Target(ElementType.TYPE)
 public @interface EventHandlerConfig {
-
+    /** Default dead letter topic name. */
     String DEFAULT_DEAD_LETTER_TOPIC = "${prefab.dlt.topic.name}";
+
+    /** Default retry limit. */
     String DEFAULT_RETRY_LIMIT = "${prefab.dlt.retries.limit:5}";
+
+    /** Default minimum backoff in milliseconds. */
     String DEFAULT_MINIMUM_BACKOFF_MS = "${prefab.dlt.retries.minimum-backoff-ms:1000}";
+
+    /** Default maximum backoff in milliseconds. */
     String DEFAULT_MAXIMUM_BACKOFF_MS = "${prefab.dlt.retries.maximum-backoff-ms:30000}";
+
+    /** Default backoff multiplier. */
     String DEFAULT_BACKOFF_MULTIPLIER = "${prefab.dlt.retries.backoff-multiplier:1.5}";
 
     /**

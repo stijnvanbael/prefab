@@ -7,9 +7,11 @@ import com.palantir.javapoet.TypeName;
 import java.lang.annotation.Annotation;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -28,6 +30,9 @@ import org.springframework.util.ClassUtils;
  * Represents a type manifest, encapsulating information about a type such as its package name, simple name, type parameters, and kind.
  */
 public class TypeManifest {
+    private static final Map<Class<?>, TypeManifest> manifestByClassCache = new ConcurrentHashMap<>();
+    private static final Map<TypeMirror, TypeManifest> manifestByTypeMirrorCache = new ConcurrentHashMap<>();
+
     private final String packageName;
     private final String simpleName;
     private final ElementKind kind;
@@ -35,15 +40,7 @@ public class TypeManifest {
     private TypeElement element;
     private final ProcessingEnvironment processingEnvironment;
 
-    /**
-     * Constructs a TypeManifest from a TypeMirror.
-     *
-     * @param typeMirror
-     *         the TypeMirror representing the type
-     * @param processingEnvironment
-     *         the processing environment
-     */
-    public TypeManifest(TypeMirror typeMirror, ProcessingEnvironment processingEnvironment) {
+    private TypeManifest(TypeMirror typeMirror, ProcessingEnvironment processingEnvironment) {
         this.processingEnvironment = processingEnvironment;
         if (typeMirror.getKind().isPrimitive()) {
             this.packageName = "";
@@ -61,7 +58,7 @@ public class TypeManifest {
                     ? fullyQualifiedName
                     : fullyQualifiedName.substring(packageName.length() + 1);
             this.parameters = declaredType.getTypeArguments().stream()
-                    .map(type -> new TypeManifest(type, processingEnvironment))
+                    .map(type -> of(type, processingEnvironment))
                     .toList();
             this.kind = element.getKind();
         } else {
@@ -73,39 +70,7 @@ public class TypeManifest {
         }
     }
 
-    /**
-     * Constructs a TypeManifest from a Class.
-     *
-     * @param type
-     *         the Class representing the type
-     * @param processingEnvironment
-     *         the processing environment
-     */
-    public TypeManifest(Class<?> type, ProcessingEnvironment processingEnvironment) {
-        this(
-                type.getPackageName(),
-                type.getSimpleName(),
-                List.of(),
-                ElementKind.CLASS,
-                processingEnvironment
-        );
-    }
-
-    /**
-     * Constructs a TypeManifest with the specified attributes.
-     *
-     * @param packageName
-     *         the package name of the type
-     * @param simpleName
-     *         the simple name of the type
-     * @param parameters
-     *         the type parameters of the type
-     * @param kind
-     *         the kind of the type
-     * @param processingEnvironment
-     *         the processing environment
-     */
-    public TypeManifest(String packageName, String simpleName, List<TypeManifest> parameters, ElementKind kind,
+    private TypeManifest(String packageName, String simpleName, List<TypeManifest> parameters, ElementKind kind,
             ProcessingEnvironment processingEnvironment) {
         this.packageName = packageName;
         this.simpleName = simpleName;
@@ -124,8 +89,20 @@ public class TypeManifest {
      * @return a TypeManifest representing the specified class
      */
     public static TypeManifest of(Class<?> clazz, ProcessingEnvironment processingEnvironment) {
-        return new TypeManifest(clazz.getPackageName(), clazz.getSimpleName(), List.of(), ElementKind.CLASS,
-                processingEnvironment);
+        return manifestByClassCache.computeIfAbsent(clazz,
+                c -> new TypeManifest(c.getPackageName(), c.getSimpleName(), List.of(), ElementKind.CLASS, processingEnvironment));
+    }
+
+    /**
+     * Creates a TypeManifest from a TypeMirror.
+     *
+     * @param typeMirror
+     *         the TypeMirror representing the type
+     * @param processingEnvironment
+     *         the processing environment
+     */
+    public static TypeManifest of(TypeMirror typeMirror, ProcessingEnvironment processingEnvironment) {
+        return manifestByTypeMirrorCache.computeIfAbsent(typeMirror, type -> new TypeManifest(type, processingEnvironment));
     }
 
     /**
@@ -230,11 +207,12 @@ public class TypeManifest {
 
     public TypeManifest asBoxed() {
         return switch (simpleName()) {
-            case "int" -> new TypeManifest(Integer.class, processingEnvironment);
-            case "long" -> new TypeManifest(Long.class, processingEnvironment);
-            case "double" -> new TypeManifest(Double.class, processingEnvironment);
-            case "float" -> new TypeManifest(Float.class, processingEnvironment);
-            case "boolean" -> new TypeManifest(Boolean.class, processingEnvironment);
+            case "int" -> TypeManifest.of(Integer.class, processingEnvironment);
+            case "long" -> TypeManifest.of(Long.class, processingEnvironment);
+            case "double" -> TypeManifest.of(Double.class, processingEnvironment);
+            case "float" -> TypeManifest.of(Float.class, processingEnvironment);
+            case "boolean" -> TypeManifest.of(Boolean.class, processingEnvironment);
+            case "char" -> TypeManifest.of(Character.class, processingEnvironment);
             default -> this;
         };
     }
@@ -266,7 +244,7 @@ public class TypeManifest {
         if (kind != ElementKind.CLASS && kind != ElementKind.RECORD) {
             throw new IllegalStateException("Type %s is not a class".formatted(this));
         }
-        return new ClassManifest(asElement(), processingEnvironment);
+        return ClassManifest.of(asElement(), processingEnvironment);
     }
 
     /**
@@ -324,10 +302,10 @@ public class TypeManifest {
         return Stream.concat(
                 Optional.of(element.getSuperclass())
                         .filter(e -> e.getKind() == TypeKind.DECLARED)
-                        .map(e -> new TypeManifest(e, processingEnvironment)).stream(),
+                        .map(e -> of(e, processingEnvironment)).stream(),
                 element.getInterfaces().stream()
                         .filter(type -> type.getKind() == TypeKind.DECLARED)
-                        .map(type -> new TypeManifest(type, processingEnvironment))
+                        .map(type -> of(type, processingEnvironment))
         );
     }
 
@@ -373,7 +351,7 @@ public class TypeManifest {
                                 .stream()
                                 .filter(e -> e.getKind() == ElementKind.FIELD)
                                 .map(VariableElement.class::cast)
-                                .map(variableElement -> new VariableManifest(variableElement, processingEnvironment)))
+                                .map(variableElement -> VariableManifest.of(variableElement, processingEnvironment)))
                 .toList();
     }
 
@@ -406,7 +384,7 @@ public class TypeManifest {
      */
     public List<TypeManifest> permittedSubtypes() {
         return element == null ? Collections.emptyList() : element.getPermittedSubclasses().stream()
-                .map(type -> new TypeManifest(type, processingEnvironment))
+                .map(type -> of(type, processingEnvironment))
                 .toList();
     }
 }

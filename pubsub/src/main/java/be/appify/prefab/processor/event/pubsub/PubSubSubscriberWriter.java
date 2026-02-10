@@ -54,7 +54,7 @@ class PubSubSubscriberWriter {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.pubsub");
 
         var name = "%sPubSubSubscriber".formatted(owner.simpleName());
-        var packageName = new TypeManifest(eventHandlers.getFirst().getEnclosingElement().asType(),
+        var packageName = TypeManifest.of(eventHandlers.getFirst().getEnclosingElement().asType(),
                 context.processingEnvironment()).packageName();
         var type = TypeSpec.classBuilder(name)
                 .addAnnotation(Component.class)

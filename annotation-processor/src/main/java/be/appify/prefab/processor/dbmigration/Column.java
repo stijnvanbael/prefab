@@ -2,12 +2,11 @@ package be.appify.prefab.processor.dbmigration;
 
 import be.appify.prefab.core.annotations.DbDefaultValue;
 import be.appify.prefab.processor.VariableManifest;
+import java.util.Collections;
+import java.util.List;
 import net.sf.jsqlparser.statement.alter.AlterExpression;
 import net.sf.jsqlparser.statement.create.table.ColDataType;
 import net.sf.jsqlparser.statement.create.table.ColumnDefinition;
-
-import java.util.Collections;
-import java.util.List;
 
 import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
 
@@ -51,7 +50,7 @@ record Column(
         var name = prefix != null ? prefix + "_" + property.name() : property.name();
         return new Column(
                 toSnakeCase(name),
-                DataType.typeOf(property.toBoxed().type(), property.annotations()),
+                DataType.typeOf(property.type().asBoxed(), property.annotations()),
                 parentNullable || property.nullable(),
                 null,
                 property.getAnnotation(DbDefaultValue.class)

@@ -14,6 +14,12 @@ public class SerializationRegistry {
     private final Map<String, Event.Serialization> registry = new HashMap<>();
 
     /**
+     * Constructs a new SerializationRegistry.
+     */
+    public SerializationRegistry() {
+    }
+
+    /**
      * Registers the serialization format for a given topic.
      *
      * @param topic
@@ -39,5 +45,16 @@ public class SerializationRegistry {
             throw new IllegalStateException("No serialization format registered for topic [%s]".formatted(topic));
         }
         return registry.get(topic);
+    }
+
+    /**
+     * Checks if a serialization format is registered for any topic.
+     *
+     * @param serialization
+     *         the serialization format to check for
+     * @return true if the serialization format is registered for any topic, false otherwise
+     */
+    public boolean hasSerialization(Event.Serialization serialization) {
+        return registry.values().stream().anyMatch(s -> s == serialization);
     }
 }

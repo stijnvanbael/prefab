@@ -70,7 +70,7 @@ class CreateTestClientWriter {
                 "Create%sRequest".formatted(manifest.simpleName()));
         var requestParts = Stream.concat(constructor.getParameters().stream()
                         .flatMap(parameter -> context.requestParameterBuilder()
-                                .buildMethodParameter(new VariableManifest(parameter, context.processingEnvironment()))
+                                .buildMethodParameter(VariableManifest.of(parameter, context.processingEnvironment()))
                                 .stream()),
                 Stream.of(ParameterSpec.builder(bodyType, createRequest).build())
         ).toList();

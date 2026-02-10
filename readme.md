@@ -16,6 +16,7 @@ There are several use cases where Prefab can help you:
 - Reducing boilerplate and maintenance overhead
 - Learning and experimenting with Spring Boot and Domain-Driven Design
 - Scaffolding for larger applications
+- Easy pivoting and changing directions in the early stages of development
 
 While Prefab is not intended to build very complex applications out of the box, it can serve as a solid foundation
 that you can extend and customize to fit your specific needs.

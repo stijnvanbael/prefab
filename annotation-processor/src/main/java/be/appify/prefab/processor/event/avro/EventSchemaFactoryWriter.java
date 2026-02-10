@@ -37,14 +37,14 @@ class EventSchemaFactoryWriter {
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(Component.class)
                 .addField(FieldSpec.builder(Schema.class, "schema", Modifier.PRIVATE, Modifier.FINAL).build());
-        type.addMethod(constructor(event, context, type))
+        type.addMethod(constructor(event, context))
                 .addMethod(createSchemaMethod());
 
         fileWriter.writeFile(event.packageName(), name, type.build());
 
     }
 
-    private static MethodSpec constructor(TypeManifest event, PrefabContext context, TypeSpec.Builder type) {
+    private static MethodSpec constructor(TypeManifest event, PrefabContext context) {
         var constructor = getBuilder();
         nestedTypes(List.of(event)).forEach(nestedType -> addSchemaFactory(nestedType, constructor));
         sealedSubtypes(List.of(event)).forEach(subtype -> addSchemaFactory(subtype, constructor));
@@ -170,10 +170,17 @@ class EventSchemaFactoryWriter {
 
     private static CodeBlock createField(VariableManifest field, PrefabContext context) {
         var schema = maybeArray(field, context);
-        return CodeBlock.of("new $T($S, $L)",
-                Schema.Field.class,
-                field.name(),
-                maybeNullable(field, schema));
+        if (field.hasAnnotation(Nullable.class)) {
+            return CodeBlock.of("new $T($S, $L, null)",
+                    Schema.Field.class,
+                    field.name(),
+                    CodeBlock.of("$T.createNullableSchema($L)", SchemaSupport.class, schema));
+        } else {
+            return CodeBlock.of("new $T($S, $L)",
+                    Schema.Field.class,
+                    field.name(),
+                    schema);
+        }
     }
 
     private static CodeBlock maybeArray(VariableManifest field, PrefabContext context) {
@@ -187,11 +194,5 @@ class EventSchemaFactoryWriter {
         return !isNestedRecord(type)
                 ? createSchema(type, context)
                 : CodeBlock.of("$L.createSchema()", uncapitalize("%sSchemaFactory".formatted(type.simpleName().replace(".", ""))));
-    }
-
-    private static CodeBlock maybeNullable(VariableManifest field, CodeBlock schema) {
-        return field.hasAnnotation(Nullable.class)
-                ? CodeBlock.of("$T.createNullableSchema($L)", SchemaSupport.class, schema)
-                : schema;
     }
 }

@@ -41,6 +41,8 @@
         <compile-testing.version>0.23.0</compile-testing.version>
         <confluent.version>7.6.1</confluent.version>
         <avro.version>1.11.3</avro.version>
+        <commons-io.version>2.21.0</commons-io.version>
+        <commons-compress.version>1.28.0</commons-compress.version>
     </properties>
 
     <dependencyManagement>

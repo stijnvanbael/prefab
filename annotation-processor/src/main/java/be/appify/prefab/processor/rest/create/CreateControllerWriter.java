@@ -10,13 +10,12 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import jakarta.validation.Valid;
+import java.net.URI;
+import java.util.stream.Collectors;
+import javax.lang.model.element.ExecutableElement;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestPart;
-
-import javax.lang.model.element.ExecutableElement;
-import java.net.URI;
-import java.util.stream.Collectors;
 
 import static be.appify.prefab.processor.CaseUtil.toKebabCase;
 import static be.appify.prefab.processor.rest.ControllerUtil.requestMapping;
@@ -30,7 +29,7 @@ class CreateControllerWriter {
         var create = constructor.getAnnotation(Create.class);
         var requestParts = constructor.getParameters().stream()
                 .flatMap(parameter -> context.requestParameterBuilder()
-                        .buildMethodParameter(new VariableManifest(parameter, context.processingEnvironment()))
+                        .buildMethodParameter(VariableManifest.of(parameter, context.processingEnvironment()))
                         .stream()).toList();
         var method = MethodSpec.methodBuilder("create")
                 .addModifiers(PUBLIC)

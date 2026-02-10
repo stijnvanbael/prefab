@@ -19,6 +19,6 @@ record MulticastEventHandlerManifest(
     TypeManifest returnType() {
         return methodElement.getReturnType().getKind() == TypeKind.VOID
                 ? null
-                : new TypeManifest(methodElement.getReturnType(), context.processingEnvironment());
+                : TypeManifest.of(methodElement.getReturnType(), context.processingEnvironment());
     }
 }

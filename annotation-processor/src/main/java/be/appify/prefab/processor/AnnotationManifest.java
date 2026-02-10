@@ -2,13 +2,12 @@ package be.appify.prefab.processor;
 
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
-
-import javax.annotation.processing.ProcessingEnvironment;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.AnnotationValue;
 import java.lang.annotation.Annotation;
 import java.util.HashMap;
 import java.util.Map;
+import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
 
 /**
  * Represents a manifest of an annotation, including its type and values.
@@ -25,7 +24,7 @@ public class AnnotationManifest<A extends Annotation> {
             A annotationValue
     ) {
         this.annotationValue = annotationValue;
-        this.type = new TypeManifest(annotationMirror.getAnnotationType(), processingEnvironment);
+        this.type = TypeManifest.of(annotationMirror.getAnnotationType(), processingEnvironment);
         var elements = processingEnvironment.getElementUtils();
         this.values = elements.getElementValuesWithDefaults(annotationMirror).entrySet().stream()
                 .collect(

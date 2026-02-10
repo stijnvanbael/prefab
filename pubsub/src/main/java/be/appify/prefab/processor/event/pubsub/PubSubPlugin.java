@@ -42,7 +42,7 @@ public class PubSubPlugin implements PrefabPlugin {
     private static boolean isPubSubEvent(ExecutableElement method, PrefabContext context) {
         return method.getParameters().stream()
                 .anyMatch(parameter ->
-                        new TypeManifest(parameter.asType(), context.processingEnvironment())
+                        TypeManifest.of(parameter.asType(), context.processingEnvironment())
                                 .inheritedAnnotationsOfType(Event.class)
                                 .stream()
                                 .anyMatch(event -> platformIsPubSub(event, method, context)));
@@ -52,7 +52,7 @@ public class PubSubPlugin implements PrefabPlugin {
         var events = context.roundEnvironment().getElementsAnnotatedWith(Event.class)
                 .stream()
                 .filter(e -> platformIsPubSub(requireNonNull(e.getAnnotation(Event.class)), e, context))
-                .map(element -> new TypeManifest(element.asType(), context.processingEnvironment()))
+                .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .toList();
         events.forEach(event -> pubSubPublisherWriter.writePubSubPublisher(event, context));
     }

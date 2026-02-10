@@ -5,8 +5,15 @@ import be.appify.prefab.core.annotations.rest.Parent;
 import be.appify.prefab.core.service.Reference;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
-import org.springframework.data.annotation.Id;
-
+import java.lang.annotation.Annotation;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -15,16 +22,12 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.tools.Diagnostic;
-import java.lang.annotation.Annotation;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
+import org.springframework.data.annotation.Id;
 
 /** Manifest representing a class in the Prefab domain model. */
 public class ClassManifest {
+    private static final Map<TypeElement, ClassManifest> manifestCache = new ConcurrentHashMap<>();
+
     private final ProcessingEnvironment processingEnvironment;
     private final List<VariableManifest> fields;
     private final VariableManifest parent;
@@ -36,14 +39,21 @@ public class ClassManifest {
     /**
      * Constructs a new ClassManifest.
      *
-     * @param typeElement the type element representing the class
-     * @param processingEnvironment the processing environment
+     * @param typeElement
+     *         the type element representing the class
+     * @param processingEnvironment
+     *         the processing environment
+     * @return the ClassManifest representing the given type element
      */
-    public ClassManifest(TypeElement typeElement, ProcessingEnvironment processingEnvironment) {
+    public static ClassManifest of(TypeElement typeElement, ProcessingEnvironment processingEnvironment) {
+        return manifestCache.computeIfAbsent(typeElement, type -> new ClassManifest(type, processingEnvironment));
+    }
+
+    private ClassManifest(TypeElement typeElement, ProcessingEnvironment processingEnvironment) {
         this.processingEnvironment = processingEnvironment;
         this.fields = getFields(typeElement);
         this.parent = getParent(fields);
-        this.type = new TypeManifest(typeElement.asType(), processingEnvironment);
+        this.type = TypeManifest.of(typeElement.asType(), processingEnvironment);
         this.isAggregate = typeElement.getAnnotationsByType(Aggregate.class).length > 0;
         this.typeElement = typeElement;
         this.idField = getIdField();
@@ -126,19 +136,20 @@ public class ClassManifest {
                 .filter(element -> element.getKind() == ElementKind.FIELD
                         && !element.getModifiers().contains(Modifier.STATIC))
                 .map(VariableElement.class::cast)
-                .map(element -> new VariableManifest(element, processingEnvironment))
+                .map(element -> VariableManifest.of(element, processingEnvironment))
                 .toList();
     }
 
     private List<VariableManifest> getParametersOf(Element createConstructor) {
         return ((ExecutableElement) createConstructor).getParameters()
                 .stream()
-                .map(element -> new VariableManifest(element, processingEnvironment))
+                .map(element -> VariableManifest.of(element, processingEnvironment))
                 .toList();
     }
 
     /**
      * Gets the qualified name of the class.
+     *
      * @return the qualified name
      */
     public String qualifiedName() {
@@ -216,7 +227,8 @@ public class ClassManifest {
     /**
      * Gets the public constructors of the class that are annotated with the specified annotation.
      *
-     * @param annotationType the annotation type
+     * @param annotationType
+     *         the annotation type
      * @return the list of constructors
      */
     public List<ExecutableElement> constructorsWith(Class<? extends Annotation> annotationType) {
@@ -232,8 +244,10 @@ public class ClassManifest {
     /**
      * Gets the annotations of the specified type present on the class.
      *
-     * @param annotationType the annotation type
-     * @param <T> the type of the annotation
+     * @param annotationType
+     *         the annotation type
+     * @param <T>
+     *         the type of the annotation
      * @return the set of annotations
      */
     public <T extends Annotation> Set<T> annotationsOfType(Class<T> annotationType) {
@@ -243,7 +257,8 @@ public class ClassManifest {
     /**
      * Gets the public methods of the class that are annotated with the specified annotation.
      *
-     * @param annotation the annotation type
+     * @param annotation
+     *         the annotation type
      * @return the list of methods
      */
     public List<ExecutableElement> methodsWith(Class<? extends Annotation> annotation) {
@@ -259,7 +274,8 @@ public class ClassManifest {
     /**
      * Checks if the class depends on the specified class manifest.
      *
-     * @param manifest the class manifest
+     * @param manifest
+     *         the class manifest
      * @return true if the class depends on the specified manifest, false otherwise
      */
     public boolean dependsOn(ClassManifest manifest) {

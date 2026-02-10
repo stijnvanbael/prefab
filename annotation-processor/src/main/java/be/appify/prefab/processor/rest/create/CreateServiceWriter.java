@@ -8,7 +8,6 @@ import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import jakarta.validation.Valid;
-
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 
@@ -41,7 +40,7 @@ class CreateServiceWriter {
                     .addStatement("log.debug($S, $T.class.getSimpleName())", "Creating new {}", manifest.className())
                     .addStatement("var aggregate = new $T($L)", manifest.type().asTypeName(),
                             controller.getParameters().stream()
-                                    .map(param -> new VariableManifest(param, context.processingEnvironment()))
+                                    .map(param -> VariableManifest.of(param, context.processingEnvironment()))
                                     .map(context.requestParameterMapper()::mapRequestParameter)
                                     .collect(CodeBlock.joining(", ")))
                     .addStatement("%sRepository.save(aggregate)".formatted(uncapitalize(manifest.simpleName())))

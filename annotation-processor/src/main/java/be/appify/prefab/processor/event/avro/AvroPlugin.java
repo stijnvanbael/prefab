@@ -29,7 +29,7 @@ public class AvroPlugin implements PrefabPlugin {
         var events = context.roundEnvironment().getElementsAnnotatedWith(Event.class)
                 .stream()
                 .filter(event -> Objects.requireNonNull(event.getAnnotation(Event.class)).serialization() == Event.Serialization.AVRO)
-                .map(element -> new TypeManifest(element.asType(), context.processingEnvironment()))
+                .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .toList();
         events.forEach(event -> {
             toGenericRecordConverterWriter.writeConverter(event, context);

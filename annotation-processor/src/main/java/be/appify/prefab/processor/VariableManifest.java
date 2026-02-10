@@ -2,35 +2,32 @@ package be.appify.prefab.processor;
 
 import be.appify.prefab.core.service.Reference;
 import jakarta.validation.constraints.NotNull;
-import org.springframework.data.annotation.Id;
-
+import java.lang.annotation.Annotation;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.VariableElement;
-import java.lang.annotation.Annotation;
-import java.util.List;
-import java.util.Optional;
+import org.springframework.data.annotation.Id;
 
 /**
  * Manifest representing a variable (field, method parameter, etc.) in the code being processed.
  */
 public class VariableManifest {
+    private static final Map<VariableElement, VariableManifest> manifestCache = new ConcurrentHashMap<>();
+
     private final VariableElement element;
     private final TypeManifest type;
     private final String name;
     private final List<? extends AnnotationManifest<?>> annotations;
     private final ProcessingEnvironment processingEnvironment;
 
-    /**
-     * Constructs a VariableManifest from a VariableElement.
-     *
-     * @param variableElement       the variable element to construct the manifest from
-     * @param processingEnvironment the processing environment
-     */
-    public VariableManifest(VariableElement variableElement, ProcessingEnvironment processingEnvironment) {
+    private VariableManifest(VariableElement variableElement, ProcessingEnvironment processingEnvironment) {
         this(
                 variableElement,
-                new TypeManifest(variableElement.asType(), processingEnvironment),
+                TypeManifest.of(variableElement.asType(), processingEnvironment),
                 variableElement.getSimpleName().toString(),
                 variableElement.getAnnotationMirrors().stream()
                         .map(annotationMirror ->
@@ -42,27 +39,20 @@ public class VariableManifest {
         );
     }
 
-    @SuppressWarnings("unchecked")
-    private static Annotation resolveAnnotation(
-            VariableElement variableElement,
-            AnnotationMirror annotationMirror,
-            ProcessingEnvironment processingEnvironment
-    ) {
-        return variableElement.getAnnotation((Class<? extends Annotation>) new TypeManifest(
-                annotationMirror.getAnnotationType().asElement().asType(),
-                processingEnvironment).asClass());
+    /**
+     * Constructs a VariableManifest from a VariableElement.
+     *
+     * @param variableElement
+     *         the variable element to construct the manifest from
+     * @param processingEnvironment
+     *         the processing environment
+     * @return a VariableManifest representing the given variable element
+     */
+    public static VariableManifest of(VariableElement variableElement, ProcessingEnvironment processingEnvironment) {
+        return manifestCache.computeIfAbsent(variableElement, variable -> new VariableManifest(variable, processingEnvironment));
     }
 
-    /**
-     * Constructs a VariableManifest with the given properties.
-     *
-     * @param element              the variable element
-     * @param type                 the type manifest of the variable
-     * @param name                 the name of the variable
-     * @param annotations          the list of annotation manifests on the variable
-     * @param processingEnvironment the processing environment
-     */
-    public VariableManifest(
+    private VariableManifest(
             VariableElement element,
             TypeManifest type,
             String name,
@@ -74,6 +64,17 @@ public class VariableManifest {
         this.name = name;
         this.annotations = annotations;
         this.processingEnvironment = processingEnvironment;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Annotation resolveAnnotation(
+            VariableElement variableElement,
+            AnnotationMirror annotationMirror,
+            ProcessingEnvironment processingEnvironment
+    ) {
+        return variableElement.getAnnotation((Class<? extends Annotation>) TypeManifest.of(
+                annotationMirror.getAnnotationType().asElement().asType(),
+                processingEnvironment).asClass());
     }
 
     /**
@@ -140,38 +141,10 @@ public class VariableManifest {
     }
 
     /**
-     * Converts the variable's type to its boxed equivalent if it is a primitive type.
-     *
-     * @return a VariableManifest with the boxed type, or the same manifest if already boxed
-     */
-    public VariableManifest toBoxed() {
-        return switch (type.simpleName()) {
-            case "int" -> new VariableManifest(element, TypeManifest.of(Integer.class, processingEnvironment), name,
-                    annotations,
-                    processingEnvironment);
-            case "long" ->
-                    new VariableManifest(element, TypeManifest.of(Long.class, processingEnvironment), name, annotations,
-                            processingEnvironment);
-            case "double" -> new VariableManifest(element, TypeManifest.of(Double.class, processingEnvironment), name,
-                    annotations,
-                    processingEnvironment);
-            case "float" -> new VariableManifest(element, TypeManifest.of(Float.class, processingEnvironment), name,
-                    annotations,
-                    processingEnvironment);
-            case "boolean" -> new VariableManifest(element, TypeManifest.of(Boolean.class, processingEnvironment), name,
-                    annotations,
-                    processingEnvironment);
-            case "char" -> new VariableManifest(element, TypeManifest.of(Character.class, processingEnvironment), name,
-                    annotations,
-                    processingEnvironment);
-            default -> this;
-        };
-    }
-
-    /**
      * Creates a new VariableManifest with the specified type.
      *
-     * @param type the new type class
+     * @param type
+     *         the new type class
      * @return a VariableManifest with the new type
      */
     public VariableManifest withType(Class<?> type) {
@@ -182,7 +155,8 @@ public class VariableManifest {
     /**
      * Checks if the variable has the specified annotation.
      *
-     * @param annotationClass the annotation class to check for
+     * @param annotationClass
+     *         the annotation class to check for
      * @return true if the annotation is present, false otherwise
      */
     public boolean hasAnnotation(Class<?> annotationClass) {
@@ -193,10 +167,13 @@ public class VariableManifest {
     /**
      * Gets the annotation manifest for the specified annotation class.
      *
-     * @param annotationClass the annotation class to retrieve
-     * @param <A>             the type of the annotation
+     * @param annotationClass
+     *         the annotation class to retrieve
+     * @param <A>
+     *         the type of the annotation
      * @return an Optional containing the AnnotationManifest if present, or empty if not
      */
+    @SuppressWarnings("unchecked")
     public <A extends Annotation> Optional<AnnotationManifest<A>> getAnnotation(Class<A> annotationClass) {
         return annotations.stream()
                 .filter(annotation -> annotation.type().is(annotationClass))
@@ -207,7 +184,8 @@ public class VariableManifest {
     /**
      * Determines if the variable's type depends on the specified type.
      *
-     * @param type the type manifest to check dependency against
+     * @param type
+     *         the type manifest to check dependency against
      * @return true if the variable's type depends on the specified type, false otherwise
      */
     public boolean dependsOn(TypeManifest type) {

@@ -11,14 +11,13 @@ import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
-
-import javax.lang.model.element.ExecutableElement;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
+import javax.lang.model.element.ExecutableElement;
 
 /**
  * Plugin that handles the @Create annotation to generate controller methods, service methods, request records, and test
@@ -49,7 +48,7 @@ public class CreatePlugin implements PrefabPlugin {
                 .flatMap(constructor -> constructor.getParameters()
                         .stream()
                         .map(param ->
-                                new VariableManifest(param, context.processingEnvironment())))
+                                VariableManifest.of(param, context.processingEnvironment())))
                 .anyMatch(param -> param.type().is(Reference.class))
                 ? Set.of(ClassName.get(ReferenceFactory.class)) : Collections.emptySet();
     }

@@ -1,14 +1,14 @@
 ---
-id: task-073
+id: TASK-073
 title: Metadata caching + validation
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-01-07 08:16'
-updated_date: '2026-01-07 08:17'
+updated_date: '2026-02-11 20:35'
 labels:
   - ⚙️technical
 dependencies: []
-ordinal: 227.6611328125
+ordinal: 3000
 ---
 
 ## Description

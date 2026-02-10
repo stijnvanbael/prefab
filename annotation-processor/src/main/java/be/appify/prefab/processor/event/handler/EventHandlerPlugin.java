@@ -3,9 +3,8 @@ package be.appify.prefab.processor.event.handler;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
-
-import javax.lang.model.element.ExecutableElement;
 import java.lang.annotation.Annotation;
+import javax.lang.model.element.ExecutableElement;
 
 /** Interface for event handler plugins. */
 public interface EventHandlerPlugin extends PrefabPlugin {
@@ -32,7 +31,7 @@ public interface EventHandlerPlugin extends PrefabPlugin {
                     "Domain event handler method %s must have exactly one parameter".formatted(element),
                     element);
         }
-        var eventType = new TypeManifest(parameters.getFirst().asType(), context.processingEnvironment());
+        var eventType = TypeManifest.of(parameters.getFirst().asType(), context.processingEnvironment());
         if (eventType.asElement() == null) {
             context.logError(
                     "Domain event handler method %s must have a parameter that is a declared class or record".formatted(

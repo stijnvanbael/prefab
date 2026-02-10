@@ -11,13 +11,12 @@ import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
-
-import javax.annotation.processing.ProcessingEnvironment;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
 
 /**
  * Plugin responsible for generating update controller and service methods, as well as related request records and test
@@ -91,7 +90,7 @@ public class UpdatePlugin implements PrefabPlugin {
             ProcessingEnvironment processingEnvironment) {
         return ((ExecutableElement) createConstructor).getParameters()
                 .stream()
-                .map(element -> new VariableManifest(element, processingEnvironment))
+                .map(element -> VariableManifest.of(element, processingEnvironment))
                 .toList();
     }
 }

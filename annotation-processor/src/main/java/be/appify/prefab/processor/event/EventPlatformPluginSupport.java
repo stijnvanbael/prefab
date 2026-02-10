@@ -34,10 +34,10 @@ public class EventPlatformPluginSupport {
     public static TypeManifest ownerOf(PrefabContext context, ExecutableElement method) {
         return method.getParameters().stream()
                 .flatMap(parameter ->
-                        new TypeManifest(parameter.asType(), context.processingEnvironment())
+                        TypeManifest.of(parameter.asType(), context.processingEnvironment())
                                 .inheritedAnnotationsOfType(Event.class).stream()
                                 .findFirst()
-                                .map(event -> new TypeManifest(method.getEnclosingElement().asType(),
+                                .map(event -> TypeManifest.of(method.getEnclosingElement().asType(),
                                         context.processingEnvironment()))
                                 .stream())
                 .findFirst()

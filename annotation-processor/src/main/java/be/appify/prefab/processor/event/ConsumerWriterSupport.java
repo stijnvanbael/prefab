@@ -60,7 +60,7 @@ public class ConsumerWriterSupport {
     ) {
         var fields = new HashSet<FieldSpec>();
         for (ExecutableElement eventHandler : eventHandlers) {
-            var target = new TypeManifest(eventHandler.getEnclosingElement().asType(), context.processingEnvironment());
+            var target = TypeManifest.of(eventHandler.getEnclosingElement().asType(), context.processingEnvironment());
             if (!target.annotationsOfType(Aggregate.class).isEmpty()) {
                 var serviceClass = ClassName.get(
                         "%s.application".formatted(target.packageName()),
@@ -127,7 +127,7 @@ public class ConsumerWriterSupport {
         method.addCode("switch (event) {\n");
         for (ExecutableElement eventHandler : eventHandlers) {
             var parameter = eventHandler.getParameters().getFirst();
-            var type = new TypeManifest(parameter.asType(), context.processingEnvironment());
+            var type = TypeManifest.of(parameter.asType(), context.processingEnvironment());
             method.addCode("    case $T e -> ", type.asTypeName());
             singleTypeHandler(context, eventHandler, method, "e");
         }
@@ -144,7 +144,7 @@ public class ConsumerWriterSupport {
             MethodSpec.Builder method,
             String variableName
     ) {
-        var target = new TypeManifest(eventHandler.getEnclosingElement().asType(), context.processingEnvironment());
+        var target = TypeManifest.of(eventHandler.getEnclosingElement().asType(), context.processingEnvironment());
         if (!target.annotationsOfType(Aggregate.class).isEmpty()) {
             method.addStatement("$NService.$L($L)",
                     uncapitalize(target.simpleName()), eventHandler.getSimpleName(), variableName);
@@ -160,7 +160,7 @@ public class ConsumerWriterSupport {
     }
 
     private static TypeManifest eventType(ExecutableElement eventHandler, PrefabContext context) {
-        return new TypeManifest(eventHandler.getParameters().getFirst().asType(), context.processingEnvironment());
+        return TypeManifest.of(eventHandler.getParameters().getFirst().asType(), context.processingEnvironment());
     }
 
     /**
@@ -249,7 +249,7 @@ public class ConsumerWriterSupport {
         return event.methodsWith(PartitioningKey.class).stream()
                 .findFirst()
                 .map(method -> {
-                    if (new TypeManifest(method.getReturnType(), context.processingEnvironment()).is(Reference.class)) {
+                    if (TypeManifest.of(method.getReturnType(), context.processingEnvironment()).is(Reference.class)) {
                         return CodeBlock.of("event.$L().id()", method.getSimpleName().toString());
                     } else {
                         return CodeBlock.of("event.$L()", method.getSimpleName().toString());

@@ -60,7 +60,7 @@ public class KafkaPlugin implements PrefabPlugin {
     private static boolean isKafkaEvent(ExecutableElement method, PrefabContext context) {
         return method.getParameters().stream()
                 .anyMatch(parameter ->
-                        new TypeManifest(parameter.asType(), context.processingEnvironment())
+                        TypeManifest.of(parameter.asType(), context.processingEnvironment())
                                 .inheritedAnnotationsOfType(Event.class)
                                 .stream()
                                 .anyMatch(event -> platformIsKafka(event, method, context)));
@@ -70,7 +70,7 @@ public class KafkaPlugin implements PrefabPlugin {
         var events = context.roundEnvironment().getElementsAnnotatedWith(Event.class)
                 .stream()
                 .filter(e -> platformIsKafka(requireNonNull(e.getAnnotation(Event.class)), e, context))
-                .map(element -> new TypeManifest(element.asType(), context.processingEnvironment()))
+                .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .toList();
         events.forEach(event -> kafkaProducerWriter.writeKafkaProducer(event, context));
     }

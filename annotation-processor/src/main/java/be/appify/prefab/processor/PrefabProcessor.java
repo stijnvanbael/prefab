@@ -37,7 +37,7 @@ public class PrefabProcessor extends AbstractProcessor {
         var aggregates = environment.getElementsAnnotatedWith(Aggregate.class)
                 .stream()
                 .filter(element -> element.getKind().isClass() && !element.getModifiers().contains(Modifier.ABSTRACT))
-                .map(element -> new ClassManifest((TypeElement) element, processingEnv))
+                .map(element -> ClassManifest.of((TypeElement) element, processingEnv))
                 .toList();
         var context = new PrefabContext(processingEnv, plugins, environment);
         aggregates.forEach(manifest -> {

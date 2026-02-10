@@ -13,7 +13,7 @@ public class NullableEventSchemaFactory {
         this.schema = Schema.createRecord("NullableEvent", null, "event.avro", false, List.of(
                         new Schema.Field("id", Schema.create(Schema.Type.STRING)),
                         new Schema.Field("name", Schema.create(Schema.Type.STRING)),
-                        new Schema.Field("description", SchemaSupport.createNullableSchema(Schema.create(Schema.Type.STRING)))
+                        new Schema.Field("description", SchemaSupport.createNullableSchema(Schema.create(Schema.Type.STRING)), null)
                     ));
     }
 

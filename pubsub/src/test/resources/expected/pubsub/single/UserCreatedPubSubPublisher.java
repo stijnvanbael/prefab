@@ -1,7 +1,7 @@
 package pubsub.single.infrastructure.pubsub;
 
+import be.appify.prefab.core.pubsub.PubSubSerializer;
 import be.appify.prefab.core.pubsub.PubSubUtil;
-import be.appify.prefab.core.spring.JsonUtil;
 import com.google.cloud.spring.pubsub.core.PubSubTemplate;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.PubsubMessage;
@@ -17,14 +17,14 @@ public class UserCreatedPubSubPublisher {
 
     private final PubSubTemplate pubSubTemplate;
 
-    private final JsonUtil jsonSupport;
+    private final PubSubSerializer serializer;
 
     private final String topic;
 
     public UserCreatedPubSubPublisher(PubSubTemplate pubSubTemplate, PubSubUtil pubSub,
-            JsonUtil jsonSupport) {
+            PubSubSerializer serializer) {
         this.pubSubTemplate = pubSubTemplate;
-        this.jsonSupport = jsonSupport;
+        this.serializer = serializer;
         this.topic = pubSub.ensureTopicExists("user");
     }
 
@@ -34,7 +34,7 @@ public class UserCreatedPubSubPublisher {
         pubSubTemplate.publish(
                     topic,
                     PubsubMessage.newBuilder()
-                        .setData(ByteString.copyFromUtf8(jsonSupport.toJson(event)))
+                        .setData(ByteString.copyFrom(serializer.serialize(PubSubUtil.simpleTopicName(topic), event)))
                         .setOrderingKey(event.user().id())
                         .putAttributes("type", event.getClass().getName())
                         .build());

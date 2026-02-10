@@ -8,17 +8,16 @@ import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.event.handler.EventHandlerPlugin;
 import com.palantir.javapoet.TypeSpec;
-
+import java.lang.annotation.Annotation;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Stream;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
-import java.lang.annotation.Annotation;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Stream;
 
 /** Plugin to handle ByReference event handlers in Prefab. */
 public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
@@ -63,7 +62,7 @@ public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
                                     eventType,
                                     context,
                                     referenceField.type().parameters().stream().findFirst()
-                                            .orElse(new TypeManifest(String.class, context.processingEnvironment()))))
+                                            .orElse(TypeManifest.of(String.class, context.processingEnvironment()))))
                             .stream();
                 });
     }
@@ -73,7 +72,7 @@ public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
                 .stream()
                 .filter(element -> element.getKind() == ElementKind.FIELD)
                 .map(VariableElement.class::cast)
-                .map(element -> new VariableManifest(element, processingEnvironment))
+                .map(element -> VariableManifest.of(element, processingEnvironment))
                 .toList();
     }
 

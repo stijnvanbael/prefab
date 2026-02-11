@@ -65,14 +65,13 @@ To get started with Prefab, you need to add the following to your `pom.xml`:
 </dependency>
 <!-- Optional, only when using Kafka -->
 <dependency>
-    <groupId>org.springframework.kafka</groupId>
-    <artifactId>spring-kafka</artifactId>
+    <groupId>be.appify.prefab</groupId>
+    <artifactId>prefab-kafka</artifactId>
 </dependency>
 <!-- Optional, only when using Pub/Sub -->
 <dependency>
-    <groupId>com.google.cloud</groupId>
-    <artifactId>spring-cloud-gcp-starter-pubsub</artifactId>
-    <version>${google-cloud.version}</version>
+    <groupId>be.appify.prefab</groupId>
+    <artifactId>prefab-pubsub</artifactId>
 </dependency>
 
 <dependency>

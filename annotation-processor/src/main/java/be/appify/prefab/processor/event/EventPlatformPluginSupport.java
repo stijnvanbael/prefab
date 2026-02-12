@@ -6,7 +6,7 @@ import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.lang.model.element.ElementKind;
@@ -68,10 +68,10 @@ public class EventPlatformPluginSupport {
      */
     public static Map<TypeManifest, List<ExecutableElement>> filteredEventHandlersByOwner(
             PrefabContext context,
-            BiFunction<ExecutableElement, PrefabContext, Boolean> filter
+            Function<ExecutableElement, Boolean> filter
     ) {
         return eventHandlers(context)
-                .filter(method -> filter.apply(method, context))
+                .filter(filter::apply)
                 .collect(Collectors.groupingBy(method -> ownerOf(context, method)));
     }
 

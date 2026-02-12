@@ -19,8 +19,9 @@ import static java.util.Objects.requireNonNull;
  * Prefab plugin to generate Pub/Sub publishers and subscribers based on event annotations.
  */
 public class PubSubPlugin implements PrefabPlugin {
-    private final PubSubPublisherWriter pubSubPublisherWriter = new PubSubPublisherWriter();
-    private final PubSubSubscriberWriter pubSubSubscriberWriter = new PubSubSubscriberWriter();
+    private PubSubPublisherWriter pubSubPublisherWriter;
+    private PubSubSubscriberWriter pubSubSubscriberWriter;
+    private PrefabContext context;
 
     /** Constructs a new PubSubPlugin. */
     public PubSubPlugin() {
@@ -28,18 +29,25 @@ public class PubSubPlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeAdditionalFiles(List<ClassManifest> aggregates, PrefabContext context) {
-        writePublishers(context);
-        writeConsumers(context);
+    public void writeAdditionalFiles(List<ClassManifest> aggregates) {
+        writePublishers();
+        writeConsumers();
     }
 
-    private void writeConsumers(PrefabContext context) {
-        filteredEventHandlersByOwner(context, PubSubPlugin::isPubSubEvent)
+    @Override
+    public void initContext(PrefabContext context) {
+        this.context = context;
+        pubSubPublisherWriter = new PubSubPublisherWriter(context);
+        pubSubSubscriberWriter = new PubSubSubscriberWriter(context);
+    }
+
+    private void writeConsumers() {
+        filteredEventHandlersByOwner(context, this::isPubSubEvent)
                 .forEach((owner, eventHandlers) ->
-                        pubSubSubscriberWriter.writePubSubSubscriber(owner, eventHandlers, context));
+                        pubSubSubscriberWriter.writePubSubSubscriber(owner, eventHandlers));
     }
 
-    private static boolean isPubSubEvent(ExecutableElement method, PrefabContext context) {
+    private boolean isPubSubEvent(ExecutableElement method) {
         return method.getParameters().stream()
                 .anyMatch(parameter ->
                         TypeManifest.of(parameter.asType(), context.processingEnvironment())
@@ -48,13 +56,13 @@ public class PubSubPlugin implements PrefabPlugin {
                                 .anyMatch(event -> platformIsPubSub(event, method, context)));
     }
 
-    private void writePublishers(PrefabContext context) {
+    private void writePublishers() {
         var events = context.roundEnvironment().getElementsAnnotatedWith(Event.class)
                 .stream()
                 .filter(e -> platformIsPubSub(requireNonNull(e.getAnnotation(Event.class)), e, context))
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .toList();
-        events.forEach(event -> pubSubPublisherWriter.writePubSubPublisher(event, context));
+        events.forEach(event -> pubSubPublisherWriter.writePubSubPublisher(event));
     }
 
     static boolean platformIsPubSub(Event event, Element element, PrefabContext context) {

@@ -10,6 +10,7 @@ import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.lang.model.element.ExecutableElement;
@@ -24,8 +25,14 @@ import static be.appify.prefab.processor.TestClasses.TEST_UTIL;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 class CreateTestClientWriter {
-    List<MethodSpec> createMethods(ClassManifest manifest, ExecutableElement constructor, PrefabContext context) {
-        return List.of(createMethod(manifest, constructor, context), whenVariant(manifest, constructor),
+    private final PrefabContext context;
+
+    CreateTestClientWriter(PrefabContext context) {
+        this.context = context;
+    }
+
+    List<MethodSpec> createMethods(ClassManifest manifest, ExecutableElement constructor) {
+        return List.of(createMethod(manifest, constructor), whenVariant(manifest, constructor),
                 givenVariant(manifest, constructor));
     }
 
@@ -56,12 +63,11 @@ class CreateTestClientWriter {
                 .build();
     }
 
-    private static MethodSpec createMethod(
+    private MethodSpec createMethod(
             ClassManifest manifest,
-            ExecutableElement constructor,
-            PrefabContext context
+            ExecutableElement constructor
     ) {
-        var create = constructor.getAnnotation(Create.class);
+        var create = Objects.requireNonNull(constructor.getAnnotation(Create.class));
         var createRequest = uncapitalize(manifest.simpleName());
         var pathVariables = manifest.parent().stream()
                 .map(parent -> "%s.%s()".formatted(createRequest, parent.name()))

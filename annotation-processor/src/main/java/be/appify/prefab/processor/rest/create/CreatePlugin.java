@@ -20,30 +20,40 @@ import java.util.WeakHashMap;
 import javax.lang.model.element.ExecutableElement;
 
 /**
- * Plugin that handles the @Create annotation to generate controller methods, service methods, request records, and test
- * client methods for creating new instances of a class.
+ * Plugin that handles the @Create annotation to generate controller methods, service methods, request records, and test client methods for
+ * creating new instances of a class.
  */
 public class CreatePlugin implements PrefabPlugin {
-    private final CreateControllerWriter controllerWriter = new CreateControllerWriter();
-    private final CreateServiceWriter serviceWriter = new CreateServiceWriter();
-    private final CreateRequestRecordWriter requestRecordWriter = new CreateRequestRecordWriter();
-    private final CreateTestClientWriter testClientWriter = new CreateTestClientWriter();
+    private CreateControllerWriter controllerWriter;
+    private CreateServiceWriter serviceWriter;
+    private CreateRequestRecordWriter requestRecordWriter;
+    private CreateTestClientWriter testClientWriter;
     private final Map<ClassManifest, Optional<ExecutableElement>> createConstructorsCache =
             Collections.synchronizedMap(new WeakHashMap<>());
+    private PrefabContext context;
 
     /** Creates a new instance of the CreatePlugin. */
     public CreatePlugin() {
     }
 
     @Override
-    public void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        createConstructorOf(manifest, context).ifPresent(createConstructor ->
-                builder.addMethod(controllerWriter.createMethod(manifest, createConstructor, context)));
+    public void initContext(PrefabContext context) {
+        this.context = context;
+        controllerWriter = new CreateControllerWriter(context);
+        serviceWriter = new CreateServiceWriter(context);
+        requestRecordWriter = new CreateRequestRecordWriter(context);
+        testClientWriter = new CreateTestClientWriter(context);
     }
 
     @Override
-    public Set<TypeName> getServiceDependencies(ClassManifest classManifest, PrefabContext context) {
-        return createConstructorOf(classManifest, context)
+    public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
+        createConstructorOf(manifest).ifPresent(createConstructor ->
+                builder.addMethod(controllerWriter.createMethod(manifest, createConstructor)));
+    }
+
+    @Override
+    public Set<TypeName> getServiceDependencies(ClassManifest classManifest) {
+        return createConstructorOf(classManifest)
                 .stream()
                 .flatMap(constructor -> constructor.getParameters()
                         .stream()
@@ -54,31 +64,31 @@ public class CreatePlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        createConstructorOf(manifest, context).ifPresent(createConstructor ->
+    public void writeService(ClassManifest manifest, TypeSpec.Builder builder) {
+        createConstructorOf(manifest).ifPresent(createConstructor ->
                 builder.addMethod(
-                        serviceWriter.createMethod(manifest, createConstructor, context)));
+                        serviceWriter.createMethod(manifest, createConstructor)));
     }
 
     @Override
-    public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        createConstructorOf(manifest, context).ifPresent(createConstructor ->
-                testClientWriter.createMethods(manifest, createConstructor, context).forEach(builder::addMethod));
+    public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
+        createConstructorOf(manifest).ifPresent(createConstructor ->
+                testClientWriter.createMethods(manifest, createConstructor).forEach(builder::addMethod));
     }
 
     @Override
-    public void writeAdditionalFiles(List<ClassManifest> manifests, PrefabContext context) {
+    public void writeAdditionalFiles(List<ClassManifest> manifests) {
         if (!manifests.isEmpty()) {
             var fileWriter = new JavaFileWriter(context.processingEnvironment(), "application");
-            manifests.forEach(manifest -> createConstructorOf(manifest, context).ifPresent(createConstructor -> {
+            manifests.forEach(manifest -> createConstructorOf(manifest).ifPresent(createConstructor -> {
                 if (!createConstructor.getParameters().isEmpty()) {
-                    requestRecordWriter.writeRequestRecord(fileWriter, manifest, createConstructor, context);
+                    requestRecordWriter.writeRequestRecord(fileWriter, manifest, createConstructor);
                 }
             }));
         }
     }
 
-    private Optional<ExecutableElement> createConstructorOf(ClassManifest manifest, PrefabContext context) {
+    private Optional<ExecutableElement> createConstructorOf(ClassManifest manifest) {
         return createConstructorsCache.computeIfAbsent(manifest, m -> {
             var createConstructors = m.constructorsWith(Create.class);
             if (createConstructors.isEmpty()) {

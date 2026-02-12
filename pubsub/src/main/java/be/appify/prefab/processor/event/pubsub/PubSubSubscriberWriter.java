@@ -45,11 +45,15 @@ import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 class PubSubSubscriberWriter {
     private static final ConsumerWriterSupport support = new ConsumerWriterSupport(Event.Platform.PUB_SUB);
+    private final PrefabContext context;
+
+    PubSubSubscriberWriter(PrefabContext context) {
+        this.context = context;
+    }
 
     void writePubSubSubscriber(
             TypeManifest owner,
-            List<ExecutableElement> eventHandlers,
-            PrefabContext context
+            List<ExecutableElement> eventHandlers
     ) {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.pubsub");
 
@@ -67,19 +71,18 @@ class PubSubSubscriberWriter {
                         .build());
 
         var fields = support.addFields(eventHandlers, context, type);
-        addEventHandlers(eventHandlers, context, type);
+        addEventHandlers(eventHandlers, type);
         var topics = eventHandlers.stream()
                 .map(e -> support.rootEventType(e, context).annotationsOfType(Event.class).stream().findFirst()
                         .orElseThrow()
                         .topic())
                 .collect(Collectors.toSet());
-        type.addMethod(constructor(topics, owner, fields, eventHandlers, context));
+        type.addMethod(constructor(topics, owner, fields, eventHandlers));
         fileWriter.writeFile(packageName, name, type.build());
     }
 
     private void addEventHandlers(
             List<ExecutableElement> allEventHandlers,
-            PrefabContext context,
             TypeSpec.Builder type
     ) {
         var eventHandlersByEventType = allEventHandlers.stream()
@@ -94,12 +97,11 @@ class PubSubSubscriberWriter {
         }
     }
 
-    private static MethodSpec constructor(
+    private MethodSpec constructor(
             Set<String> topics,
             TypeManifest owner,
             Set<FieldSpec> fields,
-            List<ExecutableElement> eventHandlers,
-            PrefabContext context
+            List<ExecutableElement> eventHandlers
     ) {
         var constructor = MethodSpec.constructorBuilder().addModifiers(PUBLIC);
         var config = owner.inheritedAnnotationsOfType(EventHandlerConfig.class).stream().findFirst().orElse(null);
@@ -129,13 +131,17 @@ class PubSubSubscriberWriter {
                 constructor.addParameter(configParameter(Double.class, "backoffMultiplier", config.backoffMultiplier()));
             }
         }
-        topics.forEach(topic -> addTopic(owner, eventHandlers, context, topic, constructor));
+        topics.forEach(topic -> addTopic(owner, eventHandlers, topic, constructor));
         fields.forEach(field -> constructor.addStatement("this.$L = $L", field.name(), field.name()));
         return constructor.build();
     }
 
-    private static void addTopic(TypeManifest owner, List<ExecutableElement> eventHandlers, PrefabContext context,
-            String topic, MethodSpec.Builder constructor) {
+    private void addTopic(
+            TypeManifest owner,
+            List<ExecutableElement> eventHandlers,
+            String topic,
+            MethodSpec.Builder constructor
+    ) {
         var eventType = support.eventTypeOf(eventHandlers, context, topic);
         var topicVariableName = uncapitalize(eventType.simpleName().replace(".", "")) + "Topic";
         var eventName = eventType.simpleName().replace(".", "");

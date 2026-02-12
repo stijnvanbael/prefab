@@ -7,12 +7,11 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeSpec;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static be.appify.prefab.processor.rest.ControllerUtil.responseType;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -49,7 +48,7 @@ class HttpWriter {
                         .addStatement("this.service = service")
                         .build())
                 .addMethod(toResponseMethod(manifest));
-        context.plugins().forEach(plugin -> plugin.writeController(manifest, type, context));
+        context.plugins().forEach(plugin -> plugin.writeController(manifest, type));
         fileWriter.writeFile(manifest.packageName(), "%sController".formatted(manifest.simpleName()), type.build());
     }
 

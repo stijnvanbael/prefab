@@ -21,8 +21,9 @@ import static java.util.Objects.requireNonNull;
  * Prefab plugin to generate Kafka producers and consumers based on event annotations.
  */
 public class KafkaPlugin implements PrefabPlugin {
-    private final KafkaProducerWriter kafkaProducerWriter = new KafkaProducerWriter();
-    private final KafkaConsumerWriter kafkaConsumerWriter = new KafkaConsumerWriter();
+    private KafkaProducerWriter kafkaProducerWriter;
+    private KafkaConsumerWriter kafkaConsumerWriter;
+    private PrefabContext context;
 
     /** Constructs a new KafkaPlugin. */
     public KafkaPlugin() {
@@ -30,14 +31,21 @@ public class KafkaPlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeAdditionalFiles(List<ClassManifest> aggregates, PrefabContext context) {
-        writePublishers(context);
-        writeConsumerConfigs(context);
-        writeConsumers(context);
+    public void initContext(PrefabContext context) {
+        this.context = context;
+        kafkaProducerWriter = new KafkaProducerWriter(context);
+        kafkaConsumerWriter = new KafkaConsumerWriter(context);
     }
 
-    private void writeConsumerConfigs(PrefabContext context) {
-        filteredEventHandlersByOwner(context, KafkaPlugin::isKafkaEvent)
+    @Override
+    public void writeAdditionalFiles(List<ClassManifest> aggregates) {
+        writePublishers();
+        writeConsumerConfigs();
+        writeConsumers();
+    }
+
+    private void writeConsumerConfigs() {
+        filteredEventHandlersByOwner(context, this::isKafkaEvent)
                 .entrySet()
                 .stream()
                 .filter(KafkaPlugin::hasCustomConfig)
@@ -51,13 +59,13 @@ public class KafkaPlugin implements PrefabPlugin {
                 .anyMatch(EventHandlerConfig.Util::hasCustomConfig);
     }
 
-    private void writeConsumers(PrefabContext context) {
-        filteredEventHandlersByOwner(context, KafkaPlugin::isKafkaEvent)
+    private void writeConsumers() {
+        filteredEventHandlersByOwner(context, this::isKafkaEvent)
                 .forEach((owner, eventHandlers) ->
                         kafkaConsumerWriter.writeKafkaConsumer(owner, eventHandlers, context));
     }
 
-    private static boolean isKafkaEvent(ExecutableElement method, PrefabContext context) {
+    private boolean isKafkaEvent(ExecutableElement method) {
         return method.getParameters().stream()
                 .anyMatch(parameter ->
                         TypeManifest.of(parameter.asType(), context.processingEnvironment())
@@ -66,13 +74,13 @@ public class KafkaPlugin implements PrefabPlugin {
                                 .anyMatch(event -> platformIsKafka(event, method, context)));
     }
 
-    private void writePublishers(PrefabContext context) {
+    private void writePublishers() {
         var events = context.roundEnvironment().getElementsAnnotatedWith(Event.class)
                 .stream()
                 .filter(e -> platformIsKafka(requireNonNull(e.getAnnotation(Event.class)), e, context))
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .toList();
-        events.forEach(event -> kafkaProducerWriter.writeKafkaProducer(event, context));
+        events.forEach(event -> kafkaProducerWriter.writeKafkaProducer(event));
     }
 
     static boolean platformIsKafka(Event event, Element element, PrefabContext context) {

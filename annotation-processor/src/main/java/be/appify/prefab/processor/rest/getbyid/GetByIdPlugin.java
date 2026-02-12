@@ -2,10 +2,8 @@ package be.appify.prefab.processor.rest.getbyid;
 
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.processor.ClassManifest;
-import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import com.palantir.javapoet.TypeSpec;
-
 import java.util.Optional;
 
 /**
@@ -21,19 +19,19 @@ public class GetByIdPlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
         getByIdAnnotation(manifest).ifPresent(getById ->
                 builder.addMethod(controllerWriter.getByIdMethod(manifest, getById)));
     }
 
     @Override
-    public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    public void writeService(ClassManifest manifest, TypeSpec.Builder builder) {
         getByIdAnnotation(manifest).ifPresent(ignored ->
                 builder.addMethod(serviceWriter.getByIdMethod(manifest)));
     }
 
     @Override
-    public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
         getByIdAnnotation(manifest).ifPresent(ignored ->
                 builder.addMethod(testClientWriter.getByIdMethod(manifest)));
     }

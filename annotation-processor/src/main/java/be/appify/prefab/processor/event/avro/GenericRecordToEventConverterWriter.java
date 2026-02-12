@@ -27,7 +27,13 @@ import static be.appify.prefab.processor.event.avro.AvroPlugin.nestedTypes;
 import static be.appify.prefab.processor.event.avro.AvroPlugin.sealedSubtypes;
 
 class GenericRecordToEventConverterWriter {
-    void writeConverter(TypeManifest event, PrefabContext context) {
+    private final PrefabContext context;
+
+    GenericRecordToEventConverterWriter(PrefabContext context) {
+        this.context = context;
+    }
+
+    void writeConverter(TypeManifest event) {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
 
         var name = "GenericRecordTo%sConverter".formatted(event.simpleName().replace(".", ""));

@@ -4,7 +4,6 @@ import be.appify.prefab.core.annotations.rest.Download;
 import be.appify.prefab.core.domain.Binary;
 import be.appify.prefab.core.spring.StorageService;
 import be.appify.prefab.processor.ClassManifest;
-import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.VariableManifest;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -14,12 +13,11 @@ import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
-import org.springframework.web.bind.annotation.RequestPart;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
 
 /** Plugin to handle Binary fields in Prefab. */
 public class BinaryPlugin implements PrefabPlugin {
@@ -63,7 +61,7 @@ public class BinaryPlugin implements PrefabPlugin {
     }
 
     @Override
-    public Set<TypeName> getServiceDependencies(ClassManifest classManifest, PrefabContext context) {
+    public Set<TypeName> getServiceDependencies(ClassManifest classManifest) {
         if (classManifest.fields().stream().anyMatch(f -> f.type().is(Binary.class))) {
             return Set.of(ClassName.get(StorageService.class));
         }
@@ -71,7 +69,7 @@ public class BinaryPlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
         manifest.fields().stream()
                 .filter(f -> f.type().is(Binary.class) && f.hasAnnotation(Download.class))
                 .forEach(field ->
@@ -79,7 +77,7 @@ public class BinaryPlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
         manifest.fields().stream()
                 .filter(f -> f.type().is(Binary.class) && f.hasAnnotation(Download.class))
                 .forEach(field ->

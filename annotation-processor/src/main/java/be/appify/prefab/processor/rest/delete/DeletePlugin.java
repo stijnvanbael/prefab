@@ -5,10 +5,9 @@ import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import com.palantir.javapoet.TypeSpec;
-
-import javax.lang.model.element.ExecutableElement;
 import java.util.Objects;
 import java.util.Optional;
+import javax.lang.model.element.ExecutableElement;
 
 /**
  * Prefab plugin that generates delete controller, service, and test client methods based on the @Delete annotation.
@@ -17,13 +16,19 @@ public class DeletePlugin implements PrefabPlugin {
     private final DeleteControllerWriter controllerWriter = new DeleteControllerWriter();
     private final DeleteServiceWriter serviceWriter = new DeleteServiceWriter();
     private final DeleteTestClientWriter testClientWriter = new DeleteTestClientWriter();
+    private PrefabContext context;
 
     /** Creates a new instance of DeletePlugin. */
     public DeletePlugin() {
     }
 
     @Override
-    public void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    public void initContext(PrefabContext context) {
+        this.context = context;
+    }
+
+    @Override
+    public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
         var typeDelete = typeDelete(manifest);
         typeDelete.ifPresent(delete ->
                 builder.addMethod(controllerWriter.deleteMethod(delete)));
@@ -39,7 +44,7 @@ public class DeletePlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    public void writeService(ClassManifest manifest, TypeSpec.Builder builder) {
         typeDelete(manifest).ifPresentOrElse(ignored ->
                         builder.addMethod(serviceWriter.deleteMethod(manifest)),
                 () -> deleteMethod(manifest, context).ifPresent(method ->
@@ -47,7 +52,7 @@ public class DeletePlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
         typeDelete(manifest).ifPresentOrElse(ignored ->
                         testClientWriter.deleteMethods(manifest).forEach(builder::addMethod),
                 () -> deleteMethod(manifest, context).ifPresent(method ->

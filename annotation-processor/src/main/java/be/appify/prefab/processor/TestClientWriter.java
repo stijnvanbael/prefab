@@ -52,7 +52,7 @@ class TestClientWriter {
                                         : CodeBlock.of(""))
                         .addStatement("this.jsonMapper = jsonMapper")
                         .build());
-        context.plugins().forEach(plugin -> plugin.writeTestClient(manifest, type, context));
+        context.plugins().forEach(plugin -> plugin.writeTestClient(manifest, type));
 
         fileWriter.writeFile(manifest.packageName(), className, type.build());
     }

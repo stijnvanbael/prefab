@@ -40,13 +40,14 @@ public class PrefabProcessor extends AbstractProcessor {
                 .map(element -> ClassManifest.of((TypeElement) element, processingEnv))
                 .toList();
         var context = new PrefabContext(processingEnv, plugins, environment);
+        plugins.forEach(plugin -> plugin.initContext(context));
         aggregates.forEach(manifest -> {
             new HttpWriter(context).writeHttpLayer(manifest);
             new ApplicationWriter(context).writeApplicationLayer(manifest);
             new PersistenceWriter(context).writePersistenceLayer(manifest);
             new TestClientWriter(context).writeTestSupport(manifest);
         });
-        plugins.forEach(plugin -> plugin.writeAdditionalFiles(aggregates, context));
+        plugins.forEach(plugin -> plugin.writeAdditionalFiles(aggregates));
         return true;
     }
 

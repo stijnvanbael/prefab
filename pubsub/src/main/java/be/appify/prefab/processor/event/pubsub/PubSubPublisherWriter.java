@@ -27,7 +27,13 @@ import static be.appify.prefab.processor.event.ConsumerWriterSupport.keyField;
 import static be.appify.prefab.processor.event.pubsub.PubSubPlugin.platformIsPubSub;
 
 class PubSubPublisherWriter {
-    void writePubSubPublisher(TypeManifest event, PrefabContext context) {
+    private final PrefabContext context;
+
+    PubSubPublisherWriter(PrefabContext context) {
+        this.context = context;
+    }
+
+    void writePubSubPublisher(TypeManifest event) {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.pubsub");
 
         var name = "%sPubSubPublisher".formatted(event.simpleName().replace(".", ""));
@@ -45,7 +51,7 @@ class PubSubPublisherWriter {
                 .addField(PubSubSerializer.class, "serializer", Modifier.PRIVATE, Modifier.FINAL)
                 .addField(String.class, "topic", Modifier.PRIVATE, Modifier.FINAL)
                 .addMethod(constructor(annotation.topic()))
-                .addMethod(producer(event, context))
+                .addMethod(producer(event))
                 .build();
 
         fileWriter.writeFile(event.packageName(), name, type);
@@ -72,7 +78,7 @@ class PubSubPublisherWriter {
         return constructor.build();
     }
 
-    private MethodSpec producer(TypeManifest event, PrefabContext context) {
+    private MethodSpec producer(TypeManifest event) {
         return MethodSpec.methodBuilder("publish")
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(event.asTypeName(), "event")

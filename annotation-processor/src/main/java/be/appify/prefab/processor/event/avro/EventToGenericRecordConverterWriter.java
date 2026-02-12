@@ -28,7 +28,13 @@ import static be.appify.prefab.processor.event.avro.AvroPlugin.nestedTypes;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 class EventToGenericRecordConverterWriter {
-    void writeConverter(TypeManifest event, PrefabContext context) {
+    private final PrefabContext context;
+
+    EventToGenericRecordConverterWriter(PrefabContext context) {
+        this.context = context;
+    }
+
+    void writeConverter(TypeManifest event) {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
 
         var name = "%sToGenericRecordConverter".formatted(event.simpleName().replace(".", ""));

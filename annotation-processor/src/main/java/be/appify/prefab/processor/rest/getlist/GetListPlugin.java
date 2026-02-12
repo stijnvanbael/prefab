@@ -2,10 +2,8 @@ package be.appify.prefab.processor.rest.getlist;
 
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.processor.ClassManifest;
-import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import com.palantir.javapoet.TypeSpec;
-
 import java.util.Optional;
 
 /**
@@ -23,13 +21,13 @@ public class GetListPlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
         getListAnnotation(manifest).ifPresent(getList ->
                 builder.addMethod(controllerWriter.getListMethod(manifest, getList)));
     }
 
     @Override
-    public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    public void writeService(ClassManifest manifest, TypeSpec.Builder builder) {
         getListAnnotation(manifest).ifPresent(getList ->
                 builder.addMethod(serviceWriter.getListMethod(manifest)));
     }
@@ -42,7 +40,7 @@ public class GetListPlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
         getListAnnotation(manifest)
                 .map(getList -> testClientWriter.getListMethod(manifest))
                 .ifPresent(builder::addMethod);

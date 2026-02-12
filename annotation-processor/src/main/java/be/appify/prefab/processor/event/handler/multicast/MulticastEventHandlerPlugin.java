@@ -15,22 +15,28 @@ import javax.lang.model.element.Modifier;
  * Prefab plugin to generate multicast event handlers based on EventHandler.Multicast annotations.
  */
 public class MulticastEventHandlerPlugin implements EventHandlerPlugin {
-    private final MulticastEventHandlerWriter multicastEventHandlerWriter = new MulticastEventHandlerWriter();
+    private MulticastEventHandlerWriter multicastEventHandlerWriter;
+    private PrefabContext context;
 
     /** Constructs a new MulticastEventHandlerPlugin. */
     public MulticastEventHandlerPlugin() {
     }
 
     @Override
-    public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        multicastEventHandlers(manifest, context)
-                .forEach(handler ->
-                        builder.addMethod(
-                                multicastEventHandlerWriter.multicastEventHandlerMethod(manifest, handler, context)));
+    public void initContext(PrefabContext context) {
+        this.context = context;
+        multicastEventHandlerWriter = new MulticastEventHandlerWriter(context);
     }
 
-    private Stream<MulticastEventHandlerManifest> multicastEventHandlers(ClassManifest manifest,
-            PrefabContext context) {
+    @Override
+    public void writeService(ClassManifest manifest, TypeSpec.Builder builder) {
+        multicastEventHandlers(manifest)
+                .forEach(handler ->
+                        builder.addMethod(
+                                multicastEventHandlerWriter.multicastEventHandlerMethod(manifest, handler)));
+    }
+
+    private Stream<MulticastEventHandlerManifest> multicastEventHandlers(ClassManifest manifest) {
         var typeElement = manifest.type().asElement();
         return typeElement.getEnclosedElements()
                 .stream()

@@ -43,6 +43,7 @@
         <avro.version>1.11.3</avro.version>
         <commons-io.version>2.21.0</commons-io.version>
         <commons-compress.version>1.28.0</commons-compress.version>
+        <jsr305.version>3.0.2</jsr305.version>
     </properties>
 
     <dependencyManagement>

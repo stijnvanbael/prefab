@@ -24,7 +24,13 @@ import static be.appify.prefab.processor.event.kafka.KafkaPlugin.platformIsKafka
 import static javax.lang.model.element.Modifier.PUBLIC;
 
 class KafkaProducerWriter {
-    void writeKafkaProducer(TypeManifest event, PrefabContext context) {
+    private final PrefabContext context;
+
+    KafkaProducerWriter(PrefabContext context) {
+        this.context = context;
+    }
+
+    void writeKafkaProducer(TypeManifest event) {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.kafka");
 
         var name = "%sKafkaProducer".formatted(event.simpleName().replace(".", ""));
@@ -46,7 +52,7 @@ class KafkaProducerWriter {
                         "kafkaTemplate", Modifier.PRIVATE, Modifier.FINAL)
                 .addField(String.class, "topic", Modifier.PRIVATE, Modifier.FINAL)
                 .addMethod(constructor(annotation.topic()))
-                .addMethod(producer(event, context))
+                .addMethod(producer(event))
                 .build();
 
         fileWriter.writeFile(event.packageName(), name, type);
@@ -76,7 +82,7 @@ class KafkaProducerWriter {
         return constructor.build();
     }
 
-    private MethodSpec producer(TypeManifest event, PrefabContext context) {
+    private MethodSpec producer(TypeManifest event) {
         var method = MethodSpec.methodBuilder("publish")
                 .addModifiers(PUBLIC)
                 .addParameter(event.asTypeName(), "event")

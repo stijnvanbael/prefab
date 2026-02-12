@@ -35,6 +35,11 @@ import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 class KafkaConsumerWriter {
     private static final ConsumerWriterSupport support = new ConsumerWriterSupport(Event.Platform.KAFKA);
+    private final PrefabContext context;
+
+    public KafkaConsumerWriter(PrefabContext context) {
+        this.context = context;
+    }
 
     void writeKafkaConsumer(
             TypeManifest owner,

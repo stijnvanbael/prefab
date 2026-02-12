@@ -29,7 +29,13 @@ import static org.apache.commons.lang3.StringUtils.capitalize;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 class EventSchemaFactoryWriter {
-    void writeSchemaFactory(TypeManifest event, PrefabContext context) {
+    private final PrefabContext context;
+
+    EventSchemaFactoryWriter(PrefabContext context) {
+        this.context = context;
+    }
+
+    void writeSchemaFactory(TypeManifest event) {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
 
         var name = "%sSchemaFactory".formatted(event.simpleName().replace(".", ""));
@@ -37,19 +43,19 @@ class EventSchemaFactoryWriter {
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(Component.class)
                 .addField(FieldSpec.builder(Schema.class, "schema", Modifier.PRIVATE, Modifier.FINAL).build());
-        type.addMethod(constructor(event, context))
+        type.addMethod(constructor(event))
                 .addMethod(createSchemaMethod());
 
         fileWriter.writeFile(event.packageName(), name, type.build());
 
     }
 
-    private static MethodSpec constructor(TypeManifest event, PrefabContext context) {
+    private MethodSpec constructor(TypeManifest event) {
         var constructor = getBuilder();
         nestedTypes(List.of(event)).forEach(nestedType -> addSchemaFactory(nestedType, constructor));
         sealedSubtypes(List.of(event)).forEach(subtype -> addSchemaFactory(subtype, constructor));
         return constructor
-                .addStatement("this.schema = $L", createSchema(event, context))
+                .addStatement("this.schema = $L", createSchema(event))
                 .build();
     }
 
@@ -72,12 +78,12 @@ class EventSchemaFactoryWriter {
                 .build();
     }
 
-    private static CodeBlock createSchema(TypeManifest type, PrefabContext context) {
+    private CodeBlock createSchema(TypeManifest type) {
         return switch (type) {
             case TypeManifest t when isLogicalType(t) -> createLogicalSchema(type);
-            case TypeManifest t when t.isStandardType() -> createPrimitiveSchema(type, context);
+            case TypeManifest t when t.isStandardType() -> createPrimitiveSchema(type);
             case TypeManifest t when t.isEnum() -> createEnumSchema(type);
-            default -> createRecordSchema(type, context);
+            default -> createRecordSchema(type);
         };
     }
 
@@ -117,7 +123,7 @@ class EventSchemaFactoryWriter {
                         .collect(CodeBlock.joining(", ")));
     }
 
-    private static CodeBlock createPrimitiveSchema(TypeManifest type, PrefabContext context) {
+    private CodeBlock createPrimitiveSchema(TypeManifest type) {
         Schema.Type schemaType;
         var primitiveType = type.asClass();
         if (primitiveType == String.class) {
@@ -139,7 +145,7 @@ class EventSchemaFactoryWriter {
         return CodeBlock.of("$T.create($T.$L)", Schema.class, Schema.Type.class, schemaType);
     }
 
-    private static CodeBlock createRecordSchema(TypeManifest type, PrefabContext context) {
+    private CodeBlock createRecordSchema(TypeManifest type) {
         if (type.isSealed()) {
             return CodeBlock.of("""
                             $T.createUnion($T.of(
@@ -163,13 +169,13 @@ class EventSchemaFactoryWriter {
                     type.packageName(),
                     List.class,
                     type.fields().stream()
-                            .map(field -> createField(field, context))
+                            .map(this::createField)
                             .collect(CodeBlock.joining(",\n        ")));
         }
     }
 
-    private static CodeBlock createField(VariableManifest field, PrefabContext context) {
-        var schema = maybeArray(field, context);
+    private CodeBlock createField(VariableManifest field) {
+        var schema = maybeArray(field);
         if (field.hasAnnotation(Nullable.class)) {
             return CodeBlock.of("new $T($S, $L, null)",
                     Schema.Field.class,
@@ -183,16 +189,16 @@ class EventSchemaFactoryWriter {
         }
     }
 
-    private static CodeBlock maybeArray(VariableManifest field, PrefabContext context) {
+    private CodeBlock maybeArray(VariableManifest field) {
         return field.type().is(List.class)
                 ? CodeBlock.of("$T.createArray($L)", Schema.class,
-                maybeNested(field.type().parameters().getFirst(), context))
-                : maybeNested(field.type(), context);
+                maybeNested(field.type().parameters().getFirst()))
+                : maybeNested(field.type());
     }
 
-    private static CodeBlock maybeNested(TypeManifest type, PrefabContext context) {
+    private CodeBlock maybeNested(TypeManifest type) {
         return !isNestedRecord(type)
-                ? createSchema(type, context)
+                ? createSchema(type)
                 : CodeBlock.of("$L.createSchema()", uncapitalize("%sSchemaFactory".formatted(type.simpleName().replace(".", ""))));
     }
 }

@@ -17,8 +17,13 @@ import static org.apache.commons.text.WordUtils.capitalize;
 import static org.apache.commons.text.WordUtils.uncapitalize;
 
 class MulticastEventHandlerWriter {
-    MethodSpec multicastEventHandlerMethod(ClassManifest manifest, MulticastEventHandlerManifest eventHandler,
-            PrefabContext context) {
+    private final PrefabContext context;
+
+    MulticastEventHandlerWriter(PrefabContext context) {
+        this.context = context;
+    }
+
+    MethodSpec multicastEventHandlerMethod(ClassManifest manifest, MulticastEventHandlerManifest eventHandler) {
         var event = eventHandler.eventType();
         var method = MethodSpec.methodBuilder(eventHandler.methodName())
                 .addModifiers(Modifier.PUBLIC);

@@ -100,6 +100,7 @@ public class TypeManifest {
      *         the TypeMirror representing the type
      * @param processingEnvironment
      *         the processing environment
+     * @return a TypeManifest representing the specified type mirror
      */
     public static TypeManifest of(TypeMirror typeMirror, ProcessingEnvironment processingEnvironment) {
         return manifestByTypeMirrorCache.computeIfAbsent(typeMirror, type -> new TypeManifest(type, processingEnvironment));
@@ -205,6 +206,11 @@ public class TypeManifest {
         return packageName.isEmpty() || packageName.startsWith("java.");
     }
 
+    /**
+     * Converts the TypeManifest to its boxed type if it is a primitive type.
+     *
+     * @return the boxed TypeManifest if the type is primitive, otherwise returns the original TypeManifest
+     */
     public TypeManifest asBoxed() {
         return switch (simpleName()) {
             case "int" -> TypeManifest.of(Integer.class, processingEnvironment);

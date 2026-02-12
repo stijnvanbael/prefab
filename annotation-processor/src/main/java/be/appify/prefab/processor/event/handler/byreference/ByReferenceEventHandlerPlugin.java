@@ -22,20 +22,24 @@ import javax.lang.model.element.VariableElement;
 /** Plugin to handle ByReference event handlers in Prefab. */
 public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
     private final ByReferenceEventHandlerWriter byReferenceEventHandlerWriter = new ByReferenceEventHandlerWriter();
+    private PrefabContext context;
 
     /** Constructs a new ByReferenceEventHandlerPlugin. */
     public ByReferenceEventHandlerPlugin() {
     }
 
     @Override
-    public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        byReferenceEventHandlers(manifest, context).forEach(handler ->
+    public void initContext(PrefabContext context) {
+        this.context = context;
+    }
+
+    @Override
+    public void writeService(ClassManifest manifest, TypeSpec.Builder builder) {
+        byReferenceEventHandlers(manifest).forEach(handler ->
                 builder.addMethod(byReferenceEventHandlerWriter.byReferenceEventHandlerMethod(manifest, handler)));
     }
 
-    private Stream<ByReferenceEventHandlerManifest> byReferenceEventHandlers(
-            ClassManifest manifest,
-            PrefabContext context) {
+    private Stream<ByReferenceEventHandlerManifest> byReferenceEventHandlers(ClassManifest manifest) {
         var typeElement = manifest.type().asElement();
         return typeElement.getEnclosedElements()
                 .stream()

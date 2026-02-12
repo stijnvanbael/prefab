@@ -21,19 +21,25 @@ import static javax.lang.model.type.TypeKind.VOID;
  */
 public class StaticEventHandlerPlugin implements EventHandlerPlugin {
     private final StaticEventHandlerWriter staticEventHandlerWriter = new StaticEventHandlerWriter();
+    private PrefabContext context;
 
     /** Constructs a new StaticEventHandlerPlugin. */
     public StaticEventHandlerPlugin() {
     }
 
     @Override
-    public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        staticDomainHandlers(manifest, context)
+    public void initContext(PrefabContext context) {
+        this.context = context;
+    }
+
+    @Override
+    public void writeService(ClassManifest manifest, TypeSpec.Builder builder) {
+        staticDomainHandlers(manifest)
                 .forEach(handler -> builder.addMethod(
                         staticEventHandlerWriter.staticDomainHandlerMethod(manifest, handler)));
     }
 
-    private Stream<StaticEventHandlerManifest> staticDomainHandlers(ClassManifest manifest, PrefabContext context) {
+    private Stream<StaticEventHandlerManifest> staticDomainHandlers(ClassManifest manifest) {
         var typeElement = manifest.type().asElement();
         return typeElement.getEnclosedElements()
                 .stream()

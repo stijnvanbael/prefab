@@ -18,7 +18,13 @@ import org.springframework.core.annotation.Order;
 import static be.appify.prefab.processor.CaseUtil.toCamelCase;
 
 class SerializationRegistryConfigurationWriter {
-    void writeConfiguration(List<TypeManifest> events, PrefabContext context) {
+    private final PrefabContext context;
+
+    SerializationRegistryConfigurationWriter(PrefabContext context) {
+        this.context = context;
+    }
+
+    void writeConfiguration(List<TypeManifest> events) {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.event");
 
         var type = TypeSpec.classBuilder("SerializationRegistryConfiguration")

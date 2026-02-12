@@ -16,36 +16,45 @@ import java.util.Objects;
 
 /** A plugin for generating Avro converters and schema factories for events annotated with {@link Event} with Avro serialization. */
 public class AvroPlugin implements PrefabPlugin {
-    private final EventToGenericRecordConverterWriter toGenericRecordConverterWriter = new EventToGenericRecordConverterWriter();
-    private final GenericRecordToEventConverterWriter toEventConverterWriter = new GenericRecordToEventConverterWriter();
-    private final EventSchemaFactoryWriter eventSchemaFactoryWriter = new EventSchemaFactoryWriter();
+    private EventToGenericRecordConverterWriter toGenericRecordConverterWriter;
+    private GenericRecordToEventConverterWriter toEventConverterWriter;
+    private EventSchemaFactoryWriter eventSchemaFactoryWriter;
+    private PrefabContext context;
 
     /** Constructs a new AvroPlugin. */
     public AvroPlugin() {
     }
 
     @Override
-    public void writeAdditionalFiles(List<ClassManifest> manifests, PrefabContext context) {
+    public void initContext(PrefabContext context) {
+        this.context = context;
+        toGenericRecordConverterWriter = new EventToGenericRecordConverterWriter(context);
+        toEventConverterWriter = new GenericRecordToEventConverterWriter(context);
+        eventSchemaFactoryWriter = new EventSchemaFactoryWriter(context);
+    }
+
+    @Override
+    public void writeAdditionalFiles(List<ClassManifest> manifests) {
         var events = context.roundEnvironment().getElementsAnnotatedWith(Event.class)
                 .stream()
                 .filter(event -> Objects.requireNonNull(event.getAnnotation(Event.class)).serialization() == Event.Serialization.AVRO)
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .toList();
         events.forEach(event -> {
-            toGenericRecordConverterWriter.writeConverter(event, context);
-            toEventConverterWriter.writeConverter(event, context);
-            eventSchemaFactoryWriter.writeSchemaFactory(event, context);
+            toGenericRecordConverterWriter.writeConverter(event);
+            toEventConverterWriter.writeConverter(event);
+            eventSchemaFactoryWriter.writeSchemaFactory(event);
         });
         nestedTypes(events)
                 .forEach(type -> {
-                    toGenericRecordConverterWriter.writeConverter(type, context);
-                    toEventConverterWriter.writeConverter(type, context);
-                    eventSchemaFactoryWriter.writeSchemaFactory(type, context);
+                    toGenericRecordConverterWriter.writeConverter(type);
+                    toEventConverterWriter.writeConverter(type);
+                    eventSchemaFactoryWriter.writeSchemaFactory(type);
                 });
         sealedSubtypes(events).forEach(type -> {
-            toGenericRecordConverterWriter.writeConverter(type, context);
-            toEventConverterWriter.writeConverter(type, context);
-            eventSchemaFactoryWriter.writeSchemaFactory(type, context);
+            toGenericRecordConverterWriter.writeConverter(type);
+            toEventConverterWriter.writeConverter(type);
+            eventSchemaFactoryWriter.writeSchemaFactory(type);
         });
     }
 
@@ -59,12 +68,12 @@ public class AvroPlugin implements PrefabPlugin {
                 .toList();
     }
 
-        static List<TypeManifest> sealedSubtypes(List<TypeManifest> events) {
-            return events.stream()
-                    .flatMap(event -> event.permittedSubtypes().stream())
-                    .distinct()
-                    .toList();
-        }
+    static List<TypeManifest> sealedSubtypes(List<TypeManifest> events) {
+        return events.stream()
+                .flatMap(event -> event.permittedSubtypes().stream())
+                .distinct()
+                .toList();
+    }
 
     private static boolean isListOfNestedRecord(TypeManifest type) {
         return type.is(List.class) && isNestedRecord(type.parameters().getFirst());

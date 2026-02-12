@@ -6,15 +6,14 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javax.lang.model.element.Modifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-
-import javax.lang.model.element.Modifier;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static org.apache.commons.text.WordUtils.uncapitalize;
 
@@ -56,7 +55,7 @@ class ApplicationWriter {
         dependencies.forEach(
                 dependency -> constructor.addStatement("this.$N = $N", nameOf(dependency), nameOf(dependency)));
         type.addMethod(constructor.build());
-        context.plugins().forEach(plugin -> plugin.writeService(manifest, type, context));
+        context.plugins().forEach(plugin -> plugin.writeService(manifest, type));
         fileWriter.writeFile(manifest.packageName(), serviceName, type.build());
     }
 
@@ -68,7 +67,7 @@ class ApplicationWriter {
 
     private Set<TypeName> collectDependencies(ClassManifest manifest) {
         return Stream.concat(context.plugins().stream().flatMap(plugin ->
-                                plugin.getServiceDependencies(manifest, context).stream()),
+                                plugin.getServiceDependencies(manifest).stream()),
                         Stream.of(ClassName.get("%s.application".formatted(manifest.type().packageName()),
                                 "%sRepository".formatted(manifest.type().simpleName()))))
                 .collect(Collectors.toSet());

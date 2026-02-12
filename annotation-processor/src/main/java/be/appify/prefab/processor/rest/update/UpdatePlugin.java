@@ -27,36 +27,42 @@ public class UpdatePlugin implements PrefabPlugin {
     private final UpdateServiceWriter updateServiceWriter = new UpdateServiceWriter();
     private final UpdateRequestRecordWriter updateRequestRecordWriter = new UpdateRequestRecordWriter();
     private final UpdateTestClientWriter updateTestClientWriter = new UpdateTestClientWriter();
+    private PrefabContext context;
 
     /** Constructs a new UpdatePlugin. */
     public UpdatePlugin() {
     }
 
     @Override
-    public void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        updateMethodsOf(manifest, context).forEach(update ->
+    public void initContext(PrefabContext context) {
+        this.context = context;
+    }
+
+    @Override
+    public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
+        updateMethodsOf(manifest).forEach(update ->
                 builder.addMethod(updateControllerWriter.updateMethod(manifest, update, context)));
     }
 
     @Override
-    public Set<TypeName> getServiceDependencies(ClassManifest classManifest, PrefabContext context) {
-        return updateMethodsOf(classManifest, context).stream()
+    public Set<TypeName> getServiceDependencies(ClassManifest classManifest) {
+        return updateMethodsOf(classManifest).stream()
                 .flatMap(method -> method.parameters().stream())
                 .anyMatch(param -> param.type().is(Reference.class))
                 ? Set.of(ClassName.get(ReferenceFactory.class)) : Collections.emptySet();
     }
 
     @Override
-    public void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        updateMethodsOf(manifest, context).forEach(update ->
+    public void writeService(ClassManifest manifest, TypeSpec.Builder builder) {
+        updateMethodsOf(manifest).forEach(update ->
                 builder.addMethod(updateServiceWriter.updateMethod(manifest, update)));
     }
 
     @Override
-    public void writeAdditionalFiles(List<ClassManifest> manifests, PrefabContext context) {
+    public void writeAdditionalFiles(List<ClassManifest> manifests) {
         if (!manifests.isEmpty()) {
             var fileWriter = new JavaFileWriter(context.processingEnvironment(), "application");
-            manifests.forEach(manifest -> updateMethodsOf(manifest, context).forEach(update -> {
+            manifests.forEach(manifest -> updateMethodsOf(manifest).forEach(update -> {
                 if (!update.parameters().isEmpty()) {
                     updateRequestRecordWriter.writeUpdateRequestRecord(fileWriter, manifest, update,
                             context.requestParameterBuilder());
@@ -66,12 +72,12 @@ public class UpdatePlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
-        updateMethodsOf(manifest, context).forEach(update ->
+    public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
+        updateMethodsOf(manifest).forEach(update ->
                 builder.addMethod(updateTestClientWriter.updateMethod(manifest, update, context)));
     }
 
-    private List<UpdateManifest> updateMethodsOf(ClassManifest manifest, PrefabContext context) {
+    private List<UpdateManifest> updateMethodsOf(ClassManifest manifest) {
         return manifest.methodsWith(Update.class).stream()
                 .map(element -> {
                     var update = element.getAnnotationsByType(Update.class)[0];

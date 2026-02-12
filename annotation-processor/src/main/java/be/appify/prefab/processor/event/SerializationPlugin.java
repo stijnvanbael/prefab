@@ -11,22 +11,27 @@ import java.util.List;
  * A plugin that generates a configuration file for the serialization registry, containing all events.
  */
 public class SerializationPlugin implements PrefabPlugin {
-    private final SerializationRegistryConfigurationWriter serializationRegistryConfigurationWriter = new SerializationRegistryConfigurationWriter();
+    private SerializationRegistryConfigurationWriter serializationRegistryConfigurationWriter;
+    private PrefabContext context;
 
-    /**
-     * Writes a configuration file for the serialization registry, containing all events.
-     *
-     * @param manifests the class manifests of all classes that are processed by the annotation processor
-     * @param context   the context of the annotation processor, containing information about the processing environment and the round environment
-     */
+    /** Constructs a new SerializationPlugin. */
+    public SerializationPlugin() {
+    }
+
     @Override
-    public void writeAdditionalFiles(List<ClassManifest> manifests, PrefabContext context) {
+    public void initContext(PrefabContext context) {
+        this.context = context;
+        serializationRegistryConfigurationWriter = new SerializationRegistryConfigurationWriter(context);
+    }
+
+    @Override
+    public void writeAdditionalFiles(List<ClassManifest> manifests) {
         var events = context.roundEnvironment().getElementsAnnotatedWith(Event.class)
                 .stream()
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .toList();
         if (!events.isEmpty()) {
-            serializationRegistryConfigurationWriter.writeConfiguration(events, context);
+            serializationRegistryConfigurationWriter.writeConfiguration(events);
         }
     }
 }

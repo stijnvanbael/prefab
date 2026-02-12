@@ -25,7 +25,13 @@ import static org.apache.commons.text.WordUtils.capitalize;
 import static org.atteo.evo.inflector.English.plural;
 
 class CreateControllerWriter {
-    MethodSpec createMethod(ClassManifest manifest, ExecutableElement constructor, PrefabContext context) {
+    private final PrefabContext context;
+
+    CreateControllerWriter(PrefabContext context) {
+        this.context = context;
+    }
+
+    MethodSpec createMethod(ClassManifest manifest, ExecutableElement constructor) {
         var create = constructor.getAnnotation(Create.class);
         var requestParts = constructor.getParameters().stream()
                 .flatMap(parameter -> context.requestParameterBuilder()

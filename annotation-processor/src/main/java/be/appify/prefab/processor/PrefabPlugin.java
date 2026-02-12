@@ -4,7 +4,6 @@ import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
-
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -12,6 +11,16 @@ import java.util.Set;
 
 /** Interface for Prefab plugins to extend functionality. */
 public interface PrefabPlugin {
+
+    /**
+     * Initialize the plugin with the given context.
+     *
+     * @param context
+     *        The PrefabContext providing access to processing environment and utilities.
+     */
+    default void initContext(PrefabContext context) {
+    }
+
     /**
      * Write controller code for the given manifest.
      *
@@ -19,10 +28,8 @@ public interface PrefabPlugin {
      *         The class manifest.
      * @param builder
      *         The TypeSpec builder for the controller.
-     * @param context
-     *         The Prefab context.
      */
-    default void writeController(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    default void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
     }
 
     /**
@@ -30,11 +37,9 @@ public interface PrefabPlugin {
      *
      * @param classManifest
      *         The class manifest.
-     * @param context
-     *         The Prefab context.
      * @return A set of TypeNames representing the service dependencies.
      */
-    default Set<TypeName> getServiceDependencies(ClassManifest classManifest, PrefabContext context) {
+    default Set<TypeName> getServiceDependencies(ClassManifest classManifest) {
         return Collections.emptySet();
     }
 
@@ -45,10 +50,8 @@ public interface PrefabPlugin {
      *         The class manifest.
      * @param builder
      *         The TypeSpec builder for the service.
-     * @param context
-     *         The Prefab context.
      */
-    default void writeService(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    default void writeService(ClassManifest manifest, TypeSpec.Builder builder) {
     }
 
     /**
@@ -56,10 +59,8 @@ public interface PrefabPlugin {
      *
      * @param manifests
      *         The list of class manifests.
-     * @param context
-     *         The Prefab context.
      */
-    default void writeAdditionalFiles(List<ClassManifest> manifests, PrefabContext context) {
+    default void writeAdditionalFiles(List<ClassManifest> manifests) {
     }
 
     /**
@@ -80,10 +81,8 @@ public interface PrefabPlugin {
      *         The class manifest.
      * @param builder
      *         The TypeSpec builder for the test client.
-     * @param context
-     *         The Prefab context.
      */
-    default void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder, PrefabContext context) {
+    default void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
     }
 
     /**

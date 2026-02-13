@@ -58,7 +58,7 @@ public class TypeManifest {
                     ? fullyQualifiedName
                     : fullyQualifiedName.substring(packageName.length() + 1);
             this.parameters = declaredType.getTypeArguments().stream()
-                    .map(type -> of(type, processingEnvironment))
+                    .map(type -> new TypeManifest(type, processingEnvironment))
                     .toList();
             this.kind = element.getKind();
         } else {

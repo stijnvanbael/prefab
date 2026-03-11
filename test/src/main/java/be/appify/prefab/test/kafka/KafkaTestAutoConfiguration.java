@@ -21,6 +21,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonTypeResolver;
 import org.springframework.test.context.DynamicPropertyRegistrar;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -46,28 +47,37 @@ public class KafkaTestAutoConfiguration {
         this.properties = properties;
     }
 
+    private static final String KAFKA_NETWORK_NAME = "prefab-test";
+
     @Bean
     Network kafkaNetwork() {
-        return Network.newNetwork();
+        var dockerClient = DockerClientFactory.instance().client();
+        var existing = dockerClient.listNetworksCmd()
+                .withNameFilter(KAFKA_NETWORK_NAME)
+                .exec();
+        if (existing.isEmpty()) {
+            dockerClient.createNetworkCmd()
+                    .withName(KAFKA_NETWORK_NAME)
+                    .exec();
+        }
+        return new NamedNetwork(KAFKA_NETWORK_NAME);
     }
 
     @Bean
     @ServiceConnection
     KafkaContainer kafkaContainer(Network kafkaNetwork) {
-        var kafkaContainer = new KafkaContainer("apache/kafka-native:4.1.1")
+        return new KafkaContainer("apache/kafka-native:4.1.1")
+                .withCreateContainerCmdModifier(cmd -> cmd.withName("prefab-test-kafka"))
                 .withNetwork(kafkaNetwork)
                 .withReuse(true)
                 .withExposedPorts(9092, 9093, 9095)
                 .withListener("kafka:9095");
-        if (!kafkaContainer.isRunning()) {
-            kafkaContainer.start();
-        }
-        return kafkaContainer;
     }
 
     @Bean
     GenericContainer<?> kafkaSchemaRegistryContainer(KafkaContainer kafkaContainer, Network kafkaNetwork) {
-        var schemaRegistryContainer = new GenericContainer<>("confluentinc/cp-schema-registry:8.0.3")
+        return new GenericContainer<>("confluentinc/cp-schema-registry:8.0.3")
+                .withCreateContainerCmdModifier(cmd -> cmd.withName("prefab-test-schema-registry"))
                 .withReuse(true)
                 .withExposedPorts(8081)
                 .withNetwork(kafkaNetwork)
@@ -76,10 +86,6 @@ public class KafkaTestAutoConfiguration {
                 .withEnv("SCHEMA_REGISTRY_HOST_NAME", "schema-registry")
                 .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:8081")
                 .waitingFor(Wait.forHttp("/subjects").forStatusCode(200));
-        if (!schemaRegistryContainer.isRunning()) {
-            schemaRegistryContainer.start();
-        }
-        return schemaRegistryContainer;
     }
 
     @Bean
@@ -124,5 +130,17 @@ public class KafkaTestAutoConfiguration {
         return new TestJsonTypeResolver(delegate.getIfAvailable(() -> (topic, data, headers) -> {
             throw new IllegalStateException("No type resolver configured for topic: " + topic);
         }));
+    }
+
+    private record NamedNetwork(String id) implements Network {
+        @Override
+        public String getId() {
+            return id;
+        }
+
+        @Override
+        public void close() {
+            // no-op: keep the network alive for reuse across test runs
+        }
     }
 }

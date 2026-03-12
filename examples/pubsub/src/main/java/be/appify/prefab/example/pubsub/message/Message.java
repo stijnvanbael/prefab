@@ -9,17 +9,15 @@ import be.appify.prefab.example.pubsub.channel.Channel;
 import be.appify.prefab.example.pubsub.user.User;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import java.time.Instant;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
 
-import java.time.Instant;
-import java.util.UUID;
-
 @Aggregate
 @DbMigration
 public record Message(
-        @Id String id,
+        @Id Reference<Message> id,
         @Version long version,
         @NotNull Reference<User> author,
         @NotNull Reference<Channel> channel,
@@ -37,7 +35,7 @@ public record Message(
             @NotEmpty String content
     ) {
         this(
-                UUID.randomUUID().toString(),
+                Reference.create(),
                 0L,
                 author,
                 channel,

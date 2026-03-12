@@ -1,14 +1,14 @@
 ---
 id: TASK-087
 title: 'Spring Data JDBC: List<Reference> not supported'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-02-07 19:34'
-updated_date: '2026-02-07 19:35'
+updated_date: '2026-03-12 17:28'
 labels:
   - "\U0001F41Ebug"
 dependencies: []
-ordinal: 227.77557373046875
+ordinal: 7000
 ---
 
 ## Description

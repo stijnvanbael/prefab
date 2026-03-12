@@ -10,15 +10,14 @@ import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
+import java.util.List;
+import java.util.stream.Collectors;
+import javax.lang.model.element.Modifier;
 import org.atteo.evo.inflector.English;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.ExampleMatcher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-
-import javax.lang.model.element.Modifier;
-import java.util.List;
-import java.util.stream.Collectors;
 
 import static be.appify.prefab.processor.rest.getlist.GetListUtil.filterPropertiesOf;
 import static org.apache.commons.text.WordUtils.capitalize;
@@ -89,16 +88,14 @@ class GetListServiceWriter {
 
     private static CodeBlock filterField(VariableManifest field) {
         return field.type().is(Reference.class)
-                ? CodeBlock.of("referenceFactory.referenceTo($T.class, $N)",
-                field.type().parameters().getFirst().asTypeName(),
+                ? CodeBlock.of("referenceFactory.referenceTo($N)",
                 field.name())
                 : CodeBlock.of(field.name());
     }
 
     private CodeBlock parentField(ClassManifest manifest, VariableManifest field) {
         return manifest.parent().filter(parent -> parent.name().equals(field.name()))
-                .map(parent -> CodeBlock.of("referenceFactory.referenceTo($T.class, $NId)",
-                        parent.type().parameters().getFirst().asTypeName(),
+                .map(parent -> CodeBlock.of("referenceFactory.referenceTo($NId)",
                         uncapitalize(parent.name())))
                 .orElse(defaultValueForType(field.type()));
     }

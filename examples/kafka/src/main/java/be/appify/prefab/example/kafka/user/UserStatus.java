@@ -13,7 +13,6 @@ import be.appify.prefab.example.kafka.message.MessageSent;
 import jakarta.validation.constraints.NotNull;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
@@ -23,7 +22,7 @@ import org.springframework.data.annotation.Version;
 @GetList
 @EventHandlerConfig(concurrency = "4")
 public record UserStatus(
-        @Id String id,
+        @Id Reference<UserStatus> id,
         @Version long version,
         @NotNull Reference<User> user,
         @NotNull List<UnreadMessage> unreadMessages
@@ -35,9 +34,9 @@ public record UserStatus(
     @EventHandler
     public static UserStatus onUserCreated(UserEvent.Created event) {
         return new UserStatus(
-                UUID.randomUUID().toString(),
+                Reference.create(),
                 0L,
-                Reference.fromId(event.id()),
+                event.reference(),
                 new ArrayList<>()
         );
     }
@@ -48,7 +47,7 @@ public record UserStatus(
             parameters = "channel"
     )
     public void onMessageSent(MessageSent event) {
-        unreadMessages.add(new UnreadMessage(Reference.fromId(event.id()), event.channel()));
+        unreadMessages.add(new UnreadMessage(event.id(), event.channel()));
     }
 
     @Update(path = "/unread-messages", method = "POST")

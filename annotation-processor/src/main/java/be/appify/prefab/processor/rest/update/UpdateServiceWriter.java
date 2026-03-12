@@ -9,9 +9,8 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import jakarta.validation.Valid;
-
-import javax.lang.model.element.Modifier;
 import java.util.Optional;
+import javax.lang.model.element.Modifier;
 
 import static org.apache.commons.text.WordUtils.capitalize;
 import static org.apache.commons.text.WordUtils.uncapitalize;
@@ -53,8 +52,7 @@ class UpdateServiceWriter {
 
     private CodeBlock fromRequest(VariableManifest parameter) {
         if (parameter.type().is(Reference.class)) {
-            var type = parameter.type().parameters().getFirst().asTypeName();
-            return CodeBlock.of("referenceFactory.referenceTo($T.class, request.$N())", type, parameter.name());
+            return CodeBlock.of("referenceFactory.referenceTo(request.$N())", parameter.name());
         }
         return CodeBlock.of("request.%s()".formatted(parameter.name()));
     }

@@ -12,7 +12,6 @@ import be.appify.prefab.example.kafka.channel.ChannelCreated;
 import be.appify.prefab.example.kafka.message.MessageSent;
 import be.appify.prefab.example.kafka.user.UserEvent;
 import jakarta.validation.constraints.NotNull;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.annotation.Id;
@@ -23,7 +22,7 @@ import org.springframework.data.annotation.Version;
 @GetList
 @DbMigration
 public record ChannelSummary(
-        @Id String id,
+        @Id Reference<ChannelSummary>  id,
         @Version long version,
         @NotNull Reference<Channel> channel,
         @Filter @NotNull String name,
@@ -38,7 +37,7 @@ public record ChannelSummary(
 
     @EventHandler
     public static ChannelSummary onChannelCreated(ChannelCreated event) {
-        return new ChannelSummary(UUID.randomUUID().toString(), 0L, Reference.fromId(event.id()), event.name(), 0, 0);
+        return new ChannelSummary(Reference.create(), 0L, event.reference(), event.name(), 0, 0);
     }
 
     @EventHandler

@@ -9,11 +9,12 @@ import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.domain.PublishesEvents;
+import be.appify.prefab.core.service.Reference;
+import be.appify.prefab.example.pubsub.user.User;
 import be.appify.prefab.example.pubsub.user.UserEvent;
 import jakarta.validation.constraints.NotNull;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
@@ -24,10 +25,10 @@ import org.springframework.data.annotation.Version;
 @GetById
 @EventHandlerConfig(concurrency = "4")
 public record Channel(
-        @Id String id,
+        @Id Reference<Channel> id,
         @Version long version,
         @NotNull String name,
-        @NotNull List<String> subscribers // Currently, Spring Data JDBC cannot support List<Reference<T>>
+        @NotNull List<Reference<User>> subscribers
 ) implements PublishesEvents {
     @PersistenceCreator
     public Channel {
@@ -35,13 +36,13 @@ public record Channel(
 
     @Create
     public Channel(String name) {
-        this(UUID.randomUUID().toString(), 0L, name, new ArrayList<>());
+        this(Reference.create(), 0L, name, new ArrayList<>());
         publish(new ChannelCreated(id, name));
     }
 
     @EventHandler
     @ByReference(property = "channel")
     public void onUserSubscribed(UserEvent.SubscribedToChannel event) {
-        subscribers.add(event.id());
+        subscribers.add(event.reference());
     }
 }

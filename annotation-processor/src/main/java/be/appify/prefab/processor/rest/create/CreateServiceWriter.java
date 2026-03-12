@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.rest.create;
 
+import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.VariableManifest;
@@ -28,7 +29,9 @@ class CreateServiceWriter {
                     .addStatement("log.debug($S, $T.class.getSimpleName())", "Creating new {}", manifest.className())
                     .addStatement("var aggregate = new $T()", manifest.type().asTypeName())
                     .addStatement("%sRepository.save(aggregate)".formatted(uncapitalize(manifest.simpleName())))
-                    .addStatement("return aggregate.$N()", manifest.idField().map(VariableManifest::name).orElse("id"))
+                    .addStatement("return aggregate.$N()$L",
+                            manifest.idField().map(VariableManifest::name).orElse("id"),
+                            manifest.idField().map(VariableManifest::type).map(type->type.is(Reference.class)? ".id()": "").orElse(""))
                     .build();
         } else {
             return MethodSpec.methodBuilder("create")
@@ -46,7 +49,9 @@ class CreateServiceWriter {
                                     .map(context.requestParameterMapper()::mapRequestParameter)
                                     .collect(CodeBlock.joining(", ")))
                     .addStatement("%sRepository.save(aggregate)".formatted(uncapitalize(manifest.simpleName())))
-                    .addStatement("return aggregate.$N()", manifest.idField().map(VariableManifest::name).orElse("id"))
+                    .addStatement("return aggregate.$N()$L",
+                            manifest.idField().map(VariableManifest::name).orElse("id"),
+                            manifest.idField().map(VariableManifest::type).map(type->type.is(Reference.class)? ".id()": "").orElse(""))
                     .build();
         }
     }

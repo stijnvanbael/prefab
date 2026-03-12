@@ -141,7 +141,7 @@ e.g.:
 
 @Aggregate
 public record Sale(
-        @Id String id,
+        @Id Reference<Sale> id, // Reference is a special type that Prefab uses to manage references between aggregates, it can also be a String if you prefer
         @Version long version,
         Instant start,
         Double amount
@@ -180,19 +180,19 @@ signature of the constructor.
 
 @Aggregate
 public record Sale(
-        @Id String id,
+        @Id Reference<Sale> id,
         @Version long version,
         Instant start,
         Double amount
 ) {
-    @Create // This constructor will be exposed as a REST endpoint to create a new Sale instance
-    public Sale(Instant start, Double amount) {
-        this(UUID.randomUUID().toString(), 0, start, amount);
-    }
+   @Create // This constructor will be exposed as a REST endpoint to create a new Sale instance
+   public Sale(Instant start, Double amount) {
+      this(Reference.create(), 0, start, amount);
+   }
 
-    @PersistenceCreator // Prefab generates Spring Data JDBC code that requires a constructor with all properties
-    public Sale {
-    }
+   @PersistenceCreator // Prefab generates Spring Data JDBC code that requires a constructor with all properties
+   public Sale {
+   }
 }
 ```
 
@@ -207,7 +207,7 @@ is the plural of the class name in kebab case. Both method and path can be custo
 @Aggregate
 @GetById // This will expose a GET endpoint for the Sale class
 public record Sale(
-        @Id String id,
+        @Id Reference<Sale> id,
         @Version long version,
         Instant start,
         Double amount
@@ -230,7 +230,7 @@ paging and sorting out of the box.
 @Aggregate
 @GetList // This will generate a list endpoint for the Sale class
 public record Sale(
-        @Id String id,
+        @Id Reference<Sale> id,
         @Version long version,
         Instant start,
         Double amount,
@@ -252,7 +252,7 @@ or `void`. When it is `void`, Prefab assumes the method modifies the existing in
 
 @Aggregate
 public record Sale(
-        @Id String id,
+        @Id Reference<Sale> id,
         @Version long version,
         Instant start,
         Double amount
@@ -275,7 +275,7 @@ of the class name in kebab case. Both method and path can be customized with the
 @Aggregate
 @Delete // This will expose a DELETE endpoint for the Sale class
 public record Sale(
-        @Id String id,
+        @Id Reference<Sale> id,
         @Version long version,
         Instant start,
         Double amount
@@ -299,36 +299,6 @@ public interface SaleRepositoryMixin {
 }
 ```
 
-### ➡️ Reference
-
-Aggregates can reference other aggregates by using a `Reference<OtherType>` field. Prefab will map the reference to the
-ID of the referenced aggregate. References can also be resolved to the actual instance by using
-`Reference.resolveReadOnly()`. But aggregates cannot modify the referenced instance, as the method name suggests.
-
-```java
-
-@Aggregate
-public record Sale(
-        @Id String id,
-        @Version long version,
-        Instant start,
-        Double amount,
-        Reference<Customer> customer, // Reference to another aggregate
-        String customerName // Not set through the constructor but resolved from the customer reference
-) {
-    @Create
-    public Sale(Instant start, Double amount, Reference<Customer> customer) {
-        this(
-                UUID.randomUUID().toString(),
-                start,
-                amount,
-                customer,
-                customer.resolveReadOnly().name() // Resolve the customer reference to get the name
-        );
-    }
-}
-```
-
 ### 👦 Children
 
 Any nested list of non-primitive classes or records within an aggregate will be treated as children of the aggregate.
@@ -340,7 +310,7 @@ the parent aggregate.
 
 @Aggregate
 public record Sale(
-        @Id String id,
+        @Id Reference<Sale> id,
         @Version long version,
         Instant start,
         List<SaleItem> items // List of SaleItem children
@@ -367,7 +337,7 @@ will be stored as `amount_value` and `amount_currency` in the database.
 
 @Aggregate
 public record Sale(
-        @Id String id,
+        @Id Reference<Sale> id,
         @Version long version,
         Instant start,
         @Embedded.Nullable(prefix = "amount_") Money amount
@@ -392,7 +362,7 @@ of `@Create` and `@Update` endpoints and return a `400 Bad Request` response if 
 
 @Aggregate
 public record Sale(
-        @Id String id,
+        @Id Reference<Sale> id,
         @Version long version,
         @NotNull Instant start,
         @NotNull Double amount
@@ -402,7 +372,7 @@ public record Sale(
             @NotNull Instant start, // Must not be null
             @NotNull @Min(0) Double amount // Must be greater than or equal to 0
     ) {
-        this(UUID.randomUUID().toString(), start, amount);
+        this(Reference.create(), start, amount);
     }
 
     @PersistenceCreator
@@ -446,7 +416,7 @@ To make an endpoint publicly accessible, set enabled to false on the security at
 
 @Create(security = @Security(enabled = false)) // Publicly accessible create endpoint
 public Sale(Instant start, Double amount) {
-    this(UUID.randomUUID().toString(), 0, start, amount);
+    this(Reference.create(), 0, start, amount);
 }
 ```
 
@@ -456,7 +426,7 @@ To restrict access to users with a specific authority, set the authority attribu
 
 @Delete(security = @Security(authority = "sale:delete")) // Only users with the sale:delete authority can delete
 public record Sale(
-        @Id String id,
+        @Id Reference<Sale> id,
         @Version long version,
         Instant start,
         Double amount
@@ -474,7 +444,7 @@ in the database as a `bytea` field.
 
 @Aggregate
 public record Sale(
-        @Id String id,
+        @Id Reference<Sale> id,
         @Version long version,
         Instant start,
         Double amount,
@@ -500,7 +470,7 @@ By default, events are published on the Spring application event bus.
 
 @Aggregate
 public record Sale(
-        @Id String id,
+        @Id Reference<Sale> id,
         @Version long version,
         Instant start,
         Double amount
@@ -522,7 +492,7 @@ Supported serialization formats are `JSON` and `AVRO`. If not specified, the `JS
 
 @Event(topic = "${kafka.topics.sale.name}", platform = Event.Platform.KAFKA, serialization = Event.Serialization.AVRO)
 public record SaleCompletedEvent(
-        String saleId,
+        Reference<Sale> saleId,
         Instant completedAt
 ) {
 }
@@ -570,7 +540,7 @@ event handler method.
 ```java
 @Aggregate
 public record Sale(
-        @Id String id,
+        @Id Reference<Sale> id,
         @Version long version,
         Reference<Invoice> invoice
 ) {
@@ -588,7 +558,7 @@ more parameters can be extracted from the event to use in the query.
 ```java
 @Aggregate
 public record Sale(
-        @Id String id,
+        @Id Reference<Sale> id,
         @Version long version,
         Reference<CashRegister> cashRegister,
         SaleStatus status
@@ -616,7 +586,7 @@ doesn't get overwritten the next time you compile your project.
 @Aggregate
 @DbMigration // This will include the Sale class in the generated Flyway migration script
 public record Sale(
-        @Id String id,
+        @Id Reference<Sale> id,
         @Version long version,
         Instant start,
         Double amount

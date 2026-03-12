@@ -6,5 +6,5 @@ import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.example.kafka.channel.Channel;
 
 @Event(topic = "${topics.message.name}")
-public record MessageSent(@PartitioningKey String id, Reference<Channel> channel) {
+public record MessageSent(@PartitioningKey Reference<Message> id, Reference<Channel> channel) {
 }

@@ -10,9 +10,9 @@ import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.core.domain.PublishesEvents;
+import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.example.avro.sale.Sale;
 import jakarta.validation.constraints.NotNull;
-import java.util.UUID;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
@@ -23,7 +23,7 @@ import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
 @DbMigration
 @GetById
 public record CashRegister(
-        @Id String id,
+        @Id Reference<CashRegister> id,
         @Version long version,
         @NotNull String name,
         double cashInDrawer
@@ -34,7 +34,7 @@ public record CashRegister(
 
     @Create
     public CashRegister(@NotNull String name) {
-        this(UUID.randomUUID().toString(), 0L, name, 0.0);
+        this(Reference.create(), 0L, name, 0.0);
         publish(new Created(id, name));
     }
 
@@ -65,15 +65,15 @@ public record CashRegister(
     @Event(topic = "cash-register", serialization = Event.Serialization.AVRO)
     public sealed interface Events permits Created, CashedIn, CashedOut {
         @PartitioningKey
-        String id();
+        Reference<CashRegister> id();
     }
 
-    public record Created(String id, String name) implements Events {
+    public record Created(Reference<CashRegister> id, String name) implements Events {
     }
 
-    public record CashedIn(String id, double amount) implements Events {
+    public record CashedIn(Reference<CashRegister> id, double amount) implements Events {
     }
 
-    public record CashedOut(String id, double amount) implements Events {
+    public record CashedOut(Reference<CashRegister> id, double amount) implements Events {
     }
 }

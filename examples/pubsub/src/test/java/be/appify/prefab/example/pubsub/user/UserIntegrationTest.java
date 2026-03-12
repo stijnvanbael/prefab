@@ -1,12 +1,12 @@
 package be.appify.prefab.example.pubsub.user;
 
-import org.junit.jupiter.api.Test;
-
+import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.example.pubsub.user.application.CreateUserRequest;
 import be.appify.prefab.test.IntegrationTest;
 import be.appify.prefab.test.pubsub.Subscriber;
 import be.appify.prefab.test.pubsub.TestSubscriber;
 import be.appify.prefab.test.pubsub.asserts.PubSubAssertions;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,10 +25,10 @@ class UserIntegrationTest {
         var userId = userClient.createUser(new CreateUserRequest("Alice"));
 
         PubSubAssertions.assertThat(userSubscriber).hasReceivedValueSatisfying(UserEvent.Created.class, userEvent -> {
-            assertThat(userEvent.id()).isNotNull();
+            assertThat(userEvent.reference()).isNotNull();
             assertThat(userEvent.name()).isEqualTo("Alice");
         });
 
-        assertThat(userExporter.exportedUserIds()).contains(userId);
+        assertThat(userExporter.exportedUsers()).contains(Reference.fromId(userId));
     }
 }

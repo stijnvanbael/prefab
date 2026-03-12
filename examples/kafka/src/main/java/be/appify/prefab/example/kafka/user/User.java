@@ -9,22 +9,20 @@ import be.appify.prefab.core.domain.PublishesEvents;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.example.kafka.channel.Channel;
 import jakarta.validation.constraints.NotNull;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 
 @Aggregate
 @DbMigration
 @GetById
 public record User(
-        @Id String id,
+        @Id Reference<User> id,
         @Version long version,
         @NotNull String name,
-        @NotNull List<String> channelSubscriptions // Currently, Spring Data JDBC cannot support List<Reference<T>>
+        @NotNull List<Reference<Channel>> channelSubscriptions
 ) implements PublishesEvents {
     @PersistenceCreator
     public User {
@@ -32,13 +30,13 @@ public record User(
 
     @Create
     public User(@NotNull String name) {
-        this(UUID.randomUUID().toString(), 0L, name, new ArrayList<>());
+        this(Reference.create(), 0L, name, new ArrayList<>());
         publish(new UserEvent.Created(id, name));
     }
 
     @Update(path = "/channel-subscriptions", method = "POST")
     public void subscribeToChannel(@NotNull Reference<Channel> channel) {
-        channelSubscriptions.add(channel.id());
+        channelSubscriptions.add(channel);
         publish(new UserEvent.SubscribedToChannel(id, channel));
     }
 }

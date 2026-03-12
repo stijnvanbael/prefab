@@ -10,12 +10,12 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 @Event(topic = "${topics.user.name}")
 public sealed interface UserEvent permits UserEvent.Created, UserEvent.SubscribedToChannel {
     @PartitioningKey
-    String id();
+    Reference<User> reference();
 
-    record Created(String id, String name) implements UserEvent {
+    record Created(Reference<User> reference, String name) implements UserEvent {
     }
 
-    record SubscribedToChannel(String id, Reference<Channel> channel) implements UserEvent {
+    record SubscribedToChannel(Reference<User> reference, Reference<Channel> channel) implements UserEvent {
     }
 }
 

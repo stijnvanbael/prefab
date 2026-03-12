@@ -1,15 +1,14 @@
 package be.appify.prefab.example.kafka.channel;
 
-import org.junit.jupiter.api.Test;
-
+import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.example.kafka.channel.application.CreateChannelRequest;
 import be.appify.prefab.example.kafka.user.UserClient;
 import be.appify.prefab.example.kafka.user.application.CreateUserRequest;
 import be.appify.prefab.example.kafka.user.application.UserSubscribeToChannelRequest;
 import be.appify.prefab.test.IntegrationTest;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -31,7 +30,7 @@ class ChannelIntegrationTest {
 
         await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
             var channel = channels.getChannelById(channelId);
-            assertThat(channel.subscribers()).contains(johnId, janeId);
+            assertThat(channel.subscribers()).extracting(Reference::id).contains(johnId, janeId);
         });
     }
 }

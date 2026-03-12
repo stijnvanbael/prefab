@@ -14,7 +14,6 @@ import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
@@ -26,7 +25,7 @@ import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
 @Aggregate
 @DbMigration
 public record Sale(
-        @Id String id,
+        @Id Reference<Sale> id,
         @Version long version,
         @NotNull Instant started,
         @NotNull List<Line> lines,
@@ -41,7 +40,7 @@ public record Sale(
 
     @Create
     public Sale(Reference<CashRegister> cashRegister) {
-        this(UUID.randomUUID().toString(), 0L, Instant.now(), new ArrayList<>(), Status.OPEN, cashRegister, null, null);
+        this(Reference.create(), 0L, Instant.now(), new ArrayList<>(), Status.OPEN, cashRegister, null, null);
         publish(new Created(id, started, cashRegister));
     }
 
@@ -99,18 +98,18 @@ public record Sale(
     @Event(topic = "sale", serialization = Event.Serialization.AVRO)
     public sealed interface Events permits Created, LineAdded, CustomerAdded, Paid {
         @PartitioningKey
-        String id();
+        Reference<Sale> id();
     }
 
-    public record Created(String id, Instant started, Reference<CashRegister> cashRegister) implements Events {
+    public record Created(Reference<Sale> id, Instant started, Reference<CashRegister> cashRegister) implements Events {
     }
 
-    public record LineAdded(String id, Line line) implements Events {
+    public record LineAdded(Reference<Sale> id, Line line) implements Events {
     }
 
-    public record CustomerAdded(String id, Reference<Customer> customer) implements Events {
+    public record CustomerAdded(Reference<Sale> id, Reference<Customer> customer) implements Events {
     }
 
-    public record Paid(String id, List<Line> lines, Reference<CashRegister> cashRegister, Payment payment) implements Events {
+    public record Paid(Reference<Sale> id, List<Line> lines, Reference<CashRegister> cashRegister, Payment payment) implements Events {
     }
 }

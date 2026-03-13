@@ -7,3 +7,6 @@ spring:
 
   logging.level:
     be.appify.prefab.example: DEBUG
+
+prefab.dlt.retries:
+  initial-interval-ms: 100

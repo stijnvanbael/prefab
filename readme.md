@@ -340,8 +340,7 @@ public record Sale(
         @Id Reference<Sale> id,
         @Version long version,
         Instant start,
-        @Embedded.Nullable(prefix = "amount_") Money amount
-        // Money is a value object that will be embedded in the Sale aggregate
+        Money amount // Money is a value object that will be embedded in the Sale aggregate
 ) {
 }
 

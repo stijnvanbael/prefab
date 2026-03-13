@@ -6,10 +6,14 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -43,13 +47,15 @@ import static be.appify.prefab.core.kafka.KafkaUtil.DEFAULT_NOT_RETRYABLE;
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 
 /**
- * Configuration class for setting up Kafka producer and consumer factories,
- * listener container factory, and error handling with dead-letter publishing.
+ * Configuration class for setting up Kafka producer and consumer factories, listener container factory, and error handling with dead-letter
+ * publishing.
  */
 @Configuration
 @ConditionalOnClass(KafkaListenerContainerFactory.class)
 @ComponentScan(basePackageClasses = KafkaJsonTypeResolver.class)
 public class KafkaConfiguration {
+
+    private static final Logger log = LoggerFactory.getLogger(KafkaConfiguration.class);
 
     /** Constructs a new KafkaConfiguration. */
     public KafkaConfiguration() {
@@ -158,6 +164,13 @@ public class KafkaConfiguration {
         return new DeadLetterPublishingRecoverer(
                 Map.of(Object.class, kafkaTemplate),
                 (record, ex) -> new TopicPartition(deadLetterTopic, -1)
-        );
+        ) {
+            @Override
+            public void accept(ConsumerRecord<?, ?> record, Consumer<?, ?> consumer, Exception exception) {
+                super.accept(record, consumer, exception);
+                log.error("Exception processing consumer record with key [{}] and value [{}]. Sent to DLT topic [{}].",
+                        record.key(), record.value(), deadLetterTopic, exception);
+            }
+        };
     }
 }

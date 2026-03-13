@@ -7,8 +7,8 @@ import java.util.Map;
 import org.springframework.data.jdbc.core.dialect.JdbcArrayColumns;
 
 /**
- * JdbcArrayColumns wrapper that adds support for Prefab-specific types, such as {@link Reference}, when determining the SQL type for array components.
- * This allows Spring Data JDBC to properly handle arrays of these types when generating SQL queries and mapping results.
+ * JdbcArrayColumns wrapper that adds support for Prefab-specific types, such as {@link Reference}, when determining the SQL type for array
+ * components. This allows Spring Data JDBC to properly handle arrays of these types when generating SQL queries and mapping results.
  */
 public class PrefabJdbcArrayColumns implements JdbcArrayColumns {
     private final JdbcArrayColumns delegate;
@@ -16,6 +16,12 @@ public class PrefabJdbcArrayColumns implements JdbcArrayColumns {
             Reference.class, JDBCType.VARCHAR
     );
 
+    /**
+     * Constructs a new PrefabJdbcArrayColumns that wraps the given delegate.
+     *
+     * @param delegate
+     *         the JdbcArrayColumns to wrap
+     */
     public PrefabJdbcArrayColumns(JdbcArrayColumns delegate) {
         this.delegate = delegate;
     }

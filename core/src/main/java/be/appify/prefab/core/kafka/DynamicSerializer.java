@@ -70,6 +70,9 @@ public class DynamicSerializer implements Serializer<Object> {
                 return bytes;
             }
             default -> {
+                if (!serializationRegistry.contains(topic)) {
+                    return jsonSerializer.serialize(topic, data);
+                }
                 return switch (serializationRegistry.get(topic)) {
                     case AVRO -> avroSerializer.serialize(topic, toGenericRecord(data));
                     case JSON -> jsonSerializer.serialize(topic, data);

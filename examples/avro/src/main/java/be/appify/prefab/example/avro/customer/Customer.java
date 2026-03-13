@@ -12,14 +12,13 @@ import jakarta.validation.constraints.NotNull;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
-import org.springframework.data.relational.core.mapping.Embedded;
 
 @Aggregate
 @DbMigration
 public record Customer(
         @Id Reference<Customer> id,
         @Version long version,
-        @NotNull @Embedded.Nullable(prefix = "name_") PersonName name,
+        @NotNull PersonName name,
         @NotNull String email
 ) implements PublishesEvents {
     @PersistenceCreator

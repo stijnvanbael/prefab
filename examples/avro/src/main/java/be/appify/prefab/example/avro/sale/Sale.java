@@ -17,7 +17,6 @@ import java.util.List;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
-import org.springframework.data.relational.core.mapping.Embedded;
 import org.springframework.data.relational.core.mapping.Table;
 
 import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
@@ -32,7 +31,7 @@ public record Sale(
         @NotNull Status status,
         @NotNull Reference<CashRegister> cashRegister,
         Reference<Customer> customer,
-        @Embedded.Nullable(prefix = "payment_") Payment payment
+        Payment payment
 ) implements PublishesEvents {
     @PersistenceCreator
     public Sale {

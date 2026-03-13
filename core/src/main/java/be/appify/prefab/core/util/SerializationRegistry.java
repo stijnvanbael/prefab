@@ -48,6 +48,17 @@ public class SerializationRegistry {
     }
 
     /**
+     * Checks if a serialization format is registered for a given topic.
+     *
+     * @param topic
+     *         the topic to check for
+     * @return true if a serialization format is registered for the topic, false otherwise
+     */
+    public boolean contains(String topic) {
+        return registry.containsKey(topic);
+    }
+
+    /**
      * Checks if a serialization format is registered for any topic.
      *
      * @param serialization

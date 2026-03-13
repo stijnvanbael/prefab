@@ -21,7 +21,6 @@ import javax.tools.StandardLocation;
 import net.sf.jsqlparser.parser.CCJSqlParser;
 import net.sf.jsqlparser.statement.alter.Alter;
 import net.sf.jsqlparser.statement.create.table.CreateTable;
-import org.springframework.data.relational.core.mapping.Embedded;
 
 import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
 import static java.util.stream.Collectors.groupingBy;
@@ -183,13 +182,6 @@ class DbMigrationWriter {
                 .filter(field -> !field.type().is(List.class)
                         || field.type().parameters().getFirst().isStandardType()
                         || field.type().parameters().getFirst().is(Reference.class))
-                .peek(field -> {
-                    if (field.type().isRecord() && !field.hasAnnotation(Embedded.Nullable.class)) {
-                        throw new IllegalArgumentException(
-                                "Value type field '%s' in '%s' must be annotated with @Embedded.Nullable"
-                                        .formatted(field.name(), manifest.simpleName()));
-                    }
-                })
                 .flatMap(field -> field.type().isRecord()
                         ? columnsOf(field.type().asClassManifest(),
                         prefix != null ? prefix + "_" + field.name() : field.name(),

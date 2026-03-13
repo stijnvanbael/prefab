@@ -1,14 +1,14 @@
 ---
 id: TASK-088
 title: 'Spring Data JDBC: @Embedded.Nullable required on nested entities'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-02-07 19:36'
-updated_date: '2026-02-07 19:36'
+updated_date: '2026-03-13 15:37'
 labels:
   - "\U0001F41Ebug"
 dependencies: []
-ordinal: 227.79464721679688
+ordinal: 8000
 ---
 
 ## Description

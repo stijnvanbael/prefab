@@ -1,4 +1,4 @@
-package be.appify.prefab.core.spring.converters;
+package be.appify.prefab.core.spring.data.jdbc;
 
 import org.springframework.data.jdbc.core.mapping.JdbcMappingContext;
 import org.springframework.data.mapping.model.Property;

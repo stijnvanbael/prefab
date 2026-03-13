@@ -1,4 +1,4 @@
-package be.appify.prefab.core.spring.converters;
+package be.appify.prefab.core.spring.data.jdbc;
 
 import be.appify.prefab.core.service.Reference;
 import java.sql.JDBCType;
@@ -16,13 +16,7 @@ public class PrefabJdbcArrayColumns implements JdbcArrayColumns {
             Reference.class, JDBCType.VARCHAR
     );
 
-    /**
-     * Constructs a new PrefabJdbcArrayColumns that wraps the given delegate.
-     *
-     * @param delegate
-     *         the JdbcArrayColumns to wrap
-     */
-    public PrefabJdbcArrayColumns(JdbcArrayColumns delegate) {
+    protected PrefabJdbcArrayColumns(JdbcArrayColumns delegate) {
         this.delegate = delegate;
     }
 

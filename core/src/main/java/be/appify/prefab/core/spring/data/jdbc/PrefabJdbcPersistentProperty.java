@@ -1,4 +1,4 @@
-package be.appify.prefab.core.spring.converters;
+package be.appify.prefab.core.spring.data.jdbc;
 
 import java.lang.annotation.Annotation;
 import java.util.Map;
@@ -21,18 +21,7 @@ public class PrefabJdbcPersistentProperty extends BasicJdbcPersistentProperty {
     private Embedded syntheticEmbedded;
     private boolean syntheticResolved = false;
 
-    /**
-     * Constructs a new PrefabJdbcPersistentProperty.
-      * @param property
-     *         the Property to wrap
-     * @param owner
-     *         the owning RelationalPersistentEntity
-     * @param simpleTypeHolder
-     *         the SimpleTypeHolder to use for determining simple types
-     * @param namingStrategy
-     *         the NamingStrategy to use for mapping property names to column names
-     */
-    public PrefabJdbcPersistentProperty(
+    protected PrefabJdbcPersistentProperty(
             Property property,
             RelationalPersistentEntity<?> owner,
             SimpleTypeHolder simpleTypeHolder,

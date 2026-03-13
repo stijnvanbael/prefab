@@ -1,12 +1,11 @@
-package be.appify.prefab.core.spring.converters;
-
-import org.springframework.core.convert.converter.Converter;
-import org.springframework.data.convert.ReadingConverter;
+package be.appify.prefab.core.spring.data.jdbc;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.data.convert.ReadingConverter;
 
 /** Converter to transform a byte array into a temporary File. */
 @ReadingConverter

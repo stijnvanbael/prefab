@@ -17,7 +17,6 @@ import java.util.List;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
-import org.springframework.data.relational.core.mapping.Table;
 
 import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
 
@@ -69,7 +68,6 @@ public record Sale(
         return new Sale(id, version, started, lines, Status.CLOSED, cashRegister, customer, payment);
     }
 
-    @Table("sale_line")
     public record Line(
             @NotNull String product,
             double quantity,

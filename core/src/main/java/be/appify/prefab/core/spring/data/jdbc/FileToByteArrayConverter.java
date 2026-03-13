@@ -1,11 +1,10 @@
-package be.appify.prefab.core.spring.converters;
-
-import org.springframework.core.convert.converter.Converter;
-import org.springframework.data.convert.WritingConverter;
+package be.appify.prefab.core.spring.data.jdbc;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.data.convert.WritingConverter;
 
 /** Converter to transform a File into a byte array. */
 @WritingConverter

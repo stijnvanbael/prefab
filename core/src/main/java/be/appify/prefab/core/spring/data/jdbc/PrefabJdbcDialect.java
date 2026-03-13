@@ -1,4 +1,4 @@
-package be.appify.prefab.core.spring.converters;
+package be.appify.prefab.core.spring.data.jdbc;
 
 import be.appify.prefab.core.service.Reference;
 import java.util.Collection;

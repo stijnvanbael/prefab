@@ -27,6 +27,9 @@ public class PrefabJdbcArrayColumns implements JdbcArrayColumns {
 
     @Override
     public Class<?> getArrayType(Class<?> userType) {
+        if (customTypeMappings.containsKey(userType)) {
+            return String.class;
+        }
         return delegate.getArrayType(userType);
     }
 

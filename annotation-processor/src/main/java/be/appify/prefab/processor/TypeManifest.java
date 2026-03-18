@@ -23,6 +23,7 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.TypeVariable;
 import javax.tools.Diagnostic;
 import org.springframework.util.ClassUtils;
 
@@ -42,6 +43,10 @@ public class TypeManifest {
 
     private TypeManifest(TypeMirror typeMirror, ProcessingEnvironment processingEnvironment) {
         this.processingEnvironment = processingEnvironment;
+        if(typeMirror.getKind() == TypeKind.TYPEVAR) {
+            var typeVariable = (TypeVariable) typeMirror;
+            typeMirror = typeVariable.getUpperBound();
+        }
         if (typeMirror.getKind().isPrimitive()) {
             this.packageName = "";
             this.simpleName = typeMirror.toString();

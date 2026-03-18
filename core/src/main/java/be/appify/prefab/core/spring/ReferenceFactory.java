@@ -23,6 +23,6 @@ public class ReferenceFactory {
         if (id == null) {
             return null;
         }
-        return new SpringDataReference<>(id);
+        return new Reference<>(id);
     }
 }

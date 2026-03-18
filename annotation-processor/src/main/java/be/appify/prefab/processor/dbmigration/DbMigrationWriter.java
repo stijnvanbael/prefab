@@ -155,7 +155,7 @@ class DbMigrationWriter {
         return manifest.fields().stream().filter(field -> field.type().is(List.class))
                 .map(field -> field.type().parameters().getFirst())
                 .flatMap(child -> {
-                    if (child.isRecord()) {
+                    if (child.isRecord() && !child.is(Reference.class)) {
                         var columns = ListUtil.concat(List.of(
                                 new Column(aggregateRootTable, new DataType.Varchar(255), false,
                                         new ForeignKey(aggregateRootTable, "id"), null),
@@ -182,7 +182,7 @@ class DbMigrationWriter {
                 .filter(field -> !field.type().is(List.class)
                         || field.type().parameters().getFirst().isStandardType()
                         || field.type().parameters().getFirst().is(Reference.class))
-                .flatMap(field -> field.type().isRecord()
+                .flatMap(field -> field.type().isRecord() && !field.type().is(Reference.class)
                         ? columnsOf(field.type().asClassManifest(),
                         prefix != null ? prefix + "_" + field.name() : field.name(),
                         parentNullable || field.nullable()).stream()

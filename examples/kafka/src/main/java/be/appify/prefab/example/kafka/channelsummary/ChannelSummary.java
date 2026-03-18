@@ -15,7 +15,6 @@ import jakarta.validation.constraints.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
 
 @Aggregate
@@ -30,10 +29,6 @@ public record ChannelSummary(
         int totalSubscribers
 ) {
     private static final Logger log = LoggerFactory.getLogger(ChannelSummary.class);
-
-    @PersistenceCreator
-    public ChannelSummary {
-    }
 
     @EventHandler
     public static ChannelSummary onChannelCreated(ChannelCreated event) {

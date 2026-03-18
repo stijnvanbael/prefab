@@ -14,7 +14,6 @@ import jakarta.validation.constraints.NotNull;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
 
 @Aggregate
@@ -27,10 +26,6 @@ public record UserStatus(
         @NotNull Reference<User> user,
         @NotNull List<UnreadMessage> unreadMessages
 ) {
-    @PersistenceCreator
-    public UserStatus {
-    }
-
     @EventHandler
     public static UserStatus onUserCreated(UserEvent.Created event) {
         return new UserStatus(

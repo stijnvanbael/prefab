@@ -10,7 +10,6 @@ import be.appify.prefab.core.domain.PublishesEvents;
 import be.appify.prefab.core.service.Reference;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
 
 @Aggregate
@@ -21,9 +20,6 @@ public record Customer(
         @NotNull PersonName name,
         @NotNull String email
 ) implements PublishesEvents {
-    @PersistenceCreator
-    public Customer {
-    }
 
     @Create
     public Customer(@NotNull PersonName name, @NotNull String email) {

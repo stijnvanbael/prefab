@@ -5,7 +5,6 @@ import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.annotations.Multicast;
 import java.time.LocalDate;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
 
 @Aggregate
@@ -16,10 +15,6 @@ public record DayTotal(
         Double salesTotal,
         Double refundsTotal
 ) {
-    @PersistenceCreator
-    public DayTotal {
-    }
-
     @EventHandler
     @Multicast(queryMethod = "findByDate", parameters = "date")
     public DayTotal onSaleCreated(Sale.Created event) {

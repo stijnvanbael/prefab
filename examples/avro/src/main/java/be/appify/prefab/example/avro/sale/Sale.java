@@ -15,7 +15,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
 
 import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
@@ -32,9 +31,6 @@ public record Sale(
         Reference<Customer> customer,
         Payment payment
 ) implements PublishesEvents {
-    @PersistenceCreator
-    public Sale {
-    }
 
     @Create
     public Sale(Reference<CashRegister> cashRegister) {

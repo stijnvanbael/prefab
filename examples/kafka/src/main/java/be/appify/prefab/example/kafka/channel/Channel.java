@@ -16,7 +16,6 @@ import jakarta.validation.constraints.NotNull;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
 
 @Aggregate
@@ -30,10 +29,6 @@ public record Channel(
         @NotNull String name,
         @NotNull List<Reference<User>> subscribers
 ) implements PublishesEvents {
-    @PersistenceCreator
-    public Channel {
-    }
-
     @Create
     public Channel(String name) {
         this(Reference.create(), 0L, name, new ArrayList<>());

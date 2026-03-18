@@ -57,7 +57,7 @@ public class PubSubUtil {
      * @param maximumBackoff
      *         the maximum backoff time in milliseconds
      * @param backoffMultiplier
-     *        the backoff multiplier
+     *         the backoff multiplier
      * @param pubSubAdmin
      *         the Pub/Sub admin client
      * @param subscriberTemplate
@@ -149,7 +149,7 @@ public class PubSubUtil {
                     message.ack();
                 } catch (Exception e) {
                     log.warn("Error processing Pub/Sub message: {}, cause: {}", pubsubMessage.getData().toStringUtf8(),
-                            e.getCause().getMessage());
+                            e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
                     throw e;
                 }
                 return null;
@@ -198,7 +198,9 @@ public class PubSubUtil {
 
     /**
      * Extracts the simple topic name from a fully qualified topic name.
-     * @param fullyQualifiedTopic the fully qualified topic name (e.g., "projects/my-project/topics/my-topic")
+     *
+     * @param fullyQualifiedTopic
+     *         the fully qualified topic name (e.g., "projects/my-project/topics/my-topic")
      * @return the simple topic name (e.g., "my-topic")
      */
     public static String simpleTopicName(String fullyQualifiedTopic) {

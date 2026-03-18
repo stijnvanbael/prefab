@@ -1,11 +1,17 @@
 package be.appify.prefab.core.spring.data.jdbc;
 
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.core.env.Environment;
+import org.springframework.data.core.TypeInformation;
 import org.springframework.data.jdbc.core.mapping.JdbcMappingContext;
 import org.springframework.data.mapping.model.Property;
 import org.springframework.data.mapping.model.SimpleTypeHolder;
 import org.springframework.data.relational.core.mapping.NamingStrategy;
 import org.springframework.data.relational.core.mapping.RelationalPersistentEntity;
 import org.springframework.data.relational.core.mapping.RelationalPersistentProperty;
+import org.springframework.data.spel.EvaluationContextProvider;
+import org.springframework.data.spel.ExtensionAwareEvaluationContextProvider;
 
 /**
  * Custom JdbcMappingContext that creates PrefabJdbcPersistentProperty instances, which add support for treating Java records as embedded
@@ -13,14 +19,34 @@ import org.springframework.data.relational.core.mapping.RelationalPersistentProp
  * annotations, simplifying the mapping of record types.
  */
 public class PrefabJdbcMappingContext extends JdbcMappingContext {
+
+    private final SqlIdentifierExpressionEvaluator sqlIdentifierExpressionEvaluator = new SqlIdentifierExpressionEvaluator(
+            EvaluationContextProvider.DEFAULT);
+
     /**
      * Constructs a new PrefabJdbcMappingContext.
      *
      * @param namingStrategy
-     *        the NamingStrategy to use for mapping property names to column names
+     *         the NamingStrategy to use for mapping property names to column names
      */
     public PrefabJdbcMappingContext(NamingStrategy namingStrategy) {
         super(namingStrategy);
+    }
+
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        this.sqlIdentifierExpressionEvaluator.setProvider(new ExtensionAwareEvaluationContextProvider(applicationContext));
+    }
+
+    @Override
+    public void setEnvironment(Environment environment) {
+        this.sqlIdentifierExpressionEvaluator.setEnvironment(environment);
+        super.setEnvironment(environment);
+    }
+
+    @Override
+    protected <T> RelationalPersistentEntity<T> createPersistentEntity(TypeInformation<T> typeInformation) {
+        return new PrefabPersistentEntity<>(typeInformation, getNamingStrategy(), sqlIdentifierExpressionEvaluator);
     }
 
     @Override
@@ -29,6 +55,8 @@ public class PrefabJdbcMappingContext extends JdbcMappingContext {
             RelationalPersistentEntity<?> owner,
             SimpleTypeHolder simpleTypeHolder
     ) {
-        return new PrefabJdbcPersistentProperty(property, owner, simpleTypeHolder, getNamingStrategy());
+        var persistentProperty = new PrefabJdbcPersistentProperty(property, owner, simpleTypeHolder, getNamingStrategy());
+        applyDefaults(persistentProperty);
+        return persistentProperty;
     }
 }

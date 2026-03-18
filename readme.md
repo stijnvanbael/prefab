@@ -189,10 +189,6 @@ public record Sale(
    public Sale(Instant start, Double amount) {
       this(Reference.create(), 0, start, amount);
    }
-
-   @PersistenceCreator // Prefab generates Spring Data JDBC code that requires a constructor with all properties
-   public Sale {
-   }
 }
 ```
 
@@ -372,10 +368,6 @@ public record Sale(
             @NotNull @Min(0) Double amount // Must be greater than or equal to 0
     ) {
         this(Reference.create(), start, amount);
-    }
-
-    @PersistenceCreator
-    public Sale {
     }
 
     @Update

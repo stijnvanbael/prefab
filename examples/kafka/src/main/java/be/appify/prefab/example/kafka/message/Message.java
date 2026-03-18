@@ -11,7 +11,6 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
 
 @Aggregate
@@ -24,10 +23,6 @@ public record Message(
         @NotEmpty String content,
         @NotNull Instant timestamp
 ) implements PublishesEvents {
-    @PersistenceCreator
-    public Message {
-    }
-
     @Create
     public Message(
             @NotNull Reference<User> author,

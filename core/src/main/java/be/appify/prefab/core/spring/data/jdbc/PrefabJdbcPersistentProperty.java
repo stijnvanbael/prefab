@@ -18,6 +18,9 @@ import org.springframework.data.relational.core.mapping.Table;
  */
 public class PrefabJdbcPersistentProperty extends BasicJdbcPersistentProperty {
 
+    private static final ThreadLocal<SimpleTypeHolder> STASHED_HOLDER = new ThreadLocal<>();
+
+    private final SimpleTypeHolder simpleTypeHolder;
     private Embedded syntheticEmbedded;
     private boolean syntheticResolved = false;
 
@@ -27,25 +30,33 @@ public class PrefabJdbcPersistentProperty extends BasicJdbcPersistentProperty {
             SimpleTypeHolder simpleTypeHolder,
             NamingStrategy namingStrategy
     ) {
-        super(property, owner, simpleTypeHolder, namingStrategy);
+        super(property, owner, stash(simpleTypeHolder), namingStrategy);
+        this.simpleTypeHolder = simpleTypeHolder;
+    }
+
+    private static SimpleTypeHolder stash(SimpleTypeHolder holder) {
+        STASHED_HOLDER.set(holder);
+        return holder;
+    }
+
+    private SimpleTypeHolder getSimpleTypeHolder() {
+        // During super constructor, field isn't assigned yet — use stashed value
+        return simpleTypeHolder != null ? simpleTypeHolder : STASHED_HOLDER.get();
     }
 
     private Embedded resolveSyntheticEmbedded() {
         if (!syntheticResolved) {
-            try {
-                Class<?> actualType = getActualType();
-                if (super.findAnnotation(Embedded.class) == null
-                        && !isCollectionLike()
-                        && actualType.isRecord()
-                        && !actualType.isAnnotationPresent(Table.class)) {
-                    syntheticEmbedded = AnnotationUtils.synthesizeAnnotation(
-                            Map.of("onEmpty", Embedded.OnEmpty.USE_NULL, "prefix", getName() + "_"),
-                            Embedded.class, null);
-                }
-                syntheticResolved = true;
-            } catch (Exception e) {
-                return null;
+            Class<?> actualType = getActualType();
+            SimpleTypeHolder holder = getSimpleTypeHolder();
+            if (!isCollectionLike()
+                    && actualType.isRecord()
+                    && !actualType.isAnnotationPresent(Table.class)
+                    && !holder.isSimpleType(actualType)) {
+                syntheticEmbedded = AnnotationUtils.synthesizeAnnotation(
+                        Map.of("onEmpty", Embedded.OnEmpty.USE_NULL, "prefix", getName() + "_"),
+                        Embedded.class, null);
             }
+            syntheticResolved = true;
         }
         return syntheticEmbedded;
     }
@@ -58,13 +69,12 @@ public class PrefabJdbcPersistentProperty extends BasicJdbcPersistentProperty {
     @Override
     @SuppressWarnings("unchecked")
     public <A extends Annotation> A findAnnotation(Class<A> annotationType) {
-        A found = super.findAnnotation(annotationType);
-        if (found != null) {
-            return found;
-        }
         if (annotationType == Embedded.class) {
-            return (A) resolveSyntheticEmbedded();
+            Embedded synthetic = resolveSyntheticEmbedded();
+            if (synthetic != null) {
+                return (A) synthetic;
+            }
         }
-        return null;
+        return super.findAnnotation(annotationType);
     }
 }

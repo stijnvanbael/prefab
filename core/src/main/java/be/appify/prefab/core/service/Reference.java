@@ -10,7 +10,13 @@ import java.util.UUID;
  * @param <T>
  *         the type of the referenced aggregate root
  */
-public interface Reference<T> {
+public record Reference<T>(
+        @JsonValue String id
+) {
+    @JsonCreator
+    public Reference {
+    }
+
     /**
      * Creates a new reference with a random ID.
      *
@@ -18,17 +24,9 @@ public interface Reference<T> {
      *         the type of the referenced aggregate root
      * @return a new reference with a random ID
      */
-    static <T> Reference<T> create() {
+    public static <T> Reference<T> create() {
         return fromId(UUID.randomUUID().toString());
     }
-
-    /**
-     * Gets the ID of the referenced aggregate root.
-     *
-     * @return the ID of the referenced aggregate root
-     */
-    @JsonValue
-    String id();
 
     /**
      * Creates a reference from the given ID.
@@ -40,18 +38,7 @@ public interface Reference<T> {
      * @return a reference to the aggregate root with the given ID
      */
     @JsonCreator
-    static <T> Reference<T> fromId(String id) {
-        return new SimpleReference<>(id);
-    }
-
-    /**
-     * A simple implementation of the Reference interface.
-     *
-     * @param id
-     *         the ID of the referenced aggregate root
-     * @param <T>
-     *         the type of the referenced aggregate root
-     */
-    record SimpleReference<T>(String id) implements Reference<T> {
+    public static <T> Reference<T> fromId(String id) {
+        return new Reference<>(id);
     }
 }

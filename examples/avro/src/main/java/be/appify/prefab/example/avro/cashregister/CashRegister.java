@@ -14,7 +14,6 @@ import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.example.avro.sale.Sale;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.PersistenceCreator;
 import org.springframework.data.annotation.Version;
 
 import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
@@ -28,9 +27,6 @@ public record CashRegister(
         @NotNull String name,
         double cashInDrawer
 ) implements PublishesEvents {
-    @PersistenceCreator
-    public CashRegister {
-    }
 
     @Create
     public CashRegister(@NotNull String name) {

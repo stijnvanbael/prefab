@@ -5,8 +5,9 @@ spring:
   flyway:
     clean-disabled: false
 
-  logging.level:
-    be.appify.prefab.example: DEBUG
+logging.level:
+  be.appify.prefab.example: DEBUG
 
 prefab.dlt.retries:
-  initial-interval-ms: 100
+  initial-interval-ms: 10
+  multiplier: 1

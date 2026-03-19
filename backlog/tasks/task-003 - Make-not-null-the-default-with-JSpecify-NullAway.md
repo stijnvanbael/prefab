@@ -1,14 +1,14 @@
 ---
 id: TASK-003
 title: Make not null the default with JSpecify/NullAway
-status: In Progress
+status: To Do
 assignee:
   - '@copilot'
 created_date: '2025-10-10 13:32'
-updated_date: '2026-03-18 18:39'
+updated_date: '2026-03-18 19:03'
 labels: []
 dependencies: []
-ordinal: 1000
+ordinal: 36000
 ---
 
 ## Description

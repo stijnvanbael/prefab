@@ -8,6 +8,9 @@ import org.springframework.data.relational.core.sql.IdentifierProcessing;
 import org.springframework.data.relational.core.sql.SqlIdentifier;
 import org.springframework.util.Assert;
 
+/**
+ * A simple implementation of {@link SqlIdentifier} that represents a single name part. It supports quoted identifiers and applies the
+ */
 public class DerivedSqlIdentifier implements SqlIdentifier {
 
     private final String name;
@@ -26,7 +29,7 @@ public class DerivedSqlIdentifier implements SqlIdentifier {
 
     @Override
     public Iterator<SqlIdentifier> iterator() {
-        return Collections.<SqlIdentifier> singleton(this).iterator();
+        return Collections.<SqlIdentifier>singleton(this).iterator();
     }
 
     @Override

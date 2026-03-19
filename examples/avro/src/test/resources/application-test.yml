@@ -5,8 +5,9 @@ spring:
   flyway:
     clean-disabled: false
 
-  logging.level:
-    be.appify.prefab.example: DEBUG
+logging.level:
+  be.appify.prefab.example: DEBUG
+  org.springframework.jdbc: DEBUG
 
 prefab.dlt.retries:
   limit: 1

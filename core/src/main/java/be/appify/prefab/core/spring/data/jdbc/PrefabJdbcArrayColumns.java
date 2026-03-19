@@ -16,6 +16,12 @@ public class PrefabJdbcArrayColumns implements JdbcArrayColumns {
             Reference.class, JDBCType.VARCHAR
     );
 
+    /**
+     * Constructs a new PrefabJdbcArrayColumns that wraps the given delegate.
+     *
+     * @param delegate
+     *         the JdbcArrayColumns to wrap
+     */
     protected PrefabJdbcArrayColumns(JdbcArrayColumns delegate) {
         this.delegate = delegate;
     }

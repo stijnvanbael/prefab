@@ -19,6 +19,20 @@ import org.springframework.data.jdbc.core.mapping.JdbcMappingContext;
  */
 public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
 
+    // generate javadoc
+
+    /**
+     * Constructs a new PrefabMappingJdbcConverter.
+     *
+     * @param context
+     *         the JdbcMappingContext to use for mapping entities
+     * @param relationResolver
+     *         the RelationResolver to use for resolving entity relationships
+     * @param conversions
+     *         the JdbcCustomConversions to use for custom type conversions
+     * @param typeFactory
+     *         the JdbcTypeFactory to use for determining SQL types
+     */
     public PrefabMappingJdbcConverter(
             JdbcMappingContext context,
             RelationResolver relationResolver,

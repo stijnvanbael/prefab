@@ -52,6 +52,13 @@ public @interface Event {
                 return "Pub/Sub";
             }
         },
+        /** AWS SNS/SQS messaging platform. */
+        SNS_SQS {
+            @Override
+            public String toString() {
+                return "SNS/SQS";
+            }
+        },
     }
 
     /** The supported serialization formats. */

@@ -80,7 +80,7 @@ public class SqsUtil {
             @Value("${prefab.dlt.retries.limit:5}") Integer maxRetries,
             @Value("${prefab.dlt.retries.minimum-backoff-ms:1000}") Integer minimumBackoff,
             @Value("${prefab.dlt.retries.maximum-backoff-ms:30000}") Integer maximumBackoff,
-            @Value("${prefab.dlt.retries.multiplier:1.5}") Float backoffMultiplier,
+            @Value("${prefab.dlt.retries.multiplier:1.5}") Double backoffMultiplier,
             SnsAsyncClient snsClient,
             SqsAsyncClient sqsClient,
             ObjectMapper objectMapper

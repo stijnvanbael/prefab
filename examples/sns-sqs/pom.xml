@@ -28,6 +28,11 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>io.awspring.cloud</groupId>
             <artifactId>spring-cloud-aws-starter-sns</artifactId>
             <version>${spring-cloud-aws.version}</version>
@@ -36,11 +41,6 @@
             <groupId>io.awspring.cloud</groupId>
             <artifactId>spring-cloud-aws-starter-sqs</artifactId>
             <version>${spring-cloud-aws.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>be.appify.prefab</groupId>
-            <artifactId>prefab-test</artifactId>
-            <scope>test</scope>
         </dependency>
     </dependencies>
 

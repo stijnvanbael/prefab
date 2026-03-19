@@ -2,6 +2,7 @@ package be.appify.prefab.test;
 
 import be.appify.prefab.test.kafka.KafkaTestAutoConfiguration;
 import be.appify.prefab.test.pubsub.PubSubTestAutoConfiguration;
+import be.appify.prefab.test.sns.SnsTestAutoConfiguration;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -17,7 +18,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * Annotation to mark integration tests that require the full application context.
  * <p>
  * This annotation combines {@link SpringBootTest} and {@link AutoConfigureMockMvc}, and imports test-specific
- * configurations for JSON Kafka consumers and Pub/Sub testing. It also activates the "test" profile.
+ * configurations for JSON Kafka consumers, Pub/Sub and SNS/SQS testing. It also activates the "test" profile.
  */
 @Documented
 @Target(TYPE)
@@ -25,6 +26,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({ KafkaTestAutoConfiguration.class, PubSubTestAutoConfiguration.class })
+@Import({ KafkaTestAutoConfiguration.class, PubSubTestAutoConfiguration.class, SnsTestAutoConfiguration.class })
 public @interface IntegrationTest {
 }

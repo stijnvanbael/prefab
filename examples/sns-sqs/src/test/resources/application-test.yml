@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:16.1:///prefab_sns_sqs_example?TC_REUSABLE=true&currentSchema=prefab_sns_sqs_example
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  flyway:
+    clean-disabled: false
+
+logging.level:
+  be.appify.prefab.example: DEBUG
+
+prefab.dlt.retries:
+  limit: 1
+  initial-interval-ms: 10

@@ -37,6 +37,11 @@
             <artifactId>spring-cloud-aws-starter-sqs</artifactId>
             <version>${spring-cloud-aws.version}</version>
         </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

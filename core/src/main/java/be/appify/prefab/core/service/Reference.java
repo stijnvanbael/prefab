@@ -7,12 +7,20 @@ import java.util.UUID;
 /**
  * A reference to another aggregate root.
  *
+ * @param id
+ *         the ID of the referenced aggregate root
  * @param <T>
  *         the type of the referenced aggregate root
  */
 public record Reference<T>(
         @JsonValue String id
 ) {
+    /**
+     * Constructs a new Reference
+     *
+     * @param id
+     *         the ID of the referenced aggregate root
+     */
     @JsonCreator
     public Reference {
     }

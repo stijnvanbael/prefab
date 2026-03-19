@@ -24,6 +24,19 @@ public class PrefabJdbcPersistentProperty extends BasicJdbcPersistentProperty {
     private Embedded syntheticEmbedded;
     private boolean syntheticResolved = false;
 
+    /**
+     * Constructs a new PrefabJdbcPersistentProperty
+     *
+     * @param property
+     *         the property to wrap
+     * @param owner
+     *         the owner of the property
+     * @param simpleTypeHolder
+     *         the SimpleTypeHolder to use for determining simple types (stashed in a thread-local to work around super constructor
+     *         ordering)
+      * @param namingStrategy
+     *         the NamingStrategy to use for mapping property names to column names
+     */
     protected PrefabJdbcPersistentProperty(
             Property property,
             RelationalPersistentEntity<?> owner,

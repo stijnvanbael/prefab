@@ -35,6 +35,9 @@ import org.springframework.util.StringUtils;
  * </ul>
  * This removes the need for explicit {@code @PersistenceCreator} annotations in most cases.
  * An explicit {@code @PersistenceCreator} annotation is still respected and takes precedence.
+ *
+ * @param <T>
+ *         the type of the entity
  */
 public class PrefabPersistentEntity<T> extends BasicPersistentEntity<T, RelationalPersistentProperty> implements
         RelationalPersistentEntity<T> {
@@ -49,6 +52,16 @@ public class PrefabPersistentEntity<T> extends BasicPersistentEntity<T, Relation
     private final @Nullable ValueExpression schemaNameExpression;
     private final SqlIdentifierExpressionEvaluator sqlIdentifierExpressionEvaluator;
 
+    /**
+     * Constructs a new PrefabPersistentEntity.
+     *
+     * @param information
+     *         the type information for the entity
+     * @param namingStrategy
+     *         the naming strategy to use for deriving table and schema names
+     * @param sqlIdentifierExpressionEvaluator
+     *         the evaluator to use for resolving SQL identifier expressions in table and schema names
+     */
     public PrefabPersistentEntity(
             TypeInformation<T> information,
             NamingStrategy namingStrategy,

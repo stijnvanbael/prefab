@@ -1,14 +1,15 @@
 ---
 id: TASK-022
 title: SNS/SQS support
-status: To Do
+status: In Progress
 assignee:
-  - '@agent'
+  - '@stijnvanbael'
 created_date: '2025-10-10 13:38'
-updated_date: '2026-03-19 06:52'
-labels: []
+updated_date: '2026-03-19 07:00'
+labels:
+  - "\U0001F4E6feature"
 dependencies: []
-ordinal: 113.90566825866699
+ordinal: 2000
 ---
 
 ## Description

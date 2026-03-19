@@ -1,0 +1,3 @@
+spring:
+  application:
+    name: prefab.sns-sqs-example

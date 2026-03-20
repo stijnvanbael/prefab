@@ -3,12 +3,13 @@ package be.appify.prefab.example.snssqs.user;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.example.snssqs.user.application.CreateUserRequest;
 import be.appify.prefab.test.IntegrationTest;
-import java.util.concurrent.TimeUnit;
+import be.appify.prefab.test.sns.SqsSubscriber;
+import be.appify.prefab.test.sns.TestSqsSubscriber;
+import be.appify.prefab.test.sns.asserts.SqsAssertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 @IntegrationTest
 class UserIntegrationTest {
@@ -16,12 +17,18 @@ class UserIntegrationTest {
     UserClient userClient;
     @Autowired
     UserExporter userExporter;
+    @TestSqsSubscriber(topic = "${topics.user.name}")
+    SqsSubscriber<UserEvent> userSubscriber;
 
     @Test
     void createUser() throws Exception {
         var userId = userClient.createUser(new CreateUserRequest("Alice"));
 
-        await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
-                assertThat(userExporter.exportedUsers()).contains(Reference.fromId(userId)));
+        SqsAssertions.assertThat(userSubscriber).hasReceivedValueSatisfying(UserEvent.Created.class, userEvent -> {
+            assertThat(userEvent.reference()).isNotNull();
+            assertThat(userEvent.name()).isEqualTo("Alice");
+        });
+
+        assertThat(userExporter.exportedUsers()).contains(Reference.fromId(userId));
     }
 }

@@ -2,8 +2,6 @@ package be.appify.prefab.core.sns;
 
 import be.appify.prefab.core.spring.JsonUtil;
 import io.awspring.cloud.sns.core.SnsTemplate;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,8 +42,8 @@ public class SqsUtil {
     private final SnsClient snsClient;
     private final SqsAsyncClient sqsClient;
     private final JsonUtil jsonUtil;
+    private final SqsDeserializer sqsDeserializer;
     private final RetryTemplate retryTemplate;
-    private final ConcurrentMap<String, Class<?>> messageTypes = new ConcurrentHashMap<>();
 
     /**
      * Constructs a new SqsUtil.
@@ -68,6 +66,8 @@ public class SqsUtil {
      *         the SQS async client
      * @param jsonUtil
      *         the JSON utility
+     * @param sqsDeserializer
+     *         the SQS deserializer
      */
     public SqsUtil(
             @Value("${spring.application.name}") String applicationName,
@@ -78,7 +78,8 @@ public class SqsUtil {
             @Value("${prefab.dlt.retries.multiplier:1.5}") Double backoffMultiplier,
             SnsClient snsClient,
             SqsAsyncClient sqsClient,
-            JsonUtil jsonUtil
+            JsonUtil jsonUtil,
+            SqsDeserializer sqsDeserializer
     ) {
         this.applicationName = applicationName;
         this.deadLetterQueueName = !isEmpty(deadLetterQueueName) ? deadLetterQueueName : applicationName + ".dlt";
@@ -86,6 +87,7 @@ public class SqsUtil {
         this.snsClient = snsClient;
         this.sqsClient = sqsClient;
         this.jsonUtil = jsonUtil;
+        this.sqsDeserializer = sqsDeserializer;
         this.retryTemplate = new RetryTemplate(org.springframework.core.retry.RetryPolicy.builder()
                 .maxRetries(maxRetries)
                 .delay(java.time.Duration.ofMillis(minimumBackoff))
@@ -238,7 +240,7 @@ public class SqsUtil {
                 try {
                     var payload = extractPayload(message);
                     var typeName = extractTypeName(message);
-                    T event = deserialize(payload, typeName, request.type());
+                    T event = sqsDeserializer.deserialize(request.topic(), payload, typeName, request.type());
                     request.consumer().accept(event);
                     deleteMessage(queueUrl, message);
                 } catch (Exception e) {
@@ -279,23 +281,6 @@ public class SqsUtil {
         return null;
     }
 
-    @SuppressWarnings("unchecked")
-    private <T> T deserialize(String payload, String typeName, Class<T> type) {
-        if (typeName != null) {
-            var consumedType = messageTypes.computeIfAbsent(typeName, key -> {
-                try {
-                    return Class.forName(typeName);
-                } catch (ClassNotFoundException e) {
-                    throw new IllegalArgumentException("Could not find class for type: " + typeName, e);
-                }
-            });
-            if (type.isAssignableFrom(consumedType)) {
-                return (T) jsonUtil.parseJson(payload, consumedType);
-            }
-        }
-        return jsonUtil.parseJson(payload, type);
-    }
-
     private void deleteMessage(String queueUrl, Message message) {
         try {
             sqsClient.deleteMessage(
@@ -306,6 +291,34 @@ public class SqsUtil {
             ).get();
         } catch (Exception e) {
             log.warn("Failed to delete SQS message: {}", message.messageId(), e);
+        }
+    }
+
+    /**
+     * Deletes all SQS queues.
+     */
+    public void deleteAllQueues() {
+        try {
+            var queueUrls = sqsClient.listQueues().get().queueUrls();
+            for (var url : queueUrls) {
+                sqsClient.deleteQueue(software.amazon.awssdk.services.sqs.model.DeleteQueueRequest.builder().queueUrl(url).build()).get();
+            }
+        } catch (Exception e) {
+            log.warn("Failed to delete all SQS queues", e);
+        }
+    }
+
+    /**
+     * Deletes all SNS topics.
+     */
+    public void deleteAllTopics() {
+        try {
+            var topics = snsClient.listTopics().topics();
+            for (var topic : topics) {
+                snsClient.deleteTopic(software.amazon.awssdk.services.sns.model.DeleteTopicRequest.builder().topicArn(topic.topicArn()).build());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to delete all SNS topics", e);
         }
     }
 

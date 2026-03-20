@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.event.sns;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.sns.SnsSerializer;
 import be.appify.prefab.core.sns.SqsUtil;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
@@ -44,6 +45,8 @@ class SnsPublisherWriter {
                                 ClassName.get(event.packageName() + ".infrastructure.sns", name))
                         .build())
                 .addField(SnsTemplate.class, "snsTemplate", Modifier.PRIVATE, Modifier.FINAL)
+                .addField(SnsSerializer.class, "snsSerializer", Modifier.PRIVATE, Modifier.FINAL)
+                .addField(String.class, "topic", Modifier.PRIVATE, Modifier.FINAL)
                 .addField(String.class, "topicArn", Modifier.PRIVATE, Modifier.FINAL)
                 .addMethod(constructor(annotation.topic()))
                 .addMethod(publisher(event))
@@ -57,16 +60,20 @@ class SnsPublisherWriter {
                 .addModifiers(PUBLIC)
                 .addParameter(SnsTemplate.class, "snsTemplate")
                 .addParameter(SqsUtil.class, "sqsUtil")
-                .addStatement("this.snsTemplate = snsTemplate");
+                .addParameter(SnsSerializer.class, "snsSerializer")
+                .addStatement("this.snsTemplate = snsTemplate")
+                .addStatement("this.snsSerializer = snsSerializer");
         if (topic.matches("\\$\\{.+}")) {
             constructor.addParameter(ParameterSpec.builder(String.class, "topic")
                             .addAnnotation(AnnotationSpec.builder(Value.class)
                                     .addMember("value", "$S", topic)
                                     .build())
                             .build())
+                    .addStatement("this.topic = topic")
                     .addStatement("this.topicArn = sqsUtil.ensureTopicExists(topic)");
         } else {
-            constructor.addStatement("this.topicArn = sqsUtil.ensureTopicExists($S)", topic);
+            constructor.addStatement("this.topic = $S", topic)
+                    .addStatement("this.topicArn = sqsUtil.ensureTopicExists($S)", topic);
         }
         return constructor.build();
     }
@@ -77,7 +84,7 @@ class SnsPublisherWriter {
                 .addParameter(event.asTypeName(), "event")
                 .addAnnotation(EventListener.class)
                 .addStatement("log.debug($S, event, topicArn)", "Publishing event {} on topic {}")
-                .addStatement("snsTemplate.sendNotification(topicArn, event, event.getClass().getName())")
+                .addStatement("snsTemplate.sendNotification(topicArn, snsSerializer.serialize(topic, event), event.getClass().getName())")
                 .build();
     }
 }

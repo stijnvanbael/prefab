@@ -4,6 +4,7 @@ import io.awspring.cloud.sns.core.SnsTemplate;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.test.context.DynamicPropertyRegistrar;
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -16,6 +17,7 @@ import static org.testcontainers.containers.localstack.LocalStackContainer.Servi
  */
 @TestConfiguration(proxyBeanMethods = false)
 @ConditionalOnClass(SnsTemplate.class)
+@ComponentScan(basePackageClasses = SnsTestLifecycle.class)
 public class SnsTestAutoConfiguration {
 
     static final LocalStackContainer localStackContainer = new LocalStackContainer(

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.springframework.retry</groupId>
+  <artifactId>spring-retry</artifactId>
+  <version>2.0.12</version>
+  <name>Spring Retry</name>
+  <description>Spring Retry provides an abstraction around retrying failed operations, with an
+		emphasis on declarative control of the process and policy-based behaviour that is
+		easy to extend and customize. For instance, you can configure a plain POJO
+		operation to retry if it fails, based on the type of exception, and with a fixed
+		or exponential backoff.</description>
+  <url>https://github.com/spring-projects/spring-retry</url>
+  <organization>
+    <name>Spring IO</name>
+    <url>https://spring.io</url>
+  </organization>
+  <licenses>
+    <license>
+      <name>Apache 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <id>dsyer</id>
+      <name>Dave Syer</name>
+      <email>david.syer@broadcom.com</email>
+    </developer>
+    <developer>
+      <id>garyrussell</id>
+      <name>Gary Russell</name>
+      <email>github@gprussell.net</email>
+    </developer>
+    <developer>
+      <id>artembilan</id>
+      <name>Artem Bilan</name>
+      <email>artem.bilan@broadcom.com</email>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:git:git://github.com/spring-projects/spring-retry.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/spring-projects/spring-retry.git</developerConnection>
+    <url>https://github.com/spring-projects/spring-retry</url>
+  </scm>
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-context</artifactId>
+      <version>6.0.23</version>
+      <scope>compile</scope>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+      <version>1.10.13</version>
+      <scope>compile</scope>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>com.github.spotbugs</groupId>
+      <artifactId>spotbugs-annotations</artifactId>
+      <version>4.8.6</version>
+      <scope>compile</scope>
+      <optional>true</optional>
+    </dependency>
+  </dependencies>
+</project>

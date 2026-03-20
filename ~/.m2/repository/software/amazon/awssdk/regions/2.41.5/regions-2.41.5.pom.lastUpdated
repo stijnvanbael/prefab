@@ -1,0 +1,5 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Fri Mar 20 18:11:04 UTC 2026
+@default-confluent-https\://packages.confluent.io/maven/.lastUpdated=1774030264218
+https\://packages.confluent.io/maven/.error=Could not transfer artifact software.amazon.awssdk\:regions\:pom\:2.41.5 from/to confluent (https\://packages.confluent.io/maven/)\: packages.confluent.io
+https\://repo.maven.apache.org/maven2/.lastUpdated=1774030264242

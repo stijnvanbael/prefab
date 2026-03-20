@@ -2,6 +2,14 @@ spring:
   application:
     name: prefab.sns-sqs-example
 
+  cloud:
+    aws:
+      region:
+        static: eu-west-1
+      credentials:
+        access-key: ${AWS_ACCESS_KEY_ID:localAccessKey}
+        secret-key: ${AWS_SECRET_ACCESS_KEY:localSecretKey}
+
 topics:
   channel.name: channel
   message.name: message

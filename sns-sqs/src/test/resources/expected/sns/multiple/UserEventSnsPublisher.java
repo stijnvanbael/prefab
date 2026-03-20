@@ -1,5 +1,6 @@
 package sns.multiple.infrastructure.sns;
 
+import be.appify.prefab.core.sns.SnsSerializer;
 import be.appify.prefab.core.sns.SqsUtil;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import org.slf4j.Logger;
@@ -15,17 +16,23 @@ public class UserEventSnsPublisher {
 
     private final SnsTemplate snsTemplate;
 
+    private final SnsSerializer snsSerializer;
+
+    private final String topic;
+
     private final String topicArn;
 
     public UserEventSnsPublisher(SnsTemplate snsTemplate, SqsUtil sqsUtil,
-            @Value("${topic.user.name}") String topic) {
+            SnsSerializer snsSerializer, @Value("${topic.user.name}") String topic) {
         this.snsTemplate = snsTemplate;
+        this.snsSerializer = snsSerializer;
+        this.topic = topic;
         this.topicArn = sqsUtil.ensureTopicExists(topic);
     }
 
     @EventListener
     public void publish(UserEvent event) {
         log.debug("Publishing event {} on topic {}", event, topicArn);
-        snsTemplate.sendNotification(topicArn, event, event.getClass().getName());
+        snsTemplate.sendNotification(topicArn, snsSerializer.serialize(topic, event), event.getClass().getName());
     }
 }

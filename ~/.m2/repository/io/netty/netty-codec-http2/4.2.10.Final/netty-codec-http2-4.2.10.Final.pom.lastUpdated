@@ -1,5 +1,0 @@
-#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
-#Fri Mar 20 18:11:11 UTC 2026
-@default-confluent-https\://packages.confluent.io/maven/.lastUpdated=1774030271521
-https\://packages.confluent.io/maven/.error=Could not transfer artifact io.netty\:netty-codec-http2\:pom\:4.2.10.Final from/to confluent (https\://packages.confluent.io/maven/)\: packages.confluent.io
-https\://repo.maven.apache.org/maven2/.lastUpdated=1774030271546

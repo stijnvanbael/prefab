@@ -36,3 +36,4 @@ pom.xml.versionsBackup
 
 ### Mac OS ###
 .DS_Store
+~/.m2

@@ -1,0 +1,5 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Fri Mar 20 18:11:00 UTC 2026
+@default-confluent-https\://packages.confluent.io/maven/.lastUpdated=1774030259976
+https\://maven-central.storage-download.googleapis.com/maven2/.lastUpdated=1774030260014
+https\://packages.confluent.io/maven/.error=Could not transfer artifact com.fasterxml.jackson\:jackson-bom\:pom\:2.18.2 from/to confluent (https\://packages.confluent.io/maven/)\: packages.confluent.io

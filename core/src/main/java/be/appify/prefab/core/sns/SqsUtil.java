@@ -137,18 +137,22 @@ public class SqsUtil {
     }
 
     private String ensureQueueExists(String queueName) {
+        var sanitizedName = queueName.replaceAll("[^a-zA-Z0-9_-]", "-");
+        if (!sanitizedName.equals(queueName)) {
+            log.warn("SQS queue name [{}] contains invalid characters and was sanitized to [{}]", queueName, sanitizedName);
+        }
         try {
             return sqsClient.createQueue(
-                    CreateQueueRequest.builder().queueName(queueName).build()
+                    CreateQueueRequest.builder().queueName(sanitizedName).build()
             ).get().queueUrl();
         } catch (Exception e) {
             try {
                 return sqsClient.getQueueUrl(
-                        GetQueueUrlRequest.builder().queueName(queueName).build()
+                        GetQueueUrlRequest.builder().queueName(sanitizedName).build()
                 ).get().queueUrl();
             } catch (Exception ex) {
                 throw new IllegalStateException(
-                        "Failed to create or get SQS queue [%s]".formatted(queueName), ex);
+                        "Failed to create or get SQS queue [%s]".formatted(sanitizedName), ex);
             }
         }
     }

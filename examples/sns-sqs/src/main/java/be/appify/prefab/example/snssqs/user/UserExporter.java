@@ -1,4 +1,4 @@
-package be.appify.prefab.example.sns.user;
+package be.appify.prefab.example.snssqs.user;
 
 import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.service.Reference;
@@ -15,8 +15,9 @@ public class UserExporter {
 
     @EventHandler
     public void onUserCreated(UserEvent.Created event) {
-        log.info("Exporting new user with ID {}", event.user());
-        exportedUsers.add(event.user());
+        log.info("Exporting new user with ID {}", event.reference());
+        exportedUsers.add(event.reference());
+        // Export logic here
     }
 
     public List<Reference<User>> exportedUsers() {

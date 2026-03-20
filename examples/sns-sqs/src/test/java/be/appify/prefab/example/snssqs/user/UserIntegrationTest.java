@@ -1,7 +1,7 @@
-package be.appify.prefab.example.sns.user;
+package be.appify.prefab.example.snssqs.user;
 
 import be.appify.prefab.core.service.Reference;
-import be.appify.prefab.example.sns.user.application.CreateUserRequest;
+import be.appify.prefab.example.snssqs.user.application.CreateUserRequest;
 import be.appify.prefab.test.IntegrationTest;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;

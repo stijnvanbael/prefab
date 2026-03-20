@@ -1,6 +1,0 @@
-#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
-#Fri Mar 20 18:10:58 UTC 2026
-@default-confluent-https\://packages.confluent.io/maven/.lastUpdated=1774030258812
-https\://packages.confluent.io/maven/.error=Could not transfer artifact io.confluent\:kafka-streams-avro-serde\:pom\:7.6.1 from/to confluent (https\://packages.confluent.io/maven/)\: packages.confluent.io
-https\://repo.maven.apache.org/maven2/.error=
-https\://repo.maven.apache.org/maven2/.lastUpdated=1774030258844

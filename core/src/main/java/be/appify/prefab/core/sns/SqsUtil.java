@@ -12,9 +12,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.core.retry.RetryException;
 import org.springframework.core.retry.RetryTemplate;
 import org.springframework.stereotype.Component;
-import software.amazon.awssdk.services.sns.SnsAsyncClient;
+import software.amazon.awssdk.services.sns.SnsClient;
 import software.amazon.awssdk.services.sns.model.CreateTopicRequest;
-import software.amazon.awssdk.services.sns.model.GetTopicAttributesRequest;
 import software.amazon.awssdk.services.sns.model.SubscribeRequest;
 import software.amazon.awssdk.services.sqs.SqsAsyncClient;
 import software.amazon.awssdk.services.sqs.model.CreateQueueRequest;
@@ -26,8 +25,6 @@ import software.amazon.awssdk.services.sqs.model.QueueAttributeName;
 import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest;
 import software.amazon.awssdk.services.sqs.model.SetQueueAttributesRequest;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import static org.apache.commons.lang3.StringUtils.isEmpty;
@@ -40,13 +37,11 @@ import static org.apache.commons.lang3.StringUtils.isEmpty;
 @ConditionalOnClass(SnsTemplate.class)
 public class SqsUtil {
     private static final Logger log = LoggerFactory.getLogger(SqsUtil.class);
-    private static final String ATTR_REDRIVE_POLICY = "RedrivePolicy";
-    private static final String ATTR_QUEUE_ARN = "QueueArn";
 
     private final String applicationName;
     private final String deadLetterQueueName;
     private final Integer maxRetries;
-    private final SnsAsyncClient snsClient;
+    private final SnsClient snsClient;
     private final SqsAsyncClient sqsClient;
     private final ObjectMapper objectMapper;
     private final RetryTemplate retryTemplate;
@@ -68,7 +63,7 @@ public class SqsUtil {
      * @param backoffMultiplier
      *         the backoff multiplier
      * @param snsClient
-     *         the SNS async client
+     *         the SNS sync client
      * @param sqsClient
      *         the SQS async client
      * @param objectMapper
@@ -81,7 +76,7 @@ public class SqsUtil {
             @Value("${prefab.dlt.retries.minimum-backoff-ms:1000}") Integer minimumBackoff,
             @Value("${prefab.dlt.retries.maximum-backoff-ms:30000}") Integer maximumBackoff,
             @Value("${prefab.dlt.retries.multiplier:1.5}") Double backoffMultiplier,
-            SnsAsyncClient snsClient,
+            SnsClient snsClient,
             SqsAsyncClient sqsClient,
             ObjectMapper objectMapper
     ) {
@@ -110,7 +105,7 @@ public class SqsUtil {
         try {
             var createResponse = snsClient.createTopic(
                     CreateTopicRequest.builder().name(topicName).build()
-            ).get();
+            );
             return createResponse.topicArn();
         } catch (Exception e) {
             throw new IllegalStateException(
@@ -197,7 +192,7 @@ public class SqsUtil {
                             .protocol("sqs")
                             .endpoint(queueArn)
                             .build()
-            ).get();
+            );
         } catch (Exception e) {
             throw new IllegalStateException(
                     "Failed to subscribe queue [%s] to topic [%s]".formatted(queueArn, topicArn), e);

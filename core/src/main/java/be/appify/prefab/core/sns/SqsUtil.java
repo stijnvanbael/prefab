@@ -1,6 +1,6 @@
 package be.appify.prefab.core.sns;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import be.appify.prefab.core.spring.JsonUtil;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -43,7 +43,7 @@ public class SqsUtil {
     private final Integer maxRetries;
     private final SnsClient snsClient;
     private final SqsAsyncClient sqsClient;
-    private final ObjectMapper objectMapper;
+    private final JsonUtil jsonUtil;
     private final RetryTemplate retryTemplate;
     private final ConcurrentMap<String, Class<?>> messageTypes = new ConcurrentHashMap<>();
 
@@ -66,8 +66,8 @@ public class SqsUtil {
      *         the SNS sync client
      * @param sqsClient
      *         the SQS async client
-     * @param objectMapper
-     *         the Jackson object mapper
+     * @param jsonUtil
+     *         the JSON utility
      */
     public SqsUtil(
             @Value("${spring.application.name}") String applicationName,
@@ -78,14 +78,14 @@ public class SqsUtil {
             @Value("${prefab.dlt.retries.multiplier:1.5}") Double backoffMultiplier,
             SnsClient snsClient,
             SqsAsyncClient sqsClient,
-            ObjectMapper objectMapper
+            JsonUtil jsonUtil
     ) {
         this.applicationName = applicationName;
         this.deadLetterQueueName = !isEmpty(deadLetterQueueName) ? deadLetterQueueName : applicationName + ".dlt";
         this.maxRetries = maxRetries;
         this.snsClient = snsClient;
         this.sqsClient = sqsClient;
-        this.objectMapper = objectMapper;
+        this.jsonUtil = jsonUtil;
         this.retryTemplate = new RetryTemplate(org.springframework.core.retry.RetryPolicy.builder()
                 .maxRetries(maxRetries)
                 .delay(java.time.Duration.ofMillis(minimumBackoff))
@@ -250,11 +250,12 @@ public class SqsUtil {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private String extractPayload(Message message) {
         try {
-            var body = objectMapper.readTree(message.body());
-            if (body.has("Message")) {
-                return body.get("Message").asText();
+            var body = (Map<String, Object>) jsonUtil.parseJson(message.body(), Map.class);
+            if (body.containsKey("Message")) {
+                return (String) body.get("Message");
             }
             return message.body();
         } catch (Exception e) {
@@ -262,11 +263,12 @@ public class SqsUtil {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private String extractTypeName(Message message) {
         try {
-            var body = objectMapper.readTree(message.body());
-            if (body.has("Subject")) {
-                return body.get("Subject").asText();
+            var body = (Map<String, Object>) jsonUtil.parseJson(message.body(), Map.class);
+            if (body.containsKey("Subject")) {
+                return (String) body.get("Subject");
             }
         } catch (Exception ignored) {
         }
@@ -274,7 +276,7 @@ public class SqsUtil {
     }
 
     @SuppressWarnings("unchecked")
-    private <T> T deserialize(String payload, String typeName, Class<T> type) throws Exception {
+    private <T> T deserialize(String payload, String typeName, Class<T> type) {
         if (typeName != null) {
             var consumedType = messageTypes.computeIfAbsent(typeName, key -> {
                 try {
@@ -284,10 +286,10 @@ public class SqsUtil {
                 }
             });
             if (type.isAssignableFrom(consumedType)) {
-                return (T) objectMapper.readValue(payload, consumedType);
+                return (T) jsonUtil.parseJson(payload, consumedType);
             }
         }
-        return objectMapper.readValue(payload, type);
+        return jsonUtil.parseJson(payload, type);
     }
 
     private void deleteMessage(String queueUrl, Message message) {

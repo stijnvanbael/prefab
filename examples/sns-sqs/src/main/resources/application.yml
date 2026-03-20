@@ -1,3 +1,8 @@
 spring:
   application:
     name: prefab.sns-sqs-example
+
+topics:
+  channel.name: channel
+  message.name: message
+  user.name: user

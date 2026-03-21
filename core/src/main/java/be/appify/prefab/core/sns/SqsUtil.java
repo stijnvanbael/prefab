@@ -238,9 +238,8 @@ public class SqsUtil {
         try {
             request.retryTemplate().orElse(retryTemplate).execute(() -> {
                 try {
-                    var payload = extractPayload(message);
-                    var typeName = extractTypeName(message);
-                    T event = sqsDeserializer.deserialize(request.topic(), payload, typeName, request.type());
+                    var envelope = extractEnvelope(message);
+                    T event = sqsDeserializer.deserialize(request.topic(), envelope.payload(), envelope.typeName(), request.type());
                     request.consumer().accept(event);
                     deleteMessage(queueUrl, message);
                 } catch (Exception e) {
@@ -256,29 +255,19 @@ public class SqsUtil {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private String extractPayload(Message message) {
-        try {
-            var body = (Map<String, Object>) jsonUtil.parseJson(message.body(), Map.class);
-            if (body.containsKey("Message")) {
-                return (String) body.get("Message");
-            }
-            return message.body();
-        } catch (Exception e) {
-            return message.body();
-        }
+    private record SnsEnvelope(String payload, String typeName) {
     }
 
     @SuppressWarnings("unchecked")
-    private String extractTypeName(Message message) {
+    private SnsEnvelope extractEnvelope(Message message) {
         try {
             var body = (Map<String, Object>) jsonUtil.parseJson(message.body(), Map.class);
-            if (body.containsKey("Subject")) {
-                return (String) body.get("Subject");
-            }
-        } catch (Exception ignored) {
+            var payload = body.containsKey("Message") ? (String) body.get("Message") : message.body();
+            var typeName = body.containsKey("Subject") ? (String) body.get("Subject") : null;
+            return new SnsEnvelope(payload, typeName);
+        } catch (Exception e) {
+            return new SnsEnvelope(message.body(), null);
         }
-        return null;
     }
 
     private void deleteMessage(String queueUrl, Message message) {

@@ -5,6 +5,7 @@ import be.appify.prefab.core.util.SerializationRegistry;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import java.io.IOException;
 import java.util.Base64;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.avro.generic.GenericDatumReader;
@@ -45,30 +46,43 @@ public class SqsDeserializer {
     }
 
     /**
-     * Deserialize the given payload based on the topic's serialization format, using the typeName to resolve a more
-     * specific type when available.
+     * Deserialize the given raw SQS message body based on the topic's serialization format. The body may be an SNS
+     * notification envelope (with {@code Message} and optional {@code Subject} fields) or a raw payload.
      *
      * @param topic
      *         the topic from which the data is being deserialized
-     * @param payload
-     *         the String payload to deserialize
-     * @param typeName
-     *         the fully qualified class name of the actual message type (may be null)
+     * @param body
+     *         the raw SQS message body to deserialize
      * @param type
      *         the base class to deserialize into
      * @param <T>
      *         the type of the object to return
      * @return the deserialized object
      */
-    @SuppressWarnings("unchecked")
-    public <T> T deserialize(String topic, String payload, String typeName, Class<T> type) {
+    public <T> T deserialize(String topic, String body, Class<T> type) {
+        var envelope = extractEnvelope(body);
         if (!serializationRegistry.contains(topic)) {
-            return deserializeJson(payload, typeName, type);
+            return deserializeJson(envelope.payload(), envelope.typeName(), type);
         }
         return switch (serializationRegistry.get(topic)) {
-            case AVRO -> deserializeAvro(payload, type);
-            case JSON -> deserializeJson(payload, typeName, type);
+            case AVRO -> deserializeAvro(envelope.payload(), type);
+            case JSON -> deserializeJson(envelope.payload(), envelope.typeName(), type);
         };
+    }
+
+    private record SnsEnvelope(String payload, String typeName) {
+    }
+
+    @SuppressWarnings("unchecked")
+    private SnsEnvelope extractEnvelope(String body) {
+        try {
+            var parsed = (Map<String, Object>) jsonUtil.parseJson(body, Map.class);
+            var payload = parsed.containsKey("Message") ? (String) parsed.get("Message") : body;
+            var typeName = parsed.containsKey("Subject") ? (String) parsed.get("Subject") : null;
+            return new SnsEnvelope(payload, typeName);
+        } catch (Exception e) {
+            return new SnsEnvelope(body, null);
+        }
     }
 
     @SuppressWarnings("unchecked")

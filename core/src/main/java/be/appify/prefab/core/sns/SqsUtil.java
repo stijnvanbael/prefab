@@ -1,6 +1,5 @@
 package be.appify.prefab.core.sns;
 
-import be.appify.prefab.core.spring.JsonUtil;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
@@ -41,7 +40,6 @@ public class SqsUtil {
     private final Integer maxRetries;
     private final SnsClient snsClient;
     private final SqsAsyncClient sqsClient;
-    private final JsonUtil jsonUtil;
     private final SqsDeserializer sqsDeserializer;
     private final RetryTemplate retryTemplate;
 
@@ -64,8 +62,6 @@ public class SqsUtil {
      *         the SNS sync client
      * @param sqsClient
      *         the SQS async client
-     * @param jsonUtil
-     *         the JSON utility
      * @param sqsDeserializer
      *         the SQS deserializer
      */
@@ -78,7 +74,6 @@ public class SqsUtil {
             @Value("${prefab.dlt.retries.multiplier:1.5}") Double backoffMultiplier,
             SnsClient snsClient,
             SqsAsyncClient sqsClient,
-            JsonUtil jsonUtil,
             SqsDeserializer sqsDeserializer
     ) {
         this.applicationName = applicationName;
@@ -86,7 +81,6 @@ public class SqsUtil {
         this.maxRetries = maxRetries;
         this.snsClient = snsClient;
         this.sqsClient = sqsClient;
-        this.jsonUtil = jsonUtil;
         this.sqsDeserializer = sqsDeserializer;
         this.retryTemplate = new RetryTemplate(org.springframework.core.retry.RetryPolicy.builder()
                 .maxRetries(maxRetries)
@@ -238,8 +232,7 @@ public class SqsUtil {
         try {
             request.retryTemplate().orElse(retryTemplate).execute(() -> {
                 try {
-                    var envelope = extractEnvelope(message);
-                    T event = sqsDeserializer.deserialize(request.topic(), envelope.payload(), envelope.typeName(), request.type());
+                    T event = sqsDeserializer.deserialize(request.topic(), message.body(), request.type());
                     request.consumer().accept(event);
                     deleteMessage(queueUrl, message);
                 } catch (Exception e) {
@@ -252,21 +245,6 @@ public class SqsUtil {
         } catch (RetryException e) {
             log.error("Retries exhausted when processing SQS message: {}", message, e);
             throw new RuntimeException(e);
-        }
-    }
-
-    private record SnsEnvelope(String payload, String typeName) {
-    }
-
-    @SuppressWarnings("unchecked")
-    private SnsEnvelope extractEnvelope(Message message) {
-        try {
-            var body = (Map<String, Object>) jsonUtil.parseJson(message.body(), Map.class);
-            var payload = body.containsKey("Message") ? (String) body.get("Message") : message.body();
-            var typeName = body.containsKey("Subject") ? (String) body.get("Subject") : null;
-            return new SnsEnvelope(payload, typeName);
-        } catch (Exception e) {
-            return new SnsEnvelope(message.body(), null);
         }
     }
 

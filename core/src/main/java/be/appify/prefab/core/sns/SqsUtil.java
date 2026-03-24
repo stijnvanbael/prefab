@@ -1,9 +1,13 @@
 package be.appify.prefab.core.sns;
 
 import io.awspring.cloud.sns.core.SnsTemplate;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.core.retry.RetryException;
@@ -32,7 +36,7 @@ import static org.apache.commons.lang3.StringUtils.isEmpty;
  */
 @Component
 @ConditionalOnClass(SnsTemplate.class)
-public class SqsUtil {
+public class SqsUtil implements DisposableBean {
     private static final Logger log = LoggerFactory.getLogger(SqsUtil.class);
 
     private final String applicationName;
@@ -42,6 +46,7 @@ public class SqsUtil {
     private final SqsAsyncClient sqsClient;
     private final SqsDeserializer sqsDeserializer;
     private final RetryTemplate retryTemplate;
+    private final List<ExecutorService> pollingExecutors = new CopyOnWriteArrayList<>();
 
     /**
      * Constructs a new SqsUtil.
@@ -205,6 +210,7 @@ public class SqsUtil {
             thread.setDaemon(true);
             return thread;
         });
+        pollingExecutors.add(pollingExecutor);
         pollingExecutor.submit(() -> {
             while (!Thread.currentThread().isInterrupted()) {
                 try {
@@ -287,6 +293,14 @@ public class SqsUtil {
         } catch (Exception e) {
             log.warn("Failed to delete all SNS topics", e);
         }
+    }
+
+    /**
+     * Shuts down all SQS polling executors, stopping message consumption.
+     */
+    @Override
+    public void destroy() {
+        pollingExecutors.forEach(ExecutorService::shutdownNow);
     }
 
     /**

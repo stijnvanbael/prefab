@@ -39,6 +39,9 @@ class UpdateTestClientWriter {
                 "%s%sRequest".formatted(
                         manifest.simpleName(),
                         capitalize(update.operationName())));
+        var individualParams = update.parameters().stream()
+                .flatMap(parameter -> context.requestParameterBuilder().buildBodyParameter(parameter).stream())
+                .toList();
         var requestParts = Stream.concat(update.parameters().stream()
                         .flatMap(parameter -> context.requestParameterBuilder()
                                 .buildMethodParameter(parameter)
@@ -54,9 +57,13 @@ class UpdateTestClientWriter {
                     .collect(Collectors.toList()));
         }
         if (!update.parameters().isEmpty()) {
-            method.addParameter(bodyType, "request");
+            method.addParameters(individualParams);
         }
         method.addException(Exception.class);
+        if (!update.parameters().isEmpty()) {
+            method.addStatement("var request = new $T($L)", bodyType,
+                    individualParams.stream().map(ParameterSpec::name).collect(Collectors.joining(", ")));
+        }
         if (requestParts.size() <= 1) {
             return withRequestBody(manifest, update, method, pathVariables);
         } else {
@@ -95,7 +102,7 @@ class UpdateTestClientWriter {
 
         requestParts.forEach(part -> {
             if (part.type().equals(ClassName.get(MultipartFile.class))) {
-                method.addStatement("var $L = $T.mockMultipartFile(request.$L())",
+                method.addStatement("var $LMock = $T.mockMultipartFile(request.$L())",
                         part.name(),
                         TEST_UTIL,
                         part.name());
@@ -117,7 +124,7 @@ class UpdateTestClientWriter {
                         requestParts.stream()
                                 .map(part -> {
                                     if (part.type().equals(ClassName.get(MultipartFile.class))) {
-                                        return CodeBlock.of(".file($L)", part.name());
+                                        return CodeBlock.of(".file($LMock)", part.name());
                                     } else {
                                         return CodeBlock.of(".part(bodyPart)");
                                     }

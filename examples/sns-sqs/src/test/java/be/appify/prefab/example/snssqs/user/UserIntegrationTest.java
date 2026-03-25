@@ -1,7 +1,6 @@
 package be.appify.prefab.example.snssqs.user;
 
 import be.appify.prefab.core.service.Reference;
-import be.appify.prefab.example.snssqs.user.application.CreateUserRequest;
 import be.appify.prefab.test.IntegrationTest;
 import be.appify.prefab.test.sns.SqsSubscriber;
 import be.appify.prefab.test.sns.TestSqsSubscriber;
@@ -22,7 +21,7 @@ class UserIntegrationTest {
 
     @Test
     void createUser() throws Exception {
-        var userId = userClient.createUser(new CreateUserRequest("Alice"));
+        var userId = userClient.createUser("Alice");
 
         SqsAssertions.assertThat(userSubscriber).hasReceivedValueSatisfying(UserEvent.Created.class, userEvent -> {
             assertThat(userEvent.reference()).isNotNull();

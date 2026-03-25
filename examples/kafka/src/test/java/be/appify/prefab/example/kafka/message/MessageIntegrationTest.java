@@ -4,13 +4,9 @@ import org.junit.jupiter.api.Test;
 
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.example.kafka.channel.ChannelClient;
-import be.appify.prefab.example.kafka.channel.application.CreateChannelRequest;
-import be.appify.prefab.example.kafka.message.application.CreateMessageRequest;
 import be.appify.prefab.example.kafka.user.UnreadMessage;
 import be.appify.prefab.example.kafka.user.UserClient;
 import be.appify.prefab.example.kafka.user.UserStatusClient;
-import be.appify.prefab.example.kafka.user.application.CreateUserRequest;
-import be.appify.prefab.example.kafka.user.application.UserSubscribeToChannelRequest;
 import be.appify.prefab.example.kafka.user.infrastructure.http.UserStatusResponse;
 import be.appify.prefab.test.IntegrationTest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,14 +32,14 @@ class MessageIntegrationTest {
 
     @Test
     void addMessageToUnreadMessagesOnAllUsersInChannel() throws Exception {
-        var channelId = channels.createChannel(new CreateChannelRequest("general"));
-        var johnId = users.createUser(new CreateUserRequest("John"));
-        var janeId = users.createUser(new CreateUserRequest("Jane"));
-        var daveId = users.createUser(new CreateUserRequest("Dave"));
-        users.subscribeToChannel(johnId, new UserSubscribeToChannelRequest(channelId));
-        users.subscribeToChannel(janeId, new UserSubscribeToChannelRequest(channelId));
+        var channelId = channels.createChannel("general");
+        var johnId = users.createUser("John");
+        var janeId = users.createUser("Jane");
+        var daveId = users.createUser("Dave");
+        users.subscribeToChannel(johnId, channelId);
+        users.subscribeToChannel(janeId, channelId);
 
-        var messageId = messages.createMessage(new CreateMessageRequest(johnId, channelId, "Hello, World!"));
+        var messageId = messages.createMessage(johnId, channelId, "Hello, World!");
 
         await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
                 assertThat(userStatuses.findUserStatuses(Pageable.unpaged()).getContent())

@@ -2,7 +2,6 @@ package be.appify.prefab.processor.rest.getlist;
 
 import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.GetList;
-import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.core.spring.Page;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.VariableManifest;
@@ -25,7 +24,7 @@ class GetListTestClientWriter {
         var search = manifest.annotationsOfType(GetList.class).stream().findFirst().orElseThrow();
         var filterProperties = manifest.fields().stream()
                 .filter(field -> field.hasAnnotation(Filter.class))
-                .map(field -> field.type().is(Reference.class) ? field.withType(String.class) : field)
+                .map(field -> field.type().isSingleValueType() ? field.withType(String.class) : field)
                 .toList();
         var returnType = returnType(manifest);
         var method = methodSignature(manifest, returnType, filterProperties);

@@ -4,7 +4,6 @@ import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.core.annotations.PartitioningKey;
-import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import com.palantir.javapoet.ClassName;
@@ -249,8 +248,9 @@ public class ConsumerWriterSupport {
         return event.methodsWith(PartitioningKey.class).stream()
                 .findFirst()
                 .map(method -> {
-                    if (TypeManifest.of(method.getReturnType(), context.processingEnvironment()).is(Reference.class)) {
-                        return CodeBlock.of("event.$L().id()", method.getSimpleName().toString());
+                    if (TypeManifest.of(method.getReturnType(), context.processingEnvironment()).isSingleValueType()) {
+                        return CodeBlock.of("event.$L().$L()", method.getSimpleName().toString(),
+                                TypeManifest.of(method.getReturnType(), context.processingEnvironment()).singleValueAccessor());
                     } else {
                         return CodeBlock.of("event.$L()", method.getSimpleName().toString());
                     }

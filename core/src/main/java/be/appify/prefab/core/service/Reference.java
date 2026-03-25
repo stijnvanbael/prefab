@@ -12,6 +12,7 @@ import java.util.UUID;
  * @param <T>
  *         the type of the referenced aggregate root
  */
+@SingleValue("id")
 public record Reference<T>(
         @JsonValue String id
 ) {

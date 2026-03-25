@@ -1,6 +1,5 @@
 package be.appify.prefab.processor;
 
-import be.appify.prefab.core.service.Reference;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ParameterSpec;
 import jakarta.validation.Valid;
@@ -49,7 +48,7 @@ public class RequestParameterBuilder {
     }
 
     private static Optional<ParameterSpec> defaultParameters(VariableManifest parameter) {
-        var builder = parameter.type().is(Reference.class)
+        var builder = parameter.type().isSingleValueType()
                 ? ParameterSpec.builder(String.class, parameter.name())
                 : ParameterSpec.builder(parameter.type().asTypeName(), parameter.name());
         var annotations = new ArrayList<>(

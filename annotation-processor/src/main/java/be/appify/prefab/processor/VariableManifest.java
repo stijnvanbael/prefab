@@ -1,6 +1,5 @@
 package be.appify.prefab.processor;
 
-import be.appify.prefab.core.service.Reference;
 import jakarta.validation.constraints.NotNull;
 import java.lang.annotation.Annotation;
 import java.util.List;
@@ -192,7 +191,7 @@ public class VariableManifest {
         return this.type == type
                 || (this.type.isRecord() && this.type.asClassManifest().fields().stream()
                 .anyMatch(field -> field.dependsOn(type)))
-                || (this.type.is(Reference.class) && this.type.parameters().getFirst() == type)
+                || (this.type.isSingleValueType() && !this.type.parameters().isEmpty() && this.type.parameters().getFirst() == type)
                 || (this.type.is(List.class) && this.type.parameters().getFirst().asClassManifest()
                 .dependsOn(type.asClassManifest()));
     }

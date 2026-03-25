@@ -1,7 +1,6 @@
 package be.appify.prefab.processor.rest.getlist;
 
 import be.appify.prefab.core.annotations.rest.Filter;
-import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
@@ -87,16 +86,16 @@ class GetListServiceWriter {
     }
 
     private static CodeBlock filterField(VariableManifest field) {
-        return field.type().is(Reference.class)
-                ? CodeBlock.of("referenceFactory.referenceTo($N)",
-                field.name())
+        return field.type().isSingleValueType()
+                ? CodeBlock.of("$N != null ? new $T($N) : null",
+                field.name(), field.type().asTypeName(), field.name())
                 : CodeBlock.of(field.name());
     }
 
     private CodeBlock parentField(ClassManifest manifest, VariableManifest field) {
         return manifest.parent().filter(parent -> parent.name().equals(field.name()))
-                .map(parent -> CodeBlock.of("referenceFactory.referenceTo($NId)",
-                        uncapitalize(parent.name())))
+                .map(parent -> CodeBlock.of("$NId != null ? new $T($NId) : null",
+                        uncapitalize(parent.name()), parent.type().asTypeName(), uncapitalize(parent.name())))
                 .orElse(defaultValueForType(field.type()));
     }
 

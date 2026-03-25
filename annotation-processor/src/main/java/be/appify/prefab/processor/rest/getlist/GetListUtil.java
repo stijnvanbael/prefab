@@ -2,7 +2,6 @@ package be.appify.prefab.processor.rest.getlist;
 
 import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.Filters;
-import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.AnnotationManifest;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.VariableManifest;
@@ -14,7 +13,7 @@ class GetListUtil {
     static List<FilterManifest> filterPropertiesOf(ClassManifest manifest) {
         return manifest.fields().stream()
                 .filter(field -> field.hasAnnotation(Filter.class) || field.hasAnnotation(Filters.class))
-                .map(field -> field.type().is(Reference.class) ? field.withType(String.class) : field)
+                .map(field -> field.type().isSingleValueType() ? field.withType(String.class) : field)
                 .flatMap(GetListUtil::filtersOn)
                 .toList();
     }

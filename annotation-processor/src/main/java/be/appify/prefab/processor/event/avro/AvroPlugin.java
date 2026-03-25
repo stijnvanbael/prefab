@@ -1,7 +1,6 @@
 package be.appify.prefab.processor.event.avro;
 
 import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
@@ -87,6 +86,6 @@ public class AvroPlugin implements PrefabPlugin {
         return type.is(Instant.class)
                 || type.is(LocalDate.class)
                 || type.is(Duration.class)
-                || type.is(Reference.class);
+                || type.isSingleValueType();
     }
 }

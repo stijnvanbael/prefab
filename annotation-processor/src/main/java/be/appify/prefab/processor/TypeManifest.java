@@ -1,6 +1,5 @@
 package be.appify.prefab.processor;
 
-import be.appify.prefab.core.service.SingleValue;
 import com.google.common.collect.Streams;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.ParameterizedTypeName;
@@ -401,24 +400,29 @@ public class TypeManifest {
     }
 
     /**
-     * Checks if the type is a single-value type, i.e. annotated with {@link SingleValue}.
+     * Checks if the type is a single-value type, i.e. a record with exactly one record component.
+     * <p>
+     * Any record with a single component is automatically treated as a scalar value wrapper by the Prefab framework.
+     * The {@link #fields()} method returns the record's backing fields, which correspond 1:1 to record components.
+     * </p>
      *
-     * @return true if the type is a single-value type, false otherwise
+     * @return true if the type is a record with exactly one component, false otherwise
      */
     public boolean isSingleValueType() {
-        return !annotationsOfType(SingleValue.class).isEmpty();
+        return isRecord() && fields().size() == 1;
     }
 
     /**
      * Returns the name of the accessor method for the single value of this type.
+     * For records, the accessor method has the same name as the single record component.
      *
      * @return the accessor method name
      * @throws IllegalStateException if the type is not a single-value type
      */
     public String singleValueAccessor() {
-        return annotationsOfType(SingleValue.class).stream()
-                .findFirst()
-                .map(SingleValue::value)
-                .orElseThrow(() -> new IllegalStateException("Type %s is not a single value type".formatted(this)));
+        if (!isSingleValueType()) {
+            throw new IllegalStateException("Type %s is not a single value type".formatted(this));
+        }
+        return fields().getFirst().name();
     }
 }

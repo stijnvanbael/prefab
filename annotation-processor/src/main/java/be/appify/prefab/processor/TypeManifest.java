@@ -1,5 +1,6 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.core.service.SingleValue;
 import com.google.common.collect.Streams;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.ParameterizedTypeName;
@@ -397,5 +398,27 @@ public class TypeManifest {
         return element == null ? Collections.emptyList() : element.getPermittedSubclasses().stream()
                 .map(type -> of(type, processingEnvironment))
                 .toList();
+    }
+
+    /**
+     * Checks if the type is a single-value type, i.e. annotated with {@link SingleValue}.
+     *
+     * @return true if the type is a single-value type, false otherwise
+     */
+    public boolean isSingleValueType() {
+        return !annotationsOfType(SingleValue.class).isEmpty();
+    }
+
+    /**
+     * Returns the name of the accessor method for the single value of this type.
+     *
+     * @return the accessor method name
+     * @throws IllegalStateException if the type is not a single-value type
+     */
+    public String singleValueAccessor() {
+        return annotationsOfType(SingleValue.class).stream()
+                .findFirst()
+                .map(SingleValue::value)
+                .orElseThrow(() -> new IllegalStateException("Type %s is not a single value type".formatted(this)));
     }
 }

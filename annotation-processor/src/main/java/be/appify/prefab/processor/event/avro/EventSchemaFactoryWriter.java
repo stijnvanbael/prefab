@@ -1,7 +1,6 @@
 package be.appify.prefab.processor.event.avro;
 
 import be.appify.prefab.core.avro.SchemaSupport;
-import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -103,11 +102,10 @@ class EventSchemaFactoryWriter {
                     SchemaSupport.class,
                     Schema.Type.class,
                     SchemaSupport.class);
-        } else if (type.is(Reference.class)) {
-            return CodeBlock.of("$T.createLogicalSchema($T.STRING, $T.REFERENCE)",
-                    SchemaSupport.class,
-                    Schema.Type.class,
-                    SchemaSupport.class);
+        } else if (type.isSingleValueType()) {
+            return CodeBlock.of("$T.create($T.STRING)",
+                    Schema.class,
+                    Schema.Type.class);
         }
         throw new IllegalArgumentException("Unsupported type " + type);
     }

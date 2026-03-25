@@ -1,6 +1,5 @@
 package be.appify.prefab.processor.event.avro;
 
-import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -130,8 +129,8 @@ class EventToGenericRecordConverterWriter {
             return CodeBlock.of("(int) $L.toEpochDay()", value);
         } else if (type.is(Duration.class)) {
             return CodeBlock.of("$L.toMillis()", value);
-        } else if (type.is(Reference.class)) {
-            return CodeBlock.of("$L.id()", value);
+        } else if (type.isSingleValueType()) {
+            return CodeBlock.of("$L.$N()", value, type.singleValueAccessor());
         } else {
             throw new IllegalStateException("Unsupported logical type: " + type);
         }

@@ -1,6 +1,5 @@
 package be.appify.prefab.processor.rest.create;
 
-import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.VariableManifest;
@@ -31,7 +30,7 @@ class CreateServiceWriter {
                     .addStatement("%sRepository.save(aggregate)".formatted(uncapitalize(manifest.simpleName())))
                     .addStatement("return aggregate.$N()$L",
                             manifest.idField().map(VariableManifest::name).orElse("id"),
-                            manifest.idField().map(VariableManifest::type).map(type->type.is(Reference.class)? ".id()": "").orElse(""))
+                            manifest.idField().map(VariableManifest::type).map(type -> type.isSingleValueType() ? ".%s()".formatted(type.singleValueAccessor()) : "").orElse(""))
                     .build();
         } else {
             return MethodSpec.methodBuilder("create")
@@ -51,7 +50,7 @@ class CreateServiceWriter {
                     .addStatement("%sRepository.save(aggregate)".formatted(uncapitalize(manifest.simpleName())))
                     .addStatement("return aggregate.$N()$L",
                             manifest.idField().map(VariableManifest::name).orElse("id"),
-                            manifest.idField().map(VariableManifest::type).map(type->type.is(Reference.class)? ".id()": "").orElse(""))
+                            manifest.idField().map(VariableManifest::type).map(type -> type.isSingleValueType() ? ".%s()".formatted(type.singleValueAccessor()) : "").orElse(""))
                     .build();
         }
     }

@@ -1,14 +1,11 @@
 package be.appify.prefab.processor.rest.update;
 
 import be.appify.prefab.core.annotations.rest.Update;
-import be.appify.prefab.core.service.Reference;
-import be.appify.prefab.core.spring.ReferenceFactory;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.VariableManifest;
-import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.util.Collections;
@@ -46,10 +43,7 @@ public class UpdatePlugin implements PrefabPlugin {
 
     @Override
     public Set<TypeName> getServiceDependencies(ClassManifest classManifest) {
-        return updateMethodsOf(classManifest).stream()
-                .flatMap(method -> method.parameters().stream())
-                .anyMatch(param -> param.type().is(Reference.class))
-                ? Set.of(ClassName.get(ReferenceFactory.class)) : Collections.emptySet();
+        return Collections.emptySet();
     }
 
     @Override

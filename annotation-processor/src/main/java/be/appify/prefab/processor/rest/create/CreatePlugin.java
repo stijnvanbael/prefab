@@ -1,14 +1,10 @@
 package be.appify.prefab.processor.rest.create;
 
 import be.appify.prefab.core.annotations.rest.Create;
-import be.appify.prefab.core.service.Reference;
-import be.appify.prefab.core.spring.ReferenceFactory;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
-import be.appify.prefab.processor.VariableManifest;
-import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.util.Collections;
@@ -53,14 +49,7 @@ public class CreatePlugin implements PrefabPlugin {
 
     @Override
     public Set<TypeName> getServiceDependencies(ClassManifest classManifest) {
-        return createConstructorOf(classManifest)
-                .stream()
-                .flatMap(constructor -> constructor.getParameters()
-                        .stream()
-                        .map(param ->
-                                VariableManifest.of(param, context.processingEnvironment())))
-                .anyMatch(param -> param.type().is(Reference.class))
-                ? Set.of(ClassName.get(ReferenceFactory.class)) : Collections.emptySet();
+        return Collections.emptySet();
     }
 
     @Override

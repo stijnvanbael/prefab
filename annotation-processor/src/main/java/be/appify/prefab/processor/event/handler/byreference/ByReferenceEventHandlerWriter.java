@@ -20,8 +20,10 @@ class ByReferenceEventHandlerWriter {
             method.addAnnotation(EventListener.class);
         }
         return method.addParameter(event.asTypeName(), "event").addStatement(CodeBlock.builder()
-                        .add("$L.findById(event.$L().id())",
-                                uncapitalize(manifest.simpleName()) + "Repository", eventHandler.annotation().property())
+                        .add("$L.findById(event.$L()$L)",
+                                uncapitalize(manifest.simpleName()) + "Repository",
+                                eventHandler.annotation().property(),
+                                eventHandler.valueAccessor() != null ? "." + eventHandler.valueAccessor() : "")
                         .add("""
                                         .map(aggregate -> {
                                             $L

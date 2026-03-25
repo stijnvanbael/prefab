@@ -1,7 +1,6 @@
 package be.appify.prefab.processor.event.handler.byreference;
 
 import be.appify.prefab.core.annotations.ByReference;
-import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -52,7 +51,7 @@ public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
                     var eventType = getEventType(element, context);
                     return getFields(eventType.asElement(), context.processingEnvironment()).stream()
                             .filter(field -> field.name().equals(annotation.property())
-                                    && (field.type().is(Reference.class) || field.type().is(String.class)))
+                                    && (field.type().isSingleValueType() || field.type().is(String.class)))
                             .findFirst()
                             .or(() -> {
                                 context.logError(
@@ -66,7 +65,8 @@ public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
                                     eventType,
                                     context,
                                     referenceField.type().parameters().stream().findFirst()
-                                            .orElse(TypeManifest.of(String.class, context.processingEnvironment()))))
+                                            .orElse(TypeManifest.of(String.class, context.processingEnvironment())),
+                                    referenceField.type()))
                             .stream();
                 });
     }

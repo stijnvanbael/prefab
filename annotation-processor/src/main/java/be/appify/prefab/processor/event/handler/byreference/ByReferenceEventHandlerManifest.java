@@ -11,7 +11,8 @@ record ByReferenceEventHandlerManifest(
         ByReference annotation,
         TypeManifest eventType,
         PrefabContext context,
-        TypeManifest referencedType
+        TypeManifest referencedType,
+        TypeManifest fieldType
 ) {
     String methodName() {
         return methodElement.getSimpleName().toString();
@@ -21,5 +22,12 @@ record ByReferenceEventHandlerManifest(
         return methodElement.getReturnType().getKind() == TypeKind.VOID
                 ? null
                 : TypeManifest.of(methodElement.getReturnType(), context.processingEnvironment());
+    }
+
+    String valueAccessor() {
+        if (fieldType.isSingleValueType()) {
+            return fieldType.singleValueAccessor() + "()";
+        }
+        return null;
     }
 }

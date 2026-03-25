@@ -1,6 +1,5 @@
 package be.appify.prefab.processor.dbmigration;
 
-import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.AnnotationManifest;
 import be.appify.prefab.processor.TypeManifest;
 import jakarta.validation.constraints.Size;
@@ -35,7 +34,7 @@ interface DataType {
 
     @SuppressWarnings("unchecked")
     static DataType typeOf(TypeManifest type, List<? extends AnnotationManifest<?>> annotations) {
-        if (type.is(String.class) || type.is(Reference.class) || type.isEnum() || type.is(Duration.class)) {
+        if (type.is(String.class) || type.isSingleValueType() || type.isEnum() || type.is(Duration.class)) {
             var length = annotations.stream()
                     .filter(annotation -> annotation.type().is(Size.class))
                     .map(annotation -> ((AnnotationManifest<Size>) annotation).value().max())

@@ -1,6 +1,5 @@
 package be.appify.prefab.processor.rest.update;
 
-import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.ClassName;
@@ -51,8 +50,9 @@ class UpdateServiceWriter {
     }
 
     private CodeBlock fromRequest(VariableManifest parameter) {
-        if (parameter.type().is(Reference.class)) {
-            return CodeBlock.of("referenceFactory.referenceTo(request.$N())", parameter.name());
+        if (parameter.type().isSingleValueType()) {
+            return CodeBlock.of("request.$N() != null ? new $T(request.$N()) : null",
+                    parameter.name(), parameter.type().asTypeName(), parameter.name());
         }
         return CodeBlock.of("request.%s()".formatted(parameter.name()));
     }

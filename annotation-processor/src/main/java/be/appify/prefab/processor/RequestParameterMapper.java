@@ -1,6 +1,5 @@
 package be.appify.prefab.processor;
 
-import be.appify.prefab.core.service.Reference;
 import com.palantir.javapoet.CodeBlock;
 import java.util.List;
 
@@ -33,8 +32,9 @@ public class RequestParameterMapper {
     }
 
     private CodeBlock defaultMapping(VariableManifest parameter) {
-        if (parameter.type().is(Reference.class)) {
-            return CodeBlock.of("referenceFactory.referenceTo(request.$N())", parameter.name());
+        if (parameter.type().isSingleValueType()) {
+            return CodeBlock.of("request.$N() != null ? new $T(request.$N()) : null",
+                    parameter.name(), parameter.type().asTypeName(), parameter.name());
         }
         return CodeBlock.of("request.$N()", parameter.name());
     }

@@ -2,7 +2,6 @@ package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.rest.Parent;
-import be.appify.prefab.core.service.Reference;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
 import java.lang.annotation.Annotation;
@@ -69,7 +68,7 @@ public class ClassManifest {
 
     private VariableManifest getParent(List<VariableManifest> fields) {
         var parents = fields.stream()
-                .filter(field -> field.type().is(Reference.class) && field.hasAnnotation(Parent.class))
+                .filter(field -> field.type().isSingleValueType() && field.hasAnnotation(Parent.class))
                 .toList();
         if (parents.size() > 1) {
             processingEnvironment.getMessager().printMessage(

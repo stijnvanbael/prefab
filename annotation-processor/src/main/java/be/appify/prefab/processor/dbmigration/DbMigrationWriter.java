@@ -1,6 +1,5 @@
 package be.appify.prefab.processor.dbmigration;
 
-import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.ListUtil;
 import be.appify.prefab.processor.TypeManifest;
@@ -155,7 +154,7 @@ class DbMigrationWriter {
         return manifest.fields().stream().filter(field -> field.type().is(List.class))
                 .map(field -> field.type().parameters().getFirst())
                 .flatMap(child -> {
-                    if (child.isRecord() && !child.is(Reference.class)) {
+                    if (child.isRecord() && !child.isSingleValueType()) {
                         var columns = ListUtil.concat(List.of(
                                 new Column(aggregateRootTable, new DataType.Varchar(255), false,
                                         new ForeignKey(aggregateRootTable, "id"), null),
@@ -181,8 +180,8 @@ class DbMigrationWriter {
         return manifest.fields().stream()
                 .filter(field -> !field.type().is(List.class)
                         || field.type().parameters().getFirst().isStandardType()
-                        || field.type().parameters().getFirst().is(Reference.class))
-                .flatMap(field -> field.type().isRecord() && !field.type().is(Reference.class)
+                        || field.type().parameters().getFirst().isSingleValueType())
+                .flatMap(field -> field.type().isRecord() && !field.type().isSingleValueType()
                         ? columnsOf(field.type().asClassManifest(),
                         prefix != null ? prefix + "_" + field.name() : field.name(),
                         parentNullable || field.nullable()).stream()

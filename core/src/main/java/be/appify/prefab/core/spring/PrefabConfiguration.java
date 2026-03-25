@@ -7,8 +7,7 @@ import be.appify.prefab.core.spring.data.jdbc.PrefabJdbcAggregateTemplate;
 import be.appify.prefab.core.spring.data.jdbc.PrefabJdbcMappingContext;
 import be.appify.prefab.core.spring.data.jdbc.PrefabMappingJdbcConverter;
 import be.appify.prefab.core.spring.data.jdbc.PrefabNamingStrategy;
-import be.appify.prefab.core.spring.data.jdbc.ReferenceToStringConverter;
-import be.appify.prefab.core.spring.data.jdbc.StringToReferenceConverter;
+import be.appify.prefab.core.spring.data.jdbc.SingleValueRecordSimpleTypeHolder;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.context.ApplicationContext;
@@ -44,8 +43,6 @@ public class PrefabConfiguration extends AbstractJdbcConfiguration {
     @Override
     public List<?> userConverters() {
         return List.of(
-                new ReferenceToStringConverter(),
-                new StringToReferenceConverter(),
                 new FileToByteArrayConverter(),
                 new ByteArrayToFileConverter()
         );
@@ -58,7 +55,7 @@ public class PrefabConfiguration extends AbstractJdbcConfiguration {
             RelationalManagedTypes jdbcManagedTypes
     ) {
         var mappingContext = new PrefabJdbcMappingContext(namingStrategy.orElse(new PrefabNamingStrategy()));
-        mappingContext.setSimpleTypeHolder(customConversions.getSimpleTypeHolder());
+        mappingContext.setSimpleTypeHolder(new SingleValueRecordSimpleTypeHolder(customConversions.getSimpleTypeHolder()));
         mappingContext.setManagedTypes(jdbcManagedTypes);
         return mappingContext;
     }

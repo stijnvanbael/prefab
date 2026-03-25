@@ -11,15 +11,23 @@ import org.springframework.data.jdbc.core.convert.RelationResolver;
 import org.springframework.data.jdbc.core.mapping.JdbcMappingContext;
 
 /**
- * Custom MappingJdbcConverter that applies registered custom converters to individual elements when reading array/collection columns.
+ * Custom {@link MappingJdbcConverter} that provides generic read/write support for single-field Java records and
+ * applies registered custom converters to individual elements when reading array/collection columns.
  * <p>
- * Spring Data JDBC reads SQL arrays (e.g. VARCHAR[]) into Object[] using the JDBC driver, then assembles the list. For custom simple types
- * like {@link be.appify.prefab.core.service.Reference}, the per-element {@code @ReadingConverter} is not applied automatically. This
- * subclass post-processes the list to convert each element via the ConversionService.
+ * Any Java record with exactly one component is automatically handled without requiring an explicit
+ * {@code @WritingConverter}/{@code @ReadingConverter} pair:
+ * </p>
+ * <ul>
+ *   <li><b>Writing:</b> the single component value is extracted via reflection and written as a plain scalar.</li>
+ *   <li><b>Reading:</b> the record is instantiated via its canonical constructor using the raw column value,
+ *       with automatic type coercion via the Spring {@link org.springframework.core.convert.ConversionService}.</li>
+ * </ul>
+ * <p>
+ * The converter also handles {@code List<SingleFieldRecord>} columns (e.g. arrays read from {@code VARCHAR[]}),
+ * applying the same per-element logic in addition to any registered custom {@code @ReadingConverter}s.
+ * </p>
  */
 public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
-
-    // generate javadoc
 
     /**
      * Constructs a new PrefabMappingJdbcConverter.
@@ -45,24 +53,80 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
     @Override
     @Nullable
     public Object readValue(@Nullable Object value, TypeInformation<?> type) {
+        // Handle scalar single-field record (e.g. a Reference<T> property)
+        if (value != null && isSingleFieldRecord(type.getType())) {
+            return constructSingleFieldRecord(type.getType(), value);
+        }
+
         Object result = super.readValue(value, type);
 
+        // Handle List<SingleFieldRecord> — e.g. reading from a VARCHAR[] array column
         if (result instanceof List<?> list && type.isCollectionLike() && !list.isEmpty()) {
             TypeInformation<?> componentType = type.getRequiredComponentType();
             Class<?> targetType = componentType.getType();
             Object firstElement = list.getFirst();
 
-            if (firstElement != null
-                    && !targetType.isInstance(firstElement)
-                    && getConversions().hasCustomReadTarget(firstElement.getClass(), targetType)) {
-                List<Object> converted = new ArrayList<>(list.size());
-                for (Object element : list) {
-                    converted.add(getConversionService().convert(element, targetType));
+            if (firstElement != null && !targetType.isInstance(firstElement)) {
+                if (isSingleFieldRecord(targetType)) {
+                    List<Object> converted = new ArrayList<>(list.size());
+                    for (Object element : list) {
+                        converted.add(constructSingleFieldRecord(targetType, element));
+                    }
+                    return converted;
                 }
-                return converted;
+                if (getConversions().hasCustomReadTarget(firstElement.getClass(), targetType)) {
+                    List<Object> converted = new ArrayList<>(list.size());
+                    for (Object element : list) {
+                        converted.add(getConversionService().convert(element, targetType));
+                    }
+                    return converted;
+                }
             }
         }
 
         return result;
+    }
+
+    @Override
+    @Nullable
+    public Object writeValue(@Nullable Object value, TypeInformation<?> type) {
+        if (value != null && isSingleFieldRecord(value.getClass())) {
+            try {
+                var component = value.getClass().getRecordComponents()[0];
+                Object fieldValue = component.getAccessor().invoke(value);
+                return super.writeValue(fieldValue, TypeInformation.of(component.getType()));
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(
+                        "Cannot extract single-field value from record " + value.getClass() + " during write", e);
+            }
+        }
+        return super.writeValue(value, type);
+    }
+
+    private static boolean isSingleFieldRecord(Class<?> type) {
+        return type.isRecord() && type.getRecordComponents().length == 1;
+    }
+
+    private Object constructSingleFieldRecord(Class<?> targetType, Object rawValue) {
+        var component = targetType.getRecordComponents()[0];
+        Class<?> componentType = component.getType();
+        Object value = rawValue;
+        if (!componentType.isInstance(rawValue)) {
+            try {
+                value = getConversionService().convert(rawValue, componentType);
+            } catch (Exception e) {
+                throw new IllegalStateException(
+                        "Cannot convert " + rawValue.getClass().getName() + " to " + componentType.getName()
+                                + " for single-field record " + targetType, e);
+            }
+        }
+        try {
+            var constructor = targetType.getDeclaredConstructor(componentType);
+            return constructor.newInstance(value);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(
+                    "Cannot construct single-field record " + targetType
+                            + " from value of type " + rawValue.getClass().getName(), e);
+        }
     }
 }

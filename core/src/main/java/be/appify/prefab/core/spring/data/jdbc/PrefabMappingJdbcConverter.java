@@ -1,5 +1,7 @@
 package be.appify.prefab.core.spring.data.jdbc;
 
+import java.sql.JDBCType;
+import java.sql.SQLType;
 import java.util.ArrayList;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
@@ -9,6 +11,9 @@ import org.springframework.data.jdbc.core.convert.JdbcTypeFactory;
 import org.springframework.data.jdbc.core.convert.MappingJdbcConverter;
 import org.springframework.data.jdbc.core.convert.RelationResolver;
 import org.springframework.data.jdbc.core.mapping.JdbcMappingContext;
+import org.springframework.data.relational.core.mapping.RelationalPersistentProperty;
+import org.springframework.jdbc.core.SqlTypeValue;
+import org.springframework.jdbc.core.StatementCreatorUtils;
 
 /**
  * Custom {@link MappingJdbcConverter} that provides generic read/write support for single-field Java records and
@@ -48,6 +53,28 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
             JdbcTypeFactory typeFactory
     ) {
         super(context, relationResolver, conversions, typeFactory);
+    }
+
+    @Override
+    public Class<?> getColumnType(RelationalPersistentProperty property) {
+        if (!property.isCollectionLike()) {
+            Class<?> actualType = property.getActualType();
+            if (isSingleFieldRecord(actualType)) {
+                return actualType.getRecordComponents()[0].getType();
+            }
+        }
+        return super.getColumnType(property);
+    }
+
+    @Override
+    public SQLType getTargetSqlType(RelationalPersistentProperty property) {
+        if (!property.isCollectionLike()) {
+            Class<?> actualType = property.getActualType();
+            if (isSingleFieldRecord(actualType)) {
+                return sqlTypeFor(actualType.getRecordComponents()[0].getType());
+            }
+        }
+        return super.getTargetSqlType(property);
     }
 
     @Override
@@ -105,6 +132,25 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
 
     private static boolean isSingleFieldRecord(Class<?> type) {
         return type.isRecord() && type.getRecordComponents().length == 1;
+    }
+
+    /**
+     * Maps a Java type to its corresponding JDBC {@link SQLType}. Uses Spring's {@link StatementCreatorUtils} for
+     * standard type mappings, falling back to {@link JDBCType#OTHER} for unknown types.
+     *
+     * @param javaType
+     *         the Java type to resolve
+     * @return the SQL type for the given Java type
+     */
+    static SQLType sqlTypeFor(Class<?> javaType) {
+        int code = StatementCreatorUtils.javaTypeToSqlParameterType(javaType);
+        if (code != SqlTypeValue.TYPE_UNKNOWN) {
+            try {
+                return JDBCType.valueOf(code);
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        return JDBCType.OTHER;
     }
 
     private Object constructSingleFieldRecord(Class<?> targetType, Object rawValue) {

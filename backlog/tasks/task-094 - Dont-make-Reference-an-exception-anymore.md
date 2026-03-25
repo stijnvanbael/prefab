@@ -1,13 +1,15 @@
 ---
 id: TASK-094
 title: Don't make Reference an exception anymore
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - copilot
 created_date: '2026-03-14 11:53'
-updated_date: '2026-03-18 18:59'
-labels: []
+updated_date: '2026-03-25 17:59'
+labels:
+  - "\U0001F4E6feature"
 dependencies: []
-ordinal: 35000
+ordinal: 3000
 ---
 
 ## Description

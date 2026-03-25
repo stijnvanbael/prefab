@@ -2,13 +2,9 @@ package be.appify.prefab.example.snssqs.message;
 
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.example.snssqs.channel.ChannelClient;
-import be.appify.prefab.example.snssqs.channel.application.CreateChannelRequest;
-import be.appify.prefab.example.snssqs.message.application.CreateMessageRequest;
 import be.appify.prefab.example.snssqs.user.UnreadMessage;
 import be.appify.prefab.example.snssqs.user.UserClient;
 import be.appify.prefab.example.snssqs.user.UserStatusClient;
-import be.appify.prefab.example.snssqs.user.application.CreateUserRequest;
-import be.appify.prefab.example.snssqs.user.application.UserSubscribeToChannelRequest;
 import be.appify.prefab.example.snssqs.user.infrastructure.http.UserStatusResponse;
 import be.appify.prefab.test.IntegrationTest;
 import java.util.List;
@@ -34,14 +30,14 @@ class MessageIntegrationTest {
 
     @Test
     void addMessageToUnreadMessagesOnAllUsersInChannel() throws Exception {
-        var channelId = channels.createChannel(new CreateChannelRequest("general"));
-        var johnId = users.createUser(new CreateUserRequest("John"));
-        var janeId = users.createUser(new CreateUserRequest("Jane"));
-        var daveId = users.createUser(new CreateUserRequest("Dave"));
-        users.subscribeToChannel(johnId, new UserSubscribeToChannelRequest(channelId));
-        users.subscribeToChannel(janeId, new UserSubscribeToChannelRequest(channelId));
+        var channelId = channels.createChannel("general");
+        var johnId = users.createUser("John");
+        var janeId = users.createUser("Jane");
+        var daveId = users.createUser("Dave");
+        users.subscribeToChannel(johnId, channelId);
+        users.subscribeToChannel(janeId, channelId);
 
-        var messageId = messages.createMessage(new CreateMessageRequest(johnId, channelId, "Hello, World!"));
+        var messageId = messages.createMessage(johnId, channelId, "Hello, World!");
 
         await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
                 assertThat(userStatuses.findUserStatuses(Pageable.unpaged()).getContent())

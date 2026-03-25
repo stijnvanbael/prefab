@@ -1,7 +1,6 @@
 package be.appify.prefab.example.kafka.user;
 
 import be.appify.prefab.core.service.Reference;
-import be.appify.prefab.example.kafka.user.application.CreateUserRequest;
 import be.appify.prefab.test.IntegrationTest;
 import be.appify.prefab.test.kafka.TestConsumer;
 import be.appify.prefab.test.kafka.asserts.KafkaAssertions;
@@ -22,7 +21,7 @@ class UserIntegrationTest {
 
     @Test
     void createUser() throws Exception {
-        var userId = userClient.createUser(new CreateUserRequest("Alice"));
+        var userId = userClient.createUser("Alice");
 
         KafkaAssertions.assertThat(userConsumer).hasReceivedValueSatisfying(UserEvent.Created.class, userEvent -> {
             assertThat(userEvent.reference()).isNotNull();

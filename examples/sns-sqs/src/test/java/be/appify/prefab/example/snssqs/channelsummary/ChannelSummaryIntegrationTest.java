@@ -1,12 +1,8 @@
 package be.appify.prefab.example.snssqs.channelsummary;
 
 import be.appify.prefab.example.snssqs.channel.ChannelClient;
-import be.appify.prefab.example.snssqs.channel.application.CreateChannelRequest;
 import be.appify.prefab.example.snssqs.message.MessageClient;
-import be.appify.prefab.example.snssqs.message.application.CreateMessageRequest;
 import be.appify.prefab.example.snssqs.user.UserClient;
-import be.appify.prefab.example.snssqs.user.application.CreateUserRequest;
-import be.appify.prefab.example.snssqs.user.application.UserSubscribeToChannelRequest;
 import be.appify.prefab.test.IntegrationTest;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
@@ -30,16 +26,16 @@ class ChannelSummaryIntegrationTest {
 
     @Test
     void updateChannelSummaryTotals() throws Exception {
-        var channelId = channels.createChannel(new CreateChannelRequest("general"));
-        var johnId = users.createUser(new CreateUserRequest("John"));
-        var janeId = users.createUser(new CreateUserRequest("Jane"));
-        var daveId = users.createUser(new CreateUserRequest("Dave"));
-        users.subscribeToChannel(johnId, new UserSubscribeToChannelRequest(channelId));
-        users.subscribeToChannel(janeId, new UserSubscribeToChannelRequest(channelId));
-        users.subscribeToChannel(daveId, new UserSubscribeToChannelRequest(channelId));
+        var channelId = channels.createChannel("general");
+        var johnId = users.createUser("John");
+        var janeId = users.createUser("Jane");
+        var daveId = users.createUser("Dave");
+        users.subscribeToChannel(johnId, channelId);
+        users.subscribeToChannel(janeId, channelId);
+        users.subscribeToChannel(daveId, channelId);
 
-        messages.createMessage(new CreateMessageRequest(johnId, channelId, "Hello, World!"));
-        messages.createMessage(new CreateMessageRequest(janeId, channelId, "Hello, John!"));
+        messages.createMessage(johnId, channelId, "Hello, World!");
+        messages.createMessage(janeId, channelId, "Hello, John!");
 
         await().atMost(15, TimeUnit.SECONDS).untilAsserted(() ->
                 assertThat(channelSummaries.findChannelSummaries(Pageable.unpaged(), "general"))

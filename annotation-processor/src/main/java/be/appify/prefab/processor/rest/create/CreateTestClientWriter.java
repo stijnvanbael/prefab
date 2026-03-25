@@ -22,6 +22,7 @@ import static be.appify.prefab.processor.TestClasses.MOCK_MVC_REQUEST_BUILDERS;
 import static be.appify.prefab.processor.TestClasses.MOCK_MVC_RESULT_MATCHERS;
 import static be.appify.prefab.processor.TestClasses.MOCK_PART;
 import static be.appify.prefab.processor.TestClasses.TEST_UTIL;
+import static org.apache.commons.lang3.StringUtils.capitalize;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 class CreateTestClientWriter {
@@ -32,45 +33,52 @@ class CreateTestClientWriter {
     }
 
     List<MethodSpec> createMethods(ClassManifest manifest, ExecutableElement constructor) {
-        return List.of(createMethod(manifest, constructor), whenVariant(manifest, constructor),
-                givenVariant(manifest, constructor));
+        var individualParams = getIndividualParams(constructor);
+        return List.of(createMethod(manifest, constructor, individualParams),
+                whenVariant(manifest, constructor, individualParams),
+                givenVariant(manifest, constructor, individualParams));
     }
 
-    private MethodSpec whenVariant(ClassManifest manifest, ExecutableElement constructor) {
-        return variant(manifest, constructor, "whenCreating" + manifest.simpleName());
+    private List<ParameterSpec> getIndividualParams(ExecutableElement constructor) {
+        return constructor.getParameters().stream()
+                .map(param -> VariableManifest.of(param, context.processingEnvironment()))
+                .flatMap(param -> context.requestParameterBuilder().buildBodyParameter(param).stream())
+                .toList();
     }
 
-    private MethodSpec givenVariant(ClassManifest manifest, ExecutableElement constructor) {
-        return variant(manifest, constructor, "given" + manifest.simpleName() + "Created");
+    private MethodSpec whenVariant(ClassManifest manifest, ExecutableElement constructor, List<ParameterSpec> individualParams) {
+        return variant(manifest, constructor, "whenCreating" + manifest.simpleName(), individualParams);
     }
 
-    private static MethodSpec variant(ClassManifest manifest, ExecutableElement constructor, String methodName) {
+    private MethodSpec givenVariant(ClassManifest manifest, ExecutableElement constructor, List<ParameterSpec> individualParams) {
+        return variant(manifest, constructor, "given" + manifest.simpleName() + "Created", individualParams);
+    }
+
+    private static MethodSpec variant(ClassManifest manifest, ExecutableElement constructor, String methodName, List<ParameterSpec> individualParams) {
         var method = MethodSpec.methodBuilder(methodName)
                 .addModifiers(Modifier.PUBLIC)
                 .returns(String.class);
         if (!constructor.getParameters().isEmpty()) {
-            method.addParameter(
-                    ClassName.get(manifest.packageName() + ".application",
-                            "Create%sRequest".formatted(manifest.simpleName())),
-                    uncapitalize(manifest.simpleName())
-            );
+            method.addParameters(individualParams);
         }
         return method
-
                 .addException(Exception.class)
                 .addStatement("return create$L($L)", manifest.simpleName(),
-                        !constructor.getParameters().isEmpty() ? uncapitalize(manifest.simpleName()) : "")
+                        !constructor.getParameters().isEmpty()
+                                ? individualParams.stream().map(ParameterSpec::name).collect(Collectors.joining(", "))
+                                : "")
                 .build();
     }
 
     private MethodSpec createMethod(
             ClassManifest manifest,
-            ExecutableElement constructor
+            ExecutableElement constructor,
+            List<ParameterSpec> individualParams
     ) {
         var create = Objects.requireNonNull(constructor.getAnnotation(Create.class));
         var createRequest = uncapitalize(manifest.simpleName());
         var pathVariables = manifest.parent().stream()
-                .map(parent -> "%s.%s()".formatted(createRequest, parent.name()))
+                .map(VariableManifest::name)
                 .collect(Collectors.joining(", "));
         var bodyType = ClassName.get(manifest.packageName() + ".application",
                 "Create%sRequest".formatted(manifest.simpleName()));
@@ -83,16 +91,18 @@ class CreateTestClientWriter {
         var method = MethodSpec.methodBuilder("create" + manifest.simpleName())
                 .addModifiers(Modifier.PUBLIC)
                 .returns(String.class);
-        if (!constructor.getParameters().isEmpty()) {
-            method.addParameter(bodyType, createRequest);
-        }
+        method.addParameters(individualParams);
         method.addException(Exception.class);
         if (constructor.getParameters().isEmpty()) {
             return withoutRequestBody(manifest, method, create, pathVariables);
-        } else if (requestParts.size() == 1) {
-            return withRequestBody(manifest, method, create, pathVariables, createRequest);
         } else {
-            return withMultipart(manifest, method, create, pathVariables, createRequest, requestParts);
+            method.addStatement("var $L = new $T($L)", createRequest, bodyType,
+                    individualParams.stream().map(ParameterSpec::name).collect(Collectors.joining(", ")));
+            if (requestParts.size() == 1) {
+                return withRequestBody(manifest, method, create, pathVariables, createRequest);
+            } else {
+                return withMultipart(manifest, method, create, pathVariables, createRequest, requestParts);
+            }
         }
     }
 
@@ -142,7 +152,7 @@ class CreateTestClientWriter {
     ) {
         requestParts.forEach(part -> {
             if (part.type().equals(ClassName.get(MultipartFile.class))) {
-                method.addStatement("var $L = $T.mockMultipartFile($L.$L())",
+                method.addStatement("var $LMock = $T.mockMultipartFile($L.$L())",
                         part.name(),
                         TEST_UTIL,
                         createRequest,
@@ -164,7 +174,7 @@ class CreateTestClientWriter {
                         pathVariables(manifest, create, pathVariables),
                         requestParts.stream().map(part -> {
                             if (part.type().equals(ClassName.get(MultipartFile.class))) {
-                                return ".file(%s)".formatted(part.name());
+                                return ".file(%sMock)".formatted(part.name());
                             } else {
                                 return ".part(bodyPart)";
                             }

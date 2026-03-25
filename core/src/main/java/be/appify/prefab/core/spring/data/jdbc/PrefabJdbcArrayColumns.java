@@ -1,6 +1,5 @@
 package be.appify.prefab.core.spring.data.jdbc;
 
-import java.sql.JDBCType;
 import java.sql.SQLType;
 import org.springframework.data.jdbc.core.dialect.JdbcArrayColumns;
 
@@ -9,7 +8,7 @@ import org.springframework.data.jdbc.core.dialect.JdbcArrayColumns;
  * components. A single-value record is a Java record with exactly one component.
  * <p>
  * This allows Spring Data JDBC to properly handle arrays of these types when generating SQL queries and mapping results,
- * storing them as plain {@code VARCHAR} arrays.
+ * using the SQL type appropriate for the record's single component field.
  * </p>
  */
 public class PrefabJdbcArrayColumns implements JdbcArrayColumns {
@@ -33,7 +32,7 @@ public class PrefabJdbcArrayColumns implements JdbcArrayColumns {
     @Override
     public Class<?> getArrayType(Class<?> userType) {
         if (isSingleFieldRecord(userType)) {
-            return String.class;
+            return userType.getRecordComponents()[0].getType();
         }
         return delegate.getArrayType(userType);
     }
@@ -41,7 +40,7 @@ public class PrefabJdbcArrayColumns implements JdbcArrayColumns {
     @Override
     public SQLType getSqlType(Class<?> componentType) {
         if (isSingleFieldRecord(componentType)) {
-            return JDBCType.VARCHAR;
+            return PrefabMappingJdbcConverter.sqlTypeFor(componentType.getRecordComponents()[0].getType());
         }
         return delegate.getSqlType(componentType);
     }

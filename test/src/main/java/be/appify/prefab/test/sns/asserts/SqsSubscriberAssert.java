@@ -82,6 +82,7 @@ public final class SqsSubscriberAssert<V> implements
             } else {
                 Assertions.assertThat(records).isNotEmpty();
             }
+            assertion.accept(Assertions.assertThat(records));
         });
     }
 }

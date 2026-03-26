@@ -86,6 +86,7 @@ public final class KafkaConsumerAssert<K, V> implements
             } else {
                 Assertions.assertThat(allRecords).isNotEmpty();
             }
+            assertion.accept(Assertions.assertThat(allRecords));
         });
     }
 

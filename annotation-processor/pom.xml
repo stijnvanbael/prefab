@@ -6,7 +6,7 @@
     <parent>
         <groupId>be.appify.prefab</groupId>
         <artifactId>prefab-parent</artifactId>
-        <version>0.4.0</version>
+        <version>-SNAPSHOT</version>
     </parent>
 
     <artifactId>prefab-annotation-processor</artifactId>

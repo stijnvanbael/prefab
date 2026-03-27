@@ -4,7 +4,7 @@ title: Support Kafka Streams
 status: To Do
 assignee: []
 created_date: '2026-03-27 11:14'
-updated_date: '2026-03-27 11:14'
+updated_date: '2026-03-27 12:03'
 labels:
   - "\U0001F4E6feature"
 dependencies: []
@@ -14,31 +14,78 @@ ordinal: 14000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Extend Prefab to support Kafka Streams, enabling annotation-driven stream processing in the spirit of the framework.
+Add a high-level, platform-agnostic streaming DSL to Prefab that lets users define real-time stream processing pipelines at a functional level, inspired by the Kafka Streams DSL but not tied to it.
 
-Kafka Streams is a Java client library that turns Kafka topics into real-time processing pipelines: filtering, transforming, joining, aggregating, and materialising domain events into fault-tolerant local state stores. It runs inside the application process — no separate cluster component — and integrates natively with Spring Boot.
+The guiding principle is Prefab's core philosophy: **start high, dive deep when you need to**. The API presents common streaming use-cases (filter, map, join, aggregate, branch, windowed aggregation) as first-class, composable operations. Under the hood the first backend will be Kafka Streams, but the abstraction layer must make it straightforward to add alternative backends (e.g. Project Reactor, Flink) later.
 
-Adding Kafka Streams support would allow Prefab users to define stream processing topologies through annotations — the same way they already define REST endpoints, persistence, and plain Kafka producers/consumers — so all the boilerplate topology and configuration code is generated rather than written by hand.
+A typical pipeline definition should look like this:
 
-The implementation should follow the existing Prefab patterns:
-- A new annotation-processor plugin (`KafkaStreamsPlugin`) discovers annotated processor methods and generates topology builder classes.
-- Runtime support classes live in the `core` module and auto-configure via Spring Boot.
-- The plugin module follows the same structure as the existing `kafka`, `sns-sqs`, and `pubsub` modules.
-- A working `examples/kafka-streams` module demonstrates the feature end-to-end.
+```java
+@Bean
+StreamDefinition<ProcessedOrder> processedOrders(PrefabStreams streams) {
+    return streams
+        .from(OrderPlaced.class)
+        .filter(order -> order.total().amount().compareTo(BigDecimal.ZERO) > 0)
+        .map(order -> new ProcessedOrder(order.orderId(), order.total(), OrderStatus.PENDING))
+        .to(ProcessedOrder.class);
+}
+```
+
+And a more advanced stateful pipeline:
+
+```java
+@Bean
+StreamDefinition<OrderSummary> orderSummaries(PrefabStreams streams) {
+    return streams
+        .from(OrderPlaced.class)
+        .merge(streams.from(OrderShipped.class))
+        .groupBy(OrderId.class, OrderEvent::orderId)
+        .aggregate(
+            OrderSummary::empty,
+            (summary, event) -> switch (event) {
+                case OrderPlaced e  -> summary.withStatus("PLACED").withTotal(e.total());
+                case OrderShipped e -> summary.withStatus("SHIPPED");
+            }
+        )
+        .to(OrderSummary.class);
+}
+```
+
+When the high-level API is not enough, users can escape to the raw backend DSL (e.g. the full Kafka Streams `KStream` API) without leaving the Prefab abstraction:
+
+```java
+@Bean
+StreamDefinition<Alert> fraudAlerts(PrefabStreams streams) {
+    return streams
+        .from(OrderPlaced.class)
+        .withKafkaStreams(kStream ->
+            kStream
+                .groupBy((k, v) -> v.customerId().id())
+                .windowedBy(TimeWindows.ofSizeWithNoGrace(Duration.ofMinutes(5)))
+                .count()
+                .toStream()
+                .filter((k, count) -> count > 10)
+                .map((k, count) -> KeyValue.pair(k.key(), new Alert(k.key(), count)))
+        )
+        .to(Alert.class);
+}
+```
+
+`StreamDefinition` beans are discovered automatically by Spring Boot auto-configuration, which builds and starts the topology. Serialization reuses the existing `DynamicSerializer` / `DynamicDeserializer` infrastructure and `SerializationRegistry`.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Multiple implementation approaches are identified, described, and compared
-- [ ] #2 Approaches are ranked by feasibility, effort, compatibility with the existing Prefab architecture, and value delivered
+- [ ] #1 Multiple implementation approaches for the DSL abstraction layer are identified, described, and compared
+- [ ] #2 Approaches are ranked by feasibility, effort, compatibility with existing Prefab architecture, and value delivered
 - [ ] #3 A preferred approach is selected and documented with rationale
-- [ ] #4 At least one new annotation (e.g. `@StreamProcessor`) is defined in the core module to drive code generation
-- [ ] #5 A `KafkaStreamsPlugin` is added to the `kafka` module (or a new `kafka-streams` module) that generates Kafka Streams topology builder classes from the annotated methods
-- [ ] #6 Core runtime support is added (auto-configuration, topology registration, serializer/deserializer wiring)
-- [ ] #7 Generated topology wires correctly with the existing Kafka infrastructure (`KafkaConfiguration`, `DynamicSerializer`, `DynamicDeserializer`)
-- [ ] #8 Test support is provided (e.g. `TopologyTestDriver`-based assertion helpers in the `test` module)
-- [ ] #9 An `examples/kafka-streams` module demonstrates the feature end-to-end with integration tests
-- [ ] #10 Existing Kafka integration tests continue to pass
+- [ ] #4 A platform-agnostic `PrefabStreams` DSL is implemented in a `streams` module (or as an extension of the `kafka` module) with at least: `from`, `filter`, `map`, `flatMap`, `merge`, `branch`, `groupBy`, `aggregate`, `windowedAggregate`, `join`, and `to` operations
+- [ ] #5 A Kafka Streams backend wires the DSL operations to `KStream` / `KTable` / `KGroupedStream` calls and integrates with `KafkaConfiguration`, `DynamicSerializer`, and `DynamicDeserializer`
+- [ ] #6 An escape-hatch API (e.g. `.withKafkaStreams(Function<KStream<K,V>, KStream<K,V>>)`) allows dropping to the raw Kafka Streams DSL for advanced use cases
+- [ ] #7 `StreamDefinition` beans declared as Spring `@Bean` methods are auto-discovered and started by a `StreamsAutoConfiguration` class
+- [ ] #8 Test support is provided: an in-memory backend (or `TopologyTestDriver`-based helper) allows unit-testing stream pipelines without a running Kafka broker
+- [ ] #9 An `examples/kafka-streams` module demonstrates common patterns (stateless transform, stateful aggregation, join, windowed aggregation, escape-hatch) with integration tests
+- [ ] #10 Existing Kafka producer/consumer integration tests continue to pass
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -51,94 +98,175 @@ The implementation should follow the existing Prefab patterns:
 <!-- SECTION:NOTES:BEGIN -->
 ## Implementation Approach Suggestions
 
-The following approaches are proposed for supporting Kafka Streams in Prefab. They are ordered from most to least aligned with the existing framework design.
+The following approaches are proposed for the platform-agnostic Prefab Streams DSL. They are ordered from most to least recommended alignment with the stated vision.
 
 ---
 
-### Approach 1 — Annotation-Driven Topology Generation (Recommended)
+### Approach 1 — Prefab Streams DSL with Pluggable Backends (Recommended)
 
-**Core idea:** Introduce a `@StreamProcessor` annotation (analogous to `@EventHandler`) placed on service methods. The annotation processor generates a `KafkaStreamsTopologyBuilder` class per aggregate that builds the `Topology` object and registers it with Spring Boot auto-configuration.
+**Core idea:** Define a `PrefabStreams` factory interface and a `StreamBuilder<K, V>` fluent API that is completely decoupled from Kafka. The first (and for now only) concrete backend is a `KafkaStreamsBackend` that translates DSL calls to Kafka Streams `KStream` / `KTable` calls. A `StreamDefinition<V>` is the terminal type that Spring Boot auto-configuration discovers, builds, and starts.
 
-**How it works:**
-1. User annotates a method with `@StreamProcessor(inputTopic = "orders", outputTopic = "processed-orders")`.
-2. `KafkaStreamsPlugin` detects these methods and generates a `${Aggregate}TopologyBuilder` that calls the annotated method inside a `KStream.mapValues()` (or `filter`, `flatMapValues`, etc.) chain.
-3. A generated `KafkaStreamsConfiguration` bean builds and starts one `KafkaStreams` instance per topology.
-4. Serialization reuses `DynamicSerializer` / `DynamicDeserializer` already present in the `core` module.
+**DSL Layer (`core` or `streams` module):**
 
-**Sub-annotations for common operations:**
-- `@StreamFilter` — generates a `KStream.filter()` step from a `Predicate` method.
-- `@StreamJoin` — generates a `KStream.join()` linking two event types by a shared key.
-- `@StreamAggregate` — generates a `KTable` materialised from a `Reducer` or `Aggregator` method.
+```java
+// Entry point — injected as a Spring bean
+public interface PrefabStreams {
+    <V> StreamBuilder<String, V> from(Class<V> eventType);
+}
 
-**Feasibility:** High — fits naturally into the existing plugin model; no changes to the annotation processor core.  
-**Effort:** Medium — one new plugin class, two or three writer classes, a handful of core configuration classes.  
-**Compatibility:** High — parallel to the existing `KafkaPlugin`; does not touch existing Kafka producer/consumer code.  
-**Value:** High — covers the most common Kafka Streams patterns declaratively.
+// Fluent builder
+public interface StreamBuilder<K, V> {
+    StreamBuilder<K, V>              filter(Predicate<V> predicate);
+    <R> StreamBuilder<K, R>          map(Function<V, R> mapper);
+    <R> StreamBuilder<K, R>          flatMap(Function<V, Iterable<R>> mapper);
+    StreamBuilder<K, V>              merge(StreamBuilder<K, V> other);
+    GroupedStreamBuilder<K, V>       groupBy(Function<V, K> keyExtractor);
+    BranchBuilder<K, V>              branch(Predicate<V> predicate);
+    // Kafka Streams escape hatch:
+    <R> StreamBuilder<K, R>          withKafkaStreams(Function<KStream<K,V>, KStream<K,R>> fn);
+    StreamDefinition<V>              to(Class<V> outputType);
+    StreamDefinition<V>              to(String topic);
+}
+
+public interface GroupedStreamBuilder<K, V> {
+    <R> StreamBuilder<K, R> aggregate(Supplier<R> initializer, BiFunction<R, V, R> aggregator);
+    <R> WindowedStreamBuilder<K, V>  windowedBy(Duration windowSize);
+}
+```
+
+**Backend Interface:**
+
+```java
+public interface StreamingBackend {
+    <K, V> NativeStreamBuilder<K, V> buildFrom(String topic, Class<V> type);
+    void start(List<StreamDefinition<?>> definitions);
+    void stop();
+}
+```
+
+**Kafka Streams Backend:**
+
+```java
+public class KafkaStreamsBackend implements StreamingBackend {
+    // translates each DSL call to the equivalent KStream call
+    // builds Topology and starts KafkaStreams instance
+    // uses DynamicSerializer / DynamicDeserializer via Serdes wrappers
+}
+```
+
+**Auto-configuration:**
+
+```java
+@Configuration
+@ConditionalOnClass(KafkaStreams.class)
+public class StreamsAutoConfiguration {
+    @Bean
+    public StreamingBackend kafkaStreamsBackend(...) { ... }
+
+    @Bean
+    public PrefabStreams prefabStreams(StreamingBackend backend) { ... }
+
+    // Discovers all StreamDefinition beans, wires them to the backend
+    @Bean
+    public StreamsLifecycle streamsLifecycle(List<StreamDefinition<?>> definitions, StreamingBackend backend) { ... }
+}
+```
+
+**Feasibility:** High — clean layering; the DSL is pure Java interfaces; Kafka Streams backend is straightforward.  
+**Effort:** Medium-High — design of the fluent API, Kafka Streams backend, auto-configuration, and test support.  
+**Compatibility:** High — adds a new module and core interfaces; does not touch existing `KafkaPlugin`, `KafkaConsumerWriter`, or event annotation infrastructure.  
+**Value:** Very High — platform-agnostic from day one; enables future backend swap with zero user-code changes.
 
 ---
 
-### Approach 2 — CQRS Read-Model Projections via KTable
+### Approach 2 — Thin Wrapper Over Kafka Streams DSL (Kafka-Coupled)
 
-**Core idea:** Introduce a `@Projection` annotation on a domain record. The annotation processor generates a Kafka Streams topology that consumes domain events and materialises them into a `KTable`-backed read model. A generated Spring Data-like repository interface queries the `ReadOnlyKeyValueStore` via Kafka Streams Interactive Queries.
+**Core idea:** Skip the backend abstraction layer and directly expose a thin Spring-friendly wrapper around the Kafka Streams `StreamsBuilder`. Users get a fluent API that mirrors the Kafka Streams DSL closely but with Prefab type registration, serialization, and Spring lifecycle management taken care of.
 
-**How it works:**
-1. User defines `record OrderSummary(OrderId id, String status, Money total) {}` and annotates it with `@Projection(from = {OrderCreated.class, OrderShipped.class})`.
-2. `KafkaStreamsPlugin` generates a topology that folds the listed event types into a `KTable<OrderId, OrderSummary>` using a generated reducer.
-3. A generated `OrderSummaryRepository` exposes `findById()` and `findAll()` backed by `ReadOnlyKeyValueStore`.
-4. Optional: the existing HTTP layer generates read endpoints backed by the projection repository.
+```java
+@Bean
+KafkaStreamDefinition<ProcessedOrder> processedOrders(PrefabKafkaStreams streams) {
+    return streams
+        .from(OrderPlaced.class)                 // wraps StreamsBuilder.stream(topic, consumed)
+        .filter(order -> order.total() != null)   // wraps KStream.filter()
+        .mapValues(order -> new ProcessedOrder(order.orderId()))
+        .toTopic(ProcessedOrder.class);           // wraps KStream.to(topic, produced)
+}
+```
 
-**Feasibility:** Medium — requires new annotation and new code generation path; Interactive Queries add runtime complexity (multi-instance routing).  
-**Effort:** High — annotation processor changes, new repository abstraction, optional HTTP layer integration.  
-**Compatibility:** Medium — read model concept is new to Prefab; may require framework-level extension points.  
-**Value:** Very High — enables CQRS with eventually-consistent read models without a separate database.
+Auto-configuration discovers `KafkaStreamDefinition` beans and registers them with a single `KafkaStreams` instance.
 
----
-
-### Approach 3 — Stateful Process Managers / Sagas via Kafka Streams
-
-**Core idea:** Introduce a `@ProcessManager` annotation on a class that orchestrates a multi-step business process. The annotation processor generates a stateful Kafka Streams topology that correlates multiple event types (stored in a `KTable` or `WindowedStore`) and emits a command or outcome event when the saga reaches a terminal state.
-
-**How it works:**
-1. User defines `@ProcessManager` class with `@On(OrderPlaced.class)` and `@On(PaymentReceived.class)` handler methods.
-2. `KafkaStreamsPlugin` generates a topology with a `KTable` keyed by process ID that accumulates state as events arrive.
-3. When a terminal condition is met (e.g., both events received), the topology emits a `FulfillmentStarted` event to an output topic.
-
-**Feasibility:** Medium — process manager patterns are well-defined; the challenge is generating correct stateful topology code from annotations.  
-**Effort:** Very High — complex code generation, requires careful handling of state store schema and upgrade paths.  
-**Compatibility:** High — complements the existing event-driven model.  
-**Value:** High — eliminates the most complex event-driven boilerplate.
+**Feasibility:** High — the simplest possible implementation; minimal new code.  
+**Effort:** Low — mostly a thin delegate over `StreamsBuilder`; auto-configuration wires everything.  
+**Compatibility:** High — no changes to existing infrastructure.  
+**Value:** Medium — useful but permanently coupled to Kafka Streams; future migration to another backend requires user-code rewrites.
 
 ---
 
-### Approach 4 — Enhanced Kafka Consumers with Windowed Operations
+### Approach 3 — Project Reactor / Reactive Streams Backend
 
-**Core idea:** Replace (or supplement) the existing simple Kafka consumers generated by `KafkaPlugin` with Kafka Streams-based consumers that support time-window aggregations and deduplication. No new annotation is needed; `@EventHandler` gains an optional `window` attribute.
+**Core idea:** Implement the DSL on top of Project Reactor (`Flux` / `Mono`) and reactive Kafka (`reactor-kafka`) instead of Kafka Streams. This gives access to the full reactive operator catalogue (buffer, window, groupBy, scan, merge, zip) while remaining platform-agnostic at the Prefab DSL level. The backend interface from Approach 1 is implemented as a `ReactorKafkaBackend`.
 
-**How it works:**
-1. User adds `@EventHandler(platform = KAFKA, window = @TumblingWindow(size = 1, unit = MINUTES))` to an event handler method.
-2. `KafkaStreamsPlugin` detects the `window` attribute and generates a `KStream.windowedBy(...).aggregate(...)` topology instead of a plain `KafkaListener`.
-3. The window result is forwarded to the handler method as a `List<T>` of accumulated events.
+```java
+// Under the hood:
+// PrefabStreams.from(OrderPlaced.class)
+// → Flux<OrderPlaced> via KafkaReceiver<String, OrderPlaced>
+// → operators map directly to Reactor operators
+// → terminal .to() subscribes and forwards to KafkaSender
+```
 
-**Feasibility:** High — incremental extension of the existing Kafka consumer model.  
-**Effort:** Low-Medium — extends existing `KafkaConsumerWriter` with an optional windowing branch.  
-**Compatibility:** High — non-breaking; plain `@EventHandler` methods are unaffected.  
-**Value:** Medium — solves a real use case (deduplication, micro-batching) with minimal disruption.
+**Feasibility:** Medium — reactive Kafka is mature but reactive stream management (backpressure, offsets, error handling) is more complex than Kafka Streams' built-in exactly-once and fault-tolerance.  
+**Effort:** High — requires reactive Kafka dependency, offset management, and a different threading model.  
+**Compatibility:** High — same `PrefabStreams` interface as Approach 1; users see no difference.  
+**Value:** High — reactive operators are very expressive; fits naturally with reactive Spring WebFlux apps; but higher operational complexity than Kafka Streams for stateful operations.
 
 ---
 
-### Approach 5 — Interactive Queries REST Layer
+### Approach 4 — Annotation Processor Plugin Generating Topology Builder Code
 
-**Core idea:** Generate REST endpoints backed by Kafka Streams Interactive Queries, allowing stateless HTTP clients to query the materialised state of a Kafka Streams application without a separate database.
+**Core idea:** Keep the annotation processor as the primary driver. Introduce `@Stream` annotation on a method whose return type (`StreamDefinition<T>`) describes the output. The annotation processor inspects the method body (using the compiler tree API) and generates a topology class. The user writes a "template" method body that is lifted into a generated class.
 
-**How it works:**
-1. User annotates a `KTable` materialisation (from Approach 1 or 2) with `@QueryableStore`.
-2. `KafkaStreamsPlugin` generates a `GetById` and `GetList` REST controller backed by `ReadOnlyKeyValueStore` rather than a JPA/JDBC repository.
-3. For clustered deployments, generated code includes a `KafkaStreams.metadataForKey()` redirect to the correct instance.
+```java
+// User code:
+@Stream
+public StreamDefinition<ProcessedOrder> processedOrders(OrderPlaced order) {
+    return StreamDsl.filter(order.total().amount() > 0)
+                   .map(o -> new ProcessedOrder(o.orderId(), o.total()));
+}
 
-**Feasibility:** Low-Medium — standalone REST layer over Interactive Queries requires multi-instance routing and host discovery.  
-**Effort:** High — requires integration with the HTTP layer and network-level coordination.  
-**Compatibility:** Medium — the HTTP layer currently assumes a Spring Data repository; plugging in a store requires new abstractions.  
-**Value:** High — enables zero-database read queries in event-sourced systems; best combined with Approach 2.
+// Generated (by KafkaStreamsPlugin):
+public class ProcessedOrderTopologyBuilder {
+    public void addTo(StreamsBuilder builder) {
+        builder.stream("order-placed", ...)
+               .filter((k, v) -> v.total().amount() > 0)
+               .mapValues(v -> new ProcessedOrder(v.orderId(), v.total()))
+               .to("processed-orders", ...);
+    }
+}
+```
+
+**Feasibility:** Low — reading and transforming method bodies via the compiler tree API is fragile and complex; not a pattern used elsewhere in Prefab.  
+**Effort:** Very High — requires deep annotation processor changes; compiler tree API is notoriously difficult to use correctly across JDK versions.  
+**Compatibility:** Low — significantly increases annotation processor complexity.  
+**Value:** High if it works — but the fragility makes this approach risky.
+
+---
+
+### Approach 5 — Prefab Streams DSL with Spring Integration Backend
+
+**Core idea:** Implement the DSL backend using Spring Integration's `MessageChannel` and `IntegrationFlow` abstractions instead of Kafka Streams. Spring Integration already provides channel adapters for Kafka, making it possible to define the same filter/map/aggregate operations without depending on Kafka Streams at all.
+
+```java
+// PrefabStreams.from(OrderPlaced.class)
+// → KafkaMessageDrivenChannelAdapter
+// → IntegrationFlowBuilder.filter(...).transform(...).handle(...)
+// → KafkaProducerMessageHandler for output
+```
+
+**Feasibility:** Medium — Spring Integration Kafka adapters are mature; `IntegrationFlow` supports most DSL operations.  
+**Effort:** High — new dependency; Spring Integration has its own learning curve; stateful operations (aggregation, windowing) are less elegant than Kafka Streams.  
+**Compatibility:** High — Spring Integration is a Spring project; fits well with Spring Boot.  
+**Value:** Medium — works well for stateless pipelines; stateful operations are verbose; no native exactly-once support.
 
 ---
 
@@ -146,11 +274,11 @@ The following approaches are proposed for supporting Kafka Streams in Prefab. Th
 
 | Approach | Feasibility | Effort | Compatibility | Value |
 |---|---|---|---|---|
-| 1 — Annotation-Driven Topology | High | Medium | High | High |
-| 2 — CQRS Projections via KTable | Medium | High | Medium | Very High |
-| 3 — Process Managers / Sagas | Medium | Very High | High | High |
-| 4 — Windowed Event Consumers | High | Low-Medium | High | Medium |
-| 5 — Interactive Queries REST | Low-Medium | High | Medium | High |
+| 1 — Prefab DSL + Pluggable Backends | High | Medium-High | High | Very High |
+| 2 — Thin Kafka Streams Wrapper | High | Low | High | Medium |
+| 3 — Project Reactor Backend | Medium | High | High | High |
+| 4 — Annotation Processor Code Generation | Low | Very High | Low | High (if it works) |
+| 5 — Spring Integration Backend | Medium | High | High | Medium |
 
-**Recommended starting point:** Approach 1, delivering core annotation-driven topology generation. Approaches 2 and 4 can be implemented as follow-up tasks once the base infrastructure is in place.
+**Recommended starting point:** Approach 1 — design the `PrefabStreams` DSL interfaces and implement the Kafka Streams backend. The clean separation means Approach 3 (Reactor) can be added as an alternative backend later without changing user code. Approach 2 is a valid quick-win if platform-agnosticism is not an immediate priority.
 <!-- SECTION:NOTES:END -->

@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestPart;
 
 import java.util.stream.Collectors;
 
+import static be.appify.prefab.processor.rest.ControllerUtil.operationAnnotation;
+import static be.appify.prefab.processor.rest.ControllerUtil.pathParameterAnnotation;
 import static be.appify.prefab.processor.rest.ControllerUtil.requestMapping;
 import static be.appify.prefab.processor.rest.ControllerUtil.responseType;
 import static be.appify.prefab.processor.rest.ControllerUtil.securedAnnotation;
@@ -27,13 +29,15 @@ class UpdateControllerWriter {
         var requestParts = update.parameters().stream()
                 .flatMap(parameter -> context.requestParameterBuilder().buildMethodParameter(parameter).stream())
                 .toList();
+        var idParameter = ParameterSpec.builder(String.class, "id")
+                .addAnnotation(PathVariable.class);
+        pathParameterAnnotation("The " + manifest.simpleName() + " ID").ifPresent(idParameter::addAnnotation);
         var method = MethodSpec.methodBuilder(update.operationName())
                 .addModifiers(PUBLIC)
                 .addAnnotation(requestMapping(update.method(), "/{id}" + update.path(), requestParts))
                 .returns(ParameterizedTypeName.get(ClassName.get(ResponseEntity.class), responseType))
-                .addParameter(ParameterSpec.builder(String.class, "id")
-                        .addAnnotation(PathVariable.class)
-                        .build());
+                .addParameter(idParameter.build());
+        operationAnnotation(capitalize(update.operationName()) + " " + manifest.simpleName()).ifPresent(method::addAnnotation);
         securedAnnotation(update.security()).ifPresent(method::addAnnotation);
         if (update.parameters().isEmpty()) {
             method.addStatement("return toResponse(service.$N(id))", update.operationName());

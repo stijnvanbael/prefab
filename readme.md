@@ -444,6 +444,44 @@ public record Sale(
 }
 ```
 
+### 📄 OpenAPI Documentation
+
+Add the `prefab-openapi` dependency to your `pom.xml` to enable OpenAPI documentation for your generated REST endpoints.
+
+```xml
+<dependency>
+    <groupId>be.appify.prefab</groupId>
+    <artifactId>prefab-openapi</artifactId>
+</dependency>
+```
+
+This will:
+- Automatically generate OpenAPI annotations (`@Tag`, `@Operation`, `@Parameter`) on all generated REST controllers.
+- Expose a Swagger UI at `/swagger-ui.html`.
+- Expose the OpenAPI specification at `/v3/api-docs`.
+
+You can customize the default API metadata in your `application.yml`:
+
+```yaml
+prefab:
+  openapi:
+    title: My API
+    description: API documentation for my application
+    version: 1.0.0
+```
+
+To define a custom `OpenAPI` bean instead of the default, simply declare one in your Spring configuration:
+
+```java
+@Bean
+public OpenAPI customOpenAPI() {
+    return new OpenAPI()
+            .info(new Info()
+                    .title("My Custom API")
+                    .version("2.0.0"));
+}
+```
+
 ### 🔥 Events
 
 Make sure you specify the spring application name in application.yml so the events are namespaced correctly.

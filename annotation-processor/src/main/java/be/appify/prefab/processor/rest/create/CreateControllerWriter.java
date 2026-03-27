@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestPart;
 
 import static be.appify.prefab.processor.CaseUtil.toKebabCase;
+import static be.appify.prefab.processor.rest.ControllerUtil.operationAnnotation;
 import static be.appify.prefab.processor.rest.ControllerUtil.requestMapping;
 import static be.appify.prefab.processor.rest.ControllerUtil.securedAnnotation;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -41,6 +42,7 @@ class CreateControllerWriter {
                 .addModifiers(PUBLIC)
                 .addAnnotation(requestMapping(create.method(), create.path(), requestParts))
                 .returns(ParameterizedTypeName.get(ResponseEntity.class, Void.class));
+        operationAnnotation("Create a new " + manifest.simpleName()).ifPresent(method::addAnnotation);
         securedAnnotation(create.security()).ifPresent(method::addAnnotation);
         if (constructor.getParameters().isEmpty()) {
             method.addStatement("var id = service.create()");

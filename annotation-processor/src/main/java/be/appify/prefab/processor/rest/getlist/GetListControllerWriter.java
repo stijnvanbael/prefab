@@ -18,6 +18,8 @@ import java.util.List;
 import static be.appify.prefab.processor.rest.ControllerUtil.requestMapping;
 import static be.appify.prefab.processor.rest.ControllerUtil.responseType;
 import static be.appify.prefab.processor.rest.ControllerUtil.securedAnnotation;
+import static be.appify.prefab.processor.rest.OpenApiUtil.apiResponseAnnotation;
+import static be.appify.prefab.processor.rest.OpenApiUtil.operationAnnotation;
 import static be.appify.prefab.processor.rest.getlist.GetListUtil.filterPropertiesOf;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static org.apache.commons.text.WordUtils.uncapitalize;
@@ -37,6 +39,8 @@ class GetListControllerWriter {
                                 ClassName.get(PagedModel.class),
                                 responseType)));
         securedAnnotation(getList.security()).ifPresent(method::addAnnotation);
+        operationAnnotation("List %s".formatted(manifest.simpleName())).ifPresent(method::addAnnotation);
+        apiResponseAnnotation("200", "OK").ifPresent(method::addAnnotation);
         manifest.parent().ifPresent(parent -> method.addParameter(parentParameter(parent)));
         var parameters = getListParameters(manifest);
         method.addParameter(Pageable.class, "pageable");

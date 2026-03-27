@@ -1,11 +1,11 @@
 ---
 id: TASK-086
 title: Generate schema documentation
-status: In Progress
+status: Done
 assignee:
   - '@agent'
 created_date: '2026-03-27 17:39'
-updated_date: '2026-03-27 17:40'
+updated_date: '2026-03-27 17:49'
 labels:
   - feature
 dependencies: []
@@ -19,10 +19,10 @@ Generate OpenAPI/Swagger documentation annotations in the generated REST control
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Add @Tag annotation to generated controller classes
-- [ ] #2 Add @Operation annotation to each generated controller method (create, getById, getList, update, delete, download)
-- [ ] #3 @ApiResponse annotations are added to each controller method with appropriate response codes
-- [ ] #4 Documentation annotations are only generated when springdoc-openapi is on the classpath
+- [x] #1 Add @Tag annotation to generated controller classes
+- [x] #2 Add @Operation annotation to each generated controller method (create, getById, getList, update, delete, download)
+- [x] #3 @ApiResponse annotations are added to each controller method with appropriate response codes
+- [x] #4 Documentation annotations are only generated when springdoc-openapi is on the classpath
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -38,3 +38,17 @@ Generate OpenAPI/Swagger documentation annotations in the generated REST control
 8. Modify BinaryControllerWriter to add @Operation and @ApiResponse
 9. Build and test
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Added OpenAPI documentation generation to the Prefab annotation processor.
+
+- Added `OpenApiUtil` with static helper methods for `@Tag`, `@Operation`, and `@ApiResponse` annotations
+- Classpath detection ensures annotations are only generated when springdoc-openapi is present (like how `ControllerUtil.SECURITY_INCLUDED` works)
+- Modified `HttpWriter` to add `@Tag` to generated controller classes
+- Modified all 6 controller writers (Create, GetById, GetList, Delete, Update, Binary) to add `@Operation` and `@ApiResponse` annotations
+- `DeleteControllerWriter.deleteMethod()` signature updated to accept `ClassManifest` for the operation summary
+- All 19 existing tests pass
+- Backward compatible: no OpenAPI annotations generated without springdoc on classpath
+<!-- SECTION:NOTES:END -->

@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import static be.appify.prefab.processor.rest.ControllerUtil.requestMapping;
 import static be.appify.prefab.processor.rest.ControllerUtil.responseType;
 import static be.appify.prefab.processor.rest.ControllerUtil.securedAnnotation;
+import static be.appify.prefab.processor.rest.OpenApiUtil.apiResponseAnnotation;
+import static be.appify.prefab.processor.rest.OpenApiUtil.operationAnnotation;
 import static javax.lang.model.element.Modifier.PUBLIC;
 
 class GetByIdControllerWriter {
@@ -20,6 +22,9 @@ class GetByIdControllerWriter {
                 .addModifiers(PUBLIC)
                 .addAnnotation(requestMapping(getById.method(), getById.path()));
         securedAnnotation(getById.security()).ifPresent(method::addAnnotation);
+        operationAnnotation("Get %s by ID".formatted(manifest.simpleName())).ifPresent(method::addAnnotation);
+        apiResponseAnnotation("200", "OK").ifPresent(method::addAnnotation);
+        apiResponseAnnotation("404", "Not found").ifPresent(method::addAnnotation);
         return method
                 .returns(ParameterizedTypeName.get(ClassName.get(ResponseEntity.class),
                         responseType(manifest)))

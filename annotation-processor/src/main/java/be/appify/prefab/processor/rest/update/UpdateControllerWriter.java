@@ -18,6 +18,8 @@ import java.util.stream.Collectors;
 import static be.appify.prefab.processor.rest.ControllerUtil.requestMapping;
 import static be.appify.prefab.processor.rest.ControllerUtil.responseType;
 import static be.appify.prefab.processor.rest.ControllerUtil.securedAnnotation;
+import static be.appify.prefab.processor.rest.OpenApiUtil.apiResponseAnnotation;
+import static be.appify.prefab.processor.rest.OpenApiUtil.operationAnnotation;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static org.apache.commons.text.WordUtils.capitalize;
 
@@ -35,6 +37,9 @@ class UpdateControllerWriter {
                         .addAnnotation(PathVariable.class)
                         .build());
         securedAnnotation(update.security()).ifPresent(method::addAnnotation);
+        operationAnnotation("%s %s".formatted(capitalize(update.operationName()), manifest.simpleName())).ifPresent(method::addAnnotation);
+        apiResponseAnnotation("200", "OK").ifPresent(method::addAnnotation);
+        apiResponseAnnotation("404", "Not found").ifPresent(method::addAnnotation);
         if (update.parameters().isEmpty()) {
             method.addStatement("return toResponse(service.$N(id))", update.operationName());
         } else {

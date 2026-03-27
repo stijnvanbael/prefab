@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import javax.lang.model.element.Modifier;
 
 import static be.appify.prefab.processor.rest.ControllerUtil.securedAnnotation;
+import static be.appify.prefab.processor.rest.OpenApiUtil.apiResponseAnnotation;
+import static be.appify.prefab.processor.rest.OpenApiUtil.operationAnnotation;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 
 class BinaryControllerWriter {
@@ -31,6 +33,9 @@ class BinaryControllerWriter {
                 .addAnnotation(ResponseBody.class);
         var security = field.getAnnotation(Download.class).map(AnnotationManifest::value).orElseThrow().security();
         securedAnnotation(security).ifPresent(method::addAnnotation);
+        operationAnnotation("Download %s".formatted(capitalize(field.name()))).ifPresent(method::addAnnotation);
+        apiResponseAnnotation("200", "OK").ifPresent(method::addAnnotation);
+        apiResponseAnnotation("404", "Not found").ifPresent(method::addAnnotation);
         return method
                 .addParameter(ParameterSpec.builder(String.class, "id")
                         .addAnnotation(PathVariable.class)

@@ -1,0 +1,42 @@
+{
+  "asyncapi": "2.6.0",
+  "info": {
+    "title": "Events",
+    "version": "1.0.0"
+  },
+  "channels": {
+    "avro-event": {
+      "publish": {
+        "message": {
+          "$ref": "#/components/messages/AvroAsyncApiEvent"
+        }
+      }
+    }
+  },
+  "components": {
+    "messages": {
+      "AvroAsyncApiEvent": {
+        "name": "AvroAsyncApiEvent",
+        "contentType": "application/avro",
+        "payload": {
+          "$ref": "#/components/schemas/AvroAsyncApiEvent"
+        }
+      }
+    },
+    "schemas": {
+      "AvroAsyncApiEvent": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      }
+    }
+  }
+}

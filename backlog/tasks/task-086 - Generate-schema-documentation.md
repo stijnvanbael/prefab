@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@agent'
 created_date: '2026-03-27 17:39'
-updated_date: '2026-03-27 20:29'
+updated_date: '2026-03-27 20:42'
 labels:
   - feature
 dependencies: []
@@ -19,15 +19,15 @@ Generate AsyncAPI 2.6.0 schema documentation for all events annotated with @Even
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Add @Tag annotation to generated controller classes
-- [ ] #2 Add @Operation annotation to each generated controller method (create, getById, getList, update, delete, download)
-- [ ] #3 @ApiResponse annotations are added to each controller method with appropriate response codes
-- [ ] #4 Documentation annotations are only generated when springdoc-openapi is on the classpath
-- [ ] #5 AsyncAPI 2.6.0 JSON file generated in META-INF/async-api/asyncapi.json
-- [ ] #6 Each @Event type documented as a channel with its topic
-- [ ] #7 Event fields documented as JSON Schema properties
-- [ ] #8 Sealed interface events documented with oneOf across permitted subtypes
-- [ ] #9 Content type is application/avro for AVRO events, application/json for JSON
+- [x] #1 Add @Tag annotation to generated controller classes
+- [x] #2 Add @Operation annotation to each generated controller method (create, getById, getList, update, delete, download)
+- [x] #3 @ApiResponse annotations are added to each controller method with appropriate response codes
+- [x] #4 Documentation annotations are only generated when springdoc-openapi is on the classpath
+- [x] #5 AsyncAPI 2.6.0 JSON file generated in META-INF/async-api/asyncapi.json
+- [x] #6 Each @Event type documented as a channel with its topic
+- [x] #7 Event fields documented as JSON Schema properties
+- [x] #8 Sealed interface events documented with oneOf across permitted subtypes
+- [x] #9 Content type is application/avro for AVRO events, application/json for JSON
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -47,13 +47,17 @@ Generate AsyncAPI 2.6.0 schema documentation for all events annotated with @Even
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Added OpenAPI documentation generation to the Prefab annotation processor.
+Generated AsyncAPI 2.6.0 documentation for all @Event annotated types.
 
-- Added `OpenApiUtil` with static helper methods for `@Tag`, `@Operation`, and `@ApiResponse` annotations
-- Classpath detection ensures annotations are only generated when springdoc-openapi is present (like how `ControllerUtil.SECURITY_INCLUDED` works)
-- Modified `HttpWriter` to add `@Tag` to generated controller classes
-- Modified all 6 controller writers (Create, GetById, GetList, Delete, Update, Binary) to add `@Operation` and `@ApiResponse` annotations
-- `DeleteControllerWriter.deleteMethod()` signature updated to accept `ClassManifest` for the operation summary
-- All 19 existing tests pass
-- Backward compatible: no OpenAPI annotations generated without springdoc on classpath
+- Added `EventSchemaDocumentationPlugin` (PrefabPlugin) that collects all @Event types
+- Added `EventSchemaDocumentationWriter` that builds an AsyncAPI 2.6.0 JSON document
+- Output: `META-INF/async-api/asyncapi.json` in class output directory
+- Each event topic becomes a channel with a publish operation
+- Sealed interface events use `oneOf` across permitted subtypes
+- AVRO events use `contentType: application/avro`, JSON events use `application/json`
+- Fields mapped to JSON Schema types (string, integer, number, boolean, array, $ref)
+- Object-type fields nullable by default (unless primitive or @NotNull)
+- Registered in META-INF/services as a PrefabPlugin
+- 3 new tests added: simpleJsonEvent, sealedInterfaceEvent, avroEvent
+- All 22 tests pass
 <!-- SECTION:NOTES:END -->

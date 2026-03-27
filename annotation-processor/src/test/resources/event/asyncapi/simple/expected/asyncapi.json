@@ -1,0 +1,45 @@
+{
+  "asyncapi": "2.6.0",
+  "info": {
+    "title": "Events",
+    "version": "1.0.0"
+  },
+  "channels": {
+    "simple-event": {
+      "publish": {
+        "message": {
+          "$ref": "#/components/messages/SimpleAsyncApiEvent"
+        }
+      }
+    }
+  },
+  "components": {
+    "messages": {
+      "SimpleAsyncApiEvent": {
+        "name": "SimpleAsyncApiEvent",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/SimpleAsyncApiEvent"
+        }
+      }
+    },
+    "schemas": {
+      "SimpleAsyncApiEvent": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "age": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

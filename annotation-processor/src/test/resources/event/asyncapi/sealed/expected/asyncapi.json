@@ -1,0 +1,61 @@
+{
+  "asyncapi": "2.6.0",
+  "info": {
+    "title": "Events",
+    "version": "1.0.0"
+  },
+  "channels": {
+    "sealed-events": {
+      "publish": {
+        "message": {
+          "oneOf": [
+            {
+              "$ref": "#/components/messages/SealedAsyncApiEvent_Created"
+            },
+            {
+              "$ref": "#/components/messages/SealedAsyncApiEvent_Updated"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "components": {
+    "messages": {
+      "SealedAsyncApiEvent_Created": {
+        "name": "SealedAsyncApiEvent_Created",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/SealedAsyncApiEvent_Created"
+        }
+      },
+      "SealedAsyncApiEvent_Updated": {
+        "name": "SealedAsyncApiEvent_Updated",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/SealedAsyncApiEvent_Updated"
+        }
+      }
+    },
+    "schemas": {
+      "SealedAsyncApiEvent_Created": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SealedAsyncApiEvent_Updated": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      }
+    }
+  }
+}

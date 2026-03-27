@@ -1,8 +1,6 @@
 package be.appify.prefab.test.persistence;
 
 import org.flywaydb.core.Flyway;
-import org.flywaydb.core.api.CoreErrorCode;
-import org.flywaydb.core.api.FlywayException;
 import org.flywaydb.core.api.MigrationInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,23 +40,14 @@ public class FlywayChecksumMismatchMigrationStrategy {
 
         @Override
         public void migrate(Flyway flyway) {
-            try {
-                flyway.migrate();
-            } catch (FlywayException e) {
-                if (isChecksumMismatchForLastMigration(flyway, e)) {
-                    log.warn("Checksum mismatch detected for last Flyway migration. Dropping schema and retrying...");
-                    flyway.clean();
-                    flyway.migrate();
-                } else {
-                    throw e;
-                }
+            if (hasChecksumMismatchForLastMigration(flyway)) {
+                log.warn("Checksum mismatch detected for last Flyway migration. Dropping schema and retrying...");
+                flyway.clean();
             }
+            flyway.migrate();
         }
 
-        private boolean isChecksumMismatchForLastMigration(Flyway flyway, FlywayException e) {
-            if (e.getErrorCode() != CoreErrorCode.CHECKSUM_MISMATCH) {
-                return false;
-            }
+        private boolean hasChecksumMismatchForLastMigration(Flyway flyway) {
             MigrationInfo[] applied = flyway.info().applied();
             if (applied.length == 0) {
                 return false;

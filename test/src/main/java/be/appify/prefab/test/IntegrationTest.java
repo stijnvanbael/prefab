@@ -1,6 +1,7 @@
 package be.appify.prefab.test;
 
 import be.appify.prefab.test.kafka.KafkaTestAutoConfiguration;
+import be.appify.prefab.test.persistence.FlywayChecksumMismatchMigrationStrategy;
 import be.appify.prefab.test.pubsub.PubSubTestAutoConfiguration;
 import be.appify.prefab.test.sns.SnsTestAutoConfiguration;
 import java.lang.annotation.Documented;
@@ -19,6 +20,9 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * <p>
  * This annotation combines {@link SpringBootTest} and {@link AutoConfigureMockMvc}, and imports test-specific
  * configurations for JSON Kafka consumers, Pub/Sub and SNS/SQS testing. It also activates the "test" profile.
+ * <p>
+ * When Flyway is on the classpath, this annotation also registers a migration strategy that automatically drops the
+ * schema and retries if there is a checksum mismatch for the last applied migration.
  */
 @Documented
 @Target(TYPE)
@@ -26,6 +30,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({ KafkaTestAutoConfiguration.class, PubSubTestAutoConfiguration.class, SnsTestAutoConfiguration.class })
+@Import({ KafkaTestAutoConfiguration.class, PubSubTestAutoConfiguration.class, SnsTestAutoConfiguration.class, FlywayChecksumMismatchMigrationStrategy.class })
 public @interface IntegrationTest {
 }

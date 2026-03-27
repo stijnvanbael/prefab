@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@agent'
 created_date: '2026-03-27 17:39'
-updated_date: '2026-03-27 17:49'
+updated_date: '2026-03-27 20:29'
 labels:
   - feature
 dependencies: []
@@ -14,15 +14,20 @@ dependencies: []
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Generate OpenAPI/Swagger documentation annotations in the generated REST controllers. This includes adding @Tag to controller classes, @Operation to controller methods, and @ApiResponse annotations to describe response codes.
+Generate AsyncAPI 2.6.0 schema documentation for all events annotated with @Event
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 Add @Tag annotation to generated controller classes
-- [x] #2 Add @Operation annotation to each generated controller method (create, getById, getList, update, delete, download)
-- [x] #3 @ApiResponse annotations are added to each controller method with appropriate response codes
-- [x] #4 Documentation annotations are only generated when springdoc-openapi is on the classpath
+- [ ] #1 Add @Tag annotation to generated controller classes
+- [ ] #2 Add @Operation annotation to each generated controller method (create, getById, getList, update, delete, download)
+- [ ] #3 @ApiResponse annotations are added to each controller method with appropriate response codes
+- [ ] #4 Documentation annotations are only generated when springdoc-openapi is on the classpath
+- [ ] #5 AsyncAPI 2.6.0 JSON file generated in META-INF/async-api/asyncapi.json
+- [ ] #6 Each @Event type documented as a channel with its topic
+- [ ] #7 Event fields documented as JSON Schema properties
+- [ ] #8 Sealed interface events documented with oneOf across permitted subtypes
+- [ ] #9 Content type is application/avro for AVRO events, application/json for JSON
 <!-- AC:END -->
 
 ## Implementation Plan

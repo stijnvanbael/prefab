@@ -20,8 +20,6 @@ import org.springframework.web.bind.annotation.RequestPart;
 import static be.appify.prefab.processor.CaseUtil.toKebabCase;
 import static be.appify.prefab.processor.rest.ControllerUtil.requestMapping;
 import static be.appify.prefab.processor.rest.ControllerUtil.securedAnnotation;
-import static be.appify.prefab.processor.rest.OpenApiUtil.apiResponseAnnotation;
-import static be.appify.prefab.processor.rest.OpenApiUtil.operationAnnotation;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static org.apache.commons.text.WordUtils.capitalize;
 import static org.atteo.evo.inflector.English.plural;
@@ -44,9 +42,6 @@ class CreateControllerWriter {
                 .addAnnotation(requestMapping(create.method(), create.path(), requestParts))
                 .returns(ParameterizedTypeName.get(ResponseEntity.class, Void.class));
         securedAnnotation(create.security()).ifPresent(method::addAnnotation);
-        operationAnnotation("Create %s".formatted(manifest.simpleName())).ifPresent(method::addAnnotation);
-        apiResponseAnnotation("201", "Created").ifPresent(method::addAnnotation);
-        apiResponseAnnotation("400", "Bad request").ifPresent(method::addAnnotation);
         if (constructor.getParameters().isEmpty()) {
             method.addStatement("var id = service.create()");
         } else {

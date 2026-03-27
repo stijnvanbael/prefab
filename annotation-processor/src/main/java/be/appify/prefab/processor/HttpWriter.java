@@ -1,7 +1,6 @@
 package be.appify.prefab.processor;
 
 import be.appify.prefab.processor.rest.ControllerUtil;
-import be.appify.prefab.processor.rest.OpenApiUtil;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
@@ -37,14 +36,12 @@ class HttpWriter {
     private void writeController(ClassManifest manifest) {
         var serviceType = ClassName.get("%s.application".formatted(manifest.packageName()),
                 "%sService".formatted(manifest.simpleName()));
-        var typeBuilder = TypeSpec.classBuilder("%sController".formatted(manifest.simpleName()))
+        var type = TypeSpec.classBuilder("%sController".formatted(manifest.simpleName()))
                 .addModifiers(PUBLIC)
                 .addAnnotation(RestController.class)
                 .addAnnotation(AnnotationSpec.builder(RequestMapping.class)
                         .addMember("path", "$S", ControllerUtil.pathOf(manifest))
-                        .build());
-        OpenApiUtil.tagAnnotation(manifest.simpleName()).ifPresent(typeBuilder::addAnnotation);
-        var type = typeBuilder
+                        .build())
                 .addField(serviceType, "service", PRIVATE, FINAL)
                 .addMethod(MethodSpec.constructorBuilder()
                         .addParameter(serviceType, "service")

@@ -31,7 +31,7 @@ public class DeletePlugin implements PrefabPlugin {
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
         var typeDelete = typeDelete(manifest);
         typeDelete.ifPresent(delete ->
-                builder.addMethod(controllerWriter.deleteMethod(manifest, delete)));
+                builder.addMethod(controllerWriter.deleteMethod(delete)));
         var deleteMethod = deleteMethod(manifest, context);
         if (typeDelete.isPresent() && deleteMethod.isPresent()) {
             context.logError("Delete annotation is present on both type and method. Please choose one.",
@@ -39,7 +39,7 @@ public class DeletePlugin implements PrefabPlugin {
         } else {
             deleteMethod.ifPresent(method ->
                     builder.addMethod(controllerWriter.deleteMethod(
-                            manifest, Objects.requireNonNull(method.getAnnotation(Delete.class)))));
+                            Objects.requireNonNull(method.getAnnotation(Delete.class)))));
         }
     }
 

@@ -5,6 +5,7 @@ import org.flywaydb.core.api.MigrationInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.flyway.autoconfigure.FlywayMigrationStrategy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,6 +32,7 @@ public class FlywayChecksumMismatchMigrationStrategy {
      * @return the migration strategy
      */
     @Bean
+    @ConditionalOnProperty(name = "prefab.flyway.auto-clean-on-mismatch", havingValue = "true")
     public FlywayMigrationStrategy flywayMigrationStrategy() {
         return new ChecksumMismatchMigrationStrategy();
     }

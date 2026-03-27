@@ -7,7 +7,9 @@ import java.util.concurrent.TimeUnit;
  *
  * @param <K> the type of the key
  * @param <V> the type of the value
+ * @deprecated Use {@link be.appify.prefab.test.asserts.EventConsumerTimeoutStep} instead.
  */
+@Deprecated
 public interface KafkaConsumerAssertTimeoutStep<K, V> {
     /**
      * Asserts that the consumer has received messages within a specific timeout.

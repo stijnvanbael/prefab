@@ -6,7 +6,9 @@ import java.util.concurrent.TimeUnit;
  * Asserts messages received by the subscriber within a specific timeout.
  *
  * @param <V> the type of messages
+ * @deprecated Use {@link be.appify.prefab.test.asserts.EventConsumerTimeoutStep} instead.
  */
+@Deprecated
 public interface PubSubSubscriberAssertTimeoutStep<V> {
     /**
      * Specifies the timeout within which the messages should have been received.

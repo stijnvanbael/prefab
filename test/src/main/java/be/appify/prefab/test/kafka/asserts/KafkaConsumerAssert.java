@@ -30,7 +30,9 @@ import java.util.stream.StreamSupport;
  *
  * @param <K> the type of the key
  * @param <V> the type of the value
+ * @deprecated Use {@link be.appify.prefab.test.asserts.EventConsumerAssert} instead.
  */
+@Deprecated
 public final class KafkaConsumerAssert<K, V> implements
         KafkaConsumerAssertNumberOfMessagesStep<K, V>,
         KafkaConsumerAssertTimeoutStep<K, V>,

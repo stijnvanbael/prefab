@@ -17,6 +17,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.test.context.TestContext;
 import org.springframework.test.context.support.AbstractTestExecutionListener;
+import org.springframework.util.ClassUtils;
 import org.springframework.util.ReflectionUtils;
 
 /**
@@ -38,8 +39,16 @@ public class TestConsumerExecutionListener extends AbstractTestExecutionListener
     public TestConsumerExecutionListener() {
     }
 
+    private static boolean isKafkaAvailable() {
+        return ClassUtils.isPresent("org.springframework.kafka.core.ConsumerFactory",
+                TestConsumerExecutionListener.class.getClassLoader());
+    }
+
     @Override
     public void prepareTestInstance(TestContext testContext) {
+        if (!isKafkaAvailable()) {
+            return;
+        }
         var testConsumers = Arrays.stream(testContext.getTestClass().getDeclaredFields())
                 .map(field -> new TestConsumerField(field,
                         AnnotationUtils.getAnnotation(field, TestConsumer.class)))
@@ -61,6 +70,9 @@ public class TestConsumerExecutionListener extends AbstractTestExecutionListener
 
     @Override
     public void afterTestClass(TestContext testContext) {
+        if (!isKafkaAvailable()) {
+            return;
+        }
         var testClass = testContext.getTestClass();
         var fields = Arrays.asList(testClass.getDeclaredFields());
 

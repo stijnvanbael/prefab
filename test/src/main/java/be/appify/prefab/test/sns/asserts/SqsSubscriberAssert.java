@@ -24,7 +24,9 @@ import java.util.function.Consumer;
  * </pre>
  *
  * @param <V> the type of messages
+ * @deprecated Use {@link be.appify.prefab.test.asserts.EventConsumerAssert} instead.
  */
+@Deprecated
 public final class SqsSubscriberAssert<V> implements
         SqsAssertNumberOfMessagesStep<V>,
         SqsSubscriberAssertTimeoutStep<V>,

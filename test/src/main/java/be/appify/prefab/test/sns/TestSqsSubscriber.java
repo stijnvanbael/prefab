@@ -16,7 +16,11 @@ import java.lang.annotation.Target;
  * SqsSubscriber<UserEvent> subscriber;
  * }
  * </pre>
+ *
+ * @deprecated Use {@link be.appify.prefab.test.TestEventConsumer} with
+ *             {@link be.appify.prefab.test.EventConsumer} instead.
  */
+@Deprecated
 @Documented
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)

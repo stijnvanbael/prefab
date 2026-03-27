@@ -1,10 +1,10 @@
 package be.appify.prefab.example.pubsub.user;
 
 import be.appify.prefab.core.service.Reference;
+import be.appify.prefab.test.EventConsumer;
 import be.appify.prefab.test.IntegrationTest;
-import be.appify.prefab.test.pubsub.Subscriber;
-import be.appify.prefab.test.pubsub.TestSubscriber;
-import be.appify.prefab.test.pubsub.asserts.PubSubAssertions;
+import be.appify.prefab.test.TestEventConsumer;
+import be.appify.prefab.test.asserts.EventAssertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -16,14 +16,14 @@ class UserIntegrationTest {
     UserClient userClient;
     @Autowired
     UserExporter userExporter;
-    @TestSubscriber(topic = "${topics.user.name}")
-    Subscriber<UserEvent> userSubscriber;
+    @TestEventConsumer(topic = "${topics.user.name}")
+    EventConsumer<UserEvent> userConsumer;
 
     @Test
     void createUser() throws Exception {
         var userId = userClient.createUser("Alice");
 
-        PubSubAssertions.assertThat(userSubscriber).hasReceivedValueSatisfying(UserEvent.Created.class, userEvent -> {
+        EventAssertions.assertThat(userConsumer).hasReceivedValueSatisfying(UserEvent.Created.class, userEvent -> {
             assertThat(userEvent.reference()).isNotNull();
             assertThat(userEvent.name()).isEqualTo("Alice");
         });
@@ -31,3 +31,4 @@ class UserIntegrationTest {
         assertThat(userExporter.exportedUsers()).contains(Reference.fromId(userId));
     }
 }
+

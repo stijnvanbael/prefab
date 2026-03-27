@@ -9,7 +9,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Entry point for PubSub related assertions.
  *
  * @param <V> the type of messages the subscriber receives
+ * @deprecated Use {@link be.appify.prefab.test.asserts.EventConsumerNumberOfMessagesStep} instead.
  */
+@Deprecated
 public interface PubSubAssertNumberOfMessagesStep<V> {
     /**
      * Asserts that the subscriber has received the given number of messages.

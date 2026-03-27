@@ -12,7 +12,9 @@ import java.util.function.Consumer;
  *         the type of the key
  * @param <V>
  *         the type of the value
+ * @deprecated Use {@link be.appify.prefab.test.asserts.EventConsumerWhereStep} instead.
  */
+@Deprecated
 public interface KafkaConsumerAssertWhereStep<K, V> {
     /**
      * Asserts that the consumer has received messages that satisfy the given assertion. The <code>ListAssert</code> in

@@ -5,7 +5,10 @@ import org.assertj.core.api.Assertions;
 
 /**
  * Entry point for SQS related assertions.
+ *
+ * @deprecated Use {@link be.appify.prefab.test.asserts.EventAssertions} instead.
  */
+@Deprecated
 public class SqsAssertions extends Assertions {
 
     private SqsAssertions() {

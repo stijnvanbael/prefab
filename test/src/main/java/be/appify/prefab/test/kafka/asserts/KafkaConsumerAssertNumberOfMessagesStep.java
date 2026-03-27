@@ -10,7 +10,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * @param <K> the type of the key
  * @param <V> the type of the value
+ * @deprecated Use {@link be.appify.prefab.test.asserts.EventConsumerNumberOfMessagesStep} instead.
  */
+@Deprecated
 public interface KafkaConsumerAssertNumberOfMessagesStep<K, V> {
     /**
      * Asserts that the consumer has received at least a specific number of messages.

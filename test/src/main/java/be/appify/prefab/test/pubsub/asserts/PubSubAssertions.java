@@ -5,7 +5,10 @@ import org.assertj.core.api.Assertions;
 
 /**
  * Entry point for PubSub related assertions.
+ *
+ * @deprecated Use {@link be.appify.prefab.test.asserts.EventAssertions} instead.
  */
+@Deprecated
 public class PubSubAssertions extends Assertions {
 
     private PubSubAssertions() {

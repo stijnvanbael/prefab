@@ -7,7 +7,9 @@ import java.util.List;
  *
  * @param <T> the type of messages
  * @param messages the list of collected messages
+ * @deprecated Use {@link be.appify.prefab.test.EventConsumer} instead.
  */
+@Deprecated
 public record Subscriber<T>(List<T> messages) {
     /**
      * Resets the subscriber by clearing all collected messages.

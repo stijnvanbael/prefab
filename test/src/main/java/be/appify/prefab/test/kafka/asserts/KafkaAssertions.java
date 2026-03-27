@@ -5,7 +5,10 @@ import org.assertj.core.api.Assertions;
 
 /**
  * Entry point for Kafka assertions.
+ *
+ * @deprecated Use {@link be.appify.prefab.test.asserts.EventAssertions} instead.
  */
+@Deprecated
 public class KafkaAssertions extends Assertions {
 
     private KafkaAssertions() {

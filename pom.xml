@@ -27,7 +27,6 @@
         <module>pubsub</module>
         <module>sns-sqs</module>
         <module>security</module>
-        <module>openapi</module>
     </modules>
 
     <properties>
@@ -86,11 +85,6 @@
             <dependency>
                 <groupId>be.appify.prefab</groupId>
                 <artifactId>prefab-security</artifactId>
-                <version>${prefab.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>be.appify.prefab</groupId>
-                <artifactId>prefab-openapi</artifactId>
                 <version>${prefab.version}</version>
             </dependency>
         </dependencies>

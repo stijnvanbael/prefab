@@ -1,4 +1,4 @@
-package be.appify.prefab.openapi;
+package be.appify.prefab.core.spring;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

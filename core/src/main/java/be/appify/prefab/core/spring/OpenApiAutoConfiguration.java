@@ -1,4 +1,4 @@
-package be.appify.prefab.openapi;
+package be.appify.prefab.core.spring;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -13,7 +13,9 @@ import org.springframework.context.annotation.Bean;
  */
 @AutoConfiguration
 @EnableConfigurationProperties(OpenApiProperties.class)
-public class OpenApiAutoConfiguration {    /**
+public class OpenApiAutoConfiguration {
+
+    /**
      * Creates a default {@link OpenAPI} bean configured with application properties.
      *
      * @param properties

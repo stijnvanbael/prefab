@@ -446,14 +446,7 @@ public record Sale(
 
 ### 📄 OpenAPI Documentation
 
-Add the `prefab-openapi` dependency to your `pom.xml` to enable OpenAPI documentation for your generated REST endpoints.
-
-```xml
-<dependency>
-    <groupId>be.appify.prefab</groupId>
-    <artifactId>prefab-openapi</artifactId>
-</dependency>
-```
+OpenAPI documentation is included in `prefab-core`. All generated REST controllers automatically include OpenAPI annotations (`@Tag`, `@Operation`, `@Parameter`).
 
 This will:
 - Automatically generate OpenAPI annotations (`@Tag`, `@Operation`, `@Parameter`) on all generated REST controllers.

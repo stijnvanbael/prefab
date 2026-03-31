@@ -20,7 +20,7 @@ public class DerivedSqlIdentifier implements SqlIdentifier {
 
     DerivedSqlIdentifier(String name, boolean quoted) {
 
-        Assert.hasText(name, "A database object must have at least on name part.");
+        Assert.hasText(name, "A database object must have at least one name part.");
 
         this.name = name;
         this.quoted = quoted;

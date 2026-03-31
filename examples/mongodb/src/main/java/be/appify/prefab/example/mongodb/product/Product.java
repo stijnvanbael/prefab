@@ -28,7 +28,7 @@ public record Product(
     }
 
     /** Returns an updated product with the new name and description. */
-    @Update
+    @Update(path = "")
     public Product update(String name, String description) {
         return new Product(id, version, name, description);
     }

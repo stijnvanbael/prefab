@@ -1,6 +1,7 @@
 package be.appify.prefab.example.mongodb.product;
 
 import be.appify.prefab.example.mongodb.MongoDbContainerConfiguration;
+import be.appify.prefab.example.mongodb.product.infrastructure.http.ProductResponse;
 import be.appify.prefab.test.IntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +17,7 @@ class ProductIntegrationTest {
     ProductClient products;
 
     @Test
-    void createAndRetrieveProduct() {
+    void createAndRetrieveProduct() throws Exception {
         var productId = products.createProduct("Widget", "A useful widget");
 
         var product = products.getProductById(productId);
@@ -27,12 +28,12 @@ class ProductIntegrationTest {
     }
 
     @Test
-    void listProducts() {
+    void listProducts() throws Exception {
         products.createProduct("Alpha", "First product");
         products.createProduct("Beta", "Second product");
 
-        var page = products.getProducts();
+        var page = products.findProducts(null);
 
-        assertThat(page.content()).extracting(Product::name).contains("Alpha", "Beta");
+        assertThat(page.content()).extracting(ProductResponse::name).contains("Alpha", "Beta");
     }
 }

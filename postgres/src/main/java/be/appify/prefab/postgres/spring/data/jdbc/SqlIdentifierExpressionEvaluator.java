@@ -87,7 +87,7 @@ public class SqlIdentifierExpressionEvaluator {
      * provided environment must not be null, and an IllegalArgumentException will be thrown if a null environment is passed.
      *
      * @param environment
-     *         he Environment to use for evaluating expressions. Must not be null.
+     *         the Environment to use for evaluating expressions. Must not be null.
      */
     public void setEnvironment(Environment environment) {
         Assert.notNull(environment, "Environment must not be null");

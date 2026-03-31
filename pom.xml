@@ -19,10 +19,13 @@
         <module>core</module>
         <module>annotation-processor</module>
         <module>test</module>
+        <module>postgres</module>
+        <module>mongodb</module>
         <module>examples/avro</module>
         <module>examples/kafka</module>
         <module>examples/pubsub</module>
         <module>examples/sns-sqs</module>
+        <module>examples/mongodb</module>
         <module>kafka</module>
         <module>pubsub</module>
         <module>sns-sqs</module>
@@ -57,6 +60,16 @@
             <dependency>
                 <groupId>be.appify.prefab</groupId>
                 <artifactId>prefab-core</artifactId>
+                <version>${prefab.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>be.appify.prefab</groupId>
+                <artifactId>prefab-postgres</artifactId>
+                <version>${prefab.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>be.appify.prefab</groupId>
+                <artifactId>prefab-mongodb</artifactId>
                 <version>${prefab.version}</version>
             </dependency>
             <dependency>

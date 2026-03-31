@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: prefab.mongodb-example
+
+error.handling:
+  exception-logging: WITH_STACKTRACE

@@ -10,8 +10,8 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>avro-example</artifactId>
-    <name>Prefab Avro Example</name>
+    <artifactId>mongodb-example</artifactId>
+    <name>Prefab MongoDB Example</name>
 
     <dependencies>
         <dependency>
@@ -20,15 +20,7 @@
         </dependency>
         <dependency>
             <groupId>be.appify.prefab</groupId>
-            <artifactId>prefab-openapi</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>be.appify.prefab</groupId>
-            <artifactId>prefab-postgres</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>be.appify.prefab</groupId>
-            <artifactId>prefab-kafka</artifactId>
+            <artifactId>prefab-mongodb</artifactId>
         </dependency>
         <dependency>
             <groupId>be.appify.prefab</groupId>

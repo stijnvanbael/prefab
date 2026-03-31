@@ -67,9 +67,7 @@ public class KafkaTestAutoConfiguration {
     @ServiceConnection
     KafkaContainer kafkaContainer(Network kafkaNetwork) {
         return new KafkaContainer("apache/kafka-native:4.1.1")
-                .withCreateContainerCmdModifier(cmd -> cmd.withName("prefab-test-kafka"))
                 .withNetwork(kafkaNetwork)
-                .withReuse(true)
                 .withExposedPorts(9092, 9093, 9095)
                 .withListener("kafka:9095");
     }
@@ -77,8 +75,6 @@ public class KafkaTestAutoConfiguration {
     @Bean
     GenericContainer<?> kafkaSchemaRegistryContainer(KafkaContainer kafkaContainer, Network kafkaNetwork) {
         return new GenericContainer<>("confluentinc/cp-schema-registry:8.0.3")
-                .withCreateContainerCmdModifier(cmd -> cmd.withName("prefab-test-schema-registry"))
-                .withReuse(true)
                 .withExposedPorts(8081)
                 .withNetwork(kafkaNetwork)
                 .dependsOn(kafkaContainer)

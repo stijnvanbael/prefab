@@ -20,6 +20,10 @@
         </dependency>
         <dependency>
             <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-openapi</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
             <artifactId>prefab-kafka</artifactId>
         </dependency>
         <dependency>

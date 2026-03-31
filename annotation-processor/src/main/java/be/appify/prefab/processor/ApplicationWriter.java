@@ -13,7 +13,6 @@ import javax.lang.model.element.Modifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import static org.apache.commons.text.WordUtils.uncapitalize;
 
@@ -35,7 +34,7 @@ class ApplicationWriter {
         var type = TypeSpec.classBuilder(serviceName)
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(ClassName.get(Component.class))
-                .addAnnotation(ClassName.get(Transactional.class))
+                .addAnnotation(ClassName.get("org.springframework.transaction.annotation", "Transactional"))
                 .addField(FieldSpec.builder(Logger.class, "log", Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
                         .initializer("$T.getLogger($T.class)", ClassName.get(LoggerFactory.class),
                                 ClassName.get(manifest.packageName() + ".application", serviceName))

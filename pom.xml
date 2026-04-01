@@ -26,6 +26,7 @@
         <module>kafka</module>
         <module>pubsub</module>
         <module>sns-sqs</module>
+        <module>async-api</module>
         <module>security</module>
         <module>openapi</module>
     </modules>
@@ -71,6 +72,11 @@
             <dependency>
                 <groupId>be.appify.prefab</groupId>
                 <artifactId>prefab-sns-sqs</artifactId>
+                <version>${prefab.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>be.appify.prefab</groupId>
+                <artifactId>prefab-async-api</artifactId>
                 <version>${prefab.version}</version>
             </dependency>
             <dependency>

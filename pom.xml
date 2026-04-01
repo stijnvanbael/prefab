@@ -27,6 +27,7 @@
         <module>pubsub</module>
         <module>sns-sqs</module>
         <module>security</module>
+        <module>openapi</module>
     </modules>
 
     <properties>
@@ -47,6 +48,7 @@
         <commons-io.version>2.21.0</commons-io.version>
         <commons-compress.version>1.28.0</commons-compress.version>
         <jsr305.version>3.0.2</jsr305.version>
+        <springdoc.version>3.0.2</springdoc.version>
     </properties>
 
     <dependencyManagement>
@@ -84,6 +86,11 @@
             <dependency>
                 <groupId>be.appify.prefab</groupId>
                 <artifactId>prefab-security</artifactId>
+                <version>${prefab.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>be.appify.prefab</groupId>
+                <artifactId>prefab-openapi</artifactId>
                 <version>${prefab.version}</version>
             </dependency>
         </dependencies>

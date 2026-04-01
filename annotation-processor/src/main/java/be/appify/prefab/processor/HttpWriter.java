@@ -41,8 +41,9 @@ class HttpWriter {
                 .addAnnotation(RestController.class)
                 .addAnnotation(AnnotationSpec.builder(RequestMapping.class)
                         .addMember("path", "$S", ControllerUtil.pathOf(manifest))
-                        .build())
-                .addField(serviceType, "service", PRIVATE, FINAL)
+                        .build());
+        ControllerUtil.tagAnnotation(manifest.simpleName()).ifPresent(type::addAnnotation);
+        type.addField(serviceType, "service", PRIVATE, FINAL)
                 .addMethod(MethodSpec.constructorBuilder()
                         .addParameter(serviceType, "service")
                         .addStatement("this.service = service")

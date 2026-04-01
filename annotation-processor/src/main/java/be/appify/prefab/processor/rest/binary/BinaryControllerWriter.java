@@ -17,11 +17,16 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.lang.model.element.Modifier;
 
+import static be.appify.prefab.processor.rest.ControllerUtil.operationAnnotation;
+import static be.appify.prefab.processor.rest.ControllerUtil.pathParameterAnnotation;
 import static be.appify.prefab.processor.rest.ControllerUtil.securedAnnotation;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 
 class BinaryControllerWriter {
     MethodSpec downloadMethod(ClassManifest manifest, VariableManifest field) {
+        var idParameter = ParameterSpec.builder(String.class, "id")
+                .addAnnotation(PathVariable.class);
+        pathParameterAnnotation("The " + manifest.simpleName() + " ID").ifPresent(idParameter::addAnnotation);
         var method = MethodSpec.methodBuilder("download%s".formatted(capitalize(field.name())))
                 .addModifiers(Modifier.PUBLIC)
                 .returns(ParameterizedTypeName.get(ResponseEntity.class, InputStreamResource.class))
@@ -29,12 +34,11 @@ class BinaryControllerWriter {
                         .addMember("path", "$S", "/{id}/%s".formatted(field.name()))
                         .build())
                 .addAnnotation(ResponseBody.class);
+        operationAnnotation("Download " + capitalize(field.name()) + " for " + manifest.simpleName()).ifPresent(method::addAnnotation);
         var security = field.getAnnotation(Download.class).map(AnnotationManifest::value).orElseThrow().security();
         securedAnnotation(security).ifPresent(method::addAnnotation);
         return method
-                .addParameter(ParameterSpec.builder(String.class, "id")
-                        .addAnnotation(PathVariable.class)
-                        .build())
+                .addParameter(idParameter.build())
                 .addStatement("""
                                 return service.getById(id)
                                 .map($T::$N)

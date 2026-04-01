@@ -29,12 +29,27 @@ import static org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE;
 public class ControllerUtil {
 
     private static final ClassName PRE_AUTHORIZE = ClassName.get("org.springframework.security.access.prepost", "PreAuthorize");
+    private static final ClassName TAG = ClassName.get("io.swagger.v3.oas.annotations.tags", "Tag");
+    private static final ClassName OPERATION = ClassName.get("io.swagger.v3.oas.annotations", "Operation");
+    private static final ClassName PARAMETER = ClassName.get("io.swagger.v3.oas.annotations", "Parameter");
+    private static final ClassName PARAMETER_IN = ClassName.get("io.swagger.v3.oas.annotations.enums", "ParameterIn");
     /** Flag to indicate if Spring Security is included in the classpath. */
     public static final boolean SECURITY_INCLUDED = isSecurityIncluded();
+    /** Flag to indicate if OpenAPI annotations (io.swagger.v3.oas.annotations) are on the classpath. */
+    public static final boolean OPENAPI_INCLUDED = isOpenApiIncluded();
 
     private static boolean isSecurityIncluded() {
         try {
             Class.forName("org.springframework.security.access.prepost.PreAuthorize");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+    private static boolean isOpenApiIncluded() {
+        try {
+            Class.forName("io.swagger.v3.oas.annotations.Operation");
             return true;
         } catch (ClassNotFoundException e) {
             return false;
@@ -119,6 +134,58 @@ public class ControllerUtil {
                                         ClassName.get("org.springframework.security.core.authority", "SimpleGrantedAuthority"),
                                         security.authority()))
                 : CodeBlock.of("");
+    }
+
+    /**
+     * Generates an AnnotationSpec for OpenAPI @Tag to group controller endpoints.
+     * Returns empty if OpenAPI annotations are not on the classpath.
+     *
+     * @param name
+     *         the tag name (usually the domain class name)
+     * @return an Optional containing the AnnotationSpec if OpenAPI is available
+     */
+    public static Optional<AnnotationSpec> tagAnnotation(String name) {
+        if (!OPENAPI_INCLUDED) {
+            return Optional.empty();
+        }
+        return Optional.of(AnnotationSpec.builder(TAG)
+                .addMember("name", "$S", name)
+                .build());
+    }
+
+    /**
+     * Generates an AnnotationSpec for OpenAPI @Operation describing an endpoint.
+     * Returns empty if OpenAPI annotations are not on the classpath.
+     *
+     * @param summary
+     *         a short summary of the operation
+     * @return an Optional containing the AnnotationSpec if OpenAPI is available
+     */
+    public static Optional<AnnotationSpec> operationAnnotation(String summary) {
+        if (!OPENAPI_INCLUDED) {
+            return Optional.empty();
+        }
+        return Optional.of(AnnotationSpec.builder(OPERATION)
+                .addMember("summary", "$S", summary)
+                .build());
+    }
+
+    /**
+     * Generates an AnnotationSpec for OpenAPI @Parameter describing a path variable.
+     * Returns empty if OpenAPI annotations are not on the classpath.
+     *
+     * @param description
+     *         a description of the parameter
+     * @return an Optional containing the AnnotationSpec if OpenAPI is available
+     */
+    public static Optional<AnnotationSpec> pathParameterAnnotation(String description) {
+        if (!OPENAPI_INCLUDED) {
+            return Optional.empty();
+        }
+        return Optional.of(AnnotationSpec.builder(PARAMETER)
+                .addMember("description", "$S", description)
+                .addMember("in", "$T.PATH", PARAMETER_IN)
+                .build());
     }
 
     /**

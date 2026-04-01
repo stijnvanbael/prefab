@@ -9,6 +9,8 @@ import com.palantir.javapoet.ParameterizedTypeName;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 
+import static be.appify.prefab.processor.rest.ControllerUtil.operationAnnotation;
+import static be.appify.prefab.processor.rest.ControllerUtil.pathParameterAnnotation;
 import static be.appify.prefab.processor.rest.ControllerUtil.requestMapping;
 import static be.appify.prefab.processor.rest.ControllerUtil.responseType;
 import static be.appify.prefab.processor.rest.ControllerUtil.securedAnnotation;
@@ -19,13 +21,15 @@ class GetByIdControllerWriter {
         var method = MethodSpec.methodBuilder("getById")
                 .addModifiers(PUBLIC)
                 .addAnnotation(requestMapping(getById.method(), getById.path()));
+        operationAnnotation("Get " + manifest.simpleName() + " by ID").ifPresent(method::addAnnotation);
         securedAnnotation(getById.security()).ifPresent(method::addAnnotation);
+        var idParameter = ParameterSpec.builder(String.class, "id")
+                .addAnnotation(PathVariable.class);
+        pathParameterAnnotation("The " + manifest.simpleName() + " ID").ifPresent(idParameter::addAnnotation);
         return method
                 .returns(ParameterizedTypeName.get(ClassName.get(ResponseEntity.class),
                         responseType(manifest)))
-                .addParameter(ParameterSpec.builder(String.class, "id")
-                        .addAnnotation(PathVariable.class)
-                        .build())
+                .addParameter(idParameter.build())
                 .addStatement("return toResponse(service.getById(id))")
                 .build();
     }

@@ -1,6 +1,7 @@
 package persistence.polymorphic.infrastructure.persistence;
 
 import be.appify.prefab.core.service.Reference;
+import be.appify.prefab.core.spring.data.jdbc.PolymorphicReadingConverter;
 import java.util.Map;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.data.convert.ReadingConverter;
@@ -9,7 +10,7 @@ import persistence.polymorphic.Shape;
 
 @Component
 @ReadingConverter
-public class ShapeReadingConverter implements Converter<Map<String, Object>, Shape> {
+public class ShapeReadingConverter implements Converter<Map<String, Object>, Shape>, PolymorphicReadingConverter {
     @Override
     public Shape convert(Map<String, Object> row) {
         var type = (String) row.get("type");

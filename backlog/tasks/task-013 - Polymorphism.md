@@ -44,10 +44,10 @@ public class AssessmentReadingConverter implements Converter<ResultSet, Assessme
 <!-- AC:BEGIN -->
 - [ ] #1 A sealed interface annotated with `@Aggregate` and its permitted record subtypes are accepted by the annotation processor without error
 - [ ] #2 A `@DbMigration`-annotated polymorphic aggregate generates a single SQL table with a `type VARCHAR(255) NOT NULL` discriminator column; fields common to all subtypes are `NOT NULL`, subtype-specific fields are nullable
-- [ ] #3 A `{AggregateType}ReadingConverter` is generated and correctly reconstructs the right subtype at runtime from a database row (Postgres/JDBC)
-- [ ] #4 The generated reading converter is automatically registered in `JdbcCustomConversions` so Spring Data JDBC can use it without any user configuration
-- [ ] #5 Saving a polymorphic aggregate persists the correct `type` discriminator value and all fields for the concrete subtype
-- [ ] #6 A `{AggregateType}Repository extends CrudRepository<SealedInterface, String>` is generated and works for both read and write operations on Postgres
+- [x] #3 A `{AggregateType}ReadingConverter` is generated and correctly reconstructs the right subtype at runtime from a database row (Postgres/JDBC)
+- [x] #4 The generated reading converter is automatically registered in `JdbcCustomConversions` so Spring Data JDBC can use it without any user configuration
+- [x] #5 Saving a polymorphic aggregate persists the correct `type` discriminator value and all fields for the concrete subtype
+- [x] #6 A `{AggregateType}Repository extends CrudRepository<SealedInterface, String>` is generated and works for both read and write operations on Postgres
 - [ ] #7 The same domain model (sealed interface + record subtypes) works transparently with MongoDB using Spring Data MongoDB's native discriminator mechanism
 - [ ] #8 An integration test (Postgres) round-trips a polymorphic aggregate: save a subtype, reload it, verify the correct concrete type is returned
 <!-- AC:END -->
@@ -89,7 +89,7 @@ The annotation processor changes are complete:
 
 ---
 
-### Phase 2 — JDBC runtime wiring ⬜ TODO
+### Phase 2 — JDBC runtime wiring ✅ done in branch `copilot/analyse-task-13-polymorphic-aggregates`
 
 Spring Data JDBC must be configured to actually invoke the generated reading converter when it hydrates an
 entity from the database. Several steps are required:

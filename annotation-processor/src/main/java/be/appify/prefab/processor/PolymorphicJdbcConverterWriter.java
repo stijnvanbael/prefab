@@ -1,6 +1,7 @@
 package be.appify.prefab.processor;
 
 import be.appify.prefab.core.service.Reference;
+import be.appify.prefab.core.spring.data.jdbc.PolymorphicReadingConverter;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
@@ -55,6 +56,7 @@ class PolymorphicJdbcConverterWriter {
                 .addSuperinterface(
                         ParameterizedTypeName.get(ClassName.get(Converter.class), mapType,
                                 manifest.type().asTypeName()))
+                .addSuperinterface(ClassName.get(PolymorphicReadingConverter.class))
                 .addMethod(buildConvertMethod(manifest, mapType));
         fileWriter.writeFile(manifest.packageName(), converterName, type.build());
     }

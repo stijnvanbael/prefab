@@ -1,5 +1,6 @@
 package be.appify.prefab.core.spring.data.jdbc;
 
+import be.appify.prefab.core.annotations.Aggregate;
 import java.util.List;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
@@ -10,6 +11,7 @@ import org.springframework.data.jdbc.core.convert.InsertSubject;
 import org.springframework.data.mapping.PersistentPropertyPath;
 import org.springframework.data.relational.core.conversion.IdValueSource;
 import org.springframework.data.relational.core.mapping.RelationalPersistentProperty;
+import org.springframework.data.relational.core.sql.SqlIdentifier;
 
 /**
  * Custom {@link DataAccessStrategy} that intercepts child-entity delete and insert operations to avoid unnecessary
@@ -48,7 +50,7 @@ public class PrefabDataAccessStrategy extends DelegatingDataAccessStrategy {
             // for child entities without an explicit @Id column.
             return null;
         }
-        return super.insert(instance, domainType, identifier, idValueSource);
+        return super.insert(instance, domainType, withTypeDiscriminator(domainType, identifier), idValueSource);
     }
 
     @Override
@@ -59,6 +61,12 @@ public class PrefabDataAccessStrategy extends DelegatingDataAccessStrategy {
             // database. A null per-element signals that no generated ID was produced, which is safe for child
             // entities without an explicit @Id column.
             return new Object[insertSubjects.size()];
+        }
+        if (isPolymorphicSubtype(domainType)) {
+            insertSubjects = insertSubjects.stream()
+                    .map(s -> InsertSubject.describedBy(s.getInstance(),
+                            withTypeDiscriminator(domainType, s.getIdentifier())))
+                    .toList();
         }
         return super.insert(insertSubjects, domainType, idValueSource);
     }
@@ -91,5 +99,25 @@ public class PrefabDataAccessStrategy extends DelegatingDataAccessStrategy {
         }
         Class<?> leafType = propertyPath.getLeafProperty().getActualType();
         return skip.contains(leafType);
+    }
+
+    /**
+     * Returns {@code true} if the given domain type is a direct implementor of a sealed interface annotated with
+     * {@link Aggregate}, i.e. it is a concrete subtype of a polymorphic aggregate root.
+     */
+    private static boolean isPolymorphicSubtype(Class<?> domainType) {
+        return PrefabPersistentEntity.findDirectSealedAggregateInterface(domainType) != null;
+    }
+
+    /**
+     * Returns a new {@link Identifier} that includes a {@code type} column set to the simple name of the concrete
+     * domain type. This is used when inserting polymorphic aggregate subtypes so that the discriminator column is
+     * populated correctly.
+     */
+    private static <T> Identifier withTypeDiscriminator(Class<T> domainType, Identifier identifier) {
+        if (!isPolymorphicSubtype(domainType)) {
+            return identifier;
+        }
+        return identifier.withPart(SqlIdentifier.quoted("type"), domainType.getSimpleName(), String.class);
     }
 }

@@ -6,12 +6,14 @@ import java.util.ArrayList;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.core.TypeInformation;
+import org.springframework.data.jdbc.core.convert.Identifier;
 import org.springframework.data.jdbc.core.convert.JdbcCustomConversions;
 import org.springframework.data.jdbc.core.convert.JdbcTypeFactory;
 import org.springframework.data.jdbc.core.convert.MappingJdbcConverter;
 import org.springframework.data.jdbc.core.convert.RelationResolver;
 import org.springframework.data.jdbc.core.mapping.JdbcMappingContext;
 import org.springframework.data.relational.core.mapping.RelationalPersistentProperty;
+import org.springframework.data.relational.domain.RowDocument;
 import org.springframework.jdbc.core.SqlTypeValue;
 import org.springframework.jdbc.core.StatementCreatorUtils;
 
@@ -128,6 +130,40 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
             }
         }
         return super.writeValue(value, type);
+    }
+
+    /**
+     * Reads a polymorphic aggregate from a row document by delegating to the registered
+     * {@link PolymorphicReadingConverter} when the target type is a sealed interface.
+     *
+     * <p>For all other types the standard Spring Data JDBC reading path is used.</p>
+     */
+    @Override
+    public <R> R read(Class<R> type, RowDocument source) {
+        if (type.isSealed() && type.isInterface()
+                && getConversionService().canConvert(source.getClass(), type)) {
+            @SuppressWarnings("unchecked")
+            R result = (R) getConversionService().convert(source, type);
+            return result;
+        }
+        return super.read(type, source);
+    }
+
+    /**
+     * Reads and resolves a polymorphic aggregate from a row document. Delegates to the registered
+     * {@link PolymorphicReadingConverter} when the target type is a sealed interface; otherwise uses the
+     * standard Spring Data JDBC reading path.
+     */
+    @Override
+    public <R> R readAndResolve(TypeInformation<R> type, RowDocument source, Identifier identifier) {
+        Class<R> rawType = type.getType();
+        if (rawType.isSealed() && rawType.isInterface()
+                && getConversionService().canConvert(source.getClass(), rawType)) {
+            @SuppressWarnings("unchecked")
+            R result = (R) getConversionService().convert(source, rawType);
+            return result;
+        }
+        return super.readAndResolve(type, source, identifier);
     }
 
     private static boolean isSingleFieldRecord(Class<?> type) {

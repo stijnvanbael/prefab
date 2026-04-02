@@ -64,6 +64,20 @@ public interface PrefabPlugin {
     }
 
     /**
+     * Write additional files for polymorphic aggregate manifests. Called in addition to
+     * {@link #writeAdditionalFiles(List)} so that plugins can process both regular and polymorphic aggregates
+     * together.
+     *
+     * @param manifests
+     *         The list of regular class manifests (already filtered to those with {@code @DbMigration}).
+     * @param polymorphicManifests
+     *         The list of polymorphic aggregate manifests.
+     */
+    default void writeAdditionalFiles(List<ClassManifest> manifests, List<PolymorphicAggregateManifest> polymorphicManifests) {
+        writeAdditionalFiles(manifests);
+    }
+
+    /**
      * Write repository code for the given manifest.
      *
      * @param manifest

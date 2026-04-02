@@ -2,6 +2,7 @@ package be.appify.prefab.processor.dbmigration;
 
 import be.appify.prefab.core.annotations.DbMigration;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import java.util.List;
@@ -24,12 +25,15 @@ public class DbMigrationPlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeAdditionalFiles(List<ClassManifest> manifests) {
+    public void writeAdditionalFiles(List<ClassManifest> manifests, List<PolymorphicAggregateManifest> polymorphicManifests) {
         var classManifests = manifests.stream()
                 .filter(manifest -> !manifest.annotationsOfType(DbMigration.class).isEmpty())
                 .toList();
-        if (!classManifests.isEmpty()) {
-            dbMigrationWriter.writeDbMigration(context.processingEnvironment(), classManifests);
+        var polyManifests = polymorphicManifests.stream()
+                .filter(PolymorphicAggregateManifest::hasDbMigration)
+                .toList();
+        if (!classManifests.isEmpty() || !polyManifests.isEmpty()) {
+            dbMigrationWriter.writeDbMigration(context.processingEnvironment(), classManifests, polyManifests);
         }
     }
 }

@@ -16,7 +16,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -91,7 +90,6 @@ class ProductIntegrationTest {
     @Test
     void createProductWithoutName_returns400() throws Exception {
         mockMvc.perform(post("/products")
-                        .with(user("user"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"description\":\"desc\",\"amount\":10,\"currency\":\"USD\",\"category\":\"some-id\"}"))
                 .andExpect(status().isBadRequest());

@@ -16,7 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.mockUser;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -70,7 +70,7 @@ class ProductIntegrationTest {
         var categoryId = categories.createCategory("Widgets");
         var productId = products.createProduct("Old Name", "Old Desc", BigDecimal.ONE, "USD", categoryId);
 
-        products.updateProduct(productId, "New Name", "New Desc");
+        products.update(productId, "New Name", "New Desc");
 
         var updated = products.getProductById(productId);
         assertThat(updated.name()).isEqualTo("New Name");
@@ -91,7 +91,7 @@ class ProductIntegrationTest {
     @Test
     void createProductWithoutName_returns400() throws Exception {
         mockMvc.perform(post("/products")
-                        .with(mockUser("user"))
+                        .with(user("user"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"description\":\"desc\",\"amount\":10,\"currency\":\"USD\",\"category\":\"some-id\"}"))
                 .andExpect(status().isBadRequest());

@@ -45,7 +45,7 @@ class CategoryStatsIntegrationTest {
         products.createProduct("Phone", "A phone", BigDecimal.valueOf(499.99), "USD", categoryId);
 
         await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
-                assertThat(categoryStats.findCategoryStats(Pageable.unpaged(), null).content())
+                assertThat(categoryStats.findCategoryStats(Pageable.unpaged(), (String) null).content())
                         .anySatisfy(stats -> {
                             assertThat(stats.name()).isEqualTo("Electronics");
                             assertThat(stats.totalProducts()).isEqualTo(2);

@@ -2,7 +2,6 @@ package be.appify.prefab.example.mongodb.product;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.rest.Create;
-import be.appify.prefab.core.annotations.rest.Delete;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.annotations.rest.Update;

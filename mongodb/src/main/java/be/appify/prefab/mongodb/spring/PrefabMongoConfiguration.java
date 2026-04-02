@@ -2,7 +2,6 @@ package be.appify.prefab.mongodb.spring;
 
 import be.appify.prefab.mongodb.spring.data.mongodb.ReferenceToStringConverter;
 import be.appify.prefab.mongodb.spring.data.mongodb.StringToReferenceConverter;
-import java.util.List;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

@@ -9,8 +9,8 @@ import org.testcontainers.utility.DockerImageName;
 /**
  * Test configuration that starts a MongoDB container and wires it up via {@link ServiceConnection}.
  * <p>
- * This configuration is imported by the {@link be.appify.prefab.test.IntegrationTest} annotation
- * through the {@link MongodbTestAutoConfiguration} class.
+ * This configuration is typically imported directly in tests using
+ * {@code @Import(MongoDbContainerConfiguration.class)}.
  * </p>
  */
 @TestConfiguration(proxyBeanMethods = false)

@@ -39,7 +39,7 @@ public class ChannelSummaryIntegrationTest {
         messages.createMessage(johnId, channelId, "Hello, World!");
         messages.createMessage(janeId, channelId, "Hello, John!");
 
-        await().atMost(15, TimeUnit.SECONDS).untilAsserted(() ->
+        await().atMost(30, TimeUnit.SECONDS).untilAsserted(() ->
                 assertThat(channelSummaries.findChannelSummaries(Pageable.unpaged(), "general"))
                         .anySatisfy(summary -> {
                             assertThat(summary.totalSubscribers()).isEqualTo(3);

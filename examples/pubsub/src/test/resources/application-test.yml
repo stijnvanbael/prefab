@@ -10,4 +10,4 @@ logging.level:
 
 prefab.dlt.retries:
   initial-interval-ms: 10
-  multiplier: 1
+  multiplier: 2

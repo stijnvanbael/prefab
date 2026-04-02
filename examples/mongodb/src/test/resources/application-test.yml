@@ -1,4 +1,6 @@
-spring:
-  data:
-    mongodb:
-      auto-index-creation: true
+logging.level:
+  be.appify.prefab.example: DEBUG
+
+prefab.dlt.retries:
+  limit: 1
+  initial-interval-ms: 10

@@ -7,7 +7,6 @@ import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.annotations.rest.Update;
-import be.appify.prefab.core.domain.PublishesEvents;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.example.mongodb.category.Category;
 import jakarta.validation.constraints.NotBlank;
@@ -33,7 +32,7 @@ public record Product(
         @NotNull String description,
         @NotNull Price price,
         @NotNull Reference<Category> category
-) implements PublishesEvents {
+) {
 
     /**
      * Creates a new product. The {@code amount} and {@code currency} parameters are flattened so
@@ -49,7 +48,6 @@ public record Product(
             @NotNull Reference<Category> category
     ) {
         this(Reference.create(), 0L, name, description, new Price(amount, currency), category);
-        publish(new ProductCreated(id, category));
     }
 
     /** Returns an updated product with the new name and description. */

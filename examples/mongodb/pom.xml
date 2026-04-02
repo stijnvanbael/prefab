@@ -24,10 +24,6 @@
         </dependency>
         <dependency>
             <groupId>be.appify.prefab</groupId>
-            <artifactId>prefab-kafka</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>be.appify.prefab</groupId>
             <artifactId>prefab-annotation-processor</artifactId>
             <scope>provided</scope>
         </dependency>

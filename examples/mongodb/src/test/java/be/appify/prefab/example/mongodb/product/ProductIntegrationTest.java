@@ -2,7 +2,7 @@ package be.appify.prefab.example.mongodb.product;
 
 import be.appify.prefab.example.mongodb.MongoDbContainerConfiguration;
 import be.appify.prefab.example.mongodb.category.Category;
-import be.appify.prefab.example.mongodb.categorystats.CategoryStats;
+import be.appify.prefab.example.mongodb.category.CategoryClient;
 import be.appify.prefab.example.mongodb.product.infrastructure.http.ProductResponse;
 import be.appify.prefab.test.IntegrationTest;
 import java.math.BigDecimal;
@@ -36,7 +36,6 @@ class ProductIntegrationTest {
     void setUp() {
         mongoTemplate.dropCollection(Product.class);
         mongoTemplate.dropCollection(Category.class);
-        mongoTemplate.dropCollection(CategoryStats.class);
     }
 
     @Test

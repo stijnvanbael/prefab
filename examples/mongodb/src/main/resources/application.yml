@@ -7,3 +7,7 @@ spring:
 
 error.handling:
   exception-logging: WITH_STACKTRACE
+
+topics:
+  category.name: prefab.mongodb-example.category
+  product.name: prefab.mongodb-example.product

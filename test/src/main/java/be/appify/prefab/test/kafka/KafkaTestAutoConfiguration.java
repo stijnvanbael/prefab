@@ -21,7 +21,6 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonTypeResolver;
 import org.springframework.test.context.DynamicPropertyRegistrar;
-import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -47,20 +46,9 @@ public class KafkaTestAutoConfiguration {
         this.properties = properties;
     }
 
-    private static final String KAFKA_NETWORK_NAME = "prefab-test";
-
     @Bean
     Network kafkaNetwork() {
-        var dockerClient = DockerClientFactory.instance().client();
-        var existing = dockerClient.listNetworksCmd()
-                .withNameFilter(KAFKA_NETWORK_NAME)
-                .exec();
-        if (existing.isEmpty()) {
-            dockerClient.createNetworkCmd()
-                    .withName(KAFKA_NETWORK_NAME)
-                    .exec();
-        }
-        return new NamedNetwork(KAFKA_NETWORK_NAME);
+        return Network.newNetwork();
     }
 
     @Bean
@@ -126,17 +114,5 @@ public class KafkaTestAutoConfiguration {
         return new TestJsonTypeResolver(delegate.getIfAvailable(() -> (topic, data, headers) -> {
             throw new IllegalStateException("No type resolver configured for topic: " + topic);
         }));
-    }
-
-    private record NamedNetwork(String id) implements Network {
-        @Override
-        public String getId() {
-            return id;
-        }
-
-        @Override
-        public void close() {
-            // no-op: keep the network alive for reuse across test runs
-        }
     }
 }

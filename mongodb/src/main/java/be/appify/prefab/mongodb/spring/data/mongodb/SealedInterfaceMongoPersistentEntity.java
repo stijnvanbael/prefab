@@ -1,6 +1,8 @@
 package be.appify.prefab.mongodb.spring.data.mongodb;
 
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.mapping.MappingException;
 import org.springframework.data.mongodb.core.mapping.BasicMongoPersistentEntity;
 import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
@@ -28,6 +30,8 @@ import org.springframework.data.core.TypeInformation;
  */
 class SealedInterfaceMongoPersistentEntity<T> extends BasicMongoPersistentEntity<T> {
 
+    private static final Logger log = LoggerFactory.getLogger(SealedInterfaceMongoPersistentEntity.class);
+
     private final MongoMappingContext mappingContext;
 
     SealedInterfaceMongoPersistentEntity(TypeInformation<T> information, MongoMappingContext mappingContext) {
@@ -50,6 +54,8 @@ class SealedInterfaceMongoPersistentEntity<T> extends BasicMongoPersistentEntity
         try {
             return mappingContext.getRequiredPersistentEntity(subtypes[0]).getIdProperty();
         } catch (Exception e) {
+            log.debug("Could not resolve id property for subtype {} of {}: {}",
+                    subtypes[0].getName(), getType().getName(), e.getMessage());
             return null;
         }
     }
@@ -81,6 +87,8 @@ class SealedInterfaceMongoPersistentEntity<T> extends BasicMongoPersistentEntity
                     mappingContext.getRequiredPersistentEntity(bean.getClass());
             return concreteEntity.isNew(bean);
         } catch (Exception e) {
+            log.debug("Could not delegate isNew() to concrete entity for {}, falling back to id-property check: {}",
+                    bean.getClass().getName(), e.getMessage());
             var idProp = getIdProperty();
             if (idProp == null) {
                 return true;

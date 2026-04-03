@@ -1,6 +1,8 @@
 package be.appify.prefab.postgres.spring.data.jdbc;
 
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.core.TypeInformation;
 import org.springframework.data.mapping.MappingException;
 import org.springframework.data.relational.core.mapping.NamingStrategy;
@@ -26,6 +28,8 @@ import org.springframework.data.relational.core.mapping.RelationalPersistentProp
  *         the sealed interface type
  */
 class SealedInterfacePersistentEntity<T> extends PrefabPersistentEntity<T> {
+
+    private static final Logger log = LoggerFactory.getLogger(SealedInterfacePersistentEntity.class);
 
     private final PrefabJdbcMappingContext mappingContext;
 
@@ -54,6 +58,8 @@ class SealedInterfacePersistentEntity<T> extends PrefabPersistentEntity<T> {
         try {
             return mappingContext.getRequiredPersistentEntity(subtypes[0]).getIdProperty();
         } catch (Exception e) {
+            log.debug("Could not resolve id property for subtype {} of {}: {}",
+                    subtypes[0].getName(), getType().getName(), e.getMessage());
             return null;
         }
     }
@@ -85,6 +91,8 @@ class SealedInterfacePersistentEntity<T> extends PrefabPersistentEntity<T> {
                     mappingContext.getRequiredPersistentEntity(bean.getClass());
             return concreteEntity.isNew(bean);
         } catch (Exception e) {
+            log.debug("Could not delegate isNew() to concrete entity for {}, falling back to id-property check: {}",
+                    bean.getClass().getName(), e.getMessage());
             var idProp = getIdProperty();
             if (idProp == null) {
                 return true;

@@ -78,6 +78,28 @@ public interface PrefabPlugin {
     }
 
     /**
+     * Write service code for the given polymorphic aggregate manifest.
+     *
+     * @param manifest
+     *         The polymorphic aggregate manifest.
+     * @param builder
+     *         The TypeSpec builder for the service.
+     */
+    default void writePolymorphicService(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
+    }
+
+    /**
+     * Write controller code for the given polymorphic aggregate manifest.
+     *
+     * @param manifest
+     *         The polymorphic aggregate manifest.
+     * @param builder
+     *         The TypeSpec builder for the controller.
+     */
+    default void writePolymorphicController(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
+    }
+
+    /**
      * Write repository code for the given manifest.
      *
      * @param manifest

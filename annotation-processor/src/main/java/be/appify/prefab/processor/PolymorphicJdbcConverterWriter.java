@@ -3,14 +3,10 @@ package be.appify.prefab.processor;
 import be.appify.prefab.core.service.Reference;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
+import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeSpec;
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.Map;
 import javax.lang.model.element.Modifier;
 import org.springframework.core.convert.converter.Converter;
@@ -27,6 +23,11 @@ import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
  * creates the appropriate subtype based on the {@code type} discriminator column.</p>
  */
 class PolymorphicJdbcConverterWriter {
+
+    private static final ClassName JDBC_CONVERTER =
+            ClassName.get("org.springframework.data.jdbc.core.convert", "JdbcConverter");
+    private static final ClassName CLASS_TYPE_INFORMATION =
+            ClassName.get("org.springframework.data.util", "ClassTypeInformation");
 
     private final JavaFileWriter fileWriter;
 
@@ -56,6 +57,11 @@ class PolymorphicJdbcConverterWriter {
                         ParameterizedTypeName.get(ClassName.get(Converter.class), mapType,
                                 manifest.type().asTypeName()))
                 .addSuperinterface(ClassName.get("be.appify.prefab.core.spring.data.jdbc", "PolymorphicReadingConverter"))
+                .addField(FieldSpec.builder(JDBC_CONVERTER, "converter", Modifier.PRIVATE, Modifier.FINAL).build())
+                .addMethod(MethodSpec.constructorBuilder()
+                        .addParameter(JDBC_CONVERTER, "converter")
+                        .addStatement("this.converter = converter")
+                        .build())
                 .addMethod(buildConvertMethod(manifest, mapType));
         fileWriter.writeFile(manifest.packageName(), converterName, type.build());
     }
@@ -96,68 +102,18 @@ class PolymorphicJdbcConverterWriter {
     private CodeBlock readFieldFromRow(VariableManifest field) {
         var columnName = toSnakeCase(field.name());
         var fieldType = field.type();
-        var boxedType = fieldType.asBoxed();
 
-        if (fieldType.isSingleValueType()) {
-            // Reference<T> and other single-value records
+        if (fieldType.is(Reference.class)) {
             var innerType = fieldType.fields().getFirst().type();
-            if (fieldType.is(Reference.class)) {
-                return CodeBlock.of("$T.fromId(($T) row.get($S))", Reference.class, innerType.asTypeName(), columnName);
-            }
+            return CodeBlock.of("$T.fromId(($T) row.get($S))", Reference.class, innerType.asTypeName(), columnName);
+        } else if (fieldType.isSingleValueType()) {
+            var innerType = fieldType.fields().getFirst().type();
             return CodeBlock.of("row.get($S) != null ? new $T(($T) row.get($S)) : null",
                     columnName, fieldType.asTypeName(), innerType.asTypeName());
-        } else if (boxedType.is(String.class)) {
-            return CodeBlock.of("($T) row.get($S)", String.class, columnName);
-        } else if (boxedType.is(Long.class)) {
-            if (field.isPrimitive()) {
-                return CodeBlock.of("row.get($S) instanceof $T n ? n.longValue() : 0L", columnName, Number.class);
-            }
-            return CodeBlock.of("row.get($S) instanceof $T n ? n.longValue() : null", columnName, Number.class);
-        } else if (boxedType.is(Integer.class)) {
-            if (field.isPrimitive()) {
-                return CodeBlock.of("row.get($S) instanceof $T n ? n.intValue() : 0", columnName, Number.class);
-            }
-            return CodeBlock.of("row.get($S) instanceof $T n ? n.intValue() : null", columnName, Number.class);
-        } else if (boxedType.is(Double.class)) {
-            if (field.isPrimitive()) {
-                return CodeBlock.of("row.get($S) instanceof $T n ? n.doubleValue() : 0.0", columnName, Number.class);
-            }
-            return CodeBlock.of("row.get($S) instanceof $T n ? n.doubleValue() : null", columnName, Number.class);
-        } else if (boxedType.is(Float.class)) {
-            if (field.isPrimitive()) {
-                return CodeBlock.of("row.get($S) instanceof $T n ? n.floatValue() : 0.0f", columnName, Number.class);
-            }
-            return CodeBlock.of("row.get($S) instanceof $T n ? n.floatValue() : null", columnName, Number.class);
-        } else if (boxedType.is(Boolean.class)) {
-            if (field.isPrimitive()) {
-                return CodeBlock.of("row.get($S) instanceof $T b ? b : false", columnName, Boolean.class);
-            }
-            return CodeBlock.of("($T) row.get($S)", Boolean.class, columnName);
-        } else if (boxedType.is(BigDecimal.class)) {
-            return CodeBlock.of("($T) row.get($S)", BigDecimal.class, columnName);
-        } else if (boxedType.is(Instant.class)) {
-            return CodeBlock.of("row.get($S) instanceof $T ts ? ts.toInstant() : null",
-                    columnName, java.sql.Timestamp.class);
-        } else if (boxedType.is(LocalDate.class)) {
-            return CodeBlock.of("row.get($S) instanceof $T d ? d.toLocalDate() : null",
-                    columnName, java.sql.Date.class);
-        } else if (boxedType.is(OffsetDateTime.class)) {
-            return CodeBlock.of("row.get($S) instanceof $T ts ? ts.toInstant().atOffset($T.UTC) : null",
-                    columnName, java.sql.Timestamp.class, java.time.ZoneOffset.class);
-        } else if (boxedType.is(List.class)) {
-            var elementType = fieldType.parameters().isEmpty() ? null : fieldType.parameters().getFirst();
-            if (elementType != null && elementType.is(String.class)) {
-                return CodeBlock.of("row.get($S) instanceof $T arr ? $T.of(arr) : $T.of()",
-                        columnName, String[].class, List.class, List.class);
-            }
-            return CodeBlock.of("$T.of()", List.class);
-        } else if (boxedType.isEnum()) {
-            return CodeBlock.of("row.get($S) != null ? $T.valueOf(($T) row.get($S)) : null",
-                    columnName, fieldType.asTypeName(), String.class);
-        } else {
-            // Fallback: cast to the boxed type
-            return CodeBlock.of("($T) row.get($S)", boxedType.asTypeName(), columnName);
         }
+        return CodeBlock.of("($T) converter.readValue(row.get($S), $T.from($T.class))",
+                fieldType.asBoxed().asTypeName(), columnName, CLASS_TYPE_INFORMATION,
+                fieldType.asBoxed().asTypeName());
     }
 
     private static String lastSimpleName(String simpleName) {

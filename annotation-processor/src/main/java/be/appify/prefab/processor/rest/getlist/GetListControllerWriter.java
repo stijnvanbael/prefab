@@ -2,6 +2,7 @@ package be.appify.prefab.processor.rest.getlist;
 
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
@@ -71,5 +72,22 @@ class GetListControllerWriter {
         var parameters = new ArrayList<>(List.of("pageable"));
         manifest.parent().ifPresent(parent -> parameters.add(uncapitalize(parent.name()) + "Id"));
         return String.join(", ", parameters);
+    }
+
+    MethodSpec getListMethod(PolymorphicAggregateManifest manifest, GetList getList) {
+        var responseType = responseType(manifest);
+        var method = MethodSpec.methodBuilder("getList")
+                .addModifiers(PUBLIC)
+                .addAnnotation(requestMapping(getList.method(), getList.path()))
+                .returns(ParameterizedTypeName.get(
+                        ClassName.get(ResponseEntity.class),
+                        ParameterizedTypeName.get(ClassName.get(PagedModel.class), responseType)));
+        operationAnnotation("List " + plural(manifest.simpleName())).ifPresent(method::addAnnotation);
+        securedAnnotation(getList.security()).ifPresent(method::addAnnotation);
+        method.addParameter(Pageable.class, "pageable");
+        return method
+                .addStatement("return $T.ok(new $T(service.getList(pageable).map($T::from)))",
+                        ResponseEntity.class, PagedModel.class, responseType)
+                .build();
     }
 }

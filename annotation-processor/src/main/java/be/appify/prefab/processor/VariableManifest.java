@@ -118,8 +118,9 @@ public class VariableManifest {
      * @return true if the variable is annotated with {@code @Nullable}, false otherwise
      */
     public boolean nullable() {
-        return !isPrimitive() && annotations.stream()
-                .anyMatch(annotation -> annotation.type().is(Nullable.class));
+        return !isPrimitive()
+                && annotations.stream().anyMatch(annotation -> annotation.type().is(Nullable.class))
+                && annotations.stream().noneMatch(annotation -> annotation.type().is(Id.class));
     }
 
     @Override

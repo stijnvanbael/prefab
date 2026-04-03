@@ -195,12 +195,19 @@ the discriminator is present.
 
 ---
 
-### Phase 4 — REST / Application layer ⬜ TODO
+### Phase 4 — REST / Application layer ✅ done in branch `copilot/analyse-task-13-polymorphic-aggregates`
 
-Currently `HttpWriter` and `ApplicationWriter` are NOT called for polymorphic aggregates. Decide whether to:
-- Generate a single controller / service for the sealed interface with a polymorphic request body
-  (requires a `@JsonSubTypes` / Jackson discriminator setup)
-- Or skip REST generation for polymorphic types and let the developer write custom controllers
+For sealed `@Aggregate` interfaces annotated with `@GetById` and/or `@GetList`:
+- **`{Type}Controller`** — Spring MVC `@RestController` with `getById` and/or `getList` endpoints.
+  Calls `toResponse(Optional<Type>)` / `service.getList(pageable)` via the generated service.
+- **`{Type}Response`** — Generated sealed interface with `@JsonTypeInfo(use = Id.NAME, property = "type")`
+  and `@JsonSubTypes`. Contains one nested response `record` per permitted subtype, each with a static
+  `from(SubType)` factory. A top-level `from(SealedInterface)` factory uses a pattern-matching switch.
+- **`{Type}Service`** — `@Component` service with `getById(String)` and/or `getList(Pageable)` methods,
+  delegating to the generated `{Type}Repository`.
+
+Create/Update/Delete are NOT generated for polymorphic aggregates (deferred — require a polymorphic
+request body with Jackson discriminator, which is a separate concern).
 
 ---
 

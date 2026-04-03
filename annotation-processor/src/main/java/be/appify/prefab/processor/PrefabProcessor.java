@@ -55,6 +55,8 @@ public class PrefabProcessor extends AbstractProcessor {
         polymorphicAggregates.forEach(manifest -> {
             new PersistenceWriter(context).writePolymorphicPersistenceLayer(manifest);
             new PolymorphicJdbcConverterWriter(context).writeConverters(manifest);
+            new HttpWriter(context).writePolymorphicHttpLayer(manifest);
+            new ApplicationWriter(context).writePolymorphicApplicationLayer(manifest);
         });
         plugins.forEach(plugin -> plugin.writeAdditionalFiles(aggregates, polymorphicAggregates));
         return true;

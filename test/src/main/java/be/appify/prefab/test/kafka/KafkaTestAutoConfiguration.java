@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.kafka.autoconfigure.DefaultKafkaConsumerFactoryCustomizer;
 import org.springframework.boot.kafka.autoconfigure.KafkaConnectionDetails;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
@@ -56,17 +57,17 @@ public class KafkaTestAutoConfiguration {
     KafkaContainer kafkaContainer(Network kafkaNetwork) {
         return new KafkaContainer("apache/kafka-native:4.1.1")
                 .withNetwork(kafkaNetwork)
-                .withExposedPorts(9092, 9093, 9095)
-                .withListener("kafka:9095");
+                .withNetworkAliases("kafka");
     }
 
     @Bean
+    @ConditionalOnProperty(name = "prefab.test.schema-registry.enabled", havingValue = "true")
     GenericContainer<?> kafkaSchemaRegistryContainer(KafkaContainer kafkaContainer, Network kafkaNetwork) {
         return new GenericContainer<>("confluentinc/cp-schema-registry:8.0.3")
                 .withExposedPorts(8081)
                 .withNetwork(kafkaNetwork)
                 .dependsOn(kafkaContainer)
-                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9095")
+                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9092")
                 .withEnv("SCHEMA_REGISTRY_HOST_NAME", "schema-registry")
                 .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:8081")
                 .waitingFor(Wait.forHttp("/subjects").forStatusCode(200));

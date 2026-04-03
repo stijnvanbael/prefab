@@ -211,13 +211,20 @@ request body with Jackson discriminator, which is a separate concern).
 
 ---
 
-### Phase 5 — Integration tests ⬜ TODO
+### Phase 5 — Integration tests ✅ done in branch `copilot/analyse-task-13-polymorphic-aggregates`
 
-Add integration tests using `@IntegrationTest` + Testcontainers that verify:
-- Save a `Circle` and reload it as `Shape` → verify it comes back as `Circle`
-- Save a `Rectangle` and reload it → verify it comes back as `Rectangle`
-- Page through a mixed list of shapes → verify correct runtime types
-- MongoDB: same assertions with the MongoDB test profile
+`Shape` sealed @Aggregate added to `examples/mongodb`. `ShapeIntegrationTest` verifies:
+- Save a `Circle` → GET /shapes/{id} → response deserializes as `ShapeResponse.CircleResponse` ✓
+- Save a `Rectangle` → GET /shapes/{id} → response deserializes as `ShapeResponse.RectangleResponse` ✓
+- Save mixed Circle + Rectangle → GET /shapes → list contains both shapes with correct subtype fields ✓
+- GET /shapes/nonexistent → 404 ✓
+
+Also fixed a pre-existing Kafka test infrastructure issue:
+- `@ConditionalOnProperty(name = "prefab.test.schema-registry.enabled", havingValue = "true")` added to
+  `kafkaSchemaRegistryContainer` bean — schema registry is now opt-in (enable for avro tests only).
+- Removed `withListener("kafka:9095")` from KafkaContainer (was causing producer metadata redirect failures);
+  added `.withNetworkAliases("kafka")` instead.
+- All 12 `examples/mongodb` integration tests now pass.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes

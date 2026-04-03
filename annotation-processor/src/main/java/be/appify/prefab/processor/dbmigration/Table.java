@@ -19,10 +19,15 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
 record Table(
         String name,
         List<Column> columns,
-        List<String> primaryKey
+        List<String> primaryKey,
+        String oldName
 ) {
     private static final List<String> PRIMARY_KEY = List.of("PRIMARY", "KEY");
     private static final String FOREIGN_KEY = "FOREIGN KEY";
+
+    Table(String name, List<Column> columns, List<String> primaryKey) {
+        this(name, columns, primaryKey, null);
+    }
 
     static Table fromCreateTable(CreateTable createTable) {
         return new Table(
@@ -30,7 +35,8 @@ record Table(
                 createTable.getColumnDefinitions().stream()
                         .map(Column::fromColumnDefinition)
                         .toList(),
-                primaryKey(createTable)
+                primaryKey(createTable),
+                null
         );
     }
 
@@ -56,11 +62,22 @@ record Table(
     }
 
     public Table apply(Alter alter) {
+        var newColumns = mapColumns(alter);
+        var newName = extractNewTableName(alter);
         return new Table(
-                name,
-                mapColumns(alter),
-                primaryKey
+                newName != null ? newName : name,
+                newColumns,
+                primaryKey,
+                null
         );
+    }
+
+    private String extractNewTableName(Alter alter) {
+        return alter.getAlterExpressions().stream()
+                .filter(expr -> expr.getOperation() == AlterOperation.RENAME_TABLE)
+                .map(expr -> expr.getNewTableName().replace("\"", ""))
+                .findFirst()
+                .orElse(null);
     }
 
     private List<Column> mapColumns(Alter alter) {
@@ -73,10 +90,25 @@ record Table(
                 case AlterOperation.ADD -> applyAddExpression(expr, columns);
                 case DROP -> applyDropExpression(expr, columns);
                 case ALTER -> applyAlterExpression(expr, columns);
+                case RENAME -> applyRenameColumnExpression(expr, columns);
+                case RENAME_TABLE -> { /* table rename is handled in apply() */ }
                 default -> throw new IllegalStateException("Unsupported ALTER TABLE expression: " + expr);
             }
         });
         return List.copyOf(columns.values());
+    }
+
+    private static void applyRenameColumnExpression(AlterExpression expr, Map<String, Column> columns) {
+        var oldName = expr.getColumnOldName().replace("\"", "");
+        var newName = expr.getColumnName().replace("\"", "");
+        var original = columns.get(oldName);
+        if (original == null) {
+            throw new IllegalStateException("Cannot rename non-existing column: " + oldName);
+        }
+        columns.remove(oldName);
+        var renamed = new Column(newName, original.type(), original.nullable(), original.foreignKey(),
+                original.defaultValue(), null);
+        columns.put(newName, renamed);
     }
 
     private static void applyAlterExpression(AlterExpression expr, Map<String, Column> columns) {
@@ -130,5 +162,20 @@ record Table(
             throw new IllegalArgumentException(
                     "Unsupported ALTER TABLE expression, expected ADD COLUMN or ADD CONSTRAINT: " + expr);
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Table other)) return false;
+        return Objects.equals(name, other.name)
+                && Objects.equals(columns, other.columns)
+                && Objects.equals(primaryKey, other.primaryKey);
+        // intentionally excludes oldName
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, columns, primaryKey);
     }
 }

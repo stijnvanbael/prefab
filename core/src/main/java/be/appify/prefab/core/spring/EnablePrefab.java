@@ -13,6 +13,6 @@ import org.springframework.context.annotation.Import;
 /** Enable Prefab framework features in a Spring application. */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
-@Import({ PrefabConfiguration.class, KafkaConfiguration.class, PubSubConfiguration.class, SnsConfiguration.class, SerializationRegistry.class })
+@Import({ PrefabCoreConfiguration.class, KafkaConfiguration.class, PubSubConfiguration.class, SnsConfiguration.class, SerializationRegistry.class })
 public @interface EnablePrefab {
 }

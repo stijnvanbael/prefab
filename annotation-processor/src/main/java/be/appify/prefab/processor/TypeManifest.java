@@ -1,6 +1,5 @@
 package be.appify.prefab.processor;
 
-import com.google.common.collect.Streams;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
@@ -356,7 +355,7 @@ public class TypeManifest {
      * @return a list of VariableManifest representing the fields of the type
      */
     public List<VariableManifest> fields() {
-        return Streams.concat(
+        return Stream.concat(
                         supertypes().flatMap(supertype -> supertype.fields().stream()),
                         element.getEnclosedElements()
                                 .stream()

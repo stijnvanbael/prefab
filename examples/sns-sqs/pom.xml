@@ -20,6 +20,10 @@
         </dependency>
         <dependency>
             <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-postgres</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
             <artifactId>prefab-sns-sqs</artifactId>
         </dependency>
         <dependency>

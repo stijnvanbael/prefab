@@ -48,7 +48,7 @@ public class AssessmentReadingConverter implements Converter<ResultSet, Assessme
 - [x] #4 The generated reading converter is automatically registered in `JdbcCustomConversions` so Spring Data JDBC can use it without any user configuration
 - [x] #5 Saving a polymorphic aggregate persists the correct `type` discriminator value and all fields for the concrete subtype
 - [x] #6 A `{AggregateType}Repository extends CrudRepository<SealedInterface, String>` is generated and works for both read and write operations on Postgres
-- [ ] #7 The same domain model (sealed interface + record subtypes) works transparently with MongoDB using Spring Data MongoDB's native discriminator mechanism
+- [x] #7 The same domain model (sealed interface + record subtypes) works transparently with MongoDB using Spring Data MongoDB's native discriminator mechanism
 - [ ] #8 An integration test (Postgres) round-trips a polymorphic aggregate: save a subtype, reload it, verify the correct concrete type is returned
 <!-- AC:END -->
 
@@ -170,7 +170,7 @@ and map them through their common fields (the `id` column comes from `commonFiel
 
 ---
 
-### Phase 3 — MongoDB runtime wiring ⬜ TODO
+### Phase 3 — MongoDB runtime wiring ✅ done in branch `copilot/analyse-task-13-polymorphic-aggregates`
 
 Spring Data MongoDB has **native** polymorphism support via `_class` discriminator written automatically by
 `MappingMongoConverter`. The steps needed are:

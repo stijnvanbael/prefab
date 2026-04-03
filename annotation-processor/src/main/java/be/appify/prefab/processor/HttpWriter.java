@@ -148,7 +148,7 @@ class HttpWriter {
                         return aggregateRoot
                             .map($T::from)
                             .map(ResponseEntity::ok)
-                            .orElse(ResponseEntity.notFound().build())""".stripIndent(),
+                            .orElse(ResponseEntity.notFound().build())""",
                         polymorphicResponseType)
                 .build();
     }

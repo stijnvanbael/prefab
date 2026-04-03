@@ -57,7 +57,8 @@ public class KafkaTestAutoConfiguration {
     KafkaContainer kafkaContainer(Network kafkaNetwork) {
         return new KafkaContainer("apache/kafka-native:4.1.1")
                 .withNetwork(kafkaNetwork)
-                .withNetworkAliases("kafka");
+                .withNetworkAliases("kafka")
+                .withListener("0.0.0.0:9095", () -> "kafka:9095");
     }
 
     @Bean
@@ -76,8 +77,12 @@ public class KafkaTestAutoConfiguration {
     @Bean
     @ConditionalOnBean(name = "kafkaSchemaRegistryContainer")
     DynamicPropertyRegistrar kafkaSchemaRegistryPropertiesRegistrar(GenericContainer<?> kafkaSchemaRegistryContainer) {
-        return registry -> registry.add("spring.kafka.consumer.properties.schema.registry.url", () -> "http://%s:%d".formatted(
-                kafkaSchemaRegistryContainer.getHost(), kafkaSchemaRegistryContainer.getMappedPort(8081)));
+        return registry -> {
+            var schemaRegistryUrl = "http://%s:%d".formatted(
+                    kafkaSchemaRegistryContainer.getHost(), kafkaSchemaRegistryContainer.getMappedPort(8081));
+            registry.add("spring.kafka.consumer.properties.schema.registry.url", () -> schemaRegistryUrl);
+            registry.add("spring.kafka.producer.properties.schema.registry.url", () -> schemaRegistryUrl);
+        };
     }
 
     @Bean

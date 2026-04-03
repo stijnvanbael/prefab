@@ -55,7 +55,7 @@ class PolymorphicJdbcConverterWriter {
                 .addSuperinterface(
                         ParameterizedTypeName.get(ClassName.get(Converter.class), mapType,
                                 manifest.type().asTypeName()))
-                .addSuperinterface(ClassName.get("be.appify.prefab.postgres.spring.data.jdbc", "PolymorphicReadingConverter"))
+                .addSuperinterface(ClassName.get("be.appify.prefab.core.spring.data.jdbc", "PolymorphicReadingConverter"))
                 .addMethod(buildConvertMethod(manifest, mapType));
         fileWriter.writeFile(manifest.packageName(), converterName, type.build());
     }

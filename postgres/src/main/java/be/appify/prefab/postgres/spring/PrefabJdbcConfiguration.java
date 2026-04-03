@@ -1,6 +1,6 @@
 package be.appify.prefab.postgres.spring;
 
-import be.appify.prefab.postgres.spring.data.jdbc.PolymorphicReadingConverter;
+import be.appify.prefab.core.spring.data.jdbc.PolymorphicReadingConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.ByteArrayToFileConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.FileToByteArrayConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabDataAccessStrategy;

@@ -15,4 +15,6 @@ prefab:
   dlt.retries:
     limit: 1
     initial-interval-ms: 100
-prefab.test.schema-registry.enabled: true
+  test:
+    schema-registry:
+      enabled: true

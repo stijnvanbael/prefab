@@ -8,11 +8,11 @@ import org.springframework.test.context.support.AbstractTestExecutionListener;
 import org.springframework.util.ClassUtils;
 
 /**
- * Test execution listener that drops all MongoDB collections before each test.
+ * Test execution listener that drops all MongoDB collections before each test instance is prepared.
  * <p>
  * This listener activates only when {@code spring-data-mongodb} is on the classpath. It ensures that each test starts
  * with a clean MongoDB state, equivalent to manually calling {@code mongoTemplate.dropCollection()} for every
- * collection before each test.
+ * collection.
  * </p>
  */
 public class MongoDbTestExecutionListener extends AbstractTestExecutionListener {

@@ -54,9 +54,16 @@ public class MongoIndexPlugin implements PrefabPlugin {
     }
 
     private static boolean hasIndexedFields(ClassManifest manifest) {
-        return manifest.fields().stream().anyMatch(field ->
-                field.hasAnnotation(Indexed.class)
-                || field.hasAnnotation(Filter.class)
-                || field.hasAnnotation(Filters.class));
+        return manifest.fields().stream().anyMatch(field -> {
+            if (field.hasAnnotation(Indexed.class)
+                    || field.hasAnnotation(Filter.class)
+                    || field.hasAnnotation(Filters.class)) {
+                return true;
+            }
+            if (field.type().isRecord() && !field.type().isSingleValueType()) {
+                return hasIndexedFields(field.type().asClassManifest());
+            }
+            return false;
+        });
     }
 }

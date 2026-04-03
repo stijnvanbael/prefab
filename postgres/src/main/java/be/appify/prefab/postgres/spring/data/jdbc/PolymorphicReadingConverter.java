@@ -1,4 +1,4 @@
-package be.appify.prefab.core.spring.data.jdbc;
+package be.appify.prefab.postgres.spring.data.jdbc;
 
 /**
  * Marker interface for generated JDBC reading converters for polymorphic aggregate roots.

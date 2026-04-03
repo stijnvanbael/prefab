@@ -1,7 +1,7 @@
 package persistence.polymorphic.infrastructure.persistence;
 
 import be.appify.prefab.core.service.Reference;
-import be.appify.prefab.core.spring.data.jdbc.PolymorphicReadingConverter;
+import be.appify.prefab.postgres.spring.data.jdbc.PolymorphicReadingConverter;
 import java.util.Map;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.data.convert.ReadingConverter;

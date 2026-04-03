@@ -173,7 +173,7 @@ class DbMigrationWriter {
             var aggregateRootTable = tableNameOf(manifest.type());
             var columns = columnsOf(manifest, null, false);
             var fkIndexes = fkIndexesOf(aggregateRootTable, columns);
-            var fieldIndexes = indexesOf(aggregateRootTable, manifest, null);
+            var fieldIndexes = fieldIndexesOf(aggregateRootTable, manifest, null);
             tables.add(new Table(aggregateRootTable, columns, List.of("id"),
                     ListUtil.concat(fkIndexes, fieldIndexes)));
             tables.addAll(childEntityTables(aggregateRootTable, manifest));
@@ -188,13 +188,13 @@ class DbMigrationWriter {
                 .toList();
     }
 
-    private List<Index> indexesOf(String tableName, ClassManifest manifest, String prefix) {
+    private List<Index> fieldIndexesOf(String tableName, ClassManifest manifest, String prefix) {
         return manifest.fields().stream()
                 .filter(field -> !field.type().is(List.class))
                 .flatMap(field -> {
                     if (field.type().isRecord() && !field.type().isSingleValueType()) {
                         var newPrefix = prefix != null ? prefix + "_" + field.name() : field.name();
-                        return indexesOf(tableName, field.type().asClassManifest(), newPrefix).stream();
+                        return fieldIndexesOf(tableName, field.type().asClassManifest(), newPrefix).stream();
                     }
                     var columnName = toSnakeCase(prefix != null ? prefix + "_" + field.name() : field.name());
                     return indexFor(tableName, columnName, field).stream();
@@ -226,7 +226,7 @@ class DbMigrationWriter {
                         ), columnsOf(child.asClassManifest(), null, false));
                         var childTableName = tableNameOf(child);
                         var fkIndexes = fkIndexesOf(childTableName, columns);
-                        var fieldIndexes = indexesOf(childTableName, child.asClassManifest(), null);
+                        var fieldIndexes = fieldIndexesOf(childTableName, child.asClassManifest(), null);
                         var table = new Table(childTableName, columns, List.of(
                                 aggregateRootTable,
                                 aggregateRootTable + "_key"

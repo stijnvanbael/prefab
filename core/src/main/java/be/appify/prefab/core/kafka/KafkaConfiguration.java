@@ -86,6 +86,14 @@ public class KafkaConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(KafkaTemplate.class)
+    KafkaTemplate<?, ?> kafkaTemplate(ProducerFactory<Object, Object> kafkaProducerFactory) {
+        var template = new KafkaTemplate<>(kafkaProducerFactory);
+        template.setAllowNonTransactional(true);
+        return template;
+    }
+
+    @Bean
     @ConditionalOnMissingBean(KafkaListenerContainerFactory.class)
     ConcurrentKafkaListenerContainerFactory<Object, Object> kafkaListenerContainerFactory(
             ConcurrentKafkaListenerContainerFactoryConfigurer configurer,

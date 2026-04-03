@@ -6,12 +6,12 @@ import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
-import com.google.common.collect.Streams;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Stream;
 
 /** A plugin for generating Avro converters and schema factories for events annotated with {@link Event} with Avro serialization. */
 public class AvroPlugin implements PrefabPlugin {
@@ -58,7 +58,7 @@ public class AvroPlugin implements PrefabPlugin {
     }
 
     static List<TypeManifest> nestedTypes(List<TypeManifest> events) {
-        return Streams.concat(events.stream(), sealedSubtypes(events).stream())
+        return Stream.concat(events.stream(), sealedSubtypes(events).stream())
                 .flatMap(event -> event.fields().stream())
                 .map(VariableManifest::type)
                 .filter(type -> isNestedRecord(type) || isListOfNestedRecord(type))

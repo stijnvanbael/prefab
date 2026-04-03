@@ -37,7 +37,14 @@ Additionally, Prefab supports:
 - Event producers and consumers
 - Database migrations
 
-Prefab is designed to work with Spring Boot and PostgreSQL. Other databases might be added in the future.
+Prefab is designed to work with Spring Boot and supports multiple database backends. Currently the following
+persistence modules are available:
+
+- **`prefab-postgres`** — PostgreSQL persistence backed by Spring Data JDBC with Flyway migrations (the original
+  backend).
+- **`prefab-mongodb`** — MongoDB persistence backed by Spring Data MongoDB; no migrations needed.
+
+Add exactly one of these to your project's dependencies to choose your database backend.
 
 Prefab is an opinionated framework that follows the principles of Domain-Driven Design (DDD). Domain classes must
 therefore be valid aggregate roots.
@@ -59,6 +66,17 @@ To get started with Prefab, you need to add the following to your `pom.xml`:
     <groupId>be.appify.prefab</groupId>
     <artifactId>prefab-core</artifactId>
 </dependency>
+<!-- Choose your database backend: prefab-postgres for PostgreSQL or prefab-mongodb for MongoDB -->
+<dependency>
+    <groupId>be.appify.prefab</groupId>
+    <artifactId>prefab-postgres</artifactId>
+</dependency>
+<!-- Alternatively, use MongoDB:
+<dependency>
+    <groupId>be.appify.prefab</groupId>
+    <artifactId>prefab-mongodb</artifactId>
+</dependency>
+-->
 <dependency>
     <groupId>be.appify.prefab</groupId>
     <artifactId>prefab-annotation-processor</artifactId>
@@ -150,6 +168,38 @@ public record Sale(
 ```
 
 Prefab will generate a REST controller, a service, and a repository for the annotated class.
+
+## 🗄️ Choosing a database backend
+
+Prefab supports multiple database backends. Add exactly one of the following persistence modules to switch between them:
+
+### PostgreSQL
+
+```xml
+<dependency>
+    <groupId>be.appify.prefab</groupId>
+    <artifactId>prefab-postgres</artifactId>
+</dependency>
+```
+
+This module wires up Spring Data JDBC with a PostgreSQL driver and Flyway migrations. Use `@DbMigration` on your
+aggregates to auto-generate migration scripts.
+
+### MongoDB
+
+```xml
+<dependency>
+    <groupId>be.appify.prefab</groupId>
+    <artifactId>prefab-mongodb</artifactId>
+</dependency>
+```
+
+This module wires up Spring Data MongoDB. The database is schemaless, so no migration scripts are needed. Connect
+to a MongoDB instance by setting the `spring.data.mongodb.uri` property (or use a Testcontainer with `@ServiceConnection`
+in tests). The `@DbMigration` annotation is not applicable for MongoDB.
+
+Both modules auto-configure via Spring Boot's auto-configuration mechanism — just adding the dependency is enough.
+No additional annotations or configuration class imports are required (apart from `@EnablePrefab` on your main class).
 
 ## 🛠️ IDE support
 
@@ -603,9 +653,11 @@ public record Sale(
 }
 ```
 
-### 🗃️ Alpha: Database migrations
+### 🗃️ Alpha: Database migrations (PostgreSQL only)
 
 Annotate an aggregate with `@DbMigration` to generate a Flyway database migration script for PostgreSQL.
+This annotation is only relevant when using `prefab-postgres`. MongoDB users can skip migrations entirely —
+MongoDB is schemaless and aggregates are stored as documents automatically.
 A migration script will be generated in the target/classes/db/migration folder.
 If you're satisfied with the generated script, you should copy it to the src/main/resources/db/migration folder so it
 doesn't get overwritten the next time you compile your project.

@@ -10,6 +10,7 @@ import be.appify.prefab.core.domain.PublishesEvents;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.example.avro.cashregister.CashRegister;
 import be.appify.prefab.example.avro.customer.Customer;
+import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -24,12 +25,12 @@ import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
 public record Sale(
         @Id Reference<Sale> id,
         @Version long version,
-        @NotNull Instant started,
-        @NotNull List<Line> lines,
-        @NotNull Status status,
-        @NotNull Reference<CashRegister> cashRegister,
-        Reference<Customer> customer,
-        Payment payment
+        Instant started,
+        List<Line> lines,
+        Status status,
+        Reference<CashRegister> cashRegister,
+        @Nullable Reference<Customer> customer,
+        @Nullable Payment payment
 ) implements PublishesEvents {
 
     @Create
@@ -65,7 +66,7 @@ public record Sale(
     }
 
     public record Line(
-            @NotNull String product,
+            String product,
             double quantity,
             double price
     ) {
@@ -73,8 +74,8 @@ public record Sale(
 
     public record Payment(
             double amount,
-            @NotNull PaymentMethod method,
-            @NotNull Instant paidAt
+            PaymentMethod method,
+            Instant paidAt
     ) {
     }
 

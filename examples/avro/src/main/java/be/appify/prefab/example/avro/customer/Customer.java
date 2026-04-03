@@ -17,8 +17,8 @@ import org.springframework.data.annotation.Version;
 public record Customer(
         @Id Reference<Customer> id,
         @Version long version,
-        @NotNull PersonName name,
-        @NotNull String email
+        PersonName name,
+        String email
 ) implements PublishesEvents {
 
     @Create

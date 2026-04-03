@@ -20,8 +20,8 @@ import org.springframework.data.annotation.Version;
 public record User(
         @Id Reference<User> id,
         @Version long version,
-        @NotNull String name,
-        @NotNull List<Reference<Channel>> channelSubscriptions
+        String name,
+        List<Reference<Channel>> channelSubscriptions
 ) implements PublishesEvents {
     @Create
     public User(@NotNull String name) {

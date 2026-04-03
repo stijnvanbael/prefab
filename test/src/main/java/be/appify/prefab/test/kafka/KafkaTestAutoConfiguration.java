@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.kafka.autoconfigure.DefaultKafkaConsumerFactoryCustomizer;
 import org.springframework.boot.kafka.autoconfigure.KafkaConnectionDetails;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
@@ -56,11 +57,12 @@ public class KafkaTestAutoConfiguration {
     KafkaContainer kafkaContainer(Network kafkaNetwork) {
         return new KafkaContainer("apache/kafka-native:4.1.1")
                 .withNetwork(kafkaNetwork)
-                .withExposedPorts(9092, 9093, 9095)
-                .withListener("kafka:9095");
+                .withNetworkAliases("kafka")
+                .withListener("0.0.0.0:9095", () -> "kafka:9095");
     }
 
     @Bean
+    @ConditionalOnProperty(name = "prefab.test.schema-registry.enabled", havingValue = "true")
     GenericContainer<?> kafkaSchemaRegistryContainer(KafkaContainer kafkaContainer, Network kafkaNetwork) {
         return new GenericContainer<>("confluentinc/cp-schema-registry:8.0.3")
                 .withExposedPorts(8081)
@@ -75,8 +77,12 @@ public class KafkaTestAutoConfiguration {
     @Bean
     @ConditionalOnBean(name = "kafkaSchemaRegistryContainer")
     DynamicPropertyRegistrar kafkaSchemaRegistryPropertiesRegistrar(GenericContainer<?> kafkaSchemaRegistryContainer) {
-        return registry -> registry.add("spring.kafka.consumer.properties.schema.registry.url", () -> "http://%s:%d".formatted(
-                kafkaSchemaRegistryContainer.getHost(), kafkaSchemaRegistryContainer.getMappedPort(8081)));
+        return registry -> {
+            var schemaRegistryUrl = "http://%s:%d".formatted(
+                    kafkaSchemaRegistryContainer.getHost(), kafkaSchemaRegistryContainer.getMappedPort(8081));
+            registry.add("spring.kafka.consumer.properties.schema.registry.url", () -> schemaRegistryUrl);
+            registry.add("spring.kafka.producer.properties.schema.registry.url", () -> schemaRegistryUrl);
+        };
     }
 
     @Bean

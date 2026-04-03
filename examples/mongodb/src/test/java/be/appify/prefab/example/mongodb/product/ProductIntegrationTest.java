@@ -1,17 +1,11 @@
 package be.appify.prefab.example.mongodb.product;
 
-import be.appify.prefab.example.mongodb.MongoDbContainerConfiguration;
-import be.appify.prefab.example.mongodb.category.Category;
 import be.appify.prefab.example.mongodb.category.CategoryClient;
-import be.appify.prefab.example.mongodb.categorystats.CategoryStats;
 import be.appify.prefab.example.mongodb.product.infrastructure.http.ProductResponse;
 import be.appify.prefab.test.IntegrationTest;
 import java.math.BigDecimal;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
-import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -20,7 +14,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @IntegrationTest
-@Import(MongoDbContainerConfiguration.class)
 class ProductIntegrationTest {
 
     @Autowired
@@ -29,15 +22,6 @@ class ProductIntegrationTest {
     CategoryClient categories;
     @Autowired
     MockMvc mockMvc;
-    @Autowired
-    MongoTemplate mongoTemplate;
-
-    @BeforeEach
-    void setUp() {
-        mongoTemplate.dropCollection(Product.class);
-        mongoTemplate.dropCollection(Category.class);
-        mongoTemplate.dropCollection(CategoryStats.class);
-    }
 
     @Test
     void createAndRetrieveProduct() throws Exception {

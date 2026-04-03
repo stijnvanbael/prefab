@@ -1,6 +1,7 @@
 package be.appify.prefab.test;
 
 import be.appify.prefab.test.kafka.KafkaTestAutoConfiguration;
+import be.appify.prefab.test.mongodb.MongoDbTestAutoConfiguration;
 import be.appify.prefab.test.persistence.FlywayChecksumMismatchMigrationStrategy;
 import be.appify.prefab.test.pubsub.PubSubTestAutoConfiguration;
 import be.appify.prefab.test.sns.SnsTestAutoConfiguration;
@@ -23,6 +24,9 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * <p>
  * When Flyway is on the classpath, this annotation also registers a migration strategy that automatically drops the
  * schema and retries if there is a checksum mismatch for the last applied migration.
+ * <p>
+ * When Spring Data MongoDB is on the classpath (i.e., when {@code prefab-mongodb} is a dependency), this annotation
+ * also automatically starts a MongoDB Testcontainer and drops all collections before each test.
  */
 @Documented
 @Target(TYPE)
@@ -30,6 +34,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({ KafkaTestAutoConfiguration.class, PubSubTestAutoConfiguration.class, SnsTestAutoConfiguration.class, FlywayChecksumMismatchMigrationStrategy.class })
+@Import({ KafkaTestAutoConfiguration.class, PubSubTestAutoConfiguration.class, SnsTestAutoConfiguration.class, FlywayChecksumMismatchMigrationStrategy.class, MongoDbTestAutoConfiguration.class })
 public @interface IntegrationTest {
 }

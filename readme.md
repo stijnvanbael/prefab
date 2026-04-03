@@ -173,7 +173,7 @@ Prefab will generate a REST controller, a service, and a repository for the anno
 
 Prefab supports multiple database backends. Add exactly one of the following persistence modules to switch between them:
 
-### PostgreSQL (default)
+### PostgreSQL
 
 ```xml
 <dependency>

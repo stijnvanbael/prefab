@@ -30,19 +30,12 @@ class ApplicationWriter {
         writeService(manifest);
     }
 
-    private boolean isTransactionalAvailable() {
-        return context.processingEnvironment().getElementUtils()
-                .getTypeElement("org.springframework.transaction.annotation.Transactional") != null;
-    }
-
     private void writeService(ClassManifest manifest) {
         var serviceName = "%sService".formatted(manifest.simpleName());
         var type = TypeSpec.classBuilder(serviceName)
                 .addModifiers(Modifier.PUBLIC)
-                .addAnnotation(ClassName.get(Component.class));
-        if (isTransactionalAvailable()) {
-            type.addAnnotation(TRANSACTIONAL);
-        }
+                .addAnnotation(ClassName.get(Component.class))
+                .addAnnotation(TRANSACTIONAL);
         type.addField(FieldSpec.builder(Logger.class, "log", Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
                         .initializer("$T.getLogger($T.class)", ClassName.get(LoggerFactory.class),
                                 ClassName.get(manifest.packageName() + ".application", serviceName))

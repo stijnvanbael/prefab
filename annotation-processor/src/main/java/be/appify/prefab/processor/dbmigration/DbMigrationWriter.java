@@ -1,8 +1,12 @@
 package be.appify.prefab.processor.dbmigration;
 
+import be.appify.prefab.core.annotations.Indexed;
+import be.appify.prefab.core.annotations.rest.Filter;
+import be.appify.prefab.core.annotations.rest.Filters;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.ListUtil;
 import be.appify.prefab.processor.TypeManifest;
+import be.appify.prefab.processor.VariableManifest;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -20,9 +24,10 @@ import javax.tools.StandardLocation;
 import net.sf.jsqlparser.parser.CCJSqlParser;
 import net.sf.jsqlparser.statement.alter.Alter;
 import net.sf.jsqlparser.statement.create.table.CreateTable;
+import net.sf.jsqlparser.statement.create.index.CreateIndex;
+import net.sf.jsqlparser.statement.drop.Drop;
 
 import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
-import static java.util.stream.Collectors.groupingBy;
 
 class DbMigrationWriter {
 
@@ -63,8 +68,12 @@ class DbMigrationWriter {
             var existing = findTable(currentDatabaseState, desired.name());
             if (existing == null) {
                 changes.add(new DatabaseChange.CreateTable(desired));
-            } else if (!existing.equals(desired)) {
-                changes.add(DatabaseChange.AlterTable.from(existing, desired));
+                desired.indexes().forEach(index -> changes.add(new DatabaseChange.CreateIndex(desired.name(), index)));
+            } else {
+                if (!existingColumnsMatch(existing, desired)) {
+                    changes.add(DatabaseChange.AlterTable.from(existing, desired));
+                }
+                detectIndexChanges(existing, desired, changes);
             }
         }
         for (Table existing : currentDatabaseState) {
@@ -74,6 +83,23 @@ class DbMigrationWriter {
             }
         }
         return changes;
+    }
+
+    private static boolean existingColumnsMatch(Table existing, Table desired) {
+        return existing.columns().equals(desired.columns()) && existing.primaryKey().equals(desired.primaryKey());
+    }
+
+    private static void detectIndexChanges(Table existing, Table desired, List<DatabaseChange> changes) {
+        for (Index desiredIndex : desired.indexes()) {
+            if (existing.getIndex(desiredIndex.name()).isEmpty()) {
+                changes.add(new DatabaseChange.CreateIndex(desired.name(), desiredIndex));
+            }
+        }
+        for (Index existingIndex : existing.indexes()) {
+            if (desired.getIndex(existingIndex.name()).isEmpty()) {
+                changes.add(new DatabaseChange.DropIndex(existingIndex));
+            }
+        }
     }
 
     private Table findTable(List<Table> tables, String name) {
@@ -87,14 +113,8 @@ class DbMigrationWriter {
         try {
             var tablesByName = new HashMap<String, Table>();
             var migrations = existingMigrations(processingEnvironment);
-            var tables = migrations.stream()
-                    .flatMap(file -> parseSql(file, tablesByName))
-                    .collect(groupingBy(Table::name))
-                    .values()
-                    .stream()
-                    .map(List::getLast)
-                    .toList();
-            return new DatabaseState(tables, migrations.size());
+            migrations.forEach(file -> parseSql(file, tablesByName));
+            return new DatabaseState(List.copyOf(tablesByName.values()), migrations.size());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -114,26 +134,34 @@ class DbMigrationWriter {
         return files;
     }
 
-    private static Stream<Table> parseSql(FileObject file, Map<String, Table> tables) {
+    private static void parseSql(FileObject file, Map<String, Table> tables) {
         try (var input = file.openInputStream()) {
             var content = new String(input.readAllBytes());
-            return new CCJSqlParser(content).Statements().stream()
-                    .map(statement -> {
-                        if (statement instanceof CreateTable createTable) {
-                            var table = Table.fromCreateTable(createTable);
-                            tables.put(table.name(), table);
-                            return table;
-                        } else if (statement instanceof Alter alter) {
-                            var table = tables.get(alter.getTable().getName());
-                            if (table == null) {
-                                throw new IllegalStateException(
-                                        "Found ALTER TABLE on table not previously created: " + alter.getTable()
-                                                .getName());
-                            }
-                            return table.apply(alter);
-                        }
-                        return null;
-                    });
+            new CCJSqlParser(content).Statements().forEach(statement -> {
+                if (statement instanceof CreateTable createTable) {
+                    var table = Table.fromCreateTable(createTable);
+                    tables.put(table.name(), table);
+                } else if (statement instanceof Alter alter) {
+                    var table = tables.get(alter.getTable().getName());
+                    if (table == null) {
+                        throw new IllegalStateException(
+                                "Found ALTER TABLE on table not previously created: " + alter.getTable().getName());
+                    }
+                    tables.put(table.name(), table.apply(alter));
+                } else if (statement instanceof CreateIndex createIndex) {
+                    var tableName = createIndex.getTable().getName().replace("\"", "");
+                    var table = tables.get(tableName);
+                    if (table != null) {
+                        tables.put(tableName, table.withAddedIndex(Index.fromCreateIndex(createIndex)));
+                    }
+                } else if (statement instanceof Drop drop && "INDEX".equalsIgnoreCase(drop.getType())) {
+                    var indexName = drop.getName().getName().replace("\"", "");
+                    tables.values().stream()
+                            .filter(t -> t.getIndex(indexName).isPresent())
+                            .findFirst()
+                            .ifPresent(t -> tables.put(t.name(), t.withRemovedIndex(indexName)));
+                }
+            });
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -144,10 +172,46 @@ class DbMigrationWriter {
             var tables = new ArrayList<Table>();
             var aggregateRootTable = tableNameOf(manifest.type());
             var columns = columnsOf(manifest, null, false);
-            tables.add(new Table(aggregateRootTable, columns, List.of("id")));
+            var fkIndexes = fkIndexesOf(aggregateRootTable, columns);
+            var fieldIndexes = indexesOf(aggregateRootTable, manifest, null);
+            tables.add(new Table(aggregateRootTable, columns, List.of("id"),
+                    ListUtil.concat(fkIndexes, fieldIndexes)));
             tables.addAll(childEntityTables(aggregateRootTable, manifest));
             return tables.stream();
         }).toList());
+    }
+
+    private static List<Index> fkIndexesOf(String tableName, List<Column> columns) {
+        return columns.stream()
+                .filter(c -> c.foreignKey() != null)
+                .map(c -> Index.of(tableName, c.name(), false))
+                .toList();
+    }
+
+    private List<Index> indexesOf(String tableName, ClassManifest manifest, String prefix) {
+        return manifest.fields().stream()
+                .filter(field -> !field.type().is(List.class))
+                .flatMap(field -> {
+                    if (field.type().isRecord() && !field.type().isSingleValueType()) {
+                        var newPrefix = prefix != null ? prefix + "_" + field.name() : field.name();
+                        return indexesOf(tableName, field.type().asClassManifest(), newPrefix).stream();
+                    }
+                    var columnName = toSnakeCase(prefix != null ? prefix + "_" + field.name() : field.name());
+                    return indexFor(tableName, columnName, field).stream();
+                })
+                .toList();
+    }
+
+    private static List<Index> indexFor(String tableName, String columnName, VariableManifest field) {
+        if (field.hasAnnotation(Indexed.class)) {
+            var isUnique = field.getAnnotation(Indexed.class)
+                    .map(a -> a.value().unique())
+                    .orElse(false);
+            return List.of(Index.of(tableName, columnName, isUnique));
+        } else if (field.hasAnnotation(Filter.class) || field.hasAnnotation(Filters.class)) {
+            return List.of(Index.of(tableName, columnName, false));
+        }
+        return List.of();
     }
 
     private List<Table> childEntityTables(String aggregateRootTable, ClassManifest manifest) {
@@ -160,10 +224,13 @@ class DbMigrationWriter {
                                         new ForeignKey(aggregateRootTable, "id"), null),
                                 new Column(aggregateRootTable + "_key", DataType.Primitive.INTEGER, false, null, null)
                         ), columnsOf(child.asClassManifest(), null, false));
-                        var table = new Table(tableNameOf(child), columns, List.of(
+                        var childTableName = tableNameOf(child);
+                        var fkIndexes = fkIndexesOf(childTableName, columns);
+                        var fieldIndexes = indexesOf(childTableName, child.asClassManifest(), null);
+                        var table = new Table(childTableName, columns, List.of(
                                 aggregateRootTable,
                                 aggregateRootTable + "_key"
-                        ));
+                        ), ListUtil.concat(fkIndexes, fieldIndexes));
                         return Stream.of(table);
                     } else {
                         return Stream.empty();

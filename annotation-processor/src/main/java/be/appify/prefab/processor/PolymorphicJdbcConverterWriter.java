@@ -26,8 +26,8 @@ class PolymorphicJdbcConverterWriter {
 
     private static final ClassName JDBC_CONVERTER =
             ClassName.get("org.springframework.data.jdbc.core.convert", "JdbcConverter");
-    private static final ClassName CLASS_TYPE_INFORMATION =
-            ClassName.get("org.springframework.data.util", "ClassTypeInformation");
+    private static final ClassName TYPE_INFORMATION =
+            ClassName.get("org.springframework.data.util", "TypeInformation");
 
     private final JavaFileWriter fileWriter;
 
@@ -111,8 +111,8 @@ class PolymorphicJdbcConverterWriter {
             return CodeBlock.of("row.get($S) != null ? new $T(($T) row.get($S)) : null",
                     columnName, fieldType.asTypeName(), innerType.asTypeName());
         }
-        return CodeBlock.of("($T) converter.readValue(row.get($S), $T.from($T.class))",
-                fieldType.asBoxed().asTypeName(), columnName, CLASS_TYPE_INFORMATION,
+        return CodeBlock.of("($T) converter.readValue(row.get($S), $T.of($T.class))",
+                fieldType.asBoxed().asTypeName(), columnName, TYPE_INFORMATION,
                 fieldType.asBoxed().asTypeName());
     }
 

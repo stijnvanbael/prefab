@@ -101,7 +101,9 @@ record Column(
                 && nullable == other.nullable
                 && Objects.equals(foreignKey, other.foreignKey)
                 && Objects.equals(defaultValue, other.defaultValue);
-        // intentionally excludes oldName
+        // oldName is intentionally excluded: it is a migration hint (@DbRename), not part of the schema
+        // definition. Two Column instances with the same schema but different oldName values must compare
+        // as equal so that change detection works correctly.
     }
 
     @Override

@@ -75,9 +75,14 @@ interface DatabaseChange {
 
         static AlterTable from(Table existing, Table desired) {
             // Build rename map: old column name -> desired column (for columns with @DbRename)
+            // Two columns with the same oldName would be a model error (can't rename two columns from the same source)
             var renames = desired.columns().stream()
                     .filter(c -> c.oldName() != null && existing.getColumn(c.oldName()).isPresent())
-                    .collect(Collectors.toMap(Column::oldName, c -> c));
+                    .collect(Collectors.toMap(Column::oldName, c -> c, (a, b) -> {
+                        throw new IllegalStateException(
+                                "Two columns share the same @DbRename old name '%s': '%s' and '%s'"
+                                        .formatted(a.oldName(), a.name(), b.name()));
+                    }));
 
             var renamedOldNames = renames.keySet();
             var renamedNewNames = renames.values().stream()

@@ -171,7 +171,9 @@ record Table(
         return Objects.equals(name, other.name)
                 && Objects.equals(columns, other.columns)
                 && Objects.equals(primaryKey, other.primaryKey);
-        // intentionally excludes oldName
+        // oldName is intentionally excluded: it is a migration hint (@DbRename), not part of the current
+        // table definition. Two Table instances with the same schema but different oldName values must
+        // compare as equal so that change detection works correctly.
     }
 
     @Override

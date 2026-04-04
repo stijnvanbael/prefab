@@ -5,3 +5,4 @@ CREATE TABLE "product" (
   "description" VARCHAR (255),
   PRIMARY KEY("id")
 );
+

@@ -43,6 +43,30 @@ interface DatabaseChange {
         }
     }
 
+    record CreateIndex(String tableName, Index index) implements DatabaseChange {
+        @Override
+        public String toSql() {
+            return index.toCreateSql(tableName);
+        }
+
+        @Override
+        public String toString() {
+            return toSql();
+        }
+    }
+
+    record DropIndex(Index index) implements DatabaseChange {
+        @Override
+        public String toSql() {
+            return index.toDropSql();
+        }
+
+        @Override
+        public String toString() {
+            return toSql();
+        }
+    }
+
     record AlterTable(String tableName, List<TableModification> modifications) implements DatabaseChange {
         @Override
         public String toSql() {

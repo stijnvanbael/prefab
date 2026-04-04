@@ -1,4 +1,5 @@
 be.appify.prefab.processor.dbmigration.DbMigrationPlugin
+be.appify.prefab.processor.mongodb.MongoIndexPlugin
 be.appify.prefab.processor.event.avro.AvroPlugin
 be.appify.prefab.processor.event.SerializationPlugin
 be.appify.prefab.processor.event.asyncapi.EventSchemaDocumentationPlugin

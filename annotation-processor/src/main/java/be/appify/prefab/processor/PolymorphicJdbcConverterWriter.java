@@ -3,7 +3,6 @@ package be.appify.prefab.processor;
 import be.appify.prefab.core.service.Reference;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
-import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeSpec;
@@ -23,11 +22,6 @@ import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
  * creates the appropriate subtype based on the {@code type} discriminator column.</p>
  */
 class PolymorphicJdbcConverterWriter {
-
-    private static final ClassName JDBC_CONVERTER =
-            ClassName.get("org.springframework.data.jdbc.core.convert", "JdbcConverter");
-    private static final ClassName TYPE_INFORMATION =
-            ClassName.get("org.springframework.data.util", "TypeInformation");
 
     private final JavaFileWriter fileWriter;
 
@@ -57,11 +51,6 @@ class PolymorphicJdbcConverterWriter {
                         ParameterizedTypeName.get(ClassName.get(Converter.class), mapType,
                                 manifest.type().asTypeName()))
                 .addSuperinterface(ClassName.get("be.appify.prefab.core.spring.data.jdbc", "PolymorphicReadingConverter"))
-                .addField(FieldSpec.builder(JDBC_CONVERTER, "converter", Modifier.PRIVATE, Modifier.FINAL).build())
-                .addMethod(MethodSpec.constructorBuilder()
-                        .addParameter(JDBC_CONVERTER, "converter")
-                        .addStatement("this.converter = converter")
-                        .build())
                 .addMethod(buildConvertMethod(manifest, mapType));
         fileWriter.writeFile(manifest.packageName(), converterName, type.build());
     }
@@ -111,9 +100,7 @@ class PolymorphicJdbcConverterWriter {
             return CodeBlock.of("row.get($S) != null ? new $T(($T) row.get($S)) : null",
                     columnName, fieldType.asTypeName(), innerType.asTypeName());
         }
-        return CodeBlock.of("($T) converter.readValue(row.get($S), $T.of($T.class))",
-                fieldType.asBoxed().asTypeName(), columnName, TYPE_INFORMATION,
-                fieldType.asBoxed().asTypeName());
+        return CodeBlock.of("($T) row.get($S)", fieldType.asBoxed().asTypeName(), columnName);
     }
 
     private static String lastSimpleName(String simpleName) {

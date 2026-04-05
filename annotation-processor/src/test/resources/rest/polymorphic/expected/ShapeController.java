@@ -1,5 +1,9 @@
 package rest.polymorphic.infrastructure.http;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedModel;
@@ -14,6 +18,9 @@ import rest.polymorphic.application.ShapeService;
 @RestController
 @RequestMapping(
         path = "shapes"
+)
+@Tag(
+        name = "Shape"
 )
 public class ShapeController {
     private final ShapeService service;
@@ -33,13 +40,20 @@ public class ShapeController {
             method = RequestMethod.GET,
             path = "/{id}"
     )
-    public ResponseEntity<ShapeResponse> getById(@PathVariable String id) {
+    @Operation(
+            summary = "Get Shape by ID"
+    )
+    public ResponseEntity<ShapeResponse> getById(
+            @PathVariable @Parameter(description = "The Shape ID", in = ParameterIn.PATH) String id) {
         return toResponse(service.getById(id));
     }
 
     @RequestMapping(
             method = RequestMethod.GET,
             path = ""
+    )
+    @Operation(
+            summary = "List Shapes"
     )
     public ResponseEntity<PagedModel<ShapeResponse>> getList(Pageable pageable) {
         return ResponseEntity.ok(new PagedModel(service.getList(pageable).map(ShapeResponse::from)));

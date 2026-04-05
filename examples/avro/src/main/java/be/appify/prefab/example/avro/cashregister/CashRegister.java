@@ -24,7 +24,7 @@ import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
 public record CashRegister(
         @Id Reference<CashRegister> id,
         @Version long version,
-        @NotNull String name,
+        String name,
         double cashInDrawer
 ) implements PublishesEvents {
 

@@ -11,7 +11,6 @@ import be.appify.prefab.example.kafka.channel.Channel;
 import be.appify.prefab.example.kafka.channel.ChannelCreated;
 import be.appify.prefab.example.kafka.message.MessageSent;
 import be.appify.prefab.example.kafka.user.UserEvent;
-import jakarta.validation.constraints.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.annotation.Id;
@@ -23,8 +22,8 @@ import org.springframework.data.annotation.Version;
 public record ChannelSummary(
         @Id Reference<ChannelSummary>  id,
         @Version long version,
-        @NotNull Reference<Channel> channel,
-        @Filter @NotNull String name,
+        Reference<Channel> channel,
+        @Filter String name,
         int totalMessages,
         int totalSubscribers
 ) {

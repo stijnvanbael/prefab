@@ -6,7 +6,6 @@ import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.domain.PublishesEvents;
 import be.appify.prefab.core.service.Reference;
-import jakarta.validation.constraints.NotNull;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 
@@ -17,7 +16,7 @@ import org.springframework.data.annotation.Version;
 public record Category(
         @Id Reference<Category> id,
         @Version long version,
-        @NotNull String name
+        String name
 ) implements PublishesEvents {
 
     /** Creates a new category with the given name. */

@@ -9,7 +9,6 @@ import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.example.mongodb.category.Category;
 import be.appify.prefab.example.mongodb.category.CategoryCreated;
 import be.appify.prefab.example.mongodb.product.ProductCreated;
-import jakarta.validation.constraints.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.annotation.Id;
@@ -26,8 +25,8 @@ import org.springframework.data.annotation.Version;
 public record CategoryStats(
         @Id Reference<CategoryStats> id,
         @Version long version,
-        @NotNull Reference<Category> category,
-        @Filter @NotNull String name,
+        Reference<Category> category,
+        @Filter String name,
         int totalProducts
 ) {
     private static final Logger log = LoggerFactory.getLogger(CategoryStats.class);

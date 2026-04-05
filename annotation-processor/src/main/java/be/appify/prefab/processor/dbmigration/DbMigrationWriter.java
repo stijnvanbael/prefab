@@ -264,39 +264,6 @@ class DbMigrationWriter {
         return List.of();
     }
 
-    private static List<Index> fkIndexesOf(String tableName, List<Column> columns) {
-        return columns.stream()
-                .filter(c -> c.foreignKey() != null)
-                .map(c -> Index.of(tableName, c.name(), false))
-                .toList();
-    }
-
-    private List<Index> fieldIndexesOf(String tableName, ClassManifest manifest, String prefix) {
-        return manifest.fields().stream()
-                .filter(field -> !field.type().is(List.class))
-                .flatMap(field -> {
-                    if (field.type().isRecord() && !field.type().isSingleValueType()) {
-                        var newPrefix = prefix != null ? prefix + "_" + field.name() : field.name();
-                        return fieldIndexesOf(tableName, field.type().asClassManifest(), newPrefix).stream();
-                    }
-                    var columnName = toSnakeCase(prefix != null ? prefix + "_" + field.name() : field.name());
-                    return indexFor(tableName, columnName, field).stream();
-                })
-                .toList();
-    }
-
-    private static List<Index> indexFor(String tableName, String columnName, VariableManifest field) {
-        if (field.hasAnnotation(Indexed.class)) {
-            var isUnique = field.getAnnotation(Indexed.class)
-                    .map(a -> a.value().unique())
-                    .orElse(false);
-            return List.of(Index.of(tableName, columnName, isUnique));
-        } else if (field.hasAnnotation(Filter.class) || field.hasAnnotation(Filters.class)) {
-            return List.of(Index.of(tableName, columnName, false));
-        }
-        return List.of();
-    }
-
     private List<Table> childEntityTables(String aggregateRootTable, ClassManifest manifest) {
         return manifest.fields().stream().filter(field -> field.type().is(List.class))
                 .map(field -> field.type().parameters().getFirst())

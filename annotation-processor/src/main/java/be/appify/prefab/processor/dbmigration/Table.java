@@ -19,7 +19,8 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
 record Table(
         String name,
         List<Column> columns,
-        List<String> primaryKey
+        List<String> primaryKey,
+        List<Index> indexes
 ) {
     private static final List<String> PRIMARY_KEY = List.of("PRIMARY", "KEY");
     private static final String FOREIGN_KEY = "FOREIGN KEY";
@@ -30,7 +31,8 @@ record Table(
                 createTable.getColumnDefinitions().stream()
                         .map(Column::fromColumnDefinition)
                         .toList(),
-                primaryKey(createTable)
+                primaryKey(createTable),
+                List.of()
         );
     }
 
@@ -59,8 +61,28 @@ record Table(
         return new Table(
                 name,
                 mapColumns(alter),
-                primaryKey
+                primaryKey,
+                indexes
         );
+    }
+
+    public Table withAddedIndex(Index index) {
+        var newIndexes = new java.util.ArrayList<>(indexes);
+        newIndexes.add(index);
+        return new Table(name, columns, primaryKey, List.copyOf(newIndexes));
+    }
+
+    public Table withRemovedIndex(String indexName) {
+        var newIndexes = indexes.stream()
+                .filter(idx -> !idx.name().equals(indexName))
+                .toList();
+        return new Table(name, columns, primaryKey, newIndexes);
+    }
+
+    public Optional<Index> getIndex(String name) {
+        return indexes.stream()
+                .filter(idx -> idx.name().equals(name))
+                .findFirst();
     }
 
     private List<Column> mapColumns(Alter alter) {

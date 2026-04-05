@@ -20,6 +20,10 @@ record Column(
         String defaultValue,
         String oldName
 ) {
+    Column(String name, DataType type, boolean nullable, ForeignKey foreignKey, String defaultValue) {
+        this(name, type, nullable, foreignKey, defaultValue, null);
+    }
+
     private static final List<String> NOT_NULL = List.of("NOT", "NULL");
 
     static Column fromColumnDefinition(ColumnDefinition column) {

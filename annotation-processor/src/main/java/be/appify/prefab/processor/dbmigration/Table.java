@@ -20,13 +20,22 @@ record Table(
         String name,
         List<Column> columns,
         List<String> primaryKey,
-        String oldName
+        String oldName,
+        List<Index> indexes
 ) {
     private static final List<String> PRIMARY_KEY = List.of("PRIMARY", "KEY");
     private static final String FOREIGN_KEY = "FOREIGN KEY";
 
     Table(String name, List<Column> columns, List<String> primaryKey) {
-        this(name, columns, primaryKey, null);
+        this(name, columns, primaryKey, null, List.of());
+    }
+
+    Table(String name, List<Column> columns, List<String> primaryKey, String oldName) {
+        this(name, columns, primaryKey, oldName, List.of());
+    }
+
+    Table(String name, List<Column> columns, List<String> primaryKey, List<Index> indexes) {
+        this(name, columns, primaryKey, null, indexes);
     }
 
     static Table fromCreateTable(CreateTable createTable) {
@@ -36,7 +45,8 @@ record Table(
                         .map(Column::fromColumnDefinition)
                         .toList(),
                 primaryKey(createTable),
-                null
+                null,
+                List.of()
         );
     }
 
@@ -68,7 +78,8 @@ record Table(
                 newName != null ? newName : name,
                 newColumns,
                 primaryKey,
-                null
+                null,
+                indexes
         );
     }
 
@@ -78,6 +89,25 @@ record Table(
                 .map(expr -> expr.getNewTableName().replace("\"", ""))
                 .findFirst()
                 .orElse(null);
+    }
+
+    public Table withAddedIndex(Index index) {
+        var newIndexes = new java.util.ArrayList<>(indexes);
+        newIndexes.add(index);
+        return new Table(name, columns, primaryKey, null, List.copyOf(newIndexes));
+    }
+
+    public Table withRemovedIndex(String indexName) {
+        var newIndexes = indexes.stream()
+                .filter(idx -> !idx.name().equals(indexName))
+                .toList();
+        return new Table(name, columns, primaryKey, null, newIndexes);
+    }
+
+    public Optional<Index> getIndex(String name) {
+        return indexes.stream()
+                .filter(idx -> idx.name().equals(name))
+                .findFirst();
     }
 
     private List<Column> mapColumns(Alter alter) {

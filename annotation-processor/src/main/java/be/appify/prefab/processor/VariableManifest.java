@@ -1,6 +1,6 @@
 package be.appify.prefab.processor;
 
-import jakarta.validation.constraints.NotNull;
+import jakarta.annotation.Nullable;
 import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Map;
@@ -115,11 +115,12 @@ public class VariableManifest {
     /**
      * Determines if the variable is nullable.
      *
-     * @return true if the variable is nullable, false otherwise
+     * @return true if the variable is annotated with {@code @Nullable}, false otherwise
      */
     public boolean nullable() {
-        return !isPrimitive() && annotations.stream()
-                .noneMatch(annotation -> annotation.type().is(NotNull.class) || annotation.type().is(Id.class));
+        return !isPrimitive()
+                && annotations.stream().anyMatch(annotation -> annotation.type().is(Nullable.class))
+                && annotations.stream().noneMatch(annotation -> annotation.type().is(Id.class));
     }
 
     @Override

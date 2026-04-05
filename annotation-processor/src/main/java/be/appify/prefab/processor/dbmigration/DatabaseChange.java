@@ -57,6 +57,7 @@ interface DatabaseChange {
         }
     }
 
+
     record CreateIndex(String tableName, Index index) implements DatabaseChange {
         @Override
         public String toSql() {

@@ -58,7 +58,6 @@ public class KafkaTestAutoConfiguration {
         return new KafkaContainer("apache/kafka-native:4.1.1")
                 .withNetwork(kafkaNetwork)
                 .withNetworkAliases("kafka")
-                .withExposedPorts(9092, 9093, 9095)
                 .withListener("0.0.0.0:9095", () -> "kafka:9095");
     }
 

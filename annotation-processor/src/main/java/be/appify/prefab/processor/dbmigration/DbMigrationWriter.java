@@ -227,7 +227,8 @@ class DbMigrationWriter {
         columns.add(discriminatorColumn);
         columns.addAll(nonIdColumns);
 
-        return new Table(tableName, columns, List.of("id"));
+        var fkIndexes = fkIndexesOf(tableName, columns);
+        return new Table(tableName, columns, List.of("id"), fkIndexes);
     }
 
     private static List<Index> fkIndexesOf(String tableName, List<Column> columns) {

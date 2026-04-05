@@ -18,10 +18,10 @@ import org.springframework.data.annotation.Version;
 public record Message(
         @Id Reference<Message> id,
         @Version long version,
-        @NotNull Reference<User> author,
-        @NotNull Reference<Channel> channel,
+        Reference<User> author,
+        Reference<Channel> channel,
         @NotEmpty String content,
-        @NotNull Instant timestamp
+        Instant timestamp
 ) implements PublishesEvents {
     @Create
     public Message(

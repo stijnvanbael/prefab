@@ -23,8 +23,8 @@ import org.springframework.data.annotation.Version;
 public record UserStatus(
         @Id Reference<UserStatus> id,
         @Version long version,
-        @NotNull Reference<User> user,
-        @NotNull List<UnreadMessage> unreadMessages
+        Reference<User> user,
+        List<UnreadMessage> unreadMessages
 ) {
     @EventHandler
     public static UserStatus onUserCreated(UserEvent.Created event) {

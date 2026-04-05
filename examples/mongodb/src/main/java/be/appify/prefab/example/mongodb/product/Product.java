@@ -29,10 +29,10 @@ import org.springframework.data.annotation.Version;
 public record Product(
         @Id Reference<Product> id,
         @Version long version,
-        @Filter @NotNull String name,
-        @NotNull String description,
-        @NotNull Price price,
-        @NotNull Reference<Category> category
+        @Filter String name,
+        String description,
+        Price price,
+        Reference<Category> category
 ) implements PublishesEvents {
 
     /**

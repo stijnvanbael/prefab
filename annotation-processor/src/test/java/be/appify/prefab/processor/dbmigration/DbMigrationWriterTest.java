@@ -6,6 +6,7 @@ import javax.tools.StandardLocation;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.event.avro.ProcessorTestUtil.contentsOf;
+
 import static be.appify.prefab.processor.event.avro.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
@@ -59,7 +60,6 @@ class DbMigrationWriterTest {
                 .contentsAsUtf8String()
                 .contains("CREATE INDEX \"order_order_line_order_idx\" ON \"order_order_line\" (\"order\")");
     }
-
     @Test
     void notNullConstraintsAreGeneratedForNonNullableFields() throws IOException {
         var compilation = javac()

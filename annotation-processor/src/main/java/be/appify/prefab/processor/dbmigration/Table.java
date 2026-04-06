@@ -20,10 +20,23 @@ record Table(
         String name,
         List<Column> columns,
         List<String> primaryKey,
+        String oldName,
         List<Index> indexes
 ) {
     private static final List<String> PRIMARY_KEY = List.of("PRIMARY", "KEY");
     private static final String FOREIGN_KEY = "FOREIGN KEY";
+
+    Table(String name, List<Column> columns, List<String> primaryKey) {
+        this(name, columns, primaryKey, null, List.of());
+    }
+
+    Table(String name, List<Column> columns, List<String> primaryKey, String oldName) {
+        this(name, columns, primaryKey, oldName, List.of());
+    }
+
+    Table(String name, List<Column> columns, List<String> primaryKey, List<Index> indexes) {
+        this(name, columns, primaryKey, null, indexes);
+    }
 
     static Table fromCreateTable(CreateTable createTable) {
         return new Table(
@@ -32,6 +45,7 @@ record Table(
                         .map(Column::fromColumnDefinition)
                         .toList(),
                 primaryKey(createTable),
+                null,
                 List.of()
         );
     }
@@ -58,25 +72,36 @@ record Table(
     }
 
     public Table apply(Alter alter) {
+        var newColumns = mapColumns(alter);
+        var newName = extractNewTableName(alter);
         return new Table(
-                name,
-                mapColumns(alter),
+                newName != null ? newName : name,
+                newColumns,
                 primaryKey,
+                null,
                 indexes
         );
+    }
+
+    private String extractNewTableName(Alter alter) {
+        return alter.getAlterExpressions().stream()
+                .filter(expr -> expr.getOperation() == AlterOperation.RENAME_TABLE)
+                .map(expr -> expr.getNewTableName().replace("\"", ""))
+                .findFirst()
+                .orElse(null);
     }
 
     public Table withAddedIndex(Index index) {
         var newIndexes = new java.util.ArrayList<>(indexes);
         newIndexes.add(index);
-        return new Table(name, columns, primaryKey, List.copyOf(newIndexes));
+        return new Table(name, columns, primaryKey, null, List.copyOf(newIndexes));
     }
 
     public Table withRemovedIndex(String indexName) {
         var newIndexes = indexes.stream()
                 .filter(idx -> !idx.name().equals(indexName))
                 .toList();
-        return new Table(name, columns, primaryKey, newIndexes);
+        return new Table(name, columns, primaryKey, null, newIndexes);
     }
 
     public Optional<Index> getIndex(String name) {
@@ -95,10 +120,25 @@ record Table(
                 case AlterOperation.ADD -> applyAddExpression(expr, columns);
                 case DROP -> applyDropExpression(expr, columns);
                 case ALTER -> applyAlterExpression(expr, columns);
+                case RENAME -> applyRenameColumnExpression(expr, columns);
+                case RENAME_TABLE -> { /* table rename is handled in apply() */ }
                 default -> throw new IllegalStateException("Unsupported ALTER TABLE expression: " + expr);
             }
         });
         return List.copyOf(columns.values());
+    }
+
+    private static void applyRenameColumnExpression(AlterExpression expr, Map<String, Column> columns) {
+        var oldName = expr.getColumnOldName().replace("\"", "");
+        var newName = expr.getColumnName().replace("\"", "");
+        var original = columns.get(oldName);
+        if (original == null) {
+            throw new IllegalStateException("Cannot rename non-existing column: " + oldName);
+        }
+        columns.remove(oldName);
+        var renamed = new Column(newName, original.type(), original.nullable(), original.foreignKey(),
+                original.defaultValue(), null);
+        columns.put(newName, renamed);
     }
 
     private static void applyAlterExpression(AlterExpression expr, Map<String, Column> columns) {
@@ -152,5 +192,22 @@ record Table(
             throw new IllegalArgumentException(
                     "Unsupported ALTER TABLE expression, expected ADD COLUMN or ADD CONSTRAINT: " + expr);
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Table other)) return false;
+        return Objects.equals(name, other.name)
+                && Objects.equals(columns, other.columns)
+                && Objects.equals(primaryKey, other.primaryKey);
+        // oldName is intentionally excluded: it is a migration hint (@DbRename), not part of the current
+        // table definition. Two Table instances with the same schema but different oldName values must
+        // compare as equal so that change detection works correctly.
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, columns, primaryKey);
     }
 }

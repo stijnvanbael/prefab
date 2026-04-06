@@ -66,6 +66,18 @@ interface TableModification {
         }
     }
 
+    record RenameColumn(String oldName, String newName) implements TableModification {
+        @Override
+        public String toSql() {
+            return "RENAME COLUMN \"" + oldName + "\" TO \"" + newName + "\"";
+        }
+
+        @Override
+        public String toString() {
+            return toSql();
+        }
+    }
+
     record AlterColumn(String columnName, ColumnModification modification) implements TableModification {
         @Override
         public String toSql() {

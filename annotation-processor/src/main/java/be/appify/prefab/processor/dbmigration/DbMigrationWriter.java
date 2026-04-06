@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.dbmigration;
 
+import be.appify.prefab.core.annotations.DbRename;
 import be.appify.prefab.core.annotations.Indexed;
 import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.Filters;
@@ -12,6 +13,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -62,11 +64,26 @@ class DbMigrationWriter {
         }
     }
 
-    private List<DatabaseChange> detectChanges(List<Table> currentDatabaseState, List<Table> desiredDatabaseState) {
+    List<DatabaseChange> detectChanges(List<Table> currentDatabaseState, List<Table> desiredDatabaseState) {
         var changes = new ArrayList<DatabaseChange>();
+        var renamedFromNames = new HashSet<String>();
+
         for (Table desired : desiredDatabaseState) {
             var existing = findTable(currentDatabaseState, desired.name());
             if (existing == null) {
+                if (desired.oldName() != null) {
+                    var oldTable = findTable(currentDatabaseState, desired.oldName());
+                    if (oldTable != null) {
+                        renamedFromNames.add(desired.oldName());
+                        changes.add(new DatabaseChange.RenameTable(desired.oldName(), desired.name()));
+                        // Check if column structure differs (ignoring table name difference)
+                        if (!oldTable.columns().equals(desired.columns())
+                                || !oldTable.primaryKey().equals(desired.primaryKey())) {
+                            changes.add(DatabaseChange.AlterTable.from(oldTable, desired));
+                        }
+                        continue;
+                    }
+                }
                 changes.add(new DatabaseChange.CreateTable(desired));
                 desired.indexes().forEach(index -> changes.add(new DatabaseChange.CreateIndex(desired.name(), index)));
             } else {
@@ -78,7 +95,7 @@ class DbMigrationWriter {
         }
         for (Table existing : currentDatabaseState) {
             var desired = findTable(desiredDatabaseState, existing.name());
-            if (desired == null) {
+            if (desired == null && !renamedFromNames.contains(existing.name())) {
                 changes.add(new DatabaseChange.DropTable(existing.name()));
             }
         }
@@ -142,12 +159,18 @@ class DbMigrationWriter {
                     var table = Table.fromCreateTable(createTable);
                     tables.put(table.name(), table);
                 } else if (statement instanceof Alter alter) {
-                    var table = tables.get(alter.getTable().getName());
+                    var tableName = alter.getTable().getName().replace("\"", "");
+                    var table = tables.get(tableName);
                     if (table == null) {
                         throw new IllegalStateException(
                                 "Found ALTER TABLE on table not previously created: " + alter.getTable().getName());
                     }
-                    tables.put(table.name(), table.apply(alter));
+                    var updated = table.apply(alter);
+                    // Update map: remove old name (in case of table rename) and add under new name
+                    if (!updated.name().equals(table.name())) {
+                        tables.remove(table.name());
+                    }
+                    tables.put(updated.name(), updated);
                 } else if (statement instanceof CreateIndex createIndex) {
                     var tableName = createIndex.getTable().getName().replace("\"", "");
                     var table = tables.get(tableName);
@@ -171,10 +194,14 @@ class DbMigrationWriter {
         return sortByDependencies(classManifests.stream().flatMap(manifest -> {
             var tables = new ArrayList<Table>();
             var aggregateRootTable = tableNameOf(manifest.type());
+            var oldTableName = manifest.annotationsOfType(DbRename.class).stream()
+                    .findFirst()
+                    .map(ann -> toSnakeCase(ann.value()).replace('.', '_'))
+                    .orElse(null);
             var columns = columnsOf(manifest, null, false);
             var fkIndexes = fkIndexesOf(aggregateRootTable, columns);
             var fieldIndexes = fieldIndexesOf(aggregateRootTable, manifest, null);
-            tables.add(new Table(aggregateRootTable, columns, List.of("id"),
+            tables.add(new Table(aggregateRootTable, columns, List.of("id"), oldTableName,
                     ListUtil.concat(fkIndexes, fieldIndexes)));
             tables.addAll(childEntityTables(aggregateRootTable, manifest));
             return tables.stream();
@@ -221,8 +248,8 @@ class DbMigrationWriter {
                     if (child.isRecord() && !child.isSingleValueType()) {
                         var columns = ListUtil.concat(List.of(
                                 new Column(aggregateRootTable, new DataType.Varchar(255), false,
-                                        new ForeignKey(aggregateRootTable, "id"), null),
-                                new Column(aggregateRootTable + "_key", DataType.Primitive.INTEGER, false, null, null)
+                                        new ForeignKey(aggregateRootTable, "id"), null, null),
+                                new Column(aggregateRootTable + "_key", DataType.Primitive.INTEGER, false, null, null, null)
                         ), columnsOf(child.asClassManifest(), null, false));
                         var childTableName = tableNameOf(child);
                         var fkIndexes = fkIndexesOf(childTableName, columns);
@@ -230,7 +257,7 @@ class DbMigrationWriter {
                         var table = new Table(childTableName, columns, List.of(
                                 aggregateRootTable,
                                 aggregateRootTable + "_key"
-                        ), ListUtil.concat(fkIndexes, fieldIndexes));
+                        ), null, ListUtil.concat(fkIndexes, fieldIndexes));
                         return Stream.of(table);
                     } else {
                         return Stream.empty();

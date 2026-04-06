@@ -73,6 +73,11 @@ class MulticastEventHandlerWriter {
                         Objects.equals(eventHandler.returnType(), manifest.type())
                                 ? CodeBlock.of("aggregate = aggregate.$L(event);", eventHandler.methodName())
                                 : CodeBlock.of("aggregate.$L(event);", eventHandler.methodName()))
+                .addCode("""
+                        if (aggregates.isEmpty()) {
+                            throw new $T("No aggregates found for event: " + event);
+                        }
+                        """, IllegalStateException.class)
                 .addStatement("$N.saveAll(aggregates)", uncapitalize(repositoryName))
                 .build();
     }

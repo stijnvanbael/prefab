@@ -8,6 +8,7 @@ import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
+import com.palantir.javapoet.TypeName;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.ResponseEntity;
@@ -47,7 +48,7 @@ class GetListControllerWriter {
         if (!filters.isEmpty()) {
             for (var filter : filters) {
                 method.addParameter(ParameterSpec.builder(
-                                ClassName.get(filter.field().type().packageName(), filter.field().type().simpleName()),
+                                filterParamType(filter.field()),
                                 filter.field().name())
                         .build());
             }
@@ -66,6 +67,12 @@ class GetListControllerWriter {
         return ParameterSpec.builder(String.class, uncapitalize(parent.name()) + "Id")
                 .addAnnotation(PathVariable.class)
                 .build();
+    }
+
+    private static TypeName filterParamType(VariableManifest field) {
+        return field.type().isSingleValueType()
+                ? field.type().fields().getFirst().type().asBoxed().asTypeName()
+                : ClassName.get(field.type().packageName(), field.type().simpleName());
     }
 
     private static String getListParameters(ClassManifest manifest) {

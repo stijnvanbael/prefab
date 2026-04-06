@@ -34,7 +34,9 @@ interface DataType {
 
     @SuppressWarnings("unchecked")
     static DataType typeOf(TypeManifest type, List<? extends AnnotationManifest<?>> annotations) {
-        if (type.is(String.class) || type.isSingleValueType() || type.isEnum() || type.is(Duration.class)) {
+        if (type.isSingleValueType()) {
+            return typeOf(type.fields().getFirst().type().asBoxed(), annotations);
+        } else if (type.is(String.class) || type.isEnum() || type.is(Duration.class)) {
             var length = annotations.stream()
                     .filter(annotation -> annotation.type().is(Size.class))
                     .map(annotation -> ((AnnotationManifest<Size>) annotation).value().max())

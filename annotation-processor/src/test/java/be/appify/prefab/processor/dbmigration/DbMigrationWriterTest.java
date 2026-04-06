@@ -72,4 +72,21 @@ class DbMigrationWriterTest {
                 .contentsAsUtf8String()
                 .isEqualTo(contentsOf("dbmigration/notnull/expected/V1__generated.sql"));
     }
+
+    @Test
+    void nonStringValueTypesMappedToCorrectColumnType() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/valuetype/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"name\" VARCHAR (255)");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"price\" DECIMAL (19, 4)");
+    }
 }

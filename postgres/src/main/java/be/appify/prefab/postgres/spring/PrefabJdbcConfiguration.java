@@ -1,5 +1,6 @@
 package be.appify.prefab.postgres.spring;
 
+import be.appify.prefab.core.spring.data.jdbc.PolymorphicReadingConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.ByteArrayToFileConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.FileToByteArrayConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabDataAccessStrategy;
@@ -8,8 +9,10 @@ import be.appify.prefab.postgres.spring.data.jdbc.PrefabJdbcMappingContext;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabMappingJdbcConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabNamingStrategy;
 import be.appify.prefab.postgres.spring.data.jdbc.SingleValueRecordSimpleTypeHolder;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -39,6 +42,9 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 @ComponentScan("be.appify.prefab.postgres.spring.data.jdbc")
 public class PrefabJdbcConfiguration extends AbstractJdbcConfiguration {
 
+    @Autowired(required = false)
+    private List<PolymorphicReadingConverter> polymorphicReadingConverters = List.of();
+
     /**
      * Constructs a new PrefabJdbcConfiguration.
      */
@@ -47,10 +53,11 @@ public class PrefabJdbcConfiguration extends AbstractJdbcConfiguration {
 
     @Override
     public List<?> userConverters() {
-        return List.of(
-                new FileToByteArrayConverter(),
-                new ByteArrayToFileConverter()
-        );
+        var converters = new ArrayList<>();
+        converters.add(new FileToByteArrayConverter());
+        converters.add(new ByteArrayToFileConverter());
+        converters.addAll(polymorphicReadingConverters);
+        return converters;
     }
 
     @Override

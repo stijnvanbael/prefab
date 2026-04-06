@@ -2,6 +2,7 @@ package be.appify.prefab.processor.rest;
 
 import be.appify.prefab.core.annotations.rest.Security;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.RequestParameterBuilder;
 import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.AnnotationSpec;
@@ -233,6 +234,18 @@ public class ControllerUtil {
      * @return the generated response type as a ClassName
      */
     public static ClassName responseType(ClassManifest manifest) {
+        return ClassName.get("%s.infrastructure.http" .formatted(manifest.packageName()),
+                "%sResponse" .formatted(manifest.simpleName()));
+    }
+
+    /**
+     * Generates the response type ClassName for a given PolymorphicAggregateManifest.
+     *
+     * @param manifest
+     *         the PolymorphicAggregateManifest for which to generate the response type
+     * @return the generated response type as a ClassName
+     */
+    public static ClassName responseType(PolymorphicAggregateManifest manifest) {
         return ClassName.get("%s.infrastructure.http" .formatted(manifest.packageName()),
                 "%sResponse" .formatted(manifest.simpleName()));
     }

@@ -2,6 +2,7 @@ package be.appify.prefab.processor.rest.getlist;
 
 import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.ClassName;
@@ -168,5 +169,17 @@ class GetListServiceWriter {
             case "byte", "short", "int", "long", "float", "double", "char" -> CodeBlock.of("0");
             default -> CodeBlock.of("null");
         };
+    }
+
+    MethodSpec getListMethod(PolymorphicAggregateManifest manifest) {
+        TypeName typeName = manifest.type().asTypeName();
+        var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
+        return MethodSpec.methodBuilder("getList")
+                .addModifiers(Modifier.PUBLIC)
+                .addParameter(Pageable.class, "pageable")
+                .returns(ParameterizedTypeName.get(ClassName.get(Page.class), typeName))
+                .addStatement("log.debug($S)", "Getting " + English.plural(manifest.simpleName()))
+                .addStatement("return $N.findAll(pageable)", repositoryName)
+                .build();
     }
 }

@@ -30,6 +30,10 @@ class ApplicationWriter {
         writeService(manifest);
     }
 
+    void writePolymorphicApplicationLayer(PolymorphicAggregateManifest manifest) {
+        writePolymorphicService(manifest);
+    }
+
     private void writeService(ClassManifest manifest) {
         var serviceName = "%sService".formatted(manifest.simpleName());
         var type = TypeSpec.classBuilder(serviceName)
@@ -56,6 +60,31 @@ class ApplicationWriter {
                 dependency -> constructor.addStatement("this.$N = $N", nameOf(dependency), nameOf(dependency)));
         type.addMethod(constructor.build());
         context.plugins().forEach(plugin -> plugin.writeService(manifest, type));
+        fileWriter.writeFile(manifest.packageName(), serviceName, type.build());
+    }
+
+    private void writePolymorphicService(PolymorphicAggregateManifest manifest) {
+        var serviceName = "%sService".formatted(manifest.simpleName());
+        var repositoryType = ClassName.get("%s.application".formatted(manifest.packageName()),
+                "%sRepository".formatted(manifest.simpleName()));
+        var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
+        var type = TypeSpec.classBuilder(serviceName)
+                .addModifiers(Modifier.PUBLIC)
+                .addAnnotation(ClassName.get(Component.class))
+                .addAnnotation(TRANSACTIONAL);
+        type.addField(FieldSpec.builder(Logger.class, "log", Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
+                .initializer("$T.getLogger($T.class)", ClassName.get(LoggerFactory.class),
+                        ClassName.get(manifest.packageName() + ".application", serviceName))
+                .build());
+        type.addField(FieldSpec.builder(repositoryType, repositoryName, Modifier.PRIVATE, Modifier.FINAL).build());
+        type.addMethod(MethodSpec.constructorBuilder()
+                .addModifiers(Modifier.PUBLIC)
+                .addParameter(repositoryType, repositoryName)
+                .addStatement("this.$N = $N", repositoryName, repositoryName)
+                .build());
+
+        context.plugins().forEach(plugin -> plugin.writePolymorphicService(manifest, type));
+
         fileWriter.writeFile(manifest.packageName(), serviceName, type.build());
     }
 

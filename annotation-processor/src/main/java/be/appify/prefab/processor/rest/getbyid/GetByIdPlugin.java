@@ -2,6 +2,7 @@ package be.appify.prefab.processor.rest.getbyid;
 
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabPlugin;
 import com.palantir.javapoet.TypeSpec;
 import java.util.Optional;
@@ -28,6 +29,18 @@ public class GetByIdPlugin implements PrefabPlugin {
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder) {
         getByIdAnnotation(manifest).ifPresent(ignored ->
                 builder.addMethod(serviceWriter.getByIdMethod(manifest)));
+    }
+
+    @Override
+    public void writePolymorphicService(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
+        manifest.annotationsOfType(GetById.class).stream().findFirst().ifPresent(ignored ->
+                builder.addMethod(serviceWriter.getByIdMethod(manifest)));
+    }
+
+    @Override
+    public void writePolymorphicController(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
+        manifest.annotationsOfType(GetById.class).stream().findFirst().ifPresent(getById ->
+                builder.addMethod(controllerWriter.getByIdMethod(manifest, getById)));
     }
 
     @Override

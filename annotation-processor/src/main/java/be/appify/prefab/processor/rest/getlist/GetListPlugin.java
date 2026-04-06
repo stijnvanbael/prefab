@@ -2,6 +2,7 @@ package be.appify.prefab.processor.rest.getlist;
 
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabPlugin;
 import com.palantir.javapoet.TypeSpec;
 import java.util.Optional;
@@ -30,6 +31,18 @@ public class GetListPlugin implements PrefabPlugin {
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder) {
         getListAnnotation(manifest).ifPresent(getList ->
                 builder.addMethod(serviceWriter.getListMethod(manifest)));
+    }
+
+    @Override
+    public void writePolymorphicService(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
+        manifest.annotationsOfType(GetList.class).stream().findFirst().ifPresent(ignored ->
+                builder.addMethod(serviceWriter.getListMethod(manifest)));
+    }
+
+    @Override
+    public void writePolymorphicController(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
+        manifest.annotationsOfType(GetList.class).stream().findFirst().ifPresent(getList ->
+                builder.addMethod(controllerWriter.getListMethod(manifest, getList)));
     }
 
     @Override

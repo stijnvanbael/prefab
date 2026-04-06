@@ -1,5 +1,6 @@
 package be.appify.prefab.postgres.spring.data.jdbc;
 
+import be.appify.prefab.core.annotations.Aggregate;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
@@ -89,7 +90,13 @@ public class PrefabPersistentEntity<T> extends BasicPersistentEntity<T, Relation
 
         } else {
 
-            this.tableName = Lazy.of(() -> createDerivedSqlIdentifier(namingStrategy.getTableName(getType())));
+            this.tableName = Lazy.of(() -> {
+                Class<?> sealedAggregateParent = findDirectSealedAggregateInterface(getType());
+                String tableName = sealedAggregateParent != null
+                        ? namingStrategy.getTableName(sealedAggregateParent)
+                        : namingStrategy.getTableName(getType());
+                return createDerivedSqlIdentifier(tableName);
+            });
             this.tableNameExpression = null;
             this.schemaName = defaultSchema;
             this.schemaNameExpression = null;
@@ -236,6 +243,23 @@ public class PrefabPersistentEntity<T> extends BasicPersistentEntity<T, Relation
     @Deprecated(forRemoval = true)
     public SqlIdentifier getIdColumn() {
         return getRequiredIdProperty().getColumnName();
+    }
+
+    /**
+     * Returns the first directly-implemented sealed interface that is annotated with {@link Aggregate}, or
+     * {@code null} if the given type is not a subtype of a polymorphic aggregate.
+     *
+     * @param type
+     *         the type to inspect
+     * @return the sealed {@link Aggregate} interface, or {@code null}
+     */
+    static @Nullable Class<?> findDirectSealedAggregateInterface(Class<?> type) {
+        for (Class<?> iface : type.getInterfaces()) {
+            if (iface.isSealed() && iface.isAnnotationPresent(Aggregate.class)) {
+                return iface;
+            }
+        }
+        return null;
     }
 
 }

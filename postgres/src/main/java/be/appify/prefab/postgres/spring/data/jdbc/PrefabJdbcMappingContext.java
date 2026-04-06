@@ -1,5 +1,6 @@
 package be.appify.prefab.postgres.spring.data.jdbc;
 
+import be.appify.prefab.core.annotations.Aggregate;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.env.Environment;
@@ -46,6 +47,11 @@ public class PrefabJdbcMappingContext extends JdbcMappingContext {
 
     @Override
     protected <T> RelationalPersistentEntity<T> createPersistentEntity(TypeInformation<T> typeInformation) {
+        Class<T> type = typeInformation.getType();
+        if (type.isSealed() && type.isInterface() && type.isAnnotationPresent(Aggregate.class)) {
+            return new SealedInterfacePersistentEntity<>(typeInformation, getNamingStrategy(),
+                    sqlIdentifierExpressionEvaluator, this);
+        }
         return new PrefabPersistentEntity<>(typeInformation, getNamingStrategy(), sqlIdentifierExpressionEvaluator);
     }
 

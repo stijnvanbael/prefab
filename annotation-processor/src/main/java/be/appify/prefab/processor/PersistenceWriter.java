@@ -30,6 +30,10 @@ class PersistenceWriter {
         writeRepository(manifest);
     }
 
+    void writePolymorphicPersistenceLayer(PolymorphicAggregateManifest manifest) {
+        writePolymorphicRepository(manifest);
+    }
+
     private ParameterizedTypeName pageOf(TypeName typeName) {
         return ParameterizedTypeName.get(ClassName.get(Page.class), typeName);
     }
@@ -50,6 +54,17 @@ class PersistenceWriter {
         mixins.forEach(mixinType -> type.addSuperinterface(mixinType.asType()));
         context.plugins().forEach(plugin -> plugin.writeRepository(manifest, type));
         findByParentMethod(manifest, type);
+        fileWriter.writeFile(manifest.packageName(), repositoryName, type.build());
+    }
+
+    private void writePolymorphicRepository(PolymorphicAggregateManifest manifest) {
+        var repositoryName = "%sRepository".formatted(manifest.simpleName());
+        var type = TypeSpec.interfaceBuilder(repositoryName)
+                .addModifiers(Modifier.PUBLIC)
+                .addSuperinterface(ParameterizedTypeName.get(ClassName.get(CrudRepository.class),
+                        manifest.type().asTypeName(), ClassName.get(String.class)))
+                .addSuperinterface(ParameterizedTypeName.get(ClassName.get(PagingAndSortingRepository.class),
+                        manifest.type().asTypeName(), ClassName.get(String.class)));
         fileWriter.writeFile(manifest.packageName(), repositoryName, type.build());
     }
 

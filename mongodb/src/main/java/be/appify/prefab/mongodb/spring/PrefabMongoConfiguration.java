@@ -1,11 +1,13 @@
 package be.appify.prefab.mongodb.spring;
 
+import be.appify.prefab.mongodb.spring.data.mongodb.PrefabMongoMappingContext;
 import be.appify.prefab.mongodb.spring.data.mongodb.ReferenceToStringConverter;
 import be.appify.prefab.mongodb.spring.data.mongodb.StringToReferenceConverter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.mongodb.core.convert.MongoCustomConversions;
+import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
 
 /**
  * Spring auto-configuration for Prefab MongoDB persistence support.
@@ -13,6 +15,11 @@ import org.springframework.data.mongodb.core.convert.MongoCustomConversions;
  * Add {@code prefab-mongodb} as a Maven dependency to enable MongoDB-backed repositories. This configuration is
  * automatically applied via Spring Boot's auto-configuration mechanism and registers the converters needed to
  * store {@link be.appify.prefab.core.service.Reference} values as plain strings in MongoDB documents.
+ * </p>
+ * <p>
+ * It also replaces the default {@link MongoMappingContext} with {@link PrefabMongoMappingContext}, which adds
+ * support for sealed interfaces annotated with {@link be.appify.prefab.core.annotations.Aggregate} as MongoDB
+ * entity types (e.g. polymorphic aggregate roots).
  * </p>
  */
 @Configuration
@@ -38,5 +45,18 @@ public class PrefabMongoConfiguration {
             adapter.registerConverter(new ReferenceToStringConverter());
             adapter.registerConverter(new StringToReferenceConverter());
         });
+    }
+
+    /**
+     * Replaces the default {@link MongoMappingContext} with a Prefab-aware variant that recognises sealed
+     * interfaces annotated with {@link be.appify.prefab.core.annotations.Aggregate} as valid MongoDB entity
+     * types, enabling polymorphic aggregate repositories backed by a single MongoDB collection.
+     *
+     * @return the Prefab-customised MongoDB mapping context
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public MongoMappingContext mongoMappingContext() {
+        return new PrefabMongoMappingContext();
     }
 }

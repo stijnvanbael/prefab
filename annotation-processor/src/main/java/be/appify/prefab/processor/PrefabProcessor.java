@@ -39,6 +39,11 @@ public class PrefabProcessor extends AbstractProcessor {
                 .filter(element -> element.getKind().isClass() && !element.getModifiers().contains(Modifier.ABSTRACT))
                 .map(element -> ClassManifest.of((TypeElement) element, processingEnv))
                 .toList();
+        var polymorphicAggregates = environment.getElementsAnnotatedWith(Aggregate.class)
+                .stream()
+                .filter(element -> element.getModifiers().contains(Modifier.SEALED))
+                .map(element -> PolymorphicAggregateManifest.of((TypeElement) element, processingEnv))
+                .toList();
         var context = new PrefabContext(processingEnv, plugins, environment);
         plugins.forEach(plugin -> plugin.initContext(context));
         aggregates.forEach(manifest -> {
@@ -47,7 +52,13 @@ public class PrefabProcessor extends AbstractProcessor {
             new PersistenceWriter(context).writePersistenceLayer(manifest);
             new TestClientWriter(context).writeTestSupport(manifest);
         });
-        plugins.forEach(plugin -> plugin.writeAdditionalFiles(aggregates));
+        polymorphicAggregates.forEach(manifest -> {
+            new PersistenceWriter(context).writePolymorphicPersistenceLayer(manifest);
+            new PolymorphicJdbcConverterWriter(context).writeConverters(manifest);
+            new HttpWriter(context).writePolymorphicHttpLayer(manifest);
+            new ApplicationWriter(context).writePolymorphicApplicationLayer(manifest);
+        });
+        plugins.forEach(plugin -> plugin.writeAdditionalFiles(aggregates, polymorphicAggregates));
         return true;
     }
 

@@ -19,6 +19,7 @@ import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.time.Duration;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -60,23 +61,29 @@ class PubSubSubscriberWriter {
         var name = "%sPubSubSubscriber".formatted(owner.simpleName());
         var packageName = TypeManifest.of(eventHandlers.getFirst().getEnclosingElement().asType(),
                 context.processingEnvironment()).packageName();
+
+        var topics = eventHandlers.stream()
+                .map(e -> support.rootEventType(e, context).annotationsOfType(Event.class).stream().findFirst()
+                        .orElseThrow()
+                        .topic())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
         var type = TypeSpec.classBuilder(name)
                 .addAnnotation(Component.class)
                 .addModifiers(PUBLIC)
                 .addField(FieldSpec.builder(Logger.class, "log", PRIVATE, STATIC, FINAL)
                         .initializer("$T.getLogger($T.class)", ClassName.get(LoggerFactory.class),
                                 ClassName.get(packageName + ".infrastructure.pubsub", name))
-                        .build())
-                .addField(FieldSpec.builder(Executor.class, "executor", PRIVATE, FINAL)
                         .build());
+
+        topics.forEach(topic -> {
+            var eventType = support.eventTypeOf(eventHandlers, context, topic);
+            var executorName = uncapitalize(eventType.simpleName().replace(".", "")) + "Executor";
+            type.addField(FieldSpec.builder(Executor.class, executorName, PRIVATE, FINAL).build());
+        });
 
         var fields = support.addFields(eventHandlers, context, type);
         addEventHandlers(eventHandlers, type);
-        var topics = eventHandlers.stream()
-                .map(e -> support.rootEventType(e, context).annotationsOfType(Event.class).stream().findFirst()
-                        .orElseThrow()
-                        .topic())
-                .collect(Collectors.toSet());
         type.addMethod(constructor(topics, owner, fields, eventHandlers));
         fileWriter.writeFile(packageName, name, type.build());
     }
@@ -113,8 +120,6 @@ class PubSubSubscriberWriter {
                             .build())
                     .build());
         }
-        constructor.addStatement("executor = $T.newFixedThreadPool($L)", ClassName.get(Executors.class),
-                concurrency.matches("\\$\\{.+}") ? "Integer.parseInt(concurrency)" : concurrency);
         fields.forEach(field -> constructor.addParameter(ParameterSpec.builder(field.type(), field.name()).build()));
         constructor.addParameter(PubSubUtil.class, "pubSub");
         if (hasCustomRetries(config)) {
@@ -131,7 +136,7 @@ class PubSubSubscriberWriter {
                 constructor.addParameter(configParameter(Double.class, "backoffMultiplier", config.backoffMultiplier()));
             }
         }
-        topics.forEach(topic -> addTopic(owner, eventHandlers, topic, constructor));
+        topics.forEach(topic -> addTopic(owner, eventHandlers, topic, constructor, concurrency));
         fields.forEach(field -> constructor.addStatement("this.$L = $L", field.name(), field.name()));
         return constructor.build();
     }
@@ -140,11 +145,13 @@ class PubSubSubscriberWriter {
             TypeManifest owner,
             List<ExecutableElement> eventHandlers,
             String topic,
-            MethodSpec.Builder constructor
+            MethodSpec.Builder constructor,
+            String concurrency
     ) {
         var eventType = support.eventTypeOf(eventHandlers, context, topic);
         var topicVariableName = uncapitalize(eventType.simpleName().replace(".", "")) + "Topic";
         var eventName = eventType.simpleName().replace(".", "");
+        var executorName = uncapitalize(eventName) + "Executor";
         if (topic.matches("\\$\\{.+}")) {
             constructor.addParameter(ParameterSpec.builder(String.class, topicVariableName)
                     .addAnnotation(AnnotationSpec.builder(Value.class)
@@ -160,9 +167,11 @@ class PubSubSubscriberWriter {
                             .build())
                     .build());
         }
+        constructor.addStatement("$L = $T.newFixedThreadPool($L)", executorName, ClassName.get(Executors.class),
+                concurrency.matches("\\$\\{.+}") ? "Integer.parseInt(concurrency)" : concurrency);
         constructor.addStatement("""
                         pubSub.subscribe(new $T($L, $S, $T.class, this::on$L)
-                        .withExecutor(executor)$L)""",
+                        .withExecutor($L)$L)""",
                 ParameterizedTypeName.get(ClassName.get(SubscriptionRequest.class),
                         eventType.asTypeName()),
                 topic.matches("\\$\\{.+}") ? topicVariableName : CodeBlock.of("$S", topic),
@@ -170,6 +179,7 @@ class PubSubSubscriberWriter {
                         eventName),
                 eventType.asTypeName(),
                 eventName,
+                executorName,
                 deadLetterPolicy(eventHandlerConfig));
     }
 

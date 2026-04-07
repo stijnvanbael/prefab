@@ -15,15 +15,15 @@ import pubsub.dltdisabled.UserExporter;
 public class UserExporterPubSubSubscriber {
     private static final Logger log = LoggerFactory.getLogger(UserExporterPubSubSubscriber.class);
 
-    private final Executor executor;
+    private final Executor userEventExecutor;
 
     private final UserExporter userExporter;
 
     public UserExporterPubSubSubscriber(UserExporter userExporter, PubSubUtil pubSub,
             @Value("${topic.user.name}") String userEventTopic) {
-        executor = Executors.newFixedThreadPool(1);
+        userEventExecutor = Executors.newFixedThreadPool(1);
         pubSub.subscribe(new SubscriptionRequest<UserEvent>(userEventTopic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
-                .withExecutor(executor)
+                .withExecutor(userEventExecutor)
                 .withDeadLetterPolicy(null));
         this.userExporter = userExporter;
     }

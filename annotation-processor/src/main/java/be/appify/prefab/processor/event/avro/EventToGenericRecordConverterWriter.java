@@ -133,6 +133,22 @@ class EventToGenericRecordConverterWriter {
             return maybeNull(value, CodeBlock.of("$L.convert($L)", converterName, value));
         } else if (type.is(List.class)) {
             return maybeNull(value, listType(value, schema, type));
+        } else if (type.isCustomType()) {
+            return context.plugins().stream()
+                    .map(plugin -> plugin.toAvroValueOf(type, value))
+                    .filter(Optional::isPresent)
+                    .findFirst()
+                    .flatMap(opt -> opt)
+                    .orElseGet(() -> {
+                        context.processingEnvironment().getMessager().printMessage(
+                                Diagnostic.Kind.WARNING,
+                                ("@CustomType '%s' has no Avro serialization: no PrefabPlugin provides a " +
+                                "toAvroValueOf() implementation. Implement PrefabPlugin.toAvroValueOf() to " +
+                                "support Avro serialization for this type.")
+                                        .formatted(type),
+                                type.asElement());
+                        return CodeBlock.of("null");
+                    });
         } else if (type.isStandardType()) {
             return CodeBlock.of("$L", value);
         } else {

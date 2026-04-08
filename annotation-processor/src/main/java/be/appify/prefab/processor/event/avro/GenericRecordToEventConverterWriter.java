@@ -144,6 +144,22 @@ class GenericRecordToEventConverterWriter {
             return maybeNull(value, listType(value, type));
         } else if (type.is(String.class)) {
             return CodeBlock.of("$L.toString()", value);
+        } else if (type.isCustomType()) {
+            return context.plugins().stream()
+                    .map(plugin -> plugin.fromAvroValueOf(type, value))
+                    .filter(Optional::isPresent)
+                    .findFirst()
+                    .flatMap(opt -> opt)
+                    .orElseGet(() -> {
+                        context.processingEnvironment().getMessager().printMessage(
+                                Diagnostic.Kind.WARNING,
+                                ("@CustomType '%s' has no Avro deserialization: no PrefabPlugin provides a " +
+                                "fromAvroValueOf() implementation. The value will be null after deserialization. " +
+                                "Implement PrefabPlugin.fromAvroValueOf() to restore the value.")
+                                        .formatted(type),
+                                type.asElement());
+                        return CodeBlock.of("null");
+                    });
         } else if (type.isStandardType()) {
             return CodeBlock.of("($T) $L", type.asBoxed().asTypeName(), value);
         } else {

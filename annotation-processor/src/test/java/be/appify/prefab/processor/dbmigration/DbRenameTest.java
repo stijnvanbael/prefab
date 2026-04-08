@@ -70,7 +70,7 @@ class DbRenameTest {
                 ), List.of("id"), "old_user")
         );
 
-        var writer = new DbMigrationWriter();
+        var writer = new DbMigrationWriter(null);
         var changes = writer.detectChanges(currentTables, desiredTables);
 
         assertThat(changes).hasSize(1);
@@ -94,7 +94,7 @@ class DbRenameTest {
                 ), List.of("id"), "old_user")
         );
 
-        var writer = new DbMigrationWriter();
+        var writer = new DbMigrationWriter(null);
         var changes = writer.detectChanges(currentTables, desiredTables);
 
         assertThat(changes).hasSize(2);
@@ -117,7 +117,7 @@ class DbRenameTest {
                 ), List.of("id"), "old_user")
         );
 
-        var writer = new DbMigrationWriter();
+        var writer = new DbMigrationWriter(null);
         var changes = writer.detectChanges(currentTables, desiredTables);
 
         for (var change : changes) {

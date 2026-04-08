@@ -15,16 +15,16 @@ import pubsub.multiple.UserExporter;
 public class UserExporterPubSubSubscriber {
     private static final Logger log = LoggerFactory.getLogger(UserExporterPubSubSubscriber.class);
 
-    private final Executor executor;
+    private final Executor userEventExecutor;
 
     private final UserExporter userExporter;
 
     public UserExporterPubSubSubscriber(@Value("${user-exporter.concurrency:4}") String concurrency,
             UserExporter userExporter, PubSubUtil pubSub,
             @Value("${topic.user.name}") String userEventTopic) {
-        executor = Executors.newFixedThreadPool(Integer.parseInt(concurrency));
+        userEventExecutor = Executors.newFixedThreadPool(Integer.parseInt(concurrency));
         pubSub.subscribe(new SubscriptionRequest<UserEvent>(userEventTopic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
-                .withExecutor(executor));
+                .withExecutor(userEventExecutor));
         this.userExporter = userExporter;
     }
 

@@ -16,18 +16,21 @@ import pubsub.multitopic.application.DayTotalService;
 public class DayTotalPubSubSubscriber {
     private static final Logger log = LoggerFactory.getLogger(DayTotalPubSubSubscriber.class);
 
-    private final Executor executor;
+    private final Executor saleCreatedExecutor;
+
+    private final Executor refundCreatedExecutor;
 
     private final DayTotalService dayTotalService;
 
     public DayTotalPubSubSubscriber(DayTotalService dayTotalService, PubSubUtil pubSub,
             @Value("${topic.sale.name}") String saleCreatedTopic,
             @Value("${topic.refund.name}") String refundCreatedTopic) {
-        executor = Executors.newFixedThreadPool(1);
+        saleCreatedExecutor = Executors.newFixedThreadPool(1);
         pubSub.subscribe(new SubscriptionRequest<Sale.Created>(saleCreatedTopic, "day-total-on-sale-created", Sale.Created.class, this::onSaleCreated)
-                .withExecutor(executor));
+                .withExecutor(saleCreatedExecutor));
+        refundCreatedExecutor = Executors.newFixedThreadPool(1);
         pubSub.subscribe(new SubscriptionRequest<Refund.Created>(refundCreatedTopic, "day-total-on-refund-created", Refund.Created.class, this::onRefundCreated)
-                .withExecutor(executor));
+                .withExecutor(refundCreatedExecutor));
         this.dayTotalService = dayTotalService;
     }
 

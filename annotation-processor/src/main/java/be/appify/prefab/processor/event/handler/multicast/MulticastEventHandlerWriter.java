@@ -61,19 +61,25 @@ class MulticastEventHandlerWriter {
                 })
                 .collect(Collectors.toList());
 
-        return method.addStatement("""
-                                var aggregates = $N.$L($L).stream()
+        return method.addStatement("var aggregates = $N.$L($L)",
+                        uncapitalize(repositoryName),
+                        eventHandler.queryMethod(),
+                        CodeBlock.join(arguments, ", "))
+                .addCode("""
+                        if (aggregates.isEmpty()) {
+                            throw new $T("No aggregates found for event: " + event);
+                        }
+                        """, IllegalStateException.class)
+                .addStatement("""
+                                $N.saveAll(aggregates.stream()
                                     .map(aggregate -> {
                                         $L
                                         return aggregate;
-                                    }).toList()""",
+                                    }).toList())""",
                         uncapitalize(repositoryName),
-                        eventHandler.queryMethod(),
-                        CodeBlock.join(arguments, ", "),
                         Objects.equals(eventHandler.returnType(), manifest.type())
                                 ? CodeBlock.of("aggregate = aggregate.$L(event);", eventHandler.methodName())
                                 : CodeBlock.of("aggregate.$L(event);", eventHandler.methodName()))
-                .addStatement("$N.saveAll(aggregates)", uncapitalize(repositoryName))
                 .build();
     }
 }

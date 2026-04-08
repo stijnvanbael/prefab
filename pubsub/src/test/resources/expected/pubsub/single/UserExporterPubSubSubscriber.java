@@ -14,14 +14,14 @@ import pubsub.single.UserExporter;
 public class UserExporterPubSubSubscriber {
     private static final Logger log = LoggerFactory.getLogger(UserExporterPubSubSubscriber.class);
 
-    private final Executor executor;
+    private final Executor userCreatedExecutor;
 
     private final UserExporter userExporter;
 
     public UserExporterPubSubSubscriber(UserExporter userExporter, PubSubUtil pubSub) {
-        executor = Executors.newFixedThreadPool(2);
+        userCreatedExecutor = Executors.newFixedThreadPool(2);
         pubSub.subscribe(new SubscriptionRequest<UserCreated>("user", "user-exporter-on-user-created", UserCreated.class, this::onUserCreated)
-                .withExecutor(executor));
+                .withExecutor(userCreatedExecutor));
         this.userExporter = userExporter;
     }
 

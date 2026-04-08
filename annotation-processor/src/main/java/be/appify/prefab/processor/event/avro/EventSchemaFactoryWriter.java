@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import javax.lang.model.element.Modifier;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
@@ -82,8 +83,25 @@ class EventSchemaFactoryWriter {
             case TypeManifest t when isLogicalType(t) -> createLogicalSchema(type);
             case TypeManifest t when t.isStandardType() -> createPrimitiveSchema(type);
             case TypeManifest t when t.isEnum() -> createEnumSchema(type);
+            case TypeManifest t when t.isCustomType() -> createCustomTypeSchema(type);
             default -> createRecordSchema(type);
         };
+    }
+
+    private CodeBlock createCustomTypeSchema(TypeManifest type) {
+        return context.plugins().stream()
+                .map(plugin -> plugin.avroSchemaOf(type))
+                .filter(Optional::isPresent)
+                .findFirst()
+                .flatMap(opt -> opt)
+                .orElseGet(() -> {
+                    context.logError(
+                            ("@CustomType '%s' has no Avro schema: no PrefabPlugin provides an avroSchemaOf() " +
+                            "implementation. Implement PrefabPlugin.avroSchemaOf() to support Avro serialization " +
+                            "for this type.").formatted(type),
+                            type.asElement());
+                    return CodeBlock.of("$T.create($T.NULL)", Schema.class, Schema.Type.class);
+                });
     }
 
     private static CodeBlock createLogicalSchema(TypeManifest type) {
@@ -167,6 +185,20 @@ class EventSchemaFactoryWriter {
                     type.packageName(),
                     List.class,
                     type.fields().stream()
+                            .filter(field -> {
+                                if (field.type().isCustomType() && context.plugins().stream()
+                                        .noneMatch(p -> p.avroSchemaOf(field.type()).isPresent())) {
+                                    context.processingEnvironment().getMessager().printMessage(
+                                            javax.tools.Diagnostic.Kind.WARNING,
+                                            ("Field '%s' of @CustomType '%s' is omitted from the Avro schema: no " +
+                                            "PrefabPlugin provides an avroSchemaOf() implementation. Implement " +
+                                            "PrefabPlugin.avroSchemaOf() to include this field in the Avro schema.")
+                                                    .formatted(field.name(), field.type()),
+                                            field.element());
+                                    return false;
+                                }
+                                return true;
+                            })
                             .map(this::createField)
                             .collect(CodeBlock.joining(",\n        ")));
         }

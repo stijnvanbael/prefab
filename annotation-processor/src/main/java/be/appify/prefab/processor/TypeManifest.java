@@ -1,5 +1,6 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.core.annotations.CustomType;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
@@ -423,5 +424,15 @@ public class TypeManifest {
             throw new IllegalStateException("Type %s is not a single value type".formatted(this));
         }
         return fields().getFirst().name();
+    }
+
+    /**
+     * Checks whether the type is annotated with {@link CustomType}, meaning the Prefab annotation processor
+     * should not attempt automatic database-column or Avro-field mapping for fields of this type.
+     *
+     * @return {@code true} if the type declares {@code @CustomType}, {@code false} otherwise
+     */
+    public boolean isCustomType() {
+        return !annotationsOfType(CustomType.class).isEmpty();
     }
 }

@@ -14,7 +14,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import javax.lang.model.element.Modifier;
+import javax.tools.Diagnostic;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
@@ -101,8 +103,31 @@ class GenericRecordToEventConverterWriter {
                         )""",
                 event.asTypeName(),
                 event.fields().stream()
-                        .map(field -> field(CodeBlock.of("genericRecord.get($S)", field.name()), field.type()))
+                        .map(field -> fieldForRecord(field.name(), field.type()))
                         .collect(CodeBlock.joining(",\n    ")));
+    }
+
+    private CodeBlock fieldForRecord(String fieldName, TypeManifest type) {
+        if (type.isCustomType()) {
+            var rawValue = CodeBlock.of("genericRecord.get($S)", fieldName);
+            return context.plugins().stream()
+                    .map(plugin -> plugin.fromAvroValueOf(type, rawValue))
+                    .filter(Optional::isPresent)
+                    .findFirst()
+                    .flatMap(opt -> opt)
+                    .orElseGet(() -> {
+                        context.processingEnvironment().getMessager().printMessage(
+                                Diagnostic.Kind.WARNING,
+                                ("Field '%s' of @CustomType '%s' is omitted from Avro deserialization: no " +
+                                "PrefabPlugin provides a fromAvroValueOf() implementation. The field will be null " +
+                                "after deserialization. Implement PrefabPlugin.fromAvroValueOf() to restore the " +
+                                "value.")
+                                        .formatted(fieldName, type),
+                                type.asElement());
+                        return CodeBlock.of("null");
+                    });
+        }
+        return field(CodeBlock.of("genericRecord.get($S)", fieldName), type);
     }
 
     private CodeBlock field(CodeBlock value, TypeManifest type) {

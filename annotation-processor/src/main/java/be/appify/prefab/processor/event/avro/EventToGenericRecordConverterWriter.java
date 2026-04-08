@@ -14,7 +14,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import javax.lang.model.element.Modifier;
+import javax.tools.Diagnostic;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
@@ -91,15 +93,35 @@ class EventToGenericRecordConverterWriter {
 
     private CodeBlock mapFields(TypeManifest event) {
         var codeBlock = CodeBlock.builder();
-        event.fields().forEach(field ->
+        event.fields().forEach(field -> {
+            if (field.type().isCustomType()) {
+                var pluginValue = context.plugins().stream()
+                        .map(plugin -> plugin.toAvroValueOf(field.type(), CodeBlock.of("event.$L()", field.name())))
+                        .filter(Optional::isPresent)
+                        .findFirst()
+                        .flatMap(opt -> opt);
+                if (pluginValue.isPresent()) {
+                    codeBlock.addStatement("genericRecord.put($S, $L)", field.name(), pluginValue.get());
+                } else {
+                    context.processingEnvironment().getMessager().printMessage(
+                            Diagnostic.Kind.WARNING,
+                            ("Field '%s' of @CustomType '%s' is omitted from Avro serialization: no PrefabPlugin " +
+                            "provides a toAvroValueOf() implementation. Implement PrefabPlugin.toAvroValueOf() to " +
+                            "include this field in the Avro record.")
+                                    .formatted(field.name(), field.type()),
+                            field.element());
+                }
+            } else {
                 codeBlock.addStatement("genericRecord.put($S, $L)", field.name(), field(
                         CodeBlock.of("event.$L()", field.name()),
                         CodeBlock.of("schema.getField($S).schema()", field.name()),
-                        field.type())));
+                        field.type()));
+            }
+        });
         return codeBlock.build();
     }
 
-    private static CodeBlock field(CodeBlock value, CodeBlock schema, TypeManifest type) {
+    private CodeBlock field(CodeBlock value, CodeBlock schema, TypeManifest type) {
         if (isLogicalType(type)) {
             return maybeNull(value, logicalType(value, type));
         } else if (type.isEnum()) {
@@ -149,7 +171,7 @@ class EventToGenericRecordConverterWriter {
                         }).collect(CodeBlock.joining("\n    ")));
     }
 
-    private static CodeBlock listType(CodeBlock value, CodeBlock schema, TypeManifest type) {
+    private CodeBlock listType(CodeBlock value, CodeBlock schema, TypeManifest type) {
         var itemType = type.parameters().getFirst();
         return CodeBlock.of("""
                         new $T(

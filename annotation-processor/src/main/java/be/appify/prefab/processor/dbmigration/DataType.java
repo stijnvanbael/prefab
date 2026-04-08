@@ -12,7 +12,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 
-interface DataType {
+public interface DataType {
     String toSql();
 
     static DataType parse(String sql) {
@@ -59,7 +59,11 @@ interface DataType {
         } else if (type.is(List.class)) {
             return new Array(typeOf(type.parameters().getFirst(), annotations));
         } else {
-            throw new IllegalArgumentException("Unsupported type [%s]".formatted(type));
+            throw new IllegalArgumentException(
+                    ("Unsupported type [%s]. If this is a custom domain type, annotate it with " +
+                    "@be.appify.prefab.core.annotations.CustomType to exclude it from database-column generation, " +
+                    "or implement a PrefabPlugin that returns a DataType from its dataTypeOf() method.")
+                            .formatted(type));
         }
     }
 

@@ -79,7 +79,7 @@ public class AvroPlugin implements PrefabPlugin {
     }
 
     static boolean isNestedRecord(TypeManifest type) {
-        return !type.isStandardType() && !type.isEnum() && !isLogicalType(type);
+        return !type.isStandardType() && !type.isEnum() && !isLogicalType(type) && !type.isCustomType();
     }
 
     static boolean isLogicalType(TypeManifest type) {

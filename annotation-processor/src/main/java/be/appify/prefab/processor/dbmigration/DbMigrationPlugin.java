@@ -12,7 +12,7 @@ import java.util.List;
  */
 public class DbMigrationPlugin implements PrefabPlugin {
 
-    private final DbMigrationWriter dbMigrationWriter = new DbMigrationWriter();
+    private DbMigrationWriter dbMigrationWriter;
     private PrefabContext context;
 
     /** Creates a new instance of DbMigrationPlugin. */
@@ -22,6 +22,7 @@ public class DbMigrationPlugin implements PrefabPlugin {
     @Override
     public void initContext(PrefabContext context) {
         this.context = context;
+        this.dbMigrationWriter = new DbMigrationWriter(context);
     }
 
     @Override

@@ -16,10 +16,9 @@ import java.lang.annotation.Target;
  *   <li><strong>Database migration</strong> – the field is skipped (no column is generated). To keep Spring Data happy
  *       you must either annotate the field on the aggregate with
  *       {@code @org.springframework.data.annotation.Transient}, or register a
- *       {@link be.appify.prefab.processor.PrefabPlugin} that returns a
- *       {@link be.appify.prefab.processor.dbmigration.DataType} from its {@code dataTypeOf()} method.</li>
+ *       {@code PrefabPlugin} that returns a {@code DataType} from its {@code dataTypeOf()} method.</li>
  *   <li><strong>Avro events</strong> – the field is omitted from the generated Avro schema and converters. To include
- *       it, register a {@link be.appify.prefab.processor.PrefabPlugin} that implements {@code avroSchemaOf()},
+ *       it, register a {@code PrefabPlugin} that implements {@code avroSchemaOf()},
  *       {@code toAvroValueOf()}, and {@code fromAvroValueOf()}.</li>
  *   <li><strong>REST responses</strong> – the field is passed through unchanged; Jackson (or the configured
  *       serializer) handles serialization as normal.</li>

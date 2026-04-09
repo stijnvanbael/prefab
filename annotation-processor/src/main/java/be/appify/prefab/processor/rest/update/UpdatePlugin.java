@@ -68,7 +68,7 @@ public class UpdatePlugin implements PrefabPlugin {
     @Override
     public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
         updateMethodsOf(manifest).forEach(update ->
-                builder.addMethod(updateTestClientWriter.updateMethod(manifest, update, context)));
+                updateTestClientWriter.updateMethods(manifest, update, context).forEach(builder::addMethod));
     }
 
     private List<UpdateManifest> updateMethodsOf(ClassManifest manifest) {

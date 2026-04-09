@@ -22,7 +22,6 @@ import static be.appify.prefab.processor.TestClasses.MOCK_MVC_REQUEST_BUILDERS;
 import static be.appify.prefab.processor.TestClasses.MOCK_MVC_RESULT_MATCHERS;
 import static be.appify.prefab.processor.TestClasses.MOCK_PART;
 import static be.appify.prefab.processor.TestClasses.TEST_UTIL;
-import static org.apache.commons.lang3.StringUtils.capitalize;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 class CreateTestClientWriter {
@@ -34,9 +33,12 @@ class CreateTestClientWriter {
 
     List<MethodSpec> createMethods(ClassManifest manifest, ExecutableElement constructor) {
         var individualParams = getIndividualParams(constructor);
-        return List.of(createMethod(manifest, constructor, individualParams),
-                whenVariant(manifest, constructor, individualParams),
-                givenVariant(manifest, constructor, individualParams));
+        if (constructor.getParameters().isEmpty()) {
+            return List.of(createNoBodyMethod(manifest, constructor));
+        }
+        return List.of(
+                createIndividualParamsMethod(manifest, individualParams),
+                createRequestOverload(manifest, constructor));
     }
 
     private List<ParameterSpec> getIndividualParams(ExecutableElement constructor) {
@@ -46,40 +48,27 @@ class CreateTestClientWriter {
                 .toList();
     }
 
-    private MethodSpec whenVariant(ClassManifest manifest, ExecutableElement constructor, List<ParameterSpec> individualParams) {
-        return variant(manifest, constructor, "whenCreating" + manifest.simpleName(), individualParams);
-    }
-
-    private MethodSpec givenVariant(ClassManifest manifest, ExecutableElement constructor, List<ParameterSpec> individualParams) {
-        return variant(manifest, constructor, "given" + manifest.simpleName() + "Created", individualParams);
-    }
-
-    private static MethodSpec variant(ClassManifest manifest, ExecutableElement constructor, String methodName, List<ParameterSpec> individualParams) {
-        var method = MethodSpec.methodBuilder(methodName)
+    private MethodSpec createIndividualParamsMethod(ClassManifest manifest, List<ParameterSpec> individualParams) {
+        var bodyType = ClassName.get(manifest.packageName() + ".application",
+                "Create%sRequest".formatted(manifest.simpleName()));
+        return MethodSpec.methodBuilder("create" + manifest.simpleName())
                 .addModifiers(Modifier.PUBLIC)
-                .returns(String.class);
-        if (!constructor.getParameters().isEmpty()) {
-            method.addParameters(individualParams);
-        }
-        return method
+                .returns(String.class)
+                .addParameters(individualParams)
                 .addException(Exception.class)
-                .addStatement("return create$L($L)", manifest.simpleName(),
-                        !constructor.getParameters().isEmpty()
-                                ? individualParams.stream().map(ParameterSpec::name).collect(Collectors.joining(", "))
-                                : "")
+                .addStatement("return create$L(new $T($L))",
+                        manifest.simpleName(),
+                        bodyType,
+                        individualParams.stream().map(ParameterSpec::name).collect(Collectors.joining(", ")))
                 .build();
     }
 
-    private MethodSpec createMethod(
-            ClassManifest manifest,
-            ExecutableElement constructor,
-            List<ParameterSpec> individualParams
-    ) {
+    private MethodSpec createRequestOverload(ClassManifest manifest, ExecutableElement constructor) {
         var create = Objects.requireNonNull(constructor.getAnnotation(Create.class));
         var createRequest = uncapitalize(manifest.simpleName());
-        var pathVariables = manifest.parent().stream()
-                .map(VariableManifest::name)
-                .collect(Collectors.joining(", "));
+        var pathVariables = manifest.parent()
+                .map(parent -> createRequest + "." + parent.name() + "()")
+                .orElse("");
         var bodyType = ClassName.get(manifest.packageName() + ".application",
                 "Create%sRequest".formatted(manifest.simpleName()));
         var requestParts = Stream.concat(constructor.getParameters().stream()
@@ -90,20 +79,26 @@ class CreateTestClientWriter {
         ).toList();
         var method = MethodSpec.methodBuilder("create" + manifest.simpleName())
                 .addModifiers(Modifier.PUBLIC)
-                .returns(String.class);
-        method.addParameters(individualParams);
-        method.addException(Exception.class);
-        if (constructor.getParameters().isEmpty()) {
-            return withoutRequestBody(manifest, method, create, pathVariables);
+                .returns(String.class)
+                .addParameter(bodyType, createRequest)
+                .addException(Exception.class);
+        if (requestParts.size() == 1) {
+            return withRequestBody(manifest, method, create, pathVariables, createRequest);
         } else {
-            method.addStatement("var $L = new $T($L)", createRequest, bodyType,
-                    individualParams.stream().map(ParameterSpec::name).collect(Collectors.joining(", ")));
-            if (requestParts.size() == 1) {
-                return withRequestBody(manifest, method, create, pathVariables, createRequest);
-            } else {
-                return withMultipart(manifest, method, create, pathVariables, createRequest, requestParts);
-            }
+            return withMultipart(manifest, method, create, pathVariables, createRequest, requestParts);
         }
+    }
+
+    private MethodSpec createNoBodyMethod(ClassManifest manifest, ExecutableElement constructor) {
+        var create = Objects.requireNonNull(constructor.getAnnotation(Create.class));
+        var pathVariables = manifest.parent().stream()
+                .map(VariableManifest::name)
+                .collect(Collectors.joining(", "));
+        var method = MethodSpec.methodBuilder("create" + manifest.simpleName())
+                .addModifiers(Modifier.PUBLIC)
+                .returns(String.class)
+                .addException(Exception.class);
+        return withoutRequestBody(manifest, method, create, pathVariables);
     }
 
     private static MethodSpec withoutRequestBody(ClassManifest manifest, MethodSpec.Builder method, Create create, String pathVariables) {

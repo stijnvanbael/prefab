@@ -22,7 +22,7 @@ import static org.apache.commons.lang3.StringUtils.capitalize;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 class UpdateTestClientWriter {
-    MethodSpec updateMethod(
+    List<MethodSpec> updateMethods(
             ClassManifest manifest,
             UpdateManifest update,
             PrefabContext context
@@ -30,10 +30,6 @@ class UpdateTestClientWriter {
         var pathVariables = manifest.parent().stream()
                 .map(parent -> "%sId".formatted(uncapitalize(parent.name())))
                 .collect(Collectors.joining(", "));
-        var method = MethodSpec.methodBuilder(update.operationName())
-                .addModifiers(Modifier.PUBLIC)
-                .returns(void.class)
-                .addParameter(String.class, "id");
         var bodyType = ClassName.get(
                 manifest.packageName() + ".application",
                 "%s%sRequest".formatted(
@@ -50,20 +46,81 @@ class UpdateTestClientWriter {
                         ? Stream.of(ParameterSpec.builder(bodyType, "request").build())
                         : Stream.empty()
         ).toList();
+
+        if (update.parameters().isEmpty()) {
+            return List.of(buildNoBodyMethod(manifest, update, pathVariables));
+        }
+        return List.of(
+                buildIndividualParamsMethod(manifest, update, pathVariables, bodyType, individualParams),
+                buildRequestOverload(manifest, update, pathVariables, bodyType, requestParts));
+    }
+
+    private static MethodSpec buildNoBodyMethod(
+            ClassManifest manifest,
+            UpdateManifest update,
+            String pathVariables
+    ) {
+        var method = MethodSpec.methodBuilder(update.operationName())
+                .addModifiers(Modifier.PUBLIC)
+                .returns(void.class)
+                .addParameter(String.class, "id");
         if (!pathVariables.isBlank()) {
             method.addParameters(manifest.parent().stream()
                     .map(parent -> ParameterSpec.builder(String.class,
                             "%sId".formatted(uncapitalize(parent.name()))).build())
                     .collect(Collectors.toList()));
         }
-        if (!update.parameters().isEmpty()) {
-            method.addParameters(individualParams);
-        }
         method.addException(Exception.class);
-        if (!update.parameters().isEmpty()) {
-            method.addStatement("var request = new $T($L)", bodyType,
-                    individualParams.stream().map(ParameterSpec::name).collect(Collectors.joining(", ")));
+        return withRequestBody(manifest, update, method, pathVariables);
+    }
+
+    private static MethodSpec buildIndividualParamsMethod(
+            ClassManifest manifest,
+            UpdateManifest update,
+            String pathVariables,
+            ClassName bodyType,
+            List<ParameterSpec> individualParams
+    ) {
+        var method = MethodSpec.methodBuilder(update.operationName())
+                .addModifiers(Modifier.PUBLIC)
+                .returns(void.class)
+                .addParameter(String.class, "id");
+        if (!pathVariables.isBlank()) {
+            method.addParameters(manifest.parent().stream()
+                    .map(parent -> ParameterSpec.builder(String.class,
+                            "%sId".formatted(uncapitalize(parent.name()))).build())
+                    .collect(Collectors.toList()));
         }
+        method.addParameters(individualParams);
+        method.addException(Exception.class);
+        var idAndParentArgs = pathVariables.isBlank() ? "id" : "id, " + pathVariables;
+        method.addStatement("$L($L, new $T($L))",
+                update.operationName(),
+                idAndParentArgs,
+                bodyType,
+                individualParams.stream().map(ParameterSpec::name).collect(Collectors.joining(", ")));
+        return method.build();
+    }
+
+    private static MethodSpec buildRequestOverload(
+            ClassManifest manifest,
+            UpdateManifest update,
+            String pathVariables,
+            ClassName bodyType,
+            List<ParameterSpec> requestParts
+    ) {
+        var method = MethodSpec.methodBuilder(update.operationName())
+                .addModifiers(Modifier.PUBLIC)
+                .returns(void.class)
+                .addParameter(String.class, "id");
+        if (!pathVariables.isBlank()) {
+            method.addParameters(manifest.parent().stream()
+                    .map(parent -> ParameterSpec.builder(String.class,
+                            "%sId".formatted(uncapitalize(parent.name()))).build())
+                    .collect(Collectors.toList()));
+        }
+        method.addParameter(bodyType, "request");
+        method.addException(Exception.class);
         if (requestParts.size() <= 1) {
             return withRequestBody(manifest, update, method, pathVariables);
         } else {

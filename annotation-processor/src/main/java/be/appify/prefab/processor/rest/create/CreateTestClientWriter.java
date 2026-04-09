@@ -91,13 +91,14 @@ class CreateTestClientWriter {
 
     private MethodSpec createNoBodyMethod(ClassManifest manifest, ExecutableElement constructor) {
         var create = Objects.requireNonNull(constructor.getAnnotation(Create.class));
-        var pathVariables = manifest.parent().stream()
-                .map(VariableManifest::name)
-                .collect(Collectors.joining(", "));
         var method = MethodSpec.methodBuilder("create" + manifest.simpleName())
                 .addModifiers(Modifier.PUBLIC)
                 .returns(String.class)
                 .addException(Exception.class);
+        manifest.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
+        var pathVariables = manifest.parent()
+                .map(VariableManifest::name)
+                .orElse("");
         return withoutRequestBody(manifest, method, create, pathVariables);
     }
 

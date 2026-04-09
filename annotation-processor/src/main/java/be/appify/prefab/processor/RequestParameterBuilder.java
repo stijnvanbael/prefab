@@ -48,14 +48,15 @@ public class RequestParameterBuilder {
     }
 
     private static Optional<ParameterSpec> defaultParameters(VariableManifest parameter) {
-        var builder = parameter.type().isSingleValueType()
-                ? ParameterSpec.builder(String.class, parameter.name())
-                : ParameterSpec.builder(parameter.type().asTypeName(), parameter.name());
+        var effectiveType = parameter.type().isSingleValueType()
+                ? parameter.type().fields().getFirst().type().asBoxed()
+                : parameter.type();
+        var builder = ParameterSpec.builder(effectiveType.asTypeName(), parameter.name());
         var annotations = new ArrayList<>(
                 parameter.annotations().stream().map(AnnotationManifest::asSpec).toList());
-        if (!parameter.type().isStandardType() && !parameter.type().isEnum()) {
+        if (!effectiveType.isStandardType() && !effectiveType.isEnum()) {
             annotations.add(AnnotationSpec.builder(Valid.class).build());
-        } else if (parameter.type().is(String.class) && parameter.annotations().stream()
+        } else if (effectiveType.is(String.class) && parameter.annotations().stream()
                 .noneMatch(a -> a.type().is(Size.class))) {
             annotations.add(AnnotationSpec.builder(Size.class).addMember("max", "255").build());
         }

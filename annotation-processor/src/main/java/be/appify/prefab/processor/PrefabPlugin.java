@@ -1,5 +1,6 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.processor.dbmigration.DataType;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
@@ -151,6 +152,77 @@ public interface PrefabPlugin {
      * @return An optional CodeBlock for mapping the request parameter.
      */
     default Optional<CodeBlock> mapRequestParameter(VariableManifest parameter) {
+        return Optional.empty();
+    }
+
+    /**
+     * Optionally provides a database {@link DataType} for a field whose type is annotated with
+     * {@link be.appify.prefab.core.annotations.CustomType}.
+     *
+     * <p>If this method returns a non-empty {@code Optional}, the returned {@code DataType} is used to generate the
+     * corresponding database column. If all plugins return {@code Optional.empty()}, the field is skipped and no
+     * column is generated.
+     *
+     * @param type
+     *         the {@link TypeManifest} of the custom field type
+     * @return an {@code Optional} containing the SQL {@code DataType}, or empty if this plugin does not handle the
+     *         type
+     */
+    default Optional<DataType> dataTypeOf(TypeManifest type) {
+        return Optional.empty();
+    }
+
+    /**
+     * Optionally provides the Avro schema {@link CodeBlock} for a field whose type is annotated with
+     * {@link be.appify.prefab.core.annotations.CustomType}.
+     *
+     * <p>The returned {@code CodeBlock} must evaluate to an {@code org.apache.avro.Schema} at runtime.
+     * If all plugins return {@code Optional.empty()}, the field is omitted from the generated Avro schema.
+     *
+     * @param type
+     *         the {@link TypeManifest} of the custom field type
+     * @return an {@code Optional} containing the {@code CodeBlock} that produces the Avro {@code Schema}, or empty if
+     *         this plugin does not handle the type
+     */
+    default Optional<CodeBlock> avroSchemaOf(TypeManifest type) {
+        return Optional.empty();
+    }
+
+    /**
+     * Optionally provides a {@link CodeBlock} that serialises a value of a
+     * {@link be.appify.prefab.core.annotations.CustomType}-annotated type to an Avro-compatible object.
+     *
+     * <p>The returned {@code CodeBlock} must produce the Avro-compatible value (e.g. a {@code String} or a
+     * {@code GenericRecord}). If all plugins return {@code Optional.empty()}, the field is skipped during
+     * serialisation.
+     *
+     * @param type
+     *         the {@link TypeManifest} of the custom field type
+     * @param value
+     *         a {@code CodeBlock} that evaluates to the Java-side field value
+     * @return an {@code Optional} containing the serialisation {@code CodeBlock}, or empty if this plugin does not
+     *         handle the type
+     */
+    default Optional<CodeBlock> toAvroValueOf(TypeManifest type, CodeBlock value) {
+        return Optional.empty();
+    }
+
+    /**
+     * Optionally provides a {@link CodeBlock} that deserialises an Avro value back to a value of a
+     * {@link be.appify.prefab.core.annotations.CustomType}-annotated type.
+     *
+     * <p>The returned {@code CodeBlock} must produce the Java-side field value. If all plugins return
+     * {@code Optional.empty()}, the field is skipped during deserialisation (the field is set to {@code null}).
+     *
+     * @param type
+     *         the {@link TypeManifest} of the custom field type
+     * @param value
+     *         a {@code CodeBlock} that evaluates to the raw Avro value (e.g. a {@code String} or a
+     *         {@code GenericRecord})
+     * @return an {@code Optional} containing the deserialisation {@code CodeBlock}, or empty if this plugin does not
+     *         handle the type
+     */
+    default Optional<CodeBlock> fromAvroValueOf(TypeManifest type, CodeBlock value) {
         return Optional.empty();
     }
 }

@@ -12,7 +12,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 
-interface DataType {
+public interface DataType {
     String toSql();
 
     static DataType parse(String sql) {
@@ -34,7 +34,9 @@ interface DataType {
 
     @SuppressWarnings("unchecked")
     static DataType typeOf(TypeManifest type, List<? extends AnnotationManifest<?>> annotations) {
-        if (type.is(String.class) || type.isSingleValueType() || type.isEnum() || type.is(Duration.class)) {
+        if (type.isSingleValueType()) {
+            return typeOf(type.fields().getFirst().type().asBoxed(), annotations);
+        } else if (type.is(String.class) || type.isEnum() || type.is(Duration.class)) {
             var length = annotations.stream()
                     .filter(annotation -> annotation.type().is(Size.class))
                     .map(annotation -> ((AnnotationManifest<Size>) annotation).value().max())
@@ -57,7 +59,11 @@ interface DataType {
         } else if (type.is(List.class)) {
             return new Array(typeOf(type.parameters().getFirst(), annotations));
         } else {
-            throw new IllegalArgumentException("Unsupported type [%s]".formatted(type));
+            throw new IllegalArgumentException(
+                    ("Unsupported type [%s]. If this is a custom domain type, annotate it with " +
+                    "@be.appify.prefab.core.annotations.CustomType to exclude it from database-column generation, " +
+                    "or implement a PrefabPlugin that returns a DataType from its dataTypeOf() method.")
+                            .formatted(type));
         }
     }
 

@@ -7,6 +7,7 @@ import be.appify.prefab.core.annotations.rest.Filters;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.ListUtil;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
+import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
 import java.io.FileNotFoundException;
@@ -17,11 +18,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
+import javax.tools.Diagnostic;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
 import net.sf.jsqlparser.parser.CCJSqlParser;
@@ -33,6 +36,12 @@ import net.sf.jsqlparser.statement.drop.Drop;
 import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
 
 class DbMigrationWriter {
+
+    private final PrefabContext context;
+
+    DbMigrationWriter(PrefabContext context) {
+        this.context = context;
+    }
 
     void writeDbMigration(
             ProcessingEnvironment processingEnvironment,
@@ -237,7 +246,9 @@ class DbMigrationWriter {
                         || field.type().parameters().getFirst().isSingleValueType())
                 .flatMap(field -> {
                     boolean isSubtypeSpecific = !commonFieldNames.contains(field.name());
-                    if (field.type().isRecord() && !field.type().isSingleValueType()) {
+                    if (field.type().isCustomType()) {
+                        return customTypeColumn(null, field, isSubtypeSpecific || field.nullable());
+                    } else if (field.type().isRecord() && !field.type().isSingleValueType()) {
                         return columnsOf(field.type().asClassManifest(), field.name(),
                                 isSubtypeSpecific || field.nullable()).stream();
                     }
@@ -269,7 +280,14 @@ class DbMigrationWriter {
         return manifest.fields().stream()
                 .filter(field -> !field.type().is(List.class))
                 .flatMap(field -> {
-                    if (field.type().isRecord() && !field.type().isSingleValueType()) {
+                    if (field.type().isCustomType()) {
+                        // Only generate an index if a plugin provides a DataType (i.e. the column exists)
+                        if (pluginDataType(field.type()).isPresent()) {
+                            var columnName = toSnakeCase(prefix != null ? prefix + "_" + field.name() : field.name());
+                            return indexFor(tableName, columnName, field).stream();
+                        }
+                        return Stream.empty();
+                    } else if (field.type().isRecord() && !field.type().isSingleValueType()) {
                         var newPrefix = prefix != null ? prefix + "_" + field.name() : field.name();
                         return fieldIndexesOf(tableName, field.type().asClassManifest(), newPrefix).stream();
                     }
@@ -295,7 +313,10 @@ class DbMigrationWriter {
         return manifest.fields().stream().filter(field -> field.type().is(List.class))
                 .map(field -> field.type().parameters().getFirst())
                 .flatMap(child -> {
-                    if (child.isRecord() && !child.isSingleValueType()) {
+                    if (child.isCustomType()) {
+                        // @CustomType elements in List are skipped — no child table generated
+                        return Stream.empty();
+                    } else if (child.isRecord() && !child.isSingleValueType()) {
                         var columns = ListUtil.concat(List.of(
                                 new Column(aggregateRootTable, new DataType.Varchar(255), false,
                                         new ForeignKey(aggregateRootTable, "id"), null, null),
@@ -325,12 +346,51 @@ class DbMigrationWriter {
                 .filter(field -> !field.type().is(List.class)
                         || field.type().parameters().getFirst().isStandardType()
                         || field.type().parameters().getFirst().isSingleValueType())
-                .flatMap(field -> field.type().isRecord() && !field.type().isSingleValueType()
-                        ? columnsOf(field.type().asClassManifest(),
-                        prefix != null ? prefix + "_" + field.name() : field.name(),
-                        parentNullable || field.nullable()).stream()
-                        : Stream.of(Column.fromField(prefix, field, parentNullable)))
+                .flatMap(field -> {
+                    if (field.type().isCustomType()) {
+                        return customTypeColumn(prefix, field, parentNullable);
+                    } else if (field.type().isRecord() && !field.type().isSingleValueType()) {
+                        return columnsOf(field.type().asClassManifest(),
+                                prefix != null ? prefix + "_" + field.name() : field.name(),
+                                parentNullable || field.nullable()).stream();
+                    } else {
+                        return Stream.of(Column.fromField(prefix, field, parentNullable));
+                    }
+                })
                 .toList();
+    }
+
+    /**
+     * Resolves the DataType for a field whose type is annotated with {@code @CustomType} by asking each registered
+     * plugin. Returns the first non-empty result, or empty if no plugin handles the type.
+     */
+    private Optional<DataType> pluginDataType(TypeManifest type) {
+        return context.plugins().stream()
+                .map(plugin -> plugin.dataTypeOf(type))
+                .filter(Optional::isPresent)
+                .findFirst()
+                .flatMap(opt -> opt);
+    }
+
+    /**
+     * Produces the column(s) for a {@code @CustomType} field. If a plugin supplies a {@link DataType} the field
+     * becomes a regular column; otherwise the field is skipped and a diagnostic NOTE is emitted.
+     */
+    private Stream<Column> customTypeColumn(String prefix, VariableManifest field, boolean parentNullable) {
+        return pluginDataType(field.type())
+                .map(dataType -> Stream.of(Column.fromField(prefix, field, parentNullable, dataType)))
+                .orElseGet(() -> {
+                    context.processingEnvironment().getMessager().printMessage(
+                            Diagnostic.Kind.NOTE,
+                            ("Field '%s' of @CustomType '%s' has no database column: no PrefabPlugin provides a " +
+                            "DataType mapping. Annotate the field with " +
+                            "@org.springframework.data.annotation.Transient to suppress this message, or " +
+                            "implement PrefabPlugin.dataTypeOf() to generate a column.")
+                                    .formatted(field.name(), field.type()),
+                            field.element()
+                    );
+                    return Stream.empty();
+                });
     }
 
     private List<Table> sortByDependencies(List<Table> tables) {

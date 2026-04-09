@@ -74,6 +74,26 @@ record Column(
         );
     }
 
+    static Column fromField(String prefix, VariableManifest property, boolean parentNullable, DataType customDataType) {
+        var rawName = prefix != null ? prefix + "_" + property.name() : property.name();
+        var oldName = property.getAnnotation(DbRename.class)
+                .map(ann -> {
+                    var rawOldName = prefix != null ? prefix + "_" + ann.value().value() : ann.value().value();
+                    return toSnakeCase(rawOldName);
+                })
+                .orElse(null);
+        return new Column(
+                toSnakeCase(rawName),
+                customDataType,
+                parentNullable || property.nullable(),
+                null,
+                property.getAnnotation(DbDefaultValue.class)
+                        .map(defaultValue -> defaultValue.value().value())
+                        .orElse(null),
+                oldName
+        );
+    }
+
     Column withDataType(DataType dataType) {
         return new Column(
                 name,

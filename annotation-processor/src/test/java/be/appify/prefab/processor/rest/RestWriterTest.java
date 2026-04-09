@@ -26,4 +26,21 @@ class RestWriterTest {
                 .contentsAsUtf8String()
                 .contains("@Size(max = 255)");
     }
+
+    @Test
+    void nonStringValueTypeParametersUseInnerFieldType() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/valuetype/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.valuetype.application.CreateProductRequest")
+                .contentsAsUtf8String()
+                .contains("String name");
+        assertThat(compilation)
+                .generatedSourceFile("rest.valuetype.application.CreateProductRequest")
+                .contentsAsUtf8String()
+                .contains("BigDecimal price");
+    }
 }

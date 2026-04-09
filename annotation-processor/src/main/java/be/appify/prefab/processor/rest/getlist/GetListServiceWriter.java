@@ -32,7 +32,7 @@ class GetListServiceWriter {
                 uncapitalize(parent.name()) + "Id"));
         var filterProperties = filterPropertiesOf(manifest);
         filterProperties.forEach(filter ->
-                method.addParameter(filter.field().type().asTypeName(), filter.field().name()));
+                method.addParameter(filterParamType(filter.field()), filter.field().name()));
         TypeName typeName = manifest.type().asTypeName();
         method.returns(ParameterizedTypeName.get(ClassName.get(Page.class), typeName));
         if (!filterProperties.isEmpty()) {
@@ -91,6 +91,12 @@ class GetListServiceWriter {
                 ? CodeBlock.of("$N != null ? new $T($N) : null",
                 field.name(), field.type().asTypeName(), field.name())
                 : CodeBlock.of(field.name());
+    }
+
+    private static TypeName filterParamType(VariableManifest field) {
+        return field.type().isSingleValueType()
+                ? field.type().fields().getFirst().type().asBoxed().asTypeName()
+                : field.type().asTypeName();
     }
 
     private CodeBlock parentField(ClassManifest manifest, VariableManifest field) {

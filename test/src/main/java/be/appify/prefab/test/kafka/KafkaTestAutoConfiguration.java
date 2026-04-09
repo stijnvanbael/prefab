@@ -55,7 +55,7 @@ public class KafkaTestAutoConfiguration {
     @Bean
     @ServiceConnection
     KafkaContainer kafkaContainer(Network kafkaNetwork) {
-        return new KafkaContainer("apache/kafka-native:4.1.1")
+        return new KafkaContainer("apache/kafka:4.0.0")
                 .withNetwork(kafkaNetwork)
                 .withNetworkAliases("kafka")
                 .withListener("0.0.0.0:9095", () -> "kafka:9095");

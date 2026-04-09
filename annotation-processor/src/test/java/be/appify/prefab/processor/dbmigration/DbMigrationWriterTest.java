@@ -72,4 +72,51 @@ class DbMigrationWriterTest {
                 .contentsAsUtf8String()
                 .isEqualTo(contentsOf("dbmigration/notnull/expected/V1__generated.sql"));
     }
+
+    @Test
+    void nonStringValueTypesMappedToCorrectColumnType() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/valuetype/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"name\" VARCHAR (255)");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"price\" DECIMAL (19, 4)");
+    }
+
+    @Test
+    void customTypeFieldIsSkippedFromDbMigration() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/customtype/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        // Regular fields ARE present
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"name\" VARCHAR (255)");
+        // @CustomType field is NOT present (no column generated)
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .doesNotContain("result");
+    }
+
+    @Test
+    void customTypeFieldSkipEmitsNote() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/customtype/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation).hadNoteContaining("result");
+        assertThat(compilation).hadNoteContaining("@CustomType");
+    }
 }

@@ -475,6 +475,93 @@ public record Sale(
 }
 ```
 
+### 🔏 Audit trail
+
+Prefab can automatically track who created or last changed a record and exactly when. Annotate the relevant fields with
+the four audit annotations and the framework takes care of populating them on every write.
+
+```java
+@Aggregate
+@GetList
+@GetById
+public record Contract(
+        @Id Reference<Contract> id,
+        @Version long version,
+        String title,
+        @CreatedAt     Instant createdAt,
+        @CreatedBy     String  createdBy,
+        @LastModifiedAt Instant lastModifiedAt,
+        @LastModifiedBy String  lastModifiedBy
+) {
+    @Create
+    public Contract(String title) {
+        this(Reference.generate(), 0L, title, null, null, null, null);
+    }
+
+    @Update
+    public Contract update(String title) {
+        return new Contract(id, version, title, createdAt, createdBy, lastModifiedAt, lastModifiedBy);
+    }
+}
+```
+
+The four annotations (all in `be.appify.prefab.core.annotations.audit`) behave as follows:
+
+| Annotation          | Populated on | Behaviour                                              |
+|---------------------|--------------|--------------------------------------------------------|
+| `@CreatedAt`        | create only  | Set to `Instant.now()` on creation, never overwritten  |
+| `@CreatedBy`        | create only  | Set to the current user id on creation, never overwritten |
+| `@LastModifiedAt`   | every write  | Updated to `Instant.now()` on every create and update  |
+| `@LastModifiedBy`   | every write  | Updated to the current user id on every create and update |
+
+The audit fields are **read-only** from the API perspective: they appear in the generated response record but are **not**
+included in any request record.
+
+#### AuditContextProvider
+
+Prefab resolves the current user identity via the `AuditContextProvider` interface:
+
+```java
+public interface AuditContextProvider {
+    String currentUserId();
+}
+```
+
+A default `SystemAuditContextProvider` is registered automatically, returning `"system"` when no other bean is present.
+Override it by declaring your own `AuditContextProvider` bean, for example integrating with Spring Security:
+
+```java
+@Bean
+public AuditContextProvider auditContextProvider() {
+    return () -> SecurityContextHolder.getContext().getAuthentication().getName();
+}
+```
+
+#### AuditInfo convenience record
+
+For aggregates that carry all four audit fields, you can use the built-in `AuditInfo` value object as a nested record:
+
+```java
+@Aggregate
+public record Contract(
+        @Id Reference<Contract> id,
+        @Version long version,
+        String title,
+        AuditInfo auditInfo   // groups createdBy, createdAt, lastModifiedBy, lastModifiedAt
+) { ... }
+```
+
+`AuditInfo` is a plain Java record in `be.appify.prefab.core.audit`:
+
+```java
+public record AuditInfo(
+        @CreatedBy     String  createdBy,
+        @CreatedAt     Instant createdAt,
+        @LastModifiedBy String lastModifiedBy,
+        @LastModifiedAt Instant lastModifiedAt
+) {}
+```
+
 ### 💾 Binary files
 
 You can use the `Binary` type to store binary files in your aggregates. Any `Binary` field in the aggregate won't be

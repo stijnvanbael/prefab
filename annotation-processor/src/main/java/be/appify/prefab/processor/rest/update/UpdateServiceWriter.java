@@ -2,6 +2,7 @@ package be.appify.prefab.processor.rest.update;
 
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.audit.AuditPlugin;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
@@ -16,6 +17,7 @@ import static org.apache.commons.text.WordUtils.uncapitalize;
 
 class UpdateServiceWriter {
     MethodSpec updateMethod(ClassManifest manifest, UpdateManifest update) {
+        boolean auditFields = AuditPlugin.hasAuditFields(manifest);
         var method = MethodSpec.methodBuilder(update.operationName())
                 .addModifiers(Modifier.PUBLIC)
                 .returns(ParameterizedTypeName.get(ClassName.get(Optional.class), manifest.type().asTypeName()))
@@ -38,14 +40,26 @@ class UpdateServiceWriter {
                         update.parameters().stream().map(this::fromRequest)
                                 .collect(CodeBlock.joining(", "))));
         var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
-        method.addStatement("""
-                        return $N.findById(id).map(aggregate -> {
-                            $L
-                            return $N.save(aggregate);
-                        })""",
-                repositoryName,
-                aggregateFunction,
-                repositoryName);
+        if (auditFields) {
+            method.addStatement("""
+                            return $N.findById(id).map(aggregate -> {
+                                $L
+                                aggregate = withAuditUpdate(aggregate);
+                                return $N.save(aggregate);
+                            })""",
+                    repositoryName,
+                    aggregateFunction,
+                    repositoryName);
+        } else {
+            method.addStatement("""
+                            return $N.findById(id).map(aggregate -> {
+                                $L
+                                return $N.save(aggregate);
+                            })""",
+                    repositoryName,
+                    aggregateFunction,
+                    repositoryName);
+        }
         return method.build();
     }
 

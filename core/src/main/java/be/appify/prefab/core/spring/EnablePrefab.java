@@ -1,5 +1,6 @@
 package be.appify.prefab.core.spring;
 
+import be.appify.prefab.core.audit.AuditConfiguration;
 import be.appify.prefab.core.kafka.KafkaConfiguration;
 import be.appify.prefab.core.pubsub.PubSubConfiguration;
 import be.appify.prefab.core.sns.SnsConfiguration;
@@ -13,6 +14,6 @@ import org.springframework.context.annotation.Import;
 /** Enable Prefab framework features in a Spring application. */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
-@Import({ PrefabCoreConfiguration.class, KafkaConfiguration.class, PubSubConfiguration.class, SnsConfiguration.class, SerializationRegistry.class })
+@Import({ PrefabCoreConfiguration.class, KafkaConfiguration.class, PubSubConfiguration.class, SnsConfiguration.class, SerializationRegistry.class, AuditConfiguration.class })
 public @interface EnablePrefab {
 }

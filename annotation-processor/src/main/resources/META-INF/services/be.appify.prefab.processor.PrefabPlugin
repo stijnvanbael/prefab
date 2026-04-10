@@ -1,3 +1,4 @@
+be.appify.prefab.processor.audit.AuditPlugin
 be.appify.prefab.processor.dbmigration.DbMigrationPlugin
 be.appify.prefab.processor.mongodb.MongoMigrationPlugin
 be.appify.prefab.processor.mongodb.MongoIndexPlugin

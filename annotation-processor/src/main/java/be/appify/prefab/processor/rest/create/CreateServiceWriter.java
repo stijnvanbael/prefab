@@ -3,6 +3,7 @@ package be.appify.prefab.processor.rest.create;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.audit.AuditPlugin;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
@@ -15,19 +16,23 @@ import static org.apache.commons.text.WordUtils.uncapitalize;
 
 class CreateServiceWriter {
     MethodSpec createMethod(ClassManifest manifest, ExecutableElement controller, PrefabContext context) {
+        boolean auditFields = AuditPlugin.hasAuditFields(manifest);
         if (controller.getParameters().isEmpty()) {
-            return MethodSpec.methodBuilder("create")
+            var method = MethodSpec.methodBuilder("create")
                     .addModifiers(Modifier.PUBLIC)
                     .returns(String.class)
                     .addStatement("log.debug($S, $T.class.getSimpleName())", "Creating new {}", manifest.className())
-                    .addStatement("var aggregate = new $T()", manifest.type().asTypeName())
-                    .addStatement("%sRepository.save(aggregate)".formatted(uncapitalize(manifest.simpleName())))
+                    .addStatement("var aggregate = new $T()", manifest.type().asTypeName());
+            if (auditFields) {
+                method.addStatement("aggregate = withAuditCreate(aggregate)");
+            }
+            method.addStatement("%sRepository.save(aggregate)".formatted(uncapitalize(manifest.simpleName())))
                     .addStatement("return aggregate.$N()$L",
                             manifest.idField().map(VariableManifest::name).orElse("id"),
-                            manifest.idField().map(VariableManifest::type).map(type -> type.isSingleValueType() ? ".%s()".formatted(type.singleValueAccessor()) : "").orElse(""))
-                    .build();
+                            manifest.idField().map(VariableManifest::type).map(type -> type.isSingleValueType() ? ".%s()".formatted(type.singleValueAccessor()) : "").orElse(""));
+            return method.build();
         } else {
-            return MethodSpec.methodBuilder("create")
+            var method = MethodSpec.methodBuilder("create")
                     .addModifiers(Modifier.PUBLIC)
                     .addParameter(ParameterSpec.builder(
                                     ClassName.get("%s.application".formatted(manifest.packageName()),
@@ -40,12 +45,15 @@ class CreateServiceWriter {
                             controller.getParameters().stream()
                                     .map(param -> VariableManifest.of(param, context.processingEnvironment()))
                                     .map(context.requestParameterMapper()::mapRequestParameter)
-                                    .collect(CodeBlock.joining(", ")))
-                    .addStatement("%sRepository.save(aggregate)".formatted(uncapitalize(manifest.simpleName())))
+                                    .collect(CodeBlock.joining(", ")));
+            if (auditFields) {
+                method.addStatement("aggregate = withAuditCreate(aggregate)");
+            }
+            method.addStatement("%sRepository.save(aggregate)".formatted(uncapitalize(manifest.simpleName())))
                     .addStatement("return aggregate.$N()$L",
                             manifest.idField().map(VariableManifest::name).orElse("id"),
-                            manifest.idField().map(VariableManifest::type).map(type -> type.isSingleValueType() ? ".%s()".formatted(type.singleValueAccessor()) : "").orElse(""))
-                    .build();
+                            manifest.idField().map(VariableManifest::type).map(type -> type.isSingleValueType() ? ".%s()".formatted(type.singleValueAccessor()) : "").orElse(""));
+            return method.build();
         }
     }
 }

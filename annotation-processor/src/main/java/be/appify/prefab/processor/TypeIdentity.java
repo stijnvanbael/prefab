@@ -85,7 +85,10 @@ class TypeIdentity {
     }
 
     boolean is(Class<?> type) {
-        return Objects.equals(packageName + "." + simpleName.replace('.', '$'), type.getName());
+        String fqn = packageName.isEmpty()
+                ? simpleName.replace('.', '$')
+                : packageName + "." + simpleName.replace('.', '$');
+        return Objects.equals(fqn, type.getName());
     }
 
     private Class<?> asClass() {

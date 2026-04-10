@@ -13,3 +13,4 @@ be.appify.prefab.processor.rest.delete.DeletePlugin
 be.appify.prefab.processor.rest.getlist.GetListPlugin
 be.appify.prefab.processor.rest.update.UpdatePlugin
 be.appify.prefab.processor.rest.binary.BinaryPlugin
+be.appify.prefab.processor.audit.AuditPlugin

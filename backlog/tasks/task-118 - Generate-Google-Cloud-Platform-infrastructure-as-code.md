@@ -1,11 +1,11 @@
 ---
-id: TASK-104
+id: TASK-118
 title: Generate Google Cloud Platform infrastructure as code
 status: Done
 assignee:
   - '@agent'
 created_date: '2026-04-09 17:10'
-updated_date: '2026-04-10 16:30'
+updated_date: '2026-04-10 18:22'
 labels:
   - "\U0001F4E6feature"
 dependencies: []
@@ -69,15 +69,8 @@ A new `prefab-terraform` Maven module contains the Terraform writer plugin. It h
 <!-- SECTION:NOTES:BEGIN -->
 Implemented `prefab-terraform` Maven module that generates GCP Terraform HCL files at annotation-processor compile time.
 
-- `GcpTerraformPlugin` wired into `PrefabProcessor` via `PrefabPlugin` SPI (`META-INF/services`)
-- `GcpTerraformWriter` generates `terraform/gcp/*.tf` files to `CLASS_OUTPUT`:
-  - `main.tf`, `variables.tf`, `outputs.tf`, `cloud_run.tf`, `artifact_registry.tf`, `iam.tf` — always
-  - `cloud_sql.tf` + `vpc.tf` — when `spring-data-relational` (prefab-postgres) on classpath
-  - `firestore.tf` — when `spring-data-mongodb` (prefab-mongodb) on classpath
-  - `pubsub.tf` — when `PubSubTemplate` (prefab-pubsub) on classpath; one topic+subscription per `@Event.topic()`
-  - `load_balancer.tf` + `domain` variable — when REST annotations (`@Create`, `@GetById`, etc.) detected
-  - `iam.tf` includes least-privilege IAM bindings based on present modules
-- 4 unit tests using `compile-testing` framework, verifying generated file content
-- Classpath detection uses `Class.forName()` guard (same pattern as `MongoIndexPlugin`)
-- AC #12 (terraform validate) and AC #14 (gcp-terraform example) are not implemented as they require Terraform CLI and GCP credentials outside the annotation-processor build
+- `GcpTerraformPlugin` wired into `PrefabProcessor` via `PrefabPlugin` SPI
+- `GcpTerraformWriter` generates `terraform/gcp/*.tf` files (always: main.tf, variables.tf, outputs.tf, cloud_run.tf, artifact_registry.tf, iam.tf; conditional: cloud_sql.tf+vpc.tf when postgres, firestore.tf when mongodb, pubsub.tf when pubsub, load_balancer.tf when REST endpoints)
+- 4 unit tests using compile-testing framework
+- AC #12 and #14 not implemented (require Terraform CLI/GCP credentials)
 <!-- SECTION:NOTES:END -->

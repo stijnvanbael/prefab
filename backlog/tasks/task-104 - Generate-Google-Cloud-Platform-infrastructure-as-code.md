@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@agent'
 created_date: '2026-04-09 17:10'
-updated_date: '2026-04-10 16:27'
+updated_date: '2026-04-10 16:30'
 labels:
   - "\U0001F4E6feature"
 dependencies: []
@@ -67,15 +67,17 @@ A new `prefab-terraform` Maven module contains the Terraform writer plugin. It h
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-- Created new `prefab-terraform` Maven module with `GcpTerraformPlugin` and `GcpTerraformWriter`
-- Registered via `META-INF/services/be.appify.prefab.processor.PrefabPlugin` (ServiceLoader SPI)
-- Generates `terraform/gcp/` files at compile time using `Filer.createResource(CLASS_OUTPUT, ...)`
-- Always generated: `main.tf`, `variables.tf`, `outputs.tf`, `cloud_run.tf`, `artifact_registry.tf`, `iam.tf`
-- Conditional on classpath: `cloud_sql.tf`+`vpc.tf` (spring-data-relational), `firestore.tf` (spring-data-mongodb), `pubsub.tf` (PubSubTemplate)
-- `load_balancer.tf` generated when REST endpoints detected (@Create/@GetById/@GetList/@Delete/@Update)
-- IAM bindings in `iam.tf` are conditional (CloudSQL, Pub/Sub, always secret accessor)
-- `random` provider included in `main.tf` when CloudSQL present (required for `random_password`)
-- `FilerException` handled gracefully to skip re-writes across annotation processing rounds
-- 4 tests using compile-testing all passing: baseFilesAlwaysGenerated, cloudSqlGeneratedWhenPostgresOnClasspath, vpcGeneratedAlongsideCloudSql, restEndpointsGenerateLoadBalancer
-- AC#12 (terraform validate) and AC#14 (examples module) left for follow-up as they require terraform CLI and full example app
+Implemented `prefab-terraform` Maven module that generates GCP Terraform HCL files at annotation-processor compile time.
+
+- `GcpTerraformPlugin` wired into `PrefabProcessor` via `PrefabPlugin` SPI (`META-INF/services`)
+- `GcpTerraformWriter` generates `terraform/gcp/*.tf` files to `CLASS_OUTPUT`:
+  - `main.tf`, `variables.tf`, `outputs.tf`, `cloud_run.tf`, `artifact_registry.tf`, `iam.tf` — always
+  - `cloud_sql.tf` + `vpc.tf` — when `spring-data-relational` (prefab-postgres) on classpath
+  - `firestore.tf` — when `spring-data-mongodb` (prefab-mongodb) on classpath
+  - `pubsub.tf` — when `PubSubTemplate` (prefab-pubsub) on classpath; one topic+subscription per `@Event.topic()`
+  - `load_balancer.tf` + `domain` variable — when REST annotations (`@Create`, `@GetById`, etc.) detected
+  - `iam.tf` includes least-privilege IAM bindings based on present modules
+- 4 unit tests using `compile-testing` framework, verifying generated file content
+- Classpath detection uses `Class.forName()` guard (same pattern as `MongoIndexPlugin`)
+- AC #12 (terraform validate) and AC #14 (gcp-terraform example) are not implemented as they require Terraform CLI and GCP credentials outside the annotation-processor build
 <!-- SECTION:NOTES:END -->

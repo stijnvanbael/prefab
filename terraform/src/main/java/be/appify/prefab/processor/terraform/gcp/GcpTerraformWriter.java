@@ -74,6 +74,11 @@ class GcpTerraformWriter {
         );
     }
 
+    /**
+     * Collects unique Pub/Sub topic names from all {@link Event}-annotated classes in the round environment.
+     * The {@code @Event(topic = "...")} attribute provides the topic name used for both the GCP Pub/Sub topic
+     * and its pull subscription.
+     */
     private List<String> pubsubTopics() {
         return context.roundEnvironment().getElementsAnnotatedWith(Event.class)
                 .stream()

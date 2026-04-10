@@ -25,23 +25,17 @@ import static be.appify.prefab.processor.TestClasses.TEST_UTIL;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 class CreateTestClientWriter {
-    private final PrefabContext context;
-
-    CreateTestClientWriter(PrefabContext context) {
-        this.context = context;
-    }
-
-    List<MethodSpec> createMethods(ClassManifest manifest, ExecutableElement constructor) {
-        var individualParams = getIndividualParams(constructor);
+    List<MethodSpec> createMethods(ClassManifest manifest, ExecutableElement constructor, PrefabContext context) {
+        var individualParams = getIndividualParams(constructor, context);
         if (constructor.getParameters().isEmpty()) {
             return List.of(createNoBodyMethod(manifest, constructor));
         }
         return List.of(
                 createIndividualParamsMethod(manifest, individualParams),
-                createRequestOverload(manifest, constructor));
+                createRequestOverload(manifest, constructor, context));
     }
 
-    private List<ParameterSpec> getIndividualParams(ExecutableElement constructor) {
+    private List<ParameterSpec> getIndividualParams(ExecutableElement constructor, PrefabContext context) {
         return constructor.getParameters().stream()
                 .map(param -> VariableManifest.of(param, context.processingEnvironment()))
                 .flatMap(param -> context.requestParameterBuilder().buildBodyParameter(param).stream())
@@ -63,7 +57,7 @@ class CreateTestClientWriter {
                 .build();
     }
 
-    private MethodSpec createRequestOverload(ClassManifest manifest, ExecutableElement constructor) {
+    private MethodSpec createRequestOverload(ClassManifest manifest, ExecutableElement constructor, PrefabContext context) {
         var create = Objects.requireNonNull(constructor.getAnnotation(Create.class));
         var createRequest = uncapitalize(manifest.simpleName());
         var pathVariables = manifest.parent()

@@ -14,13 +14,7 @@ import javax.lang.model.element.Modifier;
 import static org.apache.commons.text.WordUtils.uncapitalize;
 
 class CreateServiceWriter {
-    private final PrefabContext context;
-
-    CreateServiceWriter(PrefabContext context) {
-        this.context = context;
-    }
-
-    MethodSpec createMethod(ClassManifest manifest, ExecutableElement controller) {
+    MethodSpec createMethod(ClassManifest manifest, ExecutableElement controller, PrefabContext context) {
         if (controller.getParameters().isEmpty()) {
             return MethodSpec.methodBuilder("create")
                     .addModifiers(Modifier.PUBLIC)

@@ -16,7 +16,7 @@ import java.util.List;
  * Helper that detects audit-annotated fields on a {@link ClassManifest} and generates
  * JavaPoet {@link CodeBlock}s for populating those fields in generated service methods.
  */
-class AuditFields {
+public class AuditFields {
 
     private AuditFields() {
     }

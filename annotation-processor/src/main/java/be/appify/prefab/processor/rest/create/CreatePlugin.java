@@ -20,10 +20,10 @@ import javax.lang.model.element.ExecutableElement;
  * creating new instances of a class.
  */
 public class CreatePlugin implements PrefabPlugin {
-    private CreateControllerWriter controllerWriter;
-    private CreateServiceWriter serviceWriter;
-    private CreateRequestRecordWriter requestRecordWriter;
-    private CreateTestClientWriter testClientWriter;
+    private final CreateControllerWriter controllerWriter = new CreateControllerWriter();
+    private final CreateServiceWriter serviceWriter = new CreateServiceWriter();
+    private final CreateRequestRecordWriter requestRecordWriter = new CreateRequestRecordWriter();
+    private final CreateTestClientWriter testClientWriter = new CreateTestClientWriter();
     private final Map<ClassManifest, Optional<ExecutableElement>> createConstructorsCache =
             Collections.synchronizedMap(new WeakHashMap<>());
     private PrefabContext context;
@@ -35,16 +35,12 @@ public class CreatePlugin implements PrefabPlugin {
     @Override
     public void initContext(PrefabContext context) {
         this.context = context;
-        controllerWriter = new CreateControllerWriter(context);
-        serviceWriter = new CreateServiceWriter(context);
-        requestRecordWriter = new CreateRequestRecordWriter(context);
-        testClientWriter = new CreateTestClientWriter(context);
     }
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
         createConstructorOf(manifest).ifPresent(createConstructor ->
-                builder.addMethod(controllerWriter.createMethod(manifest, createConstructor)));
+                builder.addMethod(controllerWriter.createMethod(manifest, createConstructor, context)));
     }
 
     @Override
@@ -56,13 +52,13 @@ public class CreatePlugin implements PrefabPlugin {
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder) {
         createConstructorOf(manifest).ifPresent(createConstructor ->
                 builder.addMethod(
-                        serviceWriter.createMethod(manifest, createConstructor)));
+                        serviceWriter.createMethod(manifest, createConstructor, context)));
     }
 
     @Override
     public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
         createConstructorOf(manifest).ifPresent(createConstructor ->
-                testClientWriter.createMethods(manifest, createConstructor).forEach(builder::addMethod));
+                testClientWriter.createMethods(manifest, createConstructor, context).forEach(builder::addMethod));
     }
 
     @Override
@@ -71,7 +67,7 @@ public class CreatePlugin implements PrefabPlugin {
             var fileWriter = new JavaFileWriter(context.processingEnvironment(), "application");
             manifests.forEach(manifest -> createConstructorOf(manifest).ifPresent(createConstructor -> {
                 if (!createConstructor.getParameters().isEmpty()) {
-                    requestRecordWriter.writeRequestRecord(fileWriter, manifest, createConstructor);
+                    requestRecordWriter.writeRequestRecord(fileWriter, manifest, createConstructor, context);
                 }
             }));
         }

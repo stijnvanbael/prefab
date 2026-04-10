@@ -10,16 +10,11 @@ import javax.lang.model.element.ExecutableElement;
 import static be.appify.prefab.processor.rest.ControllerUtil.writeRecord;
 
 class CreateRequestRecordWriter {
-    private final PrefabContext context;
-
-    CreateRequestRecordWriter(PrefabContext context) {
-        this.context = context;
-    }
-
     void writeRequestRecord(
             JavaFileWriter fileWriter,
             ClassManifest manifest,
-            ExecutableElement controller
+            ExecutableElement controller,
+            PrefabContext context
     ) {
         var name = "Create%sRequest".formatted(manifest.simpleName());
         var type = writeRecord(ClassName.get(manifest.packageName() + ".application", name),

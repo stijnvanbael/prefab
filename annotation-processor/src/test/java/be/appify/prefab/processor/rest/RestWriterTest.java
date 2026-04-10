@@ -43,4 +43,19 @@ class RestWriterTest {
                 .contentsAsUtf8String()
                 .contains("BigDecimal price");
     }
+
+    @Test
+    void aggregateWithCreateAndUpdateGeneratesRequestRecords() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/testclient/source/Person.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.testclient.application.CreatePersonRequest")
+                .isNotNull();
+        assertThat(compilation)
+                .generatedSourceFile("rest.testclient.application.PersonUpdateRequest")
+                .isNotNull();
+    }
 }

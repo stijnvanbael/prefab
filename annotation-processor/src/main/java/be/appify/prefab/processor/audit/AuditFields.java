@@ -25,7 +25,7 @@ public class AuditFields {
      * Returns {@code true} when the aggregate has at least one field annotated with an audit
      * annotation, or a field of type {@link AuditInfo}.
      */
-    static boolean hasAuditFields(ClassManifest manifest) {
+    public static boolean hasAuditFields(ClassManifest manifest) {
         return manifest.fields().stream().anyMatch(AuditFields::isAuditAnnotatedField)
                 || manifest.fields().stream().anyMatch(AuditFields::isAuditInfoField);
     }
@@ -33,7 +33,7 @@ public class AuditFields {
     /**
      * Returns {@code true} when the field carries one of the four audit annotations.
      */
-    static boolean isAuditAnnotatedField(VariableManifest field) {
+    public static boolean isAuditAnnotatedField(VariableManifest field) {
         return field.hasAnnotation(CreatedAt.class)
                 || field.hasAnnotation(CreatedBy.class)
                 || field.hasAnnotation(LastModifiedAt.class)
@@ -43,7 +43,7 @@ public class AuditFields {
     /**
      * Returns {@code true} when the field is of type {@link AuditInfo}.
      */
-    static boolean isAuditInfoField(VariableManifest field) {
+    public static boolean isAuditInfoField(VariableManifest field) {
         return field.type().is(AuditInfo.class);
     }
 
@@ -57,7 +57,7 @@ public class AuditFields {
      *   <li>all other fields → {@code aggregate.<fieldName>()}</li>
      * </ul>
      */
-    static CodeBlock createReconstructionArgs(List<VariableManifest> fields) {
+    public static CodeBlock createReconstructionArgs(List<VariableManifest> fields) {
         return fields.stream()
                 .map(AuditFields::createFieldCode)
                 .collect(CodeBlock.joining(", "));
@@ -68,7 +68,7 @@ public class AuditFields {
      * only the {@code @LastModifiedAt}/{@code @LastModifiedBy} (or the corresponding fields of an
      * {@link AuditInfo} value) with their update-time values. Created-at/by fields are preserved.
      */
-    static CodeBlock updateReconstructionArgs(List<VariableManifest> fields) {
+    public static CodeBlock updateReconstructionArgs(List<VariableManifest> fields) {
         return fields.stream()
                 .map(AuditFields::updateFieldCode)
                 .collect(CodeBlock.joining(", "));

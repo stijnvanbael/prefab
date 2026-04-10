@@ -15,7 +15,7 @@ class ObjectsTest {
 
     @Test
     void mapIfNotNullReturnsNullWhenInputIsNull() {
-        var result = Objects.mapIfNotNull(null, String::toUpperCase);
+        var result = Objects.mapIfNotNull((String) null, String::toUpperCase);
         assertNull(result);
     }
 

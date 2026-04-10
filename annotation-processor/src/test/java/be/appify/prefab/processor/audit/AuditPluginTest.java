@@ -56,9 +56,6 @@ class AuditPluginTest {
                 .compile(sourceOf("rest/audit/source/Contract.java"));
 
         assertThat(compilation).succeeded();
-        var serviceSource = compilation
-                .generatedSourceFile("rest.audit.application.ContractService")
-                .getCharContent(true).toString();
         // Update method should reference createdAt/createdBy preserved and lastModifiedAt/lastModifiedBy updated
         assertThat(compilation)
                 .generatedSourceFile("rest.audit.application.ContractService")

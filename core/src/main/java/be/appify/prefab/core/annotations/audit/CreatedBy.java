@@ -14,7 +14,7 @@ import java.lang.annotation.Target;
  * overwrite it on subsequent updates.
  * </p>
  * <p>
- * For convenience, use {@link AuditInfo} to group all four audit fields together.
+ * For convenience, use {@link be.appify.prefab.core.audit.AuditInfo} to group all four audit fields together.
  * </p>
  */
 @Target(ElementType.FIELD)

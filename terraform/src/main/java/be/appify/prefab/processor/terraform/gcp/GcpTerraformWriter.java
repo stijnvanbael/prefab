@@ -33,7 +33,7 @@ class GcpTerraformWriter {
                 .map(m -> (Element) m.type().asElement())
                 .toArray(Element[]::new);
 
-        writeFile("main.tf", mainTf(), elements);
+        writeFile("main.tf", mainTf(hasCloudSql), elements);
         writeFile("variables.tf", variablesTf(hasRestEndpoints), elements);
         writeFile("outputs.tf", outputsTf(), elements);
         writeFile("cloud_run.tf", cloudRunTf(), elements);
@@ -97,23 +97,29 @@ class GcpTerraformWriter {
         }
     }
 
-    private String mainTf() {
-        return """
-                terraform {
-                  required_version = ">= 1.5"
-                  required_providers {
-                    google = {
-                      source  = "hashicorp/google"
-                      version = "~> 5.0"
-                    }
-                  }
-                }
-
-                provider "google" {
-                  project = var.project_id
-                  region  = var.region
-                }
-                """;
+    private String mainTf(boolean hasCloudSql) {
+        var sb = new StringBuilder();
+        sb.append("terraform {\n");
+        sb.append("  required_version = \">= 1.5\"\n");
+        sb.append("  required_providers {\n");
+        sb.append("    google = {\n");
+        sb.append("      source  = \"hashicorp/google\"\n");
+        sb.append("      version = \"~> 5.0\"\n");
+        sb.append("    }\n");
+        if (hasCloudSql) {
+            sb.append("    random = {\n");
+            sb.append("      source  = \"hashicorp/random\"\n");
+            sb.append("      version = \"~> 3.0\"\n");
+            sb.append("    }\n");
+        }
+        sb.append("  }\n");
+        sb.append("}\n");
+        sb.append("\n");
+        sb.append("provider \"google\" {\n");
+        sb.append("  project = var.project_id\n");
+        sb.append("  region  = var.region\n");
+        sb.append("}\n");
+        return sb.toString();
     }
 
     private String variablesTf(boolean hasRestEndpoints) {

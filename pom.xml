@@ -32,6 +32,7 @@
         <module>async-api</module>
         <module>security</module>
         <module>openapi</module>
+        <module>terraform</module>
     </modules>
 
     <properties>
@@ -110,6 +111,11 @@
             <dependency>
                 <groupId>be.appify.prefab</groupId>
                 <artifactId>prefab-openapi</artifactId>
+                <version>${prefab.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>be.appify.prefab</groupId>
+                <artifactId>prefab-terraform</artifactId>
                 <version>${prefab.version}</version>
             </dependency>
         </dependencies>

@@ -2,6 +2,7 @@ package be.appify.prefab.processor.rest.update;
 
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.audit.AuditFields;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
@@ -39,7 +40,25 @@ class UpdateServiceWriter {
                                 .collect(CodeBlock.joining(", "))));
         var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
         var tenantField = manifest.tenantIdField();
-        if (tenantField.isPresent()) {
+        var hasAudit = AuditFields.hasAuditFields(manifest);
+        if (tenantField.isPresent() && hasAudit) {
+            var tf = tenantField.get();
+            method.addStatement("""
+                            return $N.findById(id)
+                                    .filter(aggregate -> tenantContextProvider.currentTenantId() == null
+                                            || aggregate.$N().equals(tenantContextProvider.currentTenantId()))
+                                    .map(aggregate -> {
+                                        $L
+                                        aggregate = new $T($L);
+                                        return $N.save(aggregate);
+                                    })""",
+                    repositoryName,
+                    tf.name(),
+                    aggregateFunction,
+                    manifest.type().asTypeName(),
+                    AuditFields.updateReconstructionArgs(manifest.fields()),
+                    repositoryName);
+        } else if (tenantField.isPresent()) {
             var tf = tenantField.get();
             method.addStatement("""
                             return $N.findById(id)
@@ -52,6 +71,18 @@ class UpdateServiceWriter {
                     repositoryName,
                     tf.name(),
                     aggregateFunction,
+                    repositoryName);
+        } else if (hasAudit) {
+            method.addStatement("""
+                            return $N.findById(id).map(aggregate -> {
+                                $L
+                                aggregate = new $T($L);
+                                return $N.save(aggregate);
+                            })""",
+                    repositoryName,
+                    aggregateFunction,
+                    manifest.type().asTypeName(),
+                    AuditFields.updateReconstructionArgs(manifest.fields()),
                     repositoryName);
         } else {
             method.addStatement("""

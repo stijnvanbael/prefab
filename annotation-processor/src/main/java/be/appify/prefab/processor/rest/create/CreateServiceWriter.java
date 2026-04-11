@@ -4,6 +4,7 @@ import be.appify.prefab.core.tenant.TenantContextProvider;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.audit.AuditFields;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
@@ -25,6 +26,7 @@ class CreateServiceWriter {
                     .addStatement("var aggregate = new $T()", manifest.type().asTypeName());
             tenantField.ifPresent(tf -> method.addStatement("aggregate = new $T($L)",
                     manifest.type().asTypeName(), reconstructionArgs(manifest, tf)));
+            addAuditForCreate(method, manifest);
             method.addStatement("%sRepository.save(aggregate)".formatted(uncapitalize(manifest.simpleName())))
                     .addStatement("return aggregate.$N()$L",
                             manifest.idField().map(VariableManifest::name).orElse("id"),
@@ -47,11 +49,19 @@ class CreateServiceWriter {
                                     .collect(CodeBlock.joining(", ")));
             tenantField.ifPresent(tf -> method.addStatement("aggregate = new $T($L)",
                     manifest.type().asTypeName(), reconstructionArgs(manifest, tf)));
+            addAuditForCreate(method, manifest);
             method.addStatement("%sRepository.save(aggregate)".formatted(uncapitalize(manifest.simpleName())))
                     .addStatement("return aggregate.$N()$L",
                             manifest.idField().map(VariableManifest::name).orElse("id"),
                             manifest.idField().map(VariableManifest::type).map(type -> type.isSingleValueType() ? ".%s()".formatted(type.singleValueAccessor()) : "").orElse(""));
             return method.build();
+        }
+    }
+
+    private static void addAuditForCreate(MethodSpec.Builder method, ClassManifest manifest) {
+        if (AuditFields.hasAuditFields(manifest)) {
+            method.addStatement("aggregate = new $T($L)", manifest.type().asTypeName(),
+                    AuditFields.createReconstructionArgs(manifest.fields()));
         }
     }
 

@@ -35,13 +35,21 @@ class GetListServiceWriter {
                 method.addParameter(filterParamType(filter.field()), filter.field().name()));
         TypeName typeName = manifest.type().asTypeName();
         method.returns(ParameterizedTypeName.get(ClassName.get(Page.class), typeName));
+        var tenantField = manifest.tenantIdField();
         if (!filterProperties.isEmpty()) {
-            logWithFilters(manifest, method, filterProperties);
+            if (!tenantField.isPresent()) {
+                logWithFilters(manifest, method, filterProperties);
+            } else {
+                method.addStatement("log.debug($S, $T.class.getSimpleName())", "Getting {}",
+                        manifest.className());
+            }
         } else {
             method.addStatement("log.debug($S, $T.class.getSimpleName())", "Getting {}", manifest.className());
         }
         var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
-        if (filterProperties.isEmpty()) {
+        if (tenantField.isPresent()) {
+            findWithTenant(manifest, method, repositoryName, filterProperties, tenantField.get());
+        } else if (filterProperties.isEmpty()) {
             method.addStatement("return $N.find$N($L)",
                     repositoryName,
                     manifest.parent().map(parent -> "By" + capitalize(parent.name())).orElse("All"),
@@ -50,6 +58,48 @@ class GetListServiceWriter {
             findWithFilters(manifest, method, repositoryName, filterProperties);
         }
         return method.build();
+    }
+
+    private void findWithTenant(
+            ClassManifest manifest,
+            MethodSpec.Builder method,
+            String repositoryName,
+            List<GetListUtil.FilterManifest> filters,
+            VariableManifest tenantField
+    ) {
+        if (filters.isEmpty()) {
+            // Simple case: tenant-only filter via generated repository method
+            method.addStatement("var tenantId = tenantContextProvider.currentTenantId()");
+            method.addStatement("""
+                            return tenantId != null
+                                ? $N.findBy$N(tenantId, pageable)
+                                : $N.find$N($L)""",
+                    repositoryName,
+                    capitalize(tenantField.name()),
+                    repositoryName,
+                    manifest.parent().map(parent -> "By" + capitalize(parent.name())).orElse("All"),
+                    manifest.parent().map(parent -> parent.name() + "Id, ").orElse("") + "pageable");
+        } else {
+            // Combined tenant + filter: inject tenant into Example probe
+            method.addStatement("""
+                            return $N.findAll(
+                                $T.of(new $T($L),
+                                    $T.matchingAll()
+                                        $L
+                                        $L
+                                        $L
+                                        $L),
+                                    pageable)""",
+                    repositoryName,
+                    Example.class,
+                    manifest.className(),
+                    fieldsWithTenant(manifest, filters, tenantField),
+                    ExampleMatcher.class,
+                    ignorePathsWithTenant(manifest, filters, tenantField),
+                    filterMatchers(filters),
+                    tenantMatcher(tenantField),
+                    parentMatcher(manifest));
+        }
     }
 
     private void findWithFilters(
@@ -86,6 +136,24 @@ class GetListServiceWriter {
                 .collect(CodeBlock.joining(", "));
     }
 
+    private CodeBlock fieldsWithTenant(
+            ClassManifest manifest,
+            List<GetListUtil.FilterManifest> filters,
+            VariableManifest tenantField
+    ) {
+        return manifest.fields().stream()
+                .map(field -> {
+                    if (field.name().equals(tenantField.name())) {
+                        return CodeBlock.of("tenantContextProvider.currentTenantId()");
+                    }
+                    if (filters.stream().anyMatch(f -> f.field().name().equals(field.name()))) {
+                        return filterField(field);
+                    }
+                    return parentField(manifest, field);
+                })
+                .collect(CodeBlock.joining(", "));
+    }
+
     private static CodeBlock filterField(VariableManifest field) {
         return field.type().isSingleValueType()
                 ? CodeBlock.of("$N != null ? new $T($N) : null",
@@ -113,6 +181,18 @@ class GetListServiceWriter {
                 .collect(Collectors.joining(", ")));
     }
 
+    private static CodeBlock ignorePathsWithTenant(
+            ClassManifest manifest,
+            List<GetListUtil.FilterManifest> filters,
+            VariableManifest tenantField
+    ) {
+        return CodeBlock.of(".withIgnorePaths($L)", manifest.fields().stream()
+                .filter(field -> isFiltered(manifest, filters, field)
+                        && !field.name().equals(tenantField.name()))
+                .map(field -> "\"" + field.name() + "\"")
+                .collect(Collectors.joining(", ")));
+    }
+
     private CodeBlock filterMatchers(List<GetListUtil.FilterManifest> filters) {
         return filters.stream()
                 .map(property -> CodeBlock.of(".withMatcher($S, $T.$N().$L())",
@@ -121,6 +201,12 @@ class GetListServiceWriter {
                         property.ignoreCase() ? "ignoreCase" : "caseSensitive",
                         matcherMethod(property.operator())))
                 .collect(CodeBlock.joining("\n"));
+    }
+
+    private static CodeBlock tenantMatcher(VariableManifest tenantField) {
+        return CodeBlock.of(".withMatcher($S, $T.caseSensitive().exact())",
+                tenantField.name(),
+                ExampleMatcher.GenericPropertyMatchers.class);
     }
 
     private static CodeBlock parentMatcher(ClassManifest manifest) {
@@ -189,3 +275,4 @@ class GetListServiceWriter {
                 .build();
     }
 }
+

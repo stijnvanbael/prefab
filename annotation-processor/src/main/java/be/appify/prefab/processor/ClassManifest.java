@@ -1,6 +1,7 @@
 package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.TenantId;
 import be.appify.prefab.core.annotations.rest.Parent;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
@@ -301,5 +302,16 @@ public class ClassManifest {
      */
     public Optional<VariableManifest> idField() {
         return Optional.ofNullable(idField);
+    }
+
+    /**
+     * Gets the tenant ID field (annotated with {@link TenantId}) of the class, if any.
+     *
+     * @return the tenant ID field, or empty if none is declared
+     */
+    public Optional<VariableManifest> tenantIdField() {
+        return fields.stream()
+                .filter(field -> field.hasAnnotation(TenantId.class))
+                .findFirst();
     }
 }

@@ -38,14 +38,31 @@ class UpdateServiceWriter {
                         update.parameters().stream().map(this::fromRequest)
                                 .collect(CodeBlock.joining(", "))));
         var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
-        method.addStatement("""
-                        return $N.findById(id).map(aggregate -> {
-                            $L
-                            return $N.save(aggregate);
-                        })""",
-                repositoryName,
-                aggregateFunction,
-                repositoryName);
+        var tenantField = manifest.tenantIdField();
+        if (tenantField.isPresent()) {
+            var tf = tenantField.get();
+            method.addStatement("""
+                            return $N.findById(id)
+                                    .filter(aggregate -> tenantContextProvider.currentTenantId() == null
+                                            || aggregate.$N().equals(tenantContextProvider.currentTenantId()))
+                                    .map(aggregate -> {
+                                        $L
+                                        return $N.save(aggregate);
+                                    })""",
+                    repositoryName,
+                    tf.name(),
+                    aggregateFunction,
+                    repositoryName);
+        } else {
+            method.addStatement("""
+                            return $N.findById(id).map(aggregate -> {
+                                $L
+                                return $N.save(aggregate);
+                            })""",
+                    repositoryName,
+                    aggregateFunction,
+                    repositoryName);
+        }
         return method.build();
     }
 
@@ -57,3 +74,4 @@ class UpdateServiceWriter {
         return CodeBlock.of("request.%s()".formatted(parameter.name()));
     }
 }
+

@@ -15,15 +15,26 @@ import static org.apache.commons.text.WordUtils.uncapitalize;
 class GetByIdServiceWriter {
     MethodSpec getByIdMethod(ClassManifest manifest) {
         TypeName typeName = manifest.type().asTypeName();
-        return MethodSpec.methodBuilder("getById")
+        var tenantField = manifest.tenantIdField();
+        var method = MethodSpec.methodBuilder("getById")
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(String.class, "id")
                 .returns(ParameterizedTypeName.get(ClassName.get(Optional.class), typeName))
                 .addStatement("log.debug($S, $T.class.getSimpleName(), id)", "Getting {} by id: {}",
-                        manifest.className())
-                .addStatement(
-                        "return %sRepository.findById(id)".formatted(uncapitalize(manifest.simpleName())))
-                .build();
+                        manifest.className());
+        if (tenantField.isPresent()) {
+            var tf = tenantField.get();
+            method.addStatement(
+                    "return $NRepository.findById(id)"
+                            + ".filter(aggregate -> tenantContextProvider.currentTenantId() == null"
+                            + " || aggregate.$N().equals(tenantContextProvider.currentTenantId()))",
+                    uncapitalize(manifest.simpleName()),
+                    tf.name());
+        } else {
+            method.addStatement(
+                    "return %sRepository.findById(id)".formatted(uncapitalize(manifest.simpleName())));
+        }
+        return method.build();
     }
 
     MethodSpec getByIdMethod(PolymorphicAggregateManifest manifest) {
@@ -39,3 +50,4 @@ class GetByIdServiceWriter {
                 .build();
     }
 }
+

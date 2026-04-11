@@ -2,6 +2,7 @@ package be.appify.prefab.processor.dbmigration;
 
 import be.appify.prefab.core.annotations.DbRename;
 import be.appify.prefab.core.annotations.Indexed;
+import be.appify.prefab.core.annotations.TenantId;
 import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.Filters;
 import be.appify.prefab.processor.ClassManifest;
@@ -303,7 +304,8 @@ class DbMigrationWriter {
                     .map(a -> a.value().unique())
                     .orElse(false);
             return List.of(Index.of(tableName, columnName, isUnique));
-        } else if (field.hasAnnotation(Filter.class) || field.hasAnnotation(Filters.class)) {
+        } else if (field.hasAnnotation(Filter.class) || field.hasAnnotation(Filters.class)
+                || field.hasAnnotation(TenantId.class)) {
             return List.of(Index.of(tableName, columnName, false));
         }
         return List.of();
@@ -353,6 +355,9 @@ class DbMigrationWriter {
                         return columnsOf(field.type().asClassManifest(),
                                 prefix != null ? prefix + "_" + field.name() : field.name(),
                                 parentNullable || field.nullable()).stream();
+                    } else if (field.hasAnnotation(TenantId.class)) {
+                        // @TenantId is always NOT NULL regardless of @Nullable
+                        return Stream.of(Column.fromField(prefix, field, false));
                     } else {
                         return Stream.of(Column.fromField(prefix, field, parentNullable));
                     }

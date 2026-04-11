@@ -175,10 +175,7 @@ class GetListServiceWriter {
     }
 
     private static CodeBlock ignorePaths(ClassManifest manifest, List<GetListUtil.FilterManifest> filters) {
-        return CodeBlock.of(".withIgnorePaths($L)", manifest.fields().stream()
-                .filter(field -> isFiltered(manifest, filters, field))
-                .map(field -> "\"" + field.name() + "\"")
-                .collect(Collectors.joining(", ")));
+        return ignorePathsExcluding(manifest, filters, null);
     }
 
     private static CodeBlock ignorePathsWithTenant(
@@ -186,9 +183,17 @@ class GetListServiceWriter {
             List<GetListUtil.FilterManifest> filters,
             VariableManifest tenantField
     ) {
+        return ignorePathsExcluding(manifest, filters, tenantField.name());
+    }
+
+    private static CodeBlock ignorePathsExcluding(
+            ClassManifest manifest,
+            List<GetListUtil.FilterManifest> filters,
+            String excludedFieldName
+    ) {
         return CodeBlock.of(".withIgnorePaths($L)", manifest.fields().stream()
                 .filter(field -> isFiltered(manifest, filters, field)
-                        && !field.name().equals(tenantField.name()))
+                        && !field.name().equals(excludedFieldName))
                 .map(field -> "\"" + field.name() + "\"")
                 .collect(Collectors.joining(", ")));
     }

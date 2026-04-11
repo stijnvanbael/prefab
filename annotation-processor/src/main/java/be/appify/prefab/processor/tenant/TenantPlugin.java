@@ -2,19 +2,18 @@ package be.appify.prefab.processor.tenant;
 
 import be.appify.prefab.core.annotations.TenantId;
 import be.appify.prefab.core.annotations.rest.Create;
+import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.core.tenant.TenantContextProvider;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
-import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import javax.lang.model.element.Modifier;
 import org.springframework.data.domain.Page;
@@ -63,8 +62,7 @@ public class TenantPlugin implements PrefabPlugin {
     @Override
     public void writeRepository(ClassManifest manifest, TypeSpec.Builder builder) {
         manifest.tenantIdField().ifPresent(tenantField -> {
-            if (!manifest.annotationsOfType(
-                    be.appify.prefab.core.annotations.rest.GetList.class).isEmpty()) {
+            if (!manifest.annotationsOfType(GetList.class).isEmpty()) {
                 builder.addMethod(MethodSpec.methodBuilder(
                                 "findBy" + capitalize(tenantField.name()))
                         .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
@@ -118,15 +116,5 @@ public class TenantPlugin implements PrefabPlugin {
                                 "@TenantId field '" + tenantFieldName + "' must not appear in an @Update "
                                         + "method. The tenant ID is populated automatically by the framework.",
                                 p)));
-    }
-
-    /**
-     * Returns the tenant ID field for the given manifest, or empty if none is declared.
-     *
-     * @param manifest the class manifest
-     * @return the tenant ID field, or empty
-     */
-    public static Optional<VariableManifest> tenantIdFieldOf(ClassManifest manifest) {
-        return manifest.tenantIdField();
     }
 }

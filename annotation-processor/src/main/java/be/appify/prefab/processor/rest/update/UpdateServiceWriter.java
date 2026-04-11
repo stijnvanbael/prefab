@@ -2,6 +2,7 @@ package be.appify.prefab.processor.rest.update;
 
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.audit.AuditFields;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
@@ -38,14 +39,28 @@ class UpdateServiceWriter {
                         update.parameters().stream().map(this::fromRequest)
                                 .collect(CodeBlock.joining(", "))));
         var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
-        method.addStatement("""
-                        return $N.findById(id).map(aggregate -> {
-                            $L
-                            return $N.save(aggregate);
-                        })""",
-                repositoryName,
-                aggregateFunction,
-                repositoryName);
+        if (AuditFields.hasAuditFields(manifest)) {
+            method.addStatement("""
+                            return $N.findById(id).map(aggregate -> {
+                                $L
+                                aggregate = new $T($L);
+                                return $N.save(aggregate);
+                            })""",
+                    repositoryName,
+                    aggregateFunction,
+                    manifest.type().asTypeName(),
+                    AuditFields.updateReconstructionArgs(manifest.fields()),
+                    repositoryName);
+        } else {
+            method.addStatement("""
+                            return $N.findById(id).map(aggregate -> {
+                                $L
+                                return $N.save(aggregate);
+                            })""",
+                    repositoryName,
+                    aggregateFunction,
+                    repositoryName);
+        }
         return method.build();
     }
 

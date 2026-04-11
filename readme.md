@@ -681,6 +681,80 @@ Annotate a `Reference` field with `@Parent` to indicate that the reference is th
 requests to the aggregate will be prefixed with the path of the parent aggregate. Any `@Search` endpoints will also
 be limited to the parent aggregate. This is useful for creating a hierarchy of aggregates with lots of children.
 
+### 🕵️ Audit trail
+
+Prefab can automatically populate auditing fields on your aggregates — recording who created or last changed a record,
+and exactly when. Add the four audit annotations to your aggregate fields and the generated service code will
+populate them on every write.
+
+```java
+@Aggregate
+@GetList
+@GetById
+public record Contract(
+    @Id Reference<Contract> id,
+    @Version long version,
+    String title,
+    @CreatedAt  Instant createdAt,       // set once on creation
+    @CreatedBy  String  createdBy,       // set once on creation
+    @LastModifiedAt Instant lastModifiedAt, // updated on every write
+    @LastModifiedBy String  lastModifiedBy  // updated on every write
+) {
+    @Create
+    public Contract(String title) {
+        this(Reference.create(), 0L, title, null, null, null, null);
+    }
+
+    @Update
+    public Contract update(String title) {
+        return new Contract(id, version, title, createdAt, createdBy, lastModifiedAt, lastModifiedBy);
+    }
+}
+```
+
+**Convenience value object** — instead of declaring the four fields individually you can use the built-in
+`AuditInfo` record which groups them together:
+
+```java
+@Aggregate
+public record Contract(
+    @Id Reference<Contract> id,
+    @Version long version,
+    String title,
+    AuditInfo audit   // contains createdAt, createdBy, lastModifiedAt, lastModifiedBy
+) {
+    @Create
+    public Contract(String title) {
+        this(Reference.create(), 0L, title, new AuditInfo());
+    }
+
+    @Update
+    public Contract update(String title) {
+        return new Contract(id, version, title, audit);
+    }
+}
+```
+
+The audit fields are automatically included in the generated response record (e.g. `ContractResponse`) but are
+**never** included in request records (`CreateContractRequest`, `ContractUpdateRequest`) because they are set by
+the framework, not the caller.
+
+**Providing the current user** — Prefab uses the `AuditContextProvider` interface to resolve the authenticated
+principal. The default implementation returns `"system"`. Override it with a Spring bean to integrate with your
+authentication provider:
+
+```java
+@Bean
+public AuditContextProvider auditContextProvider() {
+    return () -> Optional.ofNullable(SecurityContextHolder.getContext().getAuthentication())
+        .map(Authentication::getName)
+        .orElse("anonymous");
+}
+```
+
+**Database columns** — when `@DbMigration` is present, Flyway migration columns are generated automatically:
+`TIMESTAMP WITH TIME ZONE` for `Instant` fields and `VARCHAR(255)` for `String` fields.
+
 ## 🦆 Supported data types
 
 The types below are the only types you can currently use in Prefab aggregates or nested records.

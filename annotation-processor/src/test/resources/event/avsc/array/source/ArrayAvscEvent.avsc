@@ -1,0 +1,9 @@
+{
+  "type": "record",
+  "name": "ArrayAvscEvent",
+  "namespace": "event.avsc",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {"name": "tags", "type": {"type": "array", "items": "string"}}
+  ]
+}

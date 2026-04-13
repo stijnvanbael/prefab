@@ -171,7 +171,7 @@ class AvscEventWriter {
                 var elementSchema = schema.getElementType();
                 var elementType = toTypeName(elementSchema, defaultPackage, false);
                 if (elementType == null) yield null;
-                // Box primitives for List
+                // Box primitives for List (Java generics require object types, not primitives)
                 var boxed = elementType.box();
                 yield ParameterizedTypeName.get(ClassName.get(List.class), boxed);
             }

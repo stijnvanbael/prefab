@@ -63,8 +63,14 @@ public class AvscFirstPlugin implements PrefabPlugin {
     }
 
     private InputStream openResource(String path) throws IOException {
+        // Primary: load from the annotation processor's classpath (covers both
+        // test environments and production Maven builds where resources are on
+        // the compile classpath).
         var stream = getClass().getClassLoader().getResourceAsStream(path);
         if (stream != null) return stream;
+        // Secondary: resolve relative to Maven's conventional resource directory.
+        // Useful when running the processor in a non-standard build environment
+        // where resources have not yet been copied to the compile classpath.
         var file = Path.of("src/main/resources", path);
         if (Files.exists(file)) return Files.newInputStream(file);
         return null;

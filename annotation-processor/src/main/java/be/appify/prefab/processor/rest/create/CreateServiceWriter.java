@@ -16,12 +16,15 @@ import static org.apache.commons.text.WordUtils.uncapitalize;
 
 class CreateServiceWriter {
     MethodSpec createMethod(ClassManifest manifest, ExecutableElement controller, PrefabContext context) {
+        var tenantField = manifest.tenantIdField();
         if (controller.getParameters().isEmpty()) {
             var method = MethodSpec.methodBuilder("create")
                     .addModifiers(Modifier.PUBLIC)
                     .returns(String.class)
                     .addStatement("log.debug($S, $T.class.getSimpleName())", "Creating new {}", manifest.className())
                     .addStatement("var aggregate = new $T()", manifest.type().asTypeName());
+            tenantField.ifPresent(tf -> method.addStatement("aggregate = new $T($L)",
+                    manifest.type().asTypeName(), reconstructionArgs(manifest, tf)));
             addAuditForCreate(method, manifest);
             method.addStatement("%sRepository.save(aggregate)".formatted(uncapitalize(manifest.simpleName())))
                     .addStatement("return aggregate.$N()$L",
@@ -43,6 +46,8 @@ class CreateServiceWriter {
                                     .map(param -> VariableManifest.of(param, context.processingEnvironment()))
                                     .map(context.requestParameterMapper()::mapRequestParameter)
                                     .collect(CodeBlock.joining(", ")));
+            tenantField.ifPresent(tf -> method.addStatement("aggregate = new $T($L)",
+                    manifest.type().asTypeName(), reconstructionArgs(manifest, tf)));
             addAuditForCreate(method, manifest);
             method.addStatement("%sRepository.save(aggregate)".formatted(uncapitalize(manifest.simpleName())))
                     .addStatement("return aggregate.$N()$L",
@@ -57,5 +62,13 @@ class CreateServiceWriter {
             method.addStatement("aggregate = new $T($L)", manifest.type().asTypeName(),
                     AuditFields.createReconstructionArgs(manifest.fields()));
         }
+    }
+
+    private static CodeBlock reconstructionArgs(ClassManifest manifest, VariableManifest tenantField) {
+        return manifest.fields().stream()
+                .map(field -> field.name().equals(tenantField.name())
+                        ? CodeBlock.of("tenantContextProvider.currentTenantId()")
+                        : CodeBlock.of("aggregate.$N()", field.name()))
+                .collect(CodeBlock.joining(", "));
     }
 }

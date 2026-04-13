@@ -681,6 +681,74 @@ Annotate a `Reference` field with `@Parent` to indicate that the reference is th
 requests to the aggregate will be prefixed with the path of the parent aggregate. Any `@Search` endpoints will also
 be limited to the parent aggregate. This is useful for creating a hierarchy of aggregates with lots of children.
 
+### 🏢 Multi-tenancy
+
+Prefab provides first-class multi-tenancy support via the `@TenantId` annotation. SaaS applications can use this to
+automatically isolate data per customer (tenant) without writing any manual filtering boilerplate.
+
+**Step 1 – Annotate the tenant field**
+
+Annotate a `String` field on your aggregate with `@TenantId`:
+
+```java
+@Aggregate
+@GetList
+@GetById
+public record Project(
+    @Id Reference<Project> id,
+    @Version long version,
+    @TenantId String organisationId,   // automatically populated and filtered
+    String name,
+    String description) {
+
+    @Create
+    public Project(String name, String description) {
+        this(Reference.create(), 0L, null, name, description);
+    }
+}
+```
+
+**What the annotation processor generates automatically:**
+
+- **On every write (Create, Update, Delete):** the `@TenantId` field is populated from
+  `TenantContextProvider.currentTenantId()`. The field must **not** be included as a parameter in
+  `@Create` constructors or `@Update` methods; a compile error is raised if it is.
+- **On every read (GetById, GetList, Update, Delete):** a `WHERE organisationId = :tenantId` predicate is added so
+  tenants never see each other's data. A cross-tenant read returns `404` (not `403`) to avoid leaking aggregate
+  existence.
+- **Database migration:** the `@TenantId` column is always `NOT NULL` and an index is automatically generated for
+  query performance.
+
+**Step 2 – Implement `TenantContextProvider`**
+
+Create a Spring bean that implements `TenantContextProvider` to provide the current tenant ID from the incoming request:
+
+```java
+@Component
+public class JwtTenantContextProvider implements TenantContextProvider {
+
+    @Override
+    public String currentTenantId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication instanceof JwtAuthenticationToken jwt) {
+            return jwt.getToken().getClaimAsString("organisation_id");
+        }
+        return null;
+    }
+}
+```
+
+If no `TenantContextProvider` bean is present, Prefab auto-configures a no-op implementation that returns `null`
+(disabling tenant filtering) and logs a warning at startup.
+
+**Rules and constraints:**
+
+- Only **one** `@TenantId` field is allowed per aggregate (compile error otherwise).
+- The `@TenantId` field must **not** appear in any generated request record (`@Create` constructor parameters or
+  `@Update` method parameters).
+- Returning `null` from `TenantContextProvider.currentTenantId()` disables tenant filtering for that request (useful
+  for admin operations).
+
 ### 🕵️ Audit trail
 
 Prefab can automatically populate auditing fields on your aggregates — recording who created or last changed a record,

@@ -39,29 +39,96 @@ class UpdateServiceWriter {
                         update.parameters().stream().map(this::fromRequest)
                                 .collect(CodeBlock.joining(", "))));
         var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
-        if (AuditFields.hasAuditFields(manifest)) {
-            method.addStatement("""
-                            return $N.findById(id).map(aggregate -> {
-                                $L
-                                aggregate = new $T($L);
-                                return $N.save(aggregate);
-                            })""",
-                    repositoryName,
-                    aggregateFunction,
-                    manifest.type().asTypeName(),
-                    AuditFields.updateReconstructionArgs(manifest.fields()),
-                    repositoryName);
+        var tenantField = manifest.tenantIdField();
+        var hasAudit = AuditFields.hasAuditFields(manifest);
+        if (tenantField.isPresent() && hasAudit) {
+            updateWithTenantAndAudit(manifest, method, repositoryName, tenantField.get(), aggregateFunction);
+        } else if (tenantField.isPresent()) {
+            updateWithTenant(method, repositoryName, tenantField.get(), aggregateFunction);
+        } else if (hasAudit) {
+            updateWithAudit(manifest, method, repositoryName, aggregateFunction);
         } else {
-            method.addStatement("""
-                            return $N.findById(id).map(aggregate -> {
-                                $L
-                                return $N.save(aggregate);
-                            })""",
-                    repositoryName,
-                    aggregateFunction,
-                    repositoryName);
+            updateBasic(method, repositoryName, aggregateFunction);
         }
         return method.build();
+    }
+
+    private static void updateWithTenantAndAudit(
+            ClassManifest manifest,
+            MethodSpec.Builder method,
+            String repositoryName,
+            VariableManifest tenantField,
+            CodeBlock aggregateFunction
+    ) {
+        method.addStatement("""
+                        return $N.findById(id)
+                                .filter(aggregate -> tenantContextProvider.currentTenantId() == null
+                                        || aggregate.$N().equals(tenantContextProvider.currentTenantId()))
+                                .map(aggregate -> {
+                                    $L
+                                    aggregate = new $T($L);
+                                    return $N.save(aggregate);
+                                })""",
+                repositoryName,
+                tenantField.name(),
+                aggregateFunction,
+                manifest.type().asTypeName(),
+                AuditFields.updateReconstructionArgs(manifest.fields()),
+                repositoryName);
+    }
+
+    private static void updateWithTenant(
+            MethodSpec.Builder method,
+            String repositoryName,
+            VariableManifest tenantField,
+            CodeBlock aggregateFunction
+    ) {
+        method.addStatement("""
+                        return $N.findById(id)
+                                .filter(aggregate -> tenantContextProvider.currentTenantId() == null
+                                        || aggregate.$N().equals(tenantContextProvider.currentTenantId()))
+                                .map(aggregate -> {
+                                    $L
+                                    return $N.save(aggregate);
+                                })""",
+                repositoryName,
+                tenantField.name(),
+                aggregateFunction,
+                repositoryName);
+    }
+
+    private static void updateWithAudit(
+            ClassManifest manifest,
+            MethodSpec.Builder method,
+            String repositoryName,
+            CodeBlock aggregateFunction
+    ) {
+        method.addStatement("""
+                        return $N.findById(id).map(aggregate -> {
+                            $L
+                            aggregate = new $T($L);
+                            return $N.save(aggregate);
+                        })""",
+                repositoryName,
+                aggregateFunction,
+                manifest.type().asTypeName(),
+                AuditFields.updateReconstructionArgs(manifest.fields()),
+                repositoryName);
+    }
+
+    private static void updateBasic(
+            MethodSpec.Builder method,
+            String repositoryName,
+            CodeBlock aggregateFunction
+    ) {
+        method.addStatement("""
+                        return $N.findById(id).map(aggregate -> {
+                            $L
+                            return $N.save(aggregate);
+                        })""",
+                repositoryName,
+                aggregateFunction,
+                repositoryName);
     }
 
     private CodeBlock fromRequest(VariableManifest parameter) {
@@ -72,3 +139,4 @@ class UpdateServiceWriter {
         return CodeBlock.of("request.%s()".formatted(parameter.name()));
     }
 }
+

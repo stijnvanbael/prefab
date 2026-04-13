@@ -13,6 +13,7 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
+import jakarta.annotation.Nullable;
 import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.Modifier;
@@ -98,6 +99,14 @@ public class TenantPlugin implements PrefabPlugin {
         }
 
         var tenantFieldName = tenantFields.getFirst().name();
+
+        if (tenantFields.getFirst().hasAnnotation(Nullable.class)) {
+            context.logError(
+                    "@TenantId field '" + tenantFieldName + "' must not be annotated with @Nullable. "
+                            + "The tenant ID is always required.",
+                    tenantFields.getFirst().element());
+            return;
+        }
 
         manifest.constructorsWith(Create.class).forEach(ctor ->
                 ctor.getParameters().stream()

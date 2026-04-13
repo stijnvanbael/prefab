@@ -355,9 +355,6 @@ class DbMigrationWriter {
                         return columnsOf(field.type().asClassManifest(),
                                 prefix != null ? prefix + "_" + field.name() : field.name(),
                                 parentNullable || field.nullable()).stream();
-                    } else if (field.hasAnnotation(TenantId.class)) {
-                        // @TenantId is always NOT NULL regardless of @Nullable
-                        return Stream.of(Column.fromField(prefix, field, false));
                     } else {
                         return Stream.of(Column.fromField(prefix, field, parentNullable));
                     }

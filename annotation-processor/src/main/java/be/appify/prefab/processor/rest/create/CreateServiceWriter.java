@@ -1,6 +1,5 @@
 package be.appify.prefab.processor.rest.create;
 
-import be.appify.prefab.core.tenant.TenantContextProvider;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.VariableManifest;
@@ -65,10 +64,6 @@ class CreateServiceWriter {
         }
     }
 
-    /**
-     * Builds a CodeBlock of comma-separated constructor arguments for reconstructing the aggregate with the
-     * tenant ID field populated from {@link TenantContextProvider#currentTenantId()}.
-     */
     private static CodeBlock reconstructionArgs(ClassManifest manifest, VariableManifest tenantField) {
         return manifest.fields().stream()
                 .map(field -> field.name().equals(tenantField.name())

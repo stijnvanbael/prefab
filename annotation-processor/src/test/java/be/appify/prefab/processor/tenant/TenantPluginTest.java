@@ -129,6 +129,16 @@ class TenantPluginTest {
     }
 
     @Test
+    void compilationFailsIfTenantIdIsNullable() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("tenant/nullable/source/Product.java"));
+
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("@TenantId");
+    }
+
+    @Test
     void compilationFailsIfMultipleTenantIdsDeclared() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

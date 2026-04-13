@@ -68,38 +68,55 @@ class GetListServiceWriter {
             VariableManifest tenantField
     ) {
         if (filters.isEmpty()) {
-            // Simple case: tenant-only filter via generated repository method
-            method.addStatement("var tenantId = tenantContextProvider.currentTenantId()");
-            method.addStatement("""
-                            return tenantId != null
-                                ? $N.findBy$N(tenantId, pageable)
-                                : $N.find$N($L)""",
-                    repositoryName,
-                    capitalize(tenantField.name()),
-                    repositoryName,
-                    manifest.parent().map(parent -> "By" + capitalize(parent.name())).orElse("All"),
-                    manifest.parent().map(parent -> parent.name() + "Id, ").orElse("") + "pageable");
+            findWithTenantOnly(manifest, method, repositoryName, tenantField);
         } else {
-            // Combined tenant + filter: inject tenant into Example probe
-            method.addStatement("""
-                            return $N.findAll(
-                                $T.of(new $T($L),
-                                    $T.matchingAll()
-                                        $L
-                                        $L
-                                        $L
-                                        $L),
-                                    pageable)""",
-                    repositoryName,
-                    Example.class,
-                    manifest.className(),
-                    fieldsWithTenant(manifest, filters, tenantField),
-                    ExampleMatcher.class,
-                    ignorePathsWithTenant(manifest, filters, tenantField),
-                    filterMatchers(filters),
-                    tenantMatcher(tenantField),
-                    parentMatcher(manifest));
+            findWithTenantAndFilters(manifest, method, repositoryName, filters, tenantField);
         }
+    }
+
+    private void findWithTenantOnly(
+            ClassManifest manifest,
+            MethodSpec.Builder method,
+            String repositoryName,
+            VariableManifest tenantField
+    ) {
+        method.addStatement("var tenantId = tenantContextProvider.currentTenantId()");
+        method.addStatement("""
+                        return tenantId != null
+                            ? $N.findBy$N(tenantId, pageable)
+                            : $N.find$N($L)""",
+                repositoryName,
+                capitalize(tenantField.name()),
+                repositoryName,
+                manifest.parent().map(parent -> "By" + capitalize(parent.name())).orElse("All"),
+                manifest.parent().map(parent -> parent.name() + "Id, ").orElse("") + "pageable");
+    }
+
+    private void findWithTenantAndFilters(
+            ClassManifest manifest,
+            MethodSpec.Builder method,
+            String repositoryName,
+            List<GetListUtil.FilterManifest> filters,
+            VariableManifest tenantField
+    ) {
+        method.addStatement("""
+                        return $N.findAll(
+                            $T.of(new $T($L),
+                                $T.matchingAll()
+                                    $L
+                                    $L
+                                    $L
+                                    $L),
+                                pageable)""",
+                repositoryName,
+                Example.class,
+                manifest.className(),
+                fieldsWithTenant(manifest, filters, tenantField),
+                ExampleMatcher.class,
+                ignorePathsWithTenant(manifest, filters, tenantField),
+                filterMatchers(filters),
+                tenantMatcher(tenantField),
+                parentMatcher(manifest));
     }
 
     private void findWithFilters(

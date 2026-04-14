@@ -8,7 +8,7 @@ import static be.appify.prefab.processor.event.avro.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
 
-class AvscFirstPluginTest {
+class AvscPluginTest {
 
     @Test
     void simpleAvscEvent() throws IOException {

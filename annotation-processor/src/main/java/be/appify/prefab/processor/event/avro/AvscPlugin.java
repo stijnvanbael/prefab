@@ -14,7 +14,7 @@ import javax.tools.Diagnostic;
 import org.apache.avro.Schema;
 
 /** Plugin that processes {@link AvscFirst}-annotated types and generates Java records from AVSC schema files. */
-public class AvscFirstPlugin implements PrefabPlugin {
+public class AvscPlugin implements PrefabPlugin {
 
     private PrefabContext context;
 

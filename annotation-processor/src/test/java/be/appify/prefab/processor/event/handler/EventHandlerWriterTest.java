@@ -235,6 +235,6 @@ class EventHandlerWriterTest {
                 );
 
         assertThat(compilation).failed();
-        assertThat(compilation).hadErrorContaining("@EventHandler value NotAnAggregate must be an aggregate root");
+        assertThat(compilation).hadErrorContaining("@EventHandler value NotAnAggregate must be annotated with @Aggregate");
     }
 }

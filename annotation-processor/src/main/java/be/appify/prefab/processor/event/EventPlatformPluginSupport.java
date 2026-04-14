@@ -115,9 +115,10 @@ public class EventPlatformPluginSupport {
     private static boolean isMergedHandler(ExecutableElement method) {
         var annotation = method.getAnnotationsByType(EventHandler.class)[0];
         try {
-            return annotation.value() != void.class;
+            annotation.value();
         } catch (MirroredTypeException e) {
             return e.getTypeMirror().getKind() != TypeKind.VOID;
         }
+        return false;
     }
 }

@@ -125,7 +125,7 @@ public class StaticEventHandlerPlugin implements EventHandlerPlugin {
 
         if (aggregateType.annotationsOfType(Aggregate.class).isEmpty()) {
             context.logError(
-                    "@EventHandler value %s must be an aggregate root annotated with @Aggregate".formatted(
+                    "@EventHandler value %s must be annotated with @Aggregate".formatted(
                             aggregateType.simpleName()),
                     element);
             return Optional.empty();
@@ -181,16 +181,12 @@ public class StaticEventHandlerPlugin implements EventHandlerPlugin {
      */
     private TypeMirror getAnnotationValueMirror(EventHandler annotation) {
         try {
-            var cls = annotation.value();
-            if (cls == void.class) {
-                return null;
-            }
-            return context.processingEnvironment().getElementUtils()
-                    .getTypeElement(cls.getName()).asType();
+            annotation.value();
         } catch (MirroredTypeException e) {
             var mirror = e.getTypeMirror();
             return mirror.getKind() == javax.lang.model.type.TypeKind.VOID ? null : mirror;
         }
+        return null;
     }
 
     @Override

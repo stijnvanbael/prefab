@@ -20,18 +20,20 @@ class StaticEventHandlerWriter {
         if (event.inheritedAnnotationsOfType(Event.class).isEmpty()) {
             method.addAnnotation(EventListener.class);
         }
+        var targetType = eventHandler.isMerged() ? eventHandler.componentType() : manifest.type();
+        var repositoryName = uncapitalize(targetType.simpleName()) + "Repository";
         return eventHandler.returnType().is(Optional.class)
                 ? method.addStatement(CodeBlock.builder()
                         .add("$T.$L(event).ifPresent(aggregate -> $L.save(aggregate))",
-                                manifest.type().asTypeName(),
+                                targetType.asTypeName(),
                                 eventHandler.methodName(),
-                                uncapitalize(manifest.simpleName()) + "Repository")
+                                repositoryName)
                         .build())
                 .build()
                 : method.addStatement(CodeBlock.builder()
                                 .add("$L.save($T.$L(event))",
-                                        uncapitalize(manifest.simpleName()) + "Repository",
-                                        manifest.type().asTypeName(),
+                                        repositoryName,
+                                        targetType.asTypeName(),
                                         eventHandler.methodName())
                                 .build())
                         .build();

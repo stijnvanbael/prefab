@@ -9,6 +9,7 @@ import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.lang.annotation.Annotation;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -53,6 +54,32 @@ public class StaticEventHandlerPlugin implements EventHandlerPlugin {
                         handler.componentType().packageName() + ".application",
                         handler.componentType().simpleName() + "Repository"))
                 .collect(Collectors.toSet());
+    }
+
+    @Override
+    public void writeAdditionalFiles(List<ClassManifest> manifests) {
+        validateMergedHandlers();
+    }
+
+    private void validateMergedHandlers() {
+        context.roundEnvironment().getElementsAnnotatedWith(EventHandler.class)
+                .stream()
+                .filter(element -> element.getKind() == ElementKind.METHOD)
+                .map(ExecutableElement.class::cast)
+                .forEach(element -> {
+                    var annotation = element.getAnnotationsByType(EventHandler.class)[0];
+                    var mirror = getAnnotationValueMirror(annotation);
+                    if (mirror == null) {
+                        return;
+                    }
+                    var aggregateType = TypeManifest.of(mirror, context.processingEnvironment());
+                    if (aggregateType.annotationsOfType(Aggregate.class).isEmpty()) {
+                        context.logError(
+                                "@EventHandler value %s must be annotated with @Aggregate".formatted(
+                                        aggregateType.simpleName()),
+                                element);
+                    }
+                });
     }
 
     private Stream<StaticEventHandlerManifest> ownEventHandlers(ClassManifest manifest) {

@@ -234,6 +234,6 @@ class EventHandlerWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("event.handler.createorupdate.application.ChannelSummaryService")
                 .contentsAsUtf8String()
-                .doesNotContain("channelSummaryRepository.save(ChannelSummary.onCreate(event));\n  }");
+                .doesNotContain("public void onCreate(");
     }
 }

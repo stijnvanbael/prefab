@@ -1,5 +1,6 @@
 package be.appify.prefab.core.security;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -22,6 +23,7 @@ public class WebSecurityConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean
     SecurityFilterChain securityFilterChain(HttpSecurity http) {
         return http.csrf(CsrfConfigurer::disable)
                 .authorizeHttpRequests(auth ->

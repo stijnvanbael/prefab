@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.event.handler.byreference;
 
 import be.appify.prefab.core.annotations.ByReference;
+import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -10,6 +11,7 @@ import com.palantir.javapoet.TypeSpec;
 import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
@@ -43,7 +45,8 @@ public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
         return typeElement.getEnclosedElements()
                 .stream()
                 .filter(element -> element.getKind() == ElementKind.METHOD
-                        && element.getModifiers().contains(Modifier.PUBLIC))
+                        && element.getModifiers().contains(Modifier.PUBLIC)
+                        && !element.getModifiers().contains(Modifier.STATIC))
                 .map(ExecutableElement.class::cast)
                 .filter(element -> element.getAnnotationsByType(ByReference.class).length > 0)
                 .flatMap(element -> {
@@ -66,9 +69,28 @@ public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
                                     context,
                                     referenceField.type().parameters().stream().findFirst()
                                             .orElse(TypeManifest.of(String.class, context.processingEnvironment())),
-                                    referenceField.type()))
+                                    referenceField.type(),
+                                    findStaticCompanion(typeElement, eventType)))
                             .stream();
                 });
+    }
+
+    private Optional<String> findStaticCompanion(TypeElement typeElement, TypeManifest eventType) {
+        return typeElement.getEnclosedElements()
+                .stream()
+                .filter(element -> element.getKind() == ElementKind.METHOD
+                        && element.getModifiers().containsAll(Set.of(Modifier.PUBLIC, Modifier.STATIC)))
+                .map(ExecutableElement.class::cast)
+                .filter(element -> element.getAnnotationsByType(EventHandler.class).length > 0)
+                .filter(element -> element.getParameters().size() == 1)
+                .filter(element -> {
+                    var paramType = TypeManifest.of(element.getParameters().getFirst().asType(),
+                            context.processingEnvironment());
+                    return paramType.asElement() != null
+                            && paramType.asElement().equals(eventType.asElement());
+                })
+                .map(element -> element.getSimpleName().toString())
+                .findFirst();
     }
 
     private List<VariableManifest> getFields(TypeElement typeElement, ProcessingEnvironment processingEnvironment) {

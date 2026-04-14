@@ -1,11 +1,11 @@
 ---
 id: TASK-121
 title: Support 'create or update' scenario in event handler
-status: Done
+status: In Progress
 assignee:
   - '@copilot'
 created_date: '2026-04-14 14:34'
-updated_date: '2026-04-14 14:44'
+updated_date: '2026-04-14 18:30'
 labels: []
 dependencies: []
 ---
@@ -52,4 +52,7 @@ Implemented @CreateOrUpdate annotation for the create-or-update event handler sc
 - The writer generates a service method that: (1) looks up the aggregate via `findById` using the event property, (2) passes the `Optional` and event to the static method, (3) saves the result
 - Registered the plugin in `META-INF/services`
 - Added test source files (`ChannelSummary.java`, `MessageSent.java`) and four new tests in `EventHandlerWriterTest`
+
+## Revised approach
+Replaced @CreateOrUpdate with automatic detection of paired static @EventHandler + instance @ByReference for the same event type. No new annotation needed. The static method is skipped by StaticEventHandlerPlugin when a @ByReference companion exists for the same event type. The @ByReference writer uses orElseGet(() -> repo.save(Type.staticMethod(event))) instead of orElseThrow().
 <!-- SECTION:NOTES:END -->

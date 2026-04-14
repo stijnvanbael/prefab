@@ -174,7 +174,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void createOrUpdateEventHandlerLoadsAggregateById() throws IOException {
+    void pairedHandlerLoadsAggregateByReference() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -190,7 +190,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void createOrUpdateEventHandlerCallsStaticMethodWithOptional() throws IOException {
+    void pairedHandlerCallsInstanceMethodWhenAggregateFound() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -202,11 +202,11 @@ class EventHandlerWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("event.handler.createorupdate.application.ChannelSummaryService")
                 .contentsAsUtf8String()
-                .contains("ChannelSummary.onMessageSent(existing, event)");
+                .contains("aggregate = aggregate.onUpdate(event)");
     }
 
     @Test
-    void createOrUpdateEventHandlerSavesResult() throws IOException {
+    void pairedHandlerCallsStaticMethodWhenAggregateNotFound() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -218,6 +218,22 @@ class EventHandlerWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("event.handler.createorupdate.application.ChannelSummaryService")
                 .contentsAsUtf8String()
-                .contains("channelSummaryRepository.save(ChannelSummary.onMessageSent(existing, event))");
+                .contains("orElseGet(() -> channelSummaryRepository.save(ChannelSummary.onCreate(event)))");
+    }
+
+    @Test
+    void pairedHandlerDoesNotGenerateSeparateServiceMethodForStaticHandler() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/handler/createorupdate/source/ChannelSummary.java"),
+                        sourceOf("event/handler/createorupdate/source/MessageSent.java")
+                );
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("event.handler.createorupdate.application.ChannelSummaryService")
+                .contentsAsUtf8String()
+                .doesNotContain("channelSummaryRepository.save(ChannelSummary.onCreate(event));\n  }");
     }
 }

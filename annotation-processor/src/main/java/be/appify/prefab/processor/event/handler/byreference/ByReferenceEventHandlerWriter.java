@@ -19,9 +19,16 @@ class ByReferenceEventHandlerWriter {
         if (event.inheritedAnnotationsOfType(Event.class).isEmpty()) {
             method.addAnnotation(EventListener.class);
         }
+        var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
+        var notFoundClause = eventHandler.staticCompanionMethodName()
+                .map(companionName -> CodeBlock.of(".orElseGet(() -> $L.save($T.$L(event)))",
+                        repositoryName,
+                        manifest.type().asTypeName(),
+                        companionName))
+                .orElse(CodeBlock.of(".orElseThrow()"));
         return method.addParameter(event.asTypeName(), "event").addStatement(CodeBlock.builder()
                         .add("$L.findById(event.$L()$L)",
-                                uncapitalize(manifest.simpleName()) + "Repository",
+                                repositoryName,
                                 eventHandler.annotation().property(),
                                 eventHandler.valueAccessor() != null ? "." + eventHandler.valueAccessor() : "")
                         .add("""
@@ -33,8 +40,8 @@ class ByReferenceEventHandlerWriter {
                                 Objects.equals(eventHandler.returnType(), manifest.type())
                                         ? CodeBlock.of("aggregate = aggregate.$L(event);", eventHandler.methodName())
                                         : CodeBlock.of("aggregate.$L(event);", eventHandler.methodName()),
-                                uncapitalize(manifest.simpleName()) + "Repository")
-                        .add(".orElseThrow()")
+                                repositoryName)
+                        .add(notFoundClause)
                         .build())
                 .build();
     }

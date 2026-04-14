@@ -7,6 +7,7 @@ be.appify.prefab.processor.event.asyncapi.EventSchemaDocumentationPlugin
 be.appify.prefab.processor.event.handler.StaticEventHandlerPlugin
 be.appify.prefab.processor.event.handler.byreference.ByReferenceEventHandlerPlugin
 be.appify.prefab.processor.event.handler.multicast.MulticastEventHandlerPlugin
+be.appify.prefab.processor.event.handler.createorupdate.CreateOrUpdateEventHandlerPlugin
 be.appify.prefab.processor.rest.create.CreatePlugin
 be.appify.prefab.processor.rest.getbyid.GetByIdPlugin
 be.appify.prefab.processor.rest.delete.DeletePlugin

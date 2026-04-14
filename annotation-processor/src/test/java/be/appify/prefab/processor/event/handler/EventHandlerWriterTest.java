@@ -172,4 +172,52 @@ class EventHandlerWriterTest {
                 .contentsAsUtf8String()
                 .contains(".orElseThrow()");
     }
+
+    @Test
+    void createOrUpdateEventHandlerLoadsAggregateById() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/handler/createorupdate/source/ChannelSummary.java"),
+                        sourceOf("event/handler/createorupdate/source/MessageSent.java")
+                );
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("event.handler.createorupdate.application.ChannelSummaryService")
+                .contentsAsUtf8String()
+                .contains("channelSummaryRepository.findById(event.summary()");
+    }
+
+    @Test
+    void createOrUpdateEventHandlerCallsStaticMethodWithOptional() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/handler/createorupdate/source/ChannelSummary.java"),
+                        sourceOf("event/handler/createorupdate/source/MessageSent.java")
+                );
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("event.handler.createorupdate.application.ChannelSummaryService")
+                .contentsAsUtf8String()
+                .contains("ChannelSummary.onMessageSent(existing, event)");
+    }
+
+    @Test
+    void createOrUpdateEventHandlerSavesResult() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/handler/createorupdate/source/ChannelSummary.java"),
+                        sourceOf("event/handler/createorupdate/source/MessageSent.java")
+                );
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("event.handler.createorupdate.application.ChannelSummaryService")
+                .contentsAsUtf8String()
+                .contains("channelSummaryRepository.save(ChannelSummary.onMessageSent(existing, event))");
+    }
 }

@@ -113,7 +113,6 @@ public class KafkaConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean(ConsumerFactory.class)
     ConsumerFactory<?, ?> kafkaConsumerFactory(
             KafkaProperties kafkaProperties,
             KafkaConnectionDetails connectionDetails,

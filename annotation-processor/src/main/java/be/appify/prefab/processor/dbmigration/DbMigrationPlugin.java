@@ -9,14 +9,30 @@ import java.util.List;
 
 /**
  * Prefab plugin that generates database migration scripts based on the @DbMigration annotation.
+ * <p>
+ * This plugin is only active when Spring Data Relational is present on the compilation classpath,
+ * i.e. when {@code spring-boot-starter-data-jdbc} (or equivalent) is a project dependency.
+ * For MongoDB projects, {@code MongoMigrationPlugin} handles {@code @DbMigration} instead.
+ * </p>
  */
 public class DbMigrationPlugin implements PrefabPlugin {
+
+    private static final boolean JDBC_INCLUDED = isJdbcIncluded();
 
     private DbMigrationWriter dbMigrationWriter;
     private PrefabContext context;
 
     /** Creates a new instance of DbMigrationPlugin. */
     public DbMigrationPlugin() {
+    }
+
+    private static boolean isJdbcIncluded() {
+        try {
+            Class.forName("org.springframework.data.relational.core.mapping.Table");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
     }
 
     @Override
@@ -27,6 +43,9 @@ public class DbMigrationPlugin implements PrefabPlugin {
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests, List<PolymorphicAggregateManifest> polymorphicManifests) {
+        if (!JDBC_INCLUDED) {
+            return;
+        }
         var classManifests = manifests.stream()
                 .filter(manifest -> !manifest.annotationsOfType(DbMigration.class).isEmpty())
                 .toList();

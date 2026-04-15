@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "NullableAvscEvent",
+  "namespace": "event.avsc",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {"name": "name", "type": "string"},
+    {"name": "description", "type": ["null", "string"]}
+  ]
+}

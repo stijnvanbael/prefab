@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "NonPrimitiveAvscEvent",
+  "namespace": "event.avsc",
+  "fields": [
+    {"name": "timestamp", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "date", "type": {"type": "int", "logicalType": "date"}},
+    {"name": "duration", "type": {"type": "long", "logicalType": "duration-millis"}}
+  ]
+}

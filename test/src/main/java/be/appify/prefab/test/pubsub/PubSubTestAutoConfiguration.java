@@ -11,6 +11,7 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import javax.annotation.PreDestroy;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -48,11 +49,13 @@ public class PubSubTestAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(CredentialsProvider.class)
     CredentialsProvider credentialsProvider() {
         return NoCredentialsProvider.create();
     }
 
     @Bean(name = { "subscriberTransportChannelProvider", "publisherTransportChannelProvider" })
+    @ConditionalOnMissingBean(TransportChannelProvider.class)
     TransportChannelProvider transportChannelProvider(GcpPubSubProperties gcpPubSubProperties) {
         this.channel = ManagedChannelBuilder
                 .forTarget("dns:///" + gcpPubSubProperties.getEmulatorHost())

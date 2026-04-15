@@ -208,12 +208,17 @@ public class StaticEventHandlerPlugin implements EventHandlerPlugin {
      */
     private TypeMirror getAnnotationValueMirror(EventHandler annotation) {
         try {
-            annotation.value();
+            var value = annotation.value();
+            if (value == void.class) {
+                return null;
+            }
+            TypeElement typeElement =
+                    context.processingEnvironment().getElementUtils().getTypeElement(value.getCanonicalName());
+            return typeElement != null ? typeElement.asType() : null;
         } catch (MirroredTypeException e) {
             var mirror = e.getTypeMirror();
             return mirror.getKind() == javax.lang.model.type.TypeKind.VOID ? null : mirror;
         }
-        return null;
     }
 
     @Override

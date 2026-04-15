@@ -48,16 +48,16 @@ public class KafkaTestAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean(Network.class)
+    @ConditionalOnMissingBean(name = "kafkaNetwork")
     Network kafkaNetwork() {
         return Network.newNetwork();
     }
 
     @Bean
     @ServiceConnection
-    @ConditionalOnMissingBean(KafkaContainer.class)
+    @ConditionalOnMissingBean(name = "kafkaContainer")
     KafkaContainer kafkaContainer(Network kafkaNetwork) {
-        return new KafkaContainer("apache/kafka:4.0.0")
+        return new KafkaContainer("apache/kafka:4.0.2")
                 .withNetwork(kafkaNetwork)
                 .withNetworkAliases("kafka")
                 .withListener("0.0.0.0:9095", () -> "kafka:9095");
@@ -66,7 +66,7 @@ public class KafkaTestAutoConfiguration {
     @Bean
     @ConditionalOnProperty(name = "prefab.test.schema-registry.enabled", havingValue = "true")
     GenericContainer<?> kafkaSchemaRegistryContainer(KafkaContainer kafkaContainer, Network kafkaNetwork) {
-        return new GenericContainer<>("confluentinc/cp-schema-registry:8.1.1")
+        return new GenericContainer<>("confluentinc/cp-schema-registry:8.1.2")
                 .withExposedPorts(8081)
                 .withNetwork(kafkaNetwork)
                 .dependsOn(kafkaContainer)

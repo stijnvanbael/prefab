@@ -40,6 +40,6 @@ public class MongoDbTestAutoConfiguration {
     @ServiceConnection
     @ConditionalOnMissingBean(MongoDBContainer.class)
     MongoDBContainer mongoDBContainer() {
-        return new MongoDBContainer(DockerImageName.parse("mongo:7"));
+        return new MongoDBContainer(DockerImageName.parse("mongo:8"));
     }
 }

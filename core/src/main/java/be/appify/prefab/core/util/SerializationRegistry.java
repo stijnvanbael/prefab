@@ -2,7 +2,10 @@ package be.appify.prefab.core.util;
 
 import be.appify.prefab.core.annotations.Event;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -10,13 +13,23 @@ import org.springframework.stereotype.Component;
  * topic. The serialization format is represented by the {@link Event.Serialization} enum.
  */
 @Component
-public class SerializationRegistry {
+public class SerializationRegistry implements InitializingBean {
     private final Map<String, Event.Serialization> registry = new HashMap<>();
+
+    @Autowired(required = false)
+    private List<SerializationRegistryCustomizer> customizers;
 
     /**
      * Constructs a new SerializationRegistry.
      */
     public SerializationRegistry() {
+    }
+
+    @Override
+    public void afterPropertiesSet() {
+        if (customizers != null) {
+            customizers.forEach(c -> c.customize(this));
+        }
     }
 
     /**

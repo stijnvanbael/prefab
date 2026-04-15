@@ -11,10 +11,7 @@ import java.util.Map;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 
-import static be.appify.prefab.processor.event.EventPlatformPluginSupport.derivedPlatform;
-import static be.appify.prefab.processor.event.EventPlatformPluginSupport.filteredEventHandlersByOwner;
-import static be.appify.prefab.processor.event.EventPlatformPluginSupport.isMultiplePlatformsDetected;
-import static be.appify.prefab.processor.event.EventPlatformPluginSupport.setDerivedPlatform;
+import static be.appify.prefab.processor.event.EventPlatformPluginSupport.*;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -49,7 +46,7 @@ public class KafkaPlugin implements PrefabPlugin {
                 .entrySet()
                 .stream()
                 .filter(KafkaPlugin::hasCustomConfig)
-                .forEach((entry) ->
+                .forEach(entry ->
                         new KafkaConsumerConfigWriter()
                                 .writeConsumerConfig(entry.getKey(), entry.getValue(), context));
     }
@@ -77,6 +74,7 @@ public class KafkaPlugin implements PrefabPlugin {
     private void writePublishers() {
         var events = context.roundEnvironment().getElementsAnnotatedWith(Event.class)
                 .stream()
+                .filter(e -> !isAvscGeneratedRecord(e))
                 .filter(e -> platformIsKafka(requireNonNull(e.getAnnotation(Event.class)), e, context))
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .toList();

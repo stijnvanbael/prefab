@@ -12,6 +12,7 @@ import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeSpec;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -103,7 +104,7 @@ public class ConsumerWriterSupport {
     public void writeEventHandler(PrefabContext context, TypeSpec.Builder type,
             Map.Entry<TypeManifest, List<ExecutableElement>> eventHandlersForEvent, TypeManifest eventType,
             MethodSpec.Builder method) {
-        var eventHandlers = eventHandlersForEvent.getValue();
+        var eventHandlers = deduplicateByEventType(context, eventHandlersForEvent.getValue());
         if (eventHandlers.size() == 1 && sameType(eventType, eventHandlers.getFirst(), context)) {
             singleTypeHandler(context, eventHandlers.getFirst(), method, "event");
             type.addMethod(method.build());
@@ -135,6 +136,29 @@ public class ConsumerWriterSupport {
                     }
                 """);
         method.addCode("}");
+    }
+
+    private List<ExecutableElement> deduplicateByEventType(
+            PrefabContext context,
+            List<ExecutableElement> eventHandlers
+    ) {
+        return eventHandlers.stream()
+                .collect(Collectors.groupingBy(handler -> eventType(handler, context), LinkedHashMap::new,
+                        Collectors.toList()))
+                .values()
+                .stream()
+                .map(this::preferInvocableHandler)
+                .toList();
+    }
+
+    private ExecutableElement preferInvocableHandler(List<ExecutableElement> candidates) {
+        if (candidates.size() == 1) {
+            return candidates.getFirst();
+        }
+        return candidates.stream()
+                .filter(candidate -> !candidate.getModifiers().contains(javax.lang.model.element.Modifier.STATIC))
+                .findFirst()
+                .orElse(candidates.getFirst());
     }
 
     private void singleTypeHandler(

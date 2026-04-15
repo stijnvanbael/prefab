@@ -5,6 +5,7 @@ import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -62,9 +63,18 @@ class TypeIdentity {
                 : "%s.%s".formatted(packageName, simpleName.replace('.', '$'));
     }
 
+    private static final Set<String> PRIMITIVE_NAMES = Set.of(
+            "boolean", "byte", "char", "double", "float", "int", "long", "short", "void");
+
     TypeName asTypeName() {
         if (packageName.isEmpty()) {
-            return TypeName.get(asClass());
+            // Only primitive types legitimately have an empty package.
+            // An unresolved (ERROR-kind) type may also land here when its package is unknown;
+            // return a best-effort ClassName rather than crashing with ClassNotFoundException.
+            if (PRIMITIVE_NAMES.contains(simpleName)) {
+                return TypeName.get(asClass());
+            }
+            return ClassName.get("", simpleName);
         } else if (parameters.isEmpty()) {
             return getClassName();
         }

@@ -91,4 +91,17 @@ class KafkaConsumerWriterTest {
                 .contentsAsUtf8String()
                 .isEqualTo(contentsOf("expected/kafka/dltdisabled/UserExporterKafkaConsumer.java"));
     }
+
+    @Test
+    void aggregateCreateOrUpdateHandler() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/createorupdate/ChannelSummary.java"),
+                        sourceOf("kafka/createorupdate/MessageEvent.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("kafka.createorupdate.infrastructure.kafka.ChannelSummaryKafkaConsumer")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("expected/kafka/createorupdate/ChannelSummaryKafkaConsumer.java"));
+    }
 }

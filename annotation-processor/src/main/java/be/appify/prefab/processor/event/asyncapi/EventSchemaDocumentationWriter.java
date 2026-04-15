@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.processing.FilerException;
 import javax.tools.StandardLocation;
 
 /**
@@ -370,6 +371,8 @@ class EventSchemaDocumentationWriter {
             try (var writer = resource.openWriter()) {
                 writer.write(content);
             }
+        } catch (FilerException e) {
+            // File already written in a previous processing round; skip.
         } catch (IOException e) {
             throw new RuntimeException("Failed to write asyncapi.json", e);
         }

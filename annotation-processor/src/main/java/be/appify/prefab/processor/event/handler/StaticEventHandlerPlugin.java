@@ -242,7 +242,8 @@ public class StaticEventHandlerPlugin implements EventHandlerPlugin {
             ExecutableElement element, TypeManifest componentType) {
         if (componentType.annotationsOfType(Component.class).isEmpty()) {
             context.logError(
-                    "Merged @EventHandler instance method %s must be on a class annotated with @Component".formatted(element),
+                    "Merged @EventHandler instance method %s must be on a class annotated with @Component".formatted(
+                            element.getSimpleName()),
                     element);
             return Optional.empty();
         }
@@ -250,7 +251,8 @@ public class StaticEventHandlerPlugin implements EventHandlerPlugin {
         var parameters = element.getParameters();
         if (parameters.size() != 1) {
             context.logError(
-                    "Merged @EventHandler method %s must have exactly one parameter".formatted(element),
+                    "Merged @EventHandler method %s must have exactly one parameter".formatted(
+                            element.getSimpleName()),
                     element);
             return Optional.empty();
         }
@@ -259,7 +261,7 @@ public class StaticEventHandlerPlugin implements EventHandlerPlugin {
         return Optional.of(StaticEventHandlerManifest.ofMergedInstanceHandler(
                 element.getSimpleName().toString(),
                 eventType,
-                TypeManifest.of(element.getReturnType(), context.processingEnvironment()),
+                null,
                 componentType));
     }
 

@@ -1,19 +1,23 @@
 package be.appify.prefab.processor.event.avro;
 
-import be.appify.prefab.core.annotations.AvscFirst;
+import be.appify.prefab.core.annotations.Avsc;
+import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
+import com.palantir.javapoet.ClassName;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 import org.apache.avro.Schema;
 
-/** Plugin that processes {@link AvscFirst}-annotated types and generates Java records from AVSC schema files. */
+
+/** Plugin that processes {@link Avsc}-annotated types and generates Java records from AVSC schema files. */
 public class AvscPlugin implements PrefabPlugin {
 
     private PrefabContext context;
@@ -26,20 +30,41 @@ public class AvscPlugin implements PrefabPlugin {
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
         context.roundEnvironment()
-                .getElementsAnnotatedWith(AvscFirst.class)
-                .forEach(element -> processElement(element, element.getAnnotation(AvscFirst.class)));
+                .getElementsAnnotatedWith(Avsc.class)
+                .forEach(element -> processElement(element, element.getAnnotation(Avsc.class)));
     }
 
-    private void processElement(Element element, AvscFirst annotation) {
-        var schema = parseSchema(annotation.path(), element);
-        if (schema == null) return;
-        var defaultPackage = context.processingEnvironment()
+    private void processElement(Element element, Avsc annotation) {
+        var eventAnnotation = element.getAnnotation(Event.class);
+        if (eventAnnotation == null) {
+            context.processingEnvironment().getMessager().printMessage(
+                    Diagnostic.Kind.ERROR,
+                    "@Avsc requires @Event to be present on the same type. "
+                            + "Add @Event(topic = \"...\", serialization = Event.Serialization.AVRO).",
+                    element);
+            return;
+        }
+        var typeElement = (TypeElement) element;
+        var contractPackage = context.processingEnvironment()
                 .getElementUtils()
                 .getPackageOf(element)
                 .getQualifiedName()
                 .toString();
-        new AvscEventWriter(context.processingEnvironment())
-                .writeAll(schema, annotation.topic(), annotation.platform(), defaultPackage);
+        var contractInterface = ClassName.get(contractPackage, typeElement.getSimpleName().toString());
+        var writer = new AvscEventWriter(context.processingEnvironment());
+        for (var path : annotation.value()) {
+            var schema = parseSchema(path, element);
+            if (schema == null) continue;
+            if (schema.getName().equals(contractInterface.simpleName())) {
+                context.processingEnvironment().getMessager().printMessage(
+                        Diagnostic.Kind.ERROR,
+                        "The AVSC record name '" + schema.getName() + "' conflicts with the contract interface name. "
+                                + "Rename the interface or the record in the AVSC schema to avoid the collision.",
+                        element);
+                continue;
+            }
+            writer.writeAll(schema, eventAnnotation.topic(), eventAnnotation.platform(), contractPackage, contractInterface);
+        }
     }
 
     private Schema parseSchema(String path, Element originatingElement) {

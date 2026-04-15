@@ -8,6 +8,8 @@ import be.appify.prefab.test.sns.SnsTestAutoConfiguration;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
+
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
@@ -34,6 +36,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({ KafkaTestAutoConfiguration.class, PubSubTestAutoConfiguration.class, SnsTestAutoConfiguration.class, FlywayChecksumMismatchMigrationStrategy.class, MongoDbTestAutoConfiguration.class })
+@ImportAutoConfiguration({ KafkaTestAutoConfiguration.class, PubSubTestAutoConfiguration.class, SnsTestAutoConfiguration.class, MongoDbTestAutoConfiguration.class })
+@Import(FlywayChecksumMismatchMigrationStrategy.class)
 public @interface IntegrationTest {
 }

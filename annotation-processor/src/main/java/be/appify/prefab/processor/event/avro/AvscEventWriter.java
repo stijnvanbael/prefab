@@ -30,31 +30,29 @@ class AvscEventWriter {
         this.processingEnvironment = processingEnvironment;
     }
 
-    void writeAll(Schema schema, String topic, Event.Platform platform, String defaultPackage) {
+    void writeAll(Schema schema, String topic, Event.Platform platform, String defaultPackage, ClassName contractInterface) {
         var namedTypes = new LinkedHashMap<String, Schema>();
         collectNamedTypes(schema, namedTypes);
 
         var fileWriter = new JavaFileWriter(processingEnvironment, "");
 
-        // Write the top-level event record with @Event annotation
-        var topLevelSpec = buildRecord(schema, topic, platform, defaultPackage, true);
+        // Top-level record lives in the same package as the contract interface it implements
+        var topLevelSpec = buildRecord(schema, topic, platform, defaultPackage, true, contractInterface);
         if (topLevelSpec == null) return;
-        var topPackage = packageOf(schema, defaultPackage);
-        fileWriter.writeFile(topPackage, schema.getName(), topLevelSpec);
+        fileWriter.writeFile(contractInterface.packageName(), schema.getName(), topLevelSpec);
 
-        // Write nested named types (records without @Event, enums)
+        // Write nested named types (records and enums) — same package as the contract interface
         for (var entry : namedTypes.entrySet()) {
             var namedSchema = entry.getValue();
             if (namedSchema.equals(schema)) continue;
-            var pkg = packageOf(namedSchema, defaultPackage);
             if (namedSchema.getType() == Schema.Type.RECORD) {
-                var spec = buildRecord(namedSchema, null, null, defaultPackage, false);
+                var spec = buildRecord(namedSchema, null, null, defaultPackage, false, null);
                 if (spec != null) {
-                    fileWriter.writeFile(pkg, namedSchema.getName(), spec);
+                    fileWriter.writeFile(defaultPackage, namedSchema.getName(), spec);
                 }
             } else if (namedSchema.getType() == Schema.Type.ENUM) {
                 var spec = buildEnum(namedSchema);
-                fileWriter.writeFile(pkg, namedSchema.getName(), spec);
+                fileWriter.writeFile(defaultPackage, namedSchema.getName(), spec);
             }
         }
     }
@@ -80,7 +78,7 @@ class AvscEventWriter {
     }
 
     private TypeSpec buildRecord(Schema schema, String topic, Event.Platform platform,
-            String defaultPackage, boolean isTopLevel) {
+            String defaultPackage, boolean isTopLevel, ClassName contractInterface) {
         var fields = new ArrayList<ParameterSpec>();
         for (var field : schema.getFields()) {
             var fieldSchema = field.schema();
@@ -131,6 +129,10 @@ class AvscEventWriter {
             recordBuilder.addAnnotation(eventAnnotation.build());
         }
 
+        if (isTopLevel && contractInterface != null) {
+            recordBuilder.addSuperinterface(contractInterface);
+        }
+
         return recordBuilder.build();
     }
 
@@ -175,14 +177,7 @@ class AvscEventWriter {
                 var boxed = elementType.isPrimitive() ? elementType.box() : elementType;
                 yield ParameterizedTypeName.get(ClassName.get(List.class), boxed);
             }
-            case RECORD -> {
-                var pkg = packageOf(schema, defaultPackage);
-                yield ClassName.get(pkg, schema.getName());
-            }
-            case ENUM -> {
-                var pkg = packageOf(schema, defaultPackage);
-                yield ClassName.get(pkg, schema.getName());
-            }
+            case RECORD, ENUM -> ClassName.get(defaultPackage, schema.getName());
             default -> {
                 processingEnvironment.getMessager().printMessage(
                         Diagnostic.Kind.ERROR,
@@ -192,8 +187,4 @@ class AvscEventWriter {
         };
     }
 
-    private String packageOf(Schema schema, String defaultPackage) {
-        var namespace = schema.getNamespace();
-        return (namespace != null && !namespace.isBlank()) ? namespace : defaultPackage;
-    }
 }

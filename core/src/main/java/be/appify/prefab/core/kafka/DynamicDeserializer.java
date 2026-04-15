@@ -77,7 +77,7 @@ public class DynamicDeserializer implements Deserializer<Object> {
         var schema = genericRecord.getSchema();
         Class<?> targetClass;
         try {
-            targetClass = Class.forName(schema.getFullName().replace('_', '$'));
+            targetClass = Class.forName(resolveClassName(schema.getFullName()));
         } catch (ClassNotFoundException e) {
              throw new NoSuchElementException(schema.getFullName(), e);
         }
@@ -85,5 +85,16 @@ public class DynamicDeserializer implements Deserializer<Object> {
             throw new IllegalArgumentException("No converter registered for GenericRecord to " + targetClass);
         }
         return conversionService.convert(genericRecord, targetClass);
+    }
+
+    private String resolveClassName(String fullName) {
+        var packageSeparatorIndex = fullName.lastIndexOf('.');
+        if (packageSeparatorIndex < 0) {
+            return fullName.replace('_', '$');
+        }
+
+        var packageName = fullName.substring(0, packageSeparatorIndex + 1);
+        var simpleClassName = fullName.substring(packageSeparatorIndex + 1).replace('_', '$');
+        return packageName + simpleClassName;
     }
 }

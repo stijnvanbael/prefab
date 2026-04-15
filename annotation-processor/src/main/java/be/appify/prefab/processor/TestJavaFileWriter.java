@@ -16,6 +16,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
@@ -23,10 +25,16 @@ class TestJavaFileWriter {
     private final StandardJavaFileManager fileManager = getJavaFileManager();
     private final PrefabContext context;
     private final String packageSuffix;
+    /** Optional: a specific TypeElement (always from a source file) to use when resolving the root path. */
+    private TypeElement preferredElement;
 
     TestJavaFileWriter(PrefabContext context, String packageSuffix) {
         this.context = context;
         this.packageSuffix = packageSuffix;
+    }
+
+    void setPreferredElement(TypeElement element) {
+        this.preferredElement = element;
     }
 
     void writeFile(String packagePrefix, String typeName, TypeSpec type) {
@@ -75,11 +83,25 @@ class TestJavaFileWriter {
     }
 
     public String getRootPath() {
-        var element = context.roundEnvironment().getRootElements().stream()
-                .filter(e -> e instanceof TypeElement)
-                .map(e -> (TypeElement) e)
+        // Prefer the explicitly-set element (the aggregate being written — always from a source file).
+        // Falling back to getRootElements() fails in round 2+ because those elements are generated,
+        // not source files, so SOURCE_PATH lookup returns a path that does not contain /src/main/java.
+        var candidates = preferredElement != null
+                ? Stream.concat(Stream.of(preferredElement),
+                        context.roundEnvironment().getRootElements().stream()
+                                .filter(e -> e instanceof TypeElement)
+                                .map(e -> (TypeElement) e))
+                : context.roundEnvironment().getRootElements().stream()
+                        .filter(e -> e instanceof TypeElement)
+                        .map(e -> (TypeElement) e);
+        return candidates
+                .map(this::tryRootPath)
+                .filter(Objects::nonNull)
                 .findFirst()
-                .orElseThrow();
+                .orElse(null);
+    }
+
+    private String tryRootPath(TypeElement element) {
         var qualifiedName = element.getQualifiedName().toString();
         var packageName = qualifiedName.contains(".")
                 ? qualifiedName.substring(0, qualifiedName.lastIndexOf('.'))
@@ -97,7 +119,6 @@ class TestJavaFileWriter {
                 return null;
             }
         } catch (IOException e) {
-            System.err.println(e.getMessage());
             return null;
         }
     }

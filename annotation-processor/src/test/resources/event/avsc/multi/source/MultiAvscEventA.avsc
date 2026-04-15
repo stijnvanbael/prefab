@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "MultiAvscEventA",
+  "namespace": "event.avsc.multi",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {"name": "amount", "type": "double"}
+  ]
+}
+

@@ -48,6 +48,10 @@ public class VariableManifest {
      * @return a VariableManifest representing the given variable element
      */
     public static VariableManifest of(VariableElement variableElement, ProcessingEnvironment processingEnvironment) {
+        if (TypeManifest.containsUnresolvedType(variableElement.asType())) {
+            // Type (or a type argument) is unresolved — do not cache; will be re-resolved in the next processing round.
+            return new VariableManifest(variableElement, processingEnvironment);
+        }
         return manifestCache.computeIfAbsent(variableElement, variable -> new VariableManifest(variable, processingEnvironment));
     }
 

@@ -14,7 +14,7 @@ class AvscPluginTest {
     void simpleAvscEvent() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("event/avsc/simple/source/SimpleAvscEventMarker.java"));
+                .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"));
         assertThat(compilation).succeeded();
         assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
@@ -37,13 +37,16 @@ class AvscPluginTest {
         assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
                 .contains("boolean active");
+        assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
+                .contentsAsUtf8String()
+                .contains("implements SimpleAvsc");
     }
 
     @Test
     void nonPrimitiveAvscEvent() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("event/avsc/nonprimitive/source/NonPrimitiveAvscEventMarker.java"));
+                .compile(sourceOf("event/avsc/nonprimitive/source/NonPrimitiveAvsc.java"));
         assertThat(compilation).succeeded();
         assertThat(compilation).generatedSourceFile("event.avsc.NonPrimitiveAvscEvent")
                 .contentsAsUtf8String()
@@ -60,7 +63,7 @@ class AvscPluginTest {
     void nullableAvscEvent() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("event/avsc/nullable/source/NullableAvscEventMarker.java"));
+                .compile(sourceOf("event/avsc/nullable/source/NullableAvsc.java"));
         assertThat(compilation).succeeded();
         assertThat(compilation).generatedSourceFile("event.avsc.NullableAvscEvent")
                 .contentsAsUtf8String()
@@ -80,7 +83,7 @@ class AvscPluginTest {
     void arrayAvscEvent() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("event/avsc/array/source/ArrayAvscEventMarker.java"));
+                .compile(sourceOf("event/avsc/array/source/ArrayAvsc.java"));
         assertThat(compilation).succeeded();
         assertThat(compilation).generatedSourceFile("event.avsc.ArrayAvscEvent")
                 .contentsAsUtf8String()
@@ -88,16 +91,60 @@ class AvscPluginTest {
         assertThat(compilation).generatedSourceFile("event.avsc.ArrayAvscEvent")
                 .contentsAsUtf8String()
                 .contains("List<String> tags");
+        assertThat(compilation).generatedSourceFile("event.avsc.ArrayAvscEvent")
+                .contentsAsUtf8String()
+                .contains("implements ArrayAvsc");
+    }
+
+    @Test
+    void interfaceNameCollidingWithRecordNameReportsError() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/array/source/ArrayAvscEvent.java"));
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("conflicts with the contract interface name");
     }
 
     @Test
     void simpleAvscEventGeneratesSchemaFactory() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("event/avsc/simple/source/SimpleAvscEventMarker.java"));
+                .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"));
         assertThat(compilation).succeeded();
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.SimpleAvscEventSchemaFactory")
                 .isNotNull();
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.SimpleAvscEventToGenericRecordConverter")
+                .isNotNull();
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.GenericRecordToSimpleAvscEventConverter")
+                .isNotNull();
+    }
+
+    @Test
+    void multiPathAvscGeneratesOneRecordPerSchema() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/multi/source/MultiAvsc.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("event.avsc.multi.MultiAvscEventA")
+                .contentsAsUtf8String()
+                .contains("String id");
+        assertThat(compilation).generatedSourceFile("event.avsc.multi.MultiAvscEventA")
+                .contentsAsUtf8String()
+                .contains("double amount");
+        assertThat(compilation).generatedSourceFile("event.avsc.multi.MultiAvscEventA")
+                .contentsAsUtf8String()
+                .contains("implements MultiAvsc");
+        assertThat(compilation).generatedSourceFile("event.avsc.multi.MultiAvscEventB")
+                .contentsAsUtf8String()
+                .contains("String reference");
+        assertThat(compilation).generatedSourceFile("event.avsc.multi.MultiAvscEventB")
+                .contentsAsUtf8String()
+                .contains("int count");
+        assertThat(compilation).generatedSourceFile("event.avsc.multi.MultiAvscEventB")
+                .contentsAsUtf8String()
+                .contains("implements MultiAvsc");
     }
 }

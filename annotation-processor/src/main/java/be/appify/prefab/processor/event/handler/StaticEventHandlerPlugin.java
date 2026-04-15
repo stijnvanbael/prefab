@@ -49,21 +49,14 @@ public class StaticEventHandlerPlugin implements EventHandlerPlugin {
                         && element.getModifiers().containsAll(Set.of(Modifier.PUBLIC, Modifier.STATIC)))
                 .map(ExecutableElement.class::cast)
                 .filter(element -> element.getAnnotationsByType(EventHandler.class).length > 0)
-                .filter(element -> {
-                    if (element.getParameters().size() != 1) {
-                        return true;
-                    }
-                    var eventType = TypeManifest.of(element.getParameters().getFirst().asType(),
-                            context.processingEnvironment());
-                    return !hasByReferenceCompanion(typeElement, eventType);
-                })
-                .map(element -> {
+                .flatMap(element -> {
                     if (element.getReturnType().getKind() == VOID) {
                         context.logError(
                                 "Domain event handler method %s must return either %s or Optional<%s>".formatted(
                                         element,
                                         typeElement, typeElement),
                                 element);
+                        return Stream.empty();
                     }
                     var returnType = TypeManifest.of(element.getReturnType(), context.processingEnvironment());
                     if (returnType.is(Optional.class)) {
@@ -75,6 +68,7 @@ public class StaticEventHandlerPlugin implements EventHandlerPlugin {
                                         element,
                                         typeElement, typeElement),
                                 element);
+                        return Stream.empty();
                     }
                     var parameters = element.getParameters();
                     if (parameters.size() != 1) {
@@ -82,12 +76,16 @@ public class StaticEventHandlerPlugin implements EventHandlerPlugin {
                                 "Domain event handler method %s must have exactly one parameter".formatted(element),
                                 element
                         );
+                        return Stream.empty();
                     }
                     var eventType = TypeManifest.of(parameters.getFirst().asType(), context.processingEnvironment());
-                    return new StaticEventHandlerManifest(
+                    if (hasByReferenceCompanion(typeElement, eventType)) {
+                        return Stream.empty();
+                    }
+                    return Stream.of(new StaticEventHandlerManifest(
                             element.getSimpleName().toString(),
                             eventType,
-                            TypeManifest.of(element.getReturnType(), context.processingEnvironment()));
+                            TypeManifest.of(element.getReturnType(), context.processingEnvironment())));
                 });
     }
 

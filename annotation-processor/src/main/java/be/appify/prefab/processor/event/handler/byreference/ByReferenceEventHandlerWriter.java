@@ -20,6 +20,19 @@ class ByReferenceEventHandlerWriter {
             method.addAnnotation(EventListener.class);
         }
         var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
+        var mapBlock = Objects.equals(eventHandler.returnType(), manifest.type())
+                ? CodeBlock.of("""
+                        .map(aggregate -> {
+                            var updated = aggregate.$L(event);
+                            return $L.save(updated);
+                        })
+                        """, eventHandler.methodName(), repositoryName)
+                : CodeBlock.of("""
+                        .map(aggregate -> {
+                            aggregate.$L(event);
+                            return $L.save(aggregate);
+                        })
+                        """, eventHandler.methodName(), repositoryName);
         var notFoundClause = eventHandler.staticCompanionMethodName()
                 .map(companionName -> CodeBlock.of(".orElseGet(() -> $L.save($T.$L(event)))",
                         repositoryName,
@@ -31,16 +44,7 @@ class ByReferenceEventHandlerWriter {
                                 repositoryName,
                                 eventHandler.annotation().property(),
                                 eventHandler.valueAccessor() != null ? "." + eventHandler.valueAccessor() : "")
-                        .add("""
-                                        .map(aggregate -> {
-                                            $L
-                                            return $L.save(aggregate);
-                                        })
-                                        """,
-                                Objects.equals(eventHandler.returnType(), manifest.type())
-                                        ? CodeBlock.of("aggregate = aggregate.$L(event);", eventHandler.methodName())
-                                        : CodeBlock.of("aggregate.$L(event);", eventHandler.methodName()),
-                                repositoryName)
+                        .add(mapBlock)
                         .add(notFoundClause)
                         .build())
                 .build();

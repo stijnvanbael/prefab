@@ -202,7 +202,7 @@ class EventHandlerWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("event.handler.createorupdate.application.ChannelSummaryService")
                 .contentsAsUtf8String()
-                .contains("aggregate = aggregate.onUpdate(event)");
+                .contains("var updated = aggregate.onUpdate(event)");
     }
 
     @Test

@@ -94,4 +94,18 @@ class SqsSubscriberWriterTest {
                 .contentsAsUtf8String()
                 .isEqualTo(contentsOf("expected/sns/dltdisabled/UserExporterSqsSubscriber.java"));
     }
+
+    @Test
+    void aggregateCreateOrUpdateHandler() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("sns/createorupdate/ChannelSummary.java"),
+                        sourceOf("sns/createorupdate/MessageEvent.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile(
+                        "sns.createorupdate.infrastructure.sns.ChannelSummarySqsSubscriber")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("expected/sns/createorupdate/ChannelSummarySqsSubscriber.java"));
+    }
 }

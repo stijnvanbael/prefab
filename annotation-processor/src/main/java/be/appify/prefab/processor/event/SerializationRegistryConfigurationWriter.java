@@ -1,7 +1,7 @@
 package be.appify.prefab.processor.event;
 
 import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.core.util.SerializationRegistry;
+import be.appify.prefab.core.util.SerializationRegistryCustomizer;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -12,6 +12,7 @@ import com.palantir.javapoet.TypeSpec;
 import java.util.List;
 import javax.lang.model.element.Modifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 
@@ -33,7 +34,7 @@ class SerializationRegistryConfigurationWriter {
                 .addAnnotation(AnnotationSpec.builder(Order.class)
                         .addMember("value", "0")
                         .build())
-                .addMethod(constructor(events));
+                .addMethod(beanMethod(events));
 
         var rootPackage = findCommonRootPackage(events);
         fileWriter.writeFile(rootPackage, "SerializationRegistryConfiguration", type.build());
@@ -61,34 +62,47 @@ class SerializationRegistryConfigurationWriter {
                 }).orElseThrow();
     }
 
-    private static MethodSpec constructor(List<TypeManifest> events) {
-        var constructor = MethodSpec.constructorBuilder()
+    private static MethodSpec beanMethod(List<TypeManifest> events) {
+        var method = MethodSpec.methodBuilder("serializationRegistryCustomizer")
                 .addModifiers(Modifier.PUBLIC)
-                .addParameter(SerializationRegistry.class, "registry");
-        events.stream()
+                .addAnnotation(Bean.class)
+                .returns(SerializationRegistryCustomizer.class);
+
+        var eventConfigs = events.stream()
                 .map(event -> event.inheritedAnnotationsOfType(Event.class).stream().findFirst().orElseThrow())
                 .map(event -> new EventConfig(event.topic(), event.serialization()))
                 .distinct()
-                .forEach(event -> {
-                    if (event.topic().matches("\\$\\{.+}")) {
-                        var topicName = toCamelCase(event.topic().replaceAll("[^\\w._]", ""));
-                        constructor.addParameter(ParameterSpec.builder(String.class, topicName)
-                                .addAnnotation(AnnotationSpec.builder(Value.class)
-                                        .addMember("value", "$S", event.topic())
-                                        .build())
-                                .build());
-                        constructor.addStatement("registry.register($L, $T.$L)",
-                                topicName,
-                                Event.Serialization.class,
-                                event.serialization.toString());
-                    } else {
-                        constructor.addStatement("registry.register($S, $T.$L)",
-                                event.topic(),
-                                Event.Serialization.class,
-                                event.serialization.toString());
-                    }
-                });
-        return constructor.build();
+                .toList();
+
+        eventConfigs.forEach(event -> {
+            if (event.topic().matches("\\$\\{.+}")) {
+                var topicName = toCamelCase(event.topic().replaceAll("[^\\w._]", ""));
+                method.addParameter(ParameterSpec.builder(String.class, topicName)
+                        .addAnnotation(AnnotationSpec.builder(Value.class)
+                                .addMember("value", "$S", event.topic())
+                                .build())
+                        .build());
+            }
+        });
+
+        method.addCode("return registry -> {\n$>");
+        eventConfigs.forEach(event -> {
+            if (event.topic().matches("\\$\\{.+}")) {
+                var topicName = toCamelCase(event.topic().replaceAll("[^\\w._]", ""));
+                method.addStatement("registry.register($L, $T.$L)",
+                        topicName,
+                        Event.Serialization.class,
+                        event.serialization.toString());
+            } else {
+                method.addStatement("registry.register($S, $T.$L)",
+                        event.topic(),
+                        Event.Serialization.class,
+                        event.serialization.toString());
+            }
+        });
+        method.addCode("$<};\n");
+
+        return method.build();
     }
 
     private record EventConfig(String topic, Event.Serialization serialization) {

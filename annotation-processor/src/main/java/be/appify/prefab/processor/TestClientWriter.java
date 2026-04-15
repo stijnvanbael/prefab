@@ -54,6 +54,7 @@ class TestClientWriter {
                         .build());
         context.plugins().forEach(plugin -> plugin.writeTestClient(manifest, type));
 
+        fileWriter.setPreferredElement(manifest.type().asElement());
         fileWriter.writeFile(manifest.packageName(), className, type.build());
     }
 }

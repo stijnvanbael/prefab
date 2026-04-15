@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "OrderCreatedEvent",
+  "namespace": "rest.withgeneratedevent",
+  "fields": [
+    {"name": "orderId", "type": "string"},
+    {"name": "amount", "type": "double"}
+  ]
+}
+

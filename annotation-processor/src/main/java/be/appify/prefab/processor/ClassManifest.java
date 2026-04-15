@@ -46,7 +46,18 @@ public class ClassManifest {
      * @return the ClassManifest representing the given type element
      */
     public static ClassManifest of(TypeElement typeElement, ProcessingEnvironment processingEnvironment) {
+        if (hasUnresolvedFields(typeElement)) {
+            // One or more field types are not yet generated — do not cache; will be rebuilt in the next round.
+            return new ClassManifest(typeElement, processingEnvironment);
+        }
         return manifestCache.computeIfAbsent(typeElement, type -> new ClassManifest(type, processingEnvironment));
+    }
+
+    public static boolean hasUnresolvedFields(TypeElement typeElement) {
+        return typeElement.getEnclosedElements().stream()
+                .filter(VariableElement.class::isInstance)
+                .map(VariableElement.class::cast)
+                .anyMatch(e -> TypeManifest.containsUnresolvedType(e.asType()));
     }
 
     private ClassManifest(TypeElement typeElement, ProcessingEnvironment processingEnvironment) {

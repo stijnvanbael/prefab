@@ -11,6 +11,7 @@ import javax.lang.model.element.ExecutableElement;
 
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.derivedPlatform;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.filteredEventHandlersByOwner;
+import static be.appify.prefab.processor.event.EventPlatformPluginSupport.isAvscGeneratedRecord;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.isMultiplePlatformsDetected;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.setDerivedPlatform;
 import static java.util.Objects.requireNonNull;
@@ -59,6 +60,7 @@ public class SnsPlugin implements PrefabPlugin {
     private void writePublishers() {
         var events = context.roundEnvironment().getElementsAnnotatedWith(Event.class)
                 .stream()
+                .filter(e -> !isAvscGeneratedRecord(e))
                 .filter(e -> platformIsSnsSqs(requireNonNull(e.getAnnotation(Event.class)), e, context))
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .toList();

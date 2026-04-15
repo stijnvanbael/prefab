@@ -94,4 +94,18 @@ class PubSubSubscriberWriterTest {
                 .contentsAsUtf8String()
                 .isEqualTo(contentsOf("expected/pubsub/dltdisabled/UserExporterPubSubSubscriber.java"));
     }
+
+    @Test
+    void aggregateCreateOrUpdateHandler() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("pubsub/createorupdate/ChannelSummary.java"),
+                        sourceOf("pubsub/createorupdate/MessageEvent.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile(
+                        "pubsub.createorupdate.infrastructure.pubsub.ChannelSummaryPubSubSubscriber")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("expected/pubsub/createorupdate/ChannelSummaryPubSubSubscriber.java"));
+    }
 }

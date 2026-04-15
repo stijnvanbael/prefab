@@ -11,8 +11,9 @@ import java.lang.annotation.Target;
  * <p>When {@code spring-boot-starter-data-jdbc} (or equivalent) is on the classpath a SQL script is
  * generated under {@code db/migration/}. When {@code spring-boot-starter-data-mongodb} (or equivalent)
  * is on the classpath a MongoDB JavaScript migration script is generated under
- * {@code mongo/migration/} instead. Both backends are handled transparently based on what is present
- * at compile time.
+ * {@code mongo/migration/}. If both backends are present at compile time, both SQL and MongoDB
+ * migrations are generated. If only one backend is present, only that backend's migration is
+ * generated.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.SOURCE)

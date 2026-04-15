@@ -21,6 +21,8 @@ class StaticEventHandlerWriter {
             method.addAnnotation(EventListener.class);
         }
         if (eventHandler.instanceMethod()) {
+            // Bean name uses Spring's default naming convention (uncapitalized simple class name).
+            // Custom bean names via @Component("customName") are not supported.
             var componentBeanName = uncapitalize(eventHandler.componentType().simpleName());
             return method.addStatement("$L.$L(event)", componentBeanName, eventHandler.methodName()).build();
         }

@@ -20,6 +20,10 @@ class StaticEventHandlerWriter {
         if (event.inheritedAnnotationsOfType(Event.class).isEmpty()) {
             method.addAnnotation(EventListener.class);
         }
+        if (eventHandler.instanceMethod()) {
+            var componentBeanName = uncapitalize(eventHandler.componentType().simpleName());
+            return method.addStatement("$L.$L(event)", componentBeanName, eventHandler.methodName()).build();
+        }
         var targetType = eventHandler.isMerged() ? eventHandler.componentType() : manifest.type();
         var repositoryName = uncapitalize(targetType.simpleName()) + "Repository";
         return eventHandler.returnType().is(Optional.class)

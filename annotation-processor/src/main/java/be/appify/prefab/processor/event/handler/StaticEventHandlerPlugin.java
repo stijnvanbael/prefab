@@ -22,6 +22,7 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.TypeMirror;
+import org.springframework.stereotype.Component;
 
 import static javax.lang.model.type.TypeKind.VOID;
 
@@ -51,9 +52,11 @@ public class StaticEventHandlerPlugin implements EventHandlerPlugin {
     @Override
     public Set<TypeName> getServiceDependencies(ClassManifest manifest) {
         return mergedComponentHandlers(manifest)
-                .map(handler -> (TypeName) ClassName.get(
-                        handler.componentType().packageName() + ".application",
-                        handler.componentType().simpleName() + "Repository"))
+                .map(handler -> handler.instanceMethod()
+                        ? (TypeName) handler.componentType().asTypeName()
+                        : (TypeName) ClassName.get(
+                                handler.componentType().packageName() + ".application",
+                                handler.componentType().simpleName() + "Repository"))
                 .collect(Collectors.toSet());
     }
 
@@ -182,16 +185,25 @@ public class StaticEventHandlerPlugin implements EventHandlerPlugin {
             return Optional.empty();
         }
 
-        if (!element.getModifiers().containsAll(Set.of(Modifier.PUBLIC, Modifier.STATIC))) {
-            context.logError(
-                    "Merged @EventHandler method %s must be public and static".formatted(element),
-                    element);
-            return Optional.empty();
-        }
+        boolean isStatic = element.getModifiers().containsAll(Set.of(Modifier.PUBLIC, Modifier.STATIC));
+        boolean isPublicInstance = element.getModifiers().contains(Modifier.PUBLIC)
+                && !element.getModifiers().contains(Modifier.STATIC);
 
         var componentElement = (TypeElement) element.getEnclosingElement();
         var componentType = TypeManifest.of(componentElement.asType(), context.processingEnvironment());
 
+        if (isPublicInstance) {
+            return buildMergedInstanceHandlerManifest(element, componentType);
+        }
+
+        if (!isStatic) {
+            context.logError(
+                    "Merged @EventHandler method %s must be public and static, or a public instance method on a @Component".formatted(element),
+                    element);
+            return Optional.empty();
+        }
+
+        // Static merged handler
         if (element.getReturnType().getKind() == VOID) {
             context.logError(
                     "Merged @EventHandler method %s must return %s or Optional<%s>".formatted(
@@ -219,7 +231,32 @@ public class StaticEventHandlerPlugin implements EventHandlerPlugin {
         }
 
         var eventType = TypeManifest.of(parameters.getFirst().asType(), context.processingEnvironment());
-        return Optional.of(new StaticEventHandlerManifest(
+        return Optional.of(StaticEventHandlerManifest.ofMergedStaticHandler(
+                element.getSimpleName().toString(),
+                eventType,
+                TypeManifest.of(element.getReturnType(), context.processingEnvironment()),
+                componentType));
+    }
+
+    private Optional<StaticEventHandlerManifest> buildMergedInstanceHandlerManifest(
+            ExecutableElement element, TypeManifest componentType) {
+        if (componentType.annotationsOfType(Component.class).isEmpty()) {
+            context.logError(
+                    "Merged @EventHandler instance method %s must be on a class annotated with @Component".formatted(element),
+                    element);
+            return Optional.empty();
+        }
+
+        var parameters = element.getParameters();
+        if (parameters.size() != 1) {
+            context.logError(
+                    "Merged @EventHandler method %s must have exactly one parameter".formatted(element),
+                    element);
+            return Optional.empty();
+        }
+
+        var eventType = TypeManifest.of(parameters.getFirst().asType(), context.processingEnvironment());
+        return Optional.of(StaticEventHandlerManifest.ofMergedInstanceHandler(
                 element.getSimpleName().toString(),
                 eventType,
                 TypeManifest.of(element.getReturnType(), context.processingEnvironment()),

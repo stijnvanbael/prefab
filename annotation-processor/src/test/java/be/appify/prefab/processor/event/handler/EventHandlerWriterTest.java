@@ -174,6 +174,71 @@ class EventHandlerWriterTest {
     }
 
     @Test
+    void mergedEventHandlerGeneratesMethodInAggregateRootService() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/handler/mergedhandler/source/Order.java"),
+                        sourceOf("event/handler/mergedhandler/source/OrderCreated.java"),
+                        sourceOf("event/handler/mergedhandler/source/OrderSummary.java")
+                );
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("event.handler.mergedhandler.application.OrderService")
+                .contentsAsUtf8String()
+                .contains("orderSummaryRepository.save(OrderSummary.onOrderCreated(event))");
+    }
+
+    @Test
+    void mergedEventHandlerInjectsComponentRepositoryIntoAggregateRootService() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/handler/mergedhandler/source/Order.java"),
+                        sourceOf("event/handler/mergedhandler/source/OrderCreated.java"),
+                        sourceOf("event/handler/mergedhandler/source/OrderSummary.java")
+                );
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("event.handler.mergedhandler.application.OrderService")
+                .contentsAsUtf8String()
+                .contains("OrderSummaryRepository");
+    }
+
+    @Test
+    void mergedEventHandlerDoesNotGenerateMethodInComponentService() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/handler/mergedhandler/source/Order.java"),
+                        sourceOf("event/handler/mergedhandler/source/OrderCreated.java"),
+                        sourceOf("event/handler/mergedhandler/source/OrderSummary.java")
+                );
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("event.handler.mergedhandler.application.OrderSummaryService")
+                .contentsAsUtf8String()
+                .doesNotContain("onOrderCreated");
+    }
+
+    @Test
+    void mergedEventHandlerWithNonAggregateRootRaisesCompilerError() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/handler/mergedhandler/nonaggregateroot/NotAnAggregate.java"),
+                        sourceOf("event/handler/mergedhandler/nonaggregateroot/OrderCreated.java"),
+                        sourceOf("event/handler/mergedhandler/nonaggregateroot/OrderSummary.java")
+                );
+
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("@EventHandler value NotAnAggregate must be annotated with @Aggregate");
+    }
+
+    @Test
     void pairedHandlerLoadsAggregateByReference() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
@@ -235,5 +300,54 @@ class EventHandlerWriterTest {
                 .generatedSourceFile("event.handler.createorupdate.application.ChannelSummaryService")
                 .contentsAsUtf8String()
                 .doesNotContain("public void onCreate(");
+    }
+
+    @Test
+    void instanceHandlerOnComponentGeneratesMethodInAggregateRootService() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/handler/instancehandler/source/Order.java"),
+                        sourceOf("event/handler/instancehandler/source/OrderCreated.java"),
+                        sourceOf("event/handler/instancehandler/source/OrderProjection.java")
+                );
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("event.handler.instancehandler.application.OrderService")
+                .contentsAsUtf8String()
+                .contains("orderProjection.onOrderCreated(event)");
+    }
+
+    @Test
+    void instanceHandlerOnComponentInjectsComponentIntoAggregateRootService() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/handler/instancehandler/source/Order.java"),
+                        sourceOf("event/handler/instancehandler/source/OrderCreated.java"),
+                        sourceOf("event/handler/instancehandler/source/OrderProjection.java")
+                );
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("event.handler.instancehandler.application.OrderService")
+                .contentsAsUtf8String()
+                .contains("OrderProjection");
+    }
+
+    @Test
+    void instanceHandlerOnNonComponentRaisesCompilerError() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/handler/instancehandler/noncomponent/Order.java"),
+                        sourceOf("event/handler/instancehandler/noncomponent/OrderCreated.java"),
+                        sourceOf("event/handler/instancehandler/noncomponent/NotAComponent.java")
+                );
+
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining(
+                "Merged @EventHandler instance method onOrderCreated must be on a class annotated with @Component");
     }
 }

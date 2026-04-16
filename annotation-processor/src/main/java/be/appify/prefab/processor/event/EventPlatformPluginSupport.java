@@ -15,6 +15,8 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.MirroredTypeException;
+import javax.lang.model.type.TypeKind;
 
 /**
  * Utility class for event platform plugins.
@@ -49,7 +51,8 @@ public class EventPlatformPluginSupport {
     }
 
     /**
-     * Retrieves all event handler methods defined within components.
+     * Retrieves all event handler methods defined within components, excluding merged handlers (those with a
+     * non-default {@link EventHandler#value()}).
      *
      * @param context
      *         prefab context
@@ -58,7 +61,8 @@ public class EventPlatformPluginSupport {
     public static Stream<ExecutableElement> eventHandlers(PrefabContext context) {
         return context.roundEnvironment().getElementsAnnotatedWith(EventHandler.class).stream()
                 .filter(element -> element.getKind() == ElementKind.METHOD)
-                .map(element -> (ExecutableElement) element);
+                .map(element -> (ExecutableElement) element)
+                .filter(method -> !isMergedHandler(method));
     }
 
     /**
@@ -124,5 +128,14 @@ public class EventPlatformPluginSupport {
         return ((TypeElement) element).getInterfaces().stream()
                 .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
                 .anyMatch(iface -> iface.getAnnotation(Avsc.class) != null);
+    }
+
+    private static boolean isMergedHandler(ExecutableElement method) {
+        var annotation = method.getAnnotationsByType(EventHandler.class)[0];
+        try {
+            return annotation.value() != void.class;
+        } catch (MirroredTypeException e) {
+            return e.getTypeMirror().getKind() != TypeKind.VOID;
+        }
     }
 }

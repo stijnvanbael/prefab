@@ -6,7 +6,7 @@ import be.appify.prefab.core.util.Classes;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
-import com.google.common.collect.Streams;
+import java.util.stream.Stream;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
@@ -107,7 +107,7 @@ class KafkaConsumerConfigWriter {
                     .addStatement("""
                                     var notRetryable = $T.concat($T.DEFAULT_NOT_RETRYABLE.stream(), customExceptions)
                                     .toArray($T[]::new)""",
-                            Streams.class,
+                            Stream.class,
                             KafkaUtil.class,
                             Class.class)
                     .addStatement("errorHandler.addNotRetryableExceptions(notRetryable)")

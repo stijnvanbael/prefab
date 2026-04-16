@@ -2,9 +2,9 @@ package kafka.customdlt.infrastructure.kafka;
 
 import be.appify.prefab.core.kafka.KafkaUtil;
 import be.appify.prefab.core.util.Classes;
-import com.google.common.collect.Streams;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,7 +32,7 @@ public class UserExporterKafkaConsumerConfig {
         var customExceptions = nonRetryableExceptions.stream()
                 .filter(name -> !name.isBlank())
                 .map(Classes::classWithName);
-        var notRetryable = Streams.concat(KafkaUtil.DEFAULT_NOT_RETRYABLE.stream(), customExceptions)
+        var notRetryable = Stream.concat(KafkaUtil.DEFAULT_NOT_RETRYABLE.stream(), customExceptions)
                 .toArray(Class[]::new);
         errorHandler.addNotRetryableExceptions(notRetryable);
         return errorHandler;

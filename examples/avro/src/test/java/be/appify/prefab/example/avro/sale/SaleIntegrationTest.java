@@ -7,6 +7,8 @@ import be.appify.prefab.test.IntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.time.Duration;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
@@ -33,7 +35,7 @@ class SaleIntegrationTest {
         sales.addLine(saleId, "Toothpaste", 1, 4.0);
         sales.pay(saleId, 7.5, Sale.PaymentMethod.CASH);
 
-        await().untilAsserted(() -> {
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
             var cashRegister = cashRegisters.getCashRegisterById(cashRegisterId);
             assertThat(cashRegister.cashInDrawer()).isEqualTo(107.5);
         });

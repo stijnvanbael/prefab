@@ -19,8 +19,8 @@ public class ChannelSummaryPubSubSubscriber {
 
     private final ChannelSummaryService channelSummaryService;
 
-    public ChannelSummaryPubSubSubscriber(ChannelSummaryService channelSummaryService, PubSubUtil pubSub,
-            @Value("${topic.message.name}") String messageEventTopic) {
+    public ChannelSummaryPubSubSubscriber(ChannelSummaryService channelSummaryService,
+            PubSubUtil pubSub, @Value("${topic.message.name}") String messageEventTopic) {
         messageEventExecutor = Executors.newFixedThreadPool(1);
         pubSub.subscribe(new SubscriptionRequest<MessageEvent>(messageEventTopic, "channel-summary-on-message-event", MessageEvent.class, this::onMessageEvent)
                 .withExecutor(messageEventExecutor));
@@ -36,4 +36,3 @@ public class ChannelSummaryPubSubSubscriber {
         }
     }
 }
-

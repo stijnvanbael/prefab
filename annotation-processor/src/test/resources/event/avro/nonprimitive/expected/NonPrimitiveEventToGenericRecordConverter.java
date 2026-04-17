@@ -1,5 +1,6 @@
 package event.avro.infrastructure.avro;
 
+import be.appify.prefab.core.avro.SchemaSupport;
 import event.avro.NonPrimitiveEvent;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -18,7 +19,7 @@ public class NonPrimitiveEventToGenericRecordConverter implements Converter<NonP
     @Override
     public GenericRecord convert(NonPrimitiveEvent event) {
         var genericRecord = new GenericData.Record(schema);
-        genericRecord.put("status", event.status() != null ? new GenericData.EnumSymbol(schema.getField("status").schema(), event.status().name()) : null);
+        genericRecord.put("status", event.status() != null ? new GenericData.EnumSymbol(SchemaSupport.enumSchemaOf(schema.getField("status").schema()), event.status().name()) : null);
         genericRecord.put("timestamp", event.timestamp() != null ? event.timestamp().toEpochMilli() : null);
         genericRecord.put("date", event.date() != null ? (int) event.date().toEpochDay() : null);
         genericRecord.put("duration", event.duration() != null ? event.duration().toMillis() : null);

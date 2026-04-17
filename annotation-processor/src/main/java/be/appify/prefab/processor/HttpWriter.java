@@ -1,5 +1,6 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.core.annotations.Doc;
 import be.appify.prefab.core.annotations.Example;
 import be.appify.prefab.processor.rest.ControllerUtil;
 import com.palantir.javapoet.AnnotationSpec;
@@ -127,8 +128,16 @@ class HttpWriter {
     }
 
     private void writeResponseRecord(ClassManifest manifest) {
-        var type = TypeSpec.recordBuilder("%sResponse".formatted(manifest.simpleName()))
-                .addModifiers(PUBLIC)
+        var typeBuilder = TypeSpec.recordBuilder("%sResponse".formatted(manifest.simpleName()))
+                .addModifiers(PUBLIC);
+        if (ControllerUtil.OPENAPI_INCLUDED) {
+            var docAnnotation = manifest.annotationsOfType(Doc.class).stream().findFirst();
+            docAnnotation.ifPresent(d -> typeBuilder.addAnnotation(
+                    AnnotationSpec.builder(ClassName.get("io.swagger.v3.oas.annotations.media", "Schema"))
+                            .addMember("description", "$S", d.value())
+                            .build()));
+        }
+        var type = typeBuilder
                 .recordConstructor(MethodSpec.compactConstructorBuilder()
                         .addParameters(manifest.fields().stream()
                                 .map(field -> {
@@ -136,12 +145,15 @@ class HttpWriter {
                                             field.type().asTypeName(),
                                             field.name());
                                     if (ControllerUtil.OPENAPI_INCLUDED) {
-                                        field.getAnnotation(Example.class).ifPresent(exampleManifest -> {
+                                        var exampleAnnotation = field.getAnnotation(Example.class);
+                                        var docAnnotation = field.getAnnotation(Doc.class);
+                                        if (exampleAnnotation.isPresent() || docAnnotation.isPresent()) {
                                             var schemaClass = ClassName.get("io.swagger.v3.oas.annotations.media", "Schema");
-                                            paramBuilder.addAnnotation(AnnotationSpec.builder(schemaClass)
-                                                    .addMember("example", "$S", exampleManifest.value().value())
-                                                    .build());
-                                        });
+                                            var schemaBuilder = AnnotationSpec.builder(schemaClass);
+                                            exampleAnnotation.ifPresent(e -> schemaBuilder.addMember("example", "$S", e.value().value()));
+                                            docAnnotation.ifPresent(d -> schemaBuilder.addMember("description", "$S", d.value().value()));
+                                            paramBuilder.addAnnotation(schemaBuilder.build());
+                                        }
                                     }
                                     return paramBuilder.build();
                                 }).toList())

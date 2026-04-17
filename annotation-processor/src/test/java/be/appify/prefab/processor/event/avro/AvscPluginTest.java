@@ -147,4 +147,18 @@ class AvscPluginTest {
                 .contentsAsUtf8String()
                 .contains("implements MultiAvsc");
     }
+
+    @Test
+    void docPropertyInAvscEmitsDocAnnotationOnField() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/docfield/source/DocFieldAvsc.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("event.avsc.DocFieldAvscEvent")
+                .contentsAsUtf8String()
+                .contains("@Doc(\"Full name of the person\")");
+        assertThat(compilation).generatedSourceFile("event.avsc.DocFieldAvscEvent")
+                .contentsAsUtf8String()
+                .contains("int age");
+    }
 }

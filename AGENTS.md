@@ -162,6 +162,23 @@ Follow the **Three Laws of TDD**:
 
 ---
 
+## 12. Common Mistakes
+
+This section documents recurring mistakes made during code generation. Every agent must read and respect these rules.
+When a new recurring mistake is identified, it must be added here so it is not repeated.
+
+### CM-001 — Windows line endings (CRLF)
+
+**Mistake**: Generated files use Windows-style `\r\n` (CRLF) line endings instead of Unix-style `\n` (LF).
+
+**Rule**: Every file created or modified must use LF line endings (`\n`). This applies universally: Java, XML,
+YAML, Markdown, shell scripts, `.gitignore`, and any other text file.
+
+**Why it matters**: CRLF line endings cause noise in diffs, break shell scripts, and violate the project's
+consistent Unix-style formatting contract enforced via `.gitattributes` and editor config.
+
+---
+
 ## Summary Principle
 
 > *"Any fool can write code that a computer can understand.*
@@ -169,4 +186,3 @@ Follow the **Three Laws of TDD**:
 > — Martin Fowler (quoted in *Clean Code*)
 
 **Leave the code cleaner than you found it — always apply the Boy Scout Rule.**
-

@@ -67,6 +67,45 @@ class MotherPluginTest {
     }
 
     @Test
+    void requestRecordContainsSchemaDescriptionAnnotationFromDocOnConstructorParam() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/person/source/Person.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("mother.person.application.CreatePersonRequest")
+                .contentsAsUtf8String()
+                .contains("description = \"Full name of the person\"");
+    }
+
+    @Test
+    void updateRequestRecordContainsSchemaDescriptionAnnotation() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/person/source/Person.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("mother.person.application.PersonUpdateRequest")
+                .contentsAsUtf8String()
+                .contains("description = \"Full name of the person\"");
+    }
+
+    @Test
+    void responseRecordContainsSchemaDescriptionAnnotationFromAggregateField() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/person/source/Person.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("mother.person.infrastructure.http.PersonResponse")
+                .contentsAsUtf8String()
+                .contains("description = \"Full name of the person\"");
+    }
+
+    @Test
     void invalidExampleOnNumericFieldProducesCompilerError() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

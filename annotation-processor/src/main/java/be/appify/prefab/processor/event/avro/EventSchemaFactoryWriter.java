@@ -1,6 +1,8 @@
 package be.appify.prefab.processor.event.avro;
 
 import be.appify.prefab.core.annotations.Avsc;
+import be.appify.prefab.core.annotations.Doc;
+import be.appify.prefab.core.annotations.Example;
 import be.appify.prefab.core.avro.SchemaSupport;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
@@ -33,6 +35,9 @@ import static org.apache.commons.lang3.StringUtils.capitalize;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 class EventSchemaFactoryWriter {
+
+    private static final String AVRO_PACKAGE_SUFFIX = "infrastructure.avro";
+
     private final PrefabContext context;
 
     EventSchemaFactoryWriter(PrefabContext context) {
@@ -40,25 +45,20 @@ class EventSchemaFactoryWriter {
     }
 
     void writeSchemaFactory(TypeManifest event) {
-        // @Avsc contract interfaces have no fields to build a schema from — generate a delegating
-        // factory that builds a union of the concrete records' schemas instead.
-        if (event.asElement() != null && event.asElement().getAnnotation(Avsc.class) != null) {
+        if (isAvscContractInterface(event)) {
             writeAvscInterfaceSchemaFactory(event);
             return;
         }
 
-        var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
-
-        var name = "%sSchemaFactory".formatted(event.simpleName().replace(".", ""));
+        var name = schemaFactorySimpleName(event);
         var type = TypeSpec.classBuilder(name)
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(Component.class)
-                .addField(FieldSpec.builder(Schema.class, "schema", Modifier.PRIVATE, Modifier.FINAL).build());
-        type.addMethod(constructor(event))
+                .addField(FieldSpec.builder(Schema.class, "schema", Modifier.PRIVATE, Modifier.FINAL).build())
+                .addMethod(constructor(event))
                 .addMethod(createSchemaMethod());
 
-        fileWriter.writeFile(event.packageName(), name, type.build());
-
+        newFileWriter(event).writeFile(event.packageName(), name, type.build());
     }
 
     /**
@@ -68,58 +68,66 @@ class EventSchemaFactoryWriter {
      * factory. When multiple records exist the factory builds an Avro union schema.
      */
     private void writeAvscInterfaceSchemaFactory(TypeManifest contractInterface) {
-        var implementations = context.eventElements()
-                .filter(e -> e.getKind() == ElementKind.RECORD)
-                .filter(e -> e.getInterfaces().stream()
-                        .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
-                        .anyMatch(iface -> iface.equals(contractInterface.asElement())))
-                .map(e -> TypeManifest.of(e.asType(), context.processingEnvironment()))
-                .toList();
+        var implementations = resolveImplementations(contractInterface);
 
         // Skip round 1: concrete records are compiled in round 2 and not yet available.
         if (implementations.isEmpty()) {
             return;
         }
 
-        var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
-        var name = "%sSchemaFactory".formatted(contractInterface.simpleName().replace(".", ""));
-
+        var name = schemaFactorySimpleName(contractInterface);
+        var constructor = buildImplementationConstructor(implementations);
         var type = TypeSpec.classBuilder(name)
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(Component.class)
-                .addField(FieldSpec.builder(Schema.class, "schema", Modifier.PRIVATE, Modifier.FINAL).build());
-
-        var constructor = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC);
-        implementations.forEach(impl -> {
-            var factoryName = uncapitalize("%sSchemaFactory".formatted(impl.simpleName().replace(".", "")));
-            var factoryType = ClassName.get(impl.packageName() + ".infrastructure.avro", capitalize(factoryName));
-            type.addField(FieldSpec.builder(factoryType, factoryName, Modifier.PRIVATE, Modifier.FINAL).build());
-            constructor.addParameter(factoryType, factoryName)
-                    .addStatement("this.$L = $L", factoryName, factoryName);
-        });
-
-        CodeBlock schemaInit;
-        if (implementations.size() == 1) {
-            var factoryName = uncapitalize("%sSchemaFactory"
-                    .formatted(implementations.getFirst().simpleName().replace(".", "")));
-            schemaInit = CodeBlock.of("this.schema = $L.createSchema()", factoryName);
-        } else {
-            schemaInit = CodeBlock.of("this.schema = $T.createUnion($T.of(\n    $L\n))",
-                    Schema.class, List.class,
-                    implementations.stream()
-                            .map(impl -> CodeBlock.of("$L.createSchema()",
-                                    uncapitalize("%sSchemaFactory".formatted(impl.simpleName().replace(".", "")))))
-                            .collect(CodeBlock.joining(",\n    ")));
-        }
-        constructor.addStatement(schemaInit);
-        type.addMethod(constructor.build())
+                .addField(FieldSpec.builder(Schema.class, "schema", Modifier.PRIVATE, Modifier.FINAL).build())
+                .addMethod(constructor)
                 .addMethod(createSchemaMethod());
 
-        fileWriter.writeFile(contractInterface.packageName(), name, type.build());
+        newFileWriter(contractInterface).writeFile(contractInterface.packageName(), name, type.build());
+    }
+
+    private List<TypeManifest> resolveImplementations(TypeManifest contractInterface) {
+        return context.eventElements()
+                .filter(e -> e.getKind() == ElementKind.RECORD)
+                .filter(e -> implementsInterface(e, contractInterface))
+                .map(e -> TypeManifest.of(e.asType(), context.processingEnvironment()))
+                .toList();
+    }
+
+    private boolean implementsInterface(TypeElement element, TypeManifest contractInterface) {
+        return element.getInterfaces().stream()
+                .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
+                .anyMatch(iface -> iface.equals(contractInterface.asElement()));
+    }
+
+    private MethodSpec buildImplementationConstructor(List<TypeManifest> implementations) {
+        var constructor = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC);
+        implementations.forEach(impl -> addSchemaFactoryField(impl, constructor));
+        constructor.addStatement(buildSchemaInitializer(implementations));
+        return constructor.build();
+    }
+
+    private void addSchemaFactoryField(TypeManifest impl, MethodSpec.Builder constructor) {
+        var fieldName = schemaFactoryFieldName(impl);
+        var fieldType = schemaFactoryClassName(impl);
+        constructor.addParameter(fieldType, fieldName)
+                .addStatement("this.$L = $L", fieldName, fieldName);
+    }
+
+    private CodeBlock buildSchemaInitializer(List<TypeManifest> implementations) {
+        if (implementations.size() == 1) {
+            return CodeBlock.of("this.schema = $L.createSchema()", schemaFactoryFieldName(implementations.getFirst()));
+        }
+        return CodeBlock.of("this.schema = $T.createUnion($T.of(\n    $L\n))",
+                Schema.class, List.class,
+                implementations.stream()
+                        .map(impl -> CodeBlock.of("$L.createSchema()", schemaFactoryFieldName(impl)))
+                        .collect(CodeBlock.joining(",\n    ")));
     }
 
     private MethodSpec constructor(TypeManifest event) {
-        var constructor = getBuilder();
+        var constructor = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC);
         nestedTypes(List.of(event)).forEach(nestedType -> addSchemaFactory(nestedType, constructor));
         sealedSubtypes(List.of(event)).forEach(subtype -> addSchemaFactory(subtype, constructor));
         return constructor
@@ -128,14 +136,7 @@ class EventSchemaFactoryWriter {
     }
 
     private static void addSchemaFactory(TypeManifest nestedType, MethodSpec.Builder constructor) {
-        var schemaFactoryName = uncapitalize("%sSchemaFactory".formatted(nestedType.simpleName().replace(".", "")));
-        var schemaFactoryType = ClassName.get(nestedType.packageName() + ".infrastructure.avro", capitalize(schemaFactoryName));
-        constructor.addParameter(schemaFactoryType, schemaFactoryName);
-    }
-
-    private static MethodSpec.Builder getBuilder() {
-        return MethodSpec.constructorBuilder()
-                .addModifiers(Modifier.PUBLIC);
+        constructor.addParameter(schemaFactoryClassName(nestedType), schemaFactoryFieldName(nestedType));
     }
 
     private static MethodSpec createSchemaMethod() {
@@ -175,23 +176,15 @@ class EventSchemaFactoryWriter {
     private static CodeBlock createLogicalSchema(TypeManifest type) {
         if (type.is(Instant.class)) {
             return CodeBlock.of("$T.createLogicalSchema($T.LONG, $T.timestampMillis())",
-                    SchemaSupport.class,
-                    Schema.Type.class,
-                    LogicalTypes.class);
+                    SchemaSupport.class, Schema.Type.class, LogicalTypes.class);
         } else if (type.is(LocalDate.class)) {
             return CodeBlock.of("$T.createLogicalSchema($T.INT, $T.date())",
-                    SchemaSupport.class,
-                    Schema.Type.class,
-                    LogicalTypes.class);
+                    SchemaSupport.class, Schema.Type.class, LogicalTypes.class);
         } else if (type.is(Duration.class)) {
             return CodeBlock.of("$T.createLogicalSchema($T.LONG, $T.DURATION_MILLIS)",
-                    SchemaSupport.class,
-                    Schema.Type.class,
-                    SchemaSupport.class);
+                    SchemaSupport.class, Schema.Type.class, SchemaSupport.class);
         } else if (type.isSingleValueType()) {
-            return CodeBlock.of("$T.create($T.STRING)",
-                    Schema.class,
-                    Schema.Type.class);
+            return CodeBlock.of("$T.create($T.STRING)", Schema.class, Schema.Type.class);
         }
         throw new IllegalArgumentException("Unsupported type " + type);
     }
@@ -208,95 +201,135 @@ class EventSchemaFactoryWriter {
     }
 
     private CodeBlock createPrimitiveSchema(TypeManifest type) {
-        Schema.Type schemaType;
-        var primitiveType = type.asClass();
-        if (primitiveType == String.class) {
-            schemaType = Schema.Type.STRING;
-        } else if (primitiveType == int.class || primitiveType == Integer.class) {
-            schemaType = Schema.Type.INT;
-        } else if (primitiveType == long.class || primitiveType == Long.class) {
-            schemaType = Schema.Type.LONG;
-        } else if (primitiveType == double.class || primitiveType == Double.class) {
-            schemaType = Schema.Type.DOUBLE;
-        } else if (primitiveType == float.class || primitiveType == Float.class) {
-            schemaType = Schema.Type.FLOAT;
-        } else if (primitiveType == boolean.class || primitiveType == Boolean.class) {
-            schemaType = Schema.Type.BOOLEAN;
-        } else {
-            context.logError("Unsupported standard type: %s".formatted(type.asClass().getName()), type.asElement());
-            schemaType = Schema.Type.NULL;
-        }
+        var schemaType = primitiveSchemaType(type);
         return CodeBlock.of("$T.create($T.$L)", Schema.class, Schema.Type.class, schemaType);
     }
 
+    private Schema.Type primitiveSchemaType(TypeManifest type) {
+        var primitiveType = type.asClass();
+        if (primitiveType == String.class) return Schema.Type.STRING;
+        if (primitiveType == int.class || primitiveType == Integer.class) return Schema.Type.INT;
+        if (primitiveType == long.class || primitiveType == Long.class) return Schema.Type.LONG;
+        if (primitiveType == double.class || primitiveType == Double.class) return Schema.Type.DOUBLE;
+        if (primitiveType == float.class || primitiveType == Float.class) return Schema.Type.FLOAT;
+        if (primitiveType == boolean.class || primitiveType == Boolean.class) return Schema.Type.BOOLEAN;
+
+        context.logError("Unsupported standard type: %s".formatted(type.asClass().getName()), type.asElement());
+        return Schema.Type.NULL;
+    }
+
     private CodeBlock createRecordSchema(TypeManifest type) {
-        if (type.isSealed()) {
-            return CodeBlock.of("""
-                            $T.createUnion($T.of(
+        return type.isSealed()
+                ? createUnionSchema(type)
+                : createFlatRecordSchema(type);
+    }
+
+    private CodeBlock createUnionSchema(TypeManifest type) {
+        return CodeBlock.of("""
+                        $T.createUnion($T.of(
+                            $L
+                        ))""",
+                Schema.class,
+                List.class,
+                type.permittedSubtypes().stream()
+                        .map(subtype -> CodeBlock.of("$L.createSchema()", schemaFactoryFieldName(subtype)))
+                        .collect(CodeBlock.joining(",\n    ")));
+    }
+
+    private CodeBlock createFlatRecordSchema(TypeManifest type) {
+        return CodeBlock.of("""
+                        $T.createRecord($S, $S, $S, false, $T.of(
                                 $L
                             ))""",
-                    Schema.class,
-                    List.class,
-                    type.permittedSubtypes().stream()
-                            .map(subtype -> {
-                                var schemaFactoryName = uncapitalize("%sSchemaFactory".formatted(subtype.simpleName().replace(".", "")));
-                                return CodeBlock.of("$L.createSchema()", schemaFactoryName);
-                            })
-                            .collect(CodeBlock.joining(",\n    ")));
-        } else {
-            return CodeBlock.of("""
-                            $T.createRecord($S, null, $S, false, $T.of(
-                                    $L
-                                ))""",
-                    Schema.class,
-                    type.simpleName().replace('.', '_'),
-                    type.packageName(),
-                    List.class,
-                    type.fields().stream()
-                            .filter(field -> {
-                                if (field.type().isCustomType() && context.plugins().stream()
-                                        .noneMatch(p -> p.avroSchemaOf(field.type()).isPresent())) {
-                                    context.processingEnvironment().getMessager().printMessage(
-                                            javax.tools.Diagnostic.Kind.WARNING,
-                                            ("Field '%s' of @CustomType '%s' is omitted from the Avro schema: no " +
-                                            "PrefabPlugin provides an avroSchemaOf() implementation. Implement " +
-                                            "PrefabPlugin.avroSchemaOf() to include this field in the Avro schema.")
-                                                    .formatted(field.name(), field.type()),
-                                            field.element());
-                                    return false;
-                                }
-                                return true;
-                            })
-                            .map(this::createField)
-                            .collect(CodeBlock.joining(",\n        ")));
+                Schema.class,
+                type.simpleName().replace('.', '_'),
+                type.doc().orElse(null),
+                type.packageName(),
+                List.class,
+                type.fields().stream()
+                        .filter(this::hasAvroSchema)
+                        .map(this::createField)
+                        .collect(CodeBlock.joining(",\n        ")));
+    }
+
+    private boolean hasAvroSchema(VariableManifest field) {
+        if (!field.type().isCustomType()) {
+            return true;
         }
+        boolean supported = context.plugins().stream().anyMatch(p -> p.avroSchemaOf(field.type()).isPresent());
+        if (!supported) {
+            context.processingEnvironment().getMessager().printMessage(
+                    javax.tools.Diagnostic.Kind.WARNING,
+                    ("Field '%s' of @CustomType '%s' is omitted from the Avro schema: no " +
+                    "PrefabPlugin provides an avroSchemaOf() implementation. Implement " +
+                    "PrefabPlugin.avroSchemaOf() to include this field in the Avro schema.")
+                            .formatted(field.name(), field.type()),
+                    field.element());
+        }
+        return supported;
     }
 
     private CodeBlock createField(VariableManifest field) {
         var schema = maybeArray(field);
+        var fieldBlock = buildFieldBlock(field, schema);
+        var withDoc = wrapWithDocIfPresent(field, fieldBlock);
+        return wrapWithSampleIfPresent(field, withDoc);
+    }
+
+    private static CodeBlock buildFieldBlock(VariableManifest field, CodeBlock schema) {
         if (field.hasAnnotation(Nullable.class)) {
             return CodeBlock.of("new $T($S, $L, null)",
                     Schema.Field.class,
                     field.name(),
                     CodeBlock.of("$T.createNullableSchema($L)", SchemaSupport.class, schema));
-        } else {
-            return CodeBlock.of("new $T($S, $L)",
-                    Schema.Field.class,
-                    field.name(),
-                    schema);
         }
+        return CodeBlock.of("new $T($S, $L)", Schema.Field.class, field.name(), schema);
+    }
+
+    private static CodeBlock wrapWithDocIfPresent(VariableManifest field, CodeBlock fieldBlock) {
+        return field.getAnnotation(Doc.class)
+                .map(doc -> CodeBlock.of("$T.withDoc($L, $S)", SchemaSupport.class, fieldBlock, doc.value().value()))
+                .orElse(fieldBlock);
+    }
+
+    private static CodeBlock wrapWithSampleIfPresent(VariableManifest field, CodeBlock fieldBlock) {
+        return field.getAnnotation(Example.class)
+                .map(example -> CodeBlock.of("$T.withSample($L, $S)",
+                        SchemaSupport.class,
+                        fieldBlock,
+                        example.value().value()))
+                .orElse(fieldBlock);
     }
 
     private CodeBlock maybeArray(VariableManifest field) {
         return field.type().is(List.class)
-                ? CodeBlock.of("$T.createArray($L)", Schema.class,
-                maybeNested(field.type().parameters().getFirst()))
+                ? CodeBlock.of("$T.createArray($L)", Schema.class, maybeNested(field.type().parameters().getFirst()))
                 : maybeNested(field.type());
     }
 
     private CodeBlock maybeNested(TypeManifest type) {
-        return !isNestedRecord(type)
-                ? createSchema(type)
-                : CodeBlock.of("$L.createSchema()", uncapitalize("%sSchemaFactory".formatted(type.simpleName().replace(".", ""))));
+        return isNestedRecord(type)
+                ? CodeBlock.of("$L.createSchema()", schemaFactoryFieldName(type))
+                : createSchema(type);
+    }
+
+    private JavaFileWriter newFileWriter(TypeManifest event) {
+        return new JavaFileWriter(context.processingEnvironment(), AVRO_PACKAGE_SUFFIX);
+    }
+
+    private boolean isAvscContractInterface(TypeManifest event) {
+        return event.asElement() != null && event.asElement().getAnnotation(Avsc.class) != null;
+    }
+
+    private static String schemaFactorySimpleName(TypeManifest type) {
+        return "%sSchemaFactory".formatted(type.simpleName().replace(".", ""));
+    }
+
+    private static String schemaFactoryFieldName(TypeManifest type) {
+        return uncapitalize(schemaFactorySimpleName(type));
+    }
+
+    private static ClassName schemaFactoryClassName(TypeManifest type) {
+        return ClassName.get(type.packageName() + "." + AVRO_PACKAGE_SUFFIX, capitalize(schemaFactoryFieldName(type)));
     }
 }

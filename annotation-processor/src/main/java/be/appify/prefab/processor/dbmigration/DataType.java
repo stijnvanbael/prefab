@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.stream.Stream;
 
 public interface DataType {
     String toSql();
@@ -35,7 +36,9 @@ public interface DataType {
     @SuppressWarnings("unchecked")
     static DataType typeOf(TypeManifest type, List<? extends AnnotationManifest<?>> annotations) {
         if (type.isSingleValueType()) {
-            return typeOf(type.fields().getFirst().type().asBoxed(), annotations);
+            var innerField = type.fields().getFirst();
+            var mergedAnnotations = Stream.concat(annotations.stream(), innerField.annotations().stream()).toList();
+            return typeOf(innerField.type().asBoxed(), mergedAnnotations);
         } else if (type.is(String.class) || type.isEnum() || type.is(Duration.class)) {
             var length = annotations.stream()
                     .filter(annotation -> annotation.type().is(Size.class))

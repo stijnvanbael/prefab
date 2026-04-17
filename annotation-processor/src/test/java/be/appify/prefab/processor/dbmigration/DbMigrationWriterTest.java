@@ -110,6 +110,58 @@ class DbMigrationWriterTest {
     }
 
     @Test
+    void sizeAnnotationDeterminesVarcharLength() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/varcharsize/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"name\" VARCHAR (100)");
+    }
+
+    @Test
+    void sizeAnnotationOnSingleValueTypeInnerFieldDeterminesVarcharLength() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/varcharsize/source/ProductWithValueType.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"name\" VARCHAR (100)");
+    }
+
+    @Test
+    void sizeAnnotationOnOuterSingleValueTypeFieldDeterminesVarcharLength() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/varcharsize/source/ProductWithOuterAnnotation.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"name\" VARCHAR (100)");
+    }
+
+    @Test
+    void sizeAnnotationOnPlainStringFieldWithCustomConstructorDeterminesVarcharLength() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/varcharsize/source/ConversationMessage.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"content\" VARCHAR (65535)");
+    }
+
+    @Test
     void customTypeFieldSkipEmitsNote() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.event.avro;
 
+import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.avro.SchemaSupport;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
@@ -16,7 +17,10 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.springframework.stereotype.Component;
@@ -36,6 +40,13 @@ class EventSchemaFactoryWriter {
     }
 
     void writeSchemaFactory(TypeManifest event) {
+        // @Avsc contract interfaces have no fields to build a schema from — generate a delegating
+        // factory that builds a union of the concrete records' schemas instead.
+        if (event.asElement() != null && event.asElement().getAnnotation(Avsc.class) != null) {
+            writeAvscInterfaceSchemaFactory(event);
+            return;
+        }
+
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
 
         var name = "%sSchemaFactory".formatted(event.simpleName().replace(".", ""));
@@ -48,6 +59,63 @@ class EventSchemaFactoryWriter {
 
         fileWriter.writeFile(event.packageName(), name, type.build());
 
+    }
+
+    /**
+     * Generates a schema factory for an {@code @Avsc}-annotated contract interface.
+     * <p>
+     * When there is a single concrete record the factory simply delegates to that record's schema
+     * factory. When multiple records exist the factory builds an Avro union schema.
+     */
+    private void writeAvscInterfaceSchemaFactory(TypeManifest contractInterface) {
+        var implementations = context.eventElements()
+                .filter(e -> e.getKind() == ElementKind.RECORD)
+                .filter(e -> e.getInterfaces().stream()
+                        .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
+                        .anyMatch(iface -> iface.equals(contractInterface.asElement())))
+                .map(e -> TypeManifest.of(e.asType(), context.processingEnvironment()))
+                .toList();
+
+        // Skip round 1: concrete records are compiled in round 2 and not yet available.
+        if (implementations.isEmpty()) {
+            return;
+        }
+
+        var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
+        var name = "%sSchemaFactory".formatted(contractInterface.simpleName().replace(".", ""));
+
+        var type = TypeSpec.classBuilder(name)
+                .addModifiers(Modifier.PUBLIC)
+                .addAnnotation(Component.class)
+                .addField(FieldSpec.builder(Schema.class, "schema", Modifier.PRIVATE, Modifier.FINAL).build());
+
+        var constructor = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC);
+        implementations.forEach(impl -> {
+            var factoryName = uncapitalize("%sSchemaFactory".formatted(impl.simpleName().replace(".", "")));
+            var factoryType = ClassName.get(impl.packageName() + ".infrastructure.avro", capitalize(factoryName));
+            type.addField(FieldSpec.builder(factoryType, factoryName, Modifier.PRIVATE, Modifier.FINAL).build());
+            constructor.addParameter(factoryType, factoryName)
+                    .addStatement("this.$L = $L", factoryName, factoryName);
+        });
+
+        CodeBlock schemaInit;
+        if (implementations.size() == 1) {
+            var factoryName = uncapitalize("%sSchemaFactory"
+                    .formatted(implementations.getFirst().simpleName().replace(".", "")));
+            schemaInit = CodeBlock.of("this.schema = $L.createSchema()", factoryName);
+        } else {
+            schemaInit = CodeBlock.of("this.schema = $T.createUnion($T.of(\n    $L\n))",
+                    Schema.class, List.class,
+                    implementations.stream()
+                            .map(impl -> CodeBlock.of("$L.createSchema()",
+                                    uncapitalize("%sSchemaFactory".formatted(impl.simpleName().replace(".", "")))))
+                            .collect(CodeBlock.joining(",\n    ")));
+        }
+        constructor.addStatement(schemaInit);
+        type.addMethod(constructor.build())
+                .addMethod(createSchemaMethod());
+
+        fileWriter.writeFile(contractInterface.packageName(), name, type.build());
     }
 
     private MethodSpec constructor(TypeManifest event) {

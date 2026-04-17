@@ -1,12 +1,12 @@
 package be.appify.prefab.processor.event.avro;
 
-import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.event.EventPlatformPluginSupport;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -15,9 +15,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.DeclaredType;
 
 /** A plugin for generating Avro converters and schema factories for events annotated with {@link Event} with Avro serialization. */
 public class AvroPlugin implements PrefabPlugin {
@@ -40,33 +37,12 @@ public class AvroPlugin implements PrefabPlugin {
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
-        // Regular events: directly annotated with @Event(serialization = AVRO).
-        // Contract interfaces (@Avsc) are excluded — their generated records are handled below.
-        var directEvents = context.roundEnvironment().getElementsAnnotatedWith(Event.class)
-                .stream()
-                .filter(event -> Objects.requireNonNull(event.getAnnotation(Event.class)).serialization() == Event.Serialization.AVRO)
-                .filter(event -> event.getAnnotation(Avsc.class) == null)
+        // Use context.eventElements() which already merges @Event-annotated types and AVSC-generated
+        // records. For non-AVSC events we still restrict to those with AVRO serialization.
+        var events = context.eventElements()
+                .filter(e -> EventPlatformPluginSupport.isAvscGeneratedRecord(e)
+                        || Objects.requireNonNull(e.getAnnotation(Event.class)).serialization() == Event.Serialization.AVRO)
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
-                .toList();
-
-        // AVSC-generated records: they carry @Event but may not surface reliably via
-        // getElementsAnnotatedWith in the same round they are compiled.
-        // Find them as root elements (newly compiled in this round) that implement an
-        // @Avsc-annotated contract interface — this is reliable across all AP implementations.
-        // The annotation check is done directly on the interface element (not via roundEnv) so it
-        // works even when getElementsAnnotatedWith(Avsc.class) returns nothing in round 2.
-        var avscEvents = context.roundEnvironment().getRootElements()
-                .stream()
-                .filter(e -> e.getKind() == ElementKind.RECORD)
-                .map(e -> (TypeElement) e)
-                .filter(r -> r.getInterfaces().stream()
-                        .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
-                        .anyMatch(iface -> iface.getAnnotation(Avsc.class) != null))
-                .map(r -> TypeManifest.of(r.asType(), context.processingEnvironment()))
-                .toList();
-
-        var events = Stream.concat(directEvents.stream(), avscEvents.stream())
-                .distinct()
                 .toList();
 
         events.forEach(event -> {

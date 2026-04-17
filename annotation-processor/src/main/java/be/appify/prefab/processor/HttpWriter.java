@@ -1,5 +1,6 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.core.annotations.Example;
 import be.appify.prefab.processor.rest.ControllerUtil;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
@@ -130,10 +131,20 @@ class HttpWriter {
                 .addModifiers(PUBLIC)
                 .recordConstructor(MethodSpec.compactConstructorBuilder()
                         .addParameters(manifest.fields().stream()
-                                .map(field -> ParameterSpec.builder(
-                                        field.type().asTypeName(),
-                                        field.name()
-                                ).build()).toList())
+                                .map(field -> {
+                                    var paramBuilder = ParameterSpec.builder(
+                                            field.type().asTypeName(),
+                                            field.name());
+                                    if (ControllerUtil.OPENAPI_INCLUDED) {
+                                        field.getAnnotation(Example.class).ifPresent(exampleManifest -> {
+                                            var schemaClass = ClassName.get("io.swagger.v3.oas.annotations.media", "Schema");
+                                            paramBuilder.addAnnotation(AnnotationSpec.builder(schemaClass)
+                                                    .addMember("example", "$S", exampleManifest.value().value())
+                                                    .build());
+                                        });
+                                    }
+                                    return paramBuilder.build();
+                                }).toList())
                         .build())
                 .addMethod(MethodSpec.methodBuilder("from")
                         .addModifiers(PUBLIC, STATIC)

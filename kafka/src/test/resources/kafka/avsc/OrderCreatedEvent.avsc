@@ -1,0 +1,9 @@
+{
+  "type": "record",
+  "name": "OrderCreatedEvent",
+  "namespace": "kafka.avsc",
+  "fields": [
+    {"name": "orderId", "type": "string"},
+    {"name": "customerId", "type": "string"}
+  ]
+}

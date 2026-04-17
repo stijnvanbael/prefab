@@ -17,6 +17,7 @@ import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
@@ -36,6 +37,7 @@ public class PrefabProcessor extends AbstractProcessor {
     // AbstractProcessor is instantiated once per compilation, so instance state persists across rounds.
     private final Set<TypeElement> deferredAggregates = new LinkedHashSet<>();
     private final Set<TypeElement> deferredPolymorphicAggregates = new LinkedHashSet<>();
+    private final Set<ExecutableElement> deferredEventHandlers = new LinkedHashSet<>();
 
     /** Constructs a new PrefabProcessor. */
     public PrefabProcessor() {
@@ -88,7 +90,7 @@ public class PrefabProcessor extends AbstractProcessor {
                         .anyMatch(ClassManifest::hasUnresolvedFields))
                 .forEach(deferredPolymorphicAggregates::add);
 
-        var context = new PrefabContext(processingEnv, plugins, environment);
+        var context = new PrefabContext(processingEnv, plugins, environment, deferredEventHandlers);
         plugins.forEach(plugin -> plugin.initContext(context));
         aggregates.forEach(manifest -> {
             new HttpWriter(context).writeHttpLayer(manifest);
@@ -103,6 +105,8 @@ public class PrefabProcessor extends AbstractProcessor {
             new ApplicationWriter(context).writePolymorphicApplicationLayer(manifest);
         });
         plugins.forEach(plugin -> plugin.writeAdditionalFiles(aggregates, polymorphicAggregates));
+        deferredEventHandlers.clear();
+        deferredEventHandlers.addAll(context.newlyDeferredEventHandlers());
         return true;
     }
 

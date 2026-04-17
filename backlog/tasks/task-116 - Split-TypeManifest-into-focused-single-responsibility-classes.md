@@ -1,12 +1,14 @@
 ---
 id: TASK-116
-title: Split TypeManifest into focused, single-responsibility classes
-status: To Do
+title: 'Split TypeManifest into focused, single-responsibility classes'
+status: Done
 assignee: []
 created_date: '2026-04-10 05:00'
+updated_date: '2026-04-17 07:03'
 labels:
   - "\U0001F527refactor"
 dependencies: []
+ordinal: 19000
 ---
 
 ## Description
@@ -34,7 +36,6 @@ The refactoring should extract cohesive subsets into separate, focused classes o
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
-
 <!-- AC:BEGIN -->
 - [ ] #1 TypeManifest is refactored so that no single class exceeds a reasonable size (suggested guideline: 250 lines)
 - [ ] #2 The public API of TypeManifest (all existing public methods) remains unchanged so that no call sites outside TypeManifest need to be updated

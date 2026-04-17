@@ -1,12 +1,14 @@
 ---
 id: TASK-111
 title: Unify plugin writer initialization pattern
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-04-10 05:00'
+updated_date: '2026-04-17 07:03'
 labels:
   - "\U0001F527refactor"
 dependencies: []
+ordinal: 20000
 ---
 
 ## Description
@@ -34,7 +36,6 @@ The preferred approach is to **pass `PrefabContext` through the plugin construct
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
-
 <!-- AC:BEGIN -->
 - [ ] #1 All REST operation plugins (CreatePlugin, UpdatePlugin, DeletePlugin, GetByIdPlugin, GetListPlugin, BinaryPlugin) follow the same pattern for initialising their writer objects
 - [ ] #2 Writer classes that require PrefabContext accept it at construction time rather than having it stored as a mutable field set after construction

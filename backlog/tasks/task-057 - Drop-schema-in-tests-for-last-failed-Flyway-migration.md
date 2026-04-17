@@ -1,14 +1,14 @@
 ---
 id: TASK-057
 title: Drop schema in tests for last failed Flyway migration
-status: In Progress
+status: Done
 assignee: []
 created_date: '2025-12-26 13:14'
-updated_date: '2026-03-26 18:00'
+updated_date: '2026-04-17 06:54'
 labels:
   - "\U0001F4E6feature"
 dependencies: []
-ordinal: 2000
+ordinal: 11000
 ---
 
 ## Description

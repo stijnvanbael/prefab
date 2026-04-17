@@ -32,8 +32,8 @@ public class UserExporterPubSubSubscriber {
         log.debug("Received event {}", event);
         switch (event) {
             case UserEvent.Created e -> userExporter.onUserCreated(e);
-            case UserEvent.Updated e -> userExporter.onUserUpdated(e);
             case UserEvent.Deleted e -> userExporter.onUserDeleted(e);
+            case UserEvent.Updated e -> userExporter.onUserUpdated(e);
             default -> {
             }
         }

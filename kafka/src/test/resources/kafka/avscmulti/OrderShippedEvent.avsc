@@ -1,0 +1,9 @@
+{
+  "type": "record",
+  "name": "OrderShippedEvent",
+  "namespace": "kafka.avscmulti",
+  "fields": [
+    {"name": "orderId", "type": "string"},
+    {"name": "trackingCode", "type": "string"}
+  ]
+}

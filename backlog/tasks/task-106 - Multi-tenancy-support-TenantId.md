@@ -1,12 +1,14 @@
 ---
 id: TASK-106
 title: Multi-tenancy support (@TenantId)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-04-09 15:28'
+updated_date: '2026-04-17 07:04'
 labels:
   - "\U0001F4E6feature"
 dependencies: []
+ordinal: 21000
 ---
 
 ## Description

@@ -1,7 +1,6 @@
 package be.appify.prefab.processor.kafka;
 
 import be.appify.prefab.processor.PrefabProcessor;
-import java.io.IOException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -10,9 +9,9 @@ import static be.appify.prefab.processor.kafka.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
 
-public class KafkaConsumerConfigWriterTest {
+class KafkaConsumerConfigWriterTest {
     @Test
-    void customConcurrency() throws IOException {
+    void customConcurrency() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -25,7 +24,7 @@ public class KafkaConsumerConfigWriterTest {
     }
 
     @Test
-    void customDeadLetterTopic() throws IOException {
+    void customDeadLetterTopic() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -39,7 +38,7 @@ public class KafkaConsumerConfigWriterTest {
     }
 
     @Test
-    void deadLetterTopicDisabled() throws IOException {
+    void deadLetterTopicDisabled() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(

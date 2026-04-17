@@ -32,8 +32,7 @@ public class EventSchemaDocumentationPlugin implements PrefabPlugin {
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
-        var events = context.roundEnvironment().getElementsAnnotatedWith(Event.class)
-                .stream()
+        var events = context.eventElements()
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .toList();
         if (!events.isEmpty()) {

@@ -1,0 +1,9 @@
+{
+  "type": "record",
+  "name": "OrderShippedEvent",
+  "namespace": "kafka.avscaggregate",
+  "fields": [
+    {"name": "orderId", "type": "string"},
+    {"name": "trackingCode", "type": "string"}
+  ]
+}

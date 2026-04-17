@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.event.asyncapi;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.annotations.Example;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
@@ -23,6 +24,8 @@ import javax.tools.StandardLocation;
  * {@code META-INF/async-api/asyncapi.json}.
  */
 class EventSchemaDocumentationWriter {
+    private static final String COMPONENT_INDENT = "      ";
+
     private final PrefabContext context;
 
     EventSchemaDocumentationWriter(PrefabContext context) {
@@ -38,22 +41,18 @@ class EventSchemaDocumentationWriter {
      *         event types that are consumed (i.e., have an {@code @EventHandler} method)
      */
     void writeDocumentation(List<TypeManifest> events, Set<TypeManifest> consumedEventTypes) {
-        // Group events by topic
-        Map<String, List<EventInfo>> eventsByTopic = groupByTopic(events, consumedEventTypes);
+        var eventsByTopic = groupByTopic(events, consumedEventTypes);
 
-        // Collect all schemas (events + nested types)
         Map<String, String> schemas = new LinkedHashMap<>();
         Map<String, String> messages = new LinkedHashMap<>();
-        for (var entry : eventsByTopic.entrySet()) {
-            for (var info : entry.getValue()) {
-                collectSchemas(info.type(), schemas);
-                messages.put(info.type().simpleName(),
-                        buildMessageSchema(info.type()));
-            }
-        }
+        eventsByTopic.values().stream()
+                .flatMap(List::stream)
+                .forEach(info -> {
+                    collectSchemas(info.type(), schemas);
+                    messages.put(info.type().simpleName(), buildMessageSchema(info.type()));
+                });
 
-        String json = buildAsyncApiJson(eventsByTopic, messages, schemas);
-        writeResource(json);
+        writeResource(buildAsyncApiJson(eventsByTopic, messages, schemas));
     }
 
     private Map<String, List<EventInfo>> groupByTopic(List<TypeManifest> events, Set<TypeManifest> consumed) {
@@ -79,76 +78,63 @@ class EventSchemaDocumentationWriter {
         sb.append("    \"title\": \"Application Events\",\n");
         sb.append("    \"version\": \"1.0.0\"\n");
         sb.append("  },\n");
+        sb.append("  \"channels\": {\n").append(buildChannelsJson(eventsByTopic)).append("  },\n");
+        sb.append("  \"components\": {\n").append(buildComponentsJson(messages, schemas)).append("  }\n");
+        sb.append("}\n");
+        return sb.toString();
+    }
 
-        // Channels
-        sb.append("  \"channels\": {\n");
+    private String buildChannelsJson(Map<String, List<EventInfo>> eventsByTopic) {
+        var sb = new StringBuilder();
         var topics = new ArrayList<>(eventsByTopic.entrySet());
         for (int i = 0; i < topics.size(); i++) {
             var entry = topics.get(i);
             sb.append("    ").append(jsonString(entry.getKey())).append(": {\n");
-
-            var publishedEvents = entry.getValue().stream().filter(e -> !e.consumed()).toList();
-            var consumedEvents = entry.getValue().stream().filter(EventInfo::consumed).toList();
-
-            boolean hasPublish = !publishedEvents.isEmpty();
-            boolean hasSubscribe = !consumedEvents.isEmpty();
-
-            if (hasPublish) {
-                sb.append("      \"publish\": {\n");
-                sb.append("        \"message\": ").append(buildMessageRef(publishedEvents)).append("\n");
-                sb.append("      }");
-                if (hasSubscribe) {
-                    sb.append(",");
-                }
-                sb.append("\n");
-            }
-            if (hasSubscribe) {
-                sb.append("      \"subscribe\": {\n");
-                sb.append("        \"message\": ").append(buildMessageRef(consumedEvents)).append("\n");
-                sb.append("      }\n");
-            }
-
+            sb.append(buildChannelOperations(entry.getValue()));
             sb.append("    }");
-            if (i < topics.size() - 1) {
-                sb.append(",");
-            }
+            if (i < topics.size() - 1) sb.append(",");
             sb.append("\n");
         }
-        sb.append("  },\n");
+        return sb.toString();
+    }
 
-        // Components
-        sb.append("  \"components\": {\n");
+    private String buildChannelOperations(List<EventInfo> events) {
+        var publishedEvents = events.stream().filter(e -> !e.consumed()).toList();
+        var consumedEvents = events.stream().filter(EventInfo::consumed).toList();
 
-        // Messages
-        sb.append("    \"messages\": {\n");
-        var messageEntries = new ArrayList<>(messages.entrySet());
-        for (int i = 0; i < messageEntries.size(); i++) {
-            var entry = messageEntries.get(i);
-            sb.append("      ").append(jsonString(entry.getKey())).append(": ");
+        var sb = new StringBuilder();
+        if (!publishedEvents.isEmpty()) {
+            sb.append("      \"publish\": {\n");
+            sb.append("        \"message\": ").append(buildMessageRef(publishedEvents)).append("\n");
+            sb.append("      }");
+            if (!consumedEvents.isEmpty()) sb.append(",");
+            sb.append("\n");
+        }
+        if (!consumedEvents.isEmpty()) {
+            sb.append("      \"subscribe\": {\n");
+            sb.append("        \"message\": ").append(buildMessageRef(consumedEvents)).append("\n");
+            sb.append("      }\n");
+        }
+        return sb.toString();
+    }
+
+    private String buildComponentsJson(Map<String, String> messages, Map<String, String> schemas) {
+        var sb = new StringBuilder();
+        sb.append("    \"messages\": {\n").append(buildNamedEntries(messages)).append("    },\n");
+        sb.append("    \"schemas\": {\n").append(buildNamedEntries(schemas)).append("    }\n");
+        return sb.toString();
+    }
+
+    private String buildNamedEntries(Map<String, String> entries) {
+        var sb = new StringBuilder();
+        var list = new ArrayList<>(entries.entrySet());
+        for (int i = 0; i < list.size(); i++) {
+            var entry = list.get(i);
+            sb.append(COMPONENT_INDENT).append(jsonString(entry.getKey())).append(": ");
             sb.append(entry.getValue());
-            if (i < messageEntries.size() - 1) {
-                sb.append(",");
-            }
+            if (i < list.size() - 1) sb.append(",");
             sb.append("\n");
         }
-        sb.append("    },\n");
-
-        // Schemas
-        sb.append("    \"schemas\": {\n");
-        var schemaEntries = new ArrayList<>(schemas.entrySet());
-        for (int i = 0; i < schemaEntries.size(); i++) {
-            var entry = schemaEntries.get(i);
-            sb.append("      ").append(jsonString(entry.getKey())).append(": ");
-            sb.append(entry.getValue());
-            if (i < schemaEntries.size() - 1) {
-                sb.append(",");
-            }
-            sb.append("\n");
-        }
-        sb.append("    }\n");
-
-        sb.append("  }\n");
-        sb.append("}\n");
         return sb.toString();
     }
 
@@ -178,7 +164,7 @@ class EventSchemaDocumentationWriter {
             return;
         }
         // Build schema for this type
-        schemas.put(type.simpleName(), buildTypeSchema(type, "      ", schemas));
+        schemas.put(type.simpleName(), buildTypeSchema(type, COMPONENT_INDENT, schemas));
     }
 
     private String buildTypeSchema(TypeManifest type, String indent, Map<String, String> schemas) {
@@ -214,42 +200,40 @@ class EventSchemaDocumentationWriter {
     }
 
     private String buildEnumSchema(TypeManifest type, String indent) {
-        var values = type.enumValues();
-        var sb = new StringBuilder();
-        sb.append("{\n");
-        sb.append(indent).append("  \"type\": \"string\",\n");
-        sb.append(indent).append("  \"enum\": [");
-        for (int i = 0; i < values.size(); i++) {
-            sb.append(jsonString(values.get(i)));
-            if (i < values.size() - 1) {
-                sb.append(", ");
-            }
-        }
-        sb.append("]\n");
-        sb.append(indent).append("}");
-        return sb.toString();
+        var enumValues = type.enumValues().stream()
+                .map(EventSchemaDocumentationWriter::jsonString)
+                .collect(java.util.stream.Collectors.joining(", "));
+        return "{\n" + indent + "  \"type\": \"string\",\n"
+                + indent + "  \"enum\": [" + enumValues + "]\n"
+                + indent + "}";
     }
 
     private String buildObjectSchema(TypeManifest type, String indent, Map<String, String> schemas) {
-        List<VariableManifest> fields = getFields(type);
+        if (type.asElement() == null) {
+            return "{}";
+        }
+        List<VariableManifest> fields = type.fields();
         var sb = new StringBuilder();
         sb.append("{\n");
         sb.append(indent).append("  \"type\": \"object\",\n");
 
-        // Properties
         sb.append(indent).append("  \"properties\": {\n");
         for (int i = 0; i < fields.size(); i++) {
             var field = fields.get(i);
             sb.append(indent).append("    ").append(jsonString(field.name())).append(": ");
-            sb.append(buildFieldSchema(field, indent + "    ", schemas));
-            if (i < fields.size() - 1) {
-                sb.append(",");
+            var fieldSchema = buildFieldSchema(field, indent + "    ", schemas);
+            var exampleValue = field.getAnnotation(Example.class)
+                    .map(m -> m.value().value())
+                    .orElse(null);
+            if (exampleValue != null && fieldSchema.startsWith("{") && !fieldSchema.startsWith("{\"$ref\"") && !field.type().is(List.class)) {
+                fieldSchema = fieldSchema.replaceFirst("\\{\\n", "{\n" + indent + "      \"example\": " + jsonString(exampleValue) + ",\n");
             }
+            sb.append(fieldSchema);
+            if (i < fields.size() - 1) sb.append(",");
             sb.append("\n");
         }
         sb.append(indent).append("  }");
 
-        // Required fields (non-nullable)
         var required = fields.stream()
                 .filter(f -> !f.hasAnnotation(Nullable.class))
                 .toList();
@@ -269,12 +253,6 @@ class EventSchemaDocumentationWriter {
         return sb.toString();
     }
 
-    private List<VariableManifest> getFields(TypeManifest type) {
-        if (type.asElement() == null) {
-            return List.of();
-        }
-        return type.fields();
-    }
 
     private String buildFieldSchema(VariableManifest field, String indent, Map<String, String> schemas) {
         var type = field.type();
@@ -286,12 +264,9 @@ class EventSchemaDocumentationWriter {
 
     private String buildArraySchema(TypeManifest listType, String indent, Map<String, String> schemas) {
         var itemType = listType.parameters().getFirst();
-        var sb = new StringBuilder();
-        sb.append("{\n");
-        sb.append(indent).append("  \"type\": \"array\",\n");
-        sb.append(indent).append("  \"items\": ").append(buildInlineOrRefSchema(itemType, indent + "  ", schemas)).append("\n");
-        sb.append(indent).append("}");
-        return sb.toString();
+        return "{\n" + indent + "  \"type\": \"array\",\n"
+                + indent + "  \"items\": " + buildInlineOrRefSchema(itemType, indent + "  ", schemas) + "\n"
+                + indent + "}";
     }
 
     private String buildInlineOrRefSchema(TypeManifest type, String indent, Map<String, String> schemas) {
@@ -301,25 +276,19 @@ class EventSchemaDocumentationWriter {
         if (type.isEnum()) {
             return buildEnumSchema(type, indent);
         }
-        // Complex type - use $ref
         collectSchemas(type, schemas);
         return "{\"$ref\": \"#/components/schemas/" + type.simpleName() + "\"}";
     }
 
     private String buildScalarSchema(TypeManifest type, String indent) {
         if (isSingleValueType(type)) {
-            // Delegate to the single field type
             return buildScalarSchema(type.fields().getFirst().type(), indent);
         }
         if (isTemporalType(type)) {
             return buildTemporalSchema(type, indent);
         }
-        var sb = new StringBuilder();
-        sb.append("{\n");
         var jsonType = toJsonType(type);
-        sb.append(indent).append("  \"type\": ").append(jsonString(jsonType)).append("\n");
-        sb.append(indent).append("}");
-        return sb.toString();
+        return "{\n" + indent + "  \"type\": " + jsonString(jsonType) + "\n" + indent + "}";
     }
 
     private String buildTemporalSchema(TypeManifest type, String indent) {
@@ -374,7 +343,7 @@ class EventSchemaDocumentationWriter {
         } catch (FilerException e) {
             // File already written in a previous processing round; skip.
         } catch (IOException e) {
-            throw new RuntimeException("Failed to write asyncapi.json", e);
+            throw new java.io.UncheckedIOException("Failed to write asyncapi.json", e);
         }
     }
 

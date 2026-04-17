@@ -1,6 +1,8 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.core.annotations.Example;
 import com.palantir.javapoet.AnnotationSpec;
+import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.ParameterSpec;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
@@ -8,6 +10,8 @@ import jakarta.validation.constraints.Size;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+
+import static be.appify.prefab.processor.rest.ControllerUtil.OPENAPI_INCLUDED;
 
 /**
  * Builder class for creating request parameters using plugins and default rules.
@@ -25,10 +29,10 @@ public class RequestParameterBuilder {
     }
 
     /**
-     * Builds a query parameter for the given variable manifest.
+     * Builds a body parameter for the given variable manifest.
      *
      * @param parameter the variable manifest
-     * @return an optional ParameterSpec representing the query parameter
+     * @return an optional ParameterSpec representing the body parameter
      */
     public Optional<ParameterSpec> buildBodyParameter(VariableManifest parameter) {
         return plugins.stream().flatMap(plugin -> plugin.requestBodyParameter(parameter).stream())
@@ -59,6 +63,14 @@ public class RequestParameterBuilder {
         } else if (effectiveType.is(String.class) && parameter.annotations().stream()
                 .noneMatch(a -> a.type().is(Size.class))) {
             annotations.add(AnnotationSpec.builder(Size.class).addMember("max", "255").build());
+        }
+        if (OPENAPI_INCLUDED) {
+            parameter.getAnnotation(Example.class).ifPresent(exampleManifest -> {
+                var schemaClass = ClassName.get("io.swagger.v3.oas.annotations.media", "Schema");
+                annotations.add(AnnotationSpec.builder(schemaClass)
+                        .addMember("example", "$S", exampleManifest.value().value())
+                        .build());
+            });
         }
         return Optional.of(builder.addAnnotations(annotations).build());
     }

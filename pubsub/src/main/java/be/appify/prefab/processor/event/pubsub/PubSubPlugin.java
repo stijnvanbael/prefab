@@ -8,6 +8,7 @@ import be.appify.prefab.processor.TypeManifest;
 import java.util.List;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.VariableElement;
 
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.derivedPlatform;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.filteredEventHandlersByOwner;
@@ -50,11 +51,17 @@ public class PubSubPlugin implements PrefabPlugin {
 
     private boolean isPubSubEvent(ExecutableElement method) {
         return method.getParameters().stream()
-                .anyMatch(parameter ->
-                        TypeManifest.of(parameter.asType(), context.processingEnvironment())
-                                .inheritedAnnotationsOfType(Event.class)
-                                .stream()
-                                .anyMatch(event -> platformIsPubSub(event, method, context)));
+                .anyMatch(parameter -> isPubSubEventParameter(parameter, method));
+    }
+
+    private boolean isPubSubEventParameter(VariableElement parameter, ExecutableElement method) {
+        if (TypeManifest.containsUnresolvedType(parameter.asType())) {
+            return true;
+        }
+        return TypeManifest.of(parameter.asType(), context.processingEnvironment())
+                .inheritedAnnotationsOfType(Event.class)
+                .stream()
+                .anyMatch(event -> platformIsPubSub(event, method, context));
     }
 
     private void writePublishers() {

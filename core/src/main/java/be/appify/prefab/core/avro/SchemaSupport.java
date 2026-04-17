@@ -45,4 +45,41 @@ public class SchemaSupport {
     public static Schema createNullableSchema(Schema schema) {
         return Schema.createUnion(Schema.create(Schema.Type.NULL), schema);
     }
+
+    /**
+     * Resolves the array schema from a potentially nullable union schema.
+     * When a list field is declared as nullable, Avro wraps the array schema in a union with null.
+     * {@link org.apache.avro.generic.GenericData.Array} requires a plain array schema, not a union.
+     *
+     * @param schema
+     *         the field schema, either a plain array schema or a nullable union containing one
+     * @return the array schema
+     */
+    public static Schema arraySchemaOf(Schema schema) {
+        return unwrapUnion(schema, Schema.Type.ARRAY);
+    }
+
+    /**
+     * Resolves the enum schema from a potentially nullable union schema.
+     * When an enum field is declared as nullable, Avro wraps the enum schema in a union with null.
+     * {@link org.apache.avro.generic.GenericData.EnumSymbol} requires a plain enum schema, not a union.
+     *
+     * @param schema
+     *         the field schema, either a plain enum schema or a nullable union containing one
+     * @return the enum schema
+     */
+    public static Schema enumSchemaOf(Schema schema) {
+        return unwrapUnion(schema, Schema.Type.ENUM);
+    }
+
+    private static Schema unwrapUnion(Schema schema, Schema.Type targetType) {
+        if (schema.getType() != Schema.Type.UNION) {
+            return schema;
+        }
+        return schema.getTypes().stream()
+                .filter(s -> s.getType() == targetType)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "No %s schema found in union: %s".formatted(targetType, schema)));
+    }
 }

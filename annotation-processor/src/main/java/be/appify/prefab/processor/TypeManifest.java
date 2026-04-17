@@ -1,6 +1,7 @@
 package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.CustomType;
+import be.appify.prefab.core.annotations.Doc;
 import com.palantir.javapoet.TypeName;
 import java.lang.annotation.Annotation;
 import java.util.List;
@@ -291,6 +292,15 @@ public class TypeManifest {
      */
     public <T extends Annotation> Set<T> annotationsOfType(Class<T> annotationType) {
         return annotations.annotationsOfType(annotationType);
+    }
+
+    /**
+     * Returns the human-readable description from a type-level {@code @Doc} annotation, if present.
+     *
+     * @return an Optional containing the description, or empty if no {@code @Doc} is present
+     */
+    public Optional<String> doc() {
+        return annotationsOfType(Doc.class).stream().findFirst().map(Doc::value);
     }
 
     /**

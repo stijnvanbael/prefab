@@ -85,4 +85,44 @@ class EventSchemaDocumentationWriterTest {
                 .contentsAsUtf8String()
                 .doesNotContain("\"publish\"");
     }
+
+    @Test
+    void avscEvent() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedFile(
+                        javax.tools.StandardLocation.CLASS_OUTPUT,
+                        "META-INF/async-api/asyncapi.json"
+                )
+                .contentsAsUtf8String()
+                .contains("\"SimpleAvscEvent\"");
+        assertThat(compilation).generatedFile(
+                        javax.tools.StandardLocation.CLASS_OUTPUT,
+                        "META-INF/async-api/asyncapi.json"
+                )
+                .contentsAsUtf8String()
+                .contains("\"name\"");
+        assertThat(compilation).generatedFile(
+                        javax.tools.StandardLocation.CLASS_OUTPUT,
+                        "META-INF/async-api/asyncapi.json"
+                )
+                .contentsAsUtf8String()
+                .contains("\"age\"");
+    }
+
+    @Test
+    void docField() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/asyncapi/docfield/source/OrderDocumented.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedFile(
+                        javax.tools.StandardLocation.CLASS_OUTPUT,
+                        "META-INF/async-api/asyncapi.json"
+                )
+                .contentsAsUtf8String()
+                .contains("\"description\": \"Unique identifier of the order\"");
+    }
 }

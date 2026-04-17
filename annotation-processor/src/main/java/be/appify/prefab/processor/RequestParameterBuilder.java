@@ -1,5 +1,6 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.core.annotations.Doc;
 import be.appify.prefab.core.annotations.Example;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
@@ -65,12 +66,15 @@ public class RequestParameterBuilder {
             annotations.add(AnnotationSpec.builder(Size.class).addMember("max", "255").build());
         }
         if (OPENAPI_INCLUDED) {
-            parameter.getAnnotation(Example.class).ifPresent(exampleManifest -> {
+            var exampleAnnotation = parameter.getAnnotation(Example.class);
+            var docAnnotation = parameter.getAnnotation(Doc.class);
+            if (exampleAnnotation.isPresent() || docAnnotation.isPresent()) {
                 var schemaClass = ClassName.get("io.swagger.v3.oas.annotations.media", "Schema");
-                annotations.add(AnnotationSpec.builder(schemaClass)
-                        .addMember("example", "$S", exampleManifest.value().value())
-                        .build());
-            });
+                var schemaBuilder = AnnotationSpec.builder(schemaClass);
+                exampleAnnotation.ifPresent(e -> schemaBuilder.addMember("example", "$S", e.value().value()));
+                docAnnotation.ifPresent(d -> schemaBuilder.addMember("description", "$S", d.value().value()));
+                annotations.add(schemaBuilder.build());
+            }
         }
         return Optional.of(builder.addAnnotations(annotations).build());
     }

@@ -72,6 +72,34 @@ public class SchemaSupport {
         return unwrapUnion(schema, Schema.Type.ENUM);
     }
 
+    /**
+     * Adds a {@code "sample"} property to the given Avro field and returns it.
+     *
+     * @param field
+     *         the Avro field to annotate
+     * @param sample
+     *         the sample value to attach
+     * @return the same field instance with the {@code "sample"} property set
+     */
+    public static Schema.Field withSample(Schema.Field field, String sample) {
+        field.addProp("sample", sample);
+        return field;
+    }
+
+    /**
+     * Sets the {@code doc} property on the given Avro field and returns it.
+     *
+     * @param field
+     *         the Avro field to document
+     * @param doc
+     *         the human-readable description to attach
+     * @return the same field instance with the {@code doc} property set
+     */
+    public static Schema.Field withDoc(Schema.Field field, String doc) {
+        field.addProp("doc", doc);
+        return field;
+    }
+
     private static Schema unwrapUnion(Schema schema, Schema.Type targetType) {
         if (schema.getType() != Schema.Type.UNION) {
             return schema;

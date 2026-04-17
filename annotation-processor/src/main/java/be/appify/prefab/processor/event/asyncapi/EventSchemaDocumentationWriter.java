@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.event.asyncapi;
 
+import be.appify.prefab.core.annotations.Doc;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.Example;
 import be.appify.prefab.processor.PrefabContext;
@@ -203,9 +204,13 @@ class EventSchemaDocumentationWriter {
         var enumValues = type.enumValues().stream()
                 .map(EventSchemaDocumentationWriter::jsonString)
                 .collect(java.util.stream.Collectors.joining(", "));
-        return "{\n" + indent + "  \"type\": \"string\",\n"
-                + indent + "  \"enum\": [" + enumValues + "]\n"
-                + indent + "}";
+        var sb = new StringBuilder();
+        sb.append("{\n");
+        type.doc().ifPresent(d -> sb.append(indent).append("  \"description\": ").append(jsonString(d)).append(",\n"));
+        sb.append(indent).append("  \"type\": \"string\",\n");
+        sb.append(indent).append("  \"enum\": [").append(enumValues).append("]\n");
+        sb.append(indent).append("}");
+        return sb.toString();
     }
 
     private String buildObjectSchema(TypeManifest type, String indent, Map<String, String> schemas) {
@@ -215,6 +220,7 @@ class EventSchemaDocumentationWriter {
         List<VariableManifest> fields = type.fields();
         var sb = new StringBuilder();
         sb.append("{\n");
+        type.doc().ifPresent(d -> sb.append(indent).append("  \"description\": ").append(jsonString(d)).append(",\n"));
         sb.append(indent).append("  \"type\": \"object\",\n");
 
         sb.append(indent).append("  \"properties\": {\n");
@@ -225,8 +231,16 @@ class EventSchemaDocumentationWriter {
             var exampleValue = field.getAnnotation(Example.class)
                     .map(m -> m.value().value())
                     .orElse(null);
-            if (exampleValue != null && fieldSchema.startsWith("{") && !fieldSchema.startsWith("{\"$ref\"") && !field.type().is(List.class)) {
-                fieldSchema = fieldSchema.replaceFirst("\\{\\n", "{\n" + indent + "      \"example\": " + jsonString(exampleValue) + ",\n");
+            var descriptionValue = field.getAnnotation(Doc.class)
+                    .map(m -> m.value().value())
+                    .orElse(null);
+            if (fieldSchema.startsWith("{") && !fieldSchema.startsWith("{\"$ref\"") && !field.type().is(List.class)) {
+                if (descriptionValue != null) {
+                    fieldSchema = fieldSchema.replaceFirst("\\{\\n", "{\n" + indent + "      \"description\": " + jsonString(descriptionValue) + ",\n");
+                }
+                if (exampleValue != null) {
+                    fieldSchema = fieldSchema.replaceFirst("\\{\\n", "{\n" + indent + "      \"example\": " + jsonString(exampleValue) + ",\n");
+                }
             }
             sb.append(fieldSchema);
             if (i < fields.size() - 1) sb.append(",");
@@ -282,7 +296,10 @@ class EventSchemaDocumentationWriter {
 
     private String buildScalarSchema(TypeManifest type, String indent) {
         if (isSingleValueType(type)) {
-            return buildScalarSchema(type.fields().getFirst().type(), indent);
+            var innerSchema = buildScalarSchema(type.fields().getFirst().type(), indent);
+            return type.doc()
+                    .map(d -> innerSchema.replaceFirst("\\{\\n", "{\n" + indent + "  \"description\": " + jsonString(d) + ",\n"))
+                    .orElse(innerSchema);
         }
         if (isTemporalType(type)) {
             return buildTemporalSchema(type, indent);

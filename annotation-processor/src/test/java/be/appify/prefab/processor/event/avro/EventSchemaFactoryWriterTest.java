@@ -91,4 +91,26 @@ class EventSchemaFactoryWriterTest {
                 .contentsAsUtf8String()
                 .isEqualTo(contentsOf("event/avro/hierarchy/expected/HierarchyEventSchemaFactory.java"));
     }
+
+    @Test
+    void exampleField() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avro/examplefield/source/ExampleFieldEvent.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.ExampleFieldEventSchemaFactory")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("event/avro/examplefield/expected/ExampleFieldEventSchemaFactory.java"));
+    }
+
+    @Test
+    void docField() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avro/docfield/source/DocFieldEvent.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.DocFieldEventSchemaFactory")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("event/avro/docfield/expected/DocFieldEventSchemaFactory.java"));
+    }
 }

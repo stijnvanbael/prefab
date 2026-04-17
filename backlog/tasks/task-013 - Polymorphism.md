@@ -1,13 +1,13 @@
 ---
-id: task-013
+id: TASK-013
 title: Polymorphism
-status: In Progress
+status: Done
 assignee: []
 created_date: '2025-10-10 13:34'
-updated_date: '2026-04-02 10:56'
+updated_date: '2026-04-17 06:54'
 labels: []
 dependencies: []
-ordinal: 8000
+ordinal: 12000
 ---
 
 ## Description
@@ -40,7 +40,6 @@ public class AssessmentReadingConverter implements Converter<ResultSet, Assessme
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
-
 <!-- AC:BEGIN -->
 - [ ] #1 A sealed interface annotated with `@Aggregate` and its permitted record subtypes are accepted by the annotation processor without error
 - [ ] #2 A `@DbMigration`-annotated polymorphic aggregate generates a single SQL table with a `type VARCHAR(255) NOT NULL` discriminator column; fields common to all subtypes are `NOT NULL`, subtype-specific fields are nullable

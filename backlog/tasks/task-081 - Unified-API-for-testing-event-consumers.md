@@ -1,14 +1,14 @@
 ---
 id: TASK-081
 title: Unified API for testing event consumers
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-01-10 20:15'
-updated_date: '2026-03-26 11:06'
+updated_date: '2026-04-17 06:54'
 labels:
   - "\U0001F4E6feature"
 dependencies: []
-ordinal: 1000
+ordinal: 10000
 ---
 
 ## Description

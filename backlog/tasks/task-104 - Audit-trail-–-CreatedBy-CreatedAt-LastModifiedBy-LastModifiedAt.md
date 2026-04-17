@@ -1,12 +1,14 @@
 ---
 id: TASK-104
 title: 'Audit trail – @CreatedBy, @CreatedAt, @LastModifiedBy, @LastModifiedAt'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-04-09 15:27'
+updated_date: '2026-04-17 06:56'
 labels:
   - "\U0001F4E6feature"
 dependencies: []
+ordinal: 15000
 ---
 
 ## Description

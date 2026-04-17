@@ -1,14 +1,14 @@
 ---
-id: task-100
+id: TASK-100
 title: Add MongoDB support and extract Postgres into separate library
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-31 05:23'
-updated_date: '2026-03-31 05:23'
+updated_date: '2026-04-17 06:55'
 labels:
   - "\U0001F4E6feature"
 dependencies: []
-ordinal: 100000
+ordinal: 13000
 ---
 
 ## Description
@@ -20,7 +20,6 @@ The guiding principle is Prefab's philosophy of **start high, dive deep when you
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
-
 <!-- AC:BEGIN -->
 - [ ] #1 Create a new `prefab-postgres` Maven module that contains all PostgreSQL/JDBC-specific code currently in `prefab-core` (Spring Data JDBC configuration, `PrefabJdbcDialect`, `PrefabMappingJdbcConverter`, `PrefabNamingStrategy`, `PrefabJdbcAggregateTemplate`, `PrefabDataAccessStrategy`, Flyway auto-configuration, etc.)
 - [ ] #2 Move the `org.postgresql:postgresql`, `spring-boot-starter-data-jdbc`, `spring-boot-starter-flyway`, and `flyway-database-postgresql` dependencies from `prefab-core/pom.xml` to `prefab-postgres/pom.xml`

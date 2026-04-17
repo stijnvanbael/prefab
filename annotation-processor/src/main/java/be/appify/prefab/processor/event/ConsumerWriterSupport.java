@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.event;
 
 import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.core.annotations.PartitioningKey;
@@ -11,6 +12,7 @@ import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeSpec;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,6 +22,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
 import org.springframework.stereotype.Component;
 
 import static javax.lang.model.element.Modifier.FINAL;
@@ -125,7 +130,10 @@ public class ConsumerWriterSupport {
             MethodSpec.Builder method
     ) {
         method.addCode("switch (event) {\n");
-        for (ExecutableElement eventHandler : eventHandlers) {
+        var sortedHandlers = eventHandlers.stream()
+                .sorted(Comparator.comparing(h -> h.getParameters().getFirst().asType().toString()))
+                .toList();
+        for (ExecutableElement eventHandler : sortedHandlers) {
             var parameter = eventHandler.getParameters().getFirst();
             var type = TypeManifest.of(parameter.asType(), context.processingEnvironment());
             method.addCode("    case $T e -> ", type.asTypeName());
@@ -260,14 +268,74 @@ public class ConsumerWriterSupport {
     }
 
     /**
-     * Generates a code block to access the partitioning key field of the given event type.
+     * Returns the concrete generated record type for an {@code @Avsc}-annotated contract interface,
+     * or the original event type if it is not an {@code @Avsc} interface.
+     * <p>
+     * The concrete record is the first RECORD element in {@code context.eventElements()} whose
+     * interface list contains the contract interface — the same lookup used in
+     * {@code EventSchemaFactoryWriter}.
      *
-     * @param event
-     *         event type manifest
+     * @param eventType
+     *         event type manifest (may be an {@code @Avsc} contract interface)
      * @param context
      *         prefab context
-     * @return code block for accessing the partitioning key field
+     * @return concrete record type manifest, or {@code eventType} if no concrete record is found
      */
+    public TypeManifest concreteEventType(TypeManifest eventType, PrefabContext context) {
+        return concreteEventTypes(eventType, context).getFirst();
+    }
+
+    /**
+     * Returns all concrete generated record types for an {@code @Avsc}-annotated contract interface,
+     * or a single-element list containing the original event type if it is not an {@code @Avsc} interface.
+     * <p>
+     * Multiple records are generated when the {@code @Avsc} annotation lists more than one schema file.
+     * All generated records implement the contract interface.
+     *
+     * @param eventType
+     *         event type manifest (may be an {@code @Avsc} contract interface)
+     * @param context
+     *         prefab context
+     * @return list of concrete record type manifests, or a single-element list with {@code eventType} if none found
+     */
+    public List<TypeManifest> concreteEventTypes(TypeManifest eventType, PrefabContext context) {
+        if (eventType.asElement() == null || eventType.asElement().getAnnotation(Avsc.class) == null) {
+            return List.of(eventType);
+        }
+        var implementations = context.eventElements()
+                .filter(e -> e.getKind() == ElementKind.RECORD)
+                .filter(e -> e.getInterfaces().stream()
+                        .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
+                        .anyMatch(iface -> iface.equals(eventType.asElement())))
+                .map(e -> TypeManifest.of(e.asType(), context.processingEnvironment()))
+                .toList();
+        return implementations.isEmpty() ? List.of(eventType) : implementations;
+    }
+
+    /**
+     * Returns {@code true} when at least one handler's root event type is an {@code @Avsc}-annotated
+     * interface for which no concrete record implementation exists yet in the current round.
+     * <p>
+     * Use this as a round guard: skip consumer generation in round 1 so that the concrete record
+     * generated in that round is available when the consumer is written in round 2.
+     *
+     * @param eventHandlers
+     *         list of event handler methods
+     * @param context
+     *         prefab context
+     * @return {@code true} if any {@code @Avsc} event type still lacks a concrete implementation
+     */
+    public boolean hasAvscEventWithoutConcreteType(List<ExecutableElement> eventHandlers, PrefabContext context) {
+        return eventHandlers.stream().anyMatch(handler -> lacksConcreteType(handler, context));
+    }
+
+    private boolean lacksConcreteType(ExecutableElement handler, PrefabContext context) {
+        var rootType = rootEventType(handler, context);
+        return rootType.asElement() != null
+                && rootType.asElement().getAnnotation(Avsc.class) != null
+                && concreteEventTypes(rootType, context).getFirst() == rootType;
+    }
+
     public static Optional<CodeBlock> keyField(TypeManifest event, PrefabContext context) {
         return event.methodsWith(PartitioningKey.class).stream()
                 .findFirst()

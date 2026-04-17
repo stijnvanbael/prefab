@@ -16,31 +16,30 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
-class TestJavaFileWriter {
+public class TestJavaFileWriter {
     private final StandardJavaFileManager fileManager = getJavaFileManager();
     private final PrefabContext context;
     private final String packageSuffix;
     /** Optional: a specific TypeElement (always from a source file) to use when resolving the root path. */
     private TypeElement preferredElement;
 
-    TestJavaFileWriter(PrefabContext context, String packageSuffix) {
+    public TestJavaFileWriter(PrefabContext context, String packageSuffix) {
         this.context = context;
         this.packageSuffix = packageSuffix;
     }
 
-    void setPreferredElement(TypeElement element) {
+    public void setPreferredElement(TypeElement element) {
         this.preferredElement = element;
     }
 
-    void writeFile(String packagePrefix, String typeName, TypeSpec type) {
+    public void writeFile(String packagePrefix, String typeName, TypeSpec type) {
         var packageName = !isBlank(packageSuffix) ? "%s.%s".formatted(packagePrefix, packageSuffix) : packagePrefix;
-        var rootPath = getRootPath();
-        if (rootPath != null) {
+        getRootPath().ifPresent(rootPath -> {
             var testSourcePath = rootPath + "/target/prefab-test-sources/"
                     + packagePrefix.replace(".", "/")
                     + (packageSuffix != null ? "/" + packageSuffix.replace(".", "/") : "");
@@ -49,13 +48,12 @@ class TestJavaFileWriter {
                 if (!Files.exists(outputPath)) {
                     Files.createDirectories(outputPath);
                 }
-
                 var javaSourceFile = createJavaSourceFile(outputPath, typeName);
                 writeJavaTestClass(packageName, type, javaSourceFile);
             } catch (Exception e) {
                 System.err.println(e.getMessage());
             }
-        }
+        });
     }
 
     private static File createJavaSourceFile(Path path, String className) {
@@ -82,26 +80,22 @@ class TestJavaFileWriter {
                 .getStandardFileManager(null, Locale.getDefault(), Charset.defaultCharset());
     }
 
-    public String getRootPath() {
-        // Prefer the explicitly-set element (the aggregate being written — always from a source file).
-        // Falling back to getRootElements() fails in round 2+ because those elements are generated,
-        // not source files, so SOURCE_PATH lookup returns a path that does not contain /src/main/java.
+    public Optional<String> getRootPath() {
         var candidates = preferredElement != null
                 ? Stream.concat(Stream.of(preferredElement),
                         context.roundEnvironment().getRootElements().stream()
-                                .filter(e -> e instanceof TypeElement)
-                                .map(e -> (TypeElement) e))
+                                .filter(TypeElement.class::isInstance)
+                                .map(TypeElement.class::cast))
                 : context.roundEnvironment().getRootElements().stream()
-                        .filter(e -> e instanceof TypeElement)
-                        .map(e -> (TypeElement) e);
+                        .filter(TypeElement.class::isInstance)
+                        .map(TypeElement.class::cast);
         return candidates
                 .map(this::tryRootPath)
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
+                .flatMap(Optional::stream)
+                .findFirst();
     }
 
-    private String tryRootPath(TypeElement element) {
+    private Optional<String> tryRootPath(TypeElement element) {
         var qualifiedName = element.getQualifiedName().toString();
         var packageName = qualifiedName.contains(".")
                 ? qualifiedName.substring(0, qualifiedName.lastIndexOf('.'))
@@ -112,14 +106,14 @@ class TestJavaFileWriter {
                     .getResource(StandardLocation.SOURCE_PATH, packageName, fileName)
                     .toUri().getPath();
             if (sourcePath.contains("/src/main/java")) {
-                return sourcePath.substring(0, sourcePath.indexOf("/src/main/java"));
+                return Optional.of(sourcePath.substring(0, sourcePath.indexOf("/src/main/java")));
             } else if (sourcePath.contains("/src/test/java")) {
-                return sourcePath.substring(0, sourcePath.indexOf("/src/test/java"));
+                return Optional.of(sourcePath.substring(0, sourcePath.indexOf("/src/test/java")));
             } else {
-                return null;
+                return Optional.empty();
             }
         } catch (IOException e) {
-            return null;
+            return Optional.empty();
         }
     }
 

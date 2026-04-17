@@ -11,12 +11,20 @@ public class ProcessorTestUtil {
     private ProcessorTestUtil() {
     }
 
-    public static String contentsOf(String fileName) throws IOException {
-        return new ClassPathResource(fileName).getContentAsString(StandardCharsets.UTF_8);
+    public static String contentsOf(String fileName) {
+        try {
+            return new ClassPathResource(fileName).getContentAsString(StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public static JavaFileObject sourceOf(String name) throws IOException {
-        var resource = new ClassPathResource(name).getURL();
-        return JavaFileObjects.forResource(resource);
+    public static JavaFileObject sourceOf(String name) {
+        try {
+            var resource = new ClassPathResource(name).getURL();
+            return JavaFileObjects.forResource(resource);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

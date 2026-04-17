@@ -7,13 +7,14 @@ import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.TypeKind;
@@ -38,16 +39,26 @@ public class EventPlatformPluginSupport {
      * @return owner type manifest
      */
     public static TypeManifest ownerOf(PrefabContext context, ExecutableElement method) {
+        var enclosingType = TypeManifest.of(method.getEnclosingElement().asType(), context.processingEnvironment());
         return method.getParameters().stream()
-                .flatMap(parameter ->
-                        TypeManifest.of(parameter.asType(), context.processingEnvironment())
-                                .inheritedAnnotationsOfType(Event.class).stream()
-                                .findFirst()
-                                .map(event -> TypeManifest.of(method.getEnclosingElement().asType(),
-                                        context.processingEnvironment()))
-                                .stream())
+                .flatMap(parameter -> ownerFromParameter(parameter, enclosingType, context))
                 .findFirst()
                 .orElseThrow();
+    }
+
+    private static Stream<TypeManifest> ownerFromParameter(
+            VariableElement parameter,
+            TypeManifest enclosingType,
+            PrefabContext context
+    ) {
+        if (TypeManifest.containsUnresolvedType(parameter.asType())) {
+            return Stream.of(enclosingType);
+        }
+        return TypeManifest.of(parameter.asType(), context.processingEnvironment())
+                .inheritedAnnotationsOfType(Event.class).stream()
+                .findFirst()
+                .map(event -> enclosingType)
+                .stream();
     }
 
     /**
@@ -59,9 +70,32 @@ public class EventPlatformPluginSupport {
      * @return stream of event handler methods
      */
     public static Stream<ExecutableElement> eventHandlers(PrefabContext context) {
-        return context.roundEnvironment().getElementsAnnotatedWith(EventHandler.class).stream()
+        var fromRound = context.roundEnvironment().getElementsAnnotatedWith(EventHandler.class).stream()
                 .filter(element -> element.getKind() == ElementKind.METHOD)
-                .map(element -> (ExecutableElement) element)
+                .map(ExecutableElement.class::cast);
+        var deferred = context.inheritedDeferredEventHandlers().stream()
+                .flatMap(handler -> resolveDeferred(handler, context));
+        return Stream.concat(fromRound, deferred).distinct();
+    }
+
+    private static Stream<ExecutableElement> resolveDeferred(ExecutableElement handler, PrefabContext context) {
+        if (!TypeManifest.containsUnresolvedType(handler.getParameters().getFirst().asType())) {
+            return Stream.of(handler);
+        }
+        var enclosingType = (TypeElement) handler.getEnclosingElement();
+        var freshType = context.processingEnvironment().getElementUtils()
+                .getTypeElement(enclosingType.getQualifiedName().toString());
+        if (freshType == null) {
+            return Stream.of(handler);
+        }
+        var freshHandlers = freshType.getEnclosedElements().stream()
+                .filter(e -> e.getKind() == ElementKind.METHOD)
+                .map(ExecutableElement.class::cast)
+                .filter(m -> m.getSimpleName().equals(handler.getSimpleName()))
+                .filter(m -> m.getParameters().size() == handler.getParameters().size())
+                .filter(m -> !TypeManifest.containsUnresolvedType(m.getParameters().getFirst().asType()))
+                .toList();
+        return freshHandlers.isEmpty() ? Stream.of(handler) : freshHandlers.stream()
                 .filter(method -> !isMergedHandler(method));
     }
 
@@ -76,10 +110,10 @@ public class EventPlatformPluginSupport {
      */
     public static Map<TypeManifest, List<ExecutableElement>> filteredEventHandlersByOwner(
             PrefabContext context,
-            Function<ExecutableElement, Boolean> filter
+            Predicate<ExecutableElement> filter
     ) {
         return eventHandlers(context)
-                .filter(filter::apply)
+                .filter(filter)
                 .collect(Collectors.groupingBy(method -> ownerOf(context, method)));
     }
 

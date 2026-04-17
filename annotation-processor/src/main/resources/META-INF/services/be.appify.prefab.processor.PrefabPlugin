@@ -16,3 +16,4 @@ be.appify.prefab.processor.rest.update.UpdatePlugin
 be.appify.prefab.processor.rest.binary.BinaryPlugin
 be.appify.prefab.processor.tenant.TenantPlugin
 be.appify.prefab.processor.audit.AuditPlugin
+be.appify.prefab.processor.mother.MotherPlugin

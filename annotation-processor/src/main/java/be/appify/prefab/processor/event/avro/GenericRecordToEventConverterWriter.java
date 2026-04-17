@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.event.avro;
 
 import be.appify.prefab.core.util.Streams;
+import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -15,7 +16,10 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
 import javax.tools.Diagnostic;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
@@ -35,6 +39,13 @@ class GenericRecordToEventConverterWriter {
     }
 
     void writeConverter(TypeManifest event) {
+        // @Avsc contract interfaces must not be instantiated directly — generate a delegating
+        // converter that inspects the schema name and dispatches to the concrete record converter.
+        if (event.asElement() != null && event.asElement().getAnnotation(Avsc.class) != null) {
+            writeAvscInterfaceConverter(event);
+            return;
+        }
+
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
 
         var name = "GenericRecordTo%sConverter".formatted(event.simpleName().replace(".", ""));
@@ -47,6 +58,68 @@ class GenericRecordToEventConverterWriter {
                 .addMethod(convertMethod(event));
 
         fileWriter.writeFile(event.packageName(), name, type.build());
+    }
+
+    /**
+     * Generates a converter for an {@code @Avsc}-annotated contract interface.
+     * The converter switches on the incoming {@link GenericRecord}'s schema name and delegates
+     * to the appropriate concrete record converter instead of trying to instantiate the interface.
+     */
+    private void writeAvscInterfaceConverter(TypeManifest contractInterface) {
+        var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
+        var name = "GenericRecordTo%sConverter".formatted(contractInterface.simpleName().replace(".", ""));
+
+        // Find all generated records that implement this contract interface
+        var implementations = context.eventElements()
+                .filter(e -> e.getKind() == ElementKind.RECORD)
+                .filter(e -> e.getInterfaces().stream()
+                        .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
+                        .anyMatch(iface -> iface.equals(contractInterface.asElement())))
+                .map(e -> TypeManifest.of(e.asType(), context.processingEnvironment()))
+                .toList();
+
+        // The concrete records are generated in round 1 but only compiled and available as root
+        // elements in round 2. If none are found yet, skip: the next processing round will call
+        // this method again with the records present and write the correct converter then.
+        if (implementations.isEmpty()) {
+            return;
+        }
+
+        var type = TypeSpec.classBuilder(name)
+                .addModifiers(javax.lang.model.element.Modifier.PUBLIC)
+                .addAnnotation(Component.class)
+                .addSuperinterface(ParameterizedTypeName.get(
+                        ClassName.get(Converter.class),
+                        ClassName.get(GenericRecord.class),
+                        contractInterface.asTypeName()));
+
+        var constructor = MethodSpec.constructorBuilder()
+                .addModifiers(javax.lang.model.element.Modifier.PUBLIC);
+        implementations.forEach(impl -> addConverter(type, impl, constructor));
+        type.addMethod(constructor.build());
+
+        var convertMethod = MethodSpec.methodBuilder("convert")
+                .addModifiers(javax.lang.model.element.Modifier.PUBLIC)
+                .addAnnotation(Override.class)
+                .addParameter(GenericRecord.class, "genericRecord")
+                .returns(contractInterface.asTypeName())
+                .addStatement(CodeBlock.of("""
+                        return switch (genericRecord.getSchema().getName()) {
+                            $L
+                            default -> throw new $T("Unknown schema: " + genericRecord.getSchema().getName());
+                        }""",
+                        implementations.stream()
+                                .map(impl -> {
+                                    var converterName = "genericRecordTo%sConverter".formatted(
+                                            impl.simpleName().replace(".", ""));
+                                    return CodeBlock.of("case $S -> $L.convert(genericRecord);",
+                                            impl.simpleName(), converterName);
+                                })
+                                .collect(CodeBlock.joining("\n    ")),
+                        IllegalArgumentException.class));
+        type.addMethod(convertMethod.build());
+
+        fileWriter.writeFile(contractInterface.packageName(), name, type.build());
     }
 
     private static MethodSpec constructor(TypeManifest event, TypeSpec.Builder type) {

@@ -13,7 +13,7 @@ import static com.google.testing.compile.Compiler.javac;
 
 class KafkaProducerWriterTest {
     @Test
-    void singleEventType() throws IOException {
+    void singleEventType() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -27,7 +27,7 @@ class KafkaProducerWriterTest {
     }
 
     @Test
-    void multipleEventTypes() throws IOException {
+    void multipleEventTypes() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(

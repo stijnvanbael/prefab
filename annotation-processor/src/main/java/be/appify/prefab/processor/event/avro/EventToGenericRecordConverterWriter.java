@@ -1,5 +1,7 @@
 package be.appify.prefab.processor.event.avro;
 
+import be.appify.prefab.core.avro.SchemaSupport;
+import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -15,7 +17,10 @@ import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
 import javax.tools.Diagnostic;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -36,6 +41,13 @@ class EventToGenericRecordConverterWriter {
     }
 
     void writeConverter(TypeManifest event) {
+        // @Avsc contract interfaces must not be mapped field-by-field — generate a delegating
+        // converter that dispatches on the runtime type of the event to the concrete converter.
+        if (event.asElement() != null && event.asElement().getAnnotation(Avsc.class) != null) {
+            writeAvscInterfaceConverter(event);
+            return;
+        }
+
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
 
         var name = "%sToGenericRecordConverter".formatted(event.simpleName().replace(".", ""));
@@ -49,6 +61,62 @@ class EventToGenericRecordConverterWriter {
                 .addMethod(convertMethod(event));
 
         fileWriter.writeFile(event.packageName(), name, type.build());
+    }
+
+    /**
+     * Generates a converter for an {@code @Avsc}-annotated contract interface.
+     * The converter switches on the runtime type of the event and delegates to the appropriate
+     * concrete record converter instead of trying to map the interface's fields directly.
+     */
+    private void writeAvscInterfaceConverter(TypeManifest contractInterface) {
+        var implementations = context.eventElements()
+                .filter(e -> e.getKind() == ElementKind.RECORD)
+                .filter(e -> e.getInterfaces().stream()
+                        .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
+                        .anyMatch(iface -> iface.equals(contractInterface.asElement())))
+                .map(e -> TypeManifest.of(e.asType(), context.processingEnvironment()))
+                .toList();
+
+        // Skip round 1: concrete records are compiled in round 2 and not yet available.
+        if (implementations.isEmpty()) {
+            return;
+        }
+
+        var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
+        var name = "%sToGenericRecordConverter".formatted(contractInterface.simpleName().replace(".", ""));
+
+        var type = TypeSpec.classBuilder(name)
+                .addModifiers(Modifier.PUBLIC)
+                .addAnnotation(Component.class)
+                .addSuperinterface(ParameterizedTypeName.get(
+                        ClassName.get(Converter.class), contractInterface.asTypeName(), ClassName.get(GenericRecord.class)));
+
+        var constructor = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC);
+        implementations.forEach(impl -> addConverter(type, impl, constructor));
+        type.addMethod(constructor.build());
+
+        var convertMethod = MethodSpec.methodBuilder("convert")
+                .addModifiers(Modifier.PUBLIC)
+                .addAnnotation(Override.class)
+                .returns(GenericRecord.class)
+                .addParameter(contractInterface.asTypeName(), "event")
+                .addStatement(CodeBlock.of("""
+                        return switch (event) {
+                            $L
+                            default -> throw new $T("Unknown event type: " + event.getClass());
+                        }""",
+                        implementations.stream()
+                                .map(impl -> {
+                                    var converterName = uncapitalize("%sToGenericRecordConverter"
+                                            .formatted(impl.simpleName().replace(".", "")));
+                                    return CodeBlock.of("case $T e -> $L.convert(e);",
+                                            impl.asTypeName(), converterName);
+                                })
+                                .collect(CodeBlock.joining("\n    ")),
+                        IllegalArgumentException.class));
+        type.addMethod(convertMethod.build());
+
+        fileWriter.writeFile(contractInterface.packageName(), name, type.build());
     }
 
     private static MethodSpec constructor(TypeManifest event, TypeSpec.Builder type) {
@@ -125,7 +193,7 @@ class EventToGenericRecordConverterWriter {
         if (isLogicalType(type)) {
             return maybeNull(value, logicalType(value, type));
         } else if (type.isEnum()) {
-            return maybeNull(value, CodeBlock.of("new $T($L, $L.name())", GenericData.EnumSymbol.class, schema, value));
+            return maybeNull(value, CodeBlock.of("new $T($T.enumSchemaOf($L), $L.name())", GenericData.EnumSymbol.class, SchemaSupport.class, schema, value));
         } else if (type.isSealed()) {
             return maybeNull(value, sealedType(value, type));
         } else if (isNestedRecord(type)) {
@@ -189,6 +257,7 @@ class EventToGenericRecordConverterWriter {
 
     private CodeBlock listType(CodeBlock value, CodeBlock schema, TypeManifest type) {
         var itemType = type.parameters().getFirst();
+        var arraySchema = CodeBlock.of("$T.arraySchemaOf($L)", SchemaSupport.class, schema);
         return CodeBlock.of("""
                         new $T(
                             $L,
@@ -197,8 +266,8 @@ class EventToGenericRecordConverterWriter {
                                 .toList()
                         )""",
                 GenericData.Array.class,
-                schema,
+                arraySchema,
                 value,
-                field(CodeBlock.of("item"), CodeBlock.of("schema.getElementType()"), itemType));
+                field(CodeBlock.of("item"), CodeBlock.of("$T.arraySchemaOf($L).getElementType()", SchemaSupport.class, schema), itemType));
     }
 }

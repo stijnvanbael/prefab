@@ -1,0 +1,8 @@
+{
+  "type": "record",
+  "name": "OrderCreatedEvent",
+  "namespace": "kafka.avscmulti",
+  "fields": [
+    {"name": "orderId", "type": "string"}
+  ]
+}

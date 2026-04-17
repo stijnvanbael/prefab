@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.VariableElement;
 
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.*;
 import static java.util.Objects.requireNonNull;
@@ -64,11 +65,17 @@ public class KafkaPlugin implements PrefabPlugin {
 
     private boolean isKafkaEvent(ExecutableElement method) {
         return method.getParameters().stream()
-                .anyMatch(parameter ->
-                        TypeManifest.of(parameter.asType(), context.processingEnvironment())
-                                .inheritedAnnotationsOfType(Event.class)
-                                .stream()
-                                .anyMatch(event -> platformIsKafka(event, method, context)));
+                .anyMatch(parameter -> isKafkaEventParameter(parameter, method));
+    }
+
+    private boolean isKafkaEventParameter(VariableElement parameter, ExecutableElement method) {
+        if (TypeManifest.containsUnresolvedType(parameter.asType())) {
+            return true;
+        }
+        return TypeManifest.of(parameter.asType(), context.processingEnvironment())
+                .inheritedAnnotationsOfType(Event.class)
+                .stream()
+                .anyMatch(event -> platformIsKafka(event, method, context));
     }
 
     private void writePublishers() {

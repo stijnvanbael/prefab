@@ -1,9 +1,18 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.core.annotations.Avsc;
+import be.appify.prefab.core.annotations.Event;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
 import javax.tools.Diagnostic;
 
 /**
@@ -15,6 +24,8 @@ public class PrefabContext {
     private final List<PrefabPlugin> plugins;
     private final RequestParameterMapper requestParameterMapper;
     private final RoundEnvironment roundEnvironment;
+    private final Set<ExecutableElement> inheritedDeferredEventHandlers;
+    private final Set<ExecutableElement> newlyDeferredEventHandlers = new LinkedHashSet<>();
 
     /**
      * Constructs a PrefabContext.
@@ -31,9 +42,31 @@ public class PrefabContext {
             List<PrefabPlugin> plugins,
             RoundEnvironment roundEnvironment
     ) {
+        this(processingEnvironment, plugins, roundEnvironment, Set.of());
+    }
+
+    /**
+     * Constructs a PrefabContext with event handlers deferred from a previous round.
+     *
+     * @param processingEnvironment
+     *         the processing environment
+     * @param plugins
+     *         the list of Prefab plugins
+     * @param roundEnvironment
+     *         the round environment
+     * @param inheritedDeferredEventHandlers
+     *         event handlers deferred from a previous processing round
+     */
+    public PrefabContext(
+            ProcessingEnvironment processingEnvironment,
+            List<PrefabPlugin> plugins,
+            RoundEnvironment roundEnvironment,
+            Set<ExecutableElement> inheritedDeferredEventHandlers
+    ) {
         this.processingEnvironment = processingEnvironment;
         this.plugins = plugins;
         this.roundEnvironment = roundEnvironment;
+        this.inheritedDeferredEventHandlers = Set.copyOf(inheritedDeferredEventHandlers);
         requestParameterBuilder = new RequestParameterBuilder(plugins);
         requestParameterMapper = new RequestParameterMapper(plugins);
     }
@@ -81,6 +114,63 @@ public class PrefabContext {
      */
     public RequestParameterMapper requestParameterMapper() {
         return requestParameterMapper;
+    }
+
+    /**
+     * Returns the event handlers that were deferred from a previous processing round.
+     *
+     * @return inherited deferred event handlers
+     */
+    public Set<ExecutableElement> inheritedDeferredEventHandlers() {
+        return inheritedDeferredEventHandlers;
+    }
+
+    /**
+     * Defers an event handler to the next processing round.
+     * Call this when the concrete type for an {@code @Avsc} event is not yet available.
+     *
+     * @param handler
+     *         event handler method to defer
+     */
+    public void deferEventHandler(ExecutableElement handler) {
+        newlyDeferredEventHandlers.add(handler);
+    }
+
+    /**
+     * Returns the event handlers that were deferred during this processing round.
+     * These should be passed to the next round's {@link PrefabContext}.
+     *
+     * @return newly deferred event handlers
+     */
+    public Set<ExecutableElement> newlyDeferredEventHandlers() {
+        return Set.copyOf(newlyDeferredEventHandlers);
+    }
+
+    /**
+     * Returns all event type elements for the current round: both types directly annotated with
+     * {@link Event} and records generated from {@link Avsc}-annotated contract interfaces.
+     *
+     * <p>AVSC-generated records implement an {@code @Avsc}-annotated interface but may not be
+     * returned by {@link RoundEnvironment#getElementsAnnotatedWith(Class)} in the same round they
+     * are compiled. Scanning {@link RoundEnvironment#getRootElements()} for records that implement
+     * such an interface is the reliable strategy used throughout the framework.
+     *
+     * @return a deduplicated stream of {@link TypeElement}s representing all events
+     */
+    public Stream<TypeElement> eventElements() {
+        var annotated = roundEnvironment.getElementsAnnotatedWith(Event.class)
+                .stream()
+                .map(e -> (TypeElement) e);
+
+        var avscGenerated = roundEnvironment.getRootElements()
+                .stream()
+                .filter(e -> e.getKind() == ElementKind.RECORD)
+                .map(e -> (TypeElement) e)
+                .filter(r -> r.getInterfaces().stream()
+                        .map(i -> (TypeElement) ((DeclaredType) i).asElement())
+                        .anyMatch(i -> i.getAnnotation(Avsc.class) != null));
+
+        return Stream.concat(annotated, avscGenerated).distinct();
     }
 
     /**

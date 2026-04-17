@@ -6,6 +6,10 @@ import be.appify.prefab.mongodb.spring.data.mongodb.StringToReferenceConverter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.mongodb.MongoDatabaseFactory;
+import org.springframework.data.mongodb.core.convert.DbRefResolver;
+import org.springframework.data.mongodb.core.convert.DefaultDbRefResolver;
+import org.springframework.data.mongodb.core.convert.MappingMongoConverter;
 import org.springframework.data.mongodb.core.convert.MongoCustomConversions;
 import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
 
@@ -58,5 +62,34 @@ public class PrefabMongoConfiguration {
     @ConditionalOnMissingBean
     public MongoMappingContext mongoMappingContext() {
         return new PrefabMongoMappingContext();
+    }
+
+    /**
+     * Provides a {@link MappingMongoConverter} that registers {@link java.time.Instant} and other
+     * {@code java.time} types as simple types, preventing Spring Data from attempting to reflectively
+     * construct them via private constructors (which fails under the Java module system).
+     *
+     * @param mongoDatabaseFactory
+     *         the factory used to resolve database references
+     * @param conversions
+     *         the custom conversions to apply, including Prefab converters
+     * @param mappingContext
+     *         the mapping context used to map entities to MongoDB documents
+     * @return the configured {@link MappingMongoConverter}
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public MappingMongoConverter mappingMongoConverter(
+            MongoDatabaseFactory mongoDatabaseFactory,
+            MongoCustomConversions conversions,
+            MongoMappingContext mappingContext
+    ) {
+        var dbRefResolver = new DefaultDbRefResolver(mongoDatabaseFactory);
+        var converter = new MappingMongoConverter(dbRefResolver, mappingContext);
+        converter.setCustomConversions(conversions);
+        mappingContext.setSimpleTypeHolder(conversions.getSimpleTypeHolder());
+        mappingContext.afterPropertiesSet();
+        converter.afterPropertiesSet();
+        return converter;
     }
 }

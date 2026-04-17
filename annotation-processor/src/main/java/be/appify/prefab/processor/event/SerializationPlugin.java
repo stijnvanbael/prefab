@@ -1,6 +1,5 @@
 package be.appify.prefab.processor.event;
 
-import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
@@ -26,8 +25,7 @@ public class SerializationPlugin implements PrefabPlugin {
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
-        var events = context.roundEnvironment().getElementsAnnotatedWith(Event.class)
-                .stream()
+        var events = context.eventElements()
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .toList();
         if (!events.isEmpty()) {

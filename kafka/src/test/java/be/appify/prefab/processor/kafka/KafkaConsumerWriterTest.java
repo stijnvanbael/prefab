@@ -1,7 +1,6 @@
 package be.appify.prefab.processor.kafka;
 
 import be.appify.prefab.processor.PrefabProcessor;
-import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.contentsOf;
@@ -11,7 +10,7 @@ import static com.google.testing.compile.Compiler.javac;
 
 class KafkaConsumerWriterTest {
     @Test
-    void singleEventType() throws IOException {
+    void singleEventType() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -25,7 +24,7 @@ class KafkaConsumerWriterTest {
     }
 
     @Test
-    void multipleEventTypes() throws IOException {
+    void multipleEventTypes() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -39,7 +38,7 @@ class KafkaConsumerWriterTest {
     }
 
     @Test
-    void noParentEventType() throws IOException {
+    void noParentEventType() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -50,7 +49,7 @@ class KafkaConsumerWriterTest {
     }
 
     @Test
-    void multipleTopics() throws IOException {
+    void multipleTopics() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -65,7 +64,7 @@ class KafkaConsumerWriterTest {
     }
 
     @Test
-    void customDeadLetterTopic() throws IOException {
+    void customDeadLetterTopic() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -79,7 +78,7 @@ class KafkaConsumerWriterTest {
     }
 
     @Test
-    void deadLetterTopicDisabled() throws IOException {
+    void deadLetterTopicDisabled() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -93,7 +92,46 @@ class KafkaConsumerWriterTest {
     }
 
     @Test
-    void aggregateCreateOrUpdateHandler() throws IOException {
+    void avscEventConsumer() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/avsc/OrderCreated.java"),
+                        sourceOf("kafka/avsc/OrderProcessor.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("kafka.avsc.infrastructure.kafka.OrderProcessorKafkaConsumer")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("expected/kafka/avsc/OrderProcessorKafkaConsumer.java"));
+    }
+
+    @Test
+    void avscConcreteTypesConsumer() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/avscaggregate/OrderEvent.java"),
+                        sourceOf("kafka/avscaggregate/OrderProcessor.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("kafka.avscaggregate.infrastructure.kafka.OrderProcessorKafkaConsumer")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("expected/kafka/avscaggregate/OrderProcessorKafkaConsumer.java"));
+    }
+
+    @Test
+    void avscMultipleEventConsumer() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/avscmulti/OrderEvent.java"),
+                        sourceOf("kafka/avscmulti/OrderProcessor.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("kafka.avscmulti.infrastructure.kafka.OrderProcessorKafkaConsumer")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("expected/kafka/avscmulti/OrderProcessorKafkaConsumer.java"));
+    }
+
+    @Test
+    void aggregateCreateOrUpdateHandler() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(

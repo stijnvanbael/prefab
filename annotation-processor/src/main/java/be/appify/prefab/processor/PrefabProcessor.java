@@ -39,16 +39,22 @@ public class PrefabProcessor extends AbstractProcessor {
     private final Set<TypeElement> deferredPolymorphicAggregates = new LinkedHashSet<>();
     private final Set<ExecutableElement> deferredEventHandlers = new LinkedHashSet<>();
 
-    /** Constructs a new PrefabProcessor. */
-    public PrefabProcessor() {
-    }
-
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment environment) {
         var plugins = detectPlugins();
+        var aggregates = resolveAggregates(environment);
+        var polymorphicAggregates = resolvePolymorphicAggregates(environment);
+        var context = new PrefabContext(processingEnv, plugins, environment, deferredEventHandlers);
+        plugins.forEach(plugin -> plugin.initContext(context));
+        writeAggregates(context, aggregates);
+        writePolymorphicAggregates(context, polymorphicAggregates);
+        plugins.forEach(plugin -> plugin.writeAdditionalFiles(aggregates, polymorphicAggregates));
+        deferredEventHandlers.clear();
+        deferredEventHandlers.addAll(context.newlyDeferredEventHandlers());
+        return true;
+    }
 
-        // Merge freshly discovered aggregates with any that were deferred from a previous round
-        // because their field types were not yet generated.
+    private List<ClassManifest> resolveAggregates(RoundEnvironment environment) {
         var aggregateElements = Stream.concat(
                         environment.getElementsAnnotatedWith(Aggregate.class).stream()
                                 .filter(e -> e.getKind().isClass() && !e.getModifiers().contains(Modifier.ABSTRACT))
@@ -61,12 +67,14 @@ public class PrefabProcessor extends AbstractProcessor {
                 .map(element -> ClassManifest.of(element, processingEnv))
                 .toList();
 
-        // Keep elements that are still unresolved for the next round
         deferredAggregates.clear();
         aggregateElements.stream()
                 .filter(ClassManifest::hasUnresolvedFields)
                 .forEach(deferredAggregates::add);
+        return aggregates;
+    }
 
+    private List<PolymorphicAggregateManifest> resolvePolymorphicAggregates(RoundEnvironment environment) {
         var polymorphicAggregateElements = Stream.concat(
                         environment.getElementsAnnotatedWith(Aggregate.class).stream()
                                 .filter(e -> e.getModifiers().contains(Modifier.SEALED))
@@ -89,25 +97,25 @@ public class PrefabProcessor extends AbstractProcessor {
                         .map(s -> (TypeElement) ((DeclaredType) s).asElement())
                         .anyMatch(ClassManifest::hasUnresolvedFields))
                 .forEach(deferredPolymorphicAggregates::add);
+        return polymorphicAggregates;
+    }
 
-        var context = new PrefabContext(processingEnv, plugins, environment, deferredEventHandlers);
-        plugins.forEach(plugin -> plugin.initContext(context));
+    private void writeAggregates(PrefabContext context, List<ClassManifest> aggregates) {
         aggregates.forEach(manifest -> {
             new HttpWriter(context).writeHttpLayer(manifest);
             new ApplicationWriter(context).writeApplicationLayer(manifest);
             new PersistenceWriter(context).writePersistenceLayer(manifest);
             new TestClientWriter(context).writeTestSupport(manifest);
         });
+    }
+
+    private void writePolymorphicAggregates(PrefabContext context, List<PolymorphicAggregateManifest> polymorphicAggregates) {
         polymorphicAggregates.forEach(manifest -> {
             new PersistenceWriter(context).writePolymorphicPersistenceLayer(manifest);
             new PolymorphicJdbcConverterWriter(context).writeConverters(manifest);
             new HttpWriter(context).writePolymorphicHttpLayer(manifest);
             new ApplicationWriter(context).writePolymorphicApplicationLayer(manifest);
         });
-        plugins.forEach(plugin -> plugin.writeAdditionalFiles(aggregates, polymorphicAggregates));
-        deferredEventHandlers.clear();
-        deferredEventHandlers.addAll(context.newlyDeferredEventHandlers());
-        return true;
     }
 
     private List<PrefabPlugin> detectPlugins() {

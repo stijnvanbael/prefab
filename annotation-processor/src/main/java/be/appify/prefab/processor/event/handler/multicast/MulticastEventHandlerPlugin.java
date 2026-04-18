@@ -18,9 +18,6 @@ public class MulticastEventHandlerPlugin implements EventHandlerPlugin {
     private final MulticastEventHandlerWriter multicastEventHandlerWriter = new MulticastEventHandlerWriter();
     private PrefabContext context;
 
-    /** Constructs a new MulticastEventHandlerPlugin. */
-    public MulticastEventHandlerPlugin() {
-    }
 
     @Override
     public void initContext(PrefabContext context) {

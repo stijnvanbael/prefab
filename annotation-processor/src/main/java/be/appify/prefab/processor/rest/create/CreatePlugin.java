@@ -5,13 +5,11 @@ import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
-import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.WeakHashMap;
 import javax.lang.model.element.ExecutableElement;
 
@@ -28,9 +26,6 @@ public class CreatePlugin implements PrefabPlugin {
             Collections.synchronizedMap(new WeakHashMap<>());
     private PrefabContext context;
 
-    /** Creates a new instance of the CreatePlugin. */
-    public CreatePlugin() {
-    }
 
     @Override
     public void initContext(PrefabContext context) {
@@ -41,11 +36,6 @@ public class CreatePlugin implements PrefabPlugin {
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
         createConstructorOf(manifest).ifPresent(createConstructor ->
                 builder.addMethod(controllerWriter.createMethod(manifest, createConstructor, context)));
-    }
-
-    @Override
-    public Set<TypeName> getServiceDependencies(ClassManifest classManifest) {
-        return Collections.emptySet();
     }
 
     @Override

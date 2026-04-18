@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "DocFieldAvscEvent",
+  "namespace": "event.avsc",
+  "fields": [
+    {"name": "name", "type": "string", "doc": "Full name of the person"},
+    {"name": "age", "type": "int"}
+  ]
+}
+

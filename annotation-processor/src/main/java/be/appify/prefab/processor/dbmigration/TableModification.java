@@ -1,12 +1,13 @@
 package be.appify.prefab.processor.dbmigration;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 interface TableModification {
     static List<TableModification> from(String table, Column original, Column desired) {
         if (original != null && desired != null) {
-            var modifications = new java.util.ArrayList<TableModification>();
+            var modifications = new ArrayList<TableModification>();
             if (!original.type().equals(desired.type())) {
                 modifications.add(new AlterColumn(original.name(),
                         new ColumnModification.ChangeType(original.name(), desired.type())));

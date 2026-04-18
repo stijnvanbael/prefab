@@ -36,15 +36,6 @@ public class ClassManifest {
     private final TypeElement typeElement;
     private final VariableManifest idField;
 
-    /**
-     * Constructs a new ClassManifest.
-     *
-     * @param typeElement
-     *         the type element representing the class
-     * @param processingEnvironment
-     *         the processing environment
-     * @return the ClassManifest representing the given type element
-     */
     public static ClassManifest of(TypeElement typeElement, ProcessingEnvironment processingEnvironment) {
         if (hasUnresolvedFields(typeElement)) {
             // One or more field types are not yet generated — do not cache; will be rebuilt in the next round.
@@ -158,74 +149,34 @@ public class ClassManifest {
                 .toList();
     }
 
-    /**
-     * Gets the qualified name of the class.
-     *
-     * @return the qualified name
-     */
     public String qualifiedName() {
         return packageName() + '.' + simpleName();
     }
 
-    /**
-     * Gets the package name of the class.
-     *
-     * @return the package name
-     */
     public String packageName() {
         return type.packageName();
     }
 
-    /**
-     * Gets the simple name of the class.
-     *
-     * @return the simple name
-     */
     public String simpleName() {
         return type.simpleName();
     }
 
-    /**
-     * Gets the fields of the class.
-     *
-     * @return the fields
-     */
     public List<VariableManifest> fields() {
         return fields;
     }
 
-    /**
-     * Gets the type manifest of the class.
-     *
-     * @return the type manifest
-     */
     public TypeManifest type() {
         return type;
     }
 
-    /**
-     * Gets the parent variable manifest, if any.
-     *
-     * @return the parent variable manifest
-     */
     public Optional<VariableManifest> parent() {
         return Optional.ofNullable(parent);
     }
 
-    /**
-     * Gets the class name of the class.
-     *
-     * @return the class name
-     */
     public TypeName className() {
         return ClassName.get(packageName(), simpleName());
     }
 
-    /**
-     * Checks if the class is an aggregate.
-     *
-     * @return true if the class is an aggregate, false otherwise
-     */
     public boolean isAggregate() {
         return isAggregate;
     }
@@ -235,13 +186,6 @@ public class ClassManifest {
         return type.toString();
     }
 
-    /**
-     * Gets the public constructors of the class that are annotated with the specified annotation.
-     *
-     * @param annotationType
-     *         the annotation type
-     * @return the list of constructors
-     */
     public List<ExecutableElement> constructorsWith(Class<? extends Annotation> annotationType) {
         return typeElement.getEnclosedElements()
                 .stream()
@@ -252,26 +196,10 @@ public class ClassManifest {
                 .toList();
     }
 
-    /**
-     * Gets the annotations of the specified type present on the class.
-     *
-     * @param annotationType
-     *         the annotation type
-     * @param <T>
-     *         the type of the annotation
-     * @return the set of annotations
-     */
     public <T extends Annotation> Set<T> annotationsOfType(Class<T> annotationType) {
         return Set.of(typeElement.getAnnotationsByType(annotationType));
     }
 
-    /**
-     * Gets the public methods of the class that are annotated with the specified annotation.
-     *
-     * @param annotation
-     *         the annotation type
-     * @return the list of methods
-     */
     public List<ExecutableElement> methodsWith(Class<? extends Annotation> annotation) {
         return typeElement.getEnclosedElements()
                 .stream()
@@ -282,13 +210,6 @@ public class ClassManifest {
                 .toList();
     }
 
-    /**
-     * Checks if the class depends on the specified class manifest.
-     *
-     * @param manifest
-     *         the class manifest
-     * @return true if the class depends on the specified manifest, false otherwise
-     */
     public boolean dependsOn(ClassManifest manifest) {
         return fields.stream().anyMatch(field -> field.dependsOn(manifest.type));
     }
@@ -306,20 +227,10 @@ public class ClassManifest {
         return Objects.hashCode(type);
     }
 
-    /**
-     * Gets the ID field of the class, if any.
-     *
-     * @return the ID field
-     */
     public Optional<VariableManifest> idField() {
         return Optional.ofNullable(idField);
     }
 
-    /**
-     * Gets the tenant ID field (annotated with {@link TenantId}) of the class, if any.
-     *
-     * @return the tenant ID field, or empty if none is declared
-     */
     public Optional<VariableManifest> tenantIdField() {
         return fields.stream()
                 .filter(field -> field.hasAnnotation(TenantId.class))

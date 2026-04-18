@@ -85,8 +85,7 @@ public class ControllerUtil {
      */
     public static String[] toRequestParams(Sort sort) {
         var params = new ArrayList<String>();
-        sort.stream().forEach(order ->
-                params.add(order.getProperty() + "," + order.getDirection().name()));
+        sort.forEach(order -> params.add(order.getProperty() + "," + order.getDirection().name()));
         return params.toArray(new String[0]);
     }
 

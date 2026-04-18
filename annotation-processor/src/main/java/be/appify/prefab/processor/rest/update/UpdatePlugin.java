@@ -6,11 +6,8 @@ import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.VariableManifest;
-import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
@@ -26,9 +23,6 @@ public class UpdatePlugin implements PrefabPlugin {
     private final UpdateTestClientWriter updateTestClientWriter = new UpdateTestClientWriter();
     private PrefabContext context;
 
-    /** Constructs a new UpdatePlugin. */
-    public UpdatePlugin() {
-    }
 
     @Override
     public void initContext(PrefabContext context) {
@@ -39,11 +33,6 @@ public class UpdatePlugin implements PrefabPlugin {
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
         updateMethodsOf(manifest).forEach(update ->
                 builder.addMethod(updateControllerWriter.updateMethod(manifest, update, context)));
-    }
-
-    @Override
-    public Set<TypeName> getServiceDependencies(ClassManifest classManifest) {
-        return Collections.emptySet();
     }
 
     @Override
@@ -86,9 +75,9 @@ public class UpdatePlugin implements PrefabPlugin {
                 .toList();
     }
 
-    private List<VariableManifest> getParametersOf(Element createConstructor,
+    private List<VariableManifest> getParametersOf(Element method,
             ProcessingEnvironment processingEnvironment) {
-        return ((ExecutableElement) createConstructor).getParameters()
+        return ((ExecutableElement) method).getParameters()
                 .stream()
                 .map(element -> VariableManifest.of(element, processingEnvironment))
                 .toList();

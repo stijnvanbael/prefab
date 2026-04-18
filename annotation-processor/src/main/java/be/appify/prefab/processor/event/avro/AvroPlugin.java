@@ -23,9 +23,6 @@ public class AvroPlugin implements PrefabPlugin {
     private EventSchemaFactoryWriter eventSchemaFactoryWriter;
     private PrefabContext context;
 
-    /** Constructs a new AvroPlugin. */
-    public AvroPlugin() {
-    }
 
     @Override
     public void initContext(PrefabContext context) {
@@ -74,9 +71,8 @@ public class AvroPlugin implements PrefabPlugin {
     }
 
     static List<TypeManifest> allNestedTypes(List<TypeManifest> events) {
-        var result = new ArrayList<TypeManifest>();
         var toProcess = new ArrayDeque<>(nestedTypes(events));
-        result.addAll(toProcess);
+        var result = new ArrayList<>(toProcess);
         while (!toProcess.isEmpty()) {
             var type = toProcess.poll();
             nestedTypes(List.of(type)).stream()

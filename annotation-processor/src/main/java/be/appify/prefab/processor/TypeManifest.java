@@ -6,7 +6,6 @@ import com.palantir.javapoet.TypeName;
 import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -125,9 +124,8 @@ public class TypeManifest {
     }
 
     /**
-     * Returns true if {@code mirror} is, or transitively contains, an unresolved ({@code ERROR}-kind) type.
-     * This covers cases like {@code List<LifecycleSnapshot>} where the outer type is {@code DECLARED} but
-     * a type argument is still unresolved.
+     * Returns true if {@code mirror} is, or transitively contains, an unresolved ({@code ERROR}-kind) type. This covers cases like
+     * {@code List<LifecycleSnapshot>} where the outer type is {@code DECLARED} but a type argument is still unresolved.
      */
     public static boolean containsUnresolvedType(TypeMirror mirror) {
         return switch (mirror.getKind()) {
@@ -138,29 +136,14 @@ public class TypeManifest {
         };
     }
 
-    /**
-     * Gets the package name of the type.
-     *
-     * @return the package name
-     */
     public String packageName() {
         return identity.packageName();
     }
 
-    /**
-     * Gets the simple name of the type.
-     *
-     * @return the simple name
-     */
     public String simpleName() {
         return identity.simpleName();
     }
 
-    /**
-     * Gets the type parameters of the type.
-     *
-     * @return the list of type parameters
-     */
     public List<TypeManifest> parameters() {
         return identity.parameters();
     }
@@ -180,48 +163,24 @@ public class TypeManifest {
         return identity.toString();
     }
 
-    /**
-     * Checks if the type is an enum.
-     *
-     * @return true if the type is an enum, false otherwise
-     */
     public boolean isEnum() {
         return kind == ElementKind.ENUM;
     }
 
-    /**
-     * Checks if the type matches the specified class.
-     *
-     * @param type
-     *         the class to compare with
-     * @return true if the type matches, false otherwise
-     */
     public boolean is(Class<?> type) {
         return identity.is(type);
     }
 
-    /**
-     * Converts the TypeManifest to a TypeName.
-     *
-     * @return the TypeName representation of the type
-     */
     public TypeName asTypeName() {
         return identity.asTypeName();
     }
 
-    /**
-     * Checks if the type is a standard Java type.
-     *
-     * @return true if the type is a standard Java type, false otherwise
-     */
     public boolean isStandardType() {
         return identity.isStandardType();
     }
 
     /**
-     * Converts the TypeManifest to its boxed type if it is a primitive type.
-     *
-     * @return the boxed TypeManifest if the type is primitive, otherwise returns the original TypeManifest
+     * Converts a primitive type to its boxed equivalent; returns itself for non-primitives.
      */
     public TypeManifest asBoxed() {
         return switch (simpleName()) {
@@ -235,29 +194,14 @@ public class TypeManifest {
         };
     }
 
-    /**
-     * Converts the TypeManifest to a TypeElement.
-     *
-     * @return the TypeElement representation of the type
-     */
     public TypeElement asElement() {
         return element;
     }
 
-    /**
-     * Checks if the type is a record.
-     *
-     * @return true if the type is a record, false otherwise
-     */
     public boolean isRecord() {
         return kind == ElementKind.RECORD;
     }
 
-    /**
-     * Converts the TypeManifest to a ClassManifest.
-     *
-     * @return the ClassManifest representation of the type
-     */
     public ClassManifest asClassManifest() {
         if (kind != ElementKind.CLASS && kind != ElementKind.RECORD) {
             throw new IllegalStateException("Type %s is not a class".formatted(this));
@@ -377,8 +321,8 @@ public class TypeManifest {
     /**
      * Checks if the type is a single-value type, i.e. a record with exactly one record component.
      * <p>
-     * Any record with a single component is automatically treated as a scalar value wrapper by the Prefab framework.
-     * The {@link #fields()} method returns the record's backing fields, which correspond 1:1 to record components.
+     * Any record with a single component is automatically treated as a scalar value wrapper by the Prefab framework. The {@link #fields()}
+     * method returns the record's backing fields, which correspond 1:1 to record components.
      * </p>
      *
      * @return true if the type is a record with exactly one component, false otherwise
@@ -388,11 +332,12 @@ public class TypeManifest {
     }
 
     /**
-     * Returns the name of the accessor method for the single value of this type.
-     * For records, the accessor method has the same name as the single record component.
+     * Returns the name of the accessor method for the single value of this type. For records, the accessor method has the same name as the
+     * single record component.
      *
      * @return the accessor method name
-     * @throws IllegalStateException if the type is not a single-value type
+     * @throws IllegalStateException
+     *         if the type is not a single-value type
      */
     public String singleValueAccessor() {
         if (!isSingleValueType()) {
@@ -402,8 +347,8 @@ public class TypeManifest {
     }
 
     /**
-     * Checks whether the type is annotated with {@link CustomType}, meaning the Prefab annotation processor
-     * should not attempt automatic database-column or Avro-field mapping for fields of this type.
+     * Checks whether the type is annotated with {@link CustomType}, meaning the Prefab annotation processor should not attempt automatic
+     * database-column or Avro-field mapping for fields of this type.
      *
      * @return {@code true} if the type declares {@code @CustomType}, {@code false} otherwise
      */

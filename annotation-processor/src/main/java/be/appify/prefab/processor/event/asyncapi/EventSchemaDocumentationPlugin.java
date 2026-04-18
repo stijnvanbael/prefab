@@ -25,9 +25,6 @@ public class EventSchemaDocumentationPlugin implements PrefabPlugin {
     private EventSchemaDocumentationWriter writer;
     private PrefabContext context;
 
-    /** Constructs a new EventSchemaDocumentationPlugin. */
-    public EventSchemaDocumentationPlugin() {
-    }
 
     @Override
     public void initContext(PrefabContext context) {
@@ -64,7 +61,7 @@ public class EventSchemaDocumentationPlugin implements PrefabPlugin {
                 if (concreteTypes.size() == 1 && concreteTypes.getFirst() == event) {
                     return null;
                 }
-                concreteTypes.forEach(resolved::add);
+                resolved.addAll(concreteTypes);
             } else {
                 resolved.add(event);
             }

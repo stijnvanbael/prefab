@@ -6,6 +6,7 @@ import be.appify.prefab.processor.VariableManifest;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import net.sf.jsqlparser.statement.alter.AlterExpression;
 import net.sf.jsqlparser.statement.create.table.ColDataType;
 import net.sf.jsqlparser.statement.create.table.ColumnDefinition;
@@ -55,16 +56,16 @@ record Column(
     }
 
     static Column fromField(String prefix, VariableManifest property, boolean parentNullable) {
+        return fromField(prefix, property, parentNullable,
+                DataType.typeOf(property.type().asBoxed(), property.annotations()));
+    }
+
+    static Column fromField(String prefix, VariableManifest property, boolean parentNullable, DataType dataType) {
         var rawName = prefix != null ? prefix + "_" + property.name() : property.name();
-        var oldName = property.getAnnotation(DbRename.class)
-                .map(ann -> {
-                    var rawOldName = prefix != null ? prefix + "_" + ann.value().value() : ann.value().value();
-                    return toSnakeCase(rawOldName);
-                })
-                .orElse(null);
+        var oldName = resolveOldName(prefix, property);
         return new Column(
                 toSnakeCase(rawName),
-                DataType.typeOf(property.type().asBoxed(), property.annotations()),
+                dataType,
                 parentNullable || property.nullable(),
                 null,
                 property.getAnnotation(DbDefaultValue.class)
@@ -74,24 +75,16 @@ record Column(
         );
     }
 
-    static Column fromField(String prefix, VariableManifest property, boolean parentNullable, DataType customDataType) {
-        var rawName = prefix != null ? prefix + "_" + property.name() : property.name();
-        var oldName = property.getAnnotation(DbRename.class)
+    private static Optional<String> resolveOldNameOptional(String prefix, VariableManifest property) {
+        return property.getAnnotation(DbRename.class)
                 .map(ann -> {
                     var rawOldName = prefix != null ? prefix + "_" + ann.value().value() : ann.value().value();
                     return toSnakeCase(rawOldName);
-                })
-                .orElse(null);
-        return new Column(
-                toSnakeCase(rawName),
-                customDataType,
-                parentNullable || property.nullable(),
-                null,
-                property.getAnnotation(DbDefaultValue.class)
-                        .map(defaultValue -> defaultValue.value().value())
-                        .orElse(null),
-                oldName
-        );
+                });
+    }
+
+    private static String resolveOldName(String prefix, VariableManifest property) {
+        return resolveOldNameOptional(prefix, property).orElse(null);
     }
 
     Column withDataType(DataType dataType) {

@@ -9,7 +9,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 
 /**
@@ -27,8 +26,7 @@ public class PolymorphicAggregateManifest {
 
     private PolymorphicAggregateManifest(
             TypeManifest type,
-            List<ClassManifest> subtypes,
-            ProcessingEnvironment processingEnvironment
+            List<ClassManifest> subtypes
     ) {
         this.type = type;
         this.subtypes = subtypes;
@@ -51,7 +49,7 @@ public class PolymorphicAggregateManifest {
                 .filter(subtype -> subtype.isRecord() || subtype.asElement().getKind() == ElementKind.CLASS)
                 .map(subtype -> ClassManifest.of(subtype.asElement(), processingEnvironment))
                 .toList();
-        return new PolymorphicAggregateManifest(typeManifest, subtypes, processingEnvironment);
+        return new PolymorphicAggregateManifest(typeManifest, subtypes);
     }
 
     private List<VariableManifest> computeAllFields() {
@@ -88,112 +86,39 @@ public class PolymorphicAggregateManifest {
                 .toList();
     }
 
-    /**
-     * Returns the fields specific to the given subtype (not shared with all other subtypes).
-     *
-     * @param subtype
-     *         the subtype to get specific fields for
-     * @return the list of subtype-specific fields
-     */
-    public List<VariableManifest> subtypeSpecificFields(ClassManifest subtype) {
-        var commonFieldNames = commonFields.stream()
-                .map(VariableManifest::name)
-                .collect(Collectors.toSet());
-        return subtype.fields().stream()
-                .filter(field -> !commonFieldNames.contains(field.name()))
-                .toList();
-    }
-
-    /**
-     * Gets the TypeManifest of the sealed interface.
-     *
-     * @return the type manifest
-     */
     public TypeManifest type() {
         return type;
     }
 
-    /**
-     * Gets the permitted subtypes (concrete records).
-     *
-     * @return the list of subtypes
-     */
     public List<ClassManifest> subtypes() {
         return subtypes;
     }
 
-    /**
-     * Gets the fields common to all subtypes.
-     *
-     * @return the list of common fields
-     */
     public List<VariableManifest> commonFields() {
         return commonFields;
     }
 
-    /**
-     * Gets all fields from all subtypes (union of all fields).
-     *
-     * @return the list of all fields
-     */
+    /** Returns the union of all fields across all subtypes. */
     public List<VariableManifest> allFields() {
         return allFields;
     }
 
-    /**
-     * Gets the package name of the sealed interface.
-     *
-     * @return the package name
-     */
     public String packageName() {
         return type.packageName();
     }
 
-    /**
-     * Gets the simple name of the sealed interface.
-     *
-     * @return the simple name
-     */
     public String simpleName() {
         return type.simpleName();
     }
 
-    /**
-     * Gets the qualified name of the sealed interface.
-     *
-     * @return the qualified name
-     */
-    public String qualifiedName() {
-        return packageName() + '.' + simpleName();
-    }
-
-    /**
-     * Gets the class name of the sealed interface.
-     *
-     * @return the type name
-     */
     public TypeName className() {
         return type.asTypeName();
     }
 
-    /**
-     * Checks if the polymorphic aggregate has the given annotation.
-     *
-     * @param annotationType
-     *         the annotation type
-     * @param <T>
-     *         the annotation type
-     * @return the set of annotations of the given type
-     */
     public <T extends Annotation> Set<T> annotationsOfType(Class<T> annotationType) {
         return type.annotationsOfType(annotationType);
     }
 
-    /**
-     * Checks if the aggregate has the {@link DbMigration} annotation.
-     *
-     * @return true if the aggregate has {@link DbMigration} annotation
-     */
     public boolean hasDbMigration() {
         return !annotationsOfType(DbMigration.class).isEmpty();
     }

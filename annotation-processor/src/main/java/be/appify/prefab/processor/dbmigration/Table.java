@@ -6,6 +6,7 @@ import net.sf.jsqlparser.statement.alter.AlterOperation;
 import net.sf.jsqlparser.statement.create.table.CreateTable;
 import net.sf.jsqlparser.statement.create.table.ForeignKeyIndex;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -92,7 +93,7 @@ record Table(
     }
 
     public Table withAddedIndex(Index index) {
-        var newIndexes = new java.util.ArrayList<>(indexes);
+        var newIndexes = new ArrayList<>(indexes);
         newIndexes.add(index);
         return new Table(name, columns, primaryKey, null, List.copyOf(newIndexes));
     }

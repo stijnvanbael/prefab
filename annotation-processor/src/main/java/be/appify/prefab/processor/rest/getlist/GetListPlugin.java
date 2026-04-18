@@ -17,9 +17,6 @@ public class GetListPlugin implements PrefabPlugin {
     private final GetListRepositoryWriter repositoryWriter = new GetListRepositoryWriter();
     private final GetListTestClientWriter testClientWriter = new GetListTestClientWriter();
 
-    /** Creates a new instance of GetListPlugin. */
-    public GetListPlugin() {
-    }
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {

@@ -40,10 +40,7 @@ class ApplicationWriter {
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(ClassName.get(Component.class))
                 .addAnnotation(TRANSACTIONAL);
-        type.addField(FieldSpec.builder(Logger.class, "log", Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
-                        .initializer("$T.getLogger($T.class)", ClassName.get(LoggerFactory.class),
-                                ClassName.get(manifest.packageName() + ".application", serviceName))
-                        .build());
+        type.addField(loggerField(manifest.packageName() + ".application", serviceName));
         var dependencies = collectDependencies(manifest);
         dependencies.forEach(dependency -> type.addField(FieldSpec.builder(
                         dependency,
@@ -72,20 +69,22 @@ class ApplicationWriter {
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(ClassName.get(Component.class))
                 .addAnnotation(TRANSACTIONAL);
-        type.addField(FieldSpec.builder(Logger.class, "log", Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
-                .initializer("$T.getLogger($T.class)", ClassName.get(LoggerFactory.class),
-                        ClassName.get(manifest.packageName() + ".application", serviceName))
-                .build());
+        type.addField(loggerField(manifest.packageName() + ".application", serviceName));
         type.addField(FieldSpec.builder(repositoryType, repositoryName, Modifier.PRIVATE, Modifier.FINAL).build());
         type.addMethod(MethodSpec.constructorBuilder()
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(repositoryType, repositoryName)
                 .addStatement("this.$N = $N", repositoryName, repositoryName)
                 .build());
-
         context.plugins().forEach(plugin -> plugin.writePolymorphicService(manifest, type));
-
         fileWriter.writeFile(manifest.packageName(), serviceName, type.build());
+    }
+
+    private static FieldSpec loggerField(String packageName, String className) {
+        return FieldSpec.builder(Logger.class, "log", Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
+                .initializer("$T.getLogger($T.class)", ClassName.get(LoggerFactory.class),
+                        ClassName.get(packageName, className))
+                .build();
     }
 
     private String nameOf(TypeName type) {

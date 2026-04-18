@@ -33,9 +33,6 @@ public class StaticEventHandlerPlugin implements EventHandlerPlugin {
     private final StaticEventHandlerWriter staticEventHandlerWriter = new StaticEventHandlerWriter();
     private PrefabContext context;
 
-    /** Constructs a new StaticEventHandlerPlugin. */
-    public StaticEventHandlerPlugin() {
-    }
 
     @Override
     public void initContext(PrefabContext context) {
@@ -53,8 +50,8 @@ public class StaticEventHandlerPlugin implements EventHandlerPlugin {
     public Set<TypeName> getServiceDependencies(ClassManifest manifest) {
         return mergedComponentHandlers(manifest)
                 .map(handler -> handler.instanceMethod()
-                        ? (TypeName) handler.componentType().asTypeName()
-                        : (TypeName) ClassName.get(
+                        ? handler.componentType().asTypeName()
+                        : ClassName.get(
                                 handler.componentType().packageName() + ".application",
                                 handler.componentType().simpleName() + "Repository"))
                 .collect(Collectors.toSet());
@@ -174,7 +171,7 @@ public class StaticEventHandlerPlugin implements EventHandlerPlugin {
 
     private Optional<StaticEventHandlerManifest> buildMergedManifest(ExecutableElement element) {
         var annotation = element.getAnnotationsByType(EventHandler.class)[0];
-        var aggregateTypeMirror = getAnnotationValueMirror(annotation);
+        var aggregateTypeMirror = Objects.requireNonNull(getAnnotationValueMirror(annotation));
         var aggregateType = TypeManifest.of(aggregateTypeMirror, context.processingEnvironment());
 
         if (aggregateType.annotationsOfType(Aggregate.class).isEmpty()) {

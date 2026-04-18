@@ -22,9 +22,6 @@ public class MongoIndexPlugin implements PrefabPlugin {
 
     private PrefabContext context;
 
-    /** Constructs a new MongoIndexPlugin. */
-    public MongoIndexPlugin() {
-    }
 
     private static boolean isMongoIncluded() {
         try {

@@ -28,9 +28,6 @@ public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
     private final ByReferenceEventHandlerWriter byReferenceEventHandlerWriter = new ByReferenceEventHandlerWriter();
     private PrefabContext context;
 
-    /** Constructs a new ByReferenceEventHandlerPlugin. */
-    public ByReferenceEventHandlerPlugin() {
-    }
 
     @Override
     public void initContext(PrefabContext context) {

@@ -13,9 +13,6 @@ public class SerializationPlugin implements PrefabPlugin {
     private SerializationRegistryConfigurationWriter serializationRegistryConfigurationWriter;
     private PrefabContext context;
 
-    /** Constructs a new SerializationPlugin. */
-    public SerializationPlugin() {
-    }
 
     @Override
     public void initContext(PrefabContext context) {

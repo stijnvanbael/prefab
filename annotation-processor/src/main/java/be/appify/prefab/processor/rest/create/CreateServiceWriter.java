@@ -15,46 +15,42 @@ import javax.lang.model.element.Modifier;
 import static org.apache.commons.text.WordUtils.uncapitalize;
 
 class CreateServiceWriter {
-    MethodSpec createMethod(ClassManifest manifest, ExecutableElement controller, PrefabContext context) {
+    MethodSpec createMethod(ClassManifest manifest, ExecutableElement constructor, PrefabContext context) {
         var tenantField = manifest.tenantIdField();
-        if (controller.getParameters().isEmpty()) {
-            var method = MethodSpec.methodBuilder("create")
-                    .addModifiers(Modifier.PUBLIC)
-                    .returns(String.class)
-                    .addStatement("log.debug($S, $T.class.getSimpleName())", "Creating new {}", manifest.className())
-                    .addStatement("var aggregate = new $T()", manifest.type().asTypeName());
-            tenantField.ifPresent(tf -> method.addStatement("aggregate = new $T($L)",
-                    manifest.type().asTypeName(), reconstructionArgs(manifest, tf)));
-            addAuditForCreate(method, manifest);
-            method.addStatement("%sRepository.save(aggregate)".formatted(uncapitalize(manifest.simpleName())))
-                    .addStatement("return aggregate.$N()$L",
-                            manifest.idField().map(VariableManifest::name).orElse("id"),
-                            manifest.idField().map(VariableManifest::type).map(type -> type.isSingleValueType() ? ".%s()".formatted(type.singleValueAccessor()) : "").orElse(""));
-            return method.build();
+        var method = MethodSpec.methodBuilder("create")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(String.class)
+                .addStatement("log.debug($S, $T.class.getSimpleName())", "Creating new {}", manifest.className());
+        if (constructor.getParameters().isEmpty()) {
+            method.addStatement("var aggregate = new $T()", manifest.type().asTypeName());
         } else {
-            var method = MethodSpec.methodBuilder("create")
-                    .addModifiers(Modifier.PUBLIC)
-                    .addParameter(ParameterSpec.builder(
+            method.addParameter(ParameterSpec.builder(
                                     ClassName.get("%s.application".formatted(manifest.packageName()),
                                             "Create%sRequest".formatted(manifest.simpleName())), "request")
                             .addAnnotation(Valid.class)
                             .build())
-                    .returns(String.class)
-                    .addStatement("log.debug($S, $T.class.getSimpleName())", "Creating new {}", manifest.className())
                     .addStatement("var aggregate = new $T($L)", manifest.type().asTypeName(),
-                            controller.getParameters().stream()
+                            constructor.getParameters().stream()
                                     .map(param -> VariableManifest.of(param, context.processingEnvironment()))
                                     .map(context.requestParameterMapper()::mapRequestParameter)
                                     .collect(CodeBlock.joining(", ")));
-            tenantField.ifPresent(tf -> method.addStatement("aggregate = new $T($L)",
-                    manifest.type().asTypeName(), reconstructionArgs(manifest, tf)));
-            addAuditForCreate(method, manifest);
-            method.addStatement("%sRepository.save(aggregate)".formatted(uncapitalize(manifest.simpleName())))
-                    .addStatement("return aggregate.$N()$L",
-                            manifest.idField().map(VariableManifest::name).orElse("id"),
-                            manifest.idField().map(VariableManifest::type).map(type -> type.isSingleValueType() ? ".%s()".formatted(type.singleValueAccessor()) : "").orElse(""));
-            return method.build();
         }
+        tenantField.ifPresent(tf -> method.addStatement("aggregate = new $T($L)",
+                manifest.type().asTypeName(), reconstructionArgs(manifest, tf)));
+        addAuditForCreate(method, manifest);
+        return saveAndReturnId(method, manifest);
+    }
+
+    private static MethodSpec saveAndReturnId(MethodSpec.Builder method, ClassManifest manifest) {
+        var idField = manifest.idField();
+        var idName = idField.map(VariableManifest::name).orElse("id");
+        var idSuffix = idField.filter(f -> f.type().isSingleValueType())
+                .map(f -> ".%s()".formatted(f.type().singleValueAccessor()))
+                .orElse("");
+        return method
+                .addStatement("%sRepository.save(aggregate)".formatted(uncapitalize(manifest.simpleName())))
+                .addStatement("return aggregate.$N()$L", idName, idSuffix)
+                .build();
     }
 
     private static void addAuditForCreate(MethodSpec.Builder method, ClassManifest manifest) {

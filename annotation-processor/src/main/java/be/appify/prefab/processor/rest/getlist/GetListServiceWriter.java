@@ -37,7 +37,7 @@ class GetListServiceWriter {
         method.returns(ParameterizedTypeName.get(ClassName.get(Page.class), typeName));
         var tenantField = manifest.tenantIdField();
         if (!filterProperties.isEmpty()) {
-            if (!tenantField.isPresent()) {
+            if (tenantField.isEmpty()) {
                 logWithFilters(manifest, method, filterProperties);
             } else {
                 method.addStatement("log.debug($S, $T.class.getSimpleName())", "Getting {}",
@@ -262,16 +262,17 @@ class GetListServiceWriter {
             MethodSpec.Builder method,
             List<GetListUtil.FilterManifest> filters
     ) {
+        var filterFieldNames = filters.stream()
+                .map(filter -> filter.field().name())
+                .toList();
         method.addStatement("log.debug($S, $T.class.getSimpleName(), $L)",
                 "Getting %s by %s".formatted(
                         English.plural(manifest.simpleName()),
-                        filters.stream()
-                                .map(filter -> "%s: {}".formatted(filter.field().name()))
+                        filterFieldNames.stream()
+                                .map("%s: {}"::formatted)
                                 .collect(Collectors.joining(", "))),
                 manifest.className(),
-                filters.stream()
-                        .map(filter -> filter.field().name())
-                        .collect(Collectors.joining(", ")));
+                String.join(", ", filterFieldNames));
     }
 
     private CodeBlock defaultValueForType(TypeManifest type) {

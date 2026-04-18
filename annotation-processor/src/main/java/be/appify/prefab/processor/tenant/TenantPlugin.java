@@ -43,9 +43,6 @@ public class TenantPlugin implements PrefabPlugin {
 
     private PrefabContext context;
 
-    /** Constructs a new TenantPlugin. */
-    public TenantPlugin() {
-    }
 
     @Override
     public void initContext(PrefabContext context) {

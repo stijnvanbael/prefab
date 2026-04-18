@@ -19,9 +19,6 @@ import java.util.Set;
  */
 public class AuditPlugin implements PrefabPlugin {
 
-    /** Constructs a new {@code AuditPlugin}. */
-    public AuditPlugin() {
-    }
 
     @Override
     public Set<TypeName> getServiceDependencies(ClassManifest manifest) {

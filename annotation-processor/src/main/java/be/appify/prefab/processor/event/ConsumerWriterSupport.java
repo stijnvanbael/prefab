@@ -21,14 +21,15 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import org.springframework.stereotype.Component;
 
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.STATIC;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 /**
@@ -112,11 +113,10 @@ public class ConsumerWriterSupport {
         var eventHandlers = deduplicateByEventType(context, eventHandlersForEvent.getValue());
         if (eventHandlers.size() == 1 && sameType(eventType, eventHandlers.getFirst(), context)) {
             singleTypeHandler(context, eventHandlers.getFirst(), method, "event");
-            type.addMethod(method.build());
         } else {
             multiTypeHandler(context, eventHandlers, method);
-            type.addMethod(method.build());
         }
+        type.addMethod(method.build());
     }
 
     private static boolean sameType(TypeManifest eventType, ExecutableElement eventHandler, PrefabContext context) {
@@ -164,7 +164,7 @@ public class ConsumerWriterSupport {
             return candidates.getFirst();
         }
         return candidates.stream()
-                .filter(candidate -> !candidate.getModifiers().contains(javax.lang.model.element.Modifier.STATIC))
+                .filter(candidate -> !candidate.getModifiers().contains(STATIC))
                 .findFirst()
                 .orElse(candidates.getFirst());
     }
@@ -268,24 +268,6 @@ public class ConsumerWriterSupport {
     }
 
     /**
-     * Returns the concrete generated record type for an {@code @Avsc}-annotated contract interface,
-     * or the original event type if it is not an {@code @Avsc} interface.
-     * <p>
-     * The concrete record is the first RECORD element in {@code context.eventElements()} whose
-     * interface list contains the contract interface — the same lookup used in
-     * {@code EventSchemaFactoryWriter}.
-     *
-     * @param eventType
-     *         event type manifest (may be an {@code @Avsc} contract interface)
-     * @param context
-     *         prefab context
-     * @return concrete record type manifest, or {@code eventType} if no concrete record is found
-     */
-    public TypeManifest concreteEventType(TypeManifest eventType, PrefabContext context) {
-        return concreteEventTypes(eventType, context).getFirst();
-    }
-
-    /**
      * Returns all concrete generated record types for an {@code @Avsc}-annotated contract interface,
      * or a single-element list containing the original event type if it is not an {@code @Avsc} interface.
      * <p>
@@ -319,8 +301,7 @@ public class ConsumerWriterSupport {
      * Use this as a round guard: skip consumer generation in round 1 so that the concrete record
      * generated in that round is available when the consumer is written in round 2.
      *
-     * @param eventHandlers
-     *         list of event handler methods
+     * @param eventHandlers     *         list of event handler methods
      * @param context
      *         prefab context
      * @return {@code true} if any {@code @Avsc} event type still lacks a concrete implementation
@@ -340,9 +321,10 @@ public class ConsumerWriterSupport {
         return event.methodsWith(PartitioningKey.class).stream()
                 .findFirst()
                 .map(method -> {
-                    if (TypeManifest.of(method.getReturnType(), context.processingEnvironment()).isSingleValueType()) {
+                    var returnType = TypeManifest.of(method.getReturnType(), context.processingEnvironment());
+                    if (returnType.isSingleValueType()) {
                         return CodeBlock.of("event.$L().$L()", method.getSimpleName().toString(),
-                                TypeManifest.of(method.getReturnType(), context.processingEnvironment()).singleValueAccessor());
+                                returnType.singleValueAccessor());
                     } else {
                         return CodeBlock.of("event.$L()", method.getSimpleName().toString());
                     }

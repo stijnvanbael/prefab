@@ -105,6 +105,15 @@ record Table(
         return new Table(name, columns, primaryKey, null, newIndexes);
     }
 
+    public Table withDroppedConstraint(String constraintName) {
+        var newColumns = columns.stream()
+                .map(c -> c.foreignKey() != null && (name + "_" + c.name() + "_fkey").equals(constraintName)
+                        ? c.withForeignKey(null)
+                        : c)
+                .toList();
+        return new Table(name, newColumns, primaryKey, null, indexes);
+    }
+
     public Optional<Index> getIndex(String name) {
         return indexes.stream()
                 .filter(idx -> idx.name().equals(name))

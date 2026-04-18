@@ -29,11 +29,6 @@ import javax.lang.model.element.Element;
 import javax.tools.Diagnostic;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
-import net.sf.jsqlparser.parser.CCJSqlParser;
-import net.sf.jsqlparser.statement.alter.Alter;
-import net.sf.jsqlparser.statement.create.table.CreateTable;
-import net.sf.jsqlparser.statement.create.index.CreateIndex;
-import net.sf.jsqlparser.statement.drop.Drop;
 
 import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
 
@@ -187,37 +182,7 @@ class DbMigrationWriter {
     private static void parseSql(FileObject file, Map<String, Table> tables) {
         try (var input = file.openInputStream()) {
             var content = new String(input.readAllBytes());
-            new CCJSqlParser(content).Statements().forEach(statement -> {
-                if (statement instanceof CreateTable createTable) {
-                    var table = Table.fromCreateTable(createTable);
-                    tables.put(table.name(), table);
-                } else if (statement instanceof Alter alter) {
-                    var tableName = alter.getTable().getName().replace("\"", "");
-                    var table = tables.get(tableName);
-                    if (table == null) {
-                        throw new IllegalStateException(
-                                "Found ALTER TABLE on table not previously created: " + alter.getTable().getName());
-                    }
-                    var updated = table.apply(alter);
-                    // Update map: remove old name (in case of table rename) and add under new name
-                    if (!updated.name().equals(table.name())) {
-                        tables.remove(table.name());
-                    }
-                    tables.put(updated.name(), updated);
-                } else if (statement instanceof CreateIndex createIndex) {
-                    var tableName = createIndex.getTable().getName().replace("\"", "");
-                    var table = tables.get(tableName);
-                    if (table != null) {
-                        tables.put(tableName, table.withAddedIndex(Index.fromCreateIndex(createIndex)));
-                    }
-                } else if (statement instanceof Drop drop && "INDEX".equalsIgnoreCase(drop.getType())) {
-                    var indexName = drop.getName().getName().replace("\"", "");
-                    tables.values().stream()
-                            .filter(t -> t.getIndex(indexName).isPresent())
-                            .findFirst()
-                            .ifPresent(t -> tables.put(t.name(), t.withRemovedIndex(indexName)));
-                }
-            });
+            new SqlStatementParser().parse(content, tables);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

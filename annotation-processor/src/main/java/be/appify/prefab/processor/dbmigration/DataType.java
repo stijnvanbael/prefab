@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.dbmigration;
 
+import be.appify.prefab.core.annotations.Text;
 import be.appify.prefab.processor.AnnotationManifest;
 import be.appify.prefab.processor.TypeManifest;
 import jakarta.validation.constraints.Size;
@@ -33,6 +34,14 @@ public interface DataType {
         }
     }
 
+    static boolean isTextAnnotated(List<? extends AnnotationManifest<?>> annotations) {
+        return annotations.stream().anyMatch(annotation -> annotation.type().is(Text.class));
+    }
+
+    static boolean hasSizeConstraint(List<? extends AnnotationManifest<?>> annotations) {
+        return annotations.stream().anyMatch(annotation -> annotation.type().is(Size.class));
+    }
+
     @SuppressWarnings("unchecked")
     static DataType typeOf(TypeManifest type, List<? extends AnnotationManifest<?>> annotations) {
         if (type.isSingleValueType()) {
@@ -40,6 +49,9 @@ public interface DataType {
             var mergedAnnotations = Stream.concat(annotations.stream(), innerField.annotations().stream()).toList();
             return typeOf(innerField.type().asBoxed(), mergedAnnotations);
         } else if (type.is(String.class) || type.isEnum() || type.is(Duration.class)) {
+            if (type.is(String.class) && isTextAnnotated(annotations)) {
+                return Primitive.TEXT;
+            }
             var length = annotations.stream()
                     .filter(annotation -> annotation.type().is(Size.class))
                     .map(annotation -> ((AnnotationManifest<Size>) annotation).value().max())
@@ -76,7 +88,8 @@ public interface DataType {
         BOOLEAN,
         TIMESTAMP,
         DATE,
-        BYTEA;
+        BYTEA,
+        TEXT;
 
         @Override
         public String toSql() {

@@ -675,6 +675,29 @@ public record Sale(
 }
 ```
 
+#### String column length
+
+`String` fields are mapped to `VARCHAR(255)` by default. Values longer than 255 characters will cause a runtime
+`DataAccessException`. The annotation processor emits a **compile-time warning** on any unconstrained `String` field
+to help you catch this early. Use one of the options below to set an explicit size:
+
+- **`@Size(max = N)`** (Jakarta Validation) — generates `VARCHAR(N)`. Also enforces the maximum length at the REST
+  layer, returning a `400 Bad Request` when the value is too long.
+- **`@Text`** (Prefab) — generates an unbounded `TEXT` column. Use this for free-text content such as descriptions
+  or notes where no practical upper bound exists.
+
+```java
+@Aggregate
+@DbMigration
+public record Article(
+        @Id Reference<Article> id,
+        @Version long version,
+        @Size(max = 200) String title,  // → VARCHAR(200), validated at REST layer
+        @Text String body               // → TEXT (unlimited)
+) {
+}
+```
+
 ### 🧑‍🧑‍🧒‍ Alpha: Aggregate parents
 
 Annotate a `Reference` field with `@Parent` to indicate that the reference is the parent of the aggregate. Any REST

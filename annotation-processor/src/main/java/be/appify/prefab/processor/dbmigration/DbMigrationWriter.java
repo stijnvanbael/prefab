@@ -11,6 +11,7 @@ import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
+import org.springframework.data.annotation.Id;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -56,6 +57,7 @@ class DbMigrationWriter {
             List<ClassManifest> classManifests,
             List<PolymorphicAggregateManifest> polymorphicManifests
     ) {
+        warnUnconstrainedStringFields(classManifests);
         var currentDatabaseState = currentDatabaseState(processingEnvironment);
         var desiredDatabaseState = desiredDatabaseState(classManifests, polymorphicManifests);
         var changes = detectChanges(currentDatabaseState.tables(), desiredDatabaseState);
@@ -63,6 +65,16 @@ class DbMigrationWriter {
             writeChanges(processingEnvironment, classManifests, polymorphicManifests, changes,
                     currentDatabaseState.version());
         }
+    }
+
+    private void warnUnconstrainedStringFields(List<ClassManifest> classManifests) {
+        classManifests.forEach(this::warnUnconstrainedStringFields);
+    }
+
+    private void warnUnconstrainedStringFields(ClassManifest manifest) {
+        manifest.fields().stream()
+                .filter(field -> !field.type().is(List.class))
+                .forEach(this::warnIfUnconstrainedString);
     }
 
     private void writeChanges(
@@ -360,6 +372,25 @@ class DbMigrationWriter {
                     }
                 })
                 .toList();
+    }
+
+    private void warnIfUnconstrainedString(VariableManifest field) {
+        if (!field.type().asBoxed().is(String.class)) {
+            return;
+        }
+        if (field.hasAnnotation(Id.class)) {
+            return;
+        }
+        var annotations = field.annotations();
+        if (!DataType.isTextAnnotated(annotations) && !DataType.hasSizeConstraint(annotations)) {
+            context.processingEnvironment().getMessager().printMessage(
+                    Diagnostic.Kind.WARNING,
+                    ("String field '%s' is mapped to VARCHAR(255) by default. " +
+                    "Add @Size(max = N) to set a specific length, or @Text to use an unbounded TEXT column.")
+                            .formatted(field.name()),
+                    field.element()
+            );
+        }
     }
 
     /**

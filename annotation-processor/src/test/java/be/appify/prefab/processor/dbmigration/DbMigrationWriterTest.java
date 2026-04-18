@@ -1,12 +1,12 @@
 package be.appify.prefab.processor.dbmigration;
 
 import be.appify.prefab.processor.PrefabProcessor;
-import java.io.IOException;
+import com.google.common.truth.Truth;
+import java.util.List;
 import javax.tools.StandardLocation;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.event.avro.ProcessorTestUtil.contentsOf;
-
 import static be.appify.prefab.processor.event.avro.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
@@ -14,7 +14,7 @@ import static com.google.testing.compile.Compiler.javac;
 class DbMigrationWriterTest {
 
     @Test
-    void filterFieldGetsIndex() throws IOException {
+    void filterFieldGetsIndex() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("dbmigration/indexed/source/Product.java"));
@@ -26,7 +26,7 @@ class DbMigrationWriterTest {
     }
 
     @Test
-    void indexedUniqueFieldGetsUniqueIndex() throws IOException {
+    void indexedUniqueFieldGetsUniqueIndex() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("dbmigration/indexed/source/Product.java"));
@@ -38,7 +38,7 @@ class DbMigrationWriterTest {
     }
 
     @Test
-    void noIndexForNonAnnotatedField() throws IOException {
+    void noIndexForNonAnnotatedField() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("dbmigration/indexed/source/Product.java"));
@@ -50,7 +50,7 @@ class DbMigrationWriterTest {
     }
 
     @Test
-    void foreignKeyColumnInChildTableGetsIndex() throws IOException {
+    void foreignKeyColumnInChildTableGetsIndex() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("dbmigration/fkindex/source/Order.java"));
@@ -61,7 +61,7 @@ class DbMigrationWriterTest {
                 .contains("CREATE INDEX \"order_order_line_order_idx\" ON \"order_order_line\" (\"order\")");
     }
     @Test
-    void notNullConstraintsAreGeneratedForNonNullableFields() throws IOException {
+    void notNullConstraintsAreGeneratedForNonNullableFields() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("dbmigration/notnull/source/Product.java"));
@@ -74,7 +74,7 @@ class DbMigrationWriterTest {
     }
 
     @Test
-    void nonStringValueTypesMappedToCorrectColumnType() throws IOException {
+    void nonStringValueTypesMappedToCorrectColumnType() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("dbmigration/valuetype/source/Product.java"));
@@ -91,7 +91,7 @@ class DbMigrationWriterTest {
     }
 
     @Test
-    void customTypeFieldIsSkippedFromDbMigration() throws IOException {
+    void customTypeFieldIsSkippedFromDbMigration() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("dbmigration/customtype/source/Product.java"));
@@ -110,7 +110,7 @@ class DbMigrationWriterTest {
     }
 
     @Test
-    void sizeAnnotationDeterminesVarcharLength() throws IOException {
+    void sizeAnnotationDeterminesVarcharLength() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("dbmigration/varcharsize/source/Product.java"));
@@ -123,7 +123,7 @@ class DbMigrationWriterTest {
     }
 
     @Test
-    void sizeAnnotationOnSingleValueTypeInnerFieldDeterminesVarcharLength() throws IOException {
+    void sizeAnnotationOnSingleValueTypeInnerFieldDeterminesVarcharLength() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("dbmigration/varcharsize/source/ProductWithValueType.java"));
@@ -136,7 +136,7 @@ class DbMigrationWriterTest {
     }
 
     @Test
-    void sizeAnnotationOnOuterSingleValueTypeFieldDeterminesVarcharLength() throws IOException {
+    void sizeAnnotationOnOuterSingleValueTypeFieldDeterminesVarcharLength() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("dbmigration/varcharsize/source/ProductWithOuterAnnotation.java"));
@@ -149,7 +149,7 @@ class DbMigrationWriterTest {
     }
 
     @Test
-    void sizeAnnotationOnPlainStringFieldWithCustomConstructorDeterminesVarcharLength() throws IOException {
+    void sizeAnnotationOnPlainStringFieldWithCustomConstructorDeterminesVarcharLength() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("dbmigration/varcharsize/source/ConversationMessage.java"));
@@ -162,7 +162,7 @@ class DbMigrationWriterTest {
     }
 
     @Test
-    void customTypeFieldSkipEmitsNote() throws IOException {
+    void customTypeFieldSkipEmitsNote() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("dbmigration/customtype/source/Product.java"));
@@ -170,5 +170,63 @@ class DbMigrationWriterTest {
         assertThat(compilation).succeeded();
         assertThat(compilation).hadNoteContaining("result");
         assertThat(compilation).hadNoteContaining("@CustomType");
+    }
+
+    @Test
+    void textAnnotationMapsStringToTextColumn() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/textcolumn/source/Article.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"body\" TEXT");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"title\" VARCHAR (200)");
+    }
+
+    @Test
+    void unconstrainedStringFieldEmitsWarning() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/unconstrainedstring/source/Note.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation).hadWarningContaining("content");
+        assertThat(compilation).hadWarningContaining("VARCHAR(255)");
+    }
+
+    @Test
+    void constrainedStringFieldDoesNotEmitWarning() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/varcharsize/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        var prefabWarnings = compilation.warnings().stream()
+                .filter(d -> d.getMessage(null).contains("VARCHAR(255)"))
+                .toList();
+        assertNoPrefabWarnings(prefabWarnings);
+    }
+
+    @Test
+    void textAnnotatedStringFieldDoesNotEmitWarning() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/textcolumn/source/Article.java"));
+
+        assertThat(compilation).succeeded();
+        var prefabWarnings = compilation.warnings().stream()
+                .filter(d -> d.getMessage(null).contains("VARCHAR(255)"))
+                .toList();
+        assertNoPrefabWarnings(prefabWarnings);
+    }
+
+    private static void assertNoPrefabWarnings(List<?> warnings) {
+        Truth.assertThat(warnings).isEmpty();
     }
 }

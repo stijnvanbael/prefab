@@ -16,7 +16,7 @@ class UpdateRequestRecordWriter {
             RequestParameterBuilder parameterBuilder
     ) {
         var name = "%s%sRequest".formatted(manifest.simpleName(), capitalize(update.operationName()));
-        var type = writeRecord(ClassName.get(manifest.packageName() + ".application", name), update.parameters(),
+        var type = writeRecord(ClassName.get(manifest.packageName() + ".application", name), update.requestParameters(),
                 parameterBuilder);
         fileWriter.writeFile(manifest.packageName(), name, type);
     }

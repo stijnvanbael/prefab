@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.rest.update;
 
+import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.audit.AuditFields;
@@ -21,7 +22,7 @@ class UpdateServiceWriter {
                 .addModifiers(Modifier.PUBLIC)
                 .returns(ParameterizedTypeName.get(ClassName.get(Optional.class), manifest.type().asTypeName()))
                 .addParameter(String.class, "id");
-        if (!update.parameters().isEmpty()) {
+        if (!update.requestParameters().isEmpty()) {
             method.addParameter(ParameterSpec.builder(
                             ClassName.get("%s.application".formatted(manifest.packageName()), "%s%sRequest".formatted(
                                     manifest.simpleName(), capitalize(update.operationName()))), "request")
@@ -30,14 +31,8 @@ class UpdateServiceWriter {
         }
         method.addStatement("log.debug($S, $T.class.getSimpleName(), id)", "Updating {} with id: {}",
                 manifest.className());
-        var aggregateFunction = update.stateful()
-                ? CodeBlock.of("aggregate.%s(%s);"
-                .formatted(update.operationName(),
-                        update.parameters().stream().map(this::fromRequest)
-                                .collect(CodeBlock.joining(", "))))
-                : CodeBlock.of("aggregate = aggregate.%s(%s);".formatted(update.operationName(),
-                        update.parameters().stream().map(this::fromRequest)
-                                .collect(CodeBlock.joining(", "))));
+        var domainCallBlock = buildDomainCallBlock(update);
+        var aggregateFunction = buildAggregateFunction(manifest, update, domainCallBlock);
         var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
         var tenantField = manifest.tenantIdField();
         var hasAudit = AuditFields.hasAuditFields(manifest);
@@ -51,6 +46,40 @@ class UpdateServiceWriter {
             updateBasic(method, repositoryName, aggregateFunction);
         }
         return method.build();
+    }
+
+    private CodeBlock buildAggregateFunction(ClassManifest manifest, UpdateManifest update,
+            CodeBlock domainCallBlock) {
+        var body = CodeBlock.builder();
+        update.aggregateParameters().forEach(param -> {
+            var refField = findReferenceField(manifest, param);
+            var repositoryName = uncapitalize(param.type().simpleName()) + "Repository";
+            body.add("var $N = $N.findById(aggregate.$N().id()).orElseThrow();\n",
+                    param.name(), repositoryName, refField.name());
+        });
+        body.add(domainCallBlock);
+        return body.build();
+    }
+
+    private CodeBlock buildDomainCallBlock(UpdateManifest update) {
+        var args = update.parameters().stream()
+                .map(this::resolveParam)
+                .collect(CodeBlock.joining(", "));
+        if (update.stateful()) {
+            return CodeBlock.of("aggregate.$N($L);\n", update.operationName(), args);
+        }
+        return CodeBlock.of("aggregate = aggregate.$N($L);\n", update.operationName(), args);
+    }
+
+    private VariableManifest findReferenceField(ClassManifest manifest, VariableManifest aggregateParam) {
+        return manifest.fields().stream()
+                .filter(field -> field.type().is(Reference.class)
+                        && !field.type().parameters().isEmpty()
+                        && field.type().parameters().getFirst().equals(aggregateParam.type()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                        "No Reference<%s> field found on %s for @Update parameter '%s'".formatted(
+                                aggregateParam.type().simpleName(), manifest.simpleName(), aggregateParam.name())));
     }
 
     private static void updateWithTenantAndAudit(
@@ -131,12 +160,20 @@ class UpdateServiceWriter {
                 repositoryName);
     }
 
+    private CodeBlock resolveParam(VariableManifest parameter) {
+        if (!parameter.type().annotationsOfType(
+                be.appify.prefab.core.annotations.Aggregate.class).isEmpty()) {
+            return CodeBlock.of("$N", parameter.name());
+        }
+        return fromRequest(parameter);
+    }
+
     private CodeBlock fromRequest(VariableManifest parameter) {
         if (parameter.type().isSingleValueType()) {
             return CodeBlock.of("request.$N() != null ? new $T(request.$N()) : null",
                     parameter.name(), parameter.type().asTypeName(), parameter.name());
         }
-        return CodeBlock.of("request.%s()".formatted(parameter.name()));
+        return CodeBlock.of("request.$N()", parameter.name());
     }
 }
 

@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.rest.update;
 
+import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.JavaFileWriter;
@@ -46,7 +47,7 @@ public class UpdatePlugin implements PrefabPlugin {
         if (!manifests.isEmpty()) {
             var fileWriter = new JavaFileWriter(context.processingEnvironment(), "application");
             manifests.forEach(manifest -> updateMethodsOf(manifest).forEach(update -> {
-                if (!update.parameters().isEmpty()) {
+                if (!update.requestParameters().isEmpty()) {
                     updateRequestRecordWriter.writeUpdateRequestRecord(fileWriter, manifest, update,
                             context.requestParameterBuilder());
                 }
@@ -64,9 +65,18 @@ public class UpdatePlugin implements PrefabPlugin {
         return manifest.methodsWith(Update.class).stream()
                 .map(element -> {
                     var update = element.getAnnotationsByType(Update.class)[0];
+                    var allParams = getParametersOf(element, context.processingEnvironment());
+                    var requestParams = allParams.stream()
+                            .filter(p -> p.type().annotationsOfType(Aggregate.class).isEmpty())
+                            .toList();
+                    var aggregateParams = allParams.stream()
+                            .filter(p -> !p.type().annotationsOfType(Aggregate.class).isEmpty())
+                            .toList();
                     return new UpdateManifest(
                             element.getSimpleName().toString(),
-                            getParametersOf(element, context.processingEnvironment()),
+                            allParams,
+                            requestParams,
+                            aggregateParams,
                             element.getReturnType().toString().equals("void"),
                             update.method(),
                             update.path(),

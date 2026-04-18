@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.rest.create;
 
+import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
@@ -61,7 +62,7 @@ class CreateTestClientWriter {
         var create = Objects.requireNonNull(constructor.getAnnotation(Create.class));
         var createRequest = uncapitalize(manifest.simpleName());
         var pathVariables = manifest.parent()
-                .map(parent -> createRequest + "." + parent.name() + "()")
+                .map(parent -> createRequest + "." + parentAccessorIn(parent, constructor, context))
                 .orElse("");
         var bodyType = ClassName.get(manifest.packageName() + ".application",
                 "Create%sRequest".formatted(manifest.simpleName()));
@@ -181,4 +182,17 @@ class CreateTestClientWriter {
                         pathVariables);
     }
 
+    private String parentAccessorIn(VariableManifest parentField, ExecutableElement constructor, PrefabContext context) {
+        var parentType = !parentField.type().parameters().isEmpty()
+                ? parentField.type().parameters().getFirst()
+                : null;
+        if (parentType == null) {
+            return parentField.name() + "()";
+        }
+        boolean parentIsAggregatParam = constructor.getParameters().stream()
+                .map(p -> VariableManifest.of(p, context.processingEnvironment()))
+                .anyMatch(p -> !p.type().annotationsOfType(Aggregate.class).isEmpty()
+                        && p.type().equals(parentType));
+        return parentIsAggregatParam ? parentField.name() + "Id()" : parentField.name() + "()";
+    }
 }

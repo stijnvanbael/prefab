@@ -157,6 +157,17 @@ public class VariableManifest {
     }
 
     /**
+     * Creates a new VariableManifest with the specified name.
+     *
+     * @param newName
+     *         the new name
+     * @return a VariableManifest with the new name
+     */
+    public VariableManifest withName(String newName) {
+        return new VariableManifest(element, type, newName, annotations, processingEnvironment);
+    }
+
+    /**
      * Checks if the variable has the specified annotation.
      *
      * @param annotationClass

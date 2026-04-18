@@ -35,19 +35,19 @@ class UpdateTestClientWriter {
                 "%s%sRequest".formatted(
                         manifest.simpleName(),
                         capitalize(update.operationName())));
-        var individualParams = update.parameters().stream()
+        var individualParams = update.requestParameters().stream()
                 .flatMap(parameter -> context.requestParameterBuilder().buildBodyParameter(parameter).stream())
                 .toList();
-        var requestParts = Stream.concat(update.parameters().stream()
+        var requestParts = Stream.concat(update.requestParameters().stream()
                         .flatMap(parameter -> context.requestParameterBuilder()
                                 .buildMethodParameter(parameter)
                                 .stream()),
-                !update.parameters().isEmpty()
+                !update.requestParameters().isEmpty()
                         ? Stream.of(ParameterSpec.builder(bodyType, "request").build())
                         : Stream.empty()
         ).toList();
 
-        if (update.parameters().isEmpty()) {
+        if (update.requestParameters().isEmpty()) {
             return List.of(buildNoBodyMethod(manifest, update, pathVariables));
         }
         return List.of(
@@ -144,7 +144,7 @@ class UpdateTestClientWriter {
                         pathVariables(manifest, update, pathVariables),
                         ControllerUtil.withMockUser(update.security()),
                         MediaType.class,
-                        update.parameters().isEmpty() ? ")" : ".content(jsonMapper.writeValueAsString(request)))",
+                         update.requestParameters().isEmpty() ? ")" : ".content(jsonMapper.writeValueAsString(request)))",
                         MOCK_MVC_RESULT_MATCHERS)
                 .build();
     }

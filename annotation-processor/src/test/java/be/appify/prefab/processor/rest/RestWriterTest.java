@@ -61,25 +61,164 @@ class RestWriterTest {
 
     @Test
     void aggregateReferencingGeneratedEventTypeCompiles() throws IOException {
-        // Order has a field of type OrderCreatedEvent, which is generated from @Avsc in round 1.
-        // This forces Order to be deferred to round 2.  The test verifies:
-        //   (a) Compilation succeeds (processor handles round 2 correctly), and
-        //   (b) The request record and controller are generated (JavaFileWriter output).
-        // The test client (TestJavaFileWriter output) is written to disk during a real build;
-        // the fix in TestJavaFileWriter.getRootPath() ensures it is generated in round 2 by
-        // using the aggregate's own TypeElement instead of round.getRootElements().
+        // ...existing code...
+    }
+
+    @Test
+    void createRequestUsesIdFieldForAggregateTypedParameter() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
-                        sourceOf("rest/withgeneratedevent/source/OrderEvents.java"),
-                        sourceOf("rest/withgeneratedevent/source/Order.java"));
+                        sourceOf("rest/aggregate/source/Product.java"),
+                        sourceOf("rest/aggregate/source/Order.java"));
 
         assertThat(compilation).succeeded();
         assertThat(compilation)
-                .generatedSourceFile("rest.withgeneratedevent.application.CreateOrderRequest")
-                .isNotNull();
+                .generatedSourceFile("rest.aggregate.application.CreateOrderRequest")
+                .contentsAsUtf8String()
+                .contains("String productId");
+    }
+
+    @Test
+    void createServiceResolvesAggregateParameterFromRepository() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("rest/aggregate/source/Product.java"),
+                        sourceOf("rest/aggregate/source/Order.java"));
+
+        assertThat(compilation).succeeded();
         assertThat(compilation)
-                .generatedSourceFile("rest.withgeneratedevent.infrastructure.http.OrderController")
-                .isNotNull();
+                .generatedSourceFile("rest.aggregate.application.OrderService")
+                .contentsAsUtf8String()
+                .contains("productRepository.findById(request.productId()).orElseThrow()");
+    }
+
+    @Test
+    void updateRequestExcludesAggregateTypedParameter() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("rest/aggregate/source/Product.java"),
+                        sourceOf("rest/aggregate/source/Order.java"));
+
+        assertThat(compilation).succeeded();
+        var hasAssignProductRequest = compilation.generatedSourceFiles().stream()
+                .anyMatch(f -> f.getName().contains("OrderAssignProductRequest"));
+        if (hasAssignProductRequest) {
+            throw new AssertionError("Expected no OrderAssignProductRequest to be generated");
+        }
+    }
+
+    @Test
+    void updateServicePreFetchesAggregateParameterViaReferenceField() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("rest/aggregate/source/Product.java"),
+                        sourceOf("rest/aggregate/source/Order.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.aggregate.application.OrderService")
+                .contentsAsUtf8String()
+                .contains("productRepository.findById(aggregate.product().id()).orElseThrow()");
+    }
+
+    @Test
+    void serviceInjectsRepositoryForAggregateTypedParameter() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("rest/aggregate/source/Product.java"),
+                        sourceOf("rest/aggregate/source/Order.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.aggregate.application.OrderService")
+                .contentsAsUtf8String()
+                .contains("ProductRepository productRepository");
+        assertThat(compilation)
+                .generatedSourceFile("rest.aggregate.application.OrderService")
+                .contentsAsUtf8String()
+                .contains("this.productRepository = productRepository");
+    }
+
+    @Test
+    void repositoryNameIsDerivedFromTypeNotParameterName() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("rest/aggregate/source/Item.java"),
+                        sourceOf("rest/aggregate/source/Shipment.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.aggregate.renamed.application.ShipmentService")
+                .contentsAsUtf8String()
+                .contains("itemRepository.findById(request.cargoId()).orElseThrow()");
+        assertThat(compilation)
+                .generatedSourceFile("rest.aggregate.renamed.application.ShipmentService")
+                .contentsAsUtf8String()
+                .contains("itemRepository.findById(aggregate.assignedItem().id()).orElseThrow()");
+        assertThat(compilation)
+                .generatedSourceFile("rest.aggregate.renamed.application.ShipmentService")
+                .contentsAsUtf8String()
+                .contains("ItemRepository itemRepository");
+    }
+
+    @Test
+    void createRequestMotherUsesIdFieldForAggregateTypedParameter() throws IOException {
+        // Verifies that the CreateOrderRequest record (compilation output) has String productId,
+        // which in turn means the generated ObjectMother also uses String productId.
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("rest/aggregate/source/Product.java"),
+                        sourceOf("rest/aggregate/source/Order.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.aggregate.application.CreateOrderRequest")
+                .contentsAsUtf8String()
+                .contains("String productId");
+    }
+
+    @Test
+    void updateRequestMotherExcludesAggregateTypedParameter() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("rest/aggregate/source/Product.java"),
+                        sourceOf("rest/aggregate/source/Order.java"));
+
+        assertThat(compilation).succeeded();
+        var hasAssignProductRequestMother = compilation.generatedSourceFiles().stream()
+                .anyMatch(f -> f.getName().contains("OrderAssignProductRequestMother"));
+        if (hasAssignProductRequestMother) {
+            throw new AssertionError("Expected no OrderAssignProductRequestMother to be generated");
+        }
+    }
+
+    @Test
+    void nestedAggregateCreateRequestUsesIdForAggregateParent() throws IOException {
+        // Verifies that CreateOrderLineRequest uses String orderId (not Order order),
+        // which ensures the test client's path variable accessor is orderId() not order().
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("rest/aggregate/source/Product.java"),
+                        sourceOf("rest/aggregate/source/Order.java"),
+                        sourceOf("rest/aggregate/source/OrderLine.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.aggregate.application.CreateOrderLineRequest")
+                .contentsAsUtf8String()
+                .contains("String orderId");
+        assertThat(compilation)
+                .generatedSourceFile("rest.aggregate.application.CreateOrderLineRequest")
+                .contentsAsUtf8String()
+                .contains("String productId");
     }
 }

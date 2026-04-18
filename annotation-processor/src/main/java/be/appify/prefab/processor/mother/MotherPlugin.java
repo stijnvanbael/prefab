@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.mother;
 
+import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.Update;
@@ -66,19 +67,27 @@ public class MotherPlugin implements PrefabPlugin {
         manifest.constructorsWith(Create.class).forEach(ctor -> {
             if (!ctor.getParameters().isEmpty()) {
                 var name = "Create%sRequest".formatted(manifest.simpleName());
-                var params = parametersOf(ctor);
+                var params = parametersOf(ctor).stream()
+                        .map(p -> isAggregateTyped(p) ? p.withType(String.class).withName(p.name() + "Id") : p)
+                        .toList();
                 writer.writeRequestMother(name, manifest.packageName(), params, preferredElement);
             }
         });
 
         manifest.methodsWith(Update.class).forEach(method -> {
-            if (!method.getParameters().isEmpty()) {
-                var opName = capitalize(method.getSimpleName().toString());
-                var name = "%s%sRequest".formatted(manifest.simpleName(), opName);
-                var params = parametersOf(method);
+            var opName = capitalize(method.getSimpleName().toString());
+            var name = "%s%sRequest".formatted(manifest.simpleName(), opName);
+            var params = parametersOf(method).stream()
+                    .filter(p -> !isAggregateTyped(p))
+                    .toList();
+            if (!params.isEmpty()) {
                 writer.writeRequestMother(name, manifest.packageName(), params, preferredElement);
             }
         });
+    }
+
+    private boolean isAggregateTyped(VariableManifest param) {
+        return !param.type().annotationsOfType(Aggregate.class).isEmpty();
     }
 
     private List<VariableManifest> parametersOf(ExecutableElement element) {

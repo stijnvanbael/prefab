@@ -26,7 +26,7 @@ import static org.apache.commons.text.WordUtils.capitalize;
 class UpdateControllerWriter {
     MethodSpec updateMethod(ClassManifest manifest, UpdateManifest update, PrefabContext context) {
         var responseType = responseType(manifest);
-        var requestParts = update.parameters().stream()
+        var requestParts = update.requestParameters().stream()
                 .flatMap(parameter -> context.requestParameterBuilder().buildMethodParameter(parameter).stream())
                 .toList();
         var idParameter = ParameterSpec.builder(String.class, "id")
@@ -39,7 +39,7 @@ class UpdateControllerWriter {
                 .addParameter(idParameter.build());
         operationAnnotation(capitalize(update.operationName()) + " " + manifest.simpleName()).ifPresent(method::addAnnotation);
         securedAnnotation(update.security()).ifPresent(method::addAnnotation);
-        if (update.parameters().isEmpty()) {
+        if (update.requestParameters().isEmpty()) {
             method.addStatement("return toResponse(service.$N(id))", update.operationName());
         } else {
             method.addParameter(ParameterSpec.builder(

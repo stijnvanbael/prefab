@@ -8,6 +8,8 @@ import java.util.List;
 record UpdateManifest(
         String operationName,
         List<VariableManifest> parameters,
+        List<VariableManifest> requestParameters,
+        List<VariableManifest> aggregateParameters,
         boolean stateful,
         String method,
         String path,

@@ -130,10 +130,15 @@ class MotherPluginTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("mother/nestedinwrapper/source/OrderEvent.java"));
 
-        // The annotation processor must not throw when processing a single-value type whose
-        // sole field is itself a multi-field record.  If writeNestedMothersFor does not recurse
-        // through the single-value wrapper, or if typeDefaultValue generates invalid code for it,
-        // the compilation will fail.
+        assertThat(compilation).succeeded();
+    }
+
+    @Test
+    void motherUsesMockMultipartFileForBinaryField() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/binary/source/Document.java"));
+
         assertThat(compilation).succeeded();
     }
 }

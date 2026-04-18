@@ -4,6 +4,8 @@ import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.Update;
+import be.appify.prefab.core.domain.Binary;
+import org.springframework.web.multipart.MultipartFile;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
@@ -69,6 +71,7 @@ public class MotherPlugin implements PrefabPlugin {
                 var name = "Create%sRequest".formatted(manifest.simpleName());
                 var params = parametersOf(ctor).stream()
                         .map(p -> isAggregateTyped(p) ? p.withType(String.class).withName(p.name() + "Id") : p)
+                        .map(p -> isBinaryTyped(p) ? p.withType(MultipartFile.class) : p)
                         .toList();
                 writer.writeRequestMother(name, manifest.packageName(), params, preferredElement);
             }
@@ -79,6 +82,7 @@ public class MotherPlugin implements PrefabPlugin {
             var name = "%s%sRequest".formatted(manifest.simpleName(), opName);
             var params = parametersOf(method).stream()
                     .filter(p -> !isAggregateTyped(p))
+                    .map(p -> isBinaryTyped(p) ? p.withType(MultipartFile.class) : p)
                     .toList();
             if (!params.isEmpty()) {
                 writer.writeRequestMother(name, manifest.packageName(), params, preferredElement);
@@ -88,6 +92,10 @@ public class MotherPlugin implements PrefabPlugin {
 
     private boolean isAggregateTyped(VariableManifest param) {
         return !param.type().annotationsOfType(Aggregate.class).isEmpty();
+    }
+
+    private boolean isBinaryTyped(VariableManifest param) {
+        return param.type().is(Binary.class);
     }
 
     private List<VariableManifest> parametersOf(ExecutableElement element) {

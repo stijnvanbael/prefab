@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
+import org.springframework.web.multipart.MultipartFile;
 
 import static org.apache.commons.text.WordUtils.capitalize;
 
@@ -286,6 +287,10 @@ class MotherWriter {
         var temporalDefault = temporalDefaultValue(type);
         if (temporalDefault != null) return temporalDefault;
         if (type.is(BigDecimal.class)) return CodeBlock.of("$T.ONE", BigDecimal.class);
+        if (type.is(MultipartFile.class)) {
+            var mockMultipartFile = ClassName.get("org.springframework.mock.web", "MockMultipartFile");
+            return CodeBlock.of("new $T($S, $S, $S, new byte[0])", mockMultipartFile, fieldName, fieldName, "application/octet-stream");
+        }
         if (type.isEnum()) return CodeBlock.of("$T.values()[0]", type.asTypeName());
         if (type.isSingleValueType()) {
             var innerField = type.fields().getFirst();

@@ -52,6 +52,10 @@ public class PrefabJdbcPersistentProperty extends BasicJdbcPersistentProperty {
         return holder;
     }
 
+    private static String toSnakeCase(String value) {
+        return value.replaceAll("([a-z])([A-Z]+)", "$1_$2").toLowerCase();
+    }
+
     private SimpleTypeHolder getSimpleTypeHolder() {
         // During super constructor, field isn't assigned yet — use stashed value
         return simpleTypeHolder != null ? simpleTypeHolder : STASHED_HOLDER.get();
@@ -66,7 +70,7 @@ public class PrefabJdbcPersistentProperty extends BasicJdbcPersistentProperty {
                     && !actualType.isAnnotationPresent(Table.class)
                     && !holder.isSimpleType(actualType)) {
                 syntheticEmbedded = AnnotationUtils.synthesizeAnnotation(
-                        Map.of("onEmpty", Embedded.OnEmpty.USE_NULL, "prefix", getName() + "_"),
+                        Map.of("onEmpty", Embedded.OnEmpty.USE_NULL, "prefix", toSnakeCase(getName()) + "_"),
                         Embedded.class, null);
             }
             syntheticResolved = true;

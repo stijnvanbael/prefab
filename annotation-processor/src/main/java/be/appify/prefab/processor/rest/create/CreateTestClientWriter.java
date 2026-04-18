@@ -39,7 +39,7 @@ class CreateTestClientWriter {
     private List<ParameterSpec> getIndividualParams(ExecutableElement constructor, PrefabContext context) {
         return constructor.getParameters().stream()
                 .map(param -> VariableManifest.of(param, context.processingEnvironment()))
-                .flatMap(param -> context.requestParameterBuilder().buildBodyParameter(param).stream())
+                .flatMap(param -> context.requestParameterBuilder().buildTestClientParameter(param).stream())
                 .toList();
     }
 

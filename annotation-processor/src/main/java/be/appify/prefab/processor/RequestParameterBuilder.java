@@ -52,6 +52,26 @@ public class RequestParameterBuilder {
                 .findFirst();
     }
 
+    /**
+     * Builds a plain parameter for use in test client methods, without validation or documentation annotations.
+     *
+     * @param parameter the variable manifest
+     * @return an optional ParameterSpec with no annotations
+     */
+    public Optional<ParameterSpec> buildTestClientParameter(VariableManifest parameter) {
+        return plugins.stream().flatMap(plugin -> plugin.requestBodyParameter(parameter).stream())
+                .findFirst()
+                .map(spec -> ParameterSpec.builder(spec.type(), spec.name()).build())
+                .or(() -> plainParameter(parameter));
+    }
+
+    private static Optional<ParameterSpec> plainParameter(VariableManifest parameter) {
+        var effectiveType = parameter.type().isSingleValueType()
+                ? parameter.type().fields().getFirst().type().asBoxed()
+                : parameter.type();
+        return Optional.of(ParameterSpec.builder(effectiveType.asTypeName(), parameter.name()).build());
+    }
+
     private static Optional<ParameterSpec> defaultParameters(VariableManifest parameter) {
         var effectiveType = parameter.type().isSingleValueType()
                 ? parameter.type().fields().getFirst().type().asBoxed()

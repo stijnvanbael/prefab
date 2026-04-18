@@ -36,7 +36,7 @@ class UpdateTestClientWriter {
                         manifest.simpleName(),
                         capitalize(update.operationName())));
         var individualParams = update.requestParameters().stream()
-                .flatMap(parameter -> context.requestParameterBuilder().buildBodyParameter(parameter).stream())
+                .flatMap(parameter -> context.requestParameterBuilder().buildTestClientParameter(parameter).stream())
                 .toList();
         var requestParts = Stream.concat(update.requestParameters().stream()
                         .flatMap(parameter -> context.requestParameterBuilder()

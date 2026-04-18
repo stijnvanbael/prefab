@@ -177,6 +177,19 @@ YAML, Markdown, shell scripts, `.gitignore`, and any other text file.
 **Why it matters**: CRLF line endings cause noise in diffs, break shell scripts, and violate the project's
 consistent Unix-style formatting contract enforced via `.gitattributes` and editor config.
 
+### CM-002 — Terminal input truncation
+
+**Mistake**: Passing too much text to a single terminal command (e.g. a very long `--ac`, `--description`, or
+`--plan` argument, or chaining many `--ac` flags in one call) causes the shell to silently truncate the input,
+resulting in incomplete or broken task content and sometimes leaving the shell stuck in an unfinished quote state.
+
+**Rule**: Keep each terminal command short. When adding multiple acceptance criteria, description paragraphs, or
+plan steps, issue **one command per item**. Never combine more than one or two `--ac` flags in a single call, and
+keep individual argument strings well under 200 characters.
+
+**Why it matters**: Truncated input produces silently incorrect backlog entries and can wedge the terminal in an
+interactive-quote state (`dquote>` / `cmdand quote>`), requiring a manual reset before further commands work.
+
 ---
 
 ## Summary Principle

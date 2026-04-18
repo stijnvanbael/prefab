@@ -14,6 +14,7 @@ import be.appify.prefab.processor.VariableManifest;
 import org.springframework.data.annotation.Id;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.FileSystemNotFoundException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -157,26 +158,99 @@ class DbMigrationWriter {
     private DatabaseState currentDatabaseState(ProcessingEnvironment processingEnvironment) {
         try {
             var tablesByName = new HashMap<String, Table>();
-            var migrations = existingMigrations(processingEnvironment);
-            migrations.forEach(file -> parseSql(file, tablesByName));
-            return new DatabaseState(List.copyOf(tablesByName.values()), migrations.size());
+            var generatedMigrations = existingGeneratedMigrations(processingEnvironment);
+            generatedMigrations.forEach(file -> parseSql(file, tablesByName));
+            var latestVersion = latestMigrationVersion(processingEnvironment);
+            return new DatabaseState(List.copyOf(tablesByName.values()), latestVersion);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private static List<FileObject> existingMigrations(ProcessingEnvironment processingEnvironment) throws IOException {
+    private static List<FileObject> existingGeneratedMigrations(ProcessingEnvironment processingEnvironment)
+            throws IOException {
         var files = new ArrayList<FileObject>();
-        for (int i = 1; ; i++) {
+        for (int i = 1; i <= MAX_VERSION_PROBE; i++) {
             try {
                 var file = processingEnvironment.getFiler().getResource(StandardLocation.CLASS_PATH, "db.migration",
                         "V%d__generated.sql".formatted(i));
                 files.add(file);
-            } catch (FileNotFoundException e) {
-                break;
+            } catch (FileNotFoundException ignored) {
             }
         }
         return files;
+    }
+
+    private static int latestMigrationVersion(ProcessingEnvironment processingEnvironment) throws IOException {
+        var migrationDir = migrationDirectory(processingEnvironment);
+        if (migrationDir == null) {
+            return 0;
+        }
+        try (var paths = java.nio.file.Files.list(migrationDir)) {
+            return paths
+                    .map(p -> p.getFileName().toString())
+                    .map(DbMigrationWriter::extractVersion)
+                    .filter(v -> v >= 0)
+                    .max(Integer::compareTo)
+                    .orElse(0);
+        } catch (java.nio.file.NoSuchFileException e) {
+            return 0;
+        }
+    }
+
+    private static java.nio.file.Path migrationDirectory(ProcessingEnvironment processingEnvironment)
+            throws IOException {
+        var fromClassPath = migrationDirectoryFromClassPath(processingEnvironment);
+        if (fromClassPath != null) {
+            return fromClassPath;
+        }
+        return migrationDirectoryFromClassOutput(processingEnvironment);
+    }
+
+    private static java.nio.file.Path migrationDirectoryFromClassPath(ProcessingEnvironment processingEnvironment)
+            throws IOException {
+        for (int i = 1; i <= MAX_VERSION_PROBE; i++) {
+            var dir = migrationDirectoryFromClassPathVersion(processingEnvironment, i);
+            if (dir != null) {
+                return dir;
+            }
+        }
+        return null;
+    }
+
+    private static java.nio.file.Path migrationDirectoryFromClassPathVersion(
+            ProcessingEnvironment processingEnvironment, int version) throws IOException {
+        for (String suffix : CLASSPATH_PROBE_SUFFIXES) {
+            try {
+                var file = processingEnvironment.getFiler().getResource(
+                        StandardLocation.CLASS_PATH, "db.migration",
+                        "V%d__%s.sql".formatted(version, suffix));
+                return java.nio.file.Path.of(file.toUri()).getParent();
+            } catch (FileNotFoundException | FileSystemNotFoundException ignored) {
+            }
+        }
+        return null;
+    }
+
+    private static final List<String> CLASSPATH_PROBE_SUFFIXES = List.of("generated", "manual", "init", "baseline");
+
+    private static java.nio.file.Path migrationDirectoryFromClassOutput(ProcessingEnvironment processingEnvironment)
+            throws IOException {
+        try {
+            var file = processingEnvironment.getFiler().getResource(
+                    StandardLocation.CLASS_OUTPUT, "", "db/migration/.probe");
+            var dir = java.nio.file.Path.of(file.toUri()).getParent();
+            return java.nio.file.Files.isDirectory(dir) ? dir : null;
+        } catch (FileNotFoundException | FileSystemNotFoundException ignored) {
+            return null;
+        }
+    }
+
+    private static final int MAX_VERSION_PROBE = 100;
+
+    private static int extractVersion(String filename) {
+        var matcher = java.util.regex.Pattern.compile("^V(\\d+)__.*\\.sql$").matcher(filename);
+        return matcher.matches() ? Integer.parseInt(matcher.group(1)) : -1;
     }
 
     private static void parseSql(FileObject file, Map<String, Table> tables) {

@@ -17,6 +17,10 @@ import java.util.stream.Stream;
 public interface DataType {
     String toSql();
 
+    default boolean requiresQuoting() {
+        return false;
+    }
+
     static DataType parse(String sql) {
         sql = sql.trim();
         if (sql.endsWith("[]")) {
@@ -95,6 +99,11 @@ public interface DataType {
         public String toSql() {
             return name();
         }
+
+        @Override
+        public boolean requiresQuoting() {
+            return this == TEXT || this == TIMESTAMP || this == DATE;
+        }
     }
 
     record Array(DataType elementType) implements DataType {
@@ -118,6 +127,11 @@ public interface DataType {
         @Override
         public String toSql() {
             return "VARCHAR (" + length + ")";
+        }
+
+        @Override
+        public boolean requiresQuoting() {
+            return true;
         }
 
         static DataType parse(String sql) {

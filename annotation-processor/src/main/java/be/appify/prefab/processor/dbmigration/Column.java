@@ -45,14 +45,25 @@ record Column(
     }
 
     private static Column createColumn(String name, ColDataType dataType, List<String> columnSpecs) {
+        var parsedType = DataType.parse(dataType.toString());
+        var rawDefault = columnSpecs.contains("DEFAULT")
+                ? unquoteSqlDefault(columnSpecs.get(columnSpecs.indexOf("DEFAULT") + 1))
+                : null;
         return new Column(
                 name.replace("\"", ""),
-                DataType.parse(dataType.toString()),
+                parsedType,
                 Collections.indexOfSubList(columnSpecs, NOT_NULL) == -1,
                 columnSpecs.contains("REFERENCES") ? ForeignKey.fromColumnSpecs(columnSpecs) : null,
-                columnSpecs.contains("DEFAULT") ? columnSpecs.get(columnSpecs.indexOf("DEFAULT") + 1) : null,
+                rawDefault,
                 null
         );
+    }
+
+    private static String unquoteSqlDefault(String token) {
+        if (token != null && token.startsWith("'") && token.endsWith("'") && token.length() >= 2) {
+            return token.substring(1, token.length() - 1).replace("''", "'");
+        }
+        return token;
     }
 
     static Column fromField(String prefix, VariableManifest property, boolean parentNullable) {
@@ -128,11 +139,21 @@ record Column(
         return Objects.hash(name, type, nullable, foreignKey, defaultValue);
     }
 
+    String formattedDefaultValue() {
+        if (defaultValue == null) {
+            return null;
+        }
+        if (type.requiresQuoting()) {
+            return "'" + defaultValue.replace("'", "''") + "'";
+        }
+        return defaultValue;
+    }
+
     @Override
     public String toString() {
         return "\"" + name + "\" " + type
                 + (nullable ? "" : " NOT NULL")
-                + (defaultValue != null ? " DEFAULT " + defaultValue : "")
+                + (defaultValue != null ? " DEFAULT " + formattedDefaultValue() : "")
                 + (foreignKey != null ? " " + foreignKey : "");
     }
 }

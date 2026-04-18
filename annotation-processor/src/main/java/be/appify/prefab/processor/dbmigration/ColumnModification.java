@@ -18,16 +18,46 @@ interface ColumnModification {
         }
     }
 
-    record ChangeNotNull(String name, boolean nullable, String defaultValue) implements ColumnModification {
+    record SetDefault(String formattedValue) implements ColumnModification {
         @Override
         public String toSql() {
-            if (!nullable && defaultValue == null) {
-                throw new IllegalStateException(
-                        "Cannot set column [%s] to NOT NULL without a default value. Annotate the corresponding field with @DbDefaultValue to specify it."
-                                .formatted(name));
-            }
-            return (nullable ? "DROP" : "SET") + " NOT NULL" +
-                   (nullable ? "" : " DEFAULT " + defaultValue);
+            return "SET DEFAULT " + formattedValue;
+        }
+
+        @Override
+        public String toString() {
+            return toSql();
+        }
+    }
+
+    record DropDefault() implements ColumnModification {
+        @Override
+        public String toSql() {
+            return "DROP DEFAULT";
+        }
+
+        @Override
+        public String toString() {
+            return toSql();
+        }
+    }
+
+    record SetNotNull() implements ColumnModification {
+        @Override
+        public String toSql() {
+            return "SET NOT NULL";
+        }
+
+        @Override
+        public String toString() {
+            return toSql();
+        }
+    }
+
+    record DropNotNull() implements ColumnModification {
+        @Override
+        public String toSql() {
+            return "DROP NOT NULL";
         }
 
         @Override

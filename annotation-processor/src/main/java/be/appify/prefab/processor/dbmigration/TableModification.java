@@ -13,10 +13,18 @@ interface TableModification {
                         new ColumnModification.ChangeType(original.name(), desired.type())));
             }
             if (original.nullable() != desired.nullable()) {
-                modifications.add(
-                        new AlterColumn(original.name(),
-                                new ColumnModification.ChangeNotNull(table + "." + original.name(), desired.nullable(),
-                                        desired.defaultValue())));
+                if (desired.nullable()) {
+                    modifications.add(new AlterColumn(original.name(), new ColumnModification.DropNotNull()));
+                } else {
+                    if (desired.formattedDefaultValue() == null) {
+                        throw new IllegalStateException(
+                                "Cannot set column [%s.%s] to NOT NULL without a default value. Annotate the corresponding field with @DbDefaultValue to specify it."
+                                        .formatted(table, original.name()));
+                    }
+                    modifications.add(new AlterColumn(original.name(),
+                            new ColumnModification.SetDefault(desired.formattedDefaultValue())));
+                    modifications.add(new AlterColumn(original.name(), new ColumnModification.SetNotNull()));
+                }
             }
             if (!Objects.equals(original.foreignKey(), desired.foreignKey())) {
                 if (original.foreignKey() != null) {

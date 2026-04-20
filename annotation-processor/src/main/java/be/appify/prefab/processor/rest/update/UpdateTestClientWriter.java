@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.rest.update;
 
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.rest.ControllerUtil;
 import com.palantir.javapoet.ClassName;
@@ -8,6 +9,7 @@ import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.lang.model.element.Modifier;
@@ -20,7 +22,6 @@ import static be.appify.prefab.processor.TestClasses.MOCK_PART;
 import static be.appify.prefab.processor.TestClasses.TEST_UTIL;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
-
 class UpdateTestClientWriter {
     List<MethodSpec> updateMethods(
             ClassManifest manifest,
@@ -198,5 +199,173 @@ class UpdateTestClientWriter {
                 : CodeBlock.of("$S, $L",
                         "/" + ControllerUtil.pathOf(manifest) + "/{id}" + update.path(),
                         pathVariables);
+    }
+
+    MethodSpec baseUpdateMethodForPolymorphic(
+            PolymorphicAggregateManifest polymorphic,
+            UpdateManifest update
+    ) {
+        var operationName = capitalize(update.operationName());
+        var unionClass = ClassName.get(polymorphic.packageName() + ".application",
+                "%s%sRequest".formatted(polymorphic.simpleName(), operationName));
+        var path = CodeBlock.of("$S", "/" + ControllerUtil.pathOf(polymorphic) + "/{id}" + update.path());
+        return MethodSpec.methodBuilder(uncapitalize(update.operationName()))
+                .addModifiers(Modifier.PUBLIC)
+                .returns(void.class)
+                .addParameter(String.class, "id")
+                .addParameter(unionClass, "request")
+                .addException(Exception.class)
+                .addStatement("""
+                                mockMvc.perform($T.$N($L, id)$L
+                                        .contentType($T.APPLICATION_JSON)
+                                        .content(jsonMapper.writeValueAsString(request)))
+                                        .andExpect($T.status().isOk())""",
+                        MOCK_MVC_REQUEST_BUILDERS,
+                        update.method().toLowerCase(),
+                        path,
+                        ControllerUtil.withMockUser(update.security()),
+                        org.springframework.http.MediaType.class,
+                        MOCK_MVC_RESULT_MATCHERS)
+                .build();
+    }
+
+    List<MethodSpec> updateMethodsForPolymorphicUnion(
+            PolymorphicAggregateManifest polymorphic,
+            Map.Entry<ClassManifest, UpdateManifest> entry,
+            PrefabContext context
+    ) {
+        var leafName = leafName(entry.getKey().simpleName());
+        var update = entry.getValue();
+        var opName = capitalize(update.operationName());
+        var unionName = "%s%sRequest".formatted(polymorphic.simpleName(), opName);
+        var nestedClass = ClassName.get(polymorphic.packageName() + ".application", unionName,
+                "%s%sRequest".formatted(leafName, opName));
+        var flatClass = ClassName.get(polymorphic.packageName() + ".application",
+                "%s%sRequest".formatted(leafName, opName));
+        var operationMethodName = uncapitalize(leafName + opName);
+        var individualParams = update.requestParameters().stream()
+                .flatMap(parameter -> context.requestParameterBuilder().buildTestClientParameter(parameter).stream())
+                .toList();
+        var paramAccess = update.requestParameters().stream()
+                .map(p -> "request." + p.name() + "()")
+                .collect(Collectors.joining(", "));
+
+        var convenienceMethod = MethodSpec.methodBuilder(operationMethodName)
+                .addModifiers(Modifier.PUBLIC)
+                .returns(void.class)
+                .addParameter(String.class, "id")
+                .addParameters(individualParams)
+                .addException(Exception.class)
+                .addStatement("$L(id, new $T($L))", operationMethodName, flatClass,
+                        individualParams.stream().map(ParameterSpec::name).collect(Collectors.joining(", ")))
+                .build();
+
+        var wrapperMethod = MethodSpec.methodBuilder(operationMethodName)
+                .addModifiers(Modifier.PUBLIC)
+                .returns(void.class)
+                .addParameter(String.class, "id")
+                .addParameter(flatClass, "request")
+                .addException(Exception.class)
+                .addStatement("$L(id, new $T($L))", uncapitalize(update.operationName()), nestedClass, paramAccess)
+                .build();
+
+        return List.of(convenienceMethod, wrapperMethod);
+    }
+
+    List<MethodSpec> updateMethodsForPolymorphic(
+            PolymorphicAggregateManifest polymorphic,
+            ClassManifest subtype,
+            UpdateManifest update,
+            PrefabContext context
+    ) {
+        var leafName = leafName(subtype.simpleName());
+        var operationName = uncapitalize(leafName + capitalize(update.operationName()));
+        var bodyType = ClassName.get(
+                polymorphic.packageName() + ".application",
+                "%s%sRequest".formatted(leafName, capitalize(update.operationName())));
+        var individualParams = update.requestParameters().stream()
+                .flatMap(parameter -> context.requestParameterBuilder().buildTestClientParameter(parameter).stream())
+                .toList();
+        var path = CodeBlock.of("$S", "/" + ControllerUtil.pathOf(polymorphic) + "/{id}" + update.path());
+
+        if (update.requestParameters().isEmpty()) {
+            return List.of(buildPolymorphicNoBodyMethod(operationName, update, path));
+        }
+        return List.of(
+                buildPolymorphicIndividualParamsMethod(operationName, bodyType, individualParams),
+                buildPolymorphicRequestOverload(operationName, bodyType, update, path));
+    }
+
+    private static MethodSpec buildPolymorphicNoBodyMethod(
+            String operationName,
+            UpdateManifest update,
+            CodeBlock path
+    ) {
+        return MethodSpec.methodBuilder(operationName)
+                .addModifiers(Modifier.PUBLIC)
+                .returns(void.class)
+                .addParameter(String.class, "id")
+                .addException(Exception.class)
+                .addStatement("""
+                                mockMvc.perform($T.$N($L, id)$L
+                                        .contentType($T.APPLICATION_JSON)
+                                        )
+                                        .andExpect($T.status().isOk())""",
+                        MOCK_MVC_REQUEST_BUILDERS,
+                        update.method().toLowerCase(),
+                        path,
+                        ControllerUtil.withMockUser(update.security()),
+                        org.springframework.http.MediaType.class,
+                        MOCK_MVC_RESULT_MATCHERS)
+                .build();
+    }
+
+    private static MethodSpec buildPolymorphicIndividualParamsMethod(
+            String operationName,
+            ClassName bodyType,
+            List<ParameterSpec> individualParams
+    ) {
+        return MethodSpec.methodBuilder(operationName)
+                .addModifiers(Modifier.PUBLIC)
+                .returns(void.class)
+                .addParameter(String.class, "id")
+                .addParameters(individualParams)
+                .addException(Exception.class)
+                .addStatement("$L(id, new $T($L))",
+                        operationName,
+                        bodyType,
+                        individualParams.stream().map(ParameterSpec::name).collect(Collectors.joining(", ")))
+                .build();
+    }
+
+    private static MethodSpec buildPolymorphicRequestOverload(
+            String operationName,
+            ClassName bodyType,
+            UpdateManifest update,
+            CodeBlock path
+    ) {
+        return MethodSpec.methodBuilder(operationName)
+                .addModifiers(Modifier.PUBLIC)
+                .returns(void.class)
+                .addParameter(String.class, "id")
+                .addParameter(bodyType, "request")
+                .addException(Exception.class)
+                .addStatement("""
+                                mockMvc.perform($T.$N($L, id)$L
+                                        .contentType($T.APPLICATION_JSON)
+                                        .content(jsonMapper.writeValueAsString(request)))
+                                        .andExpect($T.status().isOk())""",
+                        MOCK_MVC_REQUEST_BUILDERS,
+                        update.method().toLowerCase(),
+                        path,
+                        ControllerUtil.withMockUser(update.security()),
+                        org.springframework.http.MediaType.class,
+                        MOCK_MVC_RESULT_MATCHERS)
+                .build();
+    }
+
+    private static String leafName(String simpleName) {
+        var dotIndex = simpleName.lastIndexOf('.');
+        return dotIndex >= 0 ? simpleName.substring(dotIndex + 1) : simpleName;
     }
 }

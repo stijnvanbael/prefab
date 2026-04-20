@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.VariableElement;
 import org.springframework.data.annotation.Id;
 
@@ -53,6 +54,32 @@ public class VariableManifest {
             return new VariableManifest(variableElement, processingEnvironment);
         }
         return manifestCache.computeIfAbsent(variableElement, variable -> new VariableManifest(variable, processingEnvironment));
+    }
+
+    /**
+     * Constructs a VariableManifest from a method element, using the method's return type as the variable type
+     * and the method's simple name as the variable name. Intended for sealed interface abstract methods annotated
+     * with {@code @Parent}.
+     *
+     * @param method
+     *         the method element to construct the manifest from
+     * @param processingEnvironment
+     *         the processing environment
+     * @return a VariableManifest representing the given method
+     */
+    @SuppressWarnings("unchecked")
+    public static VariableManifest ofMethod(ExecutableElement method, ProcessingEnvironment processingEnvironment) {
+        var type = TypeManifest.of(method.getReturnType(), processingEnvironment);
+        var name = method.getSimpleName().toString();
+        var annotations = method.getAnnotationMirrors().stream()
+                .map(mirror -> new AnnotationManifest<>(
+                        mirror,
+                        processingEnvironment,
+                        (Annotation) method.getAnnotation((Class<? extends Annotation>) TypeManifest.of(
+                                mirror.getAnnotationType().asElement().asType(),
+                                processingEnvironment).asClass())))
+                .toList();
+        return new VariableManifest(null, type, name, annotations, processingEnvironment);
     }
 
     private VariableManifest(

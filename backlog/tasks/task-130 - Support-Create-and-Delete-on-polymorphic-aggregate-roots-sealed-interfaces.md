@@ -1,7 +1,7 @@
 ---
 id: TASK-130
 title: Support @Create and @Delete on polymorphic aggregate roots (sealed interfaces)
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-04-18 14:38'
 updated_date: '2026-04-24 06:57'

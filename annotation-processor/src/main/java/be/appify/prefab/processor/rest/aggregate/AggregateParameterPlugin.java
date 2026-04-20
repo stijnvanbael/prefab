@@ -6,6 +6,7 @@ import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
+import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
@@ -54,6 +55,14 @@ public class AggregateParameterPlugin implements PrefabPlugin {
     @Override
     public Set<TypeName> getServiceDependencies(ClassManifest manifest) {
         return aggregateTypedParamsOf(manifest)
+                .map(this::repositoryTypeFor)
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public Set<TypeName> getPolymorphicServiceDependencies(PolymorphicAggregateManifest manifest) {
+        return manifest.subtypes().stream()
+                .flatMap(subtype -> aggregateTypedParamsOf(subtype))
                 .map(this::repositoryTypeFor)
                 .collect(Collectors.toSet());
     }

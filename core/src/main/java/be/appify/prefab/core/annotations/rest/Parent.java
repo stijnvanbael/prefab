@@ -10,7 +10,7 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
  * Annotate a Reference field with @Parent to indicate that it is the parent of this entity.
  * Parent IDs need to be included in the request path for every REST call of this entity.
  */
-@Target(ElementType.FIELD)
+@Target({ElementType.FIELD, ElementType.METHOD})
 @Retention(SOURCE)
 public @interface Parent {
 }

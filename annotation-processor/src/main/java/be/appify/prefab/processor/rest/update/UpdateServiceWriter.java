@@ -2,6 +2,7 @@ package be.appify.prefab.processor.rest.update;
 
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.audit.AuditFields;
 import com.palantir.javapoet.ClassName;
@@ -175,5 +176,49 @@ class UpdateServiceWriter {
         }
         return CodeBlock.of("request.$N()", parameter.name());
     }
-}
 
+    MethodSpec updateMethodForPolymorphic(
+            PolymorphicAggregateManifest polymorphic,
+            ClassManifest subtype,
+            UpdateManifest update
+    ) {
+        var leafName = leafName(subtype.simpleName());
+        var operationName = uncapitalize(leafName + capitalize(update.operationName()));
+        var repositoryName = uncapitalize(polymorphic.simpleName()) + "Repository";
+        var method = MethodSpec.methodBuilder(operationName)
+                .addModifiers(Modifier.PUBLIC)
+                .returns(ParameterizedTypeName.get(ClassName.get(Optional.class), polymorphic.className()));
+        method.addParameter(String.class, "id");
+        if (!update.requestParameters().isEmpty()) {
+            method.addParameter(ParameterSpec.builder(
+                            ClassName.get("%s.application".formatted(polymorphic.packageName()),
+                                    "%s%sRequest".formatted(leafName, capitalize(update.operationName()))), "request")
+                    .addAnnotation(Valid.class)
+                    .build());
+        }
+        method.addStatement("log.debug($S, $T.class.getSimpleName(), id)", "Updating {} with id: {}",
+                polymorphic.className());
+        var domainCallBlock = buildDomainCallBlock(update);
+        method.addStatement("""
+                        return $N.findById(id).map(shape -> {
+                            if (!(shape instanceof $T aggregate)) {
+                                throw new $T("Expected $L but got: " + shape.getClass().getSimpleName());
+                            }
+                            $L
+                            return ($T) $N.save(aggregate);
+                        })""",
+                repositoryName,
+                subtype.className(),
+                IllegalStateException.class,
+                leafName,
+                domainCallBlock,
+                polymorphic.className(),
+                repositoryName);
+        return method.build();
+    }
+
+    private static String leafName(String simpleName) {
+        var dotIndex = simpleName.lastIndexOf('.');
+        return dotIndex >= 0 ? simpleName.substring(dotIndex + 1) : simpleName;
+    }
+}

@@ -101,6 +101,28 @@ public interface PrefabPlugin {
     }
 
     /**
+     * Get additional service dependencies for a polymorphic aggregate (beyond the parent repository).
+     *
+     * @param manifest
+     *         The polymorphic aggregate manifest.
+     * @return A set of TypeNames representing extra service dependencies.
+     */
+    default Set<TypeName> getPolymorphicServiceDependencies(PolymorphicAggregateManifest manifest) {
+        return Collections.emptySet();
+    }
+
+    /**
+     * Write test REST client code for the given polymorphic aggregate manifest.
+     *
+     * @param manifest
+     *         The polymorphic aggregate manifest.
+     * @param builder
+     *         The TypeSpec builder for the test client.
+     */
+    default void writePolymorphicTestClient(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
+    }
+
+    /**
      * Write repository code for the given manifest.
      *
      * @param manifest

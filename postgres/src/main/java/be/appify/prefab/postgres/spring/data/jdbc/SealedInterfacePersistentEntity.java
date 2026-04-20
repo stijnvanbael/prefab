@@ -22,7 +22,7 @@ import org.springframework.data.relational.core.mapping.RelationalPersistentProp
  * </ul>
  *
  * <p>The concrete subtype instantiation is always handled by the registered
- * {@link PolymorphicReadingConverter}; this entity is only used for SQL generation (table name, WHERE clause).</p>
+ * {@link be.appify.prefab.core.spring.data.jdbc.PolymorphicReadingConverter}; this entity is only used for SQL generation (table name, WHERE clause).</p>
  *
  * @param <T>
  *         the sealed interface type
@@ -73,6 +73,35 @@ class SealedInterfacePersistentEntity<T> extends PrefabPersistentEntity<T> {
                             + ". Ensure all permitted subtypes declare an @Id field.");
         }
         return prop;
+    }
+
+    /**
+     * Resolves a persistent property by name by delegating to the first permitted subtype. Since the sealed
+     * interface declares no fields itself, property lookup would otherwise always return {@code null}, causing
+     * Spring Data's query-method derivation (e.g. {@code findByQuiz}) to fail with a
+     * {@code PropertyReferenceException}.
+     *
+     * @param name
+     *         the property name to look up
+     * @return the property from the first permitted subtype, or {@code null} if not found
+     */
+    @Override
+    public @Nullable RelationalPersistentProperty getPersistentProperty(String name) {
+        RelationalPersistentProperty ownProperty = super.getPersistentProperty(name);
+        if (ownProperty != null) {
+            return ownProperty;
+        }
+        Class<?>[] subtypes = getType().getPermittedSubclasses();
+        if (subtypes.length == 0) {
+            return null;
+        }
+        try {
+            return mappingContext.getRequiredPersistentEntity(subtypes[0]).getPersistentProperty(name);
+        } catch (Exception e) {
+            log.debug("Could not resolve property '{}' for subtype {} of {}: {}",
+                    name, subtypes[0].getName(), getType().getName(), e.getMessage());
+            return null;
+        }
     }
 
     /**

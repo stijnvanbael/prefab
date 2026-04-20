@@ -4,14 +4,20 @@ import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.JavaFileWriter;
+import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.TypeSpec;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
+
+import static org.apache.commons.text.WordUtils.capitalize;
 
 /**
  * Plugin responsible for generating update controller and service methods, as well as related request records and test
@@ -23,7 +29,6 @@ public class UpdatePlugin implements PrefabPlugin {
     private final UpdateRequestRecordWriter updateRequestRecordWriter = new UpdateRequestRecordWriter();
     private final UpdateTestClientWriter updateTestClientWriter = new UpdateTestClientWriter();
     private PrefabContext context;
-
 
     @Override
     public void initContext(PrefabContext context) {
@@ -56,9 +61,110 @@ public class UpdatePlugin implements PrefabPlugin {
     }
 
     @Override
+    public void writeAdditionalFiles(List<ClassManifest> manifests, List<PolymorphicAggregateManifest> polymorphicManifests) {
+        writeAdditionalFiles(manifests);
+        if (!polymorphicManifests.isEmpty()) {
+            var fileWriter = new JavaFileWriter(context.processingEnvironment(), "application");
+            polymorphicManifests.forEach(polymorphic -> writePolymorphicUpdateAdditionalFiles(fileWriter, polymorphic));
+        }
+    }
+
+    private void writePolymorphicUpdateAdditionalFiles(JavaFileWriter fileWriter, PolymorphicAggregateManifest polymorphic) {
+        var grouped = groupSubtypesByPath(polymorphic);
+        grouped.forEach((pathKey, entries) -> {
+            if (isUnionGroup(entries)) {
+                entries.forEach(e -> {
+                    if (!e.getValue().requestParameters().isEmpty()) {
+                        writePolymorphicUpdateRequestRecord(fileWriter, polymorphic, e.getKey(), e.getValue());
+                    }
+                });
+                updateRequestRecordWriter.writeUnionUpdateRequestInterface(fileWriter, polymorphic, entries,
+                        context.requestParameterBuilder());
+            } else {
+                entries.forEach(e -> {
+                    if (!e.getValue().requestParameters().isEmpty()) {
+                        writePolymorphicUpdateRequestRecord(fileWriter, polymorphic, e.getKey(), e.getValue());
+                    }
+                });
+            }
+        });
+    }
+
+    private void writePolymorphicUpdateRequestRecord(
+            JavaFileWriter fileWriter,
+            PolymorphicAggregateManifest polymorphic,
+            ClassManifest subtype,
+            UpdateManifest update
+    ) {
+        var leafName = leafName(subtype.simpleName());
+        var name = "%s%sRequest".formatted(leafName, capitalize(update.operationName()));
+        var type = be.appify.prefab.processor.rest.ControllerUtil.writeRecord(
+                com.palantir.javapoet.ClassName.get(polymorphic.packageName() + ".application", name),
+                update.requestParameters(),
+                context.requestParameterBuilder());
+        fileWriter.writeFile(polymorphic.packageName(), name, type);
+    }
+
+    @Override
     public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
         updateMethodsOf(manifest).forEach(update ->
                 updateTestClientWriter.updateMethods(manifest, update, context).forEach(builder::addMethod));
+    }
+
+    @Override
+    public void writePolymorphicController(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
+        var grouped = groupSubtypesByPath(manifest);
+        grouped.forEach((pathKey, entries) -> {
+            if (isUnionGroup(entries)) {
+                builder.addMethod(updateControllerWriter.updateDispatchMethodForPolymorphic(manifest, entries, context));
+            } else {
+                entries.forEach(e -> builder.addMethod(
+                        updateControllerWriter.updateMethodForPolymorphic(manifest, e.getKey(), e.getValue(), context)));
+            }
+        });
+    }
+
+    @Override
+    public void writePolymorphicService(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
+        manifest.subtypes().forEach(subtype ->
+                updateMethodsOf(subtype).forEach(update ->
+                        builder.addMethod(updateServiceWriter.updateMethodForPolymorphic(manifest, subtype, update))));
+    }
+
+    @Override
+    public void writePolymorphicTestClient(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
+        var grouped = groupSubtypesByPath(manifest);
+        grouped.forEach((pathKey, entries) -> {
+            if (isUnionGroup(entries)) {
+                builder.addMethod(updateTestClientWriter.baseUpdateMethodForPolymorphic(manifest, entries.getFirst().getValue()));
+                entries.forEach(e -> updateTestClientWriter.updateMethodsForPolymorphicUnion(manifest, e, context)
+                        .forEach(builder::addMethod));
+            } else {
+                entries.forEach(e -> updateTestClientWriter.updateMethodsForPolymorphic(manifest, e.getKey(), e.getValue(), context)
+                        .forEach(builder::addMethod));
+            }
+        });
+    }
+
+    private Map<String, List<Map.Entry<ClassManifest, UpdateManifest>>> groupSubtypesByPath(
+            PolymorphicAggregateManifest manifest
+    ) {
+        return manifest.subtypes().stream()
+                .flatMap(subtype -> updateMethodsOf(subtype).stream()
+                        .map(update -> Map.entry(subtype, update)))
+                .collect(Collectors.groupingBy(
+                        e -> e.getValue().method() + "|" + e.getValue().path() + "|" + e.getValue().operationName(),
+                        LinkedHashMap::new,
+                        Collectors.toList()));
+    }
+
+    private static boolean isUnionGroup(List<Map.Entry<ClassManifest, UpdateManifest>> entries) {
+        return entries.size() >= 2 && entries.stream().anyMatch(e -> !e.getValue().requestParameters().isEmpty());
+    }
+
+    private static String leafName(String simpleName) {
+        var dotIndex = simpleName.lastIndexOf('.');
+        return dotIndex >= 0 ? simpleName.substring(dotIndex + 1) : simpleName;
     }
 
     private List<UpdateManifest> updateMethodsOf(ClassManifest manifest) {

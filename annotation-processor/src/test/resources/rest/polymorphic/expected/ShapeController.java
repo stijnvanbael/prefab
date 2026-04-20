@@ -4,15 +4,21 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import java.net.URI;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 import rest.polymorphic.Shape;
+import rest.polymorphic.application.CreateCircleRequest;
+import rest.polymorphic.application.CreateRectangleRequest;
+import rest.polymorphic.application.CreateShapeRequest;
 import rest.polymorphic.application.ShapeService;
 
 @RestController
@@ -37,6 +43,21 @@ public class ShapeController {
     }
 
     @RequestMapping(
+            method = RequestMethod.POST,
+            path = ""
+    )
+    @Operation(
+            summary = "Create a new Shape"
+    )
+    public ResponseEntity<Void> create(@Valid @RequestBody CreateShapeRequest request) {
+        var id = switch (request) {
+                case CreateShapeRequest.CreateCircleRequest r -> service.createCircle(new CreateCircleRequest(r.radius()));
+                case CreateShapeRequest.CreateRectangleRequest r -> service.createRectangle(new CreateRectangleRequest(r.width(), r.height()));
+                };
+        return ResponseEntity.created(URI.create("/shapes/" + id)).build();
+    }
+
+    @RequestMapping(
             method = RequestMethod.GET,
             path = "/{id}"
     )
@@ -46,6 +67,19 @@ public class ShapeController {
     public ResponseEntity<ShapeResponse> getById(
             @PathVariable @Parameter(description = "The Shape ID", in = ParameterIn.PATH) String id) {
         return toResponse(service.getById(id));
+    }
+
+    @RequestMapping(
+            method = RequestMethod.DELETE,
+            path = "/{id}"
+    )
+    @Operation(
+            summary = "Delete Shape"
+    )
+    public ResponseEntity<Void> delete(
+            @PathVariable @Parameter(description = "The Shape ID", in = ParameterIn.PATH) String id) {
+        service.delete(id);
+        return ResponseEntity.noContent().build();
     }
 
     @RequestMapping(

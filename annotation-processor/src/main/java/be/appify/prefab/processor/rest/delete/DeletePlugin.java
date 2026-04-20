@@ -2,6 +2,7 @@ package be.appify.prefab.processor.rest.delete;
 
 import be.appify.prefab.core.annotations.rest.Delete;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import com.palantir.javapoet.TypeSpec;
@@ -57,6 +58,24 @@ public class DeletePlugin implements PrefabPlugin {
                         testClientWriter.deleteMethods(manifest).forEach(builder::addMethod),
                 () -> deleteMethod(manifest, context).ifPresent(method ->
                         testClientWriter.deleteMethods(manifest).forEach(builder::addMethod)));
+    }
+
+    @Override
+    public void writePolymorphicController(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
+        manifest.annotationsOfType(Delete.class).stream().findFirst().ifPresent(delete ->
+                builder.addMethod(controllerWriter.deleteMethodForPolymorphic(manifest, delete)));
+    }
+
+    @Override
+    public void writePolymorphicService(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
+        manifest.annotationsOfType(Delete.class).stream().findFirst().ifPresent(ignored ->
+                builder.addMethod(serviceWriter.deleteMethodForPolymorphic(manifest)));
+    }
+
+    @Override
+    public void writePolymorphicTestClient(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
+        manifest.annotationsOfType(Delete.class).stream().findFirst().ifPresent(ignored ->
+                testClientWriter.deleteMethodsForPolymorphic(manifest).forEach(builder::addMethod));
     }
 
     private Optional<Delete> typeDelete(ClassManifest manifest) {

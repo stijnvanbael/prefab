@@ -2,6 +2,8 @@ package rest.polymorphic;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.DbMigration;
+import be.appify.prefab.core.annotations.rest.Create;
+import be.appify.prefab.core.annotations.rest.Delete;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.service.Reference;
@@ -12,6 +14,7 @@ import org.springframework.data.annotation.Version;
 @DbMigration
 @GetById
 @GetList
+@Delete
 public sealed interface Shape permits Shape.Circle, Shape.Rectangle {
 
     record Circle(
@@ -19,6 +22,10 @@ public sealed interface Shape permits Shape.Circle, Shape.Rectangle {
             @Version long version,
             double radius
     ) implements Shape {
+        @Create
+        public Circle(double radius) {
+            this(Reference.create(), 0L, radius);
+        }
     }
 
     record Rectangle(
@@ -27,5 +34,9 @@ public sealed interface Shape permits Shape.Circle, Shape.Rectangle {
             double width,
             double height
     ) implements Shape {
+        @Create
+        public Rectangle(double width, double height) {
+            this(Reference.create(), 0L, width, height);
+        }
     }
 }

@@ -95,7 +95,7 @@ class RestWriterTest {
     }
 
     @Test
-    void updateRequestExcludesAggregateTypedParameter() throws IOException {
+    void updateRequestIncludesIdForAggregateTypedParameter() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -103,15 +103,14 @@ class RestWriterTest {
                         sourceOf("rest/aggregate/source/Order.java"));
 
         assertThat(compilation).succeeded();
-        var hasAssignProductRequest = compilation.generatedSourceFiles().stream()
-                .anyMatch(f -> f.getName().contains("OrderAssignProductRequest"));
-        if (hasAssignProductRequest) {
-            throw new AssertionError("Expected no OrderAssignProductRequest to be generated");
-        }
+        assertThat(compilation)
+                .generatedSourceFile("rest.aggregate.application.OrderAssignProductRequest")
+                .contentsAsUtf8String()
+                .contains("String productId");
     }
 
     @Test
-    void updateServicePreFetchesAggregateParameterViaReferenceField() throws IOException {
+    void updateServiceFetchesAggregateParameterByIdFromRequest() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -122,7 +121,7 @@ class RestWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.aggregate.application.OrderService")
                 .contentsAsUtf8String()
-                .contains("productRepository.findById(aggregate.product().id()).orElseThrow()");
+                .contains("productRepository.findById(request.productId()).orElseThrow()");
     }
 
     @Test
@@ -160,7 +159,7 @@ class RestWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.aggregate.renamed.application.ShipmentService")
                 .contentsAsUtf8String()
-                .contains("itemRepository.findById(aggregate.assignedItem().id()).orElseThrow()");
+                .contains("itemRepository.findById(request.cargoId()).orElseThrow()");
         assertThat(compilation)
                 .generatedSourceFile("rest.aggregate.renamed.application.ShipmentService")
                 .contentsAsUtf8String()
@@ -185,7 +184,7 @@ class RestWriterTest {
     }
 
     @Test
-    void updateRequestMotherExcludesAggregateTypedParameter() throws IOException {
+    void updateRequestIncludesIdFieldForAggregateTypedParameterInMother() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -193,11 +192,10 @@ class RestWriterTest {
                         sourceOf("rest/aggregate/source/Order.java"));
 
         assertThat(compilation).succeeded();
-        var hasAssignProductRequestMother = compilation.generatedSourceFiles().stream()
-                .anyMatch(f -> f.getName().contains("OrderAssignProductRequestMother"));
-        if (hasAssignProductRequestMother) {
-            throw new AssertionError("Expected no OrderAssignProductRequestMother to be generated");
-        }
+        assertThat(compilation)
+                .generatedSourceFile("rest.aggregate.application.OrderAssignProductRequest")
+                .contentsAsUtf8String()
+                .contains("String productId");
     }
 
     @Test

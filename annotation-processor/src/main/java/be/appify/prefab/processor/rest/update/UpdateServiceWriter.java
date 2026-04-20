@@ -1,6 +1,5 @@
 package be.appify.prefab.processor.rest.update;
 
-import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.VariableManifest;
@@ -33,7 +32,7 @@ class UpdateServiceWriter {
         method.addStatement("log.debug($S, $T.class.getSimpleName(), id)", "Updating {} with id: {}",
                 manifest.className());
         var domainCallBlock = buildDomainCallBlock(update);
-        var aggregateFunction = buildAggregateFunction(manifest, update, domainCallBlock);
+        var aggregateFunction = buildAggregateFunction(update, domainCallBlock);
         var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
         var tenantField = manifest.tenantIdField();
         var hasAudit = AuditFields.hasAuditFields(manifest);
@@ -49,14 +48,12 @@ class UpdateServiceWriter {
         return method.build();
     }
 
-    private CodeBlock buildAggregateFunction(ClassManifest manifest, UpdateManifest update,
-            CodeBlock domainCallBlock) {
+    private CodeBlock buildAggregateFunction(UpdateManifest update, CodeBlock domainCallBlock) {
         var body = CodeBlock.builder();
         update.aggregateParameters().forEach(param -> {
-            var refField = findReferenceField(manifest, param);
             var repositoryName = uncapitalize(param.type().simpleName()) + "Repository";
-            body.add("var $N = $N.findById(aggregate.$N().id()).orElseThrow();\n",
-                    param.name(), repositoryName, refField.name());
+            body.add("var $N = $N.findById(request.$NId()).orElseThrow();\n",
+                    param.name(), repositoryName, param.name());
         });
         body.add(domainCallBlock);
         return body.build();
@@ -72,16 +69,6 @@ class UpdateServiceWriter {
         return CodeBlock.of("aggregate = aggregate.$N($L);\n", update.operationName(), args);
     }
 
-    private VariableManifest findReferenceField(ClassManifest manifest, VariableManifest aggregateParam) {
-        return manifest.fields().stream()
-                .filter(field -> field.type().is(Reference.class)
-                        && !field.type().parameters().isEmpty()
-                        && field.type().parameters().getFirst().equals(aggregateParam.type()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(
-                        "No Reference<%s> field found on %s for @Update parameter '%s'".formatted(
-                                aggregateParam.type().simpleName(), manifest.simpleName(), aggregateParam.name())));
-    }
 
     private static void updateWithTenantAndAudit(
             ClassManifest manifest,

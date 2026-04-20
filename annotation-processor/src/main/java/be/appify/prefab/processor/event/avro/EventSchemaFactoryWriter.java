@@ -279,9 +279,8 @@ class EventSchemaFactoryWriter {
     private static CodeBlock buildFieldBlock(VariableManifest field, CodeBlock schema, @Nullable String doc) {
         if (field.hasAnnotation(Nullable.class)) {
             var nullableSchema = CodeBlock.of("$T.createNullableSchema($L)", SchemaSupport.class, schema);
-            return doc != null
-                    ? CodeBlock.of("new $T($S, $L, $S, null)", Schema.Field.class, field.name(), nullableSchema, doc)
-                    : CodeBlock.of("new $T($S, $L)", Schema.Field.class, field.name(), nullableSchema);
+            return CodeBlock.of("new $T($S, $L, $S, $T.NULL_DEFAULT_VALUE)",
+                    Schema.Field.class, field.name(), nullableSchema, doc, Schema.Field.class);
         }
         return doc != null
                 ? CodeBlock.of("new $T($S, $L, $S, null)", Schema.Field.class, field.name(), schema, doc)

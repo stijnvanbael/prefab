@@ -274,7 +274,8 @@ class DbMigrationWriter {
             var columns = columnsOf(manifest, null, false);
             var fkIndexes = fkIndexesOf(aggregateRootTable, columns);
             var fieldIndexes = fieldIndexesOf(aggregateRootTable, manifest, null);
-            tables.add(new Table(aggregateRootTable, columns, List.of("id"), oldTableName,
+            var idColumnName = idColumnNameOf(manifest);
+            tables.add(new Table(aggregateRootTable, columns, List.of(idColumnName), oldTableName,
                     ListUtil.concat(fkIndexes, fieldIndexes)));
             tables.addAll(childEntityTables(aggregateRootTable, manifest));
         });
@@ -308,9 +309,10 @@ class DbMigrationWriter {
                 })
                 .toList();
 
-        // The 'id' column must come first, then discriminator, then the rest (excluding id)
-        var idColumns = allColumns.stream().filter(c -> c.name().equals("id")).toList();
-        var nonIdColumns = allColumns.stream().filter(c -> !c.name().equals("id")).toList();
+        // The id column must come first, then discriminator, then the rest (excluding id)
+        var idColumnName = idColumnNameOf(manifest.subtypes().getFirst());
+        var idColumns = allColumns.stream().filter(c -> c.name().equals(idColumnName)).toList();
+        var nonIdColumns = allColumns.stream().filter(c -> !c.name().equals(idColumnName)).toList();
 
         var columns = new ArrayList<Column>();
         columns.addAll(idColumns);
@@ -318,7 +320,7 @@ class DbMigrationWriter {
         columns.addAll(nonIdColumns);
 
         var fkIndexes = fkIndexesOf(tableName, columns);
-        return new Table(tableName, columns, List.of("id"), fkIndexes);
+        return new Table(tableName, columns, List.of(idColumnName), fkIndexes);
     }
 
     private static List<Index> fkIndexesOf(String tableName, List<Column> columns) {
@@ -363,6 +365,10 @@ class DbMigrationWriter {
     }
 
     private List<Table> childEntityTables(String aggregateRootTable, ClassManifest manifest) {
+        return childEntityTablesOf(aggregateRootTable, manifest);
+    }
+
+    private List<Table> childEntityTablesOf(String parentTableName, ClassManifest manifest) {
         return manifest.fields().stream().filter(field -> field.type().is(List.class))
                 .map(field -> field.type().parameters().getFirst())
                 .flatMap(child -> {
@@ -370,19 +376,9 @@ class DbMigrationWriter {
                         // @CustomType elements in List are skipped — no child table generated
                         return Stream.empty();
                     } else if (child.isRecord() && !child.isSingleValueType()) {
-                        var columns = ListUtil.concat(List.of(
-                                new Column(aggregateRootTable, new DataType.Varchar(255), false,
-                                        new ForeignKey(aggregateRootTable, "id"), null, null),
-                                new Column(aggregateRootTable + "_key", DataType.Primitive.INTEGER, false, null, null, null)
-                        ), columnsOf(child.asClassManifest(), null, false));
-                        var childTableName = tableNameOf(child);
-                        var fkIndexes = fkIndexesOf(childTableName, columns);
-                        var fieldIndexes = fieldIndexesOf(childTableName, child.asClassManifest(), null);
-                        var table = new Table(childTableName, columns, List.of(
-                                aggregateRootTable,
-                                aggregateRootTable + "_key"
-                        ), null, ListUtil.concat(fkIndexes, fieldIndexes));
-                        return Stream.of(table);
+                        var childTable = buildChildTable(parentTableName, child);
+                        var nestedTables = childEntityTablesOf(childTable.name(), child.asClassManifest());
+                        return Stream.concat(Stream.of(childTable), nestedTables.stream());
                     } else {
                         return Stream.empty();
                     }
@@ -390,8 +386,29 @@ class DbMigrationWriter {
                 .toList();
     }
 
+    private Table buildChildTable(String parentTableName, TypeManifest child) {
+        var columns = ListUtil.concat(List.of(
+                new Column(parentTableName, new DataType.Varchar(255), false,
+                        new ForeignKey(parentTableName, "id"), null, null),
+                new Column(parentTableName + "_key", DataType.Primitive.INTEGER, false, null, null, null)
+        ), columnsOf(child.asClassManifest(), null, false));
+        var childTableName = tableNameOf(child);
+        var fkIndexes = fkIndexesOf(childTableName, columns);
+        var fieldIndexes = fieldIndexesOf(childTableName, child.asClassManifest(), null);
+        return new Table(childTableName, columns, List.of(
+                parentTableName,
+                parentTableName + "_key"
+        ), null, ListUtil.concat(fkIndexes, fieldIndexes));
+    }
+
     private static String tableNameOf(TypeManifest manifest) {
         return toSnakeCase(manifest.simpleName()).replace('.', '_');
+    }
+
+    private static String idColumnNameOf(ClassManifest manifest) {
+        return manifest.idField()
+                .map(field -> toSnakeCase(field.name()))
+                .orElse("id");
     }
 
     private List<Column> columnsOf(ClassManifest manifest, String prefix, boolean parentNullable) {

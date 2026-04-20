@@ -226,6 +226,71 @@ class DbMigrationWriterTest {
         assertNoPrefabWarnings(prefabWarnings);
     }
 
+    @Test
+    void defaultIdFieldNameIsUsedAsPrimaryKey() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/notnull/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("PRIMARY KEY(\"id\")");
+    }
+
+    @Test
+    void customIdFieldNameIsUsedAsPrimaryKey() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/customid/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("PRIMARY KEY(\"product_id\")");
+    }
+
+    @Test
+    void topLevelChildListTableIsGenerated() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/nestedlists/source/Order.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("CREATE TABLE \"order_order_line\"");
+    }
+
+    @Test
+    void deeplyNestedChildListTableIsGenerated() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/nestedlists/source/Order.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("CREATE TABLE \"order_order_line_note\"");
+    }
+
+    @Test
+    void nestedChildTableForeignKeyReferencesParentTable() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/nestedlists/source/Order.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"order_order_line\" VARCHAR (255) NOT NULL REFERENCES \"order_order_line\"");
+    }
+
     private static void assertNoPrefabWarnings(List<?> warnings) {
         Truth.assertThat(warnings).isEmpty();
     }

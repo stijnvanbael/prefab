@@ -271,25 +271,21 @@ class EventSchemaFactoryWriter {
 
     private CodeBlock createField(VariableManifest field) {
         var schema = maybeArray(field);
-        var fieldBlock = buildFieldBlock(field, schema);
-        var withDoc = wrapWithDocIfPresent(field, fieldBlock);
-        return wrapWithSampleIfPresent(field, withDoc);
+        var doc = field.getAnnotation(Doc.class).map(d -> d.value().value()).orElse(null);
+        var fieldBlock = buildFieldBlock(field, schema, doc);
+        return wrapWithSampleIfPresent(field, fieldBlock);
     }
 
-    private static CodeBlock buildFieldBlock(VariableManifest field, CodeBlock schema) {
+    private static CodeBlock buildFieldBlock(VariableManifest field, CodeBlock schema, @Nullable String doc) {
         if (field.hasAnnotation(Nullable.class)) {
-            return CodeBlock.of("new $T($S, $L, null)",
-                    Schema.Field.class,
-                    field.name(),
-                    CodeBlock.of("$T.createNullableSchema($L)", SchemaSupport.class, schema));
+            var nullableSchema = CodeBlock.of("$T.createNullableSchema($L)", SchemaSupport.class, schema);
+            return doc != null
+                    ? CodeBlock.of("new $T($S, $L, $S, null)", Schema.Field.class, field.name(), nullableSchema, doc)
+                    : CodeBlock.of("new $T($S, $L)", Schema.Field.class, field.name(), nullableSchema);
         }
-        return CodeBlock.of("new $T($S, $L)", Schema.Field.class, field.name(), schema);
-    }
-
-    private static CodeBlock wrapWithDocIfPresent(VariableManifest field, CodeBlock fieldBlock) {
-        return field.getAnnotation(Doc.class)
-                .map(doc -> CodeBlock.of("$T.withDoc($L, $S)", SchemaSupport.class, fieldBlock, doc.value().value()))
-                .orElse(fieldBlock);
+        return doc != null
+                ? CodeBlock.of("new $T($S, $L, $S, null)", Schema.Field.class, field.name(), schema, doc)
+                : CodeBlock.of("new $T($S, $L)", Schema.Field.class, field.name(), schema);
     }
 
     private static CodeBlock wrapWithSampleIfPresent(VariableManifest field, CodeBlock fieldBlock) {

@@ -19,6 +19,7 @@ class EventSchemaFactoryWriterTest {
         assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.SimpleEventSchemaFactory")
                 .contentsAsUtf8String()
                 .isEqualTo(contentsOf("event/avro/simple/expected/SimpleEventSchemaFactory.java"));
+
     }
 
     @Test

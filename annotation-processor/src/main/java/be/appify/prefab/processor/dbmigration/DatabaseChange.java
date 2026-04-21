@@ -1,7 +1,5 @@
 package be.appify.prefab.processor.dbmigration;
 
-import be.appify.prefab.processor.ListUtil;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -15,16 +13,21 @@ interface DatabaseChange {
     record CreateTable(Table table) implements DatabaseChange {
         @Override
         public String toSql() {
-            var columnsSql = table.columns().stream()
-                    .map(Column::toString)
-                    .collect(joining(",\n  "));
-            var primaryKeySql = table.primaryKey().isEmpty() ? "" :
-                    ",\n  PRIMARY KEY(" + table.primaryKey().stream().map(column -> "\"" + column + "\"")
-                            .collect(joining(", ")) + ")\n";
+            var definitions = new ArrayList<String>();
+            definitions.addAll(table.columns().stream().map(Column::toString).toList());
+
+            if (!table.primaryKey().isEmpty()) {
+                var primaryKeyColumns = table.primaryKey().stream()
+                        .map(column -> "\"" + column + "\"")
+                        .collect(joining(", "));
+                definitions.add("PRIMARY KEY(" + primaryKeyColumns + ")");
+            }
+
+            definitions.addAll(table.foreignKeys().stream().map(ForeignKeyConstraint::toSql).toList());
+
             return "CREATE TABLE \"" + table.name() + "\" (\n  " +
-                    columnsSql +
-                    primaryKeySql +
-                    ");\n";
+                    String.join(",\n  ", definitions) +
+                    "\n);\n";
         }
 
         @Override

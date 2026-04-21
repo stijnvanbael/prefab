@@ -30,6 +30,23 @@ public class SingleValueRecordSimpleTypeHolder extends SimpleTypeHolder {
     @Override
     public boolean isSimpleType(Class<?> type) {
         return super.isSimpleType(type)
-                || (type.isRecord() && type.getRecordComponents().length == 1);
+                || (type.isRecord() && type.getRecordComponents().length == 1 && !wrapsMultiFieldRecord(type));
+    }
+
+    /**
+     * Returns true if the given type is a single-field record that ultimately wraps a multi-field record through one
+     * or more layers of single-field record wrappers. Such types must not be treated as scalars; they expand into
+     * multiple columns via the embedded path.
+     *
+     * @param type
+     *         the type to inspect; must be a single-field record
+     * @return true if the innermost non-wrapper type is a record with more than one component
+     */
+    static boolean wrapsMultiFieldRecord(Class<?> type) {
+        Class<?> current = type.getRecordComponents()[0].getType();
+        while (current.isRecord() && current.getRecordComponents().length == 1) {
+            current = current.getRecordComponents()[0].getType();
+        }
+        return current.isRecord();
     }
 }

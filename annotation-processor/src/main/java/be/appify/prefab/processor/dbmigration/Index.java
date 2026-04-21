@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.dbmigration;
 
+import be.appify.prefab.core.util.IdentifierShortener;
 import net.sf.jsqlparser.statement.create.index.CreateIndex;
 
 import java.util.List;
@@ -13,7 +14,7 @@ record Index(
 ) {
     static Index of(String tableName, String columnName, boolean unique) {
         return new Index(
-                tableName + "_" + columnName + (unique ? "_uidx" : "_idx"),
+                IdentifierShortener.indexName(tableName, columnName, unique),
                 List.of(columnName),
                 unique
         );

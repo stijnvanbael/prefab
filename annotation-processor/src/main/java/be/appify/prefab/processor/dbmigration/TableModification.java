@@ -1,5 +1,7 @@
 package be.appify.prefab.processor.dbmigration;
 
+import be.appify.prefab.core.util.IdentifierShortener;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -99,10 +101,11 @@ interface TableModification {
         }
     }
 
-    record AddForeignKey(String tableName, String columnName, ForeignKey foreignKey) implements TableModification {
+    record AddForeignKey(String tableName, String columnName, ForeignKeyReference foreignKey) implements TableModification {
         @Override
         public String toSql() {
-            return "ADD CONSTRAINT " + tableName + "_" + columnName + "_fkey FOREIGN KEY (\"" + columnName + "\") " + foreignKey.toString();
+            var constraintName = IdentifierShortener.foreignKeyConstraintName(tableName, columnName);
+            return "ADD CONSTRAINT " + constraintName + " FOREIGN KEY (\"" + columnName + "\") " + foreignKey.toString();
         }
 
         @Override
@@ -114,7 +117,7 @@ interface TableModification {
     record DropForeignKey(String tableName, String columnName) implements TableModification {
         @Override
         public String toSql() {
-            return "DROP CONSTRAINT " + tableName + "_" + columnName + "_fkey";
+            return "DROP CONSTRAINT " + IdentifierShortener.foreignKeyConstraintName(tableName, columnName);
         }
 
         @Override

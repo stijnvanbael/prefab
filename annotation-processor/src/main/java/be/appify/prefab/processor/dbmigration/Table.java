@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.dbmigration;
 
+import be.appify.prefab.core.util.IdentifierShortener;
 import net.sf.jsqlparser.statement.alter.Alter;
 import net.sf.jsqlparser.statement.alter.AlterExpression;
 import net.sf.jsqlparser.statement.alter.AlterOperation;
@@ -22,21 +23,26 @@ record Table(
         List<Column> columns,
         List<String> primaryKey,
         String oldName,
-        List<Index> indexes
+        List<Index> indexes,
+        List<ForeignKeyConstraint> foreignKeys
 ) {
     private static final List<String> PRIMARY_KEY = List.of("PRIMARY", "KEY");
     private static final String FOREIGN_KEY = "FOREIGN KEY";
 
     Table(String name, List<Column> columns, List<String> primaryKey) {
-        this(name, columns, primaryKey, null, List.of());
+        this(name, columns, primaryKey, null, List.of(), List.of());
     }
 
     Table(String name, List<Column> columns, List<String> primaryKey, String oldName) {
-        this(name, columns, primaryKey, oldName, List.of());
+        this(name, columns, primaryKey, oldName, List.of(), List.of());
     }
 
     Table(String name, List<Column> columns, List<String> primaryKey, List<Index> indexes) {
-        this(name, columns, primaryKey, null, indexes);
+        this(name, columns, primaryKey, null, indexes, List.of());
+    }
+
+    Table(String name, List<Column> columns, List<String> primaryKey, String oldName, List<Index> indexes) {
+        this(name, columns, primaryKey, oldName, indexes, List.of());
     }
 
     static Table fromCreateTable(CreateTable createTable) {
@@ -47,8 +53,21 @@ record Table(
                         .toList(),
                 primaryKey(createTable),
                 null,
-                List.of()
+                List.of(),
+                foreignKeys(createTable)
         );
+    }
+
+    private static List<ForeignKeyConstraint> foreignKeys(CreateTable createTable) {
+        if (createTable.getIndexes() == null || createTable.getIndexes().isEmpty()) {
+            return List.of();
+        }
+        return createTable.getIndexes().stream()
+                .filter(index -> FOREIGN_KEY.equals(index.getType()))
+                .map(index -> ForeignKeyConstraint.fromIndex(
+                        createTable.getTable().getName().replace("\"", ""),
+                        (ForeignKeyIndex) index))
+                .toList();
     }
 
     private static List<String> primaryKey(CreateTable createTable) {
@@ -80,7 +99,8 @@ record Table(
                 newColumns,
                 primaryKey,
                 null,
-                indexes
+                indexes,
+                foreignKeys
         );
     }
 
@@ -95,23 +115,27 @@ record Table(
     public Table withAddedIndex(Index index) {
         var newIndexes = new ArrayList<>(indexes);
         newIndexes.add(index);
-        return new Table(name, columns, primaryKey, null, List.copyOf(newIndexes));
+        return new Table(name, columns, primaryKey, null, List.copyOf(newIndexes), foreignKeys);
     }
 
     public Table withRemovedIndex(String indexName) {
         var newIndexes = indexes.stream()
                 .filter(idx -> !idx.name().equals(indexName))
                 .toList();
-        return new Table(name, columns, primaryKey, null, newIndexes);
+        return new Table(name, columns, primaryKey, null, newIndexes, foreignKeys);
     }
 
     public Table withDroppedConstraint(String constraintName) {
         var newColumns = columns.stream()
-                .map(c -> c.foreignKey() != null && (name + "_" + c.name() + "_fkey").equals(constraintName)
+                .map(c -> c.foreignKey() != null
+                        && IdentifierShortener.foreignKeyConstraintName(name, c.name()).equals(constraintName)
                         ? c.withForeignKey(null)
                         : c)
                 .toList();
-        return new Table(name, newColumns, primaryKey, null, indexes);
+        var newForeignKeys = foreignKeys.stream()
+                .filter(foreignKey -> !foreignKey.name().equals(constraintName))
+                .toList();
+        return new Table(name, newColumns, primaryKey, null, indexes, newForeignKeys);
     }
 
     public Optional<Index> getIndex(String name) {
@@ -170,7 +194,7 @@ record Table(
             columns.remove(expr.getColumnName());
         } else if (isNotBlank(expr.getConstraintName())) {
             columns.values().stream()
-                    .filter(c -> c.foreignKey() != null && (name + "_" + c.name() + "_fkey")
+                    .filter(c -> c.foreignKey() != null && IdentifierShortener.foreignKeyConstraintName(name, c.name())
                             .equals(expr.getConstraintName()))
                     .findFirst()
                     .ifPresent(column -> {
@@ -191,13 +215,18 @@ record Table(
                 throw new IllegalArgumentException(
                         "Unsupported ADD CONSTRAINT expression, expected FOREIGN KEY: " + expr);
             }
-            var column = columns.get(expr.getIndex().getColumnsNames().getFirst());
-            if (column == null) {
-                throw new IllegalStateException("Cannot add foreign key to non-existing column: " + expr.getIndex()
-                        .getColumnsNames().getFirst());
+            if (expr.getIndex().getColumnsNames().size() == 1) {
+                var column = columns.get(expr.getIndex().getColumnsNames().getFirst());
+                if (column == null) {
+                    throw new IllegalStateException("Cannot add foreign key to non-existing column: " + expr.getIndex()
+                            .getColumnsNames().getFirst());
+                }
+                var modified = column.withForeignKey(ForeignKeyReference.fromIndex((ForeignKeyIndex) expr.getIndex()));
+                columns.put(modified.name(), modified);
+            } else {
+                throw new IllegalArgumentException(
+                        "Composite foreign keys in ALTER TABLE are currently not supported: " + expr);
             }
-            var modified = column.withForeignKey(ForeignKey.fromIndex((ForeignKeyIndex) expr.getIndex()));
-            columns.put(modified.name(), modified);
         } else {
             throw new IllegalArgumentException(
                     "Unsupported ALTER TABLE expression, expected ADD COLUMN or ADD CONSTRAINT: " + expr);

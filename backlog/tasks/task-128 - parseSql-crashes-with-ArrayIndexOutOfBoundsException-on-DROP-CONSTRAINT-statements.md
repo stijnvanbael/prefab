@@ -33,7 +33,7 @@ Full stack trace:
   net.sf.jsqlparser.parser.CCJSqlParserTokenManager.getNextToken
 
 Example offending SQL:
-  ALTER TABLE chapter DROP CONSTRAINT chapter_course_fkey;
+  ALTER TABLE chapter DROP CONSTRAINT chapter_course_fk;
 
 Note: in 0.4.0-SNAPSHOT the same SQL was parsed successfully because parseSql short-circuited on an earlier validation error before reaching this statement, or the new 0.5.0 parseSql forEach execution path exposes the crash differently.
 <!-- SECTION:DESCRIPTION:END -->

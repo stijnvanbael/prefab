@@ -31,7 +31,7 @@ public class PrefabJdbcArrayColumns implements JdbcArrayColumns {
 
     @Override
     public Class<?> getArrayType(Class<?> userType) {
-        if (isSingleFieldRecord(userType)) {
+        if (isSingleFieldRecord(userType) && !SingleValueRecordSimpleTypeHolder.wrapsMultiFieldRecord(userType)) {
             return userType.getRecordComponents()[0].getType();
         }
         return delegate.getArrayType(userType);
@@ -39,7 +39,7 @@ public class PrefabJdbcArrayColumns implements JdbcArrayColumns {
 
     @Override
     public SQLType getSqlType(Class<?> componentType) {
-        if (isSingleFieldRecord(componentType)) {
+        if (isSingleFieldRecord(componentType) && !SingleValueRecordSimpleTypeHolder.wrapsMultiFieldRecord(componentType)) {
             return PrefabMappingJdbcConverter.sqlTypeFor(componentType.getRecordComponents()[0].getType());
         }
         return delegate.getSqlType(componentType);

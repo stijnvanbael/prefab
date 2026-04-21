@@ -10,6 +10,7 @@ import org.springframework.data.relational.core.mapping.Embedded;
 import org.springframework.data.relational.core.mapping.NamingStrategy;
 import org.springframework.data.relational.core.mapping.RelationalPersistentEntity;
 import org.springframework.data.relational.core.mapping.Table;
+import org.springframework.data.relational.core.sql.SqlIdentifier;
 
 /**
  * Custom PersistentProperty implementation that adds support for treating Java records as embedded entities in Spring Data JDBC. If a
@@ -69,13 +70,26 @@ public class PrefabJdbcPersistentProperty extends BasicJdbcPersistentProperty {
                     && actualType.isRecord()
                     && !actualType.isAnnotationPresent(Table.class)
                     && !holder.isSimpleType(actualType)) {
+                String prefix = isOwnerSingleValueWrapper() ? "" : toSnakeCase(getName()) + "_";
                 syntheticEmbedded = AnnotationUtils.synthesizeAnnotation(
-                        Map.of("onEmpty", Embedded.OnEmpty.USE_NULL, "prefix", toSnakeCase(getName()) + "_"),
+                        Map.of("onEmpty", Embedded.OnEmpty.USE_NULL, "prefix", prefix),
                         Embedded.class, null);
             }
             syntheticResolved = true;
         }
         return syntheticEmbedded;
+    }
+
+    private boolean isOwnerSingleValueWrapper() {
+        Class<?> ownerType = getOwner().getType();
+        return ownerType.isRecord()
+                && ownerType.getRecordComponents().length == 1
+                && SingleValueRecordSimpleTypeHolder.wrapsMultiFieldRecord(ownerType);
+    }
+
+    @Override
+    public SqlIdentifier getColumnName() {
+        return new DeduplicatingSqlIdentifier(super.getColumnName());
     }
 
     @Override

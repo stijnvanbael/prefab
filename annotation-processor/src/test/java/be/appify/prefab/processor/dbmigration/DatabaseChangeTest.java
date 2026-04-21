@@ -13,7 +13,7 @@ class DatabaseChangeTest {
         var index = Index.of("product", "category_id", false);
         var change = new DatabaseChange.CreateIndex("product", index);
         assertEquals(
-                "CREATE INDEX \"product_category_id_idx\" ON \"product\" (\"category_id\");\n",
+                "CREATE INDEX \"product_category_id_ix\" ON \"product\" (\"category_id\");\n",
                 change.toSql()
         );
     }
@@ -23,7 +23,7 @@ class DatabaseChangeTest {
         var index = Index.of("product", "sku", true);
         var change = new DatabaseChange.CreateIndex("product", index);
         assertEquals(
-                "CREATE UNIQUE INDEX \"product_sku_uidx\" ON \"product\" (\"sku\");\n",
+                "CREATE UNIQUE INDEX \"product_sku_uk\" ON \"product\" (\"sku\");\n",
                 change.toSql()
         );
     }
@@ -33,7 +33,7 @@ class DatabaseChangeTest {
         var index = Index.of("product", "category_id", false);
         var change = new DatabaseChange.DropIndex(index);
         assertEquals(
-                "DROP INDEX \"product_category_id_idx\";\n",
+                "DROP INDEX \"product_category_id_ix\";\n",
                 change.toSql()
         );
     }

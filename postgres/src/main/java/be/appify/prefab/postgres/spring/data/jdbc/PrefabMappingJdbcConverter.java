@@ -1,5 +1,6 @@
 package be.appify.prefab.postgres.spring.data.jdbc;
 
+import java.lang.reflect.Array;
 import java.sql.JDBCType;
 import java.sql.SQLType;
 import java.util.ArrayList;
@@ -39,14 +40,10 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
     /**
      * Constructs a new PrefabMappingJdbcConverter.
      *
-     * @param context
-     *         the JdbcMappingContext to use for mapping entities
-     * @param relationResolver
-     *         the RelationResolver to use for resolving entity relationships
-     * @param conversions
-     *         the JdbcCustomConversions to use for custom type conversions
-     * @param typeFactory
-     *         the JdbcTypeFactory to use for determining SQL types
+     * @param context          the JdbcMappingContext to use for mapping entities
+     * @param relationResolver the RelationResolver to use for resolving entity relationships
+     * @param conversions      the JdbcCustomConversions to use for custom type conversions
+     * @param typeFactory      the JdbcTypeFactory to use for determining SQL types
      */
     public PrefabMappingJdbcConverter(
             JdbcMappingContext context,
@@ -61,7 +58,7 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
     public Class<?> getColumnType(RelationalPersistentProperty property) {
         if (!property.isCollectionLike()) {
             Class<?> actualType = property.getActualType();
-            if (isSingleFieldRecord(actualType)) {
+            if (isUnwrappableSingleFieldRecord(actualType)) {
                 return actualType.getRecordComponents()[0].getType();
             }
         }
@@ -72,7 +69,7 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
     public SQLType getTargetSqlType(RelationalPersistentProperty property) {
         if (!property.isCollectionLike()) {
             Class<?> actualType = property.getActualType();
-            if (isSingleFieldRecord(actualType)) {
+            if (isUnwrappableSingleFieldRecord(actualType)) {
                 return sqlTypeFor(actualType.getRecordComponents()[0].getType());
             }
         }
@@ -82,133 +79,185 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
     @Override
     @Nullable
     public Object readValue(@Nullable Object value, TypeInformation<?> type) {
-        // Handle scalar single-field record (e.g. a Reference<T> property)
-        if (value != null && isSingleFieldRecord(type.getType())) {
+        if (value == null) {
+            return super.readValue(null, type);
+        }
+        if (isUnwrappableSingleFieldRecord(type.getType())) {
             return constructSingleFieldRecord(type.getType(), value);
         }
-
-        Object result = super.readValue(value, type);
-
-        // Handle List<SingleFieldRecord> — e.g. reading from a VARCHAR[] array column
-        if (result instanceof List<?> list && type.isCollectionLike() && !list.isEmpty()) {
-            TypeInformation<?> componentType = type.getRequiredComponentType();
-            Class<?> targetType = componentType.getType();
-            Object firstElement = list.getFirst();
-
-            if (firstElement != null && !targetType.isInstance(firstElement)) {
-                if (isSingleFieldRecord(targetType)) {
-                    List<Object> converted = new ArrayList<>(list.size());
-                    for (Object element : list) {
-                        converted.add(constructSingleFieldRecord(targetType, element));
-                    }
-                    return converted;
-                }
-                if (getConversions().hasCustomReadTarget(firstElement.getClass(), targetType)) {
-                    List<Object> converted = new ArrayList<>(list.size());
-                    for (Object element : list) {
-                        converted.add(getConversionService().convert(element, targetType));
-                    }
-                    return converted;
-                }
+        if (value.getClass().isArray() && type.isCollectionLike()) {
+            List<Object> converted = convertArrayToList(value, type);
+            if (converted != null) {
+                return converted;
             }
         }
-
+        Object result = super.readValue(value, type);
+        if (result instanceof List<?> list && type.isCollectionLike()) {
+            List<Object> converted = convertListElements(list, type);
+            if (converted != null) {
+                return converted;
+            }
+        }
         return result;
     }
 
     @Override
     @Nullable
     public Object writeValue(@Nullable Object value, TypeInformation<?> type) {
-        if (value != null && isSingleFieldRecord(value.getClass())) {
-            try {
-                var component = value.getClass().getRecordComponents()[0];
-                Object fieldValue = component.getAccessor().invoke(value);
-                return super.writeValue(fieldValue, TypeInformation.of(component.getType()));
-            } catch (ReflectiveOperationException e) {
-                throw new IllegalStateException(
-                        "Cannot extract single-field value from record " + value.getClass() + " during write", e);
-            }
+        if (value != null && isUnwrappableSingleFieldRecord(value.getClass())) {
+            return writeUnwrappedRecord(value);
         }
         return super.writeValue(value, type);
     }
 
-    /**
-     * Reads a polymorphic aggregate from a row document by delegating to the registered
-     * {@link be.appify.prefab.core.spring.data.jdbc.PolymorphicReadingConverter} when the target type is a sealed interface.
-     *
-     * <p>For all other types the standard Spring Data JDBC reading path is used.</p>
-     */
     @Override
     public <R> R read(Class<R> type, RowDocument source) {
-        if (type.isSealed() && type.isInterface()
-                && getConversionService().canConvert(source.getClass(), type)) {
-            @SuppressWarnings("unchecked")
-            R result = (R) getConversionService().convert(source, type);
-            return result;
+        if (isSealedInterfaceConvertible(type, source)) {
+            return requireConvert(source, type);
         }
         return super.read(type, source);
     }
 
-    /**
-     * Reads and resolves a polymorphic aggregate from a row document. Delegates to the registered
-     * {@link be.appify.prefab.core.spring.data.jdbc.PolymorphicReadingConverter} when the target type is a sealed interface; otherwise uses the
-     * standard Spring Data JDBC reading path.
-     */
     @Override
     public <R> R readAndResolve(TypeInformation<R> type, RowDocument source, Identifier identifier) {
         Class<R> rawType = type.getType();
-        if (rawType.isSealed() && rawType.isInterface()
-                && getConversionService().canConvert(source.getClass(), rawType)) {
-            @SuppressWarnings("unchecked")
-            R result = (R) getConversionService().convert(source, rawType);
-            return result;
+        if (isSealedInterfaceConvertible(rawType, source)) {
+            return requireConvert(source, rawType);
         }
         return super.readAndResolve(type, source, identifier);
     }
 
-    private static boolean isSingleFieldRecord(Class<?> type) {
-        return type.isRecord() && type.getRecordComponents().length == 1;
-    }
-
-    /**
-     * Maps a Java type to its corresponding JDBC {@link SQLType}. Uses Spring's {@link StatementCreatorUtils} for
-     * standard type mappings, falling back to {@link JDBCType#OTHER} for unknown types.
-     *
-     * @param javaType
-     *         the Java type to resolve
-     * @return the SQL type for the given Java type
-     */
     static SQLType sqlTypeFor(Class<?> javaType) {
         int code = StatementCreatorUtils.javaTypeToSqlParameterType(javaType);
         if (code != SqlTypeValue.TYPE_UNKNOWN) {
             try {
                 return JDBCType.valueOf(code);
             } catch (IllegalArgumentException ignored) {
+                // fall through to OTHER
             }
         }
         return JDBCType.OTHER;
     }
 
+    @Nullable
+    private List<Object> convertArrayToList(Object array, TypeInformation<?> type) {
+        Class<?> elementTargetType = type.getRequiredComponentType().getType();
+        if (!isSingleFieldRecord(elementTargetType)) {
+            return null;
+        }
+        Object[] elements = toObjectArray(array);
+        List<Object> converted = new ArrayList<>(elements.length);
+        for (Object element : elements) {
+            converted.add(constructSingleFieldRecord(elementTargetType, element));
+        }
+        return converted;
+    }
+
+    @Nullable
+    private List<Object> convertListElements(List<?> list, TypeInformation<?> type) {
+        if (list.isEmpty()) {
+            return null;
+        }
+        Class<?> targetType = type.getRequiredComponentType().getType();
+        Object firstElement = list.getFirst();
+        if (firstElement == null || targetType.isInstance(firstElement)) {
+            return null;
+        }
+        if (isSingleFieldRecord(targetType)) {
+            return convertToSingleFieldRecords(list, targetType);
+        }
+        if (getConversions().hasCustomReadTarget(firstElement.getClass(), targetType)) {
+            return convertWithConversionService(list, targetType);
+        }
+        return null;
+    }
+
+    private List<Object> convertToSingleFieldRecords(List<?> list, Class<?> targetType) {
+        List<Object> converted = new ArrayList<>(list.size());
+        for (Object element : list) {
+            converted.add(constructSingleFieldRecord(targetType, element));
+        }
+        return converted;
+    }
+
+    private List<Object> convertWithConversionService(List<?> list, Class<?> targetType) {
+        List<Object> converted = new ArrayList<>(list.size());
+        for (Object element : list) {
+            converted.add(getConversionService().convert(element, targetType));
+        }
+        return converted;
+    }
+
+    private Object writeUnwrappedRecord(Object value) {
+        try {
+            var component = value.getClass().getRecordComponents()[0];
+            Object fieldValue = component.getAccessor().invoke(value);
+            return super.writeValue(fieldValue, TypeInformation.of(component.getType()));
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(
+                    "Cannot extract single-field value from record " + value.getClass() + " during write", e);
+        }
+    }
+
+    private boolean isSealedInterfaceConvertible(Class<?> type, RowDocument source) {
+        return type.isSealed() && type.isInterface() && getConversionService().canConvert(source.getClass(), type);
+    }
+
+    private <R> R requireConvert(RowDocument source, Class<R> type) {
+        R result = getConversionService().convert(source, type);
+        if (result == null) {
+            throw new IllegalStateException("ConversionService returned null converting RowDocument to " + type);
+        }
+        return result;
+    }
+
     private Object constructSingleFieldRecord(Class<?> targetType, Object rawValue) {
         var component = targetType.getRecordComponents()[0];
         Class<?> componentType = component.getType();
-        Object value = rawValue;
-        if (!componentType.isInstance(rawValue)) {
-            try {
-                value = getConversionService().convert(rawValue, componentType);
-            } catch (Exception e) {
-                throw new IllegalStateException(
-                        "Cannot convert " + rawValue.getClass().getName() + " to " + componentType.getName()
-                                + " for single-field record " + targetType, e);
-            }
+        Object coerced = coerceToComponentType(rawValue, componentType, targetType);
+        return instantiateRecord(targetType, componentType, coerced, rawValue);
+    }
+
+    private Object coerceToComponentType(Object rawValue, Class<?> componentType, Class<?> targetType) {
+        if (componentType.isInstance(rawValue)) {
+            return rawValue;
         }
         try {
-            var constructor = targetType.getDeclaredConstructor(componentType);
-            return constructor.newInstance(value);
+            return getConversionService().convert(rawValue, componentType);
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Cannot convert " + rawValue.getClass().getName() + " to " + componentType.getName()
+                            + " for single-field record " + targetType, e);
+        }
+    }
+
+    private static Object instantiateRecord(Class<?> targetType, Class<?> componentType, Object value, Object rawValue) {
+        try {
+            return targetType.getDeclaredConstructor(componentType).newInstance(value);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(
                     "Cannot construct single-field record " + targetType
                             + " from value of type " + rawValue.getClass().getName(), e);
         }
+    }
+
+    private static boolean isUnwrappableSingleFieldRecord(Class<?> type) {
+        return isSingleFieldRecord(type) && !SingleValueRecordSimpleTypeHolder.wrapsMultiFieldRecord(type);
+    }
+
+    private static boolean isSingleFieldRecord(Class<?> type) {
+        return type.isRecord() && type.getRecordComponents().length == 1;
+    }
+
+    private static Object[] toObjectArray(Object array) {
+        if (array instanceof Object[] objects) {
+            return objects;
+        }
+        int length = Array.getLength(array);
+        Object[] result = new Object[length];
+        for (int i = 0; i < length; i++) {
+            result[i] = Array.get(array, i);
+        }
+        return result;
     }
 }

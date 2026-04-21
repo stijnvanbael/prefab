@@ -2,6 +2,7 @@ package be.appify.prefab.processor.dbmigration;
 
 import be.appify.prefab.core.annotations.DbDefaultValue;
 import be.appify.prefab.core.annotations.DbRename;
+import be.appify.prefab.core.util.IdentifierShortener;
 import be.appify.prefab.processor.VariableManifest;
 import java.util.Collections;
 import java.util.List;
@@ -11,17 +12,15 @@ import net.sf.jsqlparser.statement.alter.AlterExpression;
 import net.sf.jsqlparser.statement.create.table.ColDataType;
 import net.sf.jsqlparser.statement.create.table.ColumnDefinition;
 
-import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
-
 record Column(
         String name,
         DataType type,
         boolean nullable,
-        ForeignKey foreignKey,
+        ForeignKeyReference foreignKey,
         String defaultValue,
         String oldName
 ) {
-    Column(String name, DataType type, boolean nullable, ForeignKey foreignKey, String defaultValue) {
+    Column(String name, DataType type, boolean nullable, ForeignKeyReference foreignKey, String defaultValue) {
         this(name, type, nullable, foreignKey, defaultValue, null);
     }
 
@@ -53,7 +52,7 @@ record Column(
                 name.replace("\"", ""),
                 parsedType,
                 Collections.indexOfSubList(columnSpecs, NOT_NULL) == -1,
-                columnSpecs.contains("REFERENCES") ? ForeignKey.fromColumnSpecs(columnSpecs) : null,
+                columnSpecs.contains("REFERENCES") ? ForeignKeyReference.fromColumnSpecs(columnSpecs) : null,
                 rawDefault,
                 null
         );
@@ -75,7 +74,7 @@ record Column(
         var rawName = prefix != null ? prefix + "_" + property.name() : property.name();
         var oldName = resolveOldName(prefix, property);
         return new Column(
-                toSnakeCase(rawName),
+                IdentifierShortener.columnName(rawName),
                 dataType,
                 parentNullable || property.nullable(),
                 null,
@@ -90,7 +89,7 @@ record Column(
         return property.getAnnotation(DbRename.class)
                 .map(ann -> {
                     var rawOldName = prefix != null ? prefix + "_" + ann.value().value() : ann.value().value();
-                    return toSnakeCase(rawOldName);
+                    return IdentifierShortener.columnName(rawOldName);
                 });
     }
 
@@ -109,7 +108,7 @@ record Column(
         );
     }
 
-    Column withForeignKey(ForeignKey foreignKey) {
+    Column withForeignKey(ForeignKeyReference foreignKey) {
         return new Column(
                 name,
                 type,

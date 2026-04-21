@@ -31,6 +31,7 @@ import javax.tools.Diagnostic;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
 
+import static be.appify.prefab.core.util.IdentifierShortener.*;
 import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
 
 class DbMigrationWriter {
@@ -277,7 +278,7 @@ class DbMigrationWriter {
             var idColumnName = idColumnNameOf(manifest);
             tables.add(new Table(aggregateRootTable, columns, List.of(idColumnName), oldTableName,
                     ListUtil.concat(fkIndexes, fieldIndexes)));
-            tables.addAll(childEntityTables(aggregateRootTable, manifest));
+            tables.addAll(childEntityTables(aggregateRootTable, List.of(idColumnName), manifest));
         });
         polymorphicManifests.forEach(manifest -> tables.add(polymorphicTable(manifest)));
         return sortByDependencies(tables);
@@ -296,12 +297,13 @@ class DbMigrationWriter {
         var allColumns = manifest.allFields().stream()
                 .filter(field -> !field.type().is(List.class)
                         || field.type().parameters().getFirst().isStandardType()
-                        || field.type().parameters().getFirst().isSingleValueType())
+                        || (field.type().parameters().getFirst().isSingleValueType()
+                                && !isWrappedRecordType(field.type().parameters().getFirst())))
                 .flatMap(field -> {
                     boolean isSubtypeSpecific = !commonFieldNames.contains(field.name());
                     if (field.type().isCustomType()) {
                         return customTypeColumn(null, field, isSubtypeSpecific || field.nullable());
-                    } else if (field.type().isRecord() && !field.type().isSingleValueType()) {
+                    } else if (field.type().isRecord() && (!field.type().isSingleValueType() || isWrappedRecordType(field.type()))) {
                         return columnsOf(field.type().asClassManifest(), field.name(),
                                 isSubtypeSpecific || field.nullable()).stream();
                     }
@@ -331,24 +333,33 @@ class DbMigrationWriter {
     }
 
     private List<Index> fieldIndexesOf(String tableName, ClassManifest manifest, String prefix) {
+        if (isSingleValueWrapperManifest(manifest)) {
+            var innerField = manifest.fields().getFirst();
+            return fieldIndexesOf(tableName, innerField.type().asClassManifest(), prefix);
+        }
         return manifest.fields().stream()
                 .filter(field -> !field.type().is(List.class))
                 .flatMap(field -> {
                     if (field.type().isCustomType()) {
                         // Only generate an index if a plugin provides a DataType (i.e. the column exists)
                         if (pluginDataType(field.type()).isPresent()) {
-                            var columnName = toSnakeCase(prefix != null ? prefix + "_" + field.name() : field.name());
+                            var columnName = columnNameOf(prefix, field.name());
                             return indexFor(tableName, columnName, field).stream();
                         }
                         return Stream.empty();
-                    } else if (field.type().isRecord() && !field.type().isSingleValueType()) {
+                    } else if (field.type().isRecord() && (!field.type().isSingleValueType() || isWrappedRecordType(field.type()))) {
                         var newPrefix = prefix != null ? prefix + "_" + field.name() : field.name();
                         return fieldIndexesOf(tableName, field.type().asClassManifest(), newPrefix).stream();
                     }
-                    var columnName = toSnakeCase(prefix != null ? prefix + "_" + field.name() : field.name());
+                    var columnName = columnNameOf(prefix, field.name());
                     return indexFor(tableName, columnName, field).stream();
                 })
                 .toList();
+    }
+
+    private static String columnNameOf(String prefix, String fieldName) {
+        var rawName = prefix != null ? prefix + "_" + fieldName : fieldName;
+        return columnName(rawName);
     }
 
     private static List<Index> indexFor(String tableName, String columnName, VariableManifest field) {
@@ -364,20 +375,26 @@ class DbMigrationWriter {
         return List.of();
     }
 
-    private List<Table> childEntityTables(String aggregateRootTable, ClassManifest manifest) {
-        return childEntityTablesOf(aggregateRootTable, manifest);
+    private List<Table> childEntityTables(String parentTableName, List<String> parentPrimaryKeyColumns,
+            ClassManifest manifest) {
+        return childEntityTablesOf(parentTableName, parentPrimaryKeyColumns, manifest);
     }
 
-    private List<Table> childEntityTablesOf(String parentTableName, ClassManifest manifest) {
+    private List<Table> childEntityTablesOf(String parentTableName, List<String> parentPrimaryKeyColumns,
+            ClassManifest manifest) {
         return manifest.fields().stream().filter(field -> field.type().is(List.class))
                 .map(field -> field.type().parameters().getFirst())
                 .flatMap(child -> {
                     if (child.isCustomType()) {
                         // @CustomType elements in List are skipped — no child table generated
                         return Stream.empty();
-                    } else if (child.isRecord() && !child.isSingleValueType()) {
-                        var childTable = buildChildTable(parentTableName, child);
-                        var nestedTables = childEntityTablesOf(childTable.name(), child.asClassManifest());
+                    } else if (child.isRecord() && (!child.isSingleValueType() || isWrappedRecordType(child))) {
+                        var childTable = buildChildTable(parentTableName, parentPrimaryKeyColumns, child);
+                        var nestedTables = childEntityTablesOf(
+                                childTable.name(),
+                                childTable.primaryKey(),
+                                child.asClassManifest()
+                        );
                         return Stream.concat(Stream.of(childTable), nestedTables.stream());
                     } else {
                         return Stream.empty();
@@ -386,19 +403,55 @@ class DbMigrationWriter {
                 .toList();
     }
 
-    private Table buildChildTable(String parentTableName, TypeManifest child) {
-        var columns = ListUtil.concat(List.of(
-                new Column(parentTableName, new DataType.Varchar(255), false,
-                        new ForeignKey(parentTableName, "id"), null, null),
-                new Column(parentTableName + "_key", DataType.Primitive.INTEGER, false, null, null, null)
-        ), columnsOf(child.asClassManifest(), null, false));
+    private Table buildChildTable(String parentTableName, List<String> parentPrimaryKeyColumns, TypeManifest child) {
+        var backReferenceColumnNames = backReferenceColumnNames(parentTableName, parentPrimaryKeyColumns);
+        var columns = ListUtil.concat(
+                parentBackReferenceColumns(backReferenceColumnNames, parentTableName, parentPrimaryKeyColumns),
+                columnsOf(child.asClassManifest(), null, false));
         var childTableName = tableNameOf(child);
         var fkIndexes = fkIndexesOf(childTableName, columns);
         var fieldIndexes = fieldIndexesOf(childTableName, child.asClassManifest(), null);
-        return new Table(childTableName, columns, List.of(
-                parentTableName,
-                parentTableName + "_key"
-        ), null, ListUtil.concat(fkIndexes, fieldIndexes));
+        var tableForeignKeys = parentPrimaryKeyColumns.size() > 1
+                ? List.of(new ForeignKeyConstraint(
+                        foreignKeyConstraintName(
+                                childTableName,
+                                String.join("_", backReferenceColumnNames)
+                        ),
+                        backReferenceColumnNames,
+                        new ForeignKeyReference(parentTableName, parentPrimaryKeyColumns)
+                ))
+                : List.<ForeignKeyConstraint>of();
+
+        var parentOrderColumnName = shorten(parentTableName + "_key", POSTGRES_MAX_IDENTIFIER_LENGTH);
+        columns = ListUtil.concat(columns, List.of(new Column(parentOrderColumnName, DataType.Primitive.INTEGER,
+                false, null, null, null)));
+
+        var primaryKey = ListUtil.concat(backReferenceColumnNames, List.of(parentOrderColumnName));
+        return new Table(childTableName, columns, primaryKey, null, ListUtil.concat(fkIndexes, fieldIndexes),
+                tableForeignKeys);
+    }
+
+    private static List<String> backReferenceColumnNames(String parentTableName, List<String> parentPrimaryKeyColumns) {
+        if (parentPrimaryKeyColumns.size() == 1) {
+            return List.of(shorten(parentTableName, POSTGRES_MAX_IDENTIFIER_LENGTH));
+        }
+        return parentPrimaryKeyColumns;
+    }
+
+    private static List<Column> parentBackReferenceColumns(
+            List<String> localColumns,
+            String parentTableName,
+            List<String> parentPrimaryKeyColumns
+    ) {
+        var columns = new ArrayList<Column>();
+        for (int i = 0; i < localColumns.size(); i++) {
+            var dataType = i == 0 ? new DataType.Varchar(255) : DataType.Primitive.INTEGER;
+            var foreignKey = parentPrimaryKeyColumns.size() == 1 && i == 0
+                    ? new ForeignKeyReference(parentTableName, parentPrimaryKeyColumns)
+                    : null;
+            columns.add(new Column(localColumns.get(i), dataType, false, foreignKey, null, null));
+        }
+        return List.copyOf(columns);
     }
 
     private static String tableNameOf(TypeManifest manifest) {
@@ -412,14 +465,19 @@ class DbMigrationWriter {
     }
 
     private List<Column> columnsOf(ClassManifest manifest, String prefix, boolean parentNullable) {
+        if (isSingleValueWrapperManifest(manifest)) {
+            var innerField = manifest.fields().getFirst();
+            return columnsOf(innerField.type().asClassManifest(), prefix, parentNullable || innerField.nullable());
+        }
         return manifest.fields().stream()
                 .filter(field -> !field.type().is(List.class)
                         || field.type().parameters().getFirst().isStandardType()
-                        || field.type().parameters().getFirst().isSingleValueType())
+                        || (field.type().parameters().getFirst().isSingleValueType()
+                                && !isWrappedRecordType(field.type().parameters().getFirst())))
                 .flatMap(field -> {
                     if (field.type().isCustomType()) {
                         return customTypeColumn(prefix, field, parentNullable);
-                    } else if (field.type().isRecord() && !field.type().isSingleValueType()) {
+                    } else if (field.type().isRecord() && (!field.type().isSingleValueType() || isWrappedRecordType(field.type()))) {
                         return columnsOf(field.type().asClassManifest(),
                                 prefix != null ? prefix + "_" + field.name() : field.name(),
                                 parentNullable || field.nullable()).stream();
@@ -428,6 +486,35 @@ class DbMigrationWriter {
                     }
                 })
                 .toList();
+    }
+
+    private static boolean isSingleValueWrapperManifest(ClassManifest manifest) {
+        if (manifest.fields().size() != 1) {
+            return false;
+        }
+        var innerType = manifest.fields().getFirst().type();
+        return (innerType.isRecord() && !innerType.isSingleValueType()) || isWrappedRecordType(innerType);
+    }
+
+    private static boolean isWrappedRecordType(TypeManifest type) {
+        return wrappedRecordType(type).isPresent();
+    }
+
+    private static Optional<TypeManifest> wrappedRecordType(TypeManifest type) {
+        if (!type.isSingleValueType()) {
+            return Optional.empty();
+        }
+
+        var currentType = type;
+        while (currentType.isSingleValueType()) {
+            var innerType = currentType.fields().getFirst().type().asBoxed();
+            if (innerType.isRecord() && !innerType.isSingleValueType()) {
+                return Optional.of(innerType);
+            }
+            currentType = innerType;
+        }
+
+        return Optional.empty();
     }
 
     private void warnIfUnconstrainedString(VariableManifest field) {
@@ -486,11 +573,20 @@ class DbMigrationWriter {
         var tableMap = tables.stream().collect(Collectors.toMap(Table::name, table -> table));
         var dependencyTree = new HashMap<Table, Set<Table>>();
         for (Table table : tables) {
-            var dependencies = table.columns().stream()
+            var columnForeignKeyDependencies = table.columns().stream()
                     .map(Column::foreignKey)
                     .filter(fk -> fk != null && tableMap.containsKey(fk.referencedTable()))
                     .map(fk -> tableMap.get(fk.referencedTable()))
                     .collect(Collectors.toSet());
+            var tableForeignKeyDependencies = table.foreignKeys().stream()
+                    .map(ForeignKeyConstraint::reference)
+                    .map(ForeignKeyReference::referencedTable)
+                    .filter(tableMap::containsKey)
+                    .map(tableMap::get)
+                    .collect(Collectors.toSet());
+            var dependencies = new HashSet<Table>();
+            dependencies.addAll(columnForeignKeyDependencies);
+            dependencies.addAll(tableForeignKeyDependencies);
             dependencyTree.put(table, dependencies);
         }
         var result = new ArrayList<Table>();

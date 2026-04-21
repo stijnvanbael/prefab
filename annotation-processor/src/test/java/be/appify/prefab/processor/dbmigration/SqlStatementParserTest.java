@@ -14,7 +14,7 @@ class SqlStatementParserTest {
     void dropConstraintStatementDoesNotCrash() {
         var tables = new HashMap<String, Table>();
         tables.put("chapter", tableWithForeignKey());
-        var sql = "ALTER TABLE chapter DROP CONSTRAINT chapter_course_fkey;";
+        var sql = "ALTER TABLE chapter DROP CONSTRAINT chapter_course_fk;";
 
         new SqlStatementParser().parse(sql, tables);
 
@@ -27,8 +27,8 @@ class SqlStatementParserTest {
         var tables = new HashMap<String, Table>();
         tables.put("chapter", tableWithForeignKey());
         var sql = """
-                ALTER TABLE chapter DROP CONSTRAINT chapter_course_fkey;
-                ALTER TABLE chapter ADD CONSTRAINT chapter_course_fkey FOREIGN KEY (course) REFERENCES course(id);
+                ALTER TABLE chapter DROP CONSTRAINT chapter_course_fk;
+                ALTER TABLE chapter ADD CONSTRAINT chapter_course_fk FOREIGN KEY (course) REFERENCES course(id);
                 """;
 
         new SqlStatementParser().parse(sql, tables);
@@ -43,7 +43,7 @@ class SqlStatementParserTest {
                 List.of(
                         new Column("id", new DataType.Varchar(255), false, null, null),
                         new Column("course", new DataType.Varchar(255), false,
-                                new ForeignKey("course", "id"), null)
+                                new ForeignKeyReference("course", "id"), null)
                 ),
                 List.of("id")
         );

@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.dbmigration;
 
+import be.appify.prefab.core.util.IdentifierShortener;
 import be.appify.prefab.processor.PrefabProcessor;
 import com.google.common.truth.Truth;
 import java.util.List;
@@ -22,7 +23,7 @@ class DbMigrationWriterTest {
         assertThat(compilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
-                .contains("CREATE INDEX \"product_name_idx\" ON \"product\" (\"name\")");
+                .contains("CREATE INDEX \"product_name_ix\" ON \"product\" (\"name\")");
     }
 
     @Test
@@ -34,7 +35,7 @@ class DbMigrationWriterTest {
         assertThat(compilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
-                .contains("CREATE UNIQUE INDEX \"product_sku_uidx\" ON \"product\" (\"sku\")");
+                .contains("CREATE UNIQUE INDEX \"product_sku_uk\" ON \"product\" (\"sku\")");
     }
 
     @Test
@@ -58,8 +59,31 @@ class DbMigrationWriterTest {
         assertThat(compilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
-                .contains("CREATE INDEX \"order_order_line_order_idx\" ON \"order_order_line\" (\"order\")");
+                .contains("CREATE INDEX \"order_order_line_order_ix\" ON \"order_order_line\" (\"order\")");
     }
+
+    @Test
+    void longNestedColumnAndIndexNamesAreShortened() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/longidentifiers/source/OrderProjection.java"));
+
+        assertThat(compilation).succeeded();
+
+        var columnName = IdentifierShortener.columnName("customerContextInformation_legalRepresentativeDisplayNameForDocumentsAndNotifications");
+        var indexName = IdentifierShortener.indexName("order_projection", columnName, false);
+
+        var sql = assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String();
+
+        Truth.assertThat(columnName.length()).isAtMost(IdentifierShortener.POSTGRES_MAX_IDENTIFIER_LENGTH);
+        Truth.assertThat(indexName.length()).isAtMost(IdentifierShortener.POSTGRES_MAX_IDENTIFIER_LENGTH);
+        sql.contains("\"" + columnName + "\" VARCHAR (255)");
+        sql.contains("CREATE INDEX \"" + indexName + "\" ON \"order_projection\" (\""
+                + columnName + "\")");
+    }
+
     @Test
     void notNullConstraintsAreGeneratedForNonNullableFields() {
         var compilation = javac()
@@ -88,6 +112,51 @@ class DbMigrationWriterTest {
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
                 .contains("\"price\" DECIMAL (19, 4)");
+    }
+
+    @Test
+    void singleValueTypeWrappingRecordIsFlattenedIntoColumns() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/valuetypewrappingrecord/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"address_street\" VARCHAR (255)");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"address_city\" VARCHAR (255)");
+    }
+
+    @Test
+    void listOfSingleValueTypeWrappingRecordGeneratesChildTable() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/valuetypewrappingrecord/source/ProductWithList.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("CREATE TABLE \"product_with_list_address_holder\"");
+    }
+
+    @Test
+    void childTableOfSingleValueTypeWrappingRecordExpandsInnerRecordColumns() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/valuetypewrappingrecord/source/ProductWithList.java"));
+
+        assertThat(compilation).succeeded();
+        var sql = assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String();
+
+        sql.contains("\"street\" VARCHAR (255)");
+        sql.contains("\"city\" VARCHAR (255)");
     }
 
     @Test
@@ -279,6 +348,21 @@ class DbMigrationWriterTest {
     }
 
     @Test
+    void deeplyNestedChildTablesAreCreatedAfterReferencedParentTables() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/nestedlists/source/Order.java"));
+
+        assertThat(compilation).succeeded();
+        var migration = assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String();
+
+        migration.containsMatch("(?s).*CREATE TABLE \\\"order\\\".*CREATE TABLE \\\"order_order_line\\\".*"
+                + "CREATE TABLE \\\"order_order_line_note\\\".*");
+    }
+
+    @Test
     void nestedChildTableForeignKeyReferencesParentTable() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
@@ -288,7 +372,34 @@ class DbMigrationWriterTest {
         assertThat(compilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
-                .contains("\"order_order_line\" VARCHAR (255) NOT NULL REFERENCES \"order_order_line\"");
+                .contains("FOREIGN KEY (\"order\", \"order_key\") " +
+                        "REFERENCES \"order_order_line\"(\"order\", \"order_key\")");
+    }
+
+    @Test
+    void nestedChildTableForeignKeyUsesParentPrimaryKeyColumn() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/nestedlists/source/Order.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"order_order_line_key\" INTEGER NOT NULL");
+    }
+
+    @Test
+    void childTableForeignKeyUsesCustomAggregateIdColumn() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/customidchild/source/Order.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"order\" VARCHAR (255) NOT NULL REFERENCES \"order\"(\"order_id\")");
     }
 
     private static void assertNoPrefabWarnings(List<?> warnings) {

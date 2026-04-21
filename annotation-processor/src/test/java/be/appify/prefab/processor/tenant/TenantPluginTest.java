@@ -171,6 +171,6 @@ class TenantPluginTest {
         assertThat(compilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
-                .contains("CREATE INDEX \"project_organisation_id_idx\" ON \"project\" (\"organisation_id\")");
+                .contains("CREATE INDEX \"project_organisation_id_ix\" ON \"project\" (\"organisation_id\")");
     }
 }

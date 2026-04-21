@@ -12,6 +12,7 @@ import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Optional;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 
@@ -24,7 +25,7 @@ class CreateServiceWriter {
                 .addModifiers(Modifier.PUBLIC)
                 .returns(String.class)
                 .addStatement("log.debug($S, $T.class.getSimpleName())", "Creating new {}", manifest.className());
-        addConstructorArgs(method, manifest.simpleName(), manifest.packageName(), manifest.type().asTypeName(),
+        addConstructorArgs(method, manifest, manifest.simpleName(), manifest.packageName(), manifest.type().asTypeName(),
                 manifest.fields(), constructor, context);
         tenantField.ifPresent(tf -> method.addStatement("aggregate = new $T($L)",
                 manifest.type().asTypeName(), reconstructionArgs(manifest, tf)));
@@ -47,7 +48,7 @@ class CreateServiceWriter {
                 .returns(String.class)
                 .addStatement("log.debug($S, $T.class.getSimpleName())", "Creating new {}",
                         subtype.type().asTypeName());
-        addConstructorArgs(method, leafName, subtype.packageName(), subtype.type().asTypeName(),
+        addConstructorArgs(method, subtype, leafName, subtype.packageName(), subtype.type().asTypeName(),
                 subtype.fields(), constructor, context);
         var idName = subtype.idField().map(VariableManifest::name).orElse("id");
         var idSuffix = subtype.idField().filter(f -> f.type().isSingleValueType())
@@ -57,6 +58,7 @@ class CreateServiceWriter {
 
     private void addConstructorArgs(
             MethodSpec.Builder method,
+            ClassManifest manifest,
             String requestRecordPrefix,
             String packageName,
             TypeName typeName,
@@ -66,18 +68,53 @@ class CreateServiceWriter {
     ) {
         if (constructor.getParameters().isEmpty()) {
             method.addStatement("var aggregate = new $T()", typeName);
-        } else {
+            return;
+        }
+        var parentName = parentFieldName(manifest);
+        var params = constructor.getParameters().stream()
+                .map(param -> VariableManifest.of(param, context.processingEnvironment()))
+                .toList();
+        var bodyParams = params.stream()
+                .filter(p -> parentName.map(name -> !name.equals(p.name())).orElse(true))
+                .toList();
+        parentName.ifPresent(name -> {
+            var parentParam = params.stream().filter(p -> name.equals(p.name())).findFirst().orElseThrow();
+            method.addParameter(String.class, parentParam.name() + "Id");
+        });
+        if (!bodyParams.isEmpty()) {
             method.addParameter(ParameterSpec.builder(
                             ClassName.get("%s.application".formatted(packageName),
                                     "Create%sRequest".formatted(requestRecordPrefix)), "request")
-                            .addAnnotation(Valid.class)
-                            .build())
-                    .addStatement("var aggregate = new $T($L)", typeName,
-                            constructor.getParameters().stream()
-                                    .map(param -> VariableManifest.of(param, context.processingEnvironment()))
-                                    .map(context.requestParameterMapper()::mapRequestParameter)
-                                    .collect(CodeBlock.joining(", ")));
+                    .addAnnotation(Valid.class)
+                    .build());
         }
+        method.addStatement("var aggregate = new $T($L)", typeName,
+                params.stream()
+                        .map(param -> resolveParam(manifest, param, parentName, context))
+                        .collect(CodeBlock.joining(", ")));
+    }
+
+    private CodeBlock resolveParam(
+            ClassManifest manifest,
+            VariableManifest param,
+            Optional<String> parentFieldName,
+            PrefabContext context
+    ) {
+        if (parentFieldName.map(name -> name.equals(param.name())).orElse(false)) {
+            if (!param.type().parameters().isEmpty()) {
+                return CodeBlock.of("new $T<>($NId)",
+                        ClassName.get("be.appify.prefab.core.service", "Reference"), param.name());
+            }
+            var repoName = uncapitalize(topLevelName(param.type().simpleName())) + "Repository";
+            return CodeBlock.of("$N.findById($NId).orElseThrow()", repoName, param.name());
+        }
+        return context.requestParameterMapper().mapRequestParameter(param);
+    }
+
+    static Optional<String> parentFieldName(ClassManifest manifest) {
+        return manifest.parent()
+                .filter(parent -> !parent.type().parameters().isEmpty())
+                .map(VariableManifest::name);
     }
 
     private static MethodSpec saveAndReturnId(MethodSpec.Builder method, String aggregateName, String idName, String idSuffix) {
@@ -100,6 +137,11 @@ class CreateServiceWriter {
                         ? CodeBlock.of("tenantContextProvider.currentTenantId()")
                         : CodeBlock.of("aggregate.$N()", field.name()))
                 .collect(CodeBlock.joining(", "));
+    }
+
+    private static String topLevelName(String simpleName) {
+        var dotIndex = simpleName.indexOf('.');
+        return dotIndex >= 0 ? simpleName.substring(0, dotIndex) : simpleName;
     }
 
     private static String leafName(String simpleName) {

@@ -24,11 +24,16 @@ class CreateRequestRecordWriter {
             PrefabContext context
     ) {
         var name = "Create%sRequest".formatted(manifest.simpleName());
+        var parentName = CreateServiceWriter.parentFieldName(manifest);
+        var bodyParams = controller.getParameters().stream()
+                .map(param -> VariableManifest.of(param, context.processingEnvironment()))
+                .filter(param -> parentName.map(parentFieldName -> !parentFieldName.equals(param.name())).orElse(true))
+                .toList();
+        if (bodyParams.isEmpty()) {
+            return;
+        }
         var type = writeRecord(ClassName.get(manifest.packageName() + ".application", name),
-                controller.getParameters().stream()
-                        .map(param ->
-                                VariableManifest.of(param, context.processingEnvironment()))
-                        .toList(),
+                bodyParams,
                 context.requestParameterBuilder());
         fileWriter.writeFile(manifest.packageName(), name, type);
     }
@@ -71,8 +76,10 @@ class CreateRequestRecordWriter {
     ) {
         var leafName = leafName(entry.getKey().simpleName());
         var nestedName = "Create%sRequest".formatted(leafName);
+        var parentFieldName = CreateServiceWriter.parentFieldName(entry.getKey());
         var params = entry.getValue().getParameters().stream()
                 .map(p -> VariableManifest.of(p, context.processingEnvironment()))
+                .filter(p -> parentFieldName.map(pfn -> !pfn.equals(p.name())).orElse(true))
                 .toList();
         var recordParams = params.stream()
                 .flatMap(p -> context.requestParameterBuilder().buildBodyParameter(p)
@@ -102,10 +109,13 @@ class CreateRequestRecordWriter {
     ) {
         var leafName = leafName(subtype.simpleName());
         var name = "Create%sRequest".formatted(leafName);
+        var parentFieldName = CreateServiceWriter.parentFieldName(subtype);
+        var bodyParams = constructor.getParameters().stream()
+                .map(param -> VariableManifest.of(param, context.processingEnvironment()))
+                .filter(p -> parentFieldName.map(pfn -> !pfn.equals(p.name())).orElse(true))
+                .toList();
         var type = writeRecord(ClassName.get(subtype.packageName() + ".application", name),
-                constructor.getParameters().stream()
-                        .map(param -> VariableManifest.of(param, context.processingEnvironment()))
-                        .toList(),
+                bodyParams,
                 context.requestParameterBuilder());
         fileWriter.writeFile(polymorphic.packageName(), name, type);
     }

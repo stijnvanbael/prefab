@@ -6,12 +6,15 @@ import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
+import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.stream.Collectors;
 import javax.lang.model.element.ExecutableElement;
@@ -91,6 +94,25 @@ public class CreatePlugin implements PrefabPlugin {
                 });
             }
         });
+    }
+
+    @Override
+    public Set<TypeName> getPolymorphicServiceDependencies(PolymorphicAggregateManifest manifest) {
+        return manifest.parent()
+                .filter(parent -> !parent.type().parameters().isEmpty())
+                .flatMap(parent -> manifest.subtypes().stream()
+                        .flatMap(subtype -> createConstructorOf(subtype).stream())
+                        .flatMap(ctor -> ctor.getParameters().stream())
+                        .filter(p -> parent.name().equals(p.getSimpleName().toString()))
+                        .filter(p -> ((javax.lang.model.type.DeclaredType) p.asType()).getTypeArguments().isEmpty())
+                        .findFirst()
+                        .map(p -> {
+                            var parentType = parent.type().parameters().getFirst();
+                            return (TypeName) ClassName.get(parentType.packageName() + ".application",
+                                    parentType.simpleName() + "Repository");
+                        }))
+                .map(Set::of)
+                .orElse(Set.of());
     }
 
     @Override

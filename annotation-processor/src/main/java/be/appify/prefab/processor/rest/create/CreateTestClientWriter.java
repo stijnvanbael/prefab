@@ -1,6 +1,5 @@
 package be.appify.prefab.processor.rest.create;
 
-import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
@@ -29,13 +28,28 @@ import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 class CreateTestClientWriter {
     List<MethodSpec> createMethods(ClassManifest manifest, ExecutableElement constructor, PrefabContext context) {
-        var individualParams = getIndividualParams(constructor, context);
         if (constructor.getParameters().isEmpty()) {
             return List.of(createNoBodyMethod(manifest, constructor));
         }
+        var allParams = constructor.getParameters().stream()
+                .map(p -> VariableManifest.of(p, context.processingEnvironment()))
+                .toList();
+        var parentName = CreateServiceWriter.parentFieldName(manifest);
+        var parentParam = parentName.flatMap(name ->
+                allParams.stream().filter(p -> name.equals(p.name())).findFirst());
+        var parentPathParam = parentParam.map(p -> ParameterSpec.builder(String.class, p.name() + "Id").build());
+        var bodyParams = allParams.stream()
+                .filter(p -> parentName.map(name -> !name.equals(p.name())).orElse(true))
+                .toList();
+        var individualBodyParams = bodyParams.stream()
+                .flatMap(param -> context.requestParameterBuilder().buildTestClientParameter(param).stream())
+                .toList();
+        var allIndividualParams = parentPathParam.map(pp ->
+                java.util.stream.Stream.concat(java.util.stream.Stream.of(pp), individualBodyParams.stream()).toList())
+                .orElse(individualBodyParams);
         return List.of(
-                createIndividualParamsMethod(manifest, individualParams),
-                createRequestOverload(manifest, constructor, context));
+                createIndividualParamsMethod(manifest, allIndividualParams, parentPathParam.isPresent(), bodyParams),
+                createRequestOverload(manifest, constructor, context, parentPathParam));
     }
 
     MethodSpec baseCreateMethodForPolymorphic(PolymorphicAggregateManifest polymorphic, Create create) {
@@ -129,27 +143,44 @@ class CreateTestClientWriter {
                 .toList();
     }
 
-    private MethodSpec createIndividualParamsMethod(ClassManifest manifest, List<ParameterSpec> individualParams) {
+    private MethodSpec createIndividualParamsMethod(
+            ClassManifest manifest,
+            List<ParameterSpec> allIndividualParams,
+            boolean hasParentPathParam,
+            List<VariableManifest> bodyParams
+    ) {
         var bodyType = ClassName.get(manifest.packageName() + ".application",
                 "Create%sRequest".formatted(manifest.simpleName()));
+        var bodyParamNames = bodyParams.stream()
+                .flatMap(p -> {
+                    var spec = allIndividualParams.stream()
+                            .filter(ps -> ps.name().equals(p.name()) || ps.name().equals(p.name() + "Id"))
+                            .findFirst();
+                    return spec.map(ParameterSpec::name).stream();
+                })
+                .collect(Collectors.joining(", "));
+        var serviceCallArgs = hasParentPathParam
+                ? allIndividualParams.getFirst().name() + ", new $T(" + bodyParamNames + ")"
+                : "new $T(" + bodyParamNames + ")";
         return MethodSpec.methodBuilder("create" + manifest.simpleName())
                 .addModifiers(Modifier.PUBLIC)
                 .returns(String.class)
-                .addParameters(individualParams)
+                .addParameters(allIndividualParams)
                 .addException(Exception.class)
-                .addStatement("return create$L(new $T($L))",
+                .addStatement("return create$L(" + serviceCallArgs + ")",
                         manifest.simpleName(),
-                        bodyType,
-                        individualParams.stream().map(ParameterSpec::name).collect(Collectors.joining(", ")))
+                        bodyType)
                 .build();
     }
 
-    private MethodSpec createRequestOverload(ClassManifest manifest, ExecutableElement constructor, PrefabContext context) {
+    private MethodSpec createRequestOverload(
+            ClassManifest manifest,
+            ExecutableElement constructor,
+            PrefabContext context,
+            java.util.Optional<ParameterSpec> parentPathParam
+    ) {
         var create = Objects.requireNonNull(constructor.getAnnotation(Create.class));
         var createRequest = uncapitalize(manifest.simpleName());
-        var pathVariables = manifest.parent()
-                .map(parent -> createRequest + "." + parentAccessorIn(parent, constructor, context))
-                .orElse("");
         var bodyType = ClassName.get(manifest.packageName() + ".application",
                 "Create%sRequest".formatted(manifest.simpleName()));
         var requestParts = Stream.concat(constructor.getParameters().stream()
@@ -161,8 +192,10 @@ class CreateTestClientWriter {
         var method = MethodSpec.methodBuilder("create" + manifest.simpleName())
                 .addModifiers(Modifier.PUBLIC)
                 .returns(String.class)
-                .addParameter(bodyType, createRequest)
                 .addException(Exception.class);
+        parentPathParam.ifPresent(method::addParameter);
+        method.addParameter(bodyType, createRequest);
+        var pathVariables = parentPathParam.map(pp -> pp.name()).orElse("");
         if (requestParts.size() == 1) {
             return withRequestBody(manifest, method, create, pathVariables, createRequest);
         } else {
@@ -268,19 +301,6 @@ class CreateTestClientWriter {
                         pathVariables);
     }
 
-    private String parentAccessorIn(VariableManifest parentField, ExecutableElement constructor, PrefabContext context) {
-        var parentType = !parentField.type().parameters().isEmpty()
-                ? parentField.type().parameters().getFirst()
-                : null;
-        if (parentType == null) {
-            return parentField.name() + "()";
-        }
-        boolean parentIsAggregatParam = constructor.getParameters().stream()
-                .map(p -> VariableManifest.of(p, context.processingEnvironment()))
-                .anyMatch(p -> !p.type().annotationsOfType(Aggregate.class).isEmpty()
-                        && p.type().equals(parentType));
-        return parentIsAggregatParam ? parentField.name() + "Id()" : parentField.name() + "()";
-    }
 
     private static MethodSpec createNoBodyMethodForPolymorphic(
             PolymorphicAggregateManifest polymorphic,

@@ -12,8 +12,5 @@ Key principles to honor:
 - **Clean Tests**: Fast, Independent, Repeatable, Self-Validating, Timely (F.I.R.S.T.).
 - **SRP & DI**: One responsibility per class, depend on abstractions, inject dependencies.
 - **No Speculation**: Do not add complexity for hypothetical future needs.
-
-## Common Mistakes to Avoid
-
-- **CM-001**: Never use Windows-style CRLF (`\r\n`) line endings. Always use LF (`\n`).
-
+- **Boyscout rule**: Leave the code cleaner than you found it. Refactor when you see an opportunity. Fix any tests that fail.
+- **Terminal truncation**: Keep terminal commands shorter than 256 characters to avoid truncation issues.

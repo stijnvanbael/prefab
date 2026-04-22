@@ -47,13 +47,18 @@ public class DbMigrationPlugin implements PrefabPlugin {
             return;
         }
         var classManifests = manifests.stream()
-                .filter(manifest -> !manifest.annotationsOfType(DbMigration.class).isEmpty())
+                .filter(this::isDbMigrationEnabled)
                 .toList();
         var polyManifests = polymorphicManifests.stream()
-                .filter(PolymorphicAggregateManifest::hasDbMigration)
+                .filter(PolymorphicAggregateManifest::isDbMigrationEnabled)
                 .toList();
         if (!classManifests.isEmpty() || !polyManifests.isEmpty()) {
             dbMigrationWriter.writeDbMigration(context.processingEnvironment(), classManifests, polyManifests);
         }
+    }
+
+    private boolean isDbMigrationEnabled(ClassManifest manifest) {
+        var annotations = manifest.annotationsOfType(DbMigration.class);
+        return annotations.stream().allMatch(DbMigration::enabled);
     }
 }

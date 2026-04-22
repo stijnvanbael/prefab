@@ -1,7 +1,7 @@
 ---
 id: TASK-131
 title: DbMigration enabled by default on aggregate roots
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-04-20'
 updated_date: '2026-04-20'
@@ -26,11 +26,11 @@ generation for a specific aggregate when needed.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Migration scripts are generated for all aggregate roots by default when `prefab-postgres` is on the classpath, without requiring an explicit `@DbMigration` annotation
-- [ ] #2 `@DbMigration` gains an `enabled` attribute (default `true`) that allows opting out per aggregate (`@DbMigration(enabled = false)`)
-- [ ] #3 Existing aggregates that already carry `@DbMigration` continue to work without any changes
-- [ ] #4 Tests cover the default-on behaviour and the explicit opt-out via `enabled = false`
-- [ ] #5 Documentation is updated to reflect the new default behaviour and the `enabled` attribute
+- [x] #1 Migration scripts are generated for all aggregate roots by default when `prefab-postgres` is on the classpath, without requiring an explicit `@DbMigration` annotation
+- [x] #2 `@DbMigration` gains an `enabled` attribute (default `true`) that allows opting out per aggregate (`@DbMigration(enabled = false)`)
+- [x] #3 Existing aggregates that already carry `@DbMigration` continue to work without any changes
+- [x] #4 Tests cover the default-on behaviour and the explicit opt-out via `enabled = false`
+- [x] #5 Documentation is updated to reflect the new default behaviour and the `enabled` attribute
 <!-- AC:END -->
 
 ## Implementation Plan

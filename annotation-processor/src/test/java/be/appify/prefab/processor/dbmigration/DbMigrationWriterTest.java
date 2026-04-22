@@ -402,6 +402,31 @@ class DbMigrationWriterTest {
                 .contains("\"order\" VARCHAR (255) NOT NULL REFERENCES \"order\"(\"order_id\")");
     }
 
+    @Test
+    void migrationIsGeneratedByDefaultWithoutDbMigrationAnnotation() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/defaulton/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("CREATE TABLE \"product\"");
+    }
+
+    @Test
+    void migrationIsNotGeneratedWhenDbMigrationEnabledIsFalse() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/optout/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        Truth.assertThat(compilation.generatedFiles().stream()
+                        .noneMatch(f -> f.getName().endsWith("V1__generated.sql")))
+                .isTrue();
+    }
+
     private static void assertNoPrefabWarnings(List<?> warnings) {
         Truth.assertThat(warnings).isEmpty();
     }

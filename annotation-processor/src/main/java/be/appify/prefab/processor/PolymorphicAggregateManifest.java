@@ -119,8 +119,9 @@ public class PolymorphicAggregateManifest {
         return type.annotationsOfType(annotationType);
     }
 
-    public boolean hasDbMigration() {
-        return !annotationsOfType(DbMigration.class).isEmpty();
+    public boolean isDbMigrationEnabled() {
+        var annotations = annotationsOfType(DbMigration.class);
+        return annotations.stream().allMatch(DbMigration::enabled);
     }
 
     @Override

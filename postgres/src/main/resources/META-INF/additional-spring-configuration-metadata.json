@@ -1,0 +1,11 @@
+{
+  "properties": [
+    {
+      "name": "spring.datasource.driver-class-name",
+      "type": "java.lang.String",
+      "description": "Fully qualified name of the JDBC driver. Defaults to org.postgresql.Driver when prefab-postgres is on the classpath.",
+      "defaultValue": "org.postgresql.Driver"
+    }
+  ]
+}
+

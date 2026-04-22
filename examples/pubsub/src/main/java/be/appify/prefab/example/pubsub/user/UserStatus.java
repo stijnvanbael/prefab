@@ -1,7 +1,6 @@
 package be.appify.prefab.example.pubsub.user;
 
 import be.appify.prefab.core.annotations.Aggregate;
-import be.appify.prefab.core.annotations.DbMigration;
 import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.core.annotations.Multicast;
@@ -17,7 +16,6 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 
 @Aggregate
-@DbMigration
 @GetList
 @EventHandlerConfig(concurrency = "4")
 public record UserStatus(

@@ -1,0 +1,3 @@
+org.springframework.boot.EnvironmentPostProcessor=\
+  be.appify.prefab.postgres.spring.PostgresDriverEnvironmentPostProcessor
+

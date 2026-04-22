@@ -185,6 +185,19 @@ Prefab supports multiple database backends. Add exactly one of the following per
 This module wires up Spring Data JDBC with a PostgreSQL driver and Flyway migrations. Use `@DbMigration` on your
 aggregates to auto-generate migration scripts.
 
+`prefab-postgres` automatically sets `spring.datasource.driver-class-name` to `org.postgresql.Driver` so you do
+not need to configure it manually. Any value you supply in `application.yml` takes precedence:
+
+```yaml
+# Only needed if you want to override the default (org.postgresql.Driver)
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/mydb
+    username: myuser
+    password: mypassword
+```
+
 ### MongoDB
 
 ```xml

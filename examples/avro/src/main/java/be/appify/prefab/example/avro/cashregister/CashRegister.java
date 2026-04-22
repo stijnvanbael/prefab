@@ -2,7 +2,6 @@ package be.appify.prefab.example.avro.cashregister;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.ByReference;
-import be.appify.prefab.core.annotations.DbMigration;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.annotations.PartitioningKey;
@@ -19,7 +18,6 @@ import org.springframework.data.annotation.Version;
 import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
 
 @Aggregate
-@DbMigration
 @GetById
 public record CashRegister(
         @Id Reference<CashRegister> id,

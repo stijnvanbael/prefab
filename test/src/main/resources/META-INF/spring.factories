@@ -6,3 +6,5 @@ org.springframework.test.context.TestExecutionListener=\
   be.appify.prefab.test.mongodb.MongoDbTestExecutionListener
 org.springframework.boot.autoconfigure.service.connection.ConnectionDetailsFactory=\
   be.appify.prefab.test.pubsub.PubSubContainerConnectionDetailsFactory
+org.springframework.boot.EnvironmentPostProcessor=\
+  be.appify.prefab.test.persistence.PostgresTestEnvironmentPostProcessor

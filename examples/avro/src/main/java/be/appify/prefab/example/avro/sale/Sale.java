@@ -1,7 +1,6 @@
 package be.appify.prefab.example.avro.sale;
 
 import be.appify.prefab.core.annotations.Aggregate;
-import be.appify.prefab.core.annotations.DbMigration;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.PartitioningKey;
 import be.appify.prefab.core.annotations.rest.Create;
@@ -21,7 +20,6 @@ import org.springframework.data.annotation.Version;
 import static be.appify.prefab.core.annotations.rest.HttpMethod.POST;
 
 @Aggregate
-@DbMigration
 public record Sale(
         @Id Reference<Sale> id,
         @Version long version,

@@ -1,7 +1,7 @@
 ---
 id: TASK-132
 title: Autoconfigure datasource and driver class name for PostgreSQL
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-04-20'
 updated_date: '2026-04-20'
@@ -26,11 +26,11 @@ considered.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Adding `prefab-postgres` to the classpath automatically sets `spring.datasource.driver-class-name` to `org.postgresql.Driver` without any manual configuration
-- [ ] #2 A developer-supplied `spring.datasource.driver-class-name` in `application.yml` takes precedence over the Prefab default
-- [ ] #3 The auto-configuration does not interfere with other datasource properties (URL, username, password)
-- [ ] #4 Tests verify that the default driver class name is applied and that it can be overridden
-- [ ] #5 Documentation is updated to describe the default auto-configuration and how to override it
+- [x] #1 Adding `prefab-postgres` to the classpath automatically sets `spring.datasource.driver-class-name` to `org.postgresql.Driver` without any manual configuration
+- [x] #2 A developer-supplied `spring.datasource.driver-class-name` in `application.yml` takes precedence over the Prefab default
+- [x] #3 The auto-configuration does not interfere with other datasource properties (URL, username, password)
+- [x] #4 Tests verify that the default driver class name is applied and that it can be overridden
+- [x] #5 Documentation is updated to describe the default auto-configuration and how to override it
 <!-- AC:END -->
 
 ## Implementation Plan

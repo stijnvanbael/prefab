@@ -1,7 +1,6 @@
 package be.appify.prefab.example.pubsub.channelsummary;
 
 import be.appify.prefab.core.annotations.Aggregate;
-import be.appify.prefab.core.annotations.DbMigration;
 import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.annotations.Multicast;
 import be.appify.prefab.core.annotations.rest.Filter;
@@ -18,7 +17,6 @@ import org.springframework.data.annotation.Version;
 
 @Aggregate
 @GetList
-@DbMigration
 public record ChannelSummary(
         @Id Reference<ChannelSummary>  id,
         @Version long version,

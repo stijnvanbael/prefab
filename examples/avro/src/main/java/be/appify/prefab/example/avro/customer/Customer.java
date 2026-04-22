@@ -1,7 +1,6 @@
 package be.appify.prefab.example.avro.customer;
 
 import be.appify.prefab.core.annotations.Aggregate;
-import be.appify.prefab.core.annotations.DbMigration;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.PartitioningKey;
 import be.appify.prefab.core.annotations.rest.Create;
@@ -13,7 +12,6 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 
 @Aggregate
-@DbMigration
 public record Customer(
         @Id Reference<Customer> id,
         @Version long version,

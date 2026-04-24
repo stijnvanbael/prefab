@@ -4,12 +4,14 @@ title: Provide a learning path for Agents to discover and understand Prefab
 status: To Do
 assignee: []
 created_date: '2026-04-18 08:55'
+updated_date: '2026-04-24 06:57'
 labels:
   - documentation
   - agents
   - dx
 dependencies: []
 priority: medium
+ordinal: 139000
 ---
 
 ## Description

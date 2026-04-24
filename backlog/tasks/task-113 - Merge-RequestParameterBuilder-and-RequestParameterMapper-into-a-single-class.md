@@ -4,9 +4,11 @@ title: Merge RequestParameterBuilder and RequestParameterMapper into a single cl
 status: To Do
 assignee: []
 created_date: '2026-04-10 05:00'
+updated_date: '2026-04-24 06:57'
 labels:
   - "\U0001F527refactor"
 dependencies: []
+ordinal: 135000
 ---
 
 ## Description
@@ -24,7 +26,6 @@ The `PrefabContext` would then expose a single accessor instead of two, simplify
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
-
 <!-- AC:BEGIN -->
 - [ ] #1 RequestParameterBuilder and RequestParameterMapper are merged into a single class (e.g., RequestParameterHandler) that exposes all three methods: buildBodyParameter(), buildMethodParameter(), and mapRequestParameter()
 - [ ] #2 PrefabContext exposes a single accessor for the merged class and the two separate accessors (requestParameterBuilder() and requestParameterMapper()) are removed

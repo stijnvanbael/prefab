@@ -1,12 +1,16 @@
 ---
 id: TASK-114
-title: Replace static classpath flags in ControllerUtil with context-aware configuration
+title: >-
+  Replace static classpath flags in ControllerUtil with context-aware
+  configuration
 status: To Do
 assignee: []
 created_date: '2026-04-10 05:00'
+updated_date: '2026-04-24 06:57'
 labels:
   - "\U0001F527refactor"
 dependencies: []
+ordinal: 136000
 ---
 
 ## Description
@@ -31,7 +35,6 @@ The refactoring moves these capability flags to `PrefabContext` (or a dedicated 
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
-
 <!-- AC:BEGIN -->
 - [ ] #1 SECURITY_INCLUDED and OPENAPI_INCLUDED are no longer static fields on ControllerUtil
 - [ ] #2 The capability flags are computed once during PrefabContext construction and exposed via accessor methods (e.g., context.isSecurityIncluded(), context.isOpenApiIncluded())

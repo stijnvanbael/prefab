@@ -4,9 +4,11 @@ title: Move ClassManifest and TypeManifest caches into PrefabContext
 status: To Do
 assignee: []
 created_date: '2026-04-10 05:00'
+updated_date: '2026-04-24 06:57'
 labels:
   - "\U0001F527refactor"
 dependencies: []
+ordinal: 137000
 ---
 
 ## Description
@@ -33,7 +35,6 @@ The fix is to move the caches into `PrefabContext` so that each processing round
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
-
 <!-- AC:BEGIN -->
 - [ ] #1 ClassManifest and TypeManifest no longer contain static cache maps
 - [ ] #2 A ManifestRegistry (or equivalent) is added to PrefabContext that holds per-round ClassManifest and TypeManifest caches

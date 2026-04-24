@@ -1,16 +1,17 @@
 ---
 id: TASK-133
-title: "Bug: DbMigration uses hardcoded \"id\" instead of the @Id annotated field name"
+title: 'Bug: DbMigration uses hardcoded "id" instead of the @Id annotated field name'
 status: Done
 assignee: []
 created_date: '2026-04-20'
-updated_date: '2026-04-20'
+updated_date: '2026-04-22 13:38'
 labels:
   - bug
   - postgres
   - annotation-processor
 dependencies: []
 priority: high
+ordinal: 3000
 ---
 
 ## Description
@@ -41,4 +42,3 @@ field's name as the primary key column name.
 3. Add a test source file with an aggregate whose `@Id` field is not named `id`
 4. Add tests to `DbMigrationWriterTest` that assert the correct primary key column name is used
 <!-- SECTION:PLAN:END -->
-

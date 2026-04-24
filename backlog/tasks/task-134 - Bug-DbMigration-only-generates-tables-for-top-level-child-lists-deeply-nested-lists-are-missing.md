@@ -1,16 +1,19 @@
 ---
 id: TASK-134
-title: "Bug: DbMigration only generates tables for top-level child lists, deeply nested lists are missing"
+title: >-
+  Bug: DbMigration only generates tables for top-level child lists, deeply
+  nested lists are missing
 status: Done
 assignee: []
 created_date: '2026-04-20'
-updated_date: '2026-04-20'
+updated_date: '2026-04-22 13:38'
 labels:
   - bug
   - postgres
   - annotation-processor
 dependencies: []
 priority: high
+ordinal: 4000
 ---
 
 ## Description
@@ -64,4 +67,3 @@ regardless of depth.
 4. Add a test source file (e.g. `dbmigration/nestedlists/source/Order.java`) with at least two levels of nesting
 5. Add tests to `DbMigrationWriterTest` that verify all nested child tables appear in the generated SQL
 <!-- SECTION:PLAN:END -->
-

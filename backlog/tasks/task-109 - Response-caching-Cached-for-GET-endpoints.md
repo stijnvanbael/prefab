@@ -4,9 +4,11 @@ title: Response caching (@Cached) for GET endpoints
 status: To Do
 assignee: []
 created_date: '2026-04-09 15:29'
+updated_date: '2026-04-24 06:57'
 labels:
   - "\U0001F4E6feature"
 dependencies: []
+ordinal: 130000
 ---
 
 ## Description

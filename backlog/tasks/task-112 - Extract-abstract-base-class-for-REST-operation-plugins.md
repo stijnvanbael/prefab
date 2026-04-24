@@ -4,9 +4,11 @@ title: Extract abstract base class for REST operation plugins
 status: To Do
 assignee: []
 created_date: '2026-04-10 05:00'
+updated_date: '2026-04-24 06:57'
 labels:
   - "\U0001F527refactor"
 dependencies: []
+ordinal: 134000
 ---
 
 ## Description
@@ -39,7 +41,6 @@ public abstract class RestOperationPlugin implements PrefabPlugin {
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
-
 <!-- AC:BEGIN -->
 - [ ] #1 A non-public abstract base class (e.g., RestOperationPlugin) is introduced in the annotation-processor module that captures the shared lifecycle and context-holding logic for REST plugins
 - [ ] #2 CreatePlugin, UpdatePlugin, DeletePlugin, GetByIdPlugin, and GetListPlugin all extend this base class and no longer duplicate the context-storage or writer-initialization boilerplate

@@ -4,12 +4,13 @@ title: DbMigration enabled by default on aggregate roots
 status: Done
 assignee: []
 created_date: '2026-04-20'
-updated_date: '2026-04-20'
+updated_date: '2026-04-22 13:38'
 labels:
   - postgres
   - annotation-processor
 dependencies: []
 priority: medium
+ordinal: 1000
 ---
 
 ## Description
@@ -42,4 +43,3 @@ generation for a specific aggregate when needed.
 4. Add/update tests for default-on generation and explicit opt-out
 5. Update `readme.md` to document the new default and the `enabled` attribute
 <!-- SECTION:PLAN:END -->
-

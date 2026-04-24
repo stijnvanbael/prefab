@@ -1,12 +1,16 @@
 ---
 id: TASK-117
-title: Introduce a common FileWriter interface for JavaFileWriter and TestJavaFileWriter
+title: >-
+  Introduce a common FileWriter interface for JavaFileWriter and
+  TestJavaFileWriter
 status: To Do
 assignee: []
 created_date: '2026-04-10 05:00'
+updated_date: '2026-04-24 06:57'
 labels:
   - "\U0001F527refactor"
 dependencies: []
+ordinal: 138000
 ---
 
 ## Description
@@ -23,7 +27,6 @@ The refactoring introduces a shared `FileWriter` interface (or abstract class) w
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
-
 <!-- AC:BEGIN -->
 - [ ] #1 A FileWriter interface (or abstract class) is introduced with a writeFile(String packagePrefix, String typeName, TypeSpec type) method
 - [ ] #2 JavaFileWriter and TestJavaFileWriter both implement the interface without changing their existing behavior

@@ -6,13 +6,14 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-04-18 08:59'
-updated_date: '2026-04-18 09:01'
+updated_date: '2026-04-24 06:57'
 labels:
   - refactoring
   - architecture
   - plugin
 dependencies: []
 priority: medium
+ordinal: 140000
 ---
 
 ## Description

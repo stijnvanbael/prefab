@@ -4,12 +4,13 @@ title: MCP (Model Context Protocol) support and optional REST module
 status: To Do
 assignee: []
 created_date: '2026-04-18 09:07'
-updated_date: '2026-04-18 09:13'
+updated_date: '2026-04-24 06:57'
 labels:
   - mcp
   - feature
 dependencies: []
 priority: medium
+ordinal: 142000
 ---
 
 ## Description

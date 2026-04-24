@@ -5,12 +5,13 @@ status: Done
 assignee:
   - '@copilot'
 created_date: '2026-04-18 05:53'
-updated_date: '2026-04-18 06:21'
+updated_date: '2026-04-22 13:38'
 labels:
   - postgres
   - annotation-processor
 dependencies: []
 priority: medium
+ordinal: 7000
 ---
 
 ## Description

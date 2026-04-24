@@ -1,13 +1,14 @@
 ---
 id: TASK-121
 title: Support 'create or update' scenario in event handler
-status: In Progress
+status: Done
 assignee:
   - '@copilot'
 created_date: '2026-04-14 14:34'
-updated_date: '2026-04-14 18:30'
+updated_date: '2026-04-22 13:38'
 labels: []
 dependencies: []
+ordinal: 8000
 ---
 
 ## Description

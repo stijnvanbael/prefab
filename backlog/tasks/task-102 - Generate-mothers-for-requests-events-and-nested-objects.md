@@ -4,10 +4,11 @@ title: 'Generate mothers for requests, events, and nested objects'
 status: To Do
 assignee: []
 created_date: '2026-04-01 17:11'
-updated_date: '2026-04-02 08:26'
+updated_date: '2026-04-24 06:57'
 labels:
   - "\U0001F4E6feature"
 dependencies: []
+ordinal: 125000
 ---
 
 ## Description

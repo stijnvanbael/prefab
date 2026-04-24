@@ -4,11 +4,12 @@ title: Autoconfigure datasource and driver class name for PostgreSQL
 status: Done
 assignee: []
 created_date: '2026-04-20'
-updated_date: '2026-04-20'
+updated_date: '2026-04-22 13:38'
 labels:
   - postgres
 dependencies: []
 priority: medium
+ordinal: 2000
 ---
 
 ## Description
@@ -43,4 +44,3 @@ considered.
 5. Write a test that verifies an explicit property in `application.yml` overrides the default
 6. Update `readme.md` to document the auto-configured defaults
 <!-- SECTION:PLAN:END -->
-

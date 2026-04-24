@@ -4,9 +4,11 @@ title: Bulk / batch REST operations
 status: To Do
 assignee: []
 created_date: '2026-04-09 15:27'
+updated_date: '2026-04-24 06:57'
 labels:
   - "\U0001F4E6feature"
 dependencies: []
+ordinal: 127000
 ---
 
 ## Description

@@ -427,6 +427,102 @@ class DbMigrationWriterTest {
                 .isTrue();
     }
 
+    @Test
+    void dbDocumentFieldGeneratesJsonbColumn() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("dbmigration/jsonbdocument/source/Product.java"),
+                        sourceOf("dbmigration/jsonbdocument/source/ProductDetails.java"),
+                        sourceOf("dbmigration/jsonbdocument/source/Tag.java")
+                );
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"details\" JSONB");
+    }
+
+    @Test
+    void dbDocumentListFieldGeneratesJsonbColumn() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("dbmigration/jsonbdocument/source/Product.java"),
+                        sourceOf("dbmigration/jsonbdocument/source/ProductDetails.java"),
+                        sourceOf("dbmigration/jsonbdocument/source/Tag.java")
+                );
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"tags\" JSONB");
+    }
+
+    @Test
+    void dbDocumentListFieldDoesNotGenerateChildTable() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("dbmigration/jsonbdocument/source/Product.java"),
+                        sourceOf("dbmigration/jsonbdocument/source/ProductDetails.java"),
+                        sourceOf("dbmigration/jsonbdocument/source/Tag.java")
+                );
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .doesNotContain("product_tag");
+    }
+
+    @Test
+    void indexedOnDbDocumentFieldGeneratesGinIndex() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("dbmigration/jsonbdocument/source/Product.java"),
+                        sourceOf("dbmigration/jsonbdocument/source/ProductDetails.java"),
+                        sourceOf("dbmigration/jsonbdocument/source/Tag.java")
+                );
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("CREATE INDEX \"product_details_gin\" ON \"product\" USING GIN (\"details\")");
+    }
+
+    @Test
+    void indexedFieldInsideDbDocumentTypeGeneratesExpressionIndex() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("dbmigration/jsonbdocument/source/Product.java"),
+                        sourceOf("dbmigration/jsonbdocument/source/ProductDetails.java"),
+                        sourceOf("dbmigration/jsonbdocument/source/Tag.java")
+                );
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("CREATE INDEX \"product_details_category_ix\" ON \"product\" ((\"details\"->>'category'))");
+    }
+
+    @Test
+    void dbDocumentFieldDoesNotExpandIntoColumns() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("dbmigration/jsonbdocument/source/Product.java"),
+                        sourceOf("dbmigration/jsonbdocument/source/ProductDetails.java"),
+                        sourceOf("dbmigration/jsonbdocument/source/Tag.java")
+                );
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .doesNotContain("details_category");
+    }
+
     private static void assertNoPrefabWarnings(List<?> warnings) {
         Truth.assertThat(warnings).isEmpty();
     }

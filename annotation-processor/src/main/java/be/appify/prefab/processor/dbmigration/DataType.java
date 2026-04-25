@@ -38,6 +38,11 @@ public interface DataType {
         }
     }
 
+    static boolean isJsonbAnnotated(List<? extends AnnotationManifest<?>> annotations) {
+        return annotations.stream().anyMatch(annotation -> annotation.type().is(
+                be.appify.prefab.core.annotations.DbDocument.class));
+    }
+
     static boolean isTextAnnotated(List<? extends AnnotationManifest<?>> annotations) {
         return annotations.stream().anyMatch(annotation -> annotation.type().is(Text.class));
     }
@@ -93,7 +98,8 @@ public interface DataType {
         TIMESTAMP,
         DATE,
         BYTEA,
-        TEXT;
+        TEXT,
+        JSONB;
 
         @Override
         public String toSql() {

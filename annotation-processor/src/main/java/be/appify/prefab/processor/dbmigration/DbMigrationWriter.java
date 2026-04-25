@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.dbmigration;
 
+import be.appify.prefab.core.annotations.DbDocument;
 import be.appify.prefab.core.annotations.DbRename;
 import be.appify.prefab.core.annotations.Indexed;
 import be.appify.prefab.core.annotations.TenantId;
@@ -71,6 +72,7 @@ class DbMigrationWriter {
     private void warnUnconstrainedStringFields(ClassManifest manifest) {
         manifest.fields().stream()
                 .filter(field -> !field.type().is(List.class))
+                .filter(field -> !isDbDocumentField(field))
                 .forEach(this::warnIfUnconstrainedString);
     }
 
@@ -298,10 +300,14 @@ class DbMigrationWriter {
                 .filter(field -> !field.type().is(List.class)
                         || field.type().parameters().getFirst().isStandardType()
                         || (field.type().parameters().getFirst().isSingleValueType()
-                                && !isWrappedRecordType(field.type().parameters().getFirst())))
+                                && !isWrappedRecordType(field.type().parameters().getFirst()))
+                        || isDbDocumentField(field))
                 .flatMap(field -> {
                     boolean isSubtypeSpecific = !commonFieldNames.contains(field.name());
-                    if (field.type().isCustomType()) {
+                    if (isDbDocumentField(field)) {
+                        return Stream.of(Column.fromField(null, field, isSubtypeSpecific || field.nullable(),
+                                DataType.Primitive.JSONB));
+                    } else if (field.type().isCustomType()) {
                         return customTypeColumn(null, field, isSubtypeSpecific || field.nullable());
                     } else if (field.type().isRecord() && (!field.type().isSingleValueType() || isWrappedRecordType(field.type()))) {
                         return columnsOf(field.type().asClassManifest(), field.name(),
@@ -338,9 +344,12 @@ class DbMigrationWriter {
             return fieldIndexesOf(tableName, innerField.type().asClassManifest(), prefix);
         }
         return manifest.fields().stream()
-                .filter(field -> !field.type().is(List.class))
+                .filter(field -> !field.type().is(List.class) || isDbDocumentField(field))
                 .flatMap(field -> {
-                    if (field.type().isCustomType()) {
+                    if (isDbDocumentField(field)) {
+                        var columnName = columnNameOf(prefix, field.name());
+                        return jsonbIndexesFor(tableName, columnName, field).stream();
+                    } else if (field.type().isCustomType()) {
                         // Only generate an index if a plugin provides a DataType (i.e. the column exists)
                         if (pluginDataType(field.type()).isPresent()) {
                             var columnName = columnNameOf(prefix, field.name());
@@ -355,6 +364,42 @@ class DbMigrationWriter {
                     return indexFor(tableName, columnName, field).stream();
                 })
                 .toList();
+    }
+
+    private List<Index> jsonbIndexesFor(String tableName, String jsonbColumn, VariableManifest field) {
+        var indexes = new ArrayList<Index>();
+        if (field.hasAnnotation(Indexed.class)) {
+            indexes.add(Index.gin(tableName, jsonbColumn));
+        }
+        var fieldType = resolveDbDocumentFieldType(field);
+        if (fieldType != null && fieldType.isRecord()) {
+            fieldType.asClassManifest().fields().stream()
+                    .filter(innerField -> innerField.hasAnnotation(Indexed.class))
+                    .forEach(innerField -> {
+                        var isUnique = innerField.getAnnotation(Indexed.class)
+                                .map(a -> a.value().unique()).orElse(false);
+                        var innerFieldName = toSnakeCase(innerField.name());
+                        indexes.add(Index.jsonbPath(tableName, jsonbColumn, innerFieldName, isUnique));
+                    });
+        }
+        return List.copyOf(indexes);
+    }
+
+    private TypeManifest resolveDbDocumentFieldType(VariableManifest field) {
+        if (field.type().is(List.class) && !field.type().parameters().isEmpty()) {
+            return field.type().parameters().getFirst();
+        }
+        return field.type();
+    }
+
+    private boolean isDbDocumentField(VariableManifest field) {
+        return field.hasAnnotation(DbDocument.class) || isDbDocumentType(field.type())
+                || (field.type().is(List.class) && !field.type().parameters().isEmpty()
+                && isDbDocumentType(field.type().parameters().getFirst()));
+    }
+
+    private static boolean isDbDocumentType(TypeManifest type) {
+        return !type.annotationsOfType(DbDocument.class).isEmpty();
     }
 
     private static String columnNameOf(String prefix, String fieldName) {
@@ -383,12 +428,16 @@ class DbMigrationWriter {
     private List<Table> childEntityTablesOf(String parentTableName, List<String> parentPrimaryKeyColumns,
             ClassManifest manifest) {
         return manifest.fields().stream().filter(field -> field.type().is(List.class))
+                .filter(field -> !isDbDocumentField(field))
                 .map(field -> field.type().parameters().getFirst())
                 .flatMap(child -> {
                     if (child.isCustomType()) {
                         // @CustomType elements in List are skipped — no child table generated
                         return Stream.empty();
                     } else if (child.isRecord() && (!child.isSingleValueType() || isWrappedRecordType(child))) {
+                        if (isDbDocumentType(child)) {
+                            return Stream.empty();
+                        }
                         var childTable = buildChildTable(parentTableName, parentPrimaryKeyColumns, child);
                         var nestedTables = childEntityTablesOf(
                                 childTable.name(),
@@ -473,9 +522,12 @@ class DbMigrationWriter {
                 .filter(field -> !field.type().is(List.class)
                         || field.type().parameters().getFirst().isStandardType()
                         || (field.type().parameters().getFirst().isSingleValueType()
-                                && !isWrappedRecordType(field.type().parameters().getFirst())))
+                                && !isWrappedRecordType(field.type().parameters().getFirst()))
+                        || isDbDocumentField(field))
                 .flatMap(field -> {
-                    if (field.type().isCustomType()) {
+                    if (isDbDocumentField(field)) {
+                        return Stream.of(Column.fromField(prefix, field, parentNullable, DataType.Primitive.JSONB));
+                    } else if (field.type().isCustomType()) {
                         return customTypeColumn(prefix, field, parentNullable);
                     } else if (field.type().isRecord() && (!field.type().isSingleValueType() || isWrappedRecordType(field.type()))) {
                         return columnsOf(field.type().asClassManifest(),

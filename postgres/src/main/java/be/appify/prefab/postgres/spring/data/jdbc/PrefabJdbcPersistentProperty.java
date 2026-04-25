@@ -1,5 +1,6 @@
 package be.appify.prefab.postgres.spring.data.jdbc;
 
+import be.appify.prefab.core.annotations.DbDocument;
 import java.lang.annotation.Annotation;
 import java.util.Map;
 import org.springframework.core.annotation.AnnotationUtils;
@@ -13,9 +14,13 @@ import org.springframework.data.relational.core.mapping.Table;
 import org.springframework.data.relational.core.sql.SqlIdentifier;
 
 /**
- * Custom PersistentProperty implementation that adds support for treating Java records as embedded entities in Spring Data JDBC. If a
- * property is of a record type and does not have an explicit @Embedded annotation, this class will synthesize an @Embedded annotation with
- * default settings, allowing the record's properties to be mapped to columns in the database without requiring explicit annotations.
+ * Custom PersistentProperty implementation that adds support for treating Java records as embedded entities in Spring
+ * Data JDBC. If a property is of a record type and does not have an explicit @Embedded annotation, this class will
+ * synthesize an @Embedded annotation with default settings, allowing the record's properties to be mapped to columns
+ * in the database without requiring explicit annotations.
+ *
+ * <p>Properties annotated with {@link DbDocument} (or whose type is annotated with {@link DbDocument}) are treated
+ * as JSONB columns and are not embedded.</p>
  */
 public class PrefabJdbcPersistentProperty extends BasicJdbcPersistentProperty {
 
@@ -33,9 +38,9 @@ public class PrefabJdbcPersistentProperty extends BasicJdbcPersistentProperty {
      * @param owner
      *         the owner of the property
      * @param simpleTypeHolder
-     *         the SimpleTypeHolder to use for determining simple types (stashed in a thread-local to work around super constructor
-     *         ordering)
-      * @param namingStrategy
+     *         the SimpleTypeHolder to use for determining simple types (stashed in a thread-local to work around super
+     *         constructor ordering)
+     * @param namingStrategy
      *         the NamingStrategy to use for mapping property names to column names
      */
     protected PrefabJdbcPersistentProperty(
@@ -62,6 +67,16 @@ public class PrefabJdbcPersistentProperty extends BasicJdbcPersistentProperty {
         return simpleTypeHolder != null ? simpleTypeHolder : STASHED_HOLDER.get();
     }
 
+    private boolean isDbDocument() {
+        if (findAnnotation(DbDocument.class) != null) {
+            return true;
+        }
+        if (super.isCollectionLike()) {
+            return getActualType().isAnnotationPresent(DbDocument.class);
+        }
+        return getType().isAnnotationPresent(DbDocument.class);
+    }
+
     private Embedded resolveSyntheticEmbedded() {
         if (!syntheticResolved) {
             Class<?> actualType = getActualType();
@@ -69,7 +84,8 @@ public class PrefabJdbcPersistentProperty extends BasicJdbcPersistentProperty {
             if (!isCollectionLike()
                     && actualType.isRecord()
                     && !actualType.isAnnotationPresent(Table.class)
-                    && !holder.isSimpleType(actualType)) {
+                    && !holder.isSimpleType(actualType)
+                    && !isDbDocument()) {
                 String prefix = isOwnerSingleValueWrapper() ? "" : toSnakeCase(getName()) + "_";
                 syntheticEmbedded = AnnotationUtils.synthesizeAnnotation(
                         Map.of("onEmpty", Embedded.OnEmpty.USE_NULL, "prefix", prefix),
@@ -90,6 +106,14 @@ public class PrefabJdbcPersistentProperty extends BasicJdbcPersistentProperty {
     @Override
     public SqlIdentifier getColumnName() {
         return new DeduplicatingSqlIdentifier(super.getColumnName());
+    }
+
+    @Override
+    public boolean isCollectionLike() {
+        if (isDbDocument()) {
+            return false;
+        }
+        return super.isCollectionLike();
     }
 
     @Override

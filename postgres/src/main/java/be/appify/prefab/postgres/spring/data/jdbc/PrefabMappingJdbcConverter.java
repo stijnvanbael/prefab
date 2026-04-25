@@ -334,8 +334,7 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
     }
 
     private static boolean isUnwrappableSingleFieldRecord(Class<?> type) {
-        return isSingleFieldRecord(type) && !SingleValueRecordSimpleTypeHolder.wrapsMultiFieldRecord(type)
-                && !type.isAnnotationPresent(DbDocument.class);
+        return isSingleFieldRecord(type) && !SingleValueRecordSimpleTypeHolder.wrapsMultiFieldRecord(type);
     }
 
     private static boolean isSingleFieldRecord(Class<?> type) {

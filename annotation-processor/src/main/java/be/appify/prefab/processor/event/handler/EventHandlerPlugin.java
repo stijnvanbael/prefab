@@ -71,7 +71,7 @@ public interface EventHandlerPlugin extends PrefabPlugin {
                 .filter(element -> element.getKind() == ElementKind.METHOD
                         && element.getModifiers().containsAll(Set.of(Modifier.PUBLIC, Modifier.STATIC)))
                 .map(ExecutableElement.class::cast)
-                .filter(element -> element.getAnnotationsByType(EventHandler.class).length > 0)
+                .filter(element -> element.isAnnotationPresent(EventHandler.class))
                 .filter(element -> element.getParameters().size() == 1)
                 .filter(element -> {
                     var paramType = TypeManifest.of(element.getParameters().getFirst().asType(),

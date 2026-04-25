@@ -3,6 +3,7 @@ package be.appify.prefab.processor.event.handler;
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.ByReference;
 import be.appify.prefab.core.annotations.EventHandler;
+import be.appify.prefab.core.annotations.Multicast;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -128,6 +129,9 @@ public class StaticEventHandlerPlugin implements EventHandlerPlugin {
                     if (hasByReferenceCompanion(typeElement, eventType)) {
                         return Stream.empty();
                     }
+                    if (hasMulticastCompanion(typeElement, eventType)) {
+                        return Stream.empty();
+                    }
                     return Stream.of(StaticEventHandlerManifest.ofOwnHandler(
                             element.getSimpleName().toString(),
                             eventType,
@@ -136,13 +140,22 @@ public class StaticEventHandlerPlugin implements EventHandlerPlugin {
     }
 
     private boolean hasByReferenceCompanion(TypeElement typeElement, TypeManifest eventType) {
+        return hasInstanceCompanion(typeElement, eventType, ByReference.class);
+    }
+
+    private boolean hasMulticastCompanion(TypeElement typeElement, TypeManifest eventType) {
+        return hasInstanceCompanion(typeElement, eventType, Multicast.class);
+    }
+
+    private boolean hasInstanceCompanion(TypeElement typeElement, TypeManifest eventType,
+            Class<? extends java.lang.annotation.Annotation> annotation) {
         return typeElement.getEnclosedElements()
                 .stream()
                 .filter(element -> element.getKind() == ElementKind.METHOD
                         && element.getModifiers().contains(Modifier.PUBLIC)
                         && !element.getModifiers().contains(Modifier.STATIC))
                 .map(ExecutableElement.class::cast)
-                .filter(element -> element.getAnnotationsByType(ByReference.class).length > 0)
+                .filter(element -> element.isAnnotationPresent(annotation))
                 .filter(element -> element.getParameters().size() == 1)
                 .anyMatch(element -> {
                     var paramType = TypeManifest.of(element.getParameters().getFirst().asType(),

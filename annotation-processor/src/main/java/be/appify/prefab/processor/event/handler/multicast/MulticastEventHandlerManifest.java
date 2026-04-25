@@ -2,6 +2,7 @@ package be.appify.prefab.processor.event.handler.multicast;
 
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
+import java.util.Optional;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.TypeKind;
 
@@ -10,7 +11,8 @@ record MulticastEventHandlerManifest(
         TypeManifest eventType,
         PrefabContext context,
         String queryMethod,
-        String[] paramMapping
+        String[] paramMapping,
+        Optional<String> staticCompanionMethodName
 ) {
     String methodName() {
         return methodElement.getSimpleName().toString();

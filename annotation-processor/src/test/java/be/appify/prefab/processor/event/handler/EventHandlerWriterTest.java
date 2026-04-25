@@ -350,4 +350,55 @@ class EventHandlerWriterTest {
         assertThat(compilation).hadErrorContaining(
                 "Merged @EventHandler instance method onOrderCreated must be on a class annotated with @Component");
     }
+
+    @Test
+    void multicastWithStaticCompanionCallsStaticWhenNoAggregatesFound() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/handler/multicastcreateorupdate/source/Channel.java"),
+                        sourceOf("event/handler/multicastcreateorupdate/source/MessageSent.java"),
+                        sourceOf("event/handler/multicastcreateorupdate/source/ChannelRepositoryMixin.java")
+                );
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("event.handler.multicastcreateorupdate.application.ChannelService")
+                .contentsAsUtf8String()
+                .contains("channelRepository.save(Channel.onCreate(event))");
+    }
+
+    @Test
+    void multicastWithStaticCompanionDoesNotThrowWhenNoAggregatesFound() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/handler/multicastcreateorupdate/source/Channel.java"),
+                        sourceOf("event/handler/multicastcreateorupdate/source/MessageSent.java"),
+                        sourceOf("event/handler/multicastcreateorupdate/source/ChannelRepositoryMixin.java")
+                );
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("event.handler.multicastcreateorupdate.application.ChannelService")
+                .contentsAsUtf8String()
+                .doesNotContain("throw new IllegalStateException");
+    }
+
+    @Test
+    void multicastWithStaticCompanionDoesNotGenerateSeparateServiceMethodForStaticHandler() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/handler/multicastcreateorupdate/source/Channel.java"),
+                        sourceOf("event/handler/multicastcreateorupdate/source/MessageSent.java"),
+                        sourceOf("event/handler/multicastcreateorupdate/source/ChannelRepositoryMixin.java")
+                );
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("event.handler.multicastcreateorupdate.application.ChannelService")
+                .contentsAsUtf8String()
+                .doesNotContain("public void onCreate(");
+    }
 }

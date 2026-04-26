@@ -1,10 +1,16 @@
 package be.appify.prefab.postgres.spring.data.jdbc;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.RecordComponent;
 import java.sql.JDBCType;
 import java.sql.SQLType;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.core.TypeInformation;
 import org.springframework.data.jdbc.core.convert.Identifier;
@@ -13,7 +19,12 @@ import org.springframework.data.jdbc.core.convert.JdbcTypeFactory;
 import org.springframework.data.jdbc.core.convert.MappingJdbcConverter;
 import org.springframework.data.jdbc.core.convert.RelationResolver;
 import org.springframework.data.jdbc.core.mapping.JdbcMappingContext;
+import org.springframework.data.mapping.PropertyHandler;
+import org.springframework.data.relational.core.mapping.AggregatePath;
+import org.springframework.data.relational.core.mapping.RelationalMappingContext;
+import org.springframework.data.relational.core.mapping.RelationalPersistentEntity;
 import org.springframework.data.relational.core.mapping.RelationalPersistentProperty;
+import org.springframework.data.relational.core.sql.SqlIdentifier;
 import org.springframework.data.relational.domain.RowDocument;
 import org.springframework.jdbc.core.SqlTypeValue;
 import org.springframework.jdbc.core.StatementCreatorUtils;
@@ -34,8 +45,18 @@ import org.springframework.jdbc.core.StatementCreatorUtils;
  * The converter also handles {@code List<SingleFieldRecord>} columns (e.g. arrays read from {@code VARCHAR[]}),
  * applying the same per-element logic in addition to any registered custom {@code @ReadingConverter}s.
  * </p>
+ * <p>
+ * For polymorphic aggregates (sealed interface + record subtypes), this converter is responsible for loading child
+ * collections that are stored in separate tables. Spring Data JDBC's standard {@code readAggregate} path is bypassed
+ * for sealed interface types because the registered reading converter short-circuits relation resolution.
+ * After the flat row is converted to the concrete subtype via the reading converter, child collections are loaded
+ * manually using the {@link RelationResolver} and the record is reconstructed with the resolved children.
+ * </p>
  */
 public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
+
+    private final RelationResolver relationResolver;
+    private final RelationalMappingContext mappingContext;
 
     /**
      * Constructs a new PrefabMappingJdbcConverter.
@@ -52,6 +73,8 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
             JdbcTypeFactory typeFactory
     ) {
         super(context, relationResolver, conversions, typeFactory);
+        this.relationResolver = relationResolver;
+        this.mappingContext = context;
     }
 
     @Override
@@ -115,16 +138,152 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
         if (isSealedInterfaceConvertible(type, source)) {
             return requireConvert(source, type);
         }
+        Class<?> sealedInterface = PrefabPersistentEntity.findDirectSealedAggregateInterface(type);
+        if (sealedInterface != null && getConversionService().canConvert(source.getClass(), sealedInterface)) {
+            Object converted = getConversionService().convert(source, sealedInterface);
+            if (converted != null) {
+                return type.cast(converted);
+            }
+        }
         return super.read(type, source);
     }
 
+    /**
+     * Reads a polymorphic aggregate root from the given row document and loads child collections via the
+     * {@link RelationResolver}.
+     * <p>
+     * Spring Data JDBC's standard {@code readAggregate} cannot be used for this because the presence of a registered
+     * reading converter (e.g. {@code QuizReadingConverter}) causes {@code readAggregate} to short-circuit via
+     * {@code hasCustomReadTarget}, bypassing the entity-based relation loading entirely. Furthermore, the supertype
+     * matching in {@code CustomConversions} causes {@code hasCustomReadTarget(RowDocument, ConcreteSubtype)} to return
+     * {@code true} even though no converter for the concrete subtype exists, leading to a
+     * {@code ConverterNotFoundException}.
+     * <p>
+     * This implementation avoids both problems by:
+     * <ol>
+     *   <li>Using the registered reading converter to instantiate the correct concrete subtype from the flat row.</li>
+     *   <li>Manually loading child collections using the {@link RelationResolver} and reconstructing the record
+     *       via its canonical constructor.</li>
+     * </ol>
+     */
     @Override
     public <R> R readAndResolve(TypeInformation<R> type, RowDocument source, Identifier identifier) {
         Class<R> rawType = type.getType();
         if (isSealedInterfaceConvertible(rawType, source)) {
-            return requireConvert(source, rawType);
+            R instance = requireConvert(source, rawType);
+            return resolveChildren(instance, source);
+        }
+        Class<?> sealedInterface = PrefabPersistentEntity.findDirectSealedAggregateInterface(rawType);
+        if (sealedInterface != null && getConversionService().canConvert(source.getClass(), sealedInterface)) {
+            R instance = rawType.cast(getConversionService().convert(source, sealedInterface));
+            return resolveChildren(instance, source);
         }
         return super.readAndResolve(type, source, identifier);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <R> R resolveChildren(R instance, RowDocument source) {
+        Class<R> type = (Class<R>) instance.getClass();
+        RelationalPersistentEntity<R> entity =
+                (RelationalPersistentEntity<R>) mappingContext.getRequiredPersistentEntity(type);
+
+        List<RelationalPersistentProperty> collectionProperties = findChildCollectionProperties(entity);
+        if (collectionProperties.isEmpty()) {
+            return instance;
+        }
+
+        if (!entity.hasIdProperty()) {
+            return instance;
+        }
+        Object rawId = source.get(entity.getRequiredIdProperty().getColumnName().getReference());
+        if (rawId == null) {
+            return instance;
+        }
+
+        Map<String, Iterable<Object>> loadedChildren = loadChildCollections(entity, rawId, collectionProperties);
+        return reconstructWithChildren(instance, type, loadedChildren);
+    }
+
+    private List<RelationalPersistentProperty> findChildCollectionProperties(RelationalPersistentEntity<?> entity) {
+        List<RelationalPersistentProperty> result = new ArrayList<>();
+        entity.doWithProperties(
+                (PropertyHandler<RelationalPersistentProperty>) property -> {
+                    if (property.isCollectionLike() && property.isEntity() && !property.isMap()) {
+                        result.add(property);
+                    }
+                });
+        return result;
+    }
+
+    private <R> Map<String, Iterable<Object>> loadChildCollections(
+            RelationalPersistentEntity<R> entity,
+            Object rawId,
+            List<RelationalPersistentProperty> collectionProperties
+    ) {
+        Map<String, Iterable<Object>> result = new HashMap<>();
+        AggregatePath entityPath = mappingContext.getAggregatePath(entity);
+
+        for (RelationalPersistentProperty property : collectionProperties) {
+            AggregatePath propertyPath = entityPath.append(property);
+            AggregatePath.TableInfo tableInfo = propertyPath.getTableInfo();
+            if (tableInfo.reverseColumnInfo() == null) {
+                continue;
+            }
+            SqlIdentifier fkColumn = tableInfo.reverseColumnInfo().name();
+            Identifier childIdentifier = Identifier.of(fkColumn, rawId, rawId.getClass());
+            Iterable<Object> children = relationResolver.findAllByPath(
+                    childIdentifier,
+                    propertyPath.getRequiredPersistentPropertyPath());
+            result.put(property.getName(), children);
+        }
+
+        return result;
+    }
+
+    private <R> R reconstructWithChildren(
+            R instance,
+            Class<R> type,
+            Map<String, Iterable<Object>> loadedChildren
+    ) {
+        if (!type.isRecord()) {
+            return instance;
+        }
+        RecordComponent[] components = type.getRecordComponents();
+        Object[] values = new Object[components.length];
+
+        for (int i = 0; i < components.length; i++) {
+            RecordComponent component = components[i];
+            if (loadedChildren.containsKey(component.getName())) {
+                values[i] = materializeCollection(loadedChildren.get(component.getName()), component.getType());
+            } else {
+                values[i] = invokeAccessor(instance, component);
+            }
+        }
+
+        Class<?>[] paramTypes = Arrays.stream(components).map(RecordComponent::getType).toArray(Class[]::new);
+        try {
+            return type.getDeclaredConstructor(paramTypes).newInstance(values);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Cannot reconstruct " + type.getName() + " with resolved children", e);
+        }
+    }
+
+    private static Object invokeAccessor(Object instance, RecordComponent component) {
+        try {
+            return component.getAccessor().invoke(instance);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(
+                    "Cannot read component " + component.getName() + " of " + instance.getClass().getName(), e);
+        }
+    }
+
+    private static Object materializeCollection(Iterable<Object> items, Class<?> targetType) {
+        List<Object> list = new ArrayList<>();
+        items.forEach(list::add);
+        if (Set.class.isAssignableFrom(targetType)) {
+            return new LinkedHashSet<>(list);
+        }
+        return list;
     }
 
     static SQLType sqlTypeFor(Class<?> javaType) {

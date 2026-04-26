@@ -168,23 +168,44 @@ public class UpdatePlugin implements PrefabPlugin {
     }
 
     private List<UpdateManifest> updateMethodsOf(ClassManifest manifest) {
+        var parentField = manifest.parent();
+        var parentFieldName = parentField.map(VariableManifest::name);
         return manifest.methodsWith(Update.class).stream()
                 .map(element -> {
                     var update = element.getAnnotationsByType(Update.class)[0];
                     var allParams = getParametersOf(element, context.processingEnvironment());
+                    var requestParameters = allParams.stream()
+                            .filter(p -> parentFieldName.map(pfn -> !pfn.equals(p.name())).orElse(true))
+                            .toList();
                     var aggregateParams = allParams.stream()
                             .filter(p -> !p.type().annotationsOfType(Aggregate.class).isEmpty())
                             .toList();
+                    var parentEntityParams = resolveParentEntityParameters(allParams, parentField);
                     return new UpdateManifest(
                             element.getSimpleName().toString(),
                             allParams,
-                            allParams,
+                            requestParameters,
                             aggregateParams,
+                            parentEntityParams,
                             element.getReturnType().toString().equals("void"),
                             update.method(),
                             update.path(),
                             update.security());
                 })
+                .toList();
+    }
+
+    private List<VariableManifest> resolveParentEntityParameters(
+            List<VariableManifest> allParams,
+            java.util.Optional<VariableManifest> parentField
+    ) {
+        if (parentField.isEmpty()) {
+            return List.of();
+        }
+        var field = parentField.get();
+        return allParams.stream()
+                .filter(p -> p.name().equals(field.name()))
+                .filter(p -> !p.type().simpleName().equals(field.type().simpleName()))
                 .toList();
     }
 

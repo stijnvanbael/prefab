@@ -56,6 +56,62 @@ class CreateServiceWriter {
         return saveAndReturnId(method, polymorphic.simpleName(), idName, idSuffix);
     }
 
+    MethodSpec createMethodForPolymorphicUnion(
+            PolymorphicAggregateManifest polymorphic,
+            ClassManifest subtype,
+            ExecutableElement constructor,
+            PrefabContext context
+    ) {
+        var leafName = leafName(subtype.simpleName());
+        var methodName = "create" + leafName;
+        var method = MethodSpec.methodBuilder(methodName)
+                .addModifiers(Modifier.PUBLIC)
+                .returns(String.class)
+                .addStatement("log.debug($S, $T.class.getSimpleName())", "Creating new {}",
+                        subtype.type().asTypeName());
+        addConstructorArgsForUnion(method, polymorphic, subtype, leafName, constructor, context);
+        var idName = subtype.idField().map(VariableManifest::name).orElse("id");
+        var idSuffix = subtype.idField().filter(f -> f.type().isSingleValueType())
+                .map(f -> ".%s()".formatted(f.type().singleValueAccessor())).orElse("");
+        return saveAndReturnId(method, polymorphic.simpleName(), idName, idSuffix);
+    }
+
+    private void addConstructorArgsForUnion(
+            MethodSpec.Builder method,
+            PolymorphicAggregateManifest polymorphic,
+            ClassManifest subtype,
+            String leafName,
+            ExecutableElement constructor,
+            PrefabContext context
+    ) {
+        if (constructor.getParameters().isEmpty()) {
+            method.addStatement("var aggregate = new $T()", subtype.type().asTypeName());
+            return;
+        }
+        var parentName = parentFieldName(subtype);
+        var params = constructor.getParameters().stream()
+                .map(param -> VariableManifest.of(param, context.processingEnvironment()))
+                .toList();
+        parentName.ifPresent(name -> {
+            var parentParam = params.stream().filter(p -> name.equals(p.name())).findFirst().orElseThrow();
+            method.addParameter(String.class, parentParam.name() + "Id");
+        });
+        var hasBodyParams = params.stream()
+                .anyMatch(p -> parentName.map(name -> !name.equals(p.name())).orElse(true));
+        if (hasBodyParams) {
+            var unionName = "Create%sRequest".formatted(polymorphic.simpleName());
+            var nestedClass = ClassName.get(polymorphic.packageName() + ".application", unionName,
+                    "Create%sRequest".formatted(leafName));
+            method.addParameter(ParameterSpec.builder(nestedClass, "request")
+                    .addAnnotation(Valid.class)
+                    .build());
+        }
+        method.addStatement("var aggregate = new $T($L)", subtype.type().asTypeName(),
+                params.stream()
+                        .map(param -> resolveParam(subtype, param, parentName, context))
+                        .collect(CodeBlock.joining(", ")));
+    }
+
     private void addConstructorArgs(
             MethodSpec.Builder method,
             ClassManifest manifest,

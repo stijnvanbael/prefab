@@ -172,6 +172,30 @@ class PolymorphicRestWriterTest {
                 .contains("String canvasId");
     }
 
+    @Test
+    void polymorphicAggregateWithParentAndUpdateCompilationSucceeds() throws IOException {
+        var canvasSource = sourceOf("rest/polymorphicwithparent/source/Canvas.java");
+        var drawingSource = sourceOf("rest/polymorphicwithparent/source/Drawing.java");
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(canvasSource, drawingSource);
+        assertThat(compilation).succeeded();
+    }
+
+    @Test
+    void polymorphicAggregateWithParentUpdateRequestDoesNotContainParentField() throws IOException {
+        var canvasSource = sourceOf("rest/polymorphicwithparent/source/Canvas.java");
+        var drawingSource = sourceOf("rest/polymorphicwithparent/source/Drawing.java");
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(canvasSource, drawingSource);
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.polymorphicwithparent.application.CircleResizeRequest")
+                .contentsAsUtf8String()
+                .doesNotContain("canvas");
+    }
+
     private static String contentsOf(String fileName) throws IOException {
         return new ClassPathResource(fileName).getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
     }

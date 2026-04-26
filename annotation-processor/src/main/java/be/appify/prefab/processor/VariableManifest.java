@@ -195,6 +195,28 @@ public class VariableManifest {
     }
 
     /**
+     * Creates a new VariableManifest with additional annotations merged in. Annotations already present on this
+     * variable (by type) are not replaced; only genuinely new annotation types from {@code extra} are added.
+     *
+     * @param extra
+     *         additional annotations to merge
+     * @return a VariableManifest with the merged annotation list, or {@code this} if nothing new was added
+     */
+    public VariableManifest withAdditionalAnnotations(List<? extends AnnotationManifest<?>> extra) {
+        var existingTypes = annotations.stream()
+                .map(a -> a.type().simpleName())
+                .collect(java.util.stream.Collectors.toSet());
+        var newAnnotations = extra.stream()
+                .filter(a -> !existingTypes.contains(a.type().simpleName()))
+                .toList();
+        if (newAnnotations.isEmpty()) {
+            return this;
+        }
+        var merged = java.util.stream.Stream.concat(annotations.stream(), newAnnotations.stream()).toList();
+        return new VariableManifest(element, type, name, merged, processingEnvironment);
+    }
+
+    /**
      * Checks if the variable has the specified annotation.
      *
      * @param annotationClass

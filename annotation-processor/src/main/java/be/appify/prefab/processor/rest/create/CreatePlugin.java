@@ -82,8 +82,6 @@ public class CreatePlugin implements PrefabPlugin {
         var grouped = groupSubtypesByPath(polymorphic);
         grouped.forEach((pathKey, entries) -> {
             if (isUnionGroup(entries)) {
-                entries.forEach(e -> requestRecordWriter.writeRequestRecordForPolymorphic(
-                        fileWriter, polymorphic, e.getKey(), e.getValue(), context));
                 requestRecordWriter.writeUnionRequestInterface(fileWriter, polymorphic, entries, context);
             } else {
                 entries.forEach(e -> {
@@ -130,9 +128,16 @@ public class CreatePlugin implements PrefabPlugin {
 
     @Override
     public void writePolymorphicService(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
-        manifest.subtypes().forEach(subtype ->
-                createConstructorOf(subtype).ifPresent(constructor ->
-                        builder.addMethod(serviceWriter.createMethodForPolymorphic(manifest, subtype, constructor, context))));
+        var grouped = groupSubtypesByPath(manifest);
+        grouped.forEach((pathKey, entries) -> {
+            if (isUnionGroup(entries)) {
+                entries.forEach(e -> createConstructorOf(e.getKey()).ifPresent(ctor ->
+                        builder.addMethod(serviceWriter.createMethodForPolymorphicUnion(manifest, e.getKey(), ctor, context))));
+            } else {
+                entries.forEach(e -> createConstructorOf(e.getKey()).ifPresent(ctor ->
+                        builder.addMethod(serviceWriter.createMethodForPolymorphic(manifest, e.getKey(), ctor, context))));
+            }
+        });
     }
 
     @Override

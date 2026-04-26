@@ -208,11 +208,16 @@ class UpdateTestClientWriter {
         var operationName = capitalize(update.operationName());
         var unionClass = ClassName.get(polymorphic.packageName() + ".application",
                 "%s%sRequest".formatted(polymorphic.simpleName(), operationName));
-        var path = CodeBlock.of("$S", "/" + ControllerUtil.pathOf(polymorphic) + "/{id}" + update.path());
-        return MethodSpec.methodBuilder(uncapitalize(update.operationName()))
+        var rawPath = "/" + ControllerUtil.pathOf(polymorphic) + "/{id}" + update.path();
+        var path = polymorphic.parent()
+                .map(parent -> CodeBlock.of("$S, $L", rawPath, parent.name()))
+                .orElse(CodeBlock.of("$S", rawPath));
+        var method = MethodSpec.methodBuilder(uncapitalize(update.operationName()))
                 .addModifiers(Modifier.PUBLIC)
                 .returns(void.class)
-                .addParameter(String.class, "id")
+                .addParameter(String.class, "id");
+        polymorphic.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
+        return method
                 .addParameter(unionClass, "request")
                 .addException(Exception.class)
                 .addStatement("""
@@ -250,23 +255,30 @@ class UpdateTestClientWriter {
                 .map(p -> "request." + p.name() + "()")
                 .collect(Collectors.joining(", "));
 
-        var convenienceMethod = MethodSpec.methodBuilder(operationMethodName)
+        var parentArg = polymorphic.parent().map(parent -> ", " + parent.name()).orElse("");
+
+        var convenienceBuilder = MethodSpec.methodBuilder(operationMethodName)
                 .addModifiers(Modifier.PUBLIC)
                 .returns(void.class)
-                .addParameter(String.class, "id")
+                .addParameter(String.class, "id");
+        polymorphic.parent().ifPresent(parent -> convenienceBuilder.addParameter(String.class, parent.name()));
+        var convenienceMethod = convenienceBuilder
                 .addParameters(individualParams)
                 .addException(Exception.class)
-                .addStatement("$L(id, new $T($L))", operationMethodName, flatClass,
+                .addStatement("$L(id$L, new $T($L))", operationMethodName, parentArg, flatClass,
                         individualParams.stream().map(ParameterSpec::name).collect(Collectors.joining(", ")))
                 .build();
 
-        var wrapperMethod = MethodSpec.methodBuilder(operationMethodName)
+        var wrapperBuilder = MethodSpec.methodBuilder(operationMethodName)
                 .addModifiers(Modifier.PUBLIC)
                 .returns(void.class)
-                .addParameter(String.class, "id")
+                .addParameter(String.class, "id");
+        polymorphic.parent().ifPresent(parent -> wrapperBuilder.addParameter(String.class, parent.name()));
+        var wrapperMethod = wrapperBuilder
                 .addParameter(flatClass, "request")
                 .addException(Exception.class)
-                .addStatement("$L(id, new $T($L))", uncapitalize(update.operationName()), nestedClass, paramAccess)
+                .addStatement("$L(id$L, new $T($L))", uncapitalize(update.operationName()), parentArg, nestedClass,
+                        paramAccess)
                 .build();
 
         return List.of(convenienceMethod, wrapperMethod);
@@ -286,25 +298,31 @@ class UpdateTestClientWriter {
         var individualParams = update.requestParameters().stream()
                 .flatMap(parameter -> context.requestParameterBuilder().buildTestClientParameter(parameter).stream())
                 .toList();
-        var path = CodeBlock.of("$S", "/" + ControllerUtil.pathOf(polymorphic) + "/{id}" + update.path());
+        var rawPath = "/" + ControllerUtil.pathOf(polymorphic) + "/{id}" + update.path();
+        var path = polymorphic.parent()
+                .map(parent -> CodeBlock.of("$S, $L", rawPath, parent.name()))
+                .orElse(CodeBlock.of("$S", rawPath));
 
         if (update.requestParameters().isEmpty()) {
-            return List.of(buildPolymorphicNoBodyMethod(operationName, update, path));
+            return List.of(buildPolymorphicNoBodyMethod(polymorphic, operationName, update, path));
         }
         return List.of(
-                buildPolymorphicIndividualParamsMethod(operationName, bodyType, individualParams),
-                buildPolymorphicRequestOverload(operationName, bodyType, update, path));
+                buildPolymorphicIndividualParamsMethod(polymorphic, operationName, bodyType, individualParams),
+                buildPolymorphicRequestOverload(polymorphic, operationName, bodyType, update, path));
     }
 
     private static MethodSpec buildPolymorphicNoBodyMethod(
+            PolymorphicAggregateManifest polymorphic,
             String operationName,
             UpdateManifest update,
             CodeBlock path
     ) {
-        return MethodSpec.methodBuilder(operationName)
+        var method = MethodSpec.methodBuilder(operationName)
                 .addModifiers(Modifier.PUBLIC)
                 .returns(void.class)
-                .addParameter(String.class, "id")
+                .addParameter(String.class, "id");
+        polymorphic.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
+        return method
                 .addException(Exception.class)
                 .addStatement("""
                                 mockMvc.perform($T.$N($L, id)$L
@@ -321,33 +339,41 @@ class UpdateTestClientWriter {
     }
 
     private static MethodSpec buildPolymorphicIndividualParamsMethod(
+            PolymorphicAggregateManifest polymorphic,
             String operationName,
             ClassName bodyType,
             List<ParameterSpec> individualParams
     ) {
-        return MethodSpec.methodBuilder(operationName)
+        var parentArg = polymorphic.parent().map(parent -> ", " + parent.name()).orElse("");
+        var method = MethodSpec.methodBuilder(operationName)
                 .addModifiers(Modifier.PUBLIC)
                 .returns(void.class)
-                .addParameter(String.class, "id")
+                .addParameter(String.class, "id");
+        polymorphic.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
+        return method
                 .addParameters(individualParams)
                 .addException(Exception.class)
-                .addStatement("$L(id, new $T($L))",
+                .addStatement("$L(id$L, new $T($L))",
                         operationName,
+                        parentArg,
                         bodyType,
                         individualParams.stream().map(ParameterSpec::name).collect(Collectors.joining(", ")))
                 .build();
     }
 
     private static MethodSpec buildPolymorphicRequestOverload(
+            PolymorphicAggregateManifest polymorphic,
             String operationName,
             ClassName bodyType,
             UpdateManifest update,
             CodeBlock path
     ) {
-        return MethodSpec.methodBuilder(operationName)
+        var method = MethodSpec.methodBuilder(operationName)
                 .addModifiers(Modifier.PUBLIC)
                 .returns(void.class)
-                .addParameter(String.class, "id")
+                .addParameter(String.class, "id");
+        polymorphic.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
+        return method
                 .addParameter(bodyType, "request")
                 .addException(Exception.class)
                 .addStatement("""

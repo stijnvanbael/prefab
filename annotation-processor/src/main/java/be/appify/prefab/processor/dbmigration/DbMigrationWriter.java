@@ -11,7 +11,6 @@ import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
-import org.springframework.data.annotation.Id;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.FileSystemNotFoundException;
@@ -30,8 +29,12 @@ import javax.lang.model.element.Element;
 import javax.tools.Diagnostic;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
+import org.springframework.data.annotation.Id;
 
-import static be.appify.prefab.core.util.IdentifierShortener.*;
+import static be.appify.prefab.core.util.IdentifierShortener.POSTGRES_MAX_IDENTIFIER_LENGTH;
+import static be.appify.prefab.core.util.IdentifierShortener.columnName;
+import static be.appify.prefab.core.util.IdentifierShortener.foreignKeyConstraintName;
+import static be.appify.prefab.core.util.IdentifierShortener.shorten;
 import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
 
 class DbMigrationWriter {
@@ -280,8 +283,21 @@ class DbMigrationWriter {
                     ListUtil.concat(fkIndexes, fieldIndexes)));
             tables.addAll(childEntityTables(aggregateRootTable, List.of(idColumnName), manifest));
         });
-        polymorphicManifests.forEach(manifest -> tables.add(polymorphicTable(manifest)));
+        polymorphicManifests.forEach(manifest -> {
+            var rootTable = polymorphicTable(manifest);
+            tables.add(rootTable);
+            tables.addAll(childTablesForPolymorphicManifest(rootTable, manifest));
+        });
         return sortByDependencies(tables);
+    }
+
+    private List<Table> childTablesForPolymorphicManifest(Table rootTable, PolymorphicAggregateManifest manifest) {
+        return manifest.subtypes().stream()
+                .flatMap(subtype -> childEntityTables(rootTable.name(), rootTable.primaryKey(), subtype).stream())
+                .collect(Collectors.toMap(Table::name, t -> t, (a, b) -> a))
+                .values()
+                .stream()
+                .toList();
     }
 
     private Table polymorphicTable(PolymorphicAggregateManifest manifest) {
@@ -316,8 +332,7 @@ class DbMigrationWriter {
         var idColumns = allColumns.stream().filter(c -> c.name().equals(idColumnName)).toList();
         var nonIdColumns = allColumns.stream().filter(c -> !c.name().equals(idColumnName)).toList();
 
-        var columns = new ArrayList<Column>();
-        columns.addAll(idColumns);
+        var columns = new ArrayList<>(idColumns);
         columns.add(discriminatorColumn);
         columns.addAll(nonIdColumns);
 

@@ -149,7 +149,7 @@ public class PubSubUtil {
                     message.ack();
                 } catch (Exception e) {
                     log.warn("Error processing Pub/Sub message: {}, cause: {}", pubsubMessage.getData().toStringUtf8(),
-                            e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
+                            e.getCause() != null ? e.getCause().getMessage() : e.getMessage(), e);
                     throw e;
                 }
                 return null;

@@ -47,6 +47,76 @@ class PolymorphicConverterWriterTest {
                 .isEqualTo(contentsOf("persistence/polymorphic/expected/ShapeReadingConverter.java"));
     }
 
+    @Test
+    void embeddedMultiFieldRecordIsConstructedFromSubColumns() throws IOException {
+        var source = sourceOf("persistence/polymorphic_with_embedded_record/source/Quiz.java");
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(source);
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile(
+                        "persistence.polymorphic_with_embedded_record.infrastructure.persistence.QuizReadingConverter")
+                .contentsAsUtf8String()
+                .contains("new Quiz.Score(conversionService.convert(row.get(\"score\"), Double.class), "
+                        + "conversionService.convert(row.get(\"score_max\"), Double.class))");
+    }
+
+    @Test
+    void instantFieldInEmbeddedRecordUsesConversionService() throws IOException {
+        var source = sourceOf("persistence/polymorphic_with_embedded_record/source/Quiz.java");
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(source);
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile(
+                        "persistence.polymorphic_with_embedded_record.infrastructure.persistence.QuizReadingConverter")
+                .contentsAsUtf8String()
+                .contains("conversionService.convert(row.get(\"time_span_start\"), Instant.class)");
+    }
+
+    @Test
+    void nullableInstantFieldInEmbeddedRecordUsesConversionService() throws IOException {
+        var source = sourceOf("persistence/polymorphic_with_embedded_record/source/Quiz.java");
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(source);
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile(
+                        "persistence.polymorphic_with_embedded_record.infrastructure.persistence.QuizReadingConverter")
+                .contentsAsUtf8String()
+                .contains("conversionService.convert(row.get(\"time_span_end\"), Instant.class)");
+    }
+
+    @Test
+    void listFieldUsesRawCastInsteadOfConversionService() throws IOException {
+        var source = sourceOf("persistence/polymorphic_with_embedded_record/source/Quiz.java");
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(source);
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile(
+                        "persistence.polymorphic_with_embedded_record.infrastructure.persistence.QuizReadingConverter")
+                .contentsAsUtf8String()
+                .contains("(List<Quiz.Question>) row.get(\"questions\")");
+    }
+
+    @Test
+    void interfaceMethodAnnotationsAreInheritedBySubtypeFields() throws IOException {
+        var source = sourceOf("persistence/polymorphic_interface_annotations/source/Shape.java");
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(source);
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile(
+                        "persistence.polymorphic_interface_annotations.infrastructure.persistence.ShapeReadingConverter")
+                .isNotNull();
+    }
+
     private static String contentsOf(String fileName) throws IOException {
         return new ClassPathResource(fileName).getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
     }

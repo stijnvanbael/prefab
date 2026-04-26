@@ -16,8 +16,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 import rest.polymorphic.Shape;
-import rest.polymorphic.application.CreateCircleRequest;
-import rest.polymorphic.application.CreateRectangleRequest;
 import rest.polymorphic.application.CreateShapeRequest;
 import rest.polymorphic.application.ShapeService;
 
@@ -51,8 +49,8 @@ public class ShapeController {
     )
     public ResponseEntity<Void> create(@Valid @RequestBody CreateShapeRequest request) {
         var id = switch (request) {
-                case CreateShapeRequest.CreateCircleRequest r -> service.createCircle(new CreateCircleRequest(r.radius()));
-                case CreateShapeRequest.CreateRectangleRequest r -> service.createRectangle(new CreateRectangleRequest(r.width(), r.height()));
+                case CreateShapeRequest.CreateCircleRequest r -> service.createCircle(r);
+                case CreateShapeRequest.CreateRectangleRequest r -> service.createRectangle(r);
                 };
         return ResponseEntity.created(URI.create("/shapes/" + id)).build();
     }

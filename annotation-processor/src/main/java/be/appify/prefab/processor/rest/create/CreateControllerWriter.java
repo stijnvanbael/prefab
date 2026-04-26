@@ -91,18 +91,10 @@ class CreateControllerWriter {
         var leafName = leafName(entry.getKey().simpleName());
         var nestedClass = ClassName.get(polymorphic.packageName() + ".application", unionName,
                 "Create%sRequest".formatted(leafName));
-        var flatClass = ClassName.get(polymorphic.packageName() + ".application",
-                "Create%sRequest".formatted(leafName));
-        var paramNames = entry.getValue().getParameters().stream()
-                .map(p -> p.getSimpleName().toString())
-                .filter(name -> parentName.map(pn -> !pn.equals(name)).orElse(true))
-                .map(name -> "r." + name + "()")
-                .collect(Collectors.joining(", "));
         var serviceArgs = parentName
-                .map(pn -> pn + "Id, new $T($L)")
-                .orElse("new $T($L)");
-        return CodeBlock.of("case $T r -> service.create$L(" + serviceArgs + ")",
-                nestedClass, leafName, flatClass, paramNames);
+                .map(pn -> pn + "Id, r")
+                .orElse("r");
+        return CodeBlock.of("case $T r -> service.create$L(" + serviceArgs + ")", nestedClass, leafName);
     }
 
     MethodSpec createMethodForPolymorphic(

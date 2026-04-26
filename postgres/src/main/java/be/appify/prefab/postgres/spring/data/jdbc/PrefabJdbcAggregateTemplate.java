@@ -73,7 +73,7 @@ public class PrefabJdbcAggregateTemplate extends JdbcAggregateTemplate {
 
         if (!entity.isNew(instance) && hasCollectionProperties(entity)) {
             Object id = entity.getIdentifierAccessor(instance).getRequiredIdentifier();
-            T current = findById(id, type);
+            T current = findCurrentState(id, type);
             if (current != null) {
                 Set<Class<?>> skipTypes = findUnchangedChildTypes(entity, current, instance);
                 if (!skipTypes.isEmpty()) {
@@ -129,5 +129,19 @@ public class PrefabJdbcAggregateTemplate extends JdbcAggregateTemplate {
     private @Nullable Class<?> getComponentType(RelationalPersistentProperty property) {
         var componentType = property.getTypeInformation().getComponentType();
         return componentType != null ? componentType.getType() : null;
+    }
+
+    /**
+     * Loads the current persisted state for the given id. For concrete subtypes of a polymorphic sealed-interface
+     * aggregate, the query is issued against the sealed interface's entity so that the {@code type} discriminator
+     * column is included in the SELECT and the registered reading converter can reconstruct the correct subtype.
+     */
+    @SuppressWarnings("unchecked")
+    private <T> @Nullable T findCurrentState(Object id, Class<T> type) {
+        Class<?> sealedInterface = PrefabPersistentEntity.findDirectSealedAggregateInterface(type);
+        if (sealedInterface != null) {
+            return (T) findById(id, sealedInterface);
+        }
+        return findById(id, type);
     }
 }

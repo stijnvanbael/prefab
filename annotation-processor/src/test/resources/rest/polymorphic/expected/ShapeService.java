@@ -21,14 +21,14 @@ public class ShapeService {
         this.shapeRepository = shapeRepository;
     }
 
-    public String createCircle(@Valid CreateCircleRequest request) {
+    public String createCircle(@Valid CreateShapeRequest.CreateCircleRequest request) {
         log.debug("Creating new {}", Shape.Circle.class.getSimpleName());
         var aggregate = new Shape.Circle(request.radius());
         shapeRepository.save(aggregate);
         return aggregate.id().id();
     }
 
-    public String createRectangle(@Valid CreateRectangleRequest request) {
+    public String createRectangle(@Valid CreateShapeRequest.CreateRectangleRequest request) {
         log.debug("Creating new {}", Shape.Rectangle.class.getSimpleName());
         var aggregate = new Shape.Rectangle(request.width(), request.height());
         shapeRepository.save(aggregate);

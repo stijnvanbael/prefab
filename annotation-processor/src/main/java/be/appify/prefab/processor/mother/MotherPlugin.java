@@ -69,7 +69,11 @@ public class MotherPlugin implements PrefabPlugin {
         manifest.constructorsWith(Create.class).forEach(ctor -> {
             if (!ctor.getParameters().isEmpty()) {
                 var name = "Create%sRequest".formatted(manifest.simpleName());
+                var parentName = manifest.parent()
+                        .filter(parent -> !parent.type().parameters().isEmpty())
+                        .map(VariableManifest::name);
                 var params = parametersOf(ctor).stream()
+                        .filter(p -> parentName.map(n -> !n.equals(p.name())).orElse(true))
                         .map(p -> isAggregateTyped(p) ? p.withType(String.class).withName(p.name() + "Id") : p)
                         .map(p -> isBinaryTyped(p) ? p.withType(MultipartFile.class) : p)
                         .toList();
@@ -80,8 +84,12 @@ public class MotherPlugin implements PrefabPlugin {
         manifest.methodsWith(Update.class).forEach(method -> {
             var opName = capitalize(method.getSimpleName().toString());
             var name = "%s%sRequest".formatted(manifest.simpleName(), opName);
+            var parentName = manifest.parent()
+                    .filter(parent -> !parent.type().parameters().isEmpty())
+                    .map(VariableManifest::name);
             var params = parametersOf(method).stream()
                     .filter(p -> !isAggregateTyped(p))
+                    .filter(p -> parentName.map(n -> !n.equals(p.name())).orElse(true))
                     .map(p -> isBinaryTyped(p) ? p.withType(MultipartFile.class) : p)
                     .toList();
             if (!params.isEmpty()) {

@@ -352,7 +352,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void multicastWithStaticCompanionCallsStaticWhenNoAggregatesFound() throws IOException {
+    void multicastWithStaticCompanionCallsStaticWhenNoAggregatesFound() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -369,7 +369,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void multicastWithStaticCompanionDoesNotThrowWhenNoAggregatesFound() throws IOException {
+    void multicastWithStaticCompanionDoesNotThrowWhenNoAggregatesFound() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -386,7 +386,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void multicastWithStaticCompanionDoesNotGenerateSeparateServiceMethodForStaticHandler() throws IOException {
+    void multicastWithStaticCompanionDoesNotGenerateSeparateServiceMethodForStaticHandler() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(

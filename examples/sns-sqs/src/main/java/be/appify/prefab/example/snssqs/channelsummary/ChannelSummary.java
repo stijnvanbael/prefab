@@ -10,6 +10,7 @@ import be.appify.prefab.example.snssqs.channel.Channel;
 import be.appify.prefab.example.snssqs.channel.ChannelCreated;
 import be.appify.prefab.example.snssqs.message.MessageSent;
 import be.appify.prefab.example.snssqs.user.UserEvent;
+import jakarta.validation.constraints.Size;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.annotation.Id;
@@ -21,7 +22,7 @@ public record ChannelSummary(
         @Id Reference<ChannelSummary>  id,
         @Version long version,
         Reference<Channel> channel,
-        @Filter String name,
+        @Filter @Size(max = 255) String name,
         int totalMessages,
         int totalSubscribers
 ) {

@@ -9,6 +9,8 @@ import be.appify.prefab.example.kafka.user.User;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
+
+import jakarta.validation.constraints.Size;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 
@@ -18,7 +20,7 @@ public record Message(
         @Version long version,
         Reference<User> author,
         Reference<Channel> channel,
-        @NotEmpty String content,
+        @NotEmpty @Size(max = 4192) String content,
         Instant timestamp
 ) implements PublishesEvents {
     @Create

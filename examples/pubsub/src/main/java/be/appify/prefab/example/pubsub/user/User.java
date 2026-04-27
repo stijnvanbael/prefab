@@ -10,6 +10,8 @@ import be.appify.prefab.example.pubsub.channel.Channel;
 import jakarta.validation.constraints.NotNull;
 import java.util.ArrayList;
 import java.util.List;
+
+import jakarta.validation.constraints.Size;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 
@@ -18,7 +20,7 @@ import org.springframework.data.annotation.Version;
 public record User(
         @Id Reference<User> id,
         @Version long version,
-        String name,
+        @Size(max = 255) String name,
         List<Reference<Channel>> channelSubscriptions
 ) implements PublishesEvents {
     @Create

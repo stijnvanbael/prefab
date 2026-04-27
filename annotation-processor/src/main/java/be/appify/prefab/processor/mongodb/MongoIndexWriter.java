@@ -44,7 +44,7 @@ class MongoIndexWriter {
         for (ClassManifest manifest : manifests) {
             fieldIndexesOf(manifest, null).forEach(index ->
                     constructor.addStatement(
-                            "mongoTemplate.indexOps($T.class).ensureIndex(new $T($S, $T.ASC)$L)",
+                            "mongoTemplate.indexOps($T.class).createIndex(new $T($S, $T.ASC)$L)",
                             manifest.type().asTypeName(),
                             INDEX,
                             index.fieldPath(),

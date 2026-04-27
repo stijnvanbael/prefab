@@ -13,7 +13,7 @@ import static com.google.testing.compile.Compiler.javac;
 class MongoIndexWriterTest {
 
     @Test
-    void filterFieldGetsIndex() throws IOException {
+    void filterFieldGetsIndex() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("mongodb/indexed/source/Product.java"));
@@ -21,11 +21,11 @@ class MongoIndexWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("mongodb.indexed.infrastructure.mongodb.MongoIndexConfiguration")
                 .contentsAsUtf8String()
-                .contains("mongoTemplate.indexOps(Product.class).ensureIndex(new Index(\"name\", Direction.ASC))");
+                .contains("mongoTemplate.indexOps(Product.class).createIndex(new Index(\"name\", Direction.ASC))");
     }
 
     @Test
-    void indexedUniqueFieldGetsUniqueIndex() throws IOException {
+    void indexedUniqueFieldGetsUniqueIndex() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("mongodb/indexed/source/Product.java"));
@@ -33,11 +33,11 @@ class MongoIndexWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("mongodb.indexed.infrastructure.mongodb.MongoIndexConfiguration")
                 .contentsAsUtf8String()
-                .contains("mongoTemplate.indexOps(Product.class).ensureIndex(new Index(\"sku\", Direction.ASC).unique())");
+                .contains("mongoTemplate.indexOps(Product.class).createIndex(new Index(\"sku\", Direction.ASC).unique())");
     }
 
     @Test
-    void noIndexForNonAnnotatedField() throws IOException {
+    void noIndexForNonAnnotatedField() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("mongodb/indexed/source/Product.java"));
@@ -49,7 +49,7 @@ class MongoIndexWriterTest {
     }
 
     @Test
-    void generatedClassIsConfiguration() throws IOException {
+    void generatedClassIsConfiguration() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("mongodb/indexed/source/Product.java"));
@@ -61,7 +61,7 @@ class MongoIndexWriterTest {
     }
 
     @Test
-    void nestedRecordFieldGetsIndexWithDotPath() throws IOException {
+    void nestedRecordFieldGetsIndexWithDotPath() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("mongodb/nestedindex/source/Product.java"));
@@ -69,6 +69,6 @@ class MongoIndexWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("mongodb.nestedindex.infrastructure.mongodb.MongoIndexConfiguration")
                 .contentsAsUtf8String()
-                .contains("mongoTemplate.indexOps(Product.class).ensureIndex(new Index(\"price.currency\", Direction.ASC))");
+                .contains("mongoTemplate.indexOps(Product.class).createIndex(new Index(\"price.currency\", Direction.ASC))");
     }
 }

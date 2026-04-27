@@ -20,7 +20,8 @@ import org.springframework.data.relational.core.sql.SqlIdentifier;
  * in the database without requiring explicit annotations.
  *
  * <p>Properties annotated with {@link DbDocument} (or whose type is annotated with {@link DbDocument}) are treated
- * as JSONB columns and are not embedded.</p>
+ * as JSONB columns and are not embedded. Both {@link #isCollectionLike()} and {@link #isEntity()} return {@code false}
+ * for such properties so that Spring Data JDBC never issues a secondary query against a non-existent child table.</p>
  */
 public class PrefabJdbcPersistentProperty extends BasicJdbcPersistentProperty {
 
@@ -114,6 +115,14 @@ public class PrefabJdbcPersistentProperty extends BasicJdbcPersistentProperty {
             return false;
         }
         return super.isCollectionLike();
+    }
+
+    @Override
+    public boolean isEntity() {
+        if (isDbDocument()) {
+            return false;
+        }
+        return super.isEntity();
     }
 
     @Override

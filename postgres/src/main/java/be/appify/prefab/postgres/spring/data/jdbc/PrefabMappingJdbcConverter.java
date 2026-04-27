@@ -257,10 +257,10 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
         for (RelationalPersistentProperty property : collectionProperties) {
             AggregatePath propertyPath = entityPath.append(property);
             AggregatePath.TableInfo tableInfo = propertyPath.getTableInfo();
-            if (tableInfo.reverseColumnInfo() == null) {
+            if (tableInfo.backReferenceColumnInfos().isEmpty()) {
                 continue;
             }
-            SqlIdentifier fkColumn = tableInfo.reverseColumnInfo().name();
+            SqlIdentifier fkColumn = tableInfo.backReferenceColumnInfos().unique().name();
             Identifier childIdentifier = Identifier.of(fkColumn, rawId, rawId.getClass());
             Iterable<Object> children = relationResolver.findAllByPath(
                     childIdentifier,

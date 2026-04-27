@@ -78,20 +78,21 @@ class MulticastEventHandlerWriter {
             MulticastEventHandlerManifest eventHandler,
             String repositoryName
     ) {
-        return eventHandler.staticCompanionMethodName()
-                .map(companionName -> CodeBlock.of("""
-                        if (aggregates.isEmpty()) {
-                            $N.save($T.$L(event));
-                            return;
-                        }
-                        """,
-                        uncapitalize(repositoryName),
-                        manifest.type().asTypeName(),
-                        companionName))
-                .orElse(CodeBlock.of("""
-                        if (aggregates.isEmpty()) {
-                            throw new $T("No aggregates found for event: " + event);
-                        }
-                        """, IllegalStateException.class));
+        if (eventHandler.staticCompanionMethodName() != null) {
+            return CodeBlock.of("""
+                    if (aggregates.isEmpty()) {
+                        $N.save($T.$L(event));
+                        return;
+                    }
+                    """,
+                    uncapitalize(repositoryName),
+                    manifest.type().asTypeName(),
+                    eventHandler.staticCompanionMethodName());
+        }
+        return CodeBlock.of("""
+                if (aggregates.isEmpty()) {
+                    throw new $T("No aggregates found for event: " + event);
+                }
+                """, IllegalStateException.class);
     }
 }

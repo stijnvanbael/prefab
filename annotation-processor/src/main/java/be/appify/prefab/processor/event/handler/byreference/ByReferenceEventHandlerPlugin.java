@@ -65,7 +65,7 @@ public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
                                     referenceField.type().parameters().stream().findFirst()
                                             .orElse(TypeManifest.of(String.class, context.processingEnvironment())),
                                     referenceField.type(),
-                                    findStaticCompanion(typeElement, eventType, context)))
+                                    findStaticCompanion(typeElement, eventType, context).orElse(null)))
                             .stream();
                 });
     }

@@ -33,12 +33,12 @@ class ByReferenceEventHandlerWriter {
                             return $L.save(aggregate);
                         })
                         """, eventHandler.methodName(), repositoryName);
-        var notFoundClause = eventHandler.staticCompanionMethodName()
-                .map(companionName -> CodeBlock.of(".orElseGet(() -> $L.save($T.$L(event)))",
+        var notFoundClause = eventHandler.staticCompanionMethodName() != null
+                ? CodeBlock.of(".orElseGet(() -> $L.save($T.$L(event)))",
                         repositoryName,
                         manifest.type().asTypeName(),
-                        companionName))
-                .orElse(CodeBlock.of(".orElseThrow()"));
+                        eventHandler.staticCompanionMethodName())
+                : CodeBlock.of(".orElseThrow()");
         return method.addParameter(event.asTypeName(), "event").addStatement(CodeBlock.builder()
                         .add("$L.findById(event.$L()$L)",
                                 repositoryName,

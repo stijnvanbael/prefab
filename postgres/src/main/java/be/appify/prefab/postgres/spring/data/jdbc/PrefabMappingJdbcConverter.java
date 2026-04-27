@@ -155,7 +155,7 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
         if (isDbDocumentValue(value)) {
             return serializeToJsonb(value);
         }
-        if (value instanceof List<?> list && isJsonbListType(type)) {
+        if (value instanceof List<?> list && isJsonbListTarget(type)) {
             return serializeToJsonb(list);
         }
         if (isUnwrappableSingleFieldRecord(value.getClass())) {
@@ -344,6 +344,12 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
     private boolean isJsonbListType(TypeInformation<?> type) {
         var componentType = type.getComponentType();
         return componentType != null && componentType.getType().isAnnotationPresent(DbDocument.class);
+    }
+
+    private boolean isJsonbListTarget(TypeInformation<?> type) {
+        // Spring Data JDBC may call writeValue with TypeInformation.of(columnType), which is PGobject.class
+        // for @DbDocument list properties. Accept that as well as proper List<@DbDocument T> TypeInformation.
+        return type.getType() == PGobject.class || isJsonbListType(type);
     }
 
     private static boolean isJsonbValue(Object value) {

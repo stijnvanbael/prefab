@@ -29,7 +29,7 @@ public record ChannelSummary(
 
     @EventHandler
     public static ChannelSummary onChannelCreated(ChannelCreated event) {
-        return new ChannelSummary(Reference.create(), 0L, event.reference(), event.name(), 0, 0);
+        return new ChannelSummary(Reference.create(), 0L, event.channel(), event.name(), 0, 0);
     }
 
     @EventHandler

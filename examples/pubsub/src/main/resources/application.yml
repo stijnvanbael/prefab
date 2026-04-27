@@ -19,5 +19,4 @@ spring:
 
 topics:
   channel.name: channel
-  message.name: message
   user.name: user

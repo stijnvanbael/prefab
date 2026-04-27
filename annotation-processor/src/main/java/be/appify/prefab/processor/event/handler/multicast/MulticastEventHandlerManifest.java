@@ -10,7 +10,8 @@ record MulticastEventHandlerManifest(
         TypeManifest eventType,
         PrefabContext context,
         String queryMethod,
-        String[] paramMapping
+        String[] paramMapping,
+        String staticCompanionMethodName
 ) {
     String methodName() {
         return methodElement.getSimpleName().toString();

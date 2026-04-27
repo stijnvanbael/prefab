@@ -59,11 +59,7 @@ class MulticastEventHandlerWriter {
                         uncapitalize(repositoryName),
                         eventHandler.queryMethod(),
                         CodeBlock.join(arguments, ", "))
-                .addCode("""
-                        if (aggregates.isEmpty()) {
-                            throw new $T("No aggregates found for event: " + event);
-                        }
-                        """, IllegalStateException.class)
+                .addCode(generateEmptyAggregatesHandling(manifest, eventHandler, repositoryName))
                 .addStatement("""
                                 $N.saveAll(aggregates.stream()
                                     .map(aggregate -> {
@@ -75,5 +71,28 @@ class MulticastEventHandlerWriter {
                                 ? CodeBlock.of("aggregate = aggregate.$L(event);", eventHandler.methodName())
                                 : CodeBlock.of("aggregate.$L(event);", eventHandler.methodName()))
                 .build();
+    }
+
+    private CodeBlock generateEmptyAggregatesHandling(
+            ClassManifest manifest,
+            MulticastEventHandlerManifest eventHandler,
+            String repositoryName
+    ) {
+        if (eventHandler.staticCompanionMethodName() != null) {
+            return CodeBlock.of("""
+                    if (aggregates.isEmpty()) {
+                        $N.save($T.$L(event));
+                        return;
+                    }
+                    """,
+                    uncapitalize(repositoryName),
+                    manifest.type().asTypeName(),
+                    eventHandler.staticCompanionMethodName());
+        }
+        return CodeBlock.of("""
+                if (aggregates.isEmpty()) {
+                    throw new $T("No aggregates found for event: " + event);
+                }
+                """, IllegalStateException.class);
     }
 }

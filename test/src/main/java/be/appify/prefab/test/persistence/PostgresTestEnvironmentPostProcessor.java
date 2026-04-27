@@ -12,7 +12,7 @@ import org.springframework.core.env.MapPropertySource;
  * <p>The following defaults are applied when no explicit value is already present:</p>
  * <ul>
  *   <li>{@code spring.datasource.url} —
- *       {@code jdbc:tc:postgresql:16.1:///<app>?TC_REUSABLE=true&currentSchema=<app>},
+ *       {@code jdbc:tc:postgresql:18.3:///<app>?TC_REUSABLE=true&currentSchema=<app>},
  *       where {@code <app>} is the value of {@code spring.application.name} converted to lowercase.</li>
  *   <li>{@code spring.datasource.driver-class-name} —
  *       {@code org.testcontainers.jdbc.ContainerDatabaseDriver}</li>
@@ -61,7 +61,7 @@ public class PostgresTestEnvironmentPostProcessor implements EnvironmentPostProc
     }
 
     private String tcUrl(String appName) {
-        return "jdbc:tc:postgresql:16.1:///" + appName + "?TC_REUSABLE=true&currentSchema=" + appName;
+        return "jdbc:tc:postgresql:18.3:///" + appName + "?TC_REUSABLE=true&currentSchema=" + appName;
     }
 
     private boolean isSpringDataJdbcPresent() {

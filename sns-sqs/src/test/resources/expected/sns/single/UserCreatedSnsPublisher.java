@@ -3,6 +3,7 @@ package sns.single.infrastructure.sns;
 import be.appify.prefab.core.sns.SnsSerializer;
 import be.appify.prefab.core.sns.SqsUtil;
 import io.awspring.cloud.sns.core.SnsTemplate;
+import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
@@ -30,8 +31,8 @@ public class UserCreatedSnsPublisher {
     }
 
     @EventListener
-    public void publish(UserCreated event) {
+    public CompletableFuture<Void> publish(UserCreated event) {
         log.debug("Publishing event {} on topic {}", event, topicArn);
-        snsTemplate.sendNotification(topicArn, snsSerializer.serialize(topic, event), event.getClass().getName());
+        return CompletableFuture.runAsync(() -> snsTemplate.sendNotification(topicArn, snsSerializer.serialize(topic, event), event.getClass().getName()));
     }
 }

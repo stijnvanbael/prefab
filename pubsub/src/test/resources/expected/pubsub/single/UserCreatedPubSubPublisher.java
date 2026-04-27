@@ -5,6 +5,7 @@ import be.appify.prefab.core.pubsub.PubSubUtil;
 import com.google.cloud.spring.pubsub.core.PubSubTemplate;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.PubsubMessage;
+import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
@@ -29,9 +30,9 @@ public class UserCreatedPubSubPublisher {
     }
 
     @EventListener
-    public void publish(UserCreated event) {
+    public CompletableFuture<String> publish(UserCreated event) {
         log.debug("Publishing event {} on topic {}", event, topic);
-        pubSubTemplate.publish(
+        return pubSubTemplate.publish(
                     topic,
                     PubsubMessage.newBuilder()
                         .setData(ByteString.copyFrom(serializer.serialize(PubSubUtil.simpleTopicName(topic), event)))

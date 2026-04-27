@@ -11,8 +11,10 @@ import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
+import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeSpec;
 import io.awspring.cloud.sns.core.SnsTemplate;
+import java.util.concurrent.CompletableFuture;
 import javax.lang.model.element.Modifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,10 +83,12 @@ class SnsPublisherWriter {
     private MethodSpec publisher(TypeManifest event) {
         return MethodSpec.methodBuilder("publish")
                 .addModifiers(PUBLIC)
+                .returns(ParameterizedTypeName.get(ClassName.get(CompletableFuture.class), ClassName.get(Void.class)))
                 .addParameter(event.asTypeName(), "event")
                 .addAnnotation(EventListener.class)
                 .addStatement("log.debug($S, event, topicArn)", "Publishing event {} on topic {}")
-                .addStatement("snsTemplate.sendNotification(topicArn, snsSerializer.serialize(topic, event), event.getClass().getName())")
+                .addStatement("return $T.runAsync(() -> snsTemplate.sendNotification(topicArn, snsSerializer.serialize(topic, event), event.getClass().getName()))",
+                        ClassName.get(CompletableFuture.class))
                 .build();
     }
 }

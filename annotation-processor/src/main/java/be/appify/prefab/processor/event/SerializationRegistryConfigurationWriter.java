@@ -27,6 +27,7 @@ class SerializationRegistryConfigurationWriter {
 
     void writeConfiguration(List<TypeManifest> events) {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.event");
+        var rootPackage = findCommonRootPackage(events);
 
         var type = TypeSpec.classBuilder("SerializationRegistryConfiguration")
                 .addModifiers(Modifier.PUBLIC)
@@ -34,9 +35,8 @@ class SerializationRegistryConfigurationWriter {
                 .addAnnotation(AnnotationSpec.builder(Order.class)
                         .addMember("value", "0")
                         .build())
-                .addMethod(beanMethod(events));
+                .addMethod(beanMethod(events, rootPackage));
 
-        var rootPackage = findCommonRootPackage(events);
         fileWriter.writeFile(rootPackage, "SerializationRegistryConfiguration", type.build());
     }
 
@@ -62,8 +62,9 @@ class SerializationRegistryConfigurationWriter {
                 }).orElseThrow();
     }
 
-    private static MethodSpec beanMethod(List<TypeManifest> events) {
-        var method = MethodSpec.methodBuilder("serializationRegistryCustomizer")
+    private static MethodSpec beanMethod(List<TypeManifest> events, String rootPackage) {
+        var beanMethodName = toCamelCase(rootPackage) + "SerializationRegistryCustomizer";
+        var method = MethodSpec.methodBuilder(beanMethodName)
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(Bean.class)
                 .returns(SerializationRegistryCustomizer.class);

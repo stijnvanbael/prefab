@@ -30,6 +30,7 @@ import org.springframework.data.jdbc.repository.config.AbstractJdbcConfiguration
 import org.springframework.data.relational.RelationalManagedTypes;
 import org.springframework.data.relational.core.mapping.NamingStrategy;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Spring auto-configuration for Prefab PostgreSQL/JDBC persistence support.
@@ -44,6 +45,9 @@ public class PrefabJdbcConfiguration extends AbstractJdbcConfiguration {
 
     @Autowired(required = false)
     private List<PolymorphicReadingConverter> polymorphicReadingConverters = List.of();
+
+    @Autowired
+    private JsonMapper jsonMapper;
 
     /**
      * Constructs a new PrefabJdbcConfiguration.
@@ -85,7 +89,8 @@ public class PrefabJdbcConfiguration extends AbstractJdbcConfiguration {
                 mappingContext,
                 relationResolver,
                 conversions,
-                new DefaultJdbcTypeFactory(operations.getJdbcOperations(), dialect.getArraySupport())
+                new DefaultJdbcTypeFactory(operations.getJdbcOperations(), dialect.getArraySupport()),
+                jsonMapper
         );
     }
 

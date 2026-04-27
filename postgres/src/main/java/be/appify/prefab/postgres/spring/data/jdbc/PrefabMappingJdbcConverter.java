@@ -1,5 +1,6 @@
 package be.appify.prefab.postgres.spring.data.jdbc;
 
+import be.appify.prefab.core.annotations.DbDocument;
 import java.lang.reflect.Array;
 import java.lang.reflect.RecordComponent;
 import java.sql.JDBCType;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
+import org.postgresql.util.PGobject;
 import org.springframework.data.core.TypeInformation;
 import org.springframework.data.jdbc.core.convert.Identifier;
 import org.springframework.data.jdbc.core.convert.JdbcCustomConversions;
@@ -28,10 +30,13 @@ import org.springframework.data.relational.core.sql.SqlIdentifier;
 import org.springframework.data.relational.domain.RowDocument;
 import org.springframework.jdbc.core.SqlTypeValue;
 import org.springframework.jdbc.core.StatementCreatorUtils;
+import tools.jackson.databind.JavaType;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Custom {@link MappingJdbcConverter} that provides generic read/write support for single-field Java records and
- * applies registered custom converters to individual elements when reading array/collection columns.
+ * Custom {@link MappingJdbcConverter} that provides generic read/write support for single-field Java records,
+ * JSONB documents, and applies registered custom converters to individual elements when reading array/collection
+ * columns.
  * <p>
  * Any Java record with exactly one component is automatically handled without requiring an explicit
  * {@code @WritingConverter}/{@code @ReadingConverter} pair:
@@ -41,6 +46,10 @@ import org.springframework.jdbc.core.StatementCreatorUtils;
  *   <li><b>Reading:</b> the record is instantiated via its canonical constructor using the raw column value,
  *       with automatic type coercion via the Spring {@link org.springframework.core.convert.ConversionService}.</li>
  * </ul>
+ * <p>
+ * Types annotated with {@link DbDocument} are serialized as PostgreSQL {@code JSONB} documents using Jackson.
+ * Lists of {@link DbDocument}-annotated element types are also stored as JSONB arrays.
+ * </p>
  * <p>
  * The converter also handles {@code List<SingleFieldRecord>} columns (e.g. arrays read from {@code VARCHAR[]}),
  * applying the same per-element logic in addition to any registered custom {@code @ReadingConverter}s.
@@ -55,6 +64,7 @@ import org.springframework.jdbc.core.StatementCreatorUtils;
  */
 public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
 
+    private final JsonMapper jsonMapper;
     private final RelationResolver relationResolver;
     private final RelationalMappingContext mappingContext;
 
@@ -65,20 +75,26 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
      * @param relationResolver the RelationResolver to use for resolving entity relationships
      * @param conversions      the JdbcCustomConversions to use for custom type conversions
      * @param typeFactory      the JdbcTypeFactory to use for determining SQL types
+     * @param jsonMapper       the JsonMapper to use for JSONB serialization and deserialization
      */
     public PrefabMappingJdbcConverter(
             JdbcMappingContext context,
             RelationResolver relationResolver,
             JdbcCustomConversions conversions,
-            JdbcTypeFactory typeFactory
+            JdbcTypeFactory typeFactory,
+            JsonMapper jsonMapper
     ) {
         super(context, relationResolver, conversions, typeFactory);
+        this.jsonMapper = jsonMapper;
         this.relationResolver = relationResolver;
         this.mappingContext = context;
     }
 
     @Override
     public Class<?> getColumnType(RelationalPersistentProperty property) {
+        if (isJsonbProperty(property)) {
+            return PGobject.class;
+        }
         if (!property.isCollectionLike()) {
             Class<?> actualType = property.getActualType();
             if (isUnwrappableSingleFieldRecord(actualType)) {
@@ -90,6 +106,9 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
 
     @Override
     public SQLType getTargetSqlType(RelationalPersistentProperty property) {
+        if (isJsonbProperty(property)) {
+            return JDBCType.OTHER;
+        }
         if (!property.isCollectionLike()) {
             Class<?> actualType = property.getActualType();
             if (isUnwrappableSingleFieldRecord(actualType)) {
@@ -104,6 +123,9 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
     public Object readValue(@Nullable Object value, TypeInformation<?> type) {
         if (value == null) {
             return super.readValue(null, type);
+        }
+        if (isJsonbValue(value)) {
+            return readJsonbValue((PGobject) value, type);
         }
         if (isUnwrappableSingleFieldRecord(type.getType())) {
             return constructSingleFieldRecord(type.getType(), value);
@@ -127,7 +149,16 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
     @Override
     @Nullable
     public Object writeValue(@Nullable Object value, TypeInformation<?> type) {
-        if (value != null && isUnwrappableSingleFieldRecord(value.getClass())) {
+        if (value == null) {
+            return super.writeValue(null, type);
+        }
+        if (isDbDocumentValue(value)) {
+            return serializeToJsonb(value);
+        }
+        if (value instanceof List<?> list && isJsonbListTarget(type)) {
+            return serializeToJsonb(list);
+        }
+        if (isUnwrappableSingleFieldRecord(value.getClass())) {
             return writeUnwrappedRecord(value);
         }
         return super.writeValue(value, type);
@@ -296,6 +327,67 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
             }
         }
         return JDBCType.OTHER;
+    }
+
+    private boolean isJsonbProperty(RelationalPersistentProperty property) {
+        if (property.findAnnotation(DbDocument.class) != null) {
+            return true;
+        }
+        Class<?> actualType = property.getActualType();
+        return actualType.isAnnotationPresent(DbDocument.class);
+    }
+
+    private boolean isDbDocumentValue(Object value) {
+        return value.getClass().isAnnotationPresent(DbDocument.class);
+    }
+
+    private boolean isJsonbListType(TypeInformation<?> type) {
+        var componentType = type.getComponentType();
+        return componentType != null && componentType.getType().isAnnotationPresent(DbDocument.class);
+    }
+
+    private boolean isJsonbListTarget(TypeInformation<?> type) {
+        // Spring Data JDBC may call writeValue with TypeInformation.of(columnType), which is PGobject.class
+        // for @DbDocument list properties. Accept that as well as proper List<@DbDocument T> TypeInformation.
+        return type.getType() == PGobject.class || isJsonbListType(type);
+    }
+
+    private static boolean isJsonbValue(Object value) {
+        return value instanceof PGobject pgo && "jsonb".equalsIgnoreCase(pgo.getType());
+    }
+
+    @Nullable
+    private Object readJsonbValue(PGobject pgObject, TypeInformation<?> type) {
+        var json = pgObject.getValue();
+        if (json == null) {
+            return null;
+        }
+        try {
+            JavaType javaType = resolveJavaType(type);
+            return jsonMapper.readValue(json, javaType);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to deserialize JSONB value to " + type.getType(), e);
+        }
+    }
+
+    private JavaType resolveJavaType(TypeInformation<?> type) {
+        var componentType = type.getComponentType();
+        if (componentType != null) {
+            return jsonMapper.getTypeFactory()
+                    .constructCollectionType(List.class, componentType.getType());
+        }
+        return jsonMapper.getTypeFactory().constructType(type.getType());
+    }
+
+    private PGobject serializeToJsonb(Object value) {
+        try {
+            var pgObject = new PGobject();
+            pgObject.setType("jsonb");
+            pgObject.setValue(jsonMapper.writeValueAsString(value));
+            return pgObject;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to serialize value to JSONB: " + value.getClass(), e);
+        }
     }
 
     @Nullable

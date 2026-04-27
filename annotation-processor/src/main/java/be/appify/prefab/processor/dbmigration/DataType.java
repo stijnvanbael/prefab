@@ -93,7 +93,8 @@ public interface DataType {
         TIMESTAMP,
         DATE,
         BYTEA,
-        TEXT;
+        TEXT,
+        JSONB;
 
         @Override
         public String toSql() {

@@ -27,9 +27,28 @@ class TestClientWriter {
         writeTestClient(manifest);
     }
 
+    void writePolymorphicTestSupport(PolymorphicAggregateManifest manifest) {
+        writePolymorphicTestClient(manifest);
+    }
+
     private void writeTestClient(ClassManifest manifest) {
-        var className = "%sClient" .formatted(manifest.simpleName());
-        var type = TypeSpec.classBuilder(className)
+        var className = "%sClient".formatted(manifest.simpleName());
+        var type = buildClientType(className);
+        context.plugins().forEach(plugin -> plugin.writeTestClient(manifest, type));
+        fileWriter.setPreferredElement(manifest.type().asElement());
+        fileWriter.writeFile(manifest.packageName(), className, type.build());
+    }
+
+    private void writePolymorphicTestClient(PolymorphicAggregateManifest manifest) {
+        var className = "%sClient".formatted(manifest.simpleName());
+        var type = buildClientType(className);
+        context.plugins().forEach(plugin -> plugin.writePolymorphicTestClient(manifest, type));
+        fileWriter.setPreferredElement(manifest.type().asElement());
+        fileWriter.writeFile(manifest.packageName(), className, type.build());
+    }
+
+    private TypeSpec.Builder buildClientType(String className) {
+        return TypeSpec.classBuilder(className)
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(Component.class)
                 .addField(FieldSpec.builder(MOCK_MVC, "mockMvc")
@@ -52,9 +71,5 @@ class TestClientWriter {
                                         : CodeBlock.of(""))
                         .addStatement("this.jsonMapper = jsonMapper")
                         .build());
-        context.plugins().forEach(plugin -> plugin.writeTestClient(manifest, type));
-
-        fileWriter.setPreferredElement(manifest.type().asElement());
-        fileWriter.writeFile(manifest.packageName(), className, type.build());
     }
 }

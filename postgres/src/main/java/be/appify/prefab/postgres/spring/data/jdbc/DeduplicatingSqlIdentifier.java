@@ -25,8 +25,10 @@ class DeduplicatingSqlIdentifier implements SqlIdentifier {
 
     @Override
     public SqlIdentifier transform(UnaryOperator<String> transformationFunction) {
-        var transformed = transformationFunction.apply(delegate.toSql(IdentifierProcessing.NONE));
-        var shortened = IdentifierShortener.shorten(IdentifierShortener.deduplicate(transformed), POSTGRES_MAX_IDENTIFIER_LENGTH);
+        var base = delegate.toSql(IdentifierProcessing.NONE);
+        var transformed = transformationFunction.apply(base);
+        var deduplicated = IdentifierShortener.deduplicate(transformed);
+        var shortened = IdentifierShortener.shorten(deduplicated, POSTGRES_MAX_IDENTIFIER_LENGTH);
         return new DeduplicatingSqlIdentifier(SqlIdentifier.quoted(shortened));
     }
 

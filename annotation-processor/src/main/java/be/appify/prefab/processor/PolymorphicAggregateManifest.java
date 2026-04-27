@@ -2,9 +2,11 @@ package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.DbMigration;
+import be.appify.prefab.core.annotations.rest.Parent;
 import com.palantir.javapoet.TypeName;
 import java.lang.annotation.Annotation;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -23,13 +25,16 @@ public class PolymorphicAggregateManifest {
     private final List<ClassManifest> subtypes;
     private final List<VariableManifest> commonFields;
     private final List<VariableManifest> allFields;
+    private final ProcessingEnvironment processingEnvironment;
 
     private PolymorphicAggregateManifest(
             TypeManifest type,
-            List<ClassManifest> subtypes
+            List<ClassManifest> subtypes,
+            ProcessingEnvironment processingEnvironment
     ) {
         this.type = type;
         this.subtypes = subtypes;
+        this.processingEnvironment = processingEnvironment;
         this.allFields = computeAllFields();
         this.commonFields = computeCommonFields();
     }
@@ -49,7 +54,7 @@ public class PolymorphicAggregateManifest {
                 .filter(subtype -> subtype.isRecord() || subtype.asElement().getKind() == ElementKind.CLASS)
                 .map(subtype -> ClassManifest.of(subtype.asElement(), processingEnvironment))
                 .toList();
-        return new PolymorphicAggregateManifest(typeManifest, subtypes);
+        return new PolymorphicAggregateManifest(typeManifest, subtypes, processingEnvironment);
     }
 
     private List<VariableManifest> computeAllFields() {
@@ -122,6 +127,19 @@ public class PolymorphicAggregateManifest {
     public boolean isDbMigrationEnabled() {
         var annotations = annotationsOfType(DbMigration.class);
         return annotations.stream().allMatch(DbMigration::enabled);
+    }
+
+    public Optional<VariableManifest> parent() {
+        return commonFields().stream()
+                .filter(field -> field.hasAnnotation(Parent.class))
+                .findFirst()
+                .or(this::parentFromInterfaceMethod);
+    }
+
+    private Optional<VariableManifest> parentFromInterfaceMethod() {
+        return type.methodsWith(Parent.class).stream()
+                .findFirst()
+                .map(method -> VariableManifest.ofMethod(method, processingEnvironment));
     }
 
     @Override

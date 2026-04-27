@@ -59,13 +59,30 @@ class PersistenceWriter {
 
     private void writePolymorphicRepository(PolymorphicAggregateManifest manifest) {
         var repositoryName = "%sRepository".formatted(manifest.simpleName());
+        var mixins = context.roundEnvironment().getElementsAnnotatedWith(RepositoryMixin.class)
+                .stream()
+                .filter(element -> TypeManifest.of(element.asType(), context.processingEnvironment())
+                        .annotationsOfType(RepositoryMixin.class).stream().anyMatch(annotation ->
+                                manifest.type().equals(getMirroredType(annotation::value))));
         var type = TypeSpec.interfaceBuilder(repositoryName)
                 .addModifiers(Modifier.PUBLIC)
                 .addSuperinterface(ParameterizedTypeName.get(ClassName.get(CrudRepository.class),
                         manifest.type().asTypeName(), ClassName.get(String.class)))
                 .addSuperinterface(ParameterizedTypeName.get(ClassName.get(PagingAndSortingRepository.class),
                         manifest.type().asTypeName(), ClassName.get(String.class)));
+        mixins.forEach(mixinType -> type.addSuperinterface(mixinType.asType()));
+        findByParentMethodForPolymorphic(manifest, type);
         fileWriter.writeFile(manifest.packageName(), repositoryName, type.build());
+    }
+
+    private void findByParentMethodForPolymorphic(PolymorphicAggregateManifest manifest, TypeSpec.Builder type) {
+        manifest.parent().ifPresent(
+                parent -> type.addMethod(MethodSpec.methodBuilder("findBy%s".formatted(capitalize(parent.name())))
+                        .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
+                        .addParameter(ParameterSpec.builder(String.class, parent.name()).build())
+                        .addParameter(ParameterSpec.builder(Pageable.class, "pageable").build())
+                        .returns(pageOf(manifest.type().asTypeName()))
+                        .build()));
     }
 
     private TypeManifest getMirroredType(Supplier<Class<?>> getter) {

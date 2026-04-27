@@ -1,8 +1,8 @@
 package be.appify.prefab.processor.rest.create;
 
-import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.rest.ControllerUtil;
@@ -11,7 +11,9 @@ import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.lang.model.element.ExecutableElement;
@@ -27,56 +29,220 @@ import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 class CreateTestClientWriter {
     List<MethodSpec> createMethods(ClassManifest manifest, ExecutableElement constructor, PrefabContext context) {
-        var individualParams = getIndividualParams(constructor, context);
         if (constructor.getParameters().isEmpty()) {
             return List.of(createNoBodyMethod(manifest, constructor));
         }
+        var allParams = constructor.getParameters().stream()
+                .map(p -> VariableManifest.of(p, context.processingEnvironment()))
+                .toList();
+        var parentName = CreateServiceWriter.parentFieldName(manifest);
+        var parentParam = parentName.flatMap(name ->
+                allParams.stream().filter(p -> name.equals(p.name())).findFirst());
+        var parentPathParam = parentParam.map(p -> ParameterSpec.builder(String.class, p.name() + "Id").build());
+        var bodyParams = allParams.stream()
+                .filter(p -> parentName.map(name -> !name.equals(p.name())).orElse(true))
+                .toList();
+        var individualBodyParams = bodyParams.stream()
+                .flatMap(param -> context.requestParameterBuilder().buildTestClientParameter(param).stream())
+                .toList();
+        var allIndividualParams = parentPathParam.map(pp ->
+                java.util.stream.Stream.concat(java.util.stream.Stream.of(pp), individualBodyParams.stream()).toList())
+                .orElse(individualBodyParams);
         return List.of(
-                createIndividualParamsMethod(manifest, individualParams),
-                createRequestOverload(manifest, constructor, context));
+                createIndividualParamsMethod(manifest, allIndividualParams, parentPathParam.isPresent(), bodyParams),
+                createRequestOverload(manifest, constructor, context, parentPathParam));
     }
 
-    private List<ParameterSpec> getIndividualParams(ExecutableElement constructor, PrefabContext context) {
+    MethodSpec baseCreateMethodForPolymorphic(PolymorphicAggregateManifest polymorphic, Create create) {
+        var unionClass = ClassName.get(polymorphic.packageName() + ".application",
+                "Create%sRequest".formatted(polymorphic.simpleName()));
+        var path = "/" + ControllerUtil.pathOf(polymorphic) + create.path();
+        var method = MethodSpec.methodBuilder("create")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(String.class)
+                .addException(Exception.class);
+        polymorphic.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
+        method.addParameter(unionClass, "request");
+        var pathExpression = polymorphic.parent()
+                .map(parent -> CodeBlock.of("$S, $L", path, parent.name()))
+                .orElseGet(() -> CodeBlock.of("$S", path));
+        return method.addStatement("""
+                                var result = mockMvc.perform($T.$N($L)$L
+                                .contentType($T.APPLICATION_JSON)
+                                .content(jsonMapper.writeValueAsString(request)))
+                                .andExpect($T.status().isCreated())""",
+                        MOCK_MVC_REQUEST_BUILDERS,
+                        create.method().toLowerCase(),
+                        pathExpression,
+                        ControllerUtil.withMockUser(create.security()),
+                        MediaType.class,
+                        MOCK_MVC_RESULT_MATCHERS)
+                .addStatement("return $T.idOf(result)", TEST_UTIL)
+                .build();
+    }
+
+    List<MethodSpec> createMethodsForPolymorphicUnion(
+            PolymorphicAggregateManifest polymorphic,
+            Map.Entry<ClassManifest, ExecutableElement> entry,
+            PrefabContext context
+    ) {
+        var leafName = leafName(entry.getKey().simpleName());
+        var parentName = polymorphic.parent().map(VariableManifest::name);
+        var individualParams = individualParamsExcludingParent(entry.getValue(), context, parentName);
+        return List.of(createUnionIndividualParamsMethod(polymorphic, leafName, individualParams));
+    }
+
+    private static MethodSpec createUnionIndividualParamsMethod(
+            PolymorphicAggregateManifest polymorphic,
+            String leafName,
+            List<ParameterSpec> individualParams
+    ) {
+        var unionName = "Create%sRequest".formatted(polymorphic.simpleName());
+        var nestedClass = ClassName.get(polymorphic.packageName() + ".application", unionName,
+                "Create%sRequest".formatted(leafName));
+        var parentParam = polymorphic.parent()
+                .map(parent -> ParameterSpec.builder(String.class, parent.name()).build());
+        var bodyParamNames = individualParams.stream().map(ParameterSpec::name).collect(Collectors.joining(", "));
+        var createCallArgs = parentParam
+                .map(pp -> pp.name() + ", new $T(" + bodyParamNames + ")")
+                .orElse("new $T(" + bodyParamNames + ")");
+        var allParams = parentParam
+                .map(pp -> Stream.concat(Stream.of(pp), individualParams.stream()).toList())
+                .orElse(individualParams);
+        return MethodSpec.methodBuilder("create" + leafName)
+                .addModifiers(Modifier.PUBLIC)
+                .returns(String.class)
+                .addParameters(allParams)
+                .addException(Exception.class)
+                .addStatement("return create(" + createCallArgs + ")", nestedClass)
+                .build();
+    }
+
+    List<MethodSpec> createMethodsForPolymorphic(
+            PolymorphicAggregateManifest polymorphic,
+            ClassManifest subtype,
+            ExecutableElement constructor,
+            PrefabContext context
+    ) {
+        var leafName = leafName(subtype.simpleName());
+        var create = Objects.requireNonNull(constructor.getAnnotation(Create.class));
+        var parentName = polymorphic.parent().map(VariableManifest::name);
+        var individualParams = individualParamsExcludingParent(constructor, context, parentName);
+        var path = "/" + ControllerUtil.pathOf(polymorphic) + create.path();
+        if (constructor.getParameters().isEmpty()) {
+            return List.of(createNoBodyMethodForPolymorphic(polymorphic, leafName, create));
+        }
+        return List.of(createPolymorphicIndividualParamsMethod(polymorphic, leafName, individualParams, path, create));
+    }
+
+    private static MethodSpec createPolymorphicIndividualParamsMethod(
+            PolymorphicAggregateManifest polymorphic,
+            String leafName,
+            List<ParameterSpec> individualParams,
+            String path,
+            Create create
+    ) {
+        var bodyType = ClassName.get(polymorphic.packageName() + ".application",
+                "Create%sRequest".formatted(leafName));
+        var parentParam = polymorphic.parent()
+                .map(parent -> ParameterSpec.builder(String.class, parent.name()).build());
+        var bodyParamNames = individualParams.stream().map(ParameterSpec::name).collect(Collectors.joining(", "));
+        var allParams = parentParam
+                .map(pp -> Stream.concat(Stream.of(pp), individualParams.stream()).toList())
+                .orElse(individualParams);
+        var pathExpression = polymorphic.parent()
+                .map(parent -> CodeBlock.of("$S, $L", path, parent.name()))
+                .orElseGet(() -> CodeBlock.of("$S", path));
+        return MethodSpec.methodBuilder("create" + leafName)
+                .addModifiers(Modifier.PUBLIC)
+                .returns(String.class)
+                .addParameters(allParams)
+                .addException(Exception.class)
+                .addStatement("""
+                                var result = mockMvc.perform($T.$N($L)$L
+                                .contentType($T.APPLICATION_JSON)
+                                .content(jsonMapper.writeValueAsString(new $T($L))))
+                                .andExpect($T.status().isCreated())""",
+                        MOCK_MVC_REQUEST_BUILDERS,
+                        create.method().toLowerCase(),
+                        pathExpression,
+                        ControllerUtil.withMockUser(create.security()),
+                        MediaType.class,
+                        bodyType,
+                        bodyParamNames,
+                        MOCK_MVC_RESULT_MATCHERS)
+                .addStatement("return $T.idOf(result)", TEST_UTIL)
+                .build();
+    }
+
+    private List<ParameterSpec> individualParamsExcludingParent(
+            ExecutableElement constructor,
+            PrefabContext context,
+            Optional<String> parentName
+    ) {
         return constructor.getParameters().stream()
                 .map(param -> VariableManifest.of(param, context.processingEnvironment()))
+                .filter(p -> parentName.map(n -> !n.equals(p.name())).orElse(true))
                 .flatMap(param -> context.requestParameterBuilder().buildTestClientParameter(param).stream())
                 .toList();
     }
 
-    private MethodSpec createIndividualParamsMethod(ClassManifest manifest, List<ParameterSpec> individualParams) {
+    private MethodSpec createIndividualParamsMethod(
+            ClassManifest manifest,
+            List<ParameterSpec> allIndividualParams,
+            boolean hasParentPathParam,
+            List<VariableManifest> bodyParams
+    ) {
         var bodyType = ClassName.get(manifest.packageName() + ".application",
                 "Create%sRequest".formatted(manifest.simpleName()));
+        var bodyParamNames = bodyParams.stream()
+                .flatMap(p -> {
+                    var spec = allIndividualParams.stream()
+                            .filter(ps -> ps.name().equals(p.name()) || ps.name().equals(p.name() + "Id"))
+                            .findFirst();
+                    return spec.map(ParameterSpec::name).stream();
+                })
+                .collect(Collectors.joining(", "));
+        var serviceCallArgs = hasParentPathParam
+                ? allIndividualParams.getFirst().name() + ", new $T(" + bodyParamNames + ")"
+                : "new $T(" + bodyParamNames + ")";
         return MethodSpec.methodBuilder("create" + manifest.simpleName())
                 .addModifiers(Modifier.PUBLIC)
                 .returns(String.class)
-                .addParameters(individualParams)
+                .addParameters(allIndividualParams)
                 .addException(Exception.class)
-                .addStatement("return create$L(new $T($L))",
+                .addStatement("return create$L(" + serviceCallArgs + ")",
                         manifest.simpleName(),
-                        bodyType,
-                        individualParams.stream().map(ParameterSpec::name).collect(Collectors.joining(", ")))
+                        bodyType)
                 .build();
     }
 
-    private MethodSpec createRequestOverload(ClassManifest manifest, ExecutableElement constructor, PrefabContext context) {
+    private MethodSpec createRequestOverload(
+            ClassManifest manifest,
+            ExecutableElement constructor,
+            PrefabContext context,
+            Optional<ParameterSpec> parentPathParam
+    ) {
         var create = Objects.requireNonNull(constructor.getAnnotation(Create.class));
         var createRequest = uncapitalize(manifest.simpleName());
-        var pathVariables = manifest.parent()
-                .map(parent -> createRequest + "." + parentAccessorIn(parent, constructor, context))
-                .orElse("");
         var bodyType = ClassName.get(manifest.packageName() + ".application",
                 "Create%sRequest".formatted(manifest.simpleName()));
+        var parentName = CreateServiceWriter.parentFieldName(manifest);
         var requestParts = Stream.concat(constructor.getParameters().stream()
+                        .map(p -> VariableManifest.of(p, context.processingEnvironment()))
+                        .filter(p -> parentName.map(n -> !n.equals(p.name())).orElse(true))
                         .flatMap(parameter -> context.requestParameterBuilder()
-                                .buildMethodParameter(VariableManifest.of(parameter, context.processingEnvironment()))
+                                .buildMethodParameter(parameter)
                                 .stream()),
                 Stream.of(ParameterSpec.builder(bodyType, createRequest).build())
         ).toList();
         var method = MethodSpec.methodBuilder("create" + manifest.simpleName())
                 .addModifiers(Modifier.PUBLIC)
                 .returns(String.class)
-                .addParameter(bodyType, createRequest)
                 .addException(Exception.class);
+        parentPathParam.ifPresent(method::addParameter);
+        method.addParameter(bodyType, createRequest);
+        var pathVariables = parentPathParam.map(ParameterSpec::name).orElse("");
         if (requestParts.size() == 1) {
             return withRequestBody(manifest, method, create, pathVariables, createRequest);
         } else {
@@ -182,17 +348,36 @@ class CreateTestClientWriter {
                         pathVariables);
     }
 
-    private String parentAccessorIn(VariableManifest parentField, ExecutableElement constructor, PrefabContext context) {
-        var parentType = !parentField.type().parameters().isEmpty()
-                ? parentField.type().parameters().getFirst()
-                : null;
-        if (parentType == null) {
-            return parentField.name() + "()";
-        }
-        boolean parentIsAggregatParam = constructor.getParameters().stream()
-                .map(p -> VariableManifest.of(p, context.processingEnvironment()))
-                .anyMatch(p -> !p.type().annotationsOfType(Aggregate.class).isEmpty()
-                        && p.type().equals(parentType));
-        return parentIsAggregatParam ? parentField.name() + "Id()" : parentField.name() + "()";
+
+    private static MethodSpec createNoBodyMethodForPolymorphic(
+            PolymorphicAggregateManifest polymorphic,
+            String leafName,
+            Create create
+    ) {
+        var path = "/" + ControllerUtil.pathOf(polymorphic) + create.path();
+        var method = MethodSpec.methodBuilder("create" + leafName)
+                .addModifiers(Modifier.PUBLIC)
+                .returns(String.class)
+                .addException(Exception.class);
+        polymorphic.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
+        var pathExpression = polymorphic.parent()
+                .map(parent -> CodeBlock.of("$S, $L", path, parent.name()))
+                .orElseGet(() -> CodeBlock.of("$S", path));
+        return method.addStatement("""
+                                var result = mockMvc.perform($T.$N($L)$L)
+                                        .andExpect($T.status().isCreated())""",
+                        MOCK_MVC_REQUEST_BUILDERS,
+                        create.method().toLowerCase(),
+                        pathExpression,
+                        ControllerUtil.withMockUser(create.security()),
+                        MOCK_MVC_RESULT_MATCHERS)
+                .addStatement("return $T.idOf(result)", TEST_UTIL)
+                .build();
+    }
+
+
+    private static String leafName(String simpleName) {
+        var dotIndex = simpleName.lastIndexOf('.');
+        return dotIndex >= 0 ? simpleName.substring(dotIndex + 1) : simpleName;
     }
 }

@@ -56,6 +56,13 @@ public class GetListPlugin implements PrefabPlugin {
                 .ifPresent(builder::addMethod);
     }
 
+    @Override
+    public void writePolymorphicTestClient(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
+        manifest.annotationsOfType(GetList.class).stream().findFirst()
+                .map(ignored -> testClientWriter.getListMethodForPolymorphic(manifest))
+                .ifPresent(builder::addMethod);
+    }
+
     private Optional<GetList> getListAnnotation(ClassManifest manifest) {
         return manifest.annotationsOfType(GetList.class)
                 .stream()

@@ -1,5 +1,6 @@
 package rest.polymorphic.application;
 
+import jakarta.validation.Valid;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,9 +21,28 @@ public class ShapeService {
         this.shapeRepository = shapeRepository;
     }
 
+    public String createCircle(@Valid CreateShapeRequest.CreateCircleRequest request) {
+        log.debug("Creating new {}", Shape.Circle.class.getSimpleName());
+        var aggregate = new Shape.Circle(request.radius());
+        shapeRepository.save(aggregate);
+        return aggregate.id().id();
+    }
+
+    public String createRectangle(@Valid CreateShapeRequest.CreateRectangleRequest request) {
+        log.debug("Creating new {}", Shape.Rectangle.class.getSimpleName());
+        var aggregate = new Shape.Rectangle(request.width(), request.height());
+        shapeRepository.save(aggregate);
+        return aggregate.id().id();
+    }
+
     public Optional<Shape> getById(String id) {
         log.debug("Getting {} by id: {}", Shape.class.getSimpleName(), id);
         return shapeRepository.findById(id);
+    }
+
+    public void delete(String id) {
+        log.debug("Deleting {} with id: {}", Shape.class.getSimpleName(), id);
+        shapeRepository.deleteById(id);
     }
 
     public Page<Shape> getList(Pageable pageable) {

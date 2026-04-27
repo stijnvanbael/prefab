@@ -289,13 +289,18 @@ class GetListServiceWriter {
     MethodSpec getListMethod(PolymorphicAggregateManifest manifest) {
         TypeName typeName = manifest.type().asTypeName();
         var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
-        return MethodSpec.methodBuilder("getList")
+        var method = MethodSpec.methodBuilder("getList")
                 .addModifiers(Modifier.PUBLIC)
-                .addParameter(Pageable.class, "pageable")
-                .returns(ParameterizedTypeName.get(ClassName.get(Page.class), typeName))
-                .addStatement("log.debug($S)", "Getting " + English.plural(manifest.simpleName()))
-                .addStatement("return $N.findAll(pageable)", repositoryName)
-                .build();
+                .returns(ParameterizedTypeName.get(ClassName.get(Page.class), typeName));
+        manifest.parent().ifPresent(parent ->
+                method.addParameter(String.class, uncapitalize(parent.name()) + "Id"));
+        method.addParameter(Pageable.class, "pageable");
+        method.addStatement("log.debug($S)", "Getting " + English.plural(manifest.simpleName()));
+        manifest.parent().ifPresentOrElse(
+                parent -> method.addStatement("return $N.findBy$N($NId, pageable)",
+                        repositoryName, capitalize(parent.name()), uncapitalize(parent.name())),
+                () -> method.addStatement("return $N.findAll(pageable)", repositoryName));
+        return method.build();
     }
 }
 

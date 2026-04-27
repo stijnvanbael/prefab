@@ -1,7 +1,6 @@
 package be.appify.prefab.processor.rest;
 
 import be.appify.prefab.processor.PrefabProcessor;
-import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.event.avro.ProcessorTestUtil.sourceOf;
@@ -11,7 +10,7 @@ import static com.google.testing.compile.Compiler.javac;
 class RestWriterTest {
 
     @Test
-    void requestValidationAnnotationsAreGenerated() throws IOException {
+    void requestValidationAnnotationsAreGenerated() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("rest/validation/source/Product.java"));
@@ -28,7 +27,7 @@ class RestWriterTest {
     }
 
     @Test
-    void nonStringValueTypeParametersUseInnerFieldType() throws IOException {
+    void nonStringValueTypeParametersUseInnerFieldType() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("rest/valuetype/source/Product.java"));
@@ -45,7 +44,7 @@ class RestWriterTest {
     }
 
     @Test
-    void aggregateWithCreateAndUpdateGeneratesRequestRecords() throws IOException {
+    void aggregateWithCreateAndUpdateGeneratesRequestRecords() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("rest/testclient/source/Person.java"));
@@ -60,12 +59,12 @@ class RestWriterTest {
     }
 
     @Test
-    void aggregateReferencingGeneratedEventTypeCompiles() throws IOException {
+    void aggregateReferencingGeneratedEventTypeCompiles() {
         // ...existing code...
     }
 
     @Test
-    void createRequestUsesIdFieldForAggregateTypedParameter() throws IOException {
+    void createRequestUsesIdFieldForAggregateTypedParameter() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -80,7 +79,7 @@ class RestWriterTest {
     }
 
     @Test
-    void createServiceResolvesAggregateParameterFromRepository() throws IOException {
+    void createServiceResolvesAggregateParameterFromRepository() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -95,7 +94,7 @@ class RestWriterTest {
     }
 
     @Test
-    void updateRequestExcludesAggregateTypedParameter() throws IOException {
+    void updateRequestIncludesIdForAggregateTypedParameter() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -103,15 +102,14 @@ class RestWriterTest {
                         sourceOf("rest/aggregate/source/Order.java"));
 
         assertThat(compilation).succeeded();
-        var hasAssignProductRequest = compilation.generatedSourceFiles().stream()
-                .anyMatch(f -> f.getName().contains("OrderAssignProductRequest"));
-        if (hasAssignProductRequest) {
-            throw new AssertionError("Expected no OrderAssignProductRequest to be generated");
-        }
+        assertThat(compilation)
+                .generatedSourceFile("rest.aggregate.application.OrderAssignProductRequest")
+                .contentsAsUtf8String()
+                .contains("String productId");
     }
 
     @Test
-    void updateServicePreFetchesAggregateParameterViaReferenceField() throws IOException {
+    void updateServiceFetchesAggregateParameterByIdFromRequest() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -122,11 +120,11 @@ class RestWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.aggregate.application.OrderService")
                 .contentsAsUtf8String()
-                .contains("productRepository.findById(aggregate.product().id()).orElseThrow()");
+                .contains("productRepository.findById(request.productId()).orElseThrow()");
     }
 
     @Test
-    void serviceInjectsRepositoryForAggregateTypedParameter() throws IOException {
+    void serviceInjectsRepositoryForAggregateTypedParameter() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -145,7 +143,7 @@ class RestWriterTest {
     }
 
     @Test
-    void repositoryNameIsDerivedFromTypeNotParameterName() throws IOException {
+    void repositoryNameIsDerivedFromTypeNotParameterName() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -160,7 +158,7 @@ class RestWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.aggregate.renamed.application.ShipmentService")
                 .contentsAsUtf8String()
-                .contains("itemRepository.findById(aggregate.assignedItem().id()).orElseThrow()");
+                .contains("itemRepository.findById(request.cargoId()).orElseThrow()");
         assertThat(compilation)
                 .generatedSourceFile("rest.aggregate.renamed.application.ShipmentService")
                 .contentsAsUtf8String()
@@ -168,7 +166,7 @@ class RestWriterTest {
     }
 
     @Test
-    void createRequestMotherUsesIdFieldForAggregateTypedParameter() throws IOException {
+    void createRequestMotherUsesIdFieldForAggregateTypedParameter() {
         // Verifies that the CreateOrderRequest record (compilation output) has String productId,
         // which in turn means the generated ObjectMother also uses String productId.
         var compilation = javac()
@@ -185,7 +183,7 @@ class RestWriterTest {
     }
 
     @Test
-    void updateRequestMotherExcludesAggregateTypedParameter() throws IOException {
+    void updateRequestIncludesIdFieldForAggregateTypedParameterInMother() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -193,17 +191,16 @@ class RestWriterTest {
                         sourceOf("rest/aggregate/source/Order.java"));
 
         assertThat(compilation).succeeded();
-        var hasAssignProductRequestMother = compilation.generatedSourceFiles().stream()
-                .anyMatch(f -> f.getName().contains("OrderAssignProductRequestMother"));
-        if (hasAssignProductRequestMother) {
-            throw new AssertionError("Expected no OrderAssignProductRequestMother to be generated");
-        }
+        assertThat(compilation)
+                .generatedSourceFile("rest.aggregate.application.OrderAssignProductRequest")
+                .contentsAsUtf8String()
+                .contains("String productId");
     }
 
     @Test
-    void nestedAggregateCreateRequestUsesIdForAggregateParent() throws IOException {
-        // Verifies that CreateOrderLineRequest uses String orderId (not Order order),
-        // which ensures the test client's path variable accessor is orderId() not order().
+    void nestedAggregateCreateRequestExcludesParentIdFromBody() {
+        // Verifies that CreateOrderLineRequest does NOT contain orderId (parent comes from path variable),
+        // but DOES contain productId (non-parent aggregate referenced in body).
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -215,7 +212,7 @@ class RestWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.aggregate.application.CreateOrderLineRequest")
                 .contentsAsUtf8String()
-                .contains("String orderId");
+                .doesNotContain("String orderId");
         assertThat(compilation)
                 .generatedSourceFile("rest.aggregate.application.CreateOrderLineRequest")
                 .contentsAsUtf8String()

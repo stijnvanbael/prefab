@@ -85,6 +85,117 @@ class PolymorphicRestWriterTest {
                 .isEqualTo(contentsOf("rest/polymorphic/expected/ShapeService.java"));
     }
 
+    @Test
+    void polymorphicAggregateGeneratesUnionRequestType() throws IOException {
+        var source = sourceOf("rest/polymorphic/source/Shape.java");
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(source);
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.polymorphic.application.CreateShapeRequest")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("rest/polymorphic/expected/CreateShapeRequest.java"));
+    }
+
+    @Test
+    void polymorphicAggregateControllerHasDispatchMethod() throws IOException {
+        var source = sourceOf("rest/polymorphic/source/Shape.java");
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(source);
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.polymorphic.infrastructure.http.ShapeController")
+                .contentsAsUtf8String()
+                .contains("ResponseEntity<Void> create(");
+    }
+
+    @Test
+    void polymorphicAggregateGeneratesTestClient() throws IOException {
+        var source = sourceOf("rest/polymorphic/source/Shape.java");
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(source);
+        assertThat(compilation).succeeded();
+    }
+
+    @Test
+    void polymorphicAggregateWithParentCompilationSucceeds() throws IOException {
+        var canvasSource = sourceOf("rest/polymorphicwithparent/source/Canvas.java");
+        var drawingSource = sourceOf("rest/polymorphicwithparent/source/Drawing.java");
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(canvasSource, drawingSource);
+        assertThat(compilation).succeeded();
+    }
+
+    @Test
+    void polymorphicAggregateWithParentGeneratesControllerWithParentPathVariable() throws IOException {
+        var canvasSource = sourceOf("rest/polymorphicwithparent/source/Canvas.java");
+        var drawingSource = sourceOf("rest/polymorphicwithparent/source/Drawing.java");
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(canvasSource, drawingSource);
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.polymorphicwithparent.infrastructure.http.DrawingController")
+                .contentsAsUtf8String()
+                .contains("canvases/{canvasId}/drawings");
+    }
+
+    @Test
+    void polymorphicAggregateWithInterfaceParentAnnotationGeneratesCorrectPath() throws IOException {
+        var canvasSource = sourceOf("rest/polymorphicwithparent/source/Canvas.java");
+        var drawingSource = sourceOf("rest/polymorphicwithparent/source/Drawing.java");
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(canvasSource, drawingSource);
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.polymorphicwithparent.application.DrawingService")
+                .contentsAsUtf8String()
+                .contains("DrawingRepository");
+    }
+
+    @Test
+    void polymorphicAggregateWithParentGeneratesTestClientWithParentParameter() throws IOException {
+        var canvasSource = sourceOf("rest/polymorphicwithparent/source/Canvas.java");
+        var drawingSource = sourceOf("rest/polymorphicwithparent/source/Drawing.java");
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(canvasSource, drawingSource);
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.polymorphicwithparent.infrastructure.http.DrawingController")
+                .contentsAsUtf8String()
+                .contains("String canvasId");
+    }
+
+    @Test
+    void polymorphicAggregateWithParentAndUpdateCompilationSucceeds() throws IOException {
+        var canvasSource = sourceOf("rest/polymorphicwithparent/source/Canvas.java");
+        var drawingSource = sourceOf("rest/polymorphicwithparent/source/Drawing.java");
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(canvasSource, drawingSource);
+        assertThat(compilation).succeeded();
+    }
+
+    @Test
+    void polymorphicAggregateWithParentUpdateRequestDoesNotContainParentField() throws IOException {
+        var canvasSource = sourceOf("rest/polymorphicwithparent/source/Canvas.java");
+        var drawingSource = sourceOf("rest/polymorphicwithparent/source/Drawing.java");
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(canvasSource, drawingSource);
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.polymorphicwithparent.application.CircleResizeRequest")
+                .contentsAsUtf8String()
+                .doesNotContain("canvas");
+    }
+
     private static String contentsOf(String fileName) throws IOException {
         return new ClassPathResource(fileName).getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
     }

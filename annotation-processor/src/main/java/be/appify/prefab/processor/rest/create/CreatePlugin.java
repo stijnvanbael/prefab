@@ -3,14 +3,20 @@ package be.appify.prefab.processor.rest.create;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.JavaFileWriter;
+import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
+import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.stream.Collectors;
 import javax.lang.model.element.ExecutableElement;
 
 /**
@@ -61,6 +67,113 @@ public class CreatePlugin implements PrefabPlugin {
                 }
             }));
         }
+    }
+
+    @Override
+    public void writeAdditionalFiles(List<ClassManifest> manifests, List<PolymorphicAggregateManifest> polymorphicManifests) {
+        writeAdditionalFiles(manifests);
+        if (!polymorphicManifests.isEmpty()) {
+            var fileWriter = new JavaFileWriter(context.processingEnvironment(), "application");
+            polymorphicManifests.forEach(polymorphic -> writePolymorphicAdditionalFiles(fileWriter, polymorphic));
+        }
+    }
+
+    private void writePolymorphicAdditionalFiles(JavaFileWriter fileWriter, PolymorphicAggregateManifest polymorphic) {
+        var grouped = groupSubtypesByPath(polymorphic);
+        grouped.forEach((pathKey, entries) -> {
+            if (isUnionGroup(entries)) {
+                requestRecordWriter.writeUnionRequestInterface(fileWriter, polymorphic, entries, context);
+            } else {
+                entries.forEach(e -> {
+                    if (!e.getValue().getParameters().isEmpty()) {
+                        requestRecordWriter.writeRequestRecordForPolymorphic(
+                                fileWriter, polymorphic, e.getKey(), e.getValue(), context);
+                    }
+                });
+            }
+        });
+    }
+
+    @Override
+    public Set<TypeName> getPolymorphicServiceDependencies(PolymorphicAggregateManifest manifest) {
+        return manifest.parent()
+                .filter(parent -> !parent.type().parameters().isEmpty())
+                .flatMap(parent -> manifest.subtypes().stream()
+                        .flatMap(subtype -> createConstructorOf(subtype).stream())
+                        .flatMap(ctor -> ctor.getParameters().stream())
+                        .filter(p -> parent.name().equals(p.getSimpleName().toString()))
+                        .filter(p -> ((javax.lang.model.type.DeclaredType) p.asType()).getTypeArguments().isEmpty())
+                        .findFirst()
+                        .map(p -> {
+                            var parentType = parent.type().parameters().getFirst();
+                            return (TypeName) ClassName.get(parentType.packageName() + ".application",
+                                    parentType.simpleName() + "Repository");
+                        }))
+                .map(Set::of)
+                .orElse(Set.of());
+    }
+
+    @Override
+    public void writePolymorphicController(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
+        var grouped = groupSubtypesByPath(manifest);
+        grouped.forEach((pathKey, entries) -> {
+            if (isUnionGroup(entries)) {
+                builder.addMethod(controllerWriter.createDispatchMethodForPolymorphic(manifest, entries, context));
+            } else {
+                entries.forEach(e -> builder.addMethod(
+                        controllerWriter.createMethodForPolymorphic(manifest, e.getKey(), e.getValue(), context)));
+            }
+        });
+    }
+
+    @Override
+    public void writePolymorphicService(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
+        var grouped = groupSubtypesByPath(manifest);
+        grouped.forEach((pathKey, entries) -> {
+            if (isUnionGroup(entries)) {
+                entries.forEach(e -> createConstructorOf(e.getKey()).ifPresent(ctor ->
+                        builder.addMethod(serviceWriter.createMethodForPolymorphicUnion(manifest, e.getKey(), ctor, context))));
+            } else {
+                entries.forEach(e -> createConstructorOf(e.getKey()).ifPresent(ctor ->
+                        builder.addMethod(serviceWriter.createMethodForPolymorphic(manifest, e.getKey(), ctor, context))));
+            }
+        });
+    }
+
+    @Override
+    public void writePolymorphicTestClient(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
+        var grouped = groupSubtypesByPath(manifest);
+        grouped.forEach((pathKey, entries) -> {
+            if (isUnionGroup(entries)) {
+                var create = entries.getFirst().getValue().getAnnotation(Create.class);
+                builder.addMethod(testClientWriter.baseCreateMethodForPolymorphic(manifest, create));
+                entries.forEach(e -> testClientWriter.createMethodsForPolymorphicUnion(manifest, e, context)
+                        .forEach(builder::addMethod));
+            } else {
+                entries.forEach(e -> testClientWriter.createMethodsForPolymorphic(manifest, e.getKey(), e.getValue(), context)
+                        .forEach(builder::addMethod));
+            }
+        });
+    }
+
+    private Map<String, List<Map.Entry<ClassManifest, ExecutableElement>>> groupSubtypesByPath(
+            PolymorphicAggregateManifest manifest
+    ) {
+        return manifest.subtypes().stream()
+                .flatMap(subtype -> createConstructorOf(subtype)
+                        .map(c -> Map.entry(subtype, c))
+                        .stream())
+                .collect(Collectors.groupingBy(
+                        e -> {
+                            var create = e.getValue().getAnnotation(Create.class);
+                            return create.method() + "|" + create.path();
+                        },
+                        LinkedHashMap::new,
+                        Collectors.toList()));
+    }
+
+    private static boolean isUnionGroup(List<Map.Entry<ClassManifest, ExecutableElement>> entries) {
+        return entries.size() >= 2 && entries.stream().anyMatch(e -> !e.getValue().getParameters().isEmpty());
     }
 
     private Optional<ExecutableElement> createConstructorOf(ClassManifest manifest) {

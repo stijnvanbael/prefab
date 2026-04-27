@@ -10,6 +10,7 @@ record UpdateManifest(
         List<VariableManifest> parameters,
         List<VariableManifest> requestParameters,
         List<VariableManifest> aggregateParameters,
+        List<VariableManifest> parentEntityParameters,
         boolean stateful,
         String method,
         String path,

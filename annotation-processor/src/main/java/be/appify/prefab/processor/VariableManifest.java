@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.VariableElement;
 import org.springframework.data.annotation.Id;
 
@@ -53,6 +54,32 @@ public class VariableManifest {
             return new VariableManifest(variableElement, processingEnvironment);
         }
         return manifestCache.computeIfAbsent(variableElement, variable -> new VariableManifest(variable, processingEnvironment));
+    }
+
+    /**
+     * Constructs a VariableManifest from a method element, using the method's return type as the variable type
+     * and the method's simple name as the variable name. Intended for sealed interface abstract methods annotated
+     * with {@code @Parent}.
+     *
+     * @param method
+     *         the method element to construct the manifest from
+     * @param processingEnvironment
+     *         the processing environment
+     * @return a VariableManifest representing the given method
+     */
+    @SuppressWarnings("unchecked")
+    public static VariableManifest ofMethod(ExecutableElement method, ProcessingEnvironment processingEnvironment) {
+        var type = TypeManifest.of(method.getReturnType(), processingEnvironment);
+        var name = method.getSimpleName().toString();
+        var annotations = method.getAnnotationMirrors().stream()
+                .map(mirror -> new AnnotationManifest<>(
+                        mirror,
+                        processingEnvironment,
+                        (Annotation) method.getAnnotation((Class<? extends Annotation>) TypeManifest.of(
+                                mirror.getAnnotationType().asElement().asType(),
+                                processingEnvironment).asClass())))
+                .toList();
+        return new VariableManifest(null, type, name, annotations, processingEnvironment);
     }
 
     private VariableManifest(
@@ -165,6 +192,28 @@ public class VariableManifest {
      */
     public VariableManifest withName(String newName) {
         return new VariableManifest(element, type, newName, annotations, processingEnvironment);
+    }
+
+    /**
+     * Creates a new VariableManifest with additional annotations merged in. Annotations already present on this
+     * variable (by type) are not replaced; only genuinely new annotation types from {@code extra} are added.
+     *
+     * @param extra
+     *         additional annotations to merge
+     * @return a VariableManifest with the merged annotation list, or {@code this} if nothing new was added
+     */
+    public VariableManifest withAdditionalAnnotations(List<? extends AnnotationManifest<?>> extra) {
+        var existingTypes = annotations.stream()
+                .map(a -> a.type().simpleName())
+                .collect(java.util.stream.Collectors.toSet());
+        var newAnnotations = extra.stream()
+                .filter(a -> !existingTypes.contains(a.type().simpleName()))
+                .toList();
+        if (newAnnotations.isEmpty()) {
+            return this;
+        }
+        var merged = java.util.stream.Stream.concat(annotations.stream(), newAnnotations.stream()).toList();
+        return new VariableManifest(element, type, name, merged, processingEnvironment);
     }
 
     /**

@@ -6,6 +6,7 @@ import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
+import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
@@ -46,7 +47,7 @@ public class AggregateParameterPlugin implements PrefabPlugin {
         if (!isAggregateTyped(parameter)) {
             return Optional.empty();
         }
-        var repositoryName = uncapitalize(parameter.type().simpleName()) + "Repository";
+        var repositoryName = uncapitalize(topLevelName(parameter.type().simpleName())) + "Repository";
         return Optional.of(CodeBlock.of("$N.findById(request.$NId()).orElseThrow()",
                 repositoryName, parameter.name()));
     }
@@ -54,6 +55,14 @@ public class AggregateParameterPlugin implements PrefabPlugin {
     @Override
     public Set<TypeName> getServiceDependencies(ClassManifest manifest) {
         return aggregateTypedParamsOf(manifest)
+                .map(this::repositoryTypeFor)
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public Set<TypeName> getPolymorphicServiceDependencies(PolymorphicAggregateManifest manifest) {
+        return manifest.subtypes().stream()
+                .flatMap(subtype -> aggregateTypedParamsOf(subtype))
                 .map(this::repositoryTypeFor)
                 .collect(Collectors.toSet());
     }
@@ -70,7 +79,12 @@ public class AggregateParameterPlugin implements PrefabPlugin {
     private TypeName repositoryTypeFor(VariableManifest parameter) {
         var paramPackage = parameter.type().packageName();
         return ClassName.get(paramPackage + ".application",
-                parameter.type().simpleName() + "Repository");
+                topLevelName(parameter.type().simpleName()) + "Repository");
+    }
+
+    private static String topLevelName(String simpleName) {
+        var dotIndex = simpleName.indexOf('.');
+        return dotIndex >= 0 ? simpleName.substring(0, dotIndex) : simpleName;
     }
 
     boolean isAggregateTyped(VariableManifest parameter) {

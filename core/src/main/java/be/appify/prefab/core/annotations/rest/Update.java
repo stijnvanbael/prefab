@@ -17,11 +17,11 @@ public @interface Update {
     String method() default HttpMethod.PUT;
 
     /**
-     * The path to use for this endpoint. Default is "/{id}".
+     * The path suffix appended after "/{id}" for this endpoint. Default is "" (empty), resulting in "/{id}".
      *
-     * @return The path to use for this endpoint.
+     * @return The path suffix to append after "/{id}".
      */
-    String path() default "/{id}";
+    String path() default "";
 
     /**
      * Security settings for this endpoint. Default is secured with no required authorities.

@@ -53,7 +53,7 @@ public record Product(
     }
 
     /** Returns an updated product with the new name and description. */
-    @Update(path = "")
+    @Update
     public Product update(
             @NotBlank String name,
             @NotBlank String description

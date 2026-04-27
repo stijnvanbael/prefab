@@ -79,7 +79,7 @@ class HttpWriter {
                 .addModifiers(PUBLIC)
                 .addAnnotation(RestController.class)
                 .addAnnotation(AnnotationSpec.builder(RequestMapping.class)
-                        .addMember("path", "$S", polymorphicPathOf(manifest))
+                        .addMember("path", "$S", ControllerUtil.pathOf(manifest))
                         .build());
         ControllerUtil.tagAnnotation(manifest.simpleName()).ifPresent(type::addAnnotation);
         type.addField(serviceType, "service", PRIVATE, FINAL)

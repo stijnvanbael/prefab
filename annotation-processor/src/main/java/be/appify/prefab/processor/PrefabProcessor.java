@@ -115,6 +115,7 @@ public class PrefabProcessor extends AbstractProcessor {
             new PolymorphicJdbcConverterWriter(context).writeConverters(manifest);
             new HttpWriter(context).writePolymorphicHttpLayer(manifest);
             new ApplicationWriter(context).writePolymorphicApplicationLayer(manifest);
+            new TestClientWriter(context).writePolymorphicTestSupport(manifest);
         });
     }
 

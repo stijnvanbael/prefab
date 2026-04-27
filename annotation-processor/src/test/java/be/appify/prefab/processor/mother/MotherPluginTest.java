@@ -1,17 +1,17 @@
 package be.appify.prefab.processor.mother;
 
 import be.appify.prefab.processor.PrefabProcessor;
-import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.event.avro.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MotherPluginTest {
 
     @Test
-    void compilationSucceedsWithExampleAnnotations() throws IOException {
+    void compilationSucceedsWithExampleAnnotations() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("mother/person/source/Person.java"));
@@ -20,7 +20,7 @@ class MotherPluginTest {
     }
 
     @Test
-    void requestRecordContainsSchemaExampleAnnotationFromExampleOnConstructorParam() throws IOException {
+    void requestRecordContainsSchemaExampleAnnotationFromExampleOnConstructorParam() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("mother/person/source/Person.java"));
@@ -37,7 +37,7 @@ class MotherPluginTest {
     }
 
     @Test
-    void updateRequestRecordContainsSchemaExampleAnnotation() throws IOException {
+    void updateRequestRecordContainsSchemaExampleAnnotation() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("mother/person/source/Person.java"));
@@ -50,7 +50,7 @@ class MotherPluginTest {
     }
 
     @Test
-    void responseRecordContainsSchemaExampleAnnotationFromAggregateField() throws IOException {
+    void responseRecordContainsSchemaExampleAnnotationFromAggregateField() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("mother/person/source/Person.java"));
@@ -67,7 +67,7 @@ class MotherPluginTest {
     }
 
     @Test
-    void requestRecordContainsSchemaDescriptionAnnotationFromDocOnConstructorParam() throws IOException {
+    void requestRecordContainsSchemaDescriptionAnnotationFromDocOnConstructorParam() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("mother/person/source/Person.java"));
@@ -80,7 +80,7 @@ class MotherPluginTest {
     }
 
     @Test
-    void updateRequestRecordContainsSchemaDescriptionAnnotation() throws IOException {
+    void updateRequestRecordContainsSchemaDescriptionAnnotation() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("mother/person/source/Person.java"));
@@ -93,7 +93,7 @@ class MotherPluginTest {
     }
 
     @Test
-    void responseRecordContainsSchemaDescriptionAnnotationFromAggregateField() throws IOException {
+    void responseRecordContainsSchemaDescriptionAnnotationFromAggregateField() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("mother/person/source/Person.java"));
@@ -106,7 +106,7 @@ class MotherPluginTest {
     }
 
     @Test
-    void invalidExampleOnNumericFieldProducesCompilerError() throws IOException {
+    void invalidExampleOnNumericFieldProducesCompilerError() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("mother/invalideexample/source/BadExample.java"));
@@ -116,7 +116,7 @@ class MotherPluginTest {
     }
 
     @Test
-    void compilationSucceedsForEventTypes() throws IOException {
+    void compilationSucceedsForEventTypes() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("mother/events/source/PersonEvent.java"));
@@ -125,7 +125,7 @@ class MotherPluginTest {
     }
 
     @Test
-    void motherGeneratedForMultiFieldRecordNestedInsideSingleValueType() throws IOException {
+    void motherGeneratedForMultiFieldRecordNestedInsideSingleValueType() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("mother/nestedinwrapper/source/OrderEvent.java"));
@@ -134,12 +134,27 @@ class MotherPluginTest {
     }
 
     @Test
-    void motherUsesMockMultipartFileForBinaryField() throws IOException {
+    void motherUsesMockMultipartFileForBinaryField() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("mother/binary/source/Document.java"));
 
         assertThat(compilation).succeeded();
+    }
+
+    @Test
+    void noMotherGeneratedForUpdateWithOnlyParentParameter() {
+        var organisationSource = sourceOf("mother/childwithparent/source/Organisation.java");
+        var memberSource = sourceOf("mother/childwithparent/source/Member.java");
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(organisationSource, memberSource);
+
+        assertThat(compilation).succeeded();
+        var generatedNames = compilation.generatedSourceFiles().stream()
+                .map(javax.tools.JavaFileObject::getName)
+                .toList();
+        assertTrue(generatedNames.stream().noneMatch(name -> name.contains("MemberMoveRequest")));
     }
 }
 

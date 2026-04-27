@@ -49,6 +49,12 @@ public class GetByIdPlugin implements PrefabPlugin {
                 builder.addMethod(testClientWriter.getByIdMethod(manifest)));
     }
 
+    @Override
+    public void writePolymorphicTestClient(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
+        manifest.annotationsOfType(GetById.class).stream().findFirst().ifPresent(ignored ->
+                builder.addMethod(testClientWriter.getByIdMethodForPolymorphic(manifest)));
+    }
+
     private Optional<GetById> getByIdAnnotation(ClassManifest manifest) {
         return manifest.annotationsOfType(GetById.class)
                 .stream()

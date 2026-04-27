@@ -1,7 +1,7 @@
 package be.appify.prefab.processor.rest.update;
 
-import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.audit.AuditFields;
 import com.palantir.javapoet.ClassName;
@@ -32,7 +32,7 @@ class UpdateServiceWriter {
         method.addStatement("log.debug($S, $T.class.getSimpleName(), id)", "Updating {} with id: {}",
                 manifest.className());
         var domainCallBlock = buildDomainCallBlock(update);
-        var aggregateFunction = buildAggregateFunction(manifest, update, domainCallBlock);
+        var aggregateFunction = buildAggregateFunction(update, domainCallBlock);
         var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
         var tenantField = manifest.tenantIdField();
         var hasAudit = AuditFields.hasAuditFields(manifest);
@@ -48,22 +48,54 @@ class UpdateServiceWriter {
         return method.build();
     }
 
-    private CodeBlock buildAggregateFunction(ClassManifest manifest, UpdateManifest update,
-            CodeBlock domainCallBlock) {
+    private CodeBlock buildAggregateFunction(UpdateManifest update, CodeBlock domainCallBlock) {
+        var requestParamNames = update.requestParameters().stream()
+                .map(VariableManifest::name)
+                .collect(java.util.stream.Collectors.toSet());
         var body = CodeBlock.builder();
         update.aggregateParameters().forEach(param -> {
-            var refField = findReferenceField(manifest, param);
-            var repositoryName = uncapitalize(param.type().simpleName()) + "Repository";
-            body.add("var $N = $N.findById(aggregate.$N().id()).orElseThrow();\n",
-                    param.name(), repositoryName, refField.name());
+            var repositoryName = uncapitalize(topLevelName(param.type().simpleName())) + "Repository";
+            if (requestParamNames.contains(param.name())) {
+                body.add("var $N = $N.findById(request.$NId()).orElseThrow();\n",
+                        param.name(), repositoryName, param.name());
+            } else {
+                body.add("var $N = $N.findById(aggregate.$N().id()).orElseThrow();\n",
+                        param.name(), repositoryName, param.name());
+            }
+        });
+        update.parentEntityParameters().forEach(param -> {
+            var repositoryName = uncapitalize(topLevelName(param.type().simpleName())) + "Repository";
+            body.add(parentEntityLookup(param, repositoryName));
         });
         body.add(domainCallBlock);
         return body.build();
     }
 
+    private CodeBlock buildParentEntityLookups(UpdateManifest update) {
+        var body = CodeBlock.builder();
+        update.parentEntityParameters().forEach(param -> {
+            var repositoryName = uncapitalize(topLevelName(param.type().simpleName())) + "Repository";
+            body.add(parentEntityLookup(param, repositoryName));
+        });
+        return body.build();
+    }
+
+    private static CodeBlock parentEntityLookup(VariableManifest param, String repositoryName) {
+        return CodeBlock.of("var $N = ($T) $N.findById(aggregate.$N().id()).orElseThrow();\n",
+                param.name(), param.type().asTypeName(), repositoryName, param.name());
+    }
+
     private CodeBlock buildDomainCallBlock(UpdateManifest update) {
+        var requestParamNames = update.requestParameters().stream()
+                .map(VariableManifest::name)
+                .collect(java.util.stream.Collectors.toSet());
+        var aggregateParamNames = java.util.stream.Stream.concat(
+                        update.aggregateParameters().stream(),
+                        update.parentEntityParameters().stream())
+                .map(VariableManifest::name)
+                .collect(java.util.stream.Collectors.toSet());
         var args = update.parameters().stream()
-                .map(this::resolveParam)
+                .map(p -> resolveParam(p, requestParamNames, aggregateParamNames))
                 .collect(CodeBlock.joining(", "));
         if (update.stateful()) {
             return CodeBlock.of("aggregate.$N($L);\n", update.operationName(), args);
@@ -71,16 +103,6 @@ class UpdateServiceWriter {
         return CodeBlock.of("aggregate = aggregate.$N($L);\n", update.operationName(), args);
     }
 
-    private VariableManifest findReferenceField(ClassManifest manifest, VariableManifest aggregateParam) {
-        return manifest.fields().stream()
-                .filter(field -> field.type().is(Reference.class)
-                        && !field.type().parameters().isEmpty()
-                        && field.type().parameters().getFirst().equals(aggregateParam.type()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(
-                        "No Reference<%s> field found on %s for @Update parameter '%s'".formatted(
-                                aggregateParam.type().simpleName(), manifest.simpleName(), aggregateParam.name())));
-    }
 
     private static void updateWithTenantAndAudit(
             ClassManifest manifest,
@@ -160,10 +182,16 @@ class UpdateServiceWriter {
                 repositoryName);
     }
 
-    private CodeBlock resolveParam(VariableManifest parameter) {
-        if (!parameter.type().annotationsOfType(
-                be.appify.prefab.core.annotations.Aggregate.class).isEmpty()) {
+    private CodeBlock resolveParam(
+            VariableManifest parameter,
+            java.util.Set<String> requestParamNames,
+            java.util.Set<String> aggregateParamNames
+    ) {
+        if (aggregateParamNames.contains(parameter.name())) {
             return CodeBlock.of("$N", parameter.name());
+        }
+        if (!requestParamNames.contains(parameter.name())) {
+            return CodeBlock.of("aggregate.$N()", parameter.name());
         }
         return fromRequest(parameter);
     }
@@ -175,5 +203,57 @@ class UpdateServiceWriter {
         }
         return CodeBlock.of("request.$N()", parameter.name());
     }
-}
 
+    MethodSpec updateMethodForPolymorphic(
+            PolymorphicAggregateManifest polymorphic,
+            ClassManifest subtype,
+            UpdateManifest update
+    ) {
+        var leafName = leafName(subtype.simpleName());
+        var operationName = uncapitalize(leafName + capitalize(update.operationName()));
+        var repositoryName = uncapitalize(polymorphic.simpleName()) + "Repository";
+        var method = MethodSpec.methodBuilder(operationName)
+                .addModifiers(Modifier.PUBLIC)
+                .returns(ParameterizedTypeName.get(ClassName.get(Optional.class), polymorphic.className()));
+        method.addParameter(String.class, "id");
+        if (!update.requestParameters().isEmpty()) {
+            method.addParameter(ParameterSpec.builder(
+                            ClassName.get("%s.application".formatted(polymorphic.packageName()),
+                                    "%s%sRequest".formatted(leafName, capitalize(update.operationName()))), "request")
+                    .addAnnotation(Valid.class)
+                    .build());
+        }
+        method.addStatement("log.debug($S, $T.class.getSimpleName(), id)", "Updating {} with id: {}",
+                polymorphic.className());
+        var domainCallBlock = buildDomainCallBlock(update);
+        var parentEntityLookups = buildParentEntityLookups(update);
+        method.addStatement("""
+                        return $N.findById(id).map(shape -> {
+                            if (!(shape instanceof $T aggregate)) {
+                                throw new $T("Expected $L but got: " + shape.getClass().getSimpleName());
+                            }
+                            $L
+                            $L
+                            return ($T) $N.save(aggregate);
+                        })""",
+                repositoryName,
+                subtype.className(),
+                IllegalStateException.class,
+                leafName,
+                parentEntityLookups,
+                domainCallBlock,
+                polymorphic.className(),
+                repositoryName);
+        return method.build();
+    }
+
+    private static String leafName(String simpleName) {
+        var dotIndex = simpleName.lastIndexOf('.');
+        return dotIndex >= 0 ? simpleName.substring(dotIndex + 1) : simpleName;
+    }
+
+    private static String topLevelName(String simpleName) {
+        var dotIndex = simpleName.indexOf('.');
+        return dotIndex >= 0 ? simpleName.substring(0, dotIndex) : simpleName;
+    }
+}

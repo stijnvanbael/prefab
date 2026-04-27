@@ -77,6 +77,22 @@ public class ControllerUtil {
     }
 
     /**
+     * Generates the path for a given PolymorphicAggregateManifest, considering its parent if present.
+     *
+     * @param manifest
+     *         the PolymorphicAggregateManifest for which to generate the path
+     * @return the generated path as a String
+     */
+    public static String pathOf(PolymorphicAggregateManifest manifest) {
+        var parentPath = manifest.parent()
+                .map(parent -> "%s/{%sId}/" .formatted(
+                        toKebabCase(plural(parent.type().parameters().getFirst().simpleName())),
+                        uncapitalize(parent.name())))
+                .orElse("");
+        return parentPath + toKebabCase(plural(manifest.simpleName()));
+    }
+
+    /**
      * Converts a Sort object into an array of request parameters.
      *
      * @param sort

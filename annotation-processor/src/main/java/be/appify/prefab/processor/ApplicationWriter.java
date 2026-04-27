@@ -71,13 +71,26 @@ class ApplicationWriter {
                 .addAnnotation(TRANSACTIONAL);
         type.addField(loggerField(manifest.packageName() + ".application", serviceName));
         type.addField(FieldSpec.builder(repositoryType, repositoryName, Modifier.PRIVATE, Modifier.FINAL).build());
-        type.addMethod(MethodSpec.constructorBuilder()
+
+        var extraDependencies = collectPolymorphicExtraDependencies(manifest);
+        extraDependencies.forEach(dep -> type.addField(FieldSpec.builder(dep, nameOf(dep), Modifier.PRIVATE, Modifier.FINAL).build()));
+
+        var constructor = MethodSpec.constructorBuilder()
                 .addModifiers(Modifier.PUBLIC)
-                .addParameter(repositoryType, repositoryName)
-                .addStatement("this.$N = $N", repositoryName, repositoryName)
-                .build());
+                .addParameter(repositoryType, repositoryName);
+        extraDependencies.forEach(dep -> constructor.addParameter(dep, nameOf(dep)));
+        constructor.addStatement("this.$N = $N", repositoryName, repositoryName);
+        extraDependencies.forEach(dep -> constructor.addStatement("this.$N = $N", nameOf(dep), nameOf(dep)));
+        type.addMethod(constructor.build());
+
         context.plugins().forEach(plugin -> plugin.writePolymorphicService(manifest, type));
         fileWriter.writeFile(manifest.packageName(), serviceName, type.build());
+    }
+
+    private Set<TypeName> collectPolymorphicExtraDependencies(PolymorphicAggregateManifest manifest) {
+        return context.plugins().stream()
+                .flatMap(plugin -> plugin.getPolymorphicServiceDependencies(manifest).stream())
+                .collect(Collectors.toSet());
     }
 
     private static FieldSpec loggerField(String packageName, String className) {

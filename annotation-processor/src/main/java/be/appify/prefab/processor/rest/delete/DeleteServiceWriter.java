@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.rest.delete;
 
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import com.palantir.javapoet.MethodSpec;
 
 import javax.lang.model.element.ExecutableElement;
@@ -56,6 +57,16 @@ class DeleteServiceWriter {
             builder.addStatement("%sRepository.deleteById(id)".formatted(uncapitalize(manifest.simpleName())));
         }
         return builder.build();
+    }
+
+    MethodSpec deleteMethodForPolymorphic(PolymorphicAggregateManifest manifest) {
+        return MethodSpec.methodBuilder("delete")
+                .addModifiers(Modifier.PUBLIC)
+                .addParameter(String.class, "id")
+                .addStatement("log.debug($S, $T.class.getSimpleName(), id)", "Deleting {} with id: {}",
+                        manifest.className())
+                .addStatement("%sRepository.deleteById(id)".formatted(uncapitalize(manifest.simpleName())))
+                .build();
     }
 }
 

@@ -1,7 +1,6 @@
 package be.appify.prefab.processor.event.handler;
 
 import be.appify.prefab.processor.PrefabProcessor;
-import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.event.avro.ProcessorTestUtil.sourceOf;
@@ -11,7 +10,7 @@ import static com.google.testing.compile.Compiler.javac;
 class EventHandlerWriterTest {
 
     @Test
-    void staticEventHandlerGeneratesServiceMethod() throws IOException {
+    void staticEventHandlerGeneratesServiceMethod() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -27,7 +26,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void staticEventHandlerAddsEventListenerAnnotation() throws IOException {
+    void staticEventHandlerAddsEventListenerAnnotation() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -43,7 +42,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void staticEventHandlerWithOptionalReturnUsesIfPresent() throws IOException {
+    void staticEventHandlerWithOptionalReturnUsesIfPresent() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -59,7 +58,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void staticEventHandlerWithPlatformEventOmitsEventListenerAnnotation() throws IOException {
+    void staticEventHandlerWithPlatformEventOmitsEventListenerAnnotation() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -75,7 +74,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void multicastEventHandlerQueriesRepository() throws IOException {
+    void multicastEventHandlerQueriesRepository() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -92,7 +91,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void multicastEventHandlerThrowsWhenNoAggregatesFound() throws IOException {
+    void multicastEventHandlerThrowsWhenNoAggregatesFound() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -109,7 +108,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void multicastEventHandlerSavesAllAggregates() throws IOException {
+    void multicastEventHandlerSavesAllAggregates() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -126,7 +125,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void byReferenceEventHandlerLoadsAggregateByReference() throws IOException {
+    void byReferenceEventHandlerLoadsAggregateByReference() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -142,7 +141,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void byReferenceEventHandlerSavesAggregateAfterHandling() throws IOException {
+    void byReferenceEventHandlerSavesAggregateAfterHandling() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -158,7 +157,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void byReferenceEventHandlerThrowsWhenAggregateNotFound() throws IOException {
+    void byReferenceEventHandlerThrowsWhenAggregateNotFound() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -174,7 +173,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void mergedEventHandlerGeneratesMethodInAggregateRootService() throws IOException {
+    void mergedEventHandlerGeneratesMethodInAggregateRootService() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -191,7 +190,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void mergedEventHandlerInjectsComponentRepositoryIntoAggregateRootService() throws IOException {
+    void mergedEventHandlerInjectsComponentRepositoryIntoAggregateRootService() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -208,7 +207,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void mergedEventHandlerDoesNotGenerateMethodInComponentService() throws IOException {
+    void mergedEventHandlerDoesNotGenerateMethodInComponentService() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -225,7 +224,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void mergedEventHandlerWithNonAggregateRootRaisesCompilerError() throws IOException {
+    void mergedEventHandlerWithNonAggregateRootRaisesCompilerError() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -239,7 +238,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void pairedHandlerLoadsAggregateByReference() throws IOException {
+    void pairedHandlerLoadsAggregateByReference() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -255,7 +254,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void pairedHandlerCallsInstanceMethodWhenAggregateFound() throws IOException {
+    void pairedHandlerCallsInstanceMethodWhenAggregateFound() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -271,7 +270,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void pairedHandlerCallsStaticMethodWhenAggregateNotFound() throws IOException {
+    void pairedHandlerCallsStaticMethodWhenAggregateNotFound() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -287,7 +286,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void pairedHandlerDoesNotGenerateSeparateServiceMethodForStaticHandler() throws IOException {
+    void pairedHandlerDoesNotGenerateSeparateServiceMethodForStaticHandler() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -303,7 +302,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void instanceHandlerOnComponentGeneratesMethodInAggregateRootService() throws IOException {
+    void instanceHandlerOnComponentGeneratesMethodInAggregateRootService() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -320,7 +319,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void instanceHandlerOnComponentInjectsComponentIntoAggregateRootService() throws IOException {
+    void instanceHandlerOnComponentInjectsComponentIntoAggregateRootService() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -337,7 +336,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void instanceHandlerOnNonComponentRaisesCompilerError() throws IOException {
+    void instanceHandlerOnNonComponentRaisesCompilerError() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(

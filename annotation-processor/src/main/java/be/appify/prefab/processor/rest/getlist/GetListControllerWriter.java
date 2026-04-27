@@ -91,10 +91,14 @@ class GetListControllerWriter {
                         ParameterizedTypeName.get(ClassName.get(PagedModel.class), responseType)));
         operationAnnotation("List " + plural(manifest.simpleName())).ifPresent(method::addAnnotation);
         securedAnnotation(getList.security()).ifPresent(method::addAnnotation);
+        manifest.parent().ifPresent(parent -> method.addParameter(parentParameter(parent)));
         method.addParameter(Pageable.class, "pageable");
+        var serviceArgs = manifest.parent()
+                .map(parent -> uncapitalize(parent.name()) + "Id, pageable")
+                .orElse("pageable");
         return method
-                .addStatement("return $T.ok(new $T(service.getList(pageable).map($T::from)))",
-                        ResponseEntity.class, PagedModel.class, responseType)
+                .addStatement("return $T.ok(new $T(service.getList($L).map($T::from)))",
+                        ResponseEntity.class, PagedModel.class, serviceArgs, responseType)
                 .build();
     }
 }

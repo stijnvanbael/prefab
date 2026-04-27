@@ -4,6 +4,7 @@ import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.spring.Page;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.rest.ControllerUtil;
 import com.palantir.javapoet.ClassName;
@@ -37,10 +38,41 @@ class GetListTestClientWriter {
         return performRequest(method, returnType);
     }
 
+    MethodSpec getListMethodForPolymorphic(PolymorphicAggregateManifest manifest) {
+        var search = manifest.annotationsOfType(GetList.class).stream().findFirst().orElseThrow();
+        var returnType = polymorphicReturnType(manifest);
+        var method = MethodSpec.methodBuilder("find" + plural(manifest.simpleName()))
+                .addModifiers(Modifier.PUBLIC)
+                .returns(returnType)
+                .addParameter(Pageable.class, "pageable");
+        manifest.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
+        method.addException(Exception.class);
+        manifest.parent().ifPresentOrElse(
+                parent -> method.addStatement("var request = $T.$N($S, $L)$L",
+                        MOCK_MVC_REQUEST_BUILDERS,
+                        search.method().toLowerCase(),
+                        "/" + ControllerUtil.pathOf(manifest) + search.path(),
+                        parent.name(),
+                        ControllerUtil.withMockUser(search.security())),
+                () -> method.addStatement("var request = $T.$N($S)$L",
+                        MOCK_MVC_REQUEST_BUILDERS,
+                        search.method().toLowerCase(),
+                        "/" + ControllerUtil.pathOf(manifest) + search.path(),
+                        ControllerUtil.withMockUser(search.security())));
+        addPaging(method);
+        addSorting(method);
+        return performRequest(method, returnType);
+    }
+
     private static ParameterizedTypeName returnType(ClassManifest manifest) {
         return ParameterizedTypeName.get(ClassName.get(Page.class),
                 ClassName.get(manifest.packageName() + ".infrastructure.http",
                         "%sResponse" .formatted(manifest.simpleName())));
+    }
+
+    private static ParameterizedTypeName polymorphicReturnType(PolymorphicAggregateManifest manifest) {
+        return ParameterizedTypeName.get(ClassName.get(Page.class),
+                ControllerUtil.responseType(manifest));
     }
 
     private static MethodSpec.Builder methodSignature(

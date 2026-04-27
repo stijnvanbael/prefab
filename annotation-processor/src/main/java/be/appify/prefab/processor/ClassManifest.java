@@ -133,13 +133,45 @@ public class ClassManifest {
     }
 
     private List<VariableManifest> getFields(TypeElement typeElement) {
+        var interfaceMethods = sealedInterfaceMethods(typeElement);
         return typeElement.getEnclosedElements()
                 .stream()
                 .filter(element -> element.getKind() == ElementKind.FIELD
                         && !element.getModifiers().contains(Modifier.STATIC))
                 .map(VariableElement.class::cast)
                 .map(element -> VariableManifest.of(element, processingEnvironment))
+                .map(field -> mergeAnnotationsFromInterface(field, interfaceMethods))
                 .toList();
+    }
+
+    private VariableManifest mergeAnnotationsFromInterface(VariableManifest field, List<ExecutableElement> interfaceMethods) {
+        return interfaceMethods.stream()
+                .filter(m -> m.getSimpleName().toString().equals(field.name()))
+                .findFirst()
+                .map(method -> field.withAdditionalAnnotations(buildAnnotationManifests(method)))
+                .orElse(field);
+    }
+
+    private List<ExecutableElement> sealedInterfaceMethods(TypeElement typeElement) {
+        return typeElement.getInterfaces().stream()
+                .map(iface -> (TypeElement) processingEnvironment.getTypeUtils().asElement(iface))
+                .filter(iface -> iface.getAnnotation(Aggregate.class) != null)
+                .flatMap(iface -> iface.getEnclosedElements().stream())
+                .filter(e -> e.getKind() == ElementKind.METHOD)
+                .map(ExecutableElement.class::cast)
+                .toList();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<AnnotationManifest<?>> buildAnnotationManifests(ExecutableElement method) {
+        return method.getAnnotationMirrors().stream()
+                .map(mirror -> new AnnotationManifest<>(
+                        mirror,
+                        processingEnvironment,
+                        (Annotation) method.getAnnotation((Class<? extends Annotation>) TypeManifest.of(
+                                mirror.getAnnotationType().asElement().asType(),
+                                processingEnvironment).asClass())))
+                .collect(Collectors.toList());
     }
 
     private List<VariableManifest> getParametersOf(Element createConstructor) {

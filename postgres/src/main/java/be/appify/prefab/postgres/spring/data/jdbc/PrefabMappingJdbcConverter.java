@@ -342,9 +342,6 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
     }
 
     private boolean isJsonbListType(TypeInformation<?> type) {
-        if (!type.isCollectionLike()) {
-            return false;
-        }
         var componentType = type.getComponentType();
         return componentType != null && componentType.getType().isAnnotationPresent(DbDocument.class);
     }
@@ -368,12 +365,10 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
     }
 
     private JavaType resolveJavaType(TypeInformation<?> type) {
-        if (type.isCollectionLike()) {
-            var componentType = type.getComponentType();
-            if (componentType != null) {
-                return jsonMapper.getTypeFactory()
-                        .constructCollectionType(List.class, componentType.getType());
-            }
+        var componentType = type.getComponentType();
+        if (componentType != null) {
+            return jsonMapper.getTypeFactory()
+                    .constructCollectionType(List.class, componentType.getType());
         }
         return jsonMapper.getTypeFactory().constructType(type.getType());
     }

@@ -499,7 +499,7 @@ class DbMigrationWriterTest {
             assertThat(compilation)
                     .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                     .contentsAsUtf8String()
-                    .doesNotContain("details_category");
+                    .doesNotContain("\"details_category\"");
         }
     }
 

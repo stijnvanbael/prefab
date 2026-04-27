@@ -155,7 +155,7 @@ public class StaticEventHandlerPlugin implements EventHandlerPlugin {
                         && element.getModifiers().contains(Modifier.PUBLIC)
                         && !element.getModifiers().contains(Modifier.STATIC))
                 .map(ExecutableElement.class::cast)
-                .filter(element -> element.isAnnotationPresent(annotation))
+                .filter(element -> element.getAnnotationsByType(annotation).length > 0)
                 .filter(element -> element.getParameters().size() == 1)
                 .anyMatch(element -> {
                     var paramType = TypeManifest.of(element.getParameters().getFirst().asType(),

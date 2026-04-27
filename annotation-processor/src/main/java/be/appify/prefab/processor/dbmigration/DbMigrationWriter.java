@@ -450,9 +450,6 @@ class DbMigrationWriter {
                         // @CustomType elements in List are skipped — no child table generated
                         return Stream.empty();
                     } else if (child.isRecord() && (!child.isSingleValueType() || isWrappedRecordType(child))) {
-                        if (isDbDocumentType(child)) {
-                            return Stream.empty();
-                        }
                         var childTable = buildChildTable(parentTableName, parentPrimaryKeyColumns, child);
                         var nestedTables = childEntityTablesOf(
                                 childTable.name(),

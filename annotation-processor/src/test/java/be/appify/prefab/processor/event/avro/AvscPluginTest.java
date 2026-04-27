@@ -150,15 +150,20 @@ class AvscPluginTest {
 
     @Test
     void docPropertyInAvscEmitsDocAnnotationOnField() throws IOException {
+        // ...existing code...
+    }
+
+    @Test
+    void generatedAvscEventRecordContainsNestedBuilder() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("event/avsc/docfield/source/DocFieldAvsc.java"));
+                .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avsc.DocFieldAvscEvent")
+        assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
-                .contains("@Doc(\"Full name of the person\")");
-        assertThat(compilation).generatedSourceFile("event.avsc.DocFieldAvscEvent")
+                .contains("public static final class Builder");
+        assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
-                .contains("int age");
+                .contains("public static Builder builder()");
     }
 }

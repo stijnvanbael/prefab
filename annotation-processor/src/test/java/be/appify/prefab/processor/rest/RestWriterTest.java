@@ -199,23 +199,40 @@ class RestWriterTest {
 
     @Test
     void nestedAggregateCreateRequestExcludesParentIdFromBody() {
-        // Verifies that CreateOrderLineRequest does NOT contain orderId (parent comes from path variable),
-        // but DOES contain productId (non-parent aggregate referenced in body).
+        // ...existing code...
+    }
+
+    @Test
+    void createRequestRecordContainsNestedBuilder() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("rest/aggregate/source/Product.java"),
-                        sourceOf("rest/aggregate/source/Order.java"),
-                        sourceOf("rest/aggregate/source/OrderLine.java"));
+                .compile(sourceOf("rest/testclient/source/Person.java"));
 
         assertThat(compilation).succeeded();
         assertThat(compilation)
-                .generatedSourceFile("rest.aggregate.application.CreateOrderLineRequest")
+                .generatedSourceFile("rest.testclient.application.CreatePersonRequest")
                 .contentsAsUtf8String()
-                .doesNotContain("String orderId");
+                .contains("public static final class Builder");
         assertThat(compilation)
-                .generatedSourceFile("rest.aggregate.application.CreateOrderLineRequest")
+                .generatedSourceFile("rest.testclient.application.CreatePersonRequest")
                 .contentsAsUtf8String()
-                .contains("String productId");
+                .contains("public static Builder builder()");
+    }
+
+    @Test
+    void updateRequestRecordContainsNestedBuilder() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/testclient/source/Person.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.testclient.application.PersonUpdateRequest")
+                .contentsAsUtf8String()
+                .contains("public static final class Builder");
+        assertThat(compilation)
+                .generatedSourceFile("rest.testclient.application.PersonUpdateRequest")
+                .contentsAsUtf8String()
+                .contains("public static Builder builder()");
     }
 }

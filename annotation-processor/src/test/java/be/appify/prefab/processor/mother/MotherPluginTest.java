@@ -125,6 +125,32 @@ class MotherPluginTest {
     }
 
     @Test
+    void eventMotherBuilderGeneratedAsProductionSourceFile() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/events/source/PersonEvent.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("mother.events.source.PersonEventCreatedBuilder")
+                .contentsAsUtf8String()
+                .contains("public class PersonEventCreatedBuilder");
+    }
+
+    @Test
+    void eventMotherDelegatesDefaultsToStandaloneBuilder() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/events/source/PersonEvent.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("mother.events.source.PersonEventCreatedBuilder")
+                .contentsAsUtf8String()
+                .doesNotContain("class Builder");
+    }
+
+    @Test
     void motherGeneratedForMultiFieldRecordNestedInsideSingleValueType() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
@@ -156,5 +182,21 @@ class MotherPluginTest {
                 .toList();
         assertTrue(generatedNames.stream().noneMatch(name -> name.contains("MemberMoveRequest")));
     }
-}
 
+    @Test
+    void motherUsesRecordBuilderInsteadOfCanonicalConstructor() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/person/source/Person.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("mother.person.application.CreatePersonRequest")
+                .contentsAsUtf8String()
+                .contains("public static Builder builder()");
+        assertThat(compilation)
+                .generatedSourceFile("mother.person.application.CreatePersonRequest")
+                .contentsAsUtf8String()
+                .contains("public static final class Builder");
+    }
+}

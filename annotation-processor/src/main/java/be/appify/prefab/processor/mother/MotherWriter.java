@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.mother;
 
 import be.appify.prefab.core.annotations.Example;
+import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TestJavaFileWriter;
 import be.appify.prefab.processor.TypeManifest;
@@ -39,23 +40,18 @@ class MotherWriter {
     private final PrefabContext context;
     private final Set<String> writtenTypes;
     private final TestJavaFileWriter fileWriter;
+    private final JavaFileWriter productionFileWriter;
 
     MotherWriter(PrefabContext context, Set<String> writtenTypes) {
         this.context = context;
         this.writtenTypes = writtenTypes;
         this.fileWriter = new TestJavaFileWriter(context, null);
+        this.productionFileWriter = new JavaFileWriter(context.processingEnvironment(), null);
     }
 
     /**
      * Writes a Mother for a generated request record.
-     * <p>
-     * The effective parameter types in the request record are computed by applying the same
-     * single-value-type unwrapping that {@code RequestParameterBuilder} uses.
-     *
-     * @param typeName        the simple name of the request record (e.g. {@code CreatePersonRequest})
-     * @param packageName     the aggregate's base package (mother is written there, matching TestClientWriter convention)
-     * @param params          the original {@link VariableManifest} parameters from the @Create / @Update element
-     * @param preferredElement the source-file TypeElement used to resolve the output root path
+     * Delegates to the record's own generated builder.
      */
     void writeRequestMother(
             String typeName,
@@ -77,13 +73,10 @@ class MotherWriter {
                 .map(p -> new EffectiveParam(p, effectiveTypeOf(p)))
                 .toList();
 
-        var builderClass = buildRequestBuilderClass(requestType, effectiveParams);
-
         var typeSpec = TypeSpec.classBuilder(motherName)
                 .addModifiers(Modifier.PUBLIC)
-                .addMethod(builderFactoryMethod())
-                .addMethod(motherFactoryMethod(requestType, typeName))
-                .addType(builderClass)
+                .addMethod(recordBuilderPassthroughMethod(requestType))
+                .addMethod(createFactoryMethod(requestType, typeName, effectiveParams))
                 .build();
 
         fileWriter.writeFile(packageName, motherName, typeSpec);
@@ -95,9 +88,7 @@ class MotherWriter {
 
     /**
      * Writes a Mother for an @Event-annotated type (or its concrete subtype if sealed).
-     *
-     * @param eventType        the TypeManifest of the concrete event record
-     * @param preferredElement the source-file TypeElement used to resolve the output root path
+     * Generates a standalone Builder in production source; the mother only defines defaults.
      */
     void writeEventMother(TypeManifest eventType, TypeElement preferredElement) {
         var qualifiedName = eventType.packageName() + "." + eventType.simpleName();
@@ -107,19 +98,20 @@ class MotherWriter {
 
         fileWriter.setPreferredElement(preferredElement);
 
-        // Convert "UserEvent.Created" → "UserEventCreated" for the class name
-        var motherName = eventType.simpleName().replace(".", "") + MOTHER_SUFFIX;
+        var simpleName = eventType.simpleName().replace(".", "");
+        var motherName = simpleName + MOTHER_SUFFIX;
+        var builderName = simpleName + BUILDER;
         var packageName = eventType.packageName();
         var fields = eventType.fields();
         var eventTypeName = eventType.asTypeName();
+        var builderType = ClassName.get(packageName, builderName);
 
-        var builderClass = buildFieldsBuilderClass(eventTypeName, fields);
+        productionFileWriter.writeFile(packageName, builderName, buildStandaloneBuilderClass(builderType, eventTypeName, fields));
 
         var typeSpec = TypeSpec.classBuilder(motherName)
                 .addModifiers(Modifier.PUBLIC)
-                .addMethod(builderFactoryMethod())
-                .addMethod(motherFactoryMethod(eventTypeName, eventType.simpleName().replace(".", "")))
-                .addType(builderClass)
+                .addMethod(builderFactoryMethodWithDefaults(builderType, fields))
+                .addMethod(motherFactoryMethod(eventTypeName, simpleName))
                 .build();
 
         fileWriter.writeFile(packageName, motherName, typeSpec);
@@ -141,16 +133,17 @@ class MotherWriter {
 
         var simpleName = type.simpleName().replace(".", "");
         var motherName = simpleName + MOTHER_SUFFIX;
+        var builderName = simpleName + BUILDER;
         var packageName = type.packageName();
         var fields = type.fields();
+        var builderType = ClassName.get(packageName, builderName);
 
-        var builderClass = buildFieldsBuilderClass(type.asTypeName(), fields);
+        productionFileWriter.writeFile(packageName, builderName, buildStandaloneBuilderClass(builderType, type.asTypeName(), fields));
 
         var typeSpec = TypeSpec.classBuilder(motherName)
                 .addModifiers(Modifier.PUBLIC)
-                .addMethod(builderFactoryMethod())
+                .addMethod(builderFactoryMethodWithDefaults(builderType, fields))
                 .addMethod(motherFactoryMethod(type.asTypeName(), simpleName))
-                .addType(builderClass)
                 .build();
 
         fileWriter.writeFile(packageName, motherName, typeSpec);
@@ -168,19 +161,12 @@ class MotherWriter {
         }
     }
 
-    /**
-     * Computes the effective (possibly unwrapped) type used inside the request record for a given parameter.
-     */
     private TypeManifest effectiveTypeOf(VariableManifest param) {
         return param.type().isSingleValueType()
                 ? param.type().fields().getFirst().type().asBoxed()
                 : param.type();
     }
 
-    /**
-     * Returns {@code true} if {@code type} is a non-standard, non-single-value, non-enum, non-List record
-     * that should get its own generated Mother.
-     */
     private boolean isNestedObjectType(TypeManifest type) {
         if (type.isStandardType()) return false;
         if (type.isSingleValueType()) return false;
@@ -191,39 +177,48 @@ class MotherWriter {
         return type.isRecord();
     }
 
-    // -- Builder class for request records (uses EffectiveParam list) --
+    // -- Request record: delegate to the record's own generated builder --
 
-    private TypeSpec buildRequestBuilderClass(TypeName requestType, List<EffectiveParam> params) {
-        var builder = TypeSpec.classBuilder(BUILDER)
-                .addModifiers(Modifier.PUBLIC, Modifier.STATIC);
-
-        params.forEach(ep -> builder.addField(
-                FieldSpec.builder(ep.effectiveType().asTypeName(), ep.param().name(), Modifier.PRIVATE)
-                        .initializer(defaultValueFor(ep.param(), ep.effectiveType()))
-                        .build()
-        ));
-
-        params.forEach(ep -> builder.addMethod(withMethod(ep.param().name(), ep.effectiveType().asTypeName())));
-
-        builder.addMethod(buildMethod(requestType,
-                params.stream().map(ep -> ep.param().name()).collect(Collectors.joining(", "))));
-
-        return builder.build();
+    private MethodSpec recordBuilderPassthroughMethod(ClassName recordType) {
+        return MethodSpec.methodBuilder("builder")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .returns(recordType.nestedClass(BUILDER))
+                .addStatement("return $T.builder()", recordType)
+                .build();
     }
 
-    // -- Builder class for event/nested types (uses VariableManifest directly) --
+    private MethodSpec createFactoryMethod(ClassName recordType, String typeName, List<EffectiveParam> params) {
+        var body = buildChainedBuilderCall(recordType,
+                params.stream()
+                        .map(ep -> new FieldDefault(ep.param().name(), defaultValueFor(ep.param(), ep.effectiveType())))
+                        .toList());
+        return MethodSpec.methodBuilder("create" + capitalize(typeName))
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .returns(recordType)
+                .addCode(body)
+                .build();
+    }
 
-    private TypeSpec buildFieldsBuilderClass(TypeName targetType, List<VariableManifest> fields) {
-        var builder = TypeSpec.classBuilder(BUILDER)
-                .addModifiers(Modifier.PUBLIC, Modifier.STATIC);
+    private CodeBlock buildChainedBuilderCall(ClassName recordType, List<FieldDefault> fieldDefaults) {
+        var block = CodeBlock.builder().add("return $T.builder()", recordType);
+        for (var fd : fieldDefaults) {
+            block.add("\n        .with$L($L)", capitalize(fd.name()), fd.defaultValue());
+        }
+        block.add("\n        .build();\n");
+        return block.build();
+    }
+
+    // -- Event / nested types: standalone Builder class in production source --
+
+    private TypeSpec buildStandaloneBuilderClass(ClassName builderType, TypeName targetType, List<VariableManifest> fields) {
+        var builder = TypeSpec.classBuilder(builderType.simpleName())
+                .addModifiers(Modifier.PUBLIC);
 
         fields.forEach(field -> builder.addField(
-                FieldSpec.builder(field.type().asTypeName(), field.name(), Modifier.PRIVATE)
-                        .initializer(defaultValueFor(field, field.type()))
-                        .build()
+                FieldSpec.builder(field.type().asTypeName(), field.name(), Modifier.PRIVATE).build()
         ));
 
-        fields.forEach(field -> builder.addMethod(withMethod(field.name(), field.type().asTypeName())));
+        fields.forEach(field -> builder.addMethod(withMethod(field.name(), field.type().asTypeName(), builderType)));
 
         builder.addMethod(buildMethod(targetType,
                 fields.stream().map(VariableManifest::name).collect(Collectors.joining(", "))));
@@ -231,15 +226,26 @@ class MotherWriter {
         return builder.build();
     }
 
-    // -- Common method generators --
-
-    private MethodSpec withMethod(String fieldName, TypeName fieldType) {
+    private MethodSpec withMethod(String fieldName, TypeName fieldType, ClassName builderType) {
         return MethodSpec.methodBuilder("with" + capitalize(fieldName))
                 .addModifiers(Modifier.PUBLIC)
-                .returns(ClassName.get("", BUILDER))
+                .returns(builderType)
                 .addParameter(fieldType, fieldName)
                 .addStatement("this.$1N = $1N", fieldName)
                 .addStatement("return this")
+                .build();
+    }
+
+    private MethodSpec builderFactoryMethodWithDefaults(ClassName builderType, List<VariableManifest> fields) {
+        var code = CodeBlock.builder().add("return new $T()", builderType);
+        for (var field : fields) {
+            code.add("\n        .with$L($L)", capitalize(field.name()), defaultValueFor(field, field.type()));
+        }
+        code.add(";\n");
+        return MethodSpec.methodBuilder("builder")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .returns(builderType)
+                .addCode(code.build())
                 .build();
     }
 
@@ -248,14 +254,6 @@ class MotherWriter {
                 .addModifiers(Modifier.PUBLIC)
                 .returns(targetType)
                 .addStatement("return new $T($L)", targetType, args)
-                .build();
-    }
-
-    private MethodSpec builderFactoryMethod() {
-        return MethodSpec.methodBuilder("builder")
-                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .returns(ClassName.get("", BUILDER))
-                .addStatement("return new $L()", BUILDER)
                 .build();
     }
 
@@ -379,9 +377,8 @@ class MotherWriter {
         );
     }
 
+    private record FieldDefault(String name, CodeBlock defaultValue) {}
 
     /** Pairs an original {@link VariableManifest} with its effective (possibly unwrapped) {@link TypeManifest}. */
-    record EffectiveParam(VariableManifest param, TypeManifest effectiveType) {
-    }
+    record EffectiveParam(VariableManifest param, TypeManifest effectiveType) {}
 }
-

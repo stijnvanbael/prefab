@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.rest;
 
 import be.appify.prefab.core.annotations.rest.Security;
+import be.appify.prefab.processor.BuilderWriter;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.RequestParameterBuilder;
@@ -281,19 +282,24 @@ public class ControllerUtil {
             List<VariableManifest> fields,
             RequestParameterBuilder parameterBuilder
     ) {
+        var constructorParams = fields.stream()
+                .flatMap(param -> parameterBuilder.buildBodyParameter(param)
+                        .or(() -> parameterBuilder.buildMethodParameter(param))
+                        .stream())
+                .toList();
+        var builderParams = fields.stream()
+                .flatMap(param -> parameterBuilder.buildTestClientParameter(param).stream())
+                .toList();
         var type = TypeSpec.recordBuilder(name)
                 .addModifiers(Modifier.PUBLIC)
                 .recordConstructor(MethodSpec.compactConstructorBuilder()
-                        .addParameters(fields.stream()
-                                .flatMap(param -> parameterBuilder.buildBodyParameter(param)
-                                        .or(() -> parameterBuilder.buildMethodParameter(param))
-                                        .stream())
-                                .toList())
+                        .addParameters(constructorParams)
                         .build());
         type.addMethods(fields.stream()
                 .flatMap(parameter -> parameterBuilder.buildMethodParameter(parameter).stream())
                 .map(parameter -> withMethod(name, parameter, fields))
                 .toList());
+        new BuilderWriter().enrichWithBuilder(type, name, builderParams);
         return type.build();
     }
 

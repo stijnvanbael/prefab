@@ -3,6 +3,7 @@ package be.appify.prefab.processor.event.avro;
 import be.appify.prefab.core.annotations.Doc;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.Example;
+import be.appify.prefab.processor.BuilderWriter;
 import be.appify.prefab.processor.JavaFileWriter;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
@@ -100,12 +101,14 @@ class AvscEventWriter {
             String defaultPackage, ClassName contractInterface) {
         return buildFields(schema, defaultPackage)
                 .map(fields -> {
+                    var recordType = ClassName.get(contractInterface.packageName(), schema.getName());
                     var builder = TypeSpec.recordBuilder(schema.getName())
                             .addModifiers(Modifier.PUBLIC)
                             .recordConstructor(MethodSpec.compactConstructorBuilder().addParameters(fields).build())
                             .addAnnotation(buildEventAnnotation(topic, platform))
                             .addSuperinterface(contractInterface);
                     docOf(schema).ifPresent(doc -> builder.addAnnotation(docAnnotation(doc)));
+                    new BuilderWriter().enrichWithBuilder(builder, recordType, strippedParams(fields));
                     return builder.build();
                 })
                 .orElse(null);
@@ -114,13 +117,21 @@ class AvscEventWriter {
     private TypeSpec buildNestedRecord(Schema schema, String defaultPackage) {
         return buildFields(schema, defaultPackage)
                 .map(fields -> {
+                    var recordType = ClassName.get(defaultPackage, schema.getName());
                     var builder = TypeSpec.recordBuilder(schema.getName())
                             .addModifiers(Modifier.PUBLIC)
                             .recordConstructor(MethodSpec.compactConstructorBuilder().addParameters(fields).build());
                     docOf(schema).ifPresent(doc -> builder.addAnnotation(docAnnotation(doc)));
+                    new BuilderWriter().enrichWithBuilder(builder, recordType, strippedParams(fields));
                     return builder.build();
                 })
                 .orElse(null);
+    }
+
+    private List<ParameterSpec> strippedParams(List<ParameterSpec> fields) {
+        return fields.stream()
+                .map(f -> ParameterSpec.builder(f.type(), f.name()).build())
+                .toList();
     }
 
     private Optional<List<ParameterSpec>> buildFields(Schema schema, String defaultPackage) {

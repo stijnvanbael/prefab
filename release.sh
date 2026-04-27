@@ -6,6 +6,7 @@ if [ "$#" -ne 2 ]; then
     exit 1
 fi
 
+git fetch --tags
 mvn versions:set -DnewVersion="$1"
 mvn versions:set-property -Dproperty=prefab.version -DnewVersion="$1"
 mvn clean package

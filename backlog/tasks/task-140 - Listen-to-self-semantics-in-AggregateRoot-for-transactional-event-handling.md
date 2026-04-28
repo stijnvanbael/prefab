@@ -4,7 +4,7 @@ title: Listen-to-self semantics in AggregateRoot for transactional event handlin
 status: To Do
 assignee: []
 created_date: '2026-04-27 13:10'
-updated_date: '2026-04-27 13:25'
+updated_date: '2026-04-27 16:41'
 labels:
   - ddd
   - aggregate
@@ -28,3 +28,9 @@ Aggregate roots should support listen-to-self semantics by publishing domain eve
 - [ ] #5 Integration tests verify the full round-trip: event raised → published to broker → consumed by listener → state persisted
 - [ ] #6 Integration tests verify that replaying a duplicate event does not produce duplicate state changes
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+See decision-001 for listen-to-self implementation alternatives analysis.
+<!-- SECTION:NOTES:END -->

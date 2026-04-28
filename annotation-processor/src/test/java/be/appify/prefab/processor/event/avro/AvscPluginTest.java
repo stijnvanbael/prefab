@@ -4,6 +4,7 @@ import be.appify.prefab.processor.PrefabProcessor;
 import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
+import static be.appify.prefab.processor.event.avro.ProcessorTestUtil.contentsOf;
 import static be.appify.prefab.processor.event.avro.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
@@ -57,6 +58,18 @@ class AvscPluginTest {
         assertThat(compilation).generatedSourceFile("event.avsc.NonPrimitiveAvscEvent")
                 .contentsAsUtf8String()
                 .contains("Duration duration");
+    }
+
+    @Test
+    void nullableAvscEventSchemaFactoryGeneratesNullableUnion() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/nullable/source/NullableAvsc.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.NullableAvscEventSchemaFactory")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("event/avsc/nullable/expected/NullableAvscEventSchemaFactory.java"));
     }
 
     @Test

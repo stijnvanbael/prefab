@@ -3,7 +3,9 @@ package be.appify.prefab.processor;
 import java.lang.annotation.Annotation;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
@@ -33,12 +35,43 @@ class TypeMembers {
         }
         return Stream.concat(
                         supertypes().flatMap(supertype -> supertype.fields().stream()),
-                        element.getEnclosedElements()
-                                .stream()
-                                .filter(e -> e.getKind() == ElementKind.FIELD)
-                                .map(VariableElement.class::cast)
-                                .map(variableElement -> VariableManifest.of(variableElement, processingEnvironment)))
+                        backingFields())
                 .toList();
+    }
+
+    private Stream<VariableManifest> backingFields() {
+        if (element.getKind() != ElementKind.RECORD) {
+            return element.getEnclosedElements().stream()
+                    .filter(e -> e.getKind() == ElementKind.FIELD)
+                    .map(VariableElement.class::cast)
+                    .map(field -> VariableManifest.of(field, processingEnvironment));
+        }
+        return recordFieldsWithComponentAnnotations();
+    }
+
+    /**
+     * For records, merges backing-field annotations with record-component annotations.
+     * Some compilers (e.g. IntelliJ's incremental compiler) do not propagate record-component
+     * annotations to the backing field. Reading both sources and merging ensures annotations
+     * such as {@code @Nullable} are always visible regardless of the compilation context.
+     */
+    private Stream<VariableManifest> recordFieldsWithComponentAnnotations() {
+        var componentAnnotations = recordComponentAnnotationsByName();
+        return element.getEnclosedElements().stream()
+                .filter(e -> e.getKind() == ElementKind.FIELD)
+                .map(VariableElement.class::cast)
+                .map(field -> VariableManifest.of(field, processingEnvironment)
+                        .withAdditionalAnnotations(
+                                componentAnnotations.getOrDefault(field.getSimpleName().toString(), List.of())));
+    }
+
+    private Map<String, List<? extends AnnotationManifest<?>>> recordComponentAnnotationsByName() {
+        return element.getEnclosedElements().stream()
+                .filter(e -> e.getKind() == ElementKind.RECORD_COMPONENT)
+                .map(VariableElement.class::cast)
+                .collect(Collectors.toMap(
+                        comp -> comp.getSimpleName().toString(),
+                        comp -> VariableManifest.of(comp, processingEnvironment).annotations()));
     }
 
     List<ExecutableElement> methodsWith(Class<? extends Annotation> annotation) {

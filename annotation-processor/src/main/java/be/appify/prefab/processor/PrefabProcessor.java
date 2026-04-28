@@ -1,6 +1,7 @@
 package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.Avsc;
 import com.google.auto.service.AutoService;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -44,14 +45,19 @@ public class PrefabProcessor extends AbstractProcessor {
     private final List<ClassManifest> allResolvedAggregates = new ArrayList<>();
     private final List<PolymorphicAggregateManifest> allResolvedPolymorphicAggregates = new ArrayList<>();
     private boolean globalFilesWritten = false;
+    private boolean eventFilesWritten = false;
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment environment) {
         var plugins = detectPlugins();
-        var aggregates = resolveAggregates(environment);
-        var polymorphicAggregates = resolvePolymorphicAggregates(environment);
         var context = new PrefabContext(processingEnv, plugins, environment, deferredEventHandlers);
         plugins.forEach(plugin -> plugin.initContext(context));
+        if (hasAvscAnnotations(environment) && !eventFilesWritten) {
+            eventFilesWritten = true;
+            plugins.forEach(PrefabPlugin::writeEventFiles);
+        }
+        var aggregates = resolveAggregates(environment);
+        var polymorphicAggregates = resolvePolymorphicAggregates(environment);
         writeAggregates(context, aggregates);
         writePolymorphicAggregates(context, polymorphicAggregates);
         plugins.forEach(plugin -> plugin.writeAdditionalFiles(aggregates, polymorphicAggregates));
@@ -65,6 +71,11 @@ public class PrefabProcessor extends AbstractProcessor {
         deferredEventHandlers.addAll(context.newlyDeferredEventHandlers());
         return true;
     }
+
+    private boolean hasAvscAnnotations(RoundEnvironment environment) {
+        return !environment.getElementsAnnotatedWith(Avsc.class).isEmpty();
+    }
+
 
     private List<ClassManifest> resolveAggregates(RoundEnvironment environment) {
         var aggregateElements = Stream.concat(

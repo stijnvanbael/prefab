@@ -18,13 +18,13 @@ class SerializationPluginTest {
         assertThat(compilation).succeeded();
         assertThat(compilation)
                 .generatedSourceFile(
-                        "event.serialization.multipackage.order.infrastructure.event.SerializationRegistryConfiguration")
+                        "event.serialization.multipackage.order.infrastructure.event.EventSerializationMultipackageOrderSerializationRegistryConfiguration")
                 .contentsAsUtf8String()
                 .contains("eventSerializationMultipackageOrderSerializationRegistryCustomizer");
     }
 
     @Test
-    void multiPackageEventsGenerateSingleConfigurationInCommonRootPackage() {
+    void multiPackageEventsGenerateOneConfigurationPerPackage() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -35,18 +35,18 @@ class SerializationPluginTest {
         assertThat(compilation).succeeded();
         assertThat(compilation)
                 .generatedSourceFile(
-                        "event.serialization.multipackage.infrastructure.event.SerializationRegistryConfiguration")
+                        "event.serialization.multipackage.order.infrastructure.event.EventSerializationMultipackageOrderSerializationRegistryConfiguration")
                 .contentsAsUtf8String()
                 .contains("order-created");
         assertThat(compilation)
                 .generatedSourceFile(
-                        "event.serialization.multipackage.infrastructure.event.SerializationRegistryConfiguration")
+                        "event.serialization.multipackage.payment.infrastructure.event.EventSerializationMultipackagePaymentSerializationRegistryConfiguration")
                 .contentsAsUtf8String()
                 .contains("payment-processed");
     }
 
     @Test
-    void multiPackageEventsUseBeanNameDerivedFromCommonRootPackage() {
+    void multiPackageEventsUseBeanNameDerivedFromOwnPackage() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -57,11 +57,13 @@ class SerializationPluginTest {
         assertThat(compilation).succeeded();
         assertThat(compilation)
                 .generatedSourceFile(
-                        "event.serialization.multipackage.infrastructure.event.SerializationRegistryConfiguration")
+                        "event.serialization.multipackage.order.infrastructure.event.EventSerializationMultipackageOrderSerializationRegistryConfiguration")
                 .contentsAsUtf8String()
-                .contains("eventSerializationMultipackageSerializationRegistryCustomizer");
+                .contains("eventSerializationMultipackageOrderSerializationRegistryCustomizer");
+        assertThat(compilation)
+                .generatedSourceFile(
+                        "event.serialization.multipackage.payment.infrastructure.event.EventSerializationMultipackagePaymentSerializationRegistryConfiguration")
+                .contentsAsUtf8String()
+                .contains("eventSerializationMultipackagePaymentSerializationRegistryCustomizer");
     }
 }
-
-
-

@@ -17,6 +17,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 
 import static be.appify.prefab.processor.CaseUtil.toCamelCase;
+import static be.appify.prefab.processor.CaseUtil.toPascalCase;
 
 class SerializationRegistryConfigurationWriter {
     private final PrefabContext context;
@@ -25,45 +26,25 @@ class SerializationRegistryConfigurationWriter {
         this.context = context;
     }
 
-    void writeConfiguration(List<TypeManifest> events) {
+    void writeConfigurationForPackage(String eventPackage, List<TypeManifest> events) {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.event");
-        var rootPackage = findCommonRootPackage(events);
-
-        var type = TypeSpec.classBuilder("SerializationRegistryConfiguration")
+        var className = configurationClassName(eventPackage);
+        var type = TypeSpec.classBuilder(className)
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(Configuration.class)
                 .addAnnotation(AnnotationSpec.builder(Order.class)
                         .addMember("value", "0")
                         .build())
-                .addMethod(beanMethod(events, rootPackage));
-
-        fileWriter.writeFile(rootPackage, "SerializationRegistryConfiguration", type.build());
+                .addMethod(beanMethod(events, eventPackage));
+        fileWriter.writeFile(eventPackage, className, type.build());
     }
 
-    private static String findCommonRootPackage(List<TypeManifest> events) {
-        return events.stream()
-                .map(TypeManifest::packageName)
-                .reduce((package1, package2) -> {
-                    var parts1 = package1.split("\\.");
-                    var parts2 = package2.split("\\.");
-                    var minLength = Math.min(parts1.length, parts2.length);
-                    var commonParts = new StringBuilder();
-                    for (int i = 0; i < minLength; i++) {
-                        if (parts1[i].equals(parts2[i])) {
-                            if (!commonParts.isEmpty()) {
-                                commonParts.append(".");
-                            }
-                            commonParts.append(parts1[i]);
-                        } else {
-                            break;
-                        }
-                    }
-                    return commonParts.toString();
-                }).orElseThrow();
+    private static String configurationClassName(String eventPackage) {
+        return toPascalCase(eventPackage) + "SerializationRegistryConfiguration";
     }
 
-    private static MethodSpec beanMethod(List<TypeManifest> events, String rootPackage) {
-        var beanMethodName = toCamelCase(rootPackage) + "SerializationRegistryCustomizer";
+    private static MethodSpec beanMethod(List<TypeManifest> events, String eventPackage) {
+        var beanMethodName = toCamelCase(eventPackage) + "SerializationRegistryCustomizer";
         var method = MethodSpec.methodBuilder(beanMethodName)
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(Bean.class)

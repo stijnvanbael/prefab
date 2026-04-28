@@ -1,25 +1,10 @@
 package be.appify.prefab.postgres.spring.data.jdbc;
 
 import be.appify.prefab.core.annotations.DbDocument;
-import java.lang.reflect.Array;
-import java.lang.reflect.RecordComponent;
-import java.sql.JDBCType;
-import java.sql.SQLType;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.postgresql.util.PGobject;
 import org.springframework.data.core.TypeInformation;
-import org.springframework.data.jdbc.core.convert.Identifier;
-import org.springframework.data.jdbc.core.convert.JdbcCustomConversions;
-import org.springframework.data.jdbc.core.convert.JdbcTypeFactory;
-import org.springframework.data.jdbc.core.convert.MappingJdbcConverter;
-import org.springframework.data.jdbc.core.convert.RelationResolver;
+import org.springframework.data.jdbc.core.convert.*;
 import org.springframework.data.jdbc.core.mapping.JdbcMappingContext;
 import org.springframework.data.mapping.PropertyHandler;
 import org.springframework.data.relational.core.mapping.AggregatePath;
@@ -30,8 +15,15 @@ import org.springframework.data.relational.core.sql.SqlIdentifier;
 import org.springframework.data.relational.domain.RowDocument;
 import org.springframework.jdbc.core.SqlTypeValue;
 import org.springframework.jdbc.core.StatementCreatorUtils;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import tools.jackson.databind.JavaType;
 import tools.jackson.databind.json.JsonMapper;
+
+import java.lang.reflect.Array;
+import java.lang.reflect.RecordComponent;
+import java.sql.JDBCType;
+import java.sql.SQLType;
+import java.util.*;
 
 /**
  * Custom {@link MappingJdbcConverter} that provides generic read/write support for single-field Java records,
@@ -156,7 +148,10 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
             return serializeToJsonb(value);
         }
         if (value instanceof List<?> list && isJsonbListTarget(type)) {
-            return serializeToJsonb(list);
+            return serializeListToJsonb(list, type);
+        }
+        if (isJsonbFieldTarget(type, value)) {
+            return serializeToJsonb(value);
         }
         if (isUnwrappableSingleFieldRecord(value.getClass())) {
             return writeUnwrappedRecord(value);
@@ -352,6 +347,10 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
         return type.getType() == PGobject.class || isJsonbListType(type);
     }
 
+    private static boolean isJsonbFieldTarget(TypeInformation<?> type, Object value) {
+        return type.getType() == PGobject.class && !(value instanceof PGobject) && !(value instanceof List<?>);
+    }
+
     private static boolean isJsonbValue(Object value) {
         return value instanceof PGobject pgo && "jsonb".equalsIgnoreCase(pgo.getType());
     }
@@ -388,6 +387,61 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
         } catch (Exception e) {
             throw new IllegalStateException("Failed to serialize value to JSONB: " + value.getClass(), e);
         }
+    }
+
+    private PGobject serializeListToJsonb(List<?> list, TypeInformation<?> type) {
+        try {
+            var pgObject = new PGobject();
+            pgObject.setType("jsonb");
+            pgObject.setValue(serializeListAsString(list, type));
+            return pgObject;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to serialize list to JSONB: " + list.getClass(), e);
+        }
+    }
+
+    private String serializeListAsString(List<?> list, TypeInformation<?> type) {
+        Class<?> elementType = resolveListElementType(list, type);
+        if (elementType == null) {
+            return jsonMapper.writeValueAsString(list);
+        }
+        JavaType javaType = jsonMapper.getTypeFactory().constructCollectionType(List.class, elementType);
+        return jsonMapper.writerFor(javaType).writeValueAsString(list);
+    }
+
+    @Nullable
+    private Class<?> resolveListElementType(List<?> list, TypeInformation<?> type) {
+        var componentType = type.getComponentType();
+        if (componentType != null) {
+            return componentType.getType();
+        }
+        if (list.isEmpty()) {
+            return null;
+        }
+        return findJsonBaseType(list.getFirst());
+    }
+
+    @Nullable
+    private static Class<?> findJsonBaseType(Object element) {
+        Class<?> type = element.getClass();
+        for (Class<?> iface : type.getInterfaces()) {
+            if (isJsonbMarked(iface)) {
+                return iface;
+            }
+        }
+        Class<?> superclass = type.getSuperclass();
+        while (superclass != null && superclass != Object.class) {
+            if (isJsonbMarked(superclass)) {
+                return superclass;
+            }
+            superclass = superclass.getSuperclass();
+        }
+        return null;
+    }
+
+    private static boolean isJsonbMarked(Class<?> type) {
+        return type.isAnnotationPresent(DbDocument.class)
+                || type.isAnnotationPresent(JsonTypeInfo.class);
     }
 
     @Nullable

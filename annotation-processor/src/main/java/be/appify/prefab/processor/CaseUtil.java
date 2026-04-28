@@ -42,4 +42,19 @@ public class CaseUtil {
     public static String toCamelCase(String value) {
         return TO_CAMEL_CASE.matcher(value).replaceAll(match -> match.group(1).toUpperCase());
     }
+
+    /**
+     * Converts a string with dots, underscores, or hyphens to PascalCase (UpperCamelCase).
+     *
+     * @param value
+     *         The string with dots, underscores, or hyphens.
+     * @return The PascalCase string.
+     */
+    public static String toPascalCase(String value) {
+        var camel = toCamelCase(value);
+        if (camel.isEmpty()) {
+            return camel;
+        }
+        return Character.toUpperCase(camel.charAt(0)) + camel.substring(1);
+    }
 }

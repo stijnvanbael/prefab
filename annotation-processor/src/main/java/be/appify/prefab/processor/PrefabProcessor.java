@@ -3,6 +3,7 @@ package be.appify.prefab.processor;
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.annotations.EventHandler;
 import com.google.auto.service.AutoService;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -19,6 +20,7 @@ import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -58,6 +60,7 @@ public class PrefabProcessor extends AbstractProcessor {
             eventFilesWritten = true;
             cacheAggregateElementsForNextRound(environment);
             cacheEventElementsForNextRound(environment);
+            cacheEventHandlersForNextRound(environment);
             plugins.forEach(PrefabPlugin::writeEventFiles);
             return true;
         }
@@ -97,6 +100,13 @@ public class PrefabProcessor extends AbstractProcessor {
                 .map(TypeElement.class::cast)
                 .filter(e -> e.getAnnotation(Avsc.class) == null)
                 .forEach(cachedEventElements::add);
+    }
+
+    private void cacheEventHandlersForNextRound(RoundEnvironment environment) {
+        environment.getElementsAnnotatedWith(EventHandler.class).stream()
+                .filter(e -> e.getKind() == ElementKind.METHOD)
+                .map(ExecutableElement.class::cast)
+                .forEach(deferredEventHandlers::add);
     }
 
     private List<ClassManifest> resolveAggregates(RoundEnvironment environment) {

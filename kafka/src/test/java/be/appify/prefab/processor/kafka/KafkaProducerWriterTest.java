@@ -39,4 +39,17 @@ class KafkaProducerWriterTest {
                 .contentsAsUtf8String()
                 .isEqualTo(contentsOf("expected/kafka/multiple/UserEventKafkaProducer.java"));
     }
+
+    @Test
+    void avscEventProducer() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/avsc/OrderCreated.java"),
+                        sourceOf("kafka/avsc/OrderProcessor.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("kafka.avsc.infrastructure.kafka.OrderCreatedEventKafkaProducer")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("expected/kafka/avsc/OrderCreatedEventKafkaProducer.java"));
+    }
 }

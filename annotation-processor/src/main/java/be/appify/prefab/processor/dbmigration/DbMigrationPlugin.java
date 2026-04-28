@@ -42,7 +42,7 @@ public class DbMigrationPlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeAdditionalFiles(List<ClassManifest> manifests, List<PolymorphicAggregateManifest> polymorphicManifests) {
+    public void writeGlobalFiles(List<ClassManifest> manifests, List<PolymorphicAggregateManifest> polymorphicManifests) {
         if (!JDBC_INCLUDED) {
             return;
         }

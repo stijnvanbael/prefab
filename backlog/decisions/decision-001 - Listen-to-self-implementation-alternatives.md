@@ -4,6 +4,7 @@ title: Listen-to-self implementation alternatives
 date: '2026-04-27 16:39'
 status: proposed
 ---
+
 ## Context
 
 TASK-140 requires aggregate roots to support **listen-to-self** semantics: the aggregate raises a domain event,
@@ -88,6 +89,7 @@ publish and return `202 Accepted` without saving.
 #### Client code
 
 ```java
+
 @Aggregate
 public record Order(
         @Id Reference<Order> id,
@@ -118,12 +120,12 @@ public record Order(
 
 #### Trade-offs
 
-| ✅ Pros | ❌ Cons |
-|---|---|
-| Surgical opt-in per method — most of the aggregate stays synchronous | Two new annotations required, both needed together every time |
-| `@Create` constructor pattern completely unchanged | Easy to forget one annotation; the combination is a protocol that must be documented |
-| Processor processes each side independently | Scattered: the async contract is expressed across two unrelated methods |
-| Mixing sync and async methods on the same aggregate is explicit | A mixed aggregate is harder to reason about — is `ship()` sync or async? |
+| ✅ Pros                                                               | ❌ Cons                                                                               |
+|----------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| Surgical opt-in per method — most of the aggregate stays synchronous | Two new annotations required, both needed together every time                        |
+| `@Create` constructor pattern completely unchanged                   | Easy to forget one annotation; the combination is a protocol that must be documented |
+| Processor processes each side independently                          | Scattered: the async contract is expressed across two unrelated methods              |
+| Mixing sync and async methods on the same aggregate is explicit      | A mixed aggregate is harder to reason about — is `ship()` sync or async?             |
 
 ---
 
@@ -142,6 +144,7 @@ The processor changes its code-generation strategy for the entire aggregate:
 #### Client code
 
 ```java
+
 @Aggregate
 @EventSourced                                            // all state changes go via the broker
 public record Order(
@@ -151,11 +154,11 @@ public record Order(
         String trackingCode
 ) implements PublishesEvents {
 
-    // Returns the event, not the aggregate. No phantom construction.
-    // Processor publishes the returned event and returns 202 Accepted.
+    // Calls publish() instead of constructing an aggregate. Processor generates a REST endpoint that calls this method,
+    // publishes the event, and returns 202 Accepted.
     @Create
-    public static OrderPlaced placeOrder(@NotNull String customerId) {
-        return new OrderPlaced(Reference.create(), customerId);
+    public static void placeOrder(@NotNull String customerId) {
+        publish(new OrderPlaced(Reference.create(), customerId));
     }
 
     // Calls publish() as today. Processor does NOT save afterwards. Returns 202 Accepted.
@@ -183,22 +186,22 @@ Non-`@EventSourced` aggregates like `ChannelSummary` are completely unaffected �
 
 #### What the processor sees — independently on each side
 
-| Declaration | Processor generates |
-|---|---|
-| `@Create static EventType method(…)` | REST endpoint; calls method; publishes returned event; returns `202 Accepted` |
-| `@Update void method(…)` on `@EventSourced` | REST endpoint; loads aggregate; calls method (which calls `publish()`); returns `202 Accepted`; does NOT save |
-| `@EventHandler static AggregateType method(EventType)` on `@EventSourced` | Broker consumer; calls method; saves result; deduplication guard |
-| `@EventHandler @ByReference AggregateType method(EventType)` on `@EventSourced` | Broker consumer; loads aggregate; calls method; saves result; deduplication guard |
+| Declaration                                                                     | Processor generates                                                                                           |
+|---------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
+| `@Create static EventType method(…)`                                            | REST endpoint; calls method; publishes returned event; returns `202 Accepted`                                 |
+| `@Update void method(…)` on `@EventSourced`                                     | REST endpoint; loads aggregate; calls method (which calls `publish()`); returns `202 Accepted`; does NOT save |
+| `@EventHandler static AggregateType method(EventType)` on `@EventSourced`       | Broker consumer; calls method; saves result; deduplication guard                                              |
+| `@EventHandler @ByReference AggregateType method(EventType)` on `@EventSourced` | Broker consumer; loads aggregate; calls method; saves result; deduplication guard                             |
 
 #### Trade-offs
 
-| ✅ Pros | ❌ Cons |
-|---|---|
-| One annotation expresses the whole contract | All-or-nothing: every `@Update` on the aggregate becomes async |
-| No `@ListenToSelf` or `@FireAndForget` needed anywhere | Cannot mix sync and async `@Update` methods on the same aggregate |
-| `@Update` void ambiguity disappears entirely — class context resolves it | `@Create` must change to a static factory pattern for event-sourced aggregates |
-| Uniform: every developer reading the class immediately understands the pattern | Static `@Create` is a new contract; documentation and tooling support needed |
-| Processor strategy is decided once at class level, not method by method | |
+| ✅ Pros                                                                         | ❌ Cons                                                                         |
+|--------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
+| One annotation expresses the whole contract                                    | All-or-nothing: every `@Update` on the aggregate becomes async                 |
+| No `@ListenToSelf` or `@FireAndForget` needed anywhere                         | Cannot mix sync and async `@Update` methods on the same aggregate              |
+| `@Update` void ambiguity disappears entirely — class context resolves it       | `@Create` must change to a static factory pattern for event-sourced aggregates |
+| Uniform: every developer reading the class immediately understands the pattern | Static `@Create` is a new contract; documentation and tooling support needed   |
+| Processor strategy is decided once at class level, not method by method        |                                                                                |
 
 ---
 

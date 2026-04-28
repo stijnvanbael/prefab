@@ -2,6 +2,7 @@ package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import com.google.auto.service.AutoService;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.ServiceLoader;
@@ -39,6 +40,11 @@ public class PrefabProcessor extends AbstractProcessor {
     private final Set<TypeElement> deferredPolymorphicAggregates = new LinkedHashSet<>();
     private final Set<ExecutableElement> deferredEventHandlers = new LinkedHashSet<>();
 
+    // All aggregate manifests resolved across all rounds, used for global file generation.
+    private final List<ClassManifest> allResolvedAggregates = new ArrayList<>();
+    private final List<PolymorphicAggregateManifest> allResolvedPolymorphicAggregates = new ArrayList<>();
+    private boolean globalFilesWritten = false;
+
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment environment) {
         var plugins = detectPlugins();
@@ -49,6 +55,12 @@ public class PrefabProcessor extends AbstractProcessor {
         writeAggregates(context, aggregates);
         writePolymorphicAggregates(context, polymorphicAggregates);
         plugins.forEach(plugin -> plugin.writeAdditionalFiles(aggregates, polymorphicAggregates));
+        allResolvedAggregates.addAll(aggregates);
+        allResolvedPolymorphicAggregates.addAll(polymorphicAggregates);
+        if (!globalFilesWritten && deferredAggregates.isEmpty() && deferredPolymorphicAggregates.isEmpty()) {
+            globalFilesWritten = true;
+            plugins.forEach(plugin -> plugin.writeGlobalFiles(allResolvedAggregates, allResolvedPolymorphicAggregates));
+        }
         deferredEventHandlers.clear();
         deferredEventHandlers.addAll(context.newlyDeferredEventHandlers());
         return true;

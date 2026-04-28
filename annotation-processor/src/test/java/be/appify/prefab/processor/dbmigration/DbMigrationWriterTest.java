@@ -506,4 +506,24 @@ class DbMigrationWriterTest {
     private static void assertNoPrefabWarnings(List<?> warnings) {
         Truth.assertThat(warnings).isEmpty();
     }
+
+    @Test
+    void aggregateRootsInDifferentPackagesGenerateSingleMigrationFile() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("dbmigration/multipackage/source/product/Product.java"),
+                        sourceOf("dbmigration/multipackage/source/order/Order.java")
+                );
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("CREATE TABLE \"product\"");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("CREATE TABLE \"order\"");
+    }
 }

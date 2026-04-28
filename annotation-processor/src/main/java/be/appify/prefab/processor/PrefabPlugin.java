@@ -79,6 +79,18 @@ public interface PrefabPlugin {
     }
 
     /**
+     * Write files that depend on the complete set of all resolved aggregate roots across all processing rounds.
+     * Called exactly once, after all deferred aggregates have been resolved.
+     *
+     * @param manifests
+     *         All resolved regular class manifests across all rounds.
+     * @param polymorphicManifests
+     *         All resolved polymorphic aggregate manifests across all rounds.
+     */
+    default void writeGlobalFiles(List<ClassManifest> manifests, List<PolymorphicAggregateManifest> polymorphicManifests) {
+    }
+
+    /**
      * Write service code for the given polymorphic aggregate manifest.
      *
      * @param manifest

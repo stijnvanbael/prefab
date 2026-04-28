@@ -56,6 +56,16 @@ public interface PrefabPlugin {
     }
 
     /**
+     * Write event source files during the first processing round.
+     *
+     * <p>Implementations that generate event types (e.g. from AVSC schemas) must override this method.
+     * Event files are generated before aggregate code so that the generated types are available
+     * as compiled symbols when aggregate-level code generation runs in round 2.
+     */
+    default void writeEventFiles() {
+    }
+
+    /**
      * Write additional files based on the given manifests.
      *
      * @param manifests

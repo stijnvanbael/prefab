@@ -2,7 +2,6 @@ package be.appify.prefab.processor.event.avro;
 
 import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import com.palantir.javapoet.ClassName;
@@ -10,7 +9,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
@@ -28,7 +26,7 @@ public class AvscPlugin implements PrefabPlugin {
     }
 
     @Override
-    public void writeAdditionalFiles(List<ClassManifest> manifests) {
+    public void writeEventFiles() {
         context.roundEnvironment()
                 .getElementsAnnotatedWith(Avsc.class)
                 .forEach(element -> processElement(element, element.getAnnotation(Avsc.class)));

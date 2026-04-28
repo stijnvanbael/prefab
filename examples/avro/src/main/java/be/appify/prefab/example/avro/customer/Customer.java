@@ -8,6 +8,7 @@ import be.appify.prefab.core.annotations.rest.Delete;
 import be.appify.prefab.core.domain.PublishesEvents;
 import be.appify.prefab.core.service.Reference;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 
@@ -16,7 +17,7 @@ public record Customer(
         @Id Reference<Customer> id,
         @Version long version,
         PersonName name,
-        String email
+        @Size(max = 255) String email
 ) implements PublishesEvents {
 
     @Create

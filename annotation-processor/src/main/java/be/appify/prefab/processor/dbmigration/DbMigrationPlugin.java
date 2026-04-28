@@ -52,9 +52,15 @@ public class DbMigrationPlugin implements PrefabPlugin {
         var polyManifests = polymorphicManifests.stream()
                 .filter(PolymorphicAggregateManifest::isDbMigrationEnabled)
                 .toList();
-        if (!classManifests.isEmpty() || !polyManifests.isEmpty()) {
-            dbMigrationWriter.writeDbMigration(context.processingEnvironment(), classManifests, polyManifests);
+        if (classManifests.isEmpty() && polyManifests.isEmpty()) {
+            return;
         }
+        var manifestFile = new AggregateManifestFile(context.processingEnvironment());
+        if (!manifestFile.isComplete(classManifests, polyManifests)) {
+            return;
+        }
+        dbMigrationWriter.writeDbMigration(context.processingEnvironment(), classManifests, polyManifests);
+        manifestFile.save(classManifests, polyManifests);
     }
 
     private boolean isDbMigrationEnabled(ClassManifest manifest) {

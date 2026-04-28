@@ -1,7 +1,6 @@
 package be.appify.prefab.processor.event.avro;
 
 import be.appify.prefab.processor.PrefabProcessor;
-import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.event.avro.ProcessorTestUtil.contentsOf;
@@ -11,7 +10,7 @@ import static com.google.testing.compile.Compiler.javac;
 
 class GenericRecordToEventConverterWriterTest {
     @Test
-    void simpleEvent() throws IOException {
+    void simpleEvent() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/simple/source/SimpleEvent.java"));
@@ -22,7 +21,7 @@ class GenericRecordToEventConverterWriterTest {
     }
 
     @Test
-    void inheritedFields() throws IOException {
+    void inheritedFields() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/inherited/source/SuperType.java"),
@@ -34,7 +33,7 @@ class GenericRecordToEventConverterWriterTest {
     }
 
     @Test
-    void nonPrimitiveFields() throws IOException {
+    void nonPrimitiveFields() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/nonprimitive/source/NonPrimitiveEvent.java"));
@@ -45,7 +44,18 @@ class GenericRecordToEventConverterWriterTest {
     }
 
     @Test
-    void nestedRecord() throws IOException {
+    void nullableFields() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avro/nullable/source/NullableEvent.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.GenericRecordToNullableEventConverter")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("event/avro/nullable/expected/GenericRecordToNullableEventConverter.java"));
+    }
+
+    @Test
+    void nestedRecord() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/nestedrecord/source/NestedRecordEvent.java"));
@@ -59,7 +69,7 @@ class GenericRecordToEventConverterWriterTest {
     }
 
     @Test
-    void arrayField() throws IOException {
+    void arrayField() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/array/source/ArrayFieldEvent.java"));
@@ -70,7 +80,7 @@ class GenericRecordToEventConverterWriterTest {
     }
 
     @Test
-    void sealedHierarchy() throws IOException {
+    void sealedHierarchy() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/hierarchy/source/HierarchyEvent.java"));

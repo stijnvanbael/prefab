@@ -5,6 +5,7 @@ import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
+import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
@@ -176,11 +177,13 @@ class GenericRecordToEventConverterWriter {
                         )""",
                 event.asTypeName(),
                 event.fields().stream()
-                        .map(field -> fieldForRecord(field.name(), field.type()))
+                        .map(this::fieldForRecord)
                         .collect(CodeBlock.joining(",\n    ")));
     }
 
-    private CodeBlock fieldForRecord(String fieldName, TypeManifest type) {
+    private CodeBlock fieldForRecord(VariableManifest field) {
+        var fieldName = field.name();
+        var type = field.type();
         if (type.isCustomType()) {
             var rawValue = CodeBlock.of("genericRecord.get($S)", fieldName);
             return context.plugins().stream()
@@ -200,7 +203,11 @@ class GenericRecordToEventConverterWriter {
                         return CodeBlock.of("null");
                     });
         }
-        return field(CodeBlock.of("genericRecord.get($S)", fieldName), type);
+        var value = CodeBlock.of("genericRecord.get($S)", fieldName);
+        if (type.is(String.class) && field.nullable()) {
+            return maybeNull(value, CodeBlock.of("$L.toString()", value));
+        }
+        return field(value, type);
     }
 
     private CodeBlock field(CodeBlock value, TypeManifest type) {

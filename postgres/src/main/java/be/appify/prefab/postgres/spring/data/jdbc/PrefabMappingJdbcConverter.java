@@ -338,17 +338,18 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
 
     private boolean isJsonbListType(TypeInformation<?> type) {
         var componentType = type.getComponentType();
-        return componentType != null && componentType.getType().isAnnotationPresent(DbDocument.class);
+        return componentType != null && isJsonbMarked(componentType.getType());
     }
 
     private boolean isJsonbListTarget(TypeInformation<?> type) {
-        // Spring Data JDBC may call writeValue with TypeInformation.of(columnType), which is PGobject.class
-        // for @DbDocument list properties. Accept that as well as proper List<@DbDocument T> TypeInformation.
         return type.getType() == PGobject.class || isJsonbListType(type);
     }
 
     private static boolean isJsonbFieldTarget(TypeInformation<?> type, Object value) {
-        return type.getType() == PGobject.class && !(value instanceof PGobject) && !(value instanceof List<?>);
+        if (value instanceof PGobject || value instanceof List<?>) {
+            return false;
+        }
+        return type.getType() == PGobject.class || isJsonbMarked(type.getType());
     }
 
     private static boolean isJsonbValue(Object value) {
@@ -382,11 +383,19 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
         try {
             var pgObject = new PGobject();
             pgObject.setType("jsonb");
-            pgObject.setValue(jsonMapper.writeValueAsString(value));
+            pgObject.setValue(serializeObjectAsString(value));
             return pgObject;
         } catch (Exception e) {
             throw new IllegalStateException("Failed to serialize value to JSONB: " + value.getClass(), e);
         }
+    }
+
+    private String serializeObjectAsString(Object value) {
+        Class<?> baseType = findJsonBaseType(value);
+        if (baseType == null) {
+            return jsonMapper.writeValueAsString(value);
+        }
+        return jsonMapper.writerFor(baseType).writeValueAsString(value);
     }
 
     private PGobject serializeListToJsonb(List<?> list, TypeInformation<?> type) {

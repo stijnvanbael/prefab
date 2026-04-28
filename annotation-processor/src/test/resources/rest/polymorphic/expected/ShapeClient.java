@@ -3,6 +3,8 @@ package rest.polymorphic;
 import be.appify.prefab.core.spring.Page;
 import be.appify.prefab.processor.rest.ControllerUtil;
 import be.appify.prefab.test.TestUtil;
+import java.util.List;
+import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -10,6 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.test.web.servlet.setup.MockMvcConfigurer;
 import org.springframework.web.context.WebApplicationContext;
 import rest.polymorphic.application.CreateCircleRequest;
 import rest.polymorphic.application.CreateRectangleRequest;
@@ -23,10 +26,12 @@ public class ShapeClient {
 
     private final JsonMapper jsonMapper;
 
-    public ShapeClient(WebApplicationContext context, JsonMapper jsonMapper) {
-        this.mockMvc = MockMvcBuilders
-                    .webAppContextSetup(context)
-                    .build();
+    public ShapeClient(WebApplicationContext context, JsonMapper jsonMapper,
+            List<MockMvcConfigurer> configurers) {
+        var builder = MockMvcBuilders.webAppContextSetup(context);
+        AnnotationAwareOrderComparator.sort(configurers);
+        configurers.forEach(builder::apply);
+        this.mockMvc = builder.build();
         this.jsonMapper = jsonMapper;
     }
 

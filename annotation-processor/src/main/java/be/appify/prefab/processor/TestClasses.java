@@ -56,4 +56,18 @@ public class TestClasses {
     public static final ClassName SECURITY_MOCK_MVC_CONFIGURERS = ClassName.get(
             "org.springframework.security.test.web.servlet.setup",
             "SecurityMockMvcConfigurers");
+
+    /**
+     * ClassName for org.springframework.test.web.servlet.setup.MockMvcConfigurer, used to apply custom configuration to MockMvc instances.
+     */
+    public static final ClassName MOCK_MVC_CONFIGURER = ClassName.get(
+            "org.springframework.test.web.servlet.setup",
+            "MockMvcConfigurer");
+
+    /**
+     * ClassName for org.springframework.core.annotation.AnnotationAwareOrderComparator, used to sort MockMvcConfigurer beans by Spring @Order.
+     */
+    public static final ClassName ANNOTATION_AWARE_ORDER_COMPARATOR = ClassName.get(
+            "org.springframework.core.annotation",
+            "AnnotationAwareOrderComparator");
 }

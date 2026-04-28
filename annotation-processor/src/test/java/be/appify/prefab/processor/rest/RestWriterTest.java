@@ -59,6 +59,15 @@ class RestWriterTest {
     }
 
     @Test
+    void testClientGenerationCompletesSuccessfully() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/testclient/source/Person.java"));
+
+        assertThat(compilation).succeeded();
+    }
+
+    @Test
     void aggregateReferencingGeneratedEventTypeCompiles() {
         // ...existing code...
     }

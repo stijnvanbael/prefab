@@ -1,7 +1,7 @@
 ---
 id: TASK-139
 title: Customize MockMvc in generated test REST clients
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-04-27 08:51'
 updated_date: '2026-04-27 08:52'
@@ -17,7 +17,7 @@ The generated test REST clients (e.g. CategoryClient, UserClient) build their Mo
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Generated client constructors accept an optional list of MockMvcConfigurer beans from the Spring context
-- [ ] #2 When no MockMvcConfigurer beans are present the generated client behaves exactly as before
-- [ ] #3 The apply order of MockMvcConfigurer beans is deterministic (e.g. ordered by bean name or Spring @Order)
+- [x] #1 Generated client constructors accept an optional list of MockMvcConfigurer beans from the Spring context
+- [x] #2 When no MockMvcConfigurer beans are present the generated client behaves exactly as before
+- [x] #3 The apply order of MockMvcConfigurer beans is deterministic (e.g. ordered by bean name or Spring @Order)
 <!-- AC:END -->

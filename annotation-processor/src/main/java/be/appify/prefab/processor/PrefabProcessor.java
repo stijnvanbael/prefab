@@ -2,6 +2,7 @@ package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.Avsc;
+import be.appify.prefab.core.annotations.Event;
 import com.google.auto.service.AutoService;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -40,6 +41,7 @@ public class PrefabProcessor extends AbstractProcessor {
     private final Set<TypeElement> deferredAggregates = new LinkedHashSet<>();
     private final Set<TypeElement> deferredPolymorphicAggregates = new LinkedHashSet<>();
     private final Set<ExecutableElement> deferredEventHandlers = new LinkedHashSet<>();
+    private final Set<TypeElement> cachedEventElements = new LinkedHashSet<>();
 
     // All aggregate manifests resolved across all rounds, used for global file generation.
     private final List<ClassManifest> allResolvedAggregates = new ArrayList<>();
@@ -50,11 +52,12 @@ public class PrefabProcessor extends AbstractProcessor {
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment environment) {
         var plugins = detectPlugins();
-        var context = new PrefabContext(processingEnv, plugins, environment, deferredEventHandlers);
+        var context = new PrefabContext(processingEnv, plugins, environment, deferredEventHandlers, cachedEventElements);
         plugins.forEach(plugin -> plugin.initContext(context));
         if (hasAvscAnnotations(environment) && !eventFilesWritten) {
             eventFilesWritten = true;
             cacheAggregateElementsForNextRound(environment);
+            cacheEventElementsForNextRound(environment);
             plugins.forEach(PrefabPlugin::writeEventFiles);
             return true;
         }
@@ -87,6 +90,13 @@ public class PrefabProcessor extends AbstractProcessor {
                 .filter(e -> e.getModifiers().contains(Modifier.SEALED))
                 .map(TypeElement.class::cast)
                 .forEach(deferredPolymorphicAggregates::add);
+    }
+
+    private void cacheEventElementsForNextRound(RoundEnvironment environment) {
+        environment.getElementsAnnotatedWith(Event.class).stream()
+                .map(TypeElement.class::cast)
+                .filter(e -> e.getAnnotation(Avsc.class) == null)
+                .forEach(cachedEventElements::add);
     }
 
     private List<ClassManifest> resolveAggregates(RoundEnvironment environment) {

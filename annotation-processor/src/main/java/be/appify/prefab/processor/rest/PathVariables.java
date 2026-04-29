@@ -4,12 +4,12 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-/** Extracts path variable names (tokens in curly braces) from a URL path template. */
 public final class PathVariables {
     private static final Pattern VARIABLE_PATTERN = Pattern.compile("\\{(\\w+)}");
 
     private PathVariables() {}
 
+    /** Extracts path variable names (tokens in curly braces) from a URL path template. */
     public static Set<String> extractFrom(String path) {
         var result = new LinkedHashSet<String>();
         var matcher = VARIABLE_PATTERN.matcher(path);
@@ -19,6 +19,3 @@ public final class PathVariables {
         return result;
     }
 }
-
-
-

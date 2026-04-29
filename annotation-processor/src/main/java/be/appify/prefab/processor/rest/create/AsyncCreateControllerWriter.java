@@ -13,7 +13,6 @@ import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.ExecutableElement;
 import org.springframework.http.ResponseEntity;
@@ -39,7 +38,7 @@ class AsyncCreateControllerWriter {
         var params = factoryMethod.getParameters().stream()
                 .map(p -> VariableManifest.of(p, context.processingEnvironment()))
                 .toList();
-        var bodyParams = nonParentNonPathParams(params, manifest, pathVarNames);
+        var bodyParams = AsyncCreateServiceWriter.nonParentNonPathParams(params, manifest, pathVarNames);
         var requestParts = params.stream()
                 .flatMap(p -> context.requestParameterBuilder().buildMethodParameter(p).stream())
                 .toList();
@@ -77,19 +76,5 @@ class AsyncCreateControllerWriter {
         }
         method.addStatement("return $T.accepted().build()", ResponseEntity.class);
         return method.build();
-    }
-
-    private static List<VariableManifest> nonParentNonPathParams(
-            List<VariableManifest> params,
-            ClassManifest manifest,
-            Set<String> pathVarNames
-    ) {
-        var parentName = manifest.parent()
-                .filter(p -> !p.type().parameters().isEmpty())
-                .map(VariableManifest::name);
-        return params.stream()
-                .filter(p -> parentName.map(n -> !n.equals(p.name())).orElse(true))
-                .filter(p -> !pathVarNames.contains(p.name()))
-                .toList();
     }
 }

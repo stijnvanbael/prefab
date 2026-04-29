@@ -72,7 +72,7 @@ class AsyncCreateServiceWriter {
         return context.requestParameterMapper().mapRequestParameter(param);
     }
 
-    private static List<VariableManifest> nonParentNonPathParams(
+    static List<VariableManifest> nonParentNonPathParams(
             List<VariableManifest> params,
             ClassManifest manifest,
             Set<String> pathVarNames

@@ -135,15 +135,29 @@ class AsyncCommitWriterTest {
     }
 
     @Test
-    void asyncUpdatePathVariableIsPassedDirectlyToDomainMethod() {
+    void asyncCreatePathVariableIsPassedFromControllerToService() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("rest/asyncpathvariable/source/Ticket.java"));
 
         assertThat(compilation).succeeded();
         assertThat(compilation)
-                .generatedSourceFile("rest.asyncpathvariable.application.TicketService")
+                .generatedSourceFile("rest.asyncpathvariable.infrastructure.http.TicketController")
                 .contentsAsUtf8String()
-                .contains("aggregate.transition(status)");
+                .contains("service.create(queue, request)");
     }
+
+    @Test
+    void asyncUpdatePathVariableIsPassedFromControllerToService() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/asyncpathvariable/source/Ticket.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.asyncpathvariable.infrastructure.http.TicketController")
+                .contentsAsUtf8String()
+                .contains("service.transition(id, status)");
+    }
+
 }

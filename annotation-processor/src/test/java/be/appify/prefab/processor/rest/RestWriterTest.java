@@ -281,6 +281,32 @@ class RestWriterTest {
     }
 
     @Test
+    void pathVariableInCreateIsPassedFromControllerToService() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/pathvariable/source/Subscription.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.pathvariable.infrastructure.http.SubscriptionController")
+                .contentsAsUtf8String()
+                .contains("service.create(plan, request)");
+    }
+
+    @Test
+    void pathVariableInUpdateIsPassedFromControllerToService() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/pathvariable/source/Subscription.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.pathvariable.infrastructure.http.SubscriptionController")
+                .contentsAsUtf8String()
+                .contains("service.updateSection(id, section, request");
+    }
+
+    @Test
     void pathVariableInCreateIsPassedDirectlyToServiceMethod() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

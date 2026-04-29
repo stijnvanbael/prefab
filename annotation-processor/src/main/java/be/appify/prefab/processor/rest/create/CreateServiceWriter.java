@@ -13,8 +13,6 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import jakarta.validation.Valid;
-import org.jspecify.annotations.NonNull;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;

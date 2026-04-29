@@ -11,13 +11,15 @@ import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
-
-import org.jspecify.annotations.NonNull;
 import org.springframework.http.MediaType;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -55,7 +57,12 @@ class CreateTestClientWriter {
                         pathVarNamesStr));
     }
 
-    private static CreateMethodInfo getCreateMethodInfo(ClassManifest manifest, ExecutableElement factoryMethod, PrefabContext context, Set<String> pathVarNames) {
+    private static CreateMethodInfo getCreateMethodInfo(
+            ClassManifest manifest,
+            ExecutableElement factoryMethod,
+            PrefabContext context,
+            Set<String> pathVarNames
+    ) {
         var allParams = factoryMethod.getParameters().stream()
                 .map(p -> VariableManifest.of(p, context.processingEnvironment()))
                 .toList();
@@ -74,7 +81,11 @@ class CreateTestClientWriter {
         return new CreateMethodInfo(parentPathParam, pathVarParams, bodyParams);
     }
 
-    private record CreateMethodInfo(Optional<ParameterSpec> parentPathParam, List<ParameterSpec> pathVarParams, List<VariableManifest> bodyParams) {
+    private record CreateMethodInfo(
+            Optional<ParameterSpec> parentPathParam,
+            List<ParameterSpec> pathVarParams,
+            List<VariableManifest> bodyParams
+    ) {
     }
 
     private static MethodSpec buildAsyncNoBodyMethod(

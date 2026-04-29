@@ -154,8 +154,8 @@ public class ControllerUtil {
         return security.authority().isEmpty()
                 ? CodeBlock.of("")
                 : CodeBlock.of(".authorities(new $T($S))",
-                ClassName.get("org.springframework.security.core.authority", "SimpleGrantedAuthority"),
-                security.authority());
+                        ClassName.get("org.springframework.security.core.authority", "SimpleGrantedAuthority"),
+                        security.authority());
     }
 
     /**

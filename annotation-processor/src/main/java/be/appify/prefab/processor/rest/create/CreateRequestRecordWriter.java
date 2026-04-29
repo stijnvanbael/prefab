@@ -34,7 +34,15 @@ class CreateRequestRecordWriter {
         buildRequestRecord(fileWriter, manifest, constructor, context, pathVarNames, name, parentName);
     }
 
-    private void buildRequestRecord(JavaFileWriter fileWriter, ClassManifest manifest, ExecutableElement constructor, PrefabContext context, Set<String> pathVarNames, String name, Optional<String> parentName) {
+    private void buildRequestRecord(
+            JavaFileWriter fileWriter,
+            ClassManifest manifest,
+            ExecutableElement constructor,
+            PrefabContext context,
+            Set<String> pathVarNames,
+            String name,
+            Optional<String> parentName
+    ) {
         var bodyParams = constructor.getParameters().stream()
                 .map(param -> VariableManifest.of(param, context.processingEnvironment()))
                 .filter(param -> parentName.map(parentFieldName -> !parentFieldName.equals(param.name())).orElse(true))

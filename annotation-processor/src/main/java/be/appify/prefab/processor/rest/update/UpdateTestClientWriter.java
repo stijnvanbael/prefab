@@ -218,8 +218,8 @@ class UpdateTestClientWriter {
         return parentPathVariables.isBlank()
                 ? CodeBlock.of("$S", "/" + ControllerUtil.pathOf(manifest) + "/{id}" + update.path())
                 : CodeBlock.of("$S, $L",
-                "/" + ControllerUtil.pathOf(manifest) + "/{id}" + update.path(),
-                parentPathVariables);
+                        "/" + ControllerUtil.pathOf(manifest) + "/{id}" + update.path(),
+                        parentPathVariables);
     }
 
     MethodSpec baseUpdateMethodForPolymorphic(

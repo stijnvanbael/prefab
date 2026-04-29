@@ -164,4 +164,16 @@
             <id>central</id>
         </repository>
     </distributionManagement>
+
+    <profiles>
+        <profile>
+            <id>skip-gpg</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <gpg.skip>true</gpg.skip>
+            </properties>
+        </profile>
+    </profiles>
 </project>

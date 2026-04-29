@@ -62,7 +62,7 @@ public class AggregateParameterPlugin implements PrefabPlugin {
     @Override
     public Set<TypeName> getPolymorphicServiceDependencies(PolymorphicAggregateManifest manifest) {
         return manifest.subtypes().stream()
-                .flatMap(subtype -> aggregateTypedParamsOf(subtype))
+                .flatMap(this::aggregateTypedParamsOf)
                 .map(this::repositoryTypeFor)
                 .collect(Collectors.toSet());
     }
@@ -73,7 +73,7 @@ public class AggregateParameterPlugin implements PrefabPlugin {
         var updateParams = manifest.methodsWith(Update.class).stream()
                 .flatMap(method -> parametersOf(method).stream());
         return Stream.concat(createParams, updateParams)
-                .filter(param -> isAggregateTyped(param));
+                .filter(this::isAggregateTyped);
     }
 
     private TypeName repositoryTypeFor(VariableManifest parameter) {

@@ -1,5 +1,5 @@
 ---
-id: task-006
+id: TASK-006
 title: Skip generating classes that already exist
 status: To Do
 assignee: []

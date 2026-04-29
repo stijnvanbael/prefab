@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import javax.lang.model.element.Modifier;
+
 import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -145,12 +146,16 @@ public class ControllerUtil {
         return security.enabled() ?
                 CodeBlock.of("\n.with($T.user(\"test\")$L)",
                         ClassName.get("org.springframework.security.test.web.servlet.request", "SecurityMockMvcRequestPostProcessors"),
-                        security.authority().isEmpty()
-                                ? CodeBlock.of("")
-                                : CodeBlock.of(".authorities(new $T($S))",
-                                        ClassName.get("org.springframework.security.core.authority", "SimpleGrantedAuthority"),
-                                        security.authority()))
+                        withSecurity(security))
                 : CodeBlock.of("");
+    }
+
+    private static CodeBlock withSecurity(Security security) {
+        return security.authority().isEmpty()
+                ? CodeBlock.of("")
+                : CodeBlock.of(".authorities(new $T($S))",
+                        ClassName.get("org.springframework.security.core.authority", "SimpleGrantedAuthority"),
+                        security.authority());
     }
 
     /**

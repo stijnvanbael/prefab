@@ -9,10 +9,12 @@ import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.rest.PathVariables;
 import com.palantir.javapoet.TypeSpec;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
@@ -117,7 +119,7 @@ public class UpdatePlugin implements PrefabPlugin {
         var grouped = groupSubtypesByPath(manifest);
         grouped.forEach((pathKey, entries) -> {
             if (isUnionGroup(entries)) {
-                builder.addMethod(updateControllerWriter.updateDispatchMethodForPolymorphic(manifest, entries, context));
+                builder.addMethod(updateControllerWriter.updateDispatchMethodForPolymorphic(manifest, entries));
             } else {
                 entries.forEach(e -> builder.addMethod(
                         updateControllerWriter.updateMethodForPolymorphic(manifest, e.getKey(), e.getValue(), context)));
@@ -175,8 +177,13 @@ public class UpdatePlugin implements PrefabPlugin {
                 .map(element -> {
                     var update = element.getAnnotationsByType(Update.class)[0];
                     var allParams = getParametersOf(element, context.processingEnvironment());
+                    var pathVarNames = PathVariables.extractFrom(update.path());
+                    var pathParameters = allParams.stream()
+                            .filter(p -> pathVarNames.contains(p.name()))
+                            .toList();
                     var requestParameters = allParams.stream()
                             .filter(p -> parentFieldName.map(pfn -> !pfn.equals(p.name())).orElse(true))
+                            .filter(p -> !pathVarNames.contains(p.name()))
                             .toList();
                     var aggregateParams = allParams.stream()
                             .filter(p -> !p.type().annotationsOfType(Aggregate.class).isEmpty())
@@ -186,6 +193,7 @@ public class UpdatePlugin implements PrefabPlugin {
                             element.getSimpleName().toString(),
                             allParams,
                             requestParameters,
+                            pathParameters,
                             aggregateParams,
                             parentEntityParams,
                             element.getReturnType().toString().equals("void"),
@@ -200,7 +208,7 @@ public class UpdatePlugin implements PrefabPlugin {
 
     private List<VariableManifest> resolveParentEntityParameters(
             List<VariableManifest> allParams,
-            java.util.Optional<VariableManifest> parentField
+            Optional<VariableManifest> parentField
     ) {
         if (parentField.isEmpty()) {
             return List.of();

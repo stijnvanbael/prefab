@@ -2,11 +2,12 @@
 id: TASK-145
 title: Error generating migration script for aggregate roots in different packages
 status: Done
-assignee: [ ]
+assignee: []
 created_date: '2026-04-27 14:41'
-updated_date: '2026-04-27 14:42'
-labels: [ ]
-dependencies: [ ]
+updated_date: '2026-04-29 14:51'
+labels: []
+dependencies: []
+ordinal: 9000
 ---
 
 ## Description
@@ -21,12 +22,9 @@ in the first.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
-
 <!-- AC:BEGIN -->
-
 - [ ] #1 Annotation processor collects all aggregate roots across packages before writing the migration file
 - [ ] #2 V1__generated.sql is written only once per compilation round, not once per processed aggregate root
 - [ ] #3 No FilerException is thrown when aggregate roots exist in multiple packages
 - [ ] #4 Generated migration script correctly reflects all aggregate roots without conflicts
-
 <!-- AC:END -->

@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.event.kafka;
 
+import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.processor.ClassManifest;
@@ -79,9 +80,8 @@ public class KafkaPlugin implements PrefabPlugin {
     }
 
     private void writePublishers() {
-        var events = context.roundEnvironment().getElementsAnnotatedWith(Event.class)
-                .stream()
-                .filter(e -> !isAvscGeneratedRecord(e))
+        var events = context.eventElements()
+                .filter(e -> e.getAnnotation(Avsc.class) == null)
                 .filter(e -> platformIsKafka(requireNonNull(e.getAnnotation(Event.class)), e, context))
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .toList();

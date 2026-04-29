@@ -124,4 +124,27 @@ class CreateRequestRecordWriter {
         var dotIndex = simpleName.lastIndexOf('.');
         return dotIndex >= 0 ? simpleName.substring(dotIndex + 1) : simpleName;
     }
+
+    void writeRequestRecordForFactory(
+            JavaFileWriter fileWriter,
+            ClassManifest manifest,
+            ExecutableElement factoryMethod,
+            PrefabContext context
+    ) {
+        var name = "Create%sRequest".formatted(manifest.simpleName());
+        var parentName = manifest.parent()
+                .filter(p -> !p.type().parameters().isEmpty())
+                .map(p -> p.name());
+        var bodyParams = factoryMethod.getParameters().stream()
+                .map(param -> VariableManifest.of(param, context.processingEnvironment()))
+                .filter(param -> parentName.map(pfn -> !pfn.equals(param.name())).orElse(true))
+                .toList();
+        if (bodyParams.isEmpty()) {
+            return;
+        }
+        var type = writeRecord(ClassName.get(manifest.packageName() + ".application", name),
+                bodyParams,
+                context.requestParameterBuilder());
+        fileWriter.writeFile(manifest.packageName(), name, type);
+    }
 }

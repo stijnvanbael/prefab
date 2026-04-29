@@ -142,4 +142,38 @@ class KafkaConsumerWriterTest {
                 .contentsAsUtf8String()
                 .isEqualTo(contentsOf("expected/kafka/createorupdate/ChannelSummaryKafkaConsumer.java"));
     }
+
+    @Test
+    void asyncCommitAggregateConsumerIsTransactional() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("kafka/asynccommit/Order.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("kafka.asynccommit.infrastructure.kafka.OrderKafkaConsumer")
+                .contentsAsUtf8String()
+                .contains("@Transactional");
+    }
+
+    @Test
+    void avscAsyncCommitAggregateGeneratesSchemaFactoryAndConverters() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/avscasynccommit/OrderPlaced.java"),
+                        sourceOf("kafka/avscasynccommit/Order.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("kafka.avscasynccommit.infrastructure.avro.OrderPlacedEventSchemaFactory")
+                .isNotNull();
+        assertThat(compilation)
+                .generatedSourceFile("kafka.avscasynccommit.infrastructure.avro.OrderPlacedEventToGenericRecordConverter")
+                .isNotNull();
+        assertThat(compilation)
+                .generatedSourceFile("kafka.avscasynccommit.infrastructure.avro.GenericRecordToOrderPlacedEventConverter")
+                .isNotNull();
+        assertThat(compilation)
+                .generatedSourceFile("kafka.avscasynccommit.infrastructure.kafka.OrderKafkaConsumer")
+                .contentsAsUtf8String()
+                .contains("@Transactional");
+    }
 }

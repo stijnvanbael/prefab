@@ -31,6 +31,10 @@ class UpdateServiceWriter {
         }
         method.addStatement("log.debug($S, $T.class.getSimpleName(), id)", "Updating {} with id: {}",
                 manifest.className());
+        if (update.asyncCommit()) {
+            updateAsync(method, uncapitalize(manifest.simpleName()) + "Repository", update);
+            return method.build();
+        }
         var domainCallBlock = buildDomainCallBlock(update);
         var aggregateFunction = buildAggregateFunction(update, domainCallBlock);
         var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
@@ -46,6 +50,28 @@ class UpdateServiceWriter {
             updateBasic(method, repositoryName, aggregateFunction);
         }
         return method.build();
+    }
+
+    private static void updateAsync(MethodSpec.Builder method, String repositoryName, UpdateManifest update) {
+        var args = update.requestParameters().stream()
+                .map(UpdateServiceWriter::resolveAsyncParam)
+                .collect(CodeBlock.joining(", "));
+        method.addStatement("""
+                        return $N.findById(id).map(aggregate -> {
+                            aggregate.$N($L);
+                            return aggregate;
+                        })""",
+                repositoryName,
+                update.operationName(),
+                args);
+    }
+
+    private static CodeBlock resolveAsyncParam(VariableManifest parameter) {
+        if (parameter.type().isSingleValueType()) {
+            return CodeBlock.of("request.$N() != null ? new $T(request.$N()) : null",
+                    parameter.name(), parameter.type().asTypeName(), parameter.name());
+        }
+        return CodeBlock.of("request.$N()", parameter.name());
     }
 
     private CodeBlock buildAggregateFunction(UpdateManifest update, CodeBlock domainCallBlock) {
@@ -102,7 +128,6 @@ class UpdateServiceWriter {
         }
         return CodeBlock.of("aggregate = aggregate.$N($L);\n", update.operationName(), args);
     }
-
 
     private static void updateWithTenantAndAudit(
             ClassManifest manifest,

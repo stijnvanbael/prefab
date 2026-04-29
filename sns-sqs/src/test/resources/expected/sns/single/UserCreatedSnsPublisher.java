@@ -31,8 +31,8 @@ public class UserCreatedSnsPublisher {
     }
 
     @EventListener
-    public CompletableFuture<Void> publish(UserCreated event) {
+    public void publish(UserCreated event) {
         log.debug("Publishing event {} on topic {}", event, topicArn);
-        return CompletableFuture.runAsync(() -> snsTemplate.sendNotification(topicArn, snsSerializer.serialize(topic, event), event.getClass().getName()));
+        CompletableFuture.runAsync(() -> snsTemplate.sendNotification(topicArn, snsSerializer.serialize(topic, event), event.getClass().getName())).join();
     }
 }

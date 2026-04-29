@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.event.kafka;
 
 import be.appify.prefab.core.annotations.Avsc;
+import be.appify.prefab.core.annotations.AsyncCommit;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
@@ -31,6 +32,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import static be.appify.prefab.processor.event.ConsumerWriterSupport.concurrencyExpression;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.isAvscGeneratedRecord;
@@ -71,6 +73,7 @@ class KafkaConsumerWriter {
         var name = "%sKafkaConsumer".formatted(owner.simpleName());
         var packageName = TypeManifest.of(resolvedHandlers.getFirst().getEnclosingElement().asType(),
                 context.processingEnvironment()).packageName();
+        var isAsyncCommit = !owner.annotationsOfType(AsyncCommit.class).isEmpty();
         var type = TypeSpec.classBuilder(name)
                 .addAnnotation(Component.class)
                 .addModifiers(PUBLIC)
@@ -80,7 +83,7 @@ class KafkaConsumerWriter {
                         .build());
 
         var fields = support.addFields(resolvedHandlers, context, type);
-        addEventHandlers(resolvedHandlers, owner, context, type);
+        addEventHandlers(resolvedHandlers, owner, context, type, isAsyncCommit);
         var topics = resolvedHandlers.stream()
                 .map(e -> listenerEventTypeFor(support.rootEventType(e, context), context)
                         .annotationsOfType(Event.class).stream().findFirst()
@@ -95,7 +98,8 @@ class KafkaConsumerWriter {
             List<ExecutableElement> allEventHandlers,
             TypeManifest owner,
             PrefabContext context,
-            TypeSpec.Builder type
+            TypeSpec.Builder type,
+            boolean asyncCommit
     ) {
         var eventHandlersByEventType = allEventHandlers.stream()
                 .collect(Collectors.groupingBy(
@@ -113,6 +117,9 @@ class KafkaConsumerWriter {
                     .addAnnotation(kafkaListener(owner, annotation, eventName))
                     .addParameter(listenerParamType.asTypeName(), "event")
                     .addStatement("log.debug($S, event)", "Received event {}");
+            if (asyncCommit) {
+                method.addAnnotation(Transactional.class);
+            }
             support.writeEventHandler(context, type, eventHandlersForEvent, eventType, method);
         }
     }

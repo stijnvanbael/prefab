@@ -1,35 +1,19 @@
 package be.appify.prefab.processor.event;
 
-import be.appify.prefab.core.annotations.Aggregate;
-import be.appify.prefab.core.annotations.Avsc;
-import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.core.annotations.EventHandlerConfig;
-import be.appify.prefab.core.annotations.PartitioningKey;
+import be.appify.prefab.core.annotations.*;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
-import com.palantir.javapoet.ClassName;
-import com.palantir.javapoet.CodeBlock;
-import com.palantir.javapoet.FieldSpec;
-import com.palantir.javapoet.MethodSpec;
-import com.palantir.javapoet.TypeSpec;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
+import com.palantir.javapoet.*;
+import org.springframework.stereotype.Component;
+
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
-import org.springframework.stereotype.Component;
+import java.util.*;
+import java.util.stream.Collectors;
 
-import static javax.lang.model.element.Modifier.FINAL;
-import static javax.lang.model.element.Modifier.PRIVATE;
-import static javax.lang.model.element.Modifier.STATIC;
+import static javax.lang.model.element.Modifier.*;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 /**
@@ -41,8 +25,7 @@ public class ConsumerWriterSupport {
     /**
      * Creates a new instance of ConsumerWriterSupport for the specified platform.
      *
-     * @param platform
-     *         event platform
+     * @param platform event platform
      */
     public ConsumerWriterSupport(Event.Platform platform) {
         this.platform = platform;
@@ -51,12 +34,9 @@ public class ConsumerWriterSupport {
     /**
      * Adds fields for all aggregates and components that have event handlers in the given list.
      *
-     * @param eventHandlers
-     *         list of event handler methods
-     * @param context
-     *         prefab context
-     * @param type
-     *         type spec builder to add fields to
+     * @param eventHandlers list of event handler methods
+     * @param context       prefab context
+     * @param type          type spec builder to add fields to
      * @return set of added field specs
      */
     public Set<FieldSpec> addFields(
@@ -96,20 +76,15 @@ public class ConsumerWriterSupport {
     /**
      * Writes an event handler method for the given event type and its associated event handlers.
      *
-     * @param context
-     *         prefab context
-     * @param type
-     *         type spec builder to add the method to
-     * @param eventHandlersForEvent
-     *         map entry containing the event type and its associated event handlers
-     * @param eventType
-     *         the event type manifest
-     * @param method
-     *         method spec builder for the event handler method
+     * @param context               prefab context
+     * @param type                  type spec builder to add the method to
+     * @param eventHandlersForEvent map entry containing the event type and its associated event handlers
+     * @param eventType             the event type manifest
+     * @param method                method spec builder for the event handler method
      */
     public void writeEventHandler(PrefabContext context, TypeSpec.Builder type,
-            Map.Entry<TypeManifest, List<ExecutableElement>> eventHandlersForEvent, TypeManifest eventType,
-            MethodSpec.Builder method) {
+                                  Map.Entry<TypeManifest, List<ExecutableElement>> eventHandlersForEvent, TypeManifest eventType,
+                                  MethodSpec.Builder method) {
         var eventHandlers = deduplicateByEventType(context, eventHandlersForEvent.getValue());
         if (eventHandlers.size() == 1 && sameType(eventType, eventHandlers.getFirst(), context)) {
             singleTypeHandler(context, eventHandlers.getFirst(), method, "event");
@@ -121,7 +96,20 @@ public class ConsumerWriterSupport {
 
     private static boolean sameType(TypeManifest eventType, ExecutableElement eventHandler, PrefabContext context) {
         var parameter = eventType(eventHandler, context);
-        return Objects.equals(parameter, eventType);
+        return Objects.equals(parameter, eventType) || isConcreteAvscRecordOf(parameter, eventType);
+    }
+
+    private static boolean isConcreteAvscRecordOf(TypeManifest eventRecord, TypeManifest contractInterface) {
+        if (eventRecord.asElement() == null || eventRecord.asElement().getKind() != ElementKind.RECORD) {
+            return false;
+        }
+        if (contractInterface.asElement() == null
+                || contractInterface.asElement().getAnnotation(Avsc.class) == null) {
+            return false;
+        }
+        return (eventRecord.asElement()).getInterfaces().stream()
+                .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
+                .anyMatch(iface -> iface.equals(contractInterface.asElement()));
     }
 
     private void multiTypeHandler(
@@ -197,16 +185,13 @@ public class ConsumerWriterSupport {
     /**
      * Determines the common event type for the given event handlers based on the specified topic.
      *
-     * @param eventHandlers
-     *         list of event handler methods
-     * @param context
-     *         prefab context
-     * @param topic
-     *         event topic
+     * @param eventHandlers list of event handler methods
+     * @param context       prefab context
+     * @param topic         event topic
      * @return common event type manifest
      */
     public TypeManifest eventTypeOf(List<ExecutableElement> eventHandlers, PrefabContext context,
-            String topic) {
+                                    String topic) {
         var eventTypes = eventHandlers.stream()
                 .map(e -> rootEventType(e, context))
                 .filter(type -> type.annotationsOfType(Event.class).stream()
@@ -221,10 +206,8 @@ public class ConsumerWriterSupport {
     /**
      * Retrieves the root event type for the given event handler method.
      *
-     * @param eventHandler
-     *         event handler method
-     * @param context
-     *         prefab context
+     * @param eventHandler event handler method
+     * @param context      prefab context
      * @return root event type manifest
      */
     public TypeManifest rootEventType(ExecutableElement eventHandler, PrefabContext context) {
@@ -241,8 +224,8 @@ public class ConsumerWriterSupport {
     }
 
     private static void reportNoCommonAncestor(List<ExecutableElement> eventHandlers, PrefabContext context,
-            String topic,
-            Set<TypeManifest> eventTypes) {
+                                               String topic,
+                                               Set<TypeManifest> eventTypes) {
         context.logError(
                 "Events [%s] share the same topic [%s] but have no common ancestor. Make sure they extend the same supertype and there is a single @Event annotation on the supertype.".formatted(
                         eventTypes.stream()
@@ -255,8 +238,7 @@ public class ConsumerWriterSupport {
     /**
      * Retrieves the concurrency expression from the EventHandlerConfig annotation of the given owner type.
      *
-     * @param owner
-     *         owner type manifest
+     * @param owner owner type manifest
      * @return concurrency expression
      */
     public static String concurrencyExpression(TypeManifest owner) {
@@ -274,10 +256,8 @@ public class ConsumerWriterSupport {
      * Multiple records are generated when the {@code @Avsc} annotation lists more than one schema file.
      * All generated records implement the contract interface.
      *
-     * @param eventType
-     *         event type manifest (may be an {@code @Avsc} contract interface)
-     * @param context
-     *         prefab context
+     * @param eventType event type manifest (may be an {@code @Avsc} contract interface)
+     * @param context   prefab context
      * @return list of concrete record type manifests, or a single-element list with {@code eventType} if none found
      */
     public List<TypeManifest> concreteEventTypes(TypeManifest eventType, PrefabContext context) {
@@ -301,9 +281,8 @@ public class ConsumerWriterSupport {
      * Use this as a round guard: skip consumer generation in round 1 so that the concrete record
      * generated in that round is available when the consumer is written in round 2.
      *
-     * @param eventHandlers     *         list of event handler methods
-     * @param context
-     *         prefab context
+     * @param eventHandlers *         list of event handler methods
+     * @param context       prefab context
      * @return {@code true} if any {@code @Avsc} event type still lacks a concrete implementation
      */
     public boolean hasAvscEventWithoutConcreteType(List<ExecutableElement> eventHandlers, PrefabContext context) {

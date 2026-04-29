@@ -1,16 +1,20 @@
 package be.appify.prefab.processor.rest.create;
 
+import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.rest.PathVariables;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeSpec;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 
@@ -20,14 +24,29 @@ class CreateRequestRecordWriter {
     void writeRequestRecord(
             JavaFileWriter fileWriter,
             ClassManifest manifest,
-            ExecutableElement controller,
+            ExecutableElement constructor,
             PrefabContext context
     ) {
+        var create = constructor.getAnnotation(Create.class);
+        var pathVarNames = PathVariables.extractFrom(create != null ? create.path() : "");
         var name = "Create%sRequest".formatted(manifest.simpleName());
         var parentName = CreateServiceWriter.parentFieldName(manifest);
-        var bodyParams = controller.getParameters().stream()
+        buildRequestRecord(fileWriter, manifest, constructor, context, pathVarNames, name, parentName);
+    }
+
+    private void buildRequestRecord(
+            JavaFileWriter fileWriter,
+            ClassManifest manifest,
+            ExecutableElement constructor,
+            PrefabContext context,
+            Set<String> pathVarNames,
+            String name,
+            Optional<String> parentName
+    ) {
+        var bodyParams = constructor.getParameters().stream()
                 .map(param -> VariableManifest.of(param, context.processingEnvironment()))
                 .filter(param -> parentName.map(parentFieldName -> !parentFieldName.equals(param.name())).orElse(true))
+                .filter(param -> !pathVarNames.contains(param.name()))
                 .toList();
         if (bodyParams.isEmpty()) {
             return;
@@ -131,20 +150,12 @@ class CreateRequestRecordWriter {
             ExecutableElement factoryMethod,
             PrefabContext context
     ) {
+        var create = factoryMethod.getAnnotation(Create.class);
+        var pathVarNames = PathVariables.extractFrom(create != null ? create.path() : "");
         var name = "Create%sRequest".formatted(manifest.simpleName());
         var parentName = manifest.parent()
                 .filter(p -> !p.type().parameters().isEmpty())
-                .map(p -> p.name());
-        var bodyParams = factoryMethod.getParameters().stream()
-                .map(param -> VariableManifest.of(param, context.processingEnvironment()))
-                .filter(param -> parentName.map(pfn -> !pfn.equals(param.name())).orElse(true))
-                .toList();
-        if (bodyParams.isEmpty()) {
-            return;
-        }
-        var type = writeRecord(ClassName.get(manifest.packageName() + ".application", name),
-                bodyParams,
-                context.requestParameterBuilder());
-        fileWriter.writeFile(manifest.packageName(), name, type);
+                .map(VariableManifest::name);
+        buildRequestRecord(fileWriter, manifest, factoryMethod, context, pathVarNames, name, parentName);
     }
 }

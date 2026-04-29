@@ -22,6 +22,7 @@ class UpdateServiceWriter {
                 .addModifiers(Modifier.PUBLIC)
                 .returns(ParameterizedTypeName.get(ClassName.get(Optional.class), manifest.type().asTypeName()))
                 .addParameter(String.class, "id");
+        update.pathParameters().forEach(p -> method.addParameter(String.class, p.name()));
         if (!update.requestParameters().isEmpty()) {
             method.addParameter(ParameterSpec.builder(
                             ClassName.get("%s.application".formatted(manifest.packageName()), "%s%sRequest".formatted(
@@ -32,7 +33,9 @@ class UpdateServiceWriter {
         method.addStatement("log.debug($S, $T.class.getSimpleName(), id)", "Updating {} with id: {}",
                 manifest.className());
         if (update.asyncCommit()) {
-            updateAsync(method, uncapitalize(manifest.simpleName()) + "Repository", update);
+            var domainCallBlock = buildDomainCallBlock(update);
+            updateAsync(method, uncapitalize(manifest.simpleName()) + "Repository",
+                    domainCallBlock);
             return method.build();
         }
         var domainCallBlock = buildDomainCallBlock(update);
@@ -52,26 +55,18 @@ class UpdateServiceWriter {
         return method.build();
     }
 
-    private static void updateAsync(MethodSpec.Builder method, String repositoryName, UpdateManifest update) {
-        var args = update.requestParameters().stream()
-                .map(UpdateServiceWriter::resolveAsyncParam)
-                .collect(CodeBlock.joining(", "));
+    private static void updateAsync(
+            MethodSpec.Builder method,
+            String repositoryName,
+            CodeBlock domainCallBlock
+    ) {
         method.addStatement("""
                         return $N.findById(id).map(aggregate -> {
-                            aggregate.$N($L);
+                            $L
                             return aggregate;
                         })""",
                 repositoryName,
-                update.operationName(),
-                args);
-    }
-
-    private static CodeBlock resolveAsyncParam(VariableManifest parameter) {
-        if (parameter.type().isSingleValueType()) {
-            return CodeBlock.of("request.$N() != null ? new $T(request.$N()) : null",
-                    parameter.name(), parameter.type().asTypeName(), parameter.name());
-        }
-        return CodeBlock.of("request.$N()", parameter.name());
+                domainCallBlock);
     }
 
     private CodeBlock buildAggregateFunction(UpdateManifest update, CodeBlock domainCallBlock) {
@@ -120,8 +115,11 @@ class UpdateServiceWriter {
                         update.parentEntityParameters().stream())
                 .map(VariableManifest::name)
                 .collect(java.util.stream.Collectors.toSet());
+        var pathParamNames = update.pathParameters().stream()
+                .map(VariableManifest::name)
+                .collect(java.util.stream.Collectors.toSet());
         var args = update.parameters().stream()
-                .map(p -> resolveParam(p, requestParamNames, aggregateParamNames))
+                .map(p -> resolveParam(p, requestParamNames, aggregateParamNames, pathParamNames))
                 .collect(CodeBlock.joining(", "));
         if (update.stateful()) {
             return CodeBlock.of("aggregate.$N($L);\n", update.operationName(), args);
@@ -210,9 +208,13 @@ class UpdateServiceWriter {
     private CodeBlock resolveParam(
             VariableManifest parameter,
             java.util.Set<String> requestParamNames,
-            java.util.Set<String> aggregateParamNames
+            java.util.Set<String> aggregateParamNames,
+            java.util.Set<String> pathParamNames
     ) {
         if (aggregateParamNames.contains(parameter.name())) {
+            return CodeBlock.of("$N", parameter.name());
+        }
+        if (pathParamNames.contains(parameter.name())) {
             return CodeBlock.of("$N", parameter.name());
         }
         if (!requestParamNames.contains(parameter.name())) {

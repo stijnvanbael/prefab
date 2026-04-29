@@ -1,16 +1,17 @@
 ---
 id: TASK-140
 title: Listen-to-self semantics in AggregateRoot for transactional event handling
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-04-27 13:10'
-updated_date: '2026-04-27 16:41'
+updated_date: '2026-04-29 14:52'
 labels:
   - ddd
   - aggregate
   - events
 dependencies: []
 priority: high
+ordinal: 13000
 ---
 
 ## Description

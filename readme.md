@@ -7,13 +7,15 @@ by generating the necessary code for you based on your domain model.
 With Prefab, you can focus on defining your domain classes with the business logic and let the
 framework handle the application infrastructure. This leads to faster development cycles, fewer bugs,
 and a more maintainable codebase. You are essentially coding at a higher level of abstraction,
-focusing on the "what" instead of the "how".
+focusing on the "what" instead of the "how". Prefab severely reduces the context both for humans and LLMs,
+allowing both to work more effectively with the domain model and business logic.
 
 There are several use cases where Prefab can help you:
 
 - Rapid prototyping
 - Iterate quickly on domain models
 - Reducing boilerplate and maintenance overhead
+- Consume significantly fewer tokens when using LLMs to develop and maintain your application
 - Learning and experimenting with Spring Boot and Domain-Driven Design
 - Scaffolding for larger applications
 - Easy pivoting and changing directions in the early stages of development

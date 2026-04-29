@@ -10,10 +10,12 @@ import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.lang.model.element.ExecutableElement;
@@ -31,7 +33,36 @@ class CreateTestClientWriter {
 
     List<MethodSpec> asyncCreateMethods(ClassManifest manifest, ExecutableElement factoryMethod, PrefabContext context) {
         var create = Objects.requireNonNull(factoryMethod.getAnnotation(Create.class));
+        var pathVarNames = be.appify.prefab.processor.rest.PathVariables.extractFrom(create.path());
         var methodName = factoryMethod.getSimpleName().toString();
+        var createMethodInfo = getCreateMethodInfo(manifest, factoryMethod, context, pathVarNames);
+        var pathVarNamesStr = createMethodInfo.pathVarParams().stream().map(ParameterSpec::name).collect(Collectors.joining(", "));
+        if (createMethodInfo.bodyParams().isEmpty()) {
+            return List.of(buildAsyncNoBodyMethod(manifest, create, methodName, createMethodInfo.parentPathParam(), createMethodInfo.pathVarParams(),
+                    pathVarNamesStr));
+        }
+        var individualBodyParams = createMethodInfo.bodyParams().stream()
+                .flatMap(param -> context.requestParameterBuilder().buildTestClientParameter(param).stream())
+                .toList();
+        var allIndividualParams = Stream.concat(
+                        Stream.concat(createMethodInfo.parentPathParam().stream(), createMethodInfo.pathVarParams().stream()),
+                        individualBodyParams.stream())
+                .toList();
+        var bodyType = ClassName.get("%s.application".formatted(manifest.packageName()),
+                "Create%sRequest".formatted(manifest.simpleName()));
+        return List.of(
+                buildAsyncIndividualParamsMethod(methodName, allIndividualParams, bodyType, individualBodyParams,
+                        createMethodInfo.parentPathParam(), pathVarNamesStr),
+                buildAsyncRequestOverload(manifest, create, methodName, bodyType, createMethodInfo.parentPathParam(), createMethodInfo.pathVarParams(),
+                        pathVarNamesStr));
+    }
+
+    private static CreateMethodInfo getCreateMethodInfo(
+            ClassManifest manifest,
+            ExecutableElement factoryMethod,
+            PrefabContext context,
+            Set<String> pathVarNames
+    ) {
         var allParams = factoryMethod.getParameters().stream()
                 .map(p -> VariableManifest.of(p, context.processingEnvironment()))
                 .toList();
@@ -39,34 +70,41 @@ class CreateTestClientWriter {
         var parentParam = parentName.flatMap(name ->
                 allParams.stream().filter(p -> name.equals(p.name())).findFirst());
         var parentPathParam = parentParam.map(p -> ParameterSpec.builder(String.class, p.name() + "Id").build());
+        var pathVarParams = allParams.stream()
+                .filter(p -> pathVarNames.contains(p.name()))
+                .map(p -> ParameterSpec.builder(String.class, p.name()).build())
+                .toList();
         var bodyParams = allParams.stream()
                 .filter(p -> parentName.map(name -> !name.equals(p.name())).orElse(true))
+                .filter(p -> !pathVarNames.contains(p.name()))
                 .toList();
-        if (bodyParams.isEmpty()) {
-            return List.of(buildAsyncNoBodyMethod(manifest, create, methodName, parentPathParam));
-        }
-        var individualBodyParams = bodyParams.stream()
-                .flatMap(param -> context.requestParameterBuilder().buildTestClientParameter(param).stream())
-                .toList();
-        var allIndividualParams = parentPathParam
-                .map(pp -> Stream.concat(Stream.of(pp), individualBodyParams.stream()).toList())
-                .orElse(individualBodyParams);
-        var bodyType = ClassName.get("%s.application".formatted(manifest.packageName()),
-                "Create%sRequest".formatted(manifest.simpleName()));
-        return List.of(
-                buildAsyncIndividualParamsMethod(methodName, allIndividualParams, bodyType, individualBodyParams,
-                        parentPathParam),
-                buildAsyncRequestOverload(manifest, create, methodName, bodyType, parentPathParam));
+        return new CreateMethodInfo(parentPathParam, pathVarParams, bodyParams);
     }
 
-    private static MethodSpec buildAsyncNoBodyMethod(ClassManifest manifest, Create create, String methodName,
-            Optional<ParameterSpec> parentPathParam) {
+    private record CreateMethodInfo(
+            Optional<ParameterSpec> parentPathParam,
+            List<ParameterSpec> pathVarParams,
+            List<VariableManifest> bodyParams
+    ) {
+    }
+
+    private static MethodSpec buildAsyncNoBodyMethod(
+            ClassManifest manifest,
+            Create create,
+            String methodName,
+            Optional<ParameterSpec> parentPathParam,
+            List<ParameterSpec> pathVarParams,
+            String pathVarNamesStr
+    ) {
         var method = MethodSpec.methodBuilder(methodName)
                 .addModifiers(Modifier.PUBLIC)
                 .returns(void.class)
                 .addException(Exception.class);
         parentPathParam.ifPresent(method::addParameter);
-        var pathVariables = parentPathParam.map(ParameterSpec::name).orElse("");
+        method.addParameters(pathVarParams);
+        var pathVariables = Stream.of(parentPathParam.map(ParameterSpec::name).orElse(""), pathVarNamesStr)
+                .filter(s -> !s.isBlank())
+                .collect(Collectors.joining(", "));
         return method.addStatement("""
                         mockMvc.perform($T.$N($L)$L)
                                 .andExpect($T.status().isAccepted())""",
@@ -83,21 +121,32 @@ class CreateTestClientWriter {
             List<ParameterSpec> allIndividualParams,
             ClassName bodyType,
             List<ParameterSpec> individualBodyParams,
-            Optional<ParameterSpec> parentPathParam
+            Optional<ParameterSpec> parentPathParam,
+            String pathVarNamesStr
     ) {
         var bodyParamNames = individualBodyParams.stream()
                 .map(ParameterSpec::name)
                 .collect(Collectors.joining(", "));
-        var serviceCallArgs = parentPathParam
-                .map(pp -> pp.name() + ", new $T(" + bodyParamNames + ")")
-                .orElse("new $T(" + bodyParamNames + ")");
-        return MethodSpec.methodBuilder(methodName)
+        var hasBody = !individualBodyParams.isEmpty();
+        var prefixArgs = Stream.of(
+                        parentPathParam.map(ParameterSpec::name).orElse(""),
+                        pathVarNamesStr)
+                .filter(s -> !s.isBlank())
+                .collect(Collectors.joining(", "));
+        var builder = MethodSpec.methodBuilder(methodName)
                 .addModifiers(Modifier.PUBLIC)
                 .returns(void.class)
                 .addParameters(allIndividualParams)
-                .addException(Exception.class)
-                .addStatement(methodName + "(" + serviceCallArgs + ")", bodyType)
-                .build();
+                .addException(Exception.class);
+        if (hasBody) {
+            var serviceCallArgs = prefixArgs.isBlank()
+                    ? "new $T(" + bodyParamNames + ")"
+                    : prefixArgs + ", new $T(" + bodyParamNames + ")";
+            builder.addStatement(methodName + "(" + serviceCallArgs + ")", bodyType);
+        } else {
+            builder.addStatement("$L($L)", methodName, prefixArgs);
+        }
+        return builder.build();
     }
 
     private static MethodSpec buildAsyncRequestOverload(
@@ -105,7 +154,9 @@ class CreateTestClientWriter {
             Create create,
             String methodName,
             ClassName bodyType,
-            Optional<ParameterSpec> parentPathParam
+            Optional<ParameterSpec> parentPathParam,
+            List<ParameterSpec> pathVarParams,
+            String pathVarNamesStr
     ) {
         var createRequest = uncapitalize(manifest.simpleName());
         var method = MethodSpec.methodBuilder(methodName)
@@ -113,8 +164,11 @@ class CreateTestClientWriter {
                 .returns(void.class)
                 .addException(Exception.class);
         parentPathParam.ifPresent(method::addParameter);
+        method.addParameters(pathVarParams);
         method.addParameter(bodyType, createRequest);
-        var pathVariables = parentPathParam.map(ParameterSpec::name).orElse("");
+        var pathVariables = Stream.of(parentPathParam.map(ParameterSpec::name).orElse(""), pathVarNamesStr)
+                .filter(s -> !s.isBlank())
+                .collect(Collectors.joining(", "));
         return method.addStatement("""
                         mockMvc.perform($T.$N($L)$L
                         .contentType($T.APPLICATION_JSON)
@@ -140,25 +194,23 @@ class CreateTestClientWriter {
         if (constructor.getParameters().isEmpty()) {
             return List.of(createNoBodyMethod(manifest, constructor));
         }
-        var allParams = constructor.getParameters().stream()
-                .map(p -> VariableManifest.of(p, context.processingEnvironment()))
-                .toList();
-        var parentName = CreateServiceWriter.parentFieldName(manifest);
-        var parentParam = parentName.flatMap(name ->
-                allParams.stream().filter(p -> name.equals(p.name())).findFirst());
-        var parentPathParam = parentParam.map(p -> ParameterSpec.builder(String.class, p.name() + "Id").build());
-        var bodyParams = allParams.stream()
-                .filter(p -> parentName.map(name -> !name.equals(p.name())).orElse(true))
-                .toList();
-        var individualBodyParams = bodyParams.stream()
+        var create = Objects.requireNonNull(constructor.getAnnotation(Create.class));
+        var pathVarNames = be.appify.prefab.processor.rest.PathVariables.extractFrom(create.path());
+        var createMethodInfo = getCreateMethodInfo(manifest, constructor, context, pathVarNames);
+        var individualBodyParams = createMethodInfo.bodyParams().stream()
                 .flatMap(param -> context.requestParameterBuilder().buildTestClientParameter(param).stream())
                 .toList();
-        var allIndividualParams = parentPathParam.map(pp ->
-                java.util.stream.Stream.concat(java.util.stream.Stream.of(pp), individualBodyParams.stream()).toList())
-                .orElse(individualBodyParams);
+        var allIndividualParams = Stream.concat(
+                        Stream.concat(
+                                createMethodInfo.parentPathParam().stream(),
+                                createMethodInfo.pathVarParams().stream()),
+                        individualBodyParams.stream())
+                .toList();
+        var pathVarNamesStr = createMethodInfo.pathVarParams().stream().map(ParameterSpec::name).collect(Collectors.joining(", "));
         return List.of(
-                createIndividualParamsMethod(manifest, allIndividualParams, parentPathParam.isPresent(), bodyParams),
-                createRequestOverload(manifest, constructor, context, parentPathParam));
+                createIndividualParamsMethod(manifest, allIndividualParams, createMethodInfo.parentPathParam().isPresent(),
+                        pathVarNamesStr, createMethodInfo.bodyParams()),
+                createRequestOverload(manifest, constructor, context, createMethodInfo.parentPathParam(), createMethodInfo.pathVarParams(), pathVarNamesStr));
     }
 
     MethodSpec baseCreateMethodForPolymorphic(PolymorphicAggregateManifest polymorphic, Create create) {
@@ -299,6 +351,7 @@ class CreateTestClientWriter {
             ClassManifest manifest,
             List<ParameterSpec> allIndividualParams,
             boolean hasParentPathParam,
+            String pathVarNamesStr,
             List<VariableManifest> bodyParams
     ) {
         var bodyType = ClassName.get(manifest.packageName() + ".application",
@@ -311,25 +364,36 @@ class CreateTestClientWriter {
                     return spec.map(ParameterSpec::name).stream();
                 })
                 .collect(Collectors.joining(", "));
-        var serviceCallArgs = hasParentPathParam
-                ? allIndividualParams.getFirst().name() + ", new $T(" + bodyParamNames + ")"
-                : "new $T(" + bodyParamNames + ")";
-        return MethodSpec.methodBuilder("create" + manifest.simpleName())
+        var hasBodyParams = !bodyParams.isEmpty();
+        var prefixArgs = Stream.of(
+                        hasParentPathParam ? allIndividualParams.getFirst().name() : null,
+                        pathVarNamesStr.isBlank() ? null : pathVarNamesStr)
+                .filter(s -> s != null && !s.isBlank())
+                .collect(Collectors.joining(", "));
+        var builder = MethodSpec.methodBuilder("create" + manifest.simpleName())
                 .addModifiers(Modifier.PUBLIC)
                 .returns(String.class)
                 .addParameters(allIndividualParams)
-                .addException(Exception.class)
-                .addStatement("return create$L(" + serviceCallArgs + ")",
-                        manifest.simpleName(),
-                        bodyType)
-                .build();
+                .addException(Exception.class);
+        if (hasBodyParams) {
+            var serviceCallArgs = prefixArgs.isBlank()
+                    ? "new $T(" + bodyParamNames + ")"
+                    : prefixArgs + ", new $T(" + bodyParamNames + ")";
+            builder.addStatement("return create$L(" + serviceCallArgs + ")", manifest.simpleName(), bodyType);
+        } else {
+            var serviceCallArgs = prefixArgs.isBlank() ? "" : prefixArgs;
+            builder.addStatement("return create$L($L)", manifest.simpleName(), serviceCallArgs);
+        }
+        return builder.build();
     }
 
     private MethodSpec createRequestOverload(
             ClassManifest manifest,
             ExecutableElement constructor,
             PrefabContext context,
-            Optional<ParameterSpec> parentPathParam
+            Optional<ParameterSpec> parentPathParam,
+            List<ParameterSpec> pathVarParams,
+            String pathVarNamesStr
     ) {
         var create = Objects.requireNonNull(constructor.getAnnotation(Create.class));
         var createRequest = uncapitalize(manifest.simpleName());
@@ -339,6 +403,8 @@ class CreateTestClientWriter {
         var requestParts = Stream.concat(constructor.getParameters().stream()
                         .map(p -> VariableManifest.of(p, context.processingEnvironment()))
                         .filter(p -> parentName.map(n -> !n.equals(p.name())).orElse(true))
+                        .filter(p -> !be.appify.prefab.processor.rest.PathVariables
+                                .extractFrom(create.path()).contains(p.name()))
                         .flatMap(parameter -> context.requestParameterBuilder()
                                 .buildMethodParameter(parameter)
                                 .stream()),
@@ -349,8 +415,13 @@ class CreateTestClientWriter {
                 .returns(String.class)
                 .addException(Exception.class);
         parentPathParam.ifPresent(method::addParameter);
+        method.addParameters(pathVarParams);
         method.addParameter(bodyType, createRequest);
-        var pathVariables = parentPathParam.map(ParameterSpec::name).orElse("");
+        var pathVariables = Stream.of(
+                        parentPathParam.map(ParameterSpec::name).orElse(""),
+                        pathVarNamesStr)
+                .filter(s -> !s.isBlank())
+                .collect(Collectors.joining(", "));
         if (requestParts.size() == 1) {
             return withRequestBody(manifest, method, create, pathVariables, createRequest);
         } else {

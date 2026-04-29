@@ -3,16 +3,19 @@ package be.appify.prefab.processor.rest.update;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
+import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.rest.ControllerUtil;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
+
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.lang.model.element.Modifier;
+
 import org.springframework.http.MediaType;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -22,14 +25,21 @@ import static be.appify.prefab.processor.TestClasses.MOCK_PART;
 import static be.appify.prefab.processor.TestClasses.TEST_UTIL;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
+
 class UpdateTestClientWriter {
     List<MethodSpec> updateMethods(
             ClassManifest manifest,
             UpdateManifest update,
             PrefabContext context
     ) {
-        var pathVariables = manifest.parent().stream()
+        var parentPathVariables = manifest.parent().stream()
                 .map(parent -> "%sId".formatted(uncapitalize(parent.name())))
+                .collect(Collectors.joining(", "));
+        var pathVarParams = update.pathParameters().stream()
+                .map(p -> ParameterSpec.builder(String.class, p.name()).build())
+                .toList();
+        var annotationPathVarNames = update.pathParameters().stream()
+                .map(VariableManifest::name)
                 .collect(Collectors.joining(", "));
         var bodyType = ClassName.get(
                 manifest.packageName() + ".application",
@@ -49,83 +59,85 @@ class UpdateTestClientWriter {
         ).toList();
 
         if (update.requestParameters().isEmpty()) {
-            return List.of(buildNoBodyMethod(manifest, update, pathVariables));
+            return List.of(buildNoBodyMethod(manifest, update, parentPathVariables, pathVarParams, annotationPathVarNames));
         }
         return List.of(
-                buildIndividualParamsMethod(manifest, update, pathVariables, bodyType, individualParams),
-                buildRequestOverload(manifest, update, pathVariables, bodyType, requestParts));
+                buildIndividualParamsMethod(manifest, update, parentPathVariables, pathVarParams,
+                        annotationPathVarNames, bodyType, individualParams),
+                buildRequestOverload(manifest, update, parentPathVariables, pathVarParams,
+                        annotationPathVarNames, bodyType, requestParts));
     }
 
     private static MethodSpec buildNoBodyMethod(
             ClassManifest manifest,
             UpdateManifest update,
-            String pathVariables
+            String parentPathVariables,
+            List<ParameterSpec> pathVarParams,
+            String annotationPathVarNames
     ) {
+        var method = buildRequestMethod(manifest, update, parentPathVariables, pathVarParams)
+                .addException(Exception.class);
+        return withRequestBody(manifest, update, method, parentPathVariables, annotationPathVarNames);
+    }
+
+    private static MethodSpec.Builder buildRequestMethod(ClassManifest manifest, UpdateManifest update, String parentPathVariables, List<ParameterSpec> pathVarParams) {
         var method = MethodSpec.methodBuilder(update.operationName())
                 .addModifiers(Modifier.PUBLIC)
                 .returns(void.class)
                 .addParameter(String.class, "id");
-        if (!pathVariables.isBlank()) {
+        if (!parentPathVariables.isBlank()) {
             method.addParameters(manifest.parent().stream()
                     .map(parent -> ParameterSpec.builder(String.class,
                             "%sId".formatted(uncapitalize(parent.name()))).build())
-                    .collect(Collectors.toList()));
+                    .toList());
         }
-        method.addException(Exception.class);
-        return withRequestBody(manifest, update, method, pathVariables);
+        method.addParameters(pathVarParams);
+        return method;
     }
 
     private static MethodSpec buildIndividualParamsMethod(
             ClassManifest manifest,
             UpdateManifest update,
-            String pathVariables,
+            String parentPathVariables,
+            List<ParameterSpec> pathVarParams,
+            String annotationPathVarNames,
             ClassName bodyType,
             List<ParameterSpec> individualParams
     ) {
-        var method = MethodSpec.methodBuilder(update.operationName())
-                .addModifiers(Modifier.PUBLIC)
-                .returns(void.class)
-                .addParameter(String.class, "id");
-        if (!pathVariables.isBlank()) {
-            method.addParameters(manifest.parent().stream()
-                    .map(parent -> ParameterSpec.builder(String.class,
-                            "%sId".formatted(uncapitalize(parent.name()))).build())
-                    .collect(Collectors.toList()));
-        }
-        method.addParameters(individualParams);
-        method.addException(Exception.class);
-        var idAndParentArgs = pathVariables.isBlank() ? "id" : "id, " + pathVariables;
+        var method = buildRequestMethod(manifest, update, parentPathVariables, pathVarParams)
+                .addParameters(individualParams)
+                .addException(Exception.class);
+        var idAndParentAndPathVarArgs = buildIdAndExtras(parentPathVariables, annotationPathVarNames);
         method.addStatement("$L($L, new $T($L))",
                 update.operationName(),
-                idAndParentArgs,
+                idAndParentAndPathVarArgs,
                 bodyType,
                 individualParams.stream().map(ParameterSpec::name).collect(Collectors.joining(", ")));
         return method.build();
     }
 
+    private static String buildIdAndExtras(String parentPathVariables, String annotationPathVarNames) {
+        return Stream.of("id", parentPathVariables, annotationPathVarNames)
+                .filter(s -> !s.isBlank())
+                .collect(Collectors.joining(", "));
+    }
+
     private static MethodSpec buildRequestOverload(
             ClassManifest manifest,
             UpdateManifest update,
-            String pathVariables,
+            String parentPathVariables,
+            List<ParameterSpec> pathVarParams,
+            String annotationPathVarNames,
             ClassName bodyType,
             List<ParameterSpec> requestParts
     ) {
-        var method = MethodSpec.methodBuilder(update.operationName())
-                .addModifiers(Modifier.PUBLIC)
-                .returns(void.class)
-                .addParameter(String.class, "id");
-        if (!pathVariables.isBlank()) {
-            method.addParameters(manifest.parent().stream()
-                    .map(parent -> ParameterSpec.builder(String.class,
-                            "%sId".formatted(uncapitalize(parent.name()))).build())
-                    .collect(Collectors.toList()));
-        }
-        method.addParameter(bodyType, "request");
-        method.addException(Exception.class);
+        var method = buildRequestMethod(manifest, update, parentPathVariables, pathVarParams)
+                .addParameter(bodyType, "request")
+                .addException(Exception.class);
         if (requestParts.size() <= 1) {
-            return withRequestBody(manifest, update, method, pathVariables);
+            return withRequestBody(manifest, update, method, parentPathVariables, annotationPathVarNames);
         } else {
-            return withMultipart(manifest, update, method, pathVariables, requestParts);
+            return withMultipart(manifest, update, method, parentPathVariables, annotationPathVarNames, requestParts);
         }
     }
 
@@ -133,20 +145,23 @@ class UpdateTestClientWriter {
             ClassManifest manifest,
             UpdateManifest update,
             MethodSpec.Builder method,
-            String pathVariables
+            String parentPathVariables,
+            String annotationPathVarNames
     ) {
         var statusMatcher = update.asyncCommit() ? "isAccepted()" : "isOk()";
+        var annotationPathVarSuffix = annotationPathVarNames.isBlank() ? "" : ", " + annotationPathVarNames;
         return method.addStatement("""
-                                mockMvc.perform($T.$N($L, id)$L
+                                mockMvc.perform($T.$N($L, id$L)$L
                                         .contentType($T.APPLICATION_JSON)
                                         $L
                                         .andExpect($T.status().$L)""",
                         MOCK_MVC_REQUEST_BUILDERS,
                         update.method().toLowerCase(),
-                        pathVariables(manifest, update, pathVariables),
+                        pathVariables(manifest, update, parentPathVariables),
+                        annotationPathVarSuffix,
                         ControllerUtil.withMockUser(update.security()),
                         MediaType.class,
-                         update.requestParameters().isEmpty() ? ")" : ".content(jsonMapper.writeValueAsString(request)))",
+                        update.requestParameters().isEmpty() ? ")" : ".content(jsonMapper.writeValueAsString(request)))",
                         MOCK_MVC_RESULT_MATCHERS,
                         statusMatcher)
                 .build();
@@ -156,10 +171,10 @@ class UpdateTestClientWriter {
             ClassManifest manifest,
             UpdateManifest update,
             MethodSpec.Builder method,
-            String pathVariables,
+            String parentPathVariables,
+            String annotationPathVarNames,
             List<ParameterSpec> requestParts
     ) {
-
         requestParts.forEach(part -> {
             if (part.type().equals(ClassName.get(MultipartFile.class))) {
                 method.addStatement("var $LMock = $T.mockMultipartFile(request.$L())",
@@ -175,12 +190,14 @@ class UpdateTestClientWriter {
             }
         });
         var statusMatcher = update.asyncCommit() ? "isAccepted()" : "isOk()";
+        var annotationPathVarSuffix = annotationPathVarNames.isBlank() ? "" : ", " + annotationPathVarNames;
         return method.addStatement("""
-                                return mockMvc.perform($T.multipart($L, id)$L
+                                return mockMvc.perform($T.multipart($L, id$L)$L
                                         $L
                                         ).andExpect($T.status().$L)""",
                         MOCK_MVC_REQUEST_BUILDERS,
-                        pathVariables(manifest, update, pathVariables),
+                        pathVariables(manifest, update, parentPathVariables),
+                        annotationPathVarSuffix,
                         ControllerUtil.withMockUser(update.security()),
                         requestParts.stream()
                                 .map(part -> {
@@ -197,12 +214,12 @@ class UpdateTestClientWriter {
                 .build();
     }
 
-    private static CodeBlock pathVariables(ClassManifest manifest, UpdateManifest update, String pathVariables) {
-        return pathVariables.isBlank()
+    private static CodeBlock pathVariables(ClassManifest manifest, UpdateManifest update, String parentPathVariables) {
+        return parentPathVariables.isBlank()
                 ? CodeBlock.of("$S", "/" + ControllerUtil.pathOf(manifest) + "/{id}" + update.path())
                 : CodeBlock.of("$S, $L",
                         "/" + ControllerUtil.pathOf(manifest) + "/{id}" + update.path(),
-                        pathVariables);
+                        parentPathVariables);
     }
 
     MethodSpec baseUpdateMethodForPolymorphic(
@@ -259,19 +276,8 @@ class UpdateTestClientWriter {
                 .map(p -> "request." + p.name() + "()")
                 .collect(Collectors.joining(", "));
 
-        var parentArg = polymorphic.parent().map(parent -> ", " + parent.name()).orElse("");
-
-        var convenienceBuilder = MethodSpec.methodBuilder(operationMethodName)
-                .addModifiers(Modifier.PUBLIC)
-                .returns(void.class)
-                .addParameter(String.class, "id");
-        polymorphic.parent().ifPresent(parent -> convenienceBuilder.addParameter(String.class, parent.name()));
-        var convenienceMethod = convenienceBuilder
-                .addParameters(individualParams)
-                .addException(Exception.class)
-                .addStatement("$L(id$L, new $T($L))", operationMethodName, parentArg, flatClass,
-                        individualParams.stream().map(ParameterSpec::name).collect(Collectors.joining(", ")))
-                .build();
+        var convenienceMethod = buildIndividualParamsDelegateMethod(
+                polymorphic, operationMethodName, flatClass, individualParams, operationMethodName);
 
         var wrapperBuilder = MethodSpec.methodBuilder(operationMethodName)
                 .addModifiers(Modifier.PUBLIC)
@@ -281,7 +287,10 @@ class UpdateTestClientWriter {
         var wrapperMethod = wrapperBuilder
                 .addParameter(flatClass, "request")
                 .addException(Exception.class)
-                .addStatement("$L(id$L, new $T($L))", uncapitalize(update.operationName()), parentArg, nestedClass,
+                .addStatement("$L(id$L, new $T($L))",
+                        uncapitalize(update.operationName()),
+                        polymorphic.parent().map(parent -> ", " + parent.name()).orElse(""),
+                        nestedClass,
                         paramAccess)
                 .build();
 
@@ -348,8 +357,18 @@ class UpdateTestClientWriter {
             ClassName bodyType,
             List<ParameterSpec> individualParams
     ) {
+        return buildIndividualParamsDelegateMethod(polymorphic, operationName, bodyType, individualParams, operationName);
+    }
+
+    private static MethodSpec buildIndividualParamsDelegateMethod(
+            PolymorphicAggregateManifest polymorphic,
+            String methodName,
+            ClassName bodyType,
+            List<ParameterSpec> individualParams,
+            String delegateTarget
+    ) {
         var parentArg = polymorphic.parent().map(parent -> ", " + parent.name()).orElse("");
-        var method = MethodSpec.methodBuilder(operationName)
+        var method = MethodSpec.methodBuilder(methodName)
                 .addModifiers(Modifier.PUBLIC)
                 .returns(void.class)
                 .addParameter(String.class, "id");
@@ -358,7 +377,7 @@ class UpdateTestClientWriter {
                 .addParameters(individualParams)
                 .addException(Exception.class)
                 .addStatement("$L(id$L, new $T($L))",
-                        operationName,
+                        delegateTarget,
                         parentArg,
                         bodyType,
                         individualParams.stream().map(ParameterSpec::name).collect(Collectors.joining(", ")))

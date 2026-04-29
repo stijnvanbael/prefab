@@ -3,17 +3,17 @@ id: TASK-135
 title: >-
   Fix flaky PubSub integration test: MessageSent arrives before ChannelSummary
   exists
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-04-21 17:08'
-updated_date: '2026-04-24 06:57'
+updated_date: '2026-04-29 14:52'
 labels:
   - pubsub
   - reliability
   - bug
 dependencies: []
 priority: high
-ordinal: 144000
+ordinal: 15000
 ---
 
 ## Description

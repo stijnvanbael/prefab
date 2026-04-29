@@ -4,9 +4,10 @@ title: Customize MockMvc in generated test REST clients
 status: Done
 assignee: []
 created_date: '2026-04-27 08:51'
-updated_date: '2026-04-27 08:52'
+updated_date: '2026-04-29 14:51'
 labels: []
 dependencies: []
+ordinal: 11000
 ---
 
 ## Description

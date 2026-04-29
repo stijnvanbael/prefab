@@ -9,6 +9,7 @@ import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.rest.PathVariables;
 import com.palantir.javapoet.TypeSpec;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -175,8 +176,13 @@ public class UpdatePlugin implements PrefabPlugin {
                 .map(element -> {
                     var update = element.getAnnotationsByType(Update.class)[0];
                     var allParams = getParametersOf(element, context.processingEnvironment());
+                    var pathVarNames = PathVariables.extractFrom(update.path());
+                    var pathParameters = allParams.stream()
+                            .filter(p -> pathVarNames.contains(p.name()))
+                            .toList();
                     var requestParameters = allParams.stream()
                             .filter(p -> parentFieldName.map(pfn -> !pfn.equals(p.name())).orElse(true))
+                            .filter(p -> !pathVarNames.contains(p.name()))
                             .toList();
                     var aggregateParams = allParams.stream()
                             .filter(p -> !p.type().annotationsOfType(Aggregate.class).isEmpty())
@@ -186,6 +192,7 @@ public class UpdatePlugin implements PrefabPlugin {
                             element.getSimpleName().toString(),
                             allParams,
                             requestParameters,
+                            pathParameters,
                             aggregateParams,
                             parentEntityParams,
                             element.getReturnType().toString().equals("void"),

@@ -1,13 +1,14 @@
 ---
 id: TASK-146
 title: Path parameters derived from @Create and @Update method signatures
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-04-29 12:19'
-updated_date: '2026-04-29 13:03'
+updated_date: '2026-04-29 15:18'
 labels: []
 dependencies: []
 priority: medium
+ordinal: 2000
 ---
 
 ## Description
@@ -18,12 +19,12 @@ When a @Create or @Update annotated method declares a parameter whose name match
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Path variables in @Create/@Update path (e.g. /{name}) are detected by matching {paramName} tokens in the path string
-- [ ] #2 Method parameters whose names match a path variable are excluded from the generated request record
-- [ ] #3 When all non-parent parameters are path-derived, no request record class is generated for that method
-- [ ] #4 Path-derived parameters are added as @PathVariable in the generated controller method
-- [ ] #5 Path-derived parameters are passed directly to the service method, not extracted from the request record
-- [ ] #6 The generated test client passes path-derived parameters as individual method arguments, not inside the request object
+- [x] #1 Path variables in @Create/@Update path (e.g. /{name}) are detected by matching {paramName} tokens in the path string
+- [x] #2 Method parameters whose names match a path variable are excluded from the generated request record
+- [x] #3 When all non-parent parameters are path-derived, no request record class is generated for that method
+- [x] #4 Path-derived parameters are added as @PathVariable in the generated controller method
+- [x] #5 Path-derived parameters are passed directly to the service method, not extracted from the request record
+- [x] #6 The generated test client passes path-derived parameters as individual method arguments, not inside the request object
 <!-- AC:END -->
 
 ## Implementation Plan

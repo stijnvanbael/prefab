@@ -1,10 +1,12 @@
 package be.appify.prefab.processor.rest.create;
 
+import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.audit.AuditFields;
+import be.appify.prefab.processor.rest.PathVariables;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
@@ -13,6 +15,7 @@ import com.palantir.javapoet.TypeName;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 
@@ -108,7 +111,7 @@ class CreateServiceWriter {
         }
         method.addStatement("var aggregate = new $T($L)", subtype.type().asTypeName(),
                 params.stream()
-                        .map(param -> resolveParam(subtype, param, parentName, context))
+                        .map(param -> resolveParam(subtype, param, parentName, Set.of(), context))
                         .collect(CodeBlock.joining(", ")));
     }
 
@@ -126,17 +129,23 @@ class CreateServiceWriter {
             method.addStatement("var aggregate = new $T()", typeName);
             return;
         }
+        var create = constructor.getAnnotation(Create.class);
+        var pathVarNames = PathVariables.extractFrom(create != null ? create.path() : "");
         var parentName = parentFieldName(manifest);
         var params = constructor.getParameters().stream()
                 .map(param -> VariableManifest.of(param, context.processingEnvironment()))
                 .toList();
         var bodyParams = params.stream()
                 .filter(p -> parentName.map(name -> !name.equals(p.name())).orElse(true))
+                .filter(p -> !pathVarNames.contains(p.name()))
                 .toList();
         parentName.ifPresent(name -> {
             var parentParam = params.stream().filter(p -> name.equals(p.name())).findFirst().orElseThrow();
             method.addParameter(String.class, parentParam.name() + "Id");
         });
+        params.stream()
+                .filter(p -> pathVarNames.contains(p.name()))
+                .forEach(p -> method.addParameter(String.class, p.name()));
         if (!bodyParams.isEmpty()) {
             method.addParameter(ParameterSpec.builder(
                             ClassName.get("%s.application".formatted(packageName),
@@ -144,16 +153,17 @@ class CreateServiceWriter {
                     .addAnnotation(Valid.class)
                     .build());
         }
-        method.addStatement("var aggregate = new $T($L)", typeName,
-                params.stream()
-                        .map(param -> resolveParam(manifest, param, parentName, context))
-                        .collect(CodeBlock.joining(", ")));
+        var constructorArgs = params.stream()
+                .map(param -> resolveParam(manifest, param, parentName, pathVarNames, context))
+                .collect(CodeBlock.joining(", "));
+        method.addStatement("var aggregate = new $T($L)", typeName, constructorArgs);
     }
 
     private CodeBlock resolveParam(
             ClassManifest manifest,
             VariableManifest param,
             Optional<String> parentFieldName,
+            Set<String> pathVarNames,
             PrefabContext context
     ) {
         if (parentFieldName.map(name -> name.equals(param.name())).orElse(false)) {
@@ -163,6 +173,9 @@ class CreateServiceWriter {
             }
             var repoName = uncapitalize(topLevelName(param.type().simpleName())) + "Repository";
             return CodeBlock.of("$N.findById($NId).orElseThrow()", repoName, param.name());
+        }
+        if (pathVarNames.contains(param.name())) {
+            return CodeBlock.of("$N", param.name());
         }
         return context.requestParameterMapper().mapRequestParameter(param);
     }

@@ -1,14 +1,15 @@
 ---
 id: TASK-138
 title: JSONB support for Postgres
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-04-24 08:48'
-updated_date: '2026-04-24 08:49'
+updated_date: '2026-04-29 14:52'
 labels:
   - postgres
 dependencies: []
 priority: high
+ordinal: 14000
 ---
 
 ## Description

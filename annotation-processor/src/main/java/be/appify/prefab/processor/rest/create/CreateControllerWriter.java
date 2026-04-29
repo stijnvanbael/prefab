@@ -6,6 +6,7 @@ import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.rest.ControllerUtil;
+import be.appify.prefab.processor.rest.PathVariables;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
@@ -17,6 +18,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.ExecutableElement;
 import org.springframework.http.ResponseEntity;
@@ -42,8 +44,7 @@ class CreateControllerWriter {
 
     MethodSpec createDispatchMethodForPolymorphic(
             PolymorphicAggregateManifest polymorphic,
-            List<Map.Entry<ClassManifest, ExecutableElement>> group,
-            PrefabContext context
+            List<Map.Entry<ClassManifest, ExecutableElement>> group
     ) {
         var create = group.getFirst().getValue().getAnnotation(Create.class);
         var unionName = "Create%sRequest".formatted(polymorphic.simpleName());
@@ -51,7 +52,7 @@ class CreateControllerWriter {
         var redirectPath = toKebabCase("/" + plural(polymorphic.simpleName()) + "/");
         var parentName = polymorphic.parent()
                 .filter(p -> !p.type().parameters().isEmpty())
-                .map(p -> p.name());
+                .map(VariableManifest::name);
 
         var switchCases = group.stream()
                 .map(e -> buildDispatchCase(polymorphic, unionName, e, parentName))
@@ -122,6 +123,7 @@ class CreateControllerWriter {
             Create create,
             PrefabContext context
     ) {
+        var pathVarNames = PathVariables.extractFrom(create.path());
         var requestParts = constructor.getParameters().stream()
                 .flatMap(parameter -> context.requestParameterBuilder()
                         .buildMethodParameter(VariableManifest.of(parameter, context.processingEnvironment()))
@@ -141,6 +143,7 @@ class CreateControllerWriter {
                     .toList();
             var bodyParams = params.stream()
                     .filter(p -> parentName.map(name -> !name.equals(p.name())).orElse(true))
+                    .filter(p -> !pathVarNames.contains(p.name()))
                     .toList();
             parentName.ifPresent(name -> {
                 var parentParam = params.stream().filter(p -> name.equals(p.name())).findFirst().orElseThrow();
@@ -153,6 +156,14 @@ class CreateControllerWriter {
                         .ifPresent(pathVarSpec::addAnnotation);
                 method.addParameter(pathVarSpec.build());
             });
+            params.stream()
+                    .filter(p -> pathVarNames.contains(p.name()))
+                    .forEach(p -> {
+                        var spec = ParameterSpec.builder(String.class, p.name())
+                                .addAnnotation(PathVariable.class);
+                        ControllerUtil.pathParameterAnnotation("The " + p.name()).ifPresent(spec::addAnnotation);
+                        method.addParameter(spec.build());
+                    });
             if (!bodyParams.isEmpty()) {
                 method.addParameter(ParameterSpec.builder(
                                 ClassName.get("%s.application".formatted(packageName),
@@ -167,7 +178,7 @@ class CreateControllerWriter {
                         .build());
                 requestParts.forEach(method::addParameter);
             }
-            var serviceArgs = buildServiceArgs(parentName, params, requestParts);
+            var serviceArgs = buildServiceArgs(parentName, params, requestParts, pathVarNames);
             method.addStatement("var id = service.$N($L)", methodName, serviceArgs);
         }
         return method
@@ -179,18 +190,24 @@ class CreateControllerWriter {
     private static String buildServiceArgs(
             Optional<String> parentName,
             List<VariableManifest> params,
-            List<ParameterSpec> requestParts
+            List<ParameterSpec> requestParts,
+            Set<String> pathVarNames
     ) {
         var parentArg = parentName.map(name -> params.stream()
                 .filter(p -> name.equals(p.name())).findFirst().orElseThrow().name() + "Id")
                 .orElse("");
+        var pathVarArgs = params.stream()
+                .map(VariableManifest::name)
+                .filter(pathVarNames::contains)
+                .collect(Collectors.joining(", "));
         var hasBodyParams = params.stream()
-                .anyMatch(p -> parentName.map(name -> !name.equals(p.name())).orElse(true));
+                .anyMatch(p -> parentName.map(name -> !name.equals(p.name())).orElse(true)
+                        && !pathVarNames.contains(p.name()));
         var withArgs = requestParts.stream()
                 .map(param -> ".with%s(%s)".formatted(capitalize(param.name()), param.name()))
                 .collect(Collectors.joining());
         var requestArg = hasBodyParams ? "request" + withArgs : "";
-        return java.util.stream.Stream.of(parentArg, requestArg)
+        return java.util.stream.Stream.of(parentArg, pathVarArgs, requestArg)
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.joining(", "));
     }

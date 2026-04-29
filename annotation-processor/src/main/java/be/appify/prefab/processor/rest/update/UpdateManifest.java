@@ -9,6 +9,7 @@ record UpdateManifest(
         String operationName,
         List<VariableManifest> parameters,
         List<VariableManifest> requestParameters,
+        List<VariableManifest> pathParameters,
         List<VariableManifest> aggregateParameters,
         List<VariableManifest> parentEntityParameters,
         boolean stateful,

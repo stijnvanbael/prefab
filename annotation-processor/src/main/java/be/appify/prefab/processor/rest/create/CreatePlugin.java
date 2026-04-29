@@ -142,7 +142,7 @@ public class CreatePlugin implements PrefabPlugin {
         var grouped = groupSubtypesByPath(manifest);
         grouped.forEach((pathKey, entries) -> {
             if (isUnionGroup(entries)) {
-                builder.addMethod(controllerWriter.createDispatchMethodForPolymorphic(manifest, entries, context));
+                builder.addMethod(controllerWriter.createDispatchMethodForPolymorphic(manifest, entries));
             } else {
                 entries.forEach(e -> builder.addMethod(
                         controllerWriter.createMethodForPolymorphic(manifest, e.getKey(), e.getValue(), context)));

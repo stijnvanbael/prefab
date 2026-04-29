@@ -43,12 +43,19 @@ class UpdateControllerWriter {
                 .addParameter(idParameter.build());
         operationAnnotation(capitalize(update.operationName()) + " " + manifest.simpleName()).ifPresent(method::addAnnotation);
         securedAnnotation(update.security()).ifPresent(method::addAnnotation);
+        update.pathParameters().forEach(pathParam -> {
+            var paramSpec = ParameterSpec.builder(String.class, pathParam.name())
+                    .addAnnotation(PathVariable.class);
+            pathParameterAnnotation("The " + pathParam.name()).ifPresent(paramSpec::addAnnotation);
+            method.addParameter(paramSpec.build());
+        });
+        var idAndPathArgs = buildIdAndPathArgs(update);
         if (update.requestParameters().isEmpty()) {
             if (update.asyncCommit()) {
-                method.addStatement("service.$N(id)", update.operationName());
+                method.addStatement("service.$N($L)", update.operationName(), idAndPathArgs);
                 method.addStatement("return $T.accepted().build()", ResponseEntity.class);
             } else {
-                method.addStatement("return toResponse(service.$N(id))", update.operationName());
+                method.addStatement("return toResponse(service.$N($L))", update.operationName(), idAndPathArgs);
             }
         } else {
             method.addParameter(ParameterSpec.builder(
@@ -63,20 +70,25 @@ class UpdateControllerWriter {
                                     .build())
                     .build());
             requestParts.forEach(method::addParameter);
+            var withArgs = requestParts.stream()
+                    .map(param -> ".with%s(%s)".formatted(capitalize(param.name()), param.name()))
+                    .collect(Collectors.joining());
             if (update.asyncCommit()) {
-                method.addStatement("service.$N(id, request$L)", update.operationName(),
-                        requestParts.stream()
-                                .map(param -> ".with%s(%s)".formatted(capitalize(param.name()), param.name()))
-                                .collect(Collectors.joining(", ")));
+                method.addStatement("service.$N($L, request$L)", update.operationName(), idAndPathArgs, withArgs);
                 method.addStatement("return $T.accepted().build()", ResponseEntity.class);
             } else {
-                method.addStatement("return toResponse(service.$N(id, request$L))", update.operationName(),
-                        requestParts.stream()
-                                .map(param -> ".with%s(%s)".formatted(capitalize(param.name()), param.name()))
-                                .collect(Collectors.joining(", ")));
+                method.addStatement("return toResponse(service.$N($L, request$L))", update.operationName(),
+                        idAndPathArgs, withArgs);
             }
         }
         return method.build();
+    }
+
+    private static String buildIdAndPathArgs(UpdateManifest update) {
+        var pathArgs = update.pathParameters().stream()
+                .map(p -> ", " + p.name())
+                .collect(Collectors.joining());
+        return "id" + pathArgs;
     }
 
     MethodSpec updateDispatchMethodForPolymorphic(

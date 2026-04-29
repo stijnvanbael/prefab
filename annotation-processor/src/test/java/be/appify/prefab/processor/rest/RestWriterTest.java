@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import static be.appify.prefab.processor.event.avro.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RestWriterTest {
 
@@ -243,5 +244,151 @@ class RestWriterTest {
                 .generatedSourceFile("rest.testclient.application.PersonUpdateRequest")
                 .contentsAsUtf8String()
                 .contains("public static Builder builder()");
+    }
+
+    @Test
+    void pathVariableInCreateIsExcludedFromRequestRecord() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/pathvariable/source/Subscription.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.pathvariable.application.CreateSubscriptionRequest")
+                .contentsAsUtf8String()
+                .doesNotContain("String plan");
+        assertThat(compilation)
+                .generatedSourceFile("rest.pathvariable.application.CreateSubscriptionRequest")
+                .contentsAsUtf8String()
+                .contains("String email");
+    }
+
+    @Test
+    void pathVariableInCreateIsAddedAsPathVariableToController() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/pathvariable/source/Subscription.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.pathvariable.infrastructure.http.SubscriptionController")
+                .contentsAsUtf8String()
+                .contains("@PathVariable");
+        assertThat(compilation)
+                .generatedSourceFile("rest.pathvariable.infrastructure.http.SubscriptionController")
+                .contentsAsUtf8String()
+                .contains("String plan");
+    }
+
+    @Test
+    void pathVariableInCreateIsPassedDirectlyToServiceMethod() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/pathvariable/source/Subscription.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.pathvariable.application.SubscriptionService")
+                .contentsAsUtf8String()
+                .contains("String plan");
+        assertThat(compilation)
+                .generatedSourceFile("rest.pathvariable.application.SubscriptionService")
+                .contentsAsUtf8String()
+                .contains("new Subscription(plan, request.email())");
+    }
+
+    @Test
+    void pathVariableInUpdateIsExcludedFromRequestRecord() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/pathvariable/source/Subscription.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.pathvariable.application.SubscriptionUpdateSectionRequest")
+                .contentsAsUtf8String()
+                .doesNotContain("String section");
+        assertThat(compilation)
+                .generatedSourceFile("rest.pathvariable.application.SubscriptionUpdateSectionRequest")
+                .contentsAsUtf8String()
+                .contains("String email");
+    }
+
+    @Test
+    void pathVariableInUpdateIsAddedAsPathVariableToController() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/pathvariable/source/Subscription.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.pathvariable.infrastructure.http.SubscriptionController")
+                .contentsAsUtf8String()
+                .contains("String section");
+    }
+
+    @Test
+    void pathVariableInUpdateIsPassedDirectlyToServiceMethod() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/pathvariable/source/Subscription.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.pathvariable.application.SubscriptionService")
+                .contentsAsUtf8String()
+                .contains("String section");
+    }
+
+    @Test
+    void allPathVariablesInCreateGeneratesNoRequestRecord() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/allpathvariable/source/Slot.java"));
+
+        assertThat(compilation).succeeded();
+        var generatedNames = compilation.generatedSourceFiles().stream()
+                .map(javax.tools.JavaFileObject::getName)
+                .toList();
+        assertTrue(generatedNames.stream().noneMatch(name -> name.contains("CreateSlotRequest")));
+    }
+
+    @Test
+    void allPathVariablesInUpdateGeneratesNoRequestRecord() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/allpathvariable/source/Slot.java"));
+
+        assertThat(compilation).succeeded();
+        var generatedNames = compilation.generatedSourceFiles().stream()
+                .map(javax.tools.JavaFileObject::getName)
+                .toList();
+        assertTrue(generatedNames.stream().noneMatch(name -> name.contains("SlotRescheduleRequest")));
+    }
+
+    @Test
+    void allPathVariablesInCreatePassedDirectlyToServiceConstructor() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/allpathvariable/source/Slot.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.allpathvariable.application.SlotService")
+                .contentsAsUtf8String()
+                .contains("new Slot(day, hour)");
+    }
+
+    @Test
+    void allPathVariablesInUpdatePassedDirectlyToDomainMethod() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/allpathvariable/source/Slot.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.allpathvariable.application.SlotService")
+                .contentsAsUtf8String()
+                .contains("aggregate.reschedule(day, hour)");
     }
 }

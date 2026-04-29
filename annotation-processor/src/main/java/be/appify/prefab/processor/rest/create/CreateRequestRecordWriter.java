@@ -1,10 +1,12 @@
 package be.appify.prefab.processor.rest.create;
 
+import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.rest.PathVariables;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
@@ -20,14 +22,17 @@ class CreateRequestRecordWriter {
     void writeRequestRecord(
             JavaFileWriter fileWriter,
             ClassManifest manifest,
-            ExecutableElement controller,
+            ExecutableElement constructor,
             PrefabContext context
     ) {
+        var create = constructor.getAnnotation(Create.class);
+        var pathVarNames = PathVariables.extractFrom(create != null ? create.path() : "");
         var name = "Create%sRequest".formatted(manifest.simpleName());
         var parentName = CreateServiceWriter.parentFieldName(manifest);
-        var bodyParams = controller.getParameters().stream()
+        var bodyParams = constructor.getParameters().stream()
                 .map(param -> VariableManifest.of(param, context.processingEnvironment()))
                 .filter(param -> parentName.map(parentFieldName -> !parentFieldName.equals(param.name())).orElse(true))
+                .filter(param -> !pathVarNames.contains(param.name()))
                 .toList();
         if (bodyParams.isEmpty()) {
             return;
@@ -131,6 +136,8 @@ class CreateRequestRecordWriter {
             ExecutableElement factoryMethod,
             PrefabContext context
     ) {
+        var create = factoryMethod.getAnnotation(Create.class);
+        var pathVarNames = PathVariables.extractFrom(create != null ? create.path() : "");
         var name = "Create%sRequest".formatted(manifest.simpleName());
         var parentName = manifest.parent()
                 .filter(p -> !p.type().parameters().isEmpty())
@@ -138,6 +145,7 @@ class CreateRequestRecordWriter {
         var bodyParams = factoryMethod.getParameters().stream()
                 .map(param -> VariableManifest.of(param, context.processingEnvironment()))
                 .filter(param -> parentName.map(pfn -> !pfn.equals(param.name())).orElse(true))
+                .filter(param -> !pathVarNames.contains(param.name()))
                 .toList();
         if (bodyParams.isEmpty()) {
             return;

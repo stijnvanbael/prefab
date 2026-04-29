@@ -1,12 +1,10 @@
 package kafka.avsc.infrastructure.kafka;
 
-import java.util.concurrent.CompletableFuture;
 import kafka.avsc.OrderCreatedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -23,8 +21,8 @@ public class OrderCreatedEventKafkaProducer {
     }
 
     @EventListener
-    public CompletableFuture<SendResult<String, Object>> publish(OrderCreatedEvent event) {
+    public void publish(OrderCreatedEvent event) {
         log.debug("Publishing event {} on topic {}", event, topic);
-        return kafkaTemplate.send(topic, event);
+        kafkaTemplate.send(topic, event).join();
     }
 }

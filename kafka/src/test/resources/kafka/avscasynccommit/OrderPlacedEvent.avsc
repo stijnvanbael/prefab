@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "OrderPlacedEvent",
+  "namespace": "kafka.avscasynccommit",
+  "fields": [
+    {"name": "orderId", "type": "string"},
+    {"name": "customerId", "type": "string"}
+  ]
+}
+

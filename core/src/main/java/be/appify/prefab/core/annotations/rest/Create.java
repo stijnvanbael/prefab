@@ -5,8 +5,15 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Annotate the constructor that should be exposed as an HTTP endpoint for creating the aggregate root. */
-@Target(ElementType.CONSTRUCTOR)
+/**
+ * Annotate the constructor (or, for async-commit aggregates, a public static factory method) that
+ * should be exposed as an HTTP endpoint for creating the aggregate root.
+ *
+ * <p>On a synchronous aggregate the target must be a constructor. On an {@code @AsyncCommit} aggregate
+ * the target must be a {@code public static} method returning the event type; the processor will call
+ * it, publish the returned event, and return {@code 202 Accepted}.
+ */
+@Target({ElementType.CONSTRUCTOR, ElementType.METHOD})
 @Retention(RetentionPolicy.SOURCE)
 public @interface Create {
     /**

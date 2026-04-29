@@ -4,22 +4,15 @@ import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
-import com.palantir.javapoet.AnnotationSpec;
-import com.palantir.javapoet.ClassName;
-import com.palantir.javapoet.FieldSpec;
-import com.palantir.javapoet.MethodSpec;
-import com.palantir.javapoet.ParameterSpec;
-import com.palantir.javapoet.ParameterizedTypeName;
-import com.palantir.javapoet.TypeSpec;
-import java.util.concurrent.CompletableFuture;
-import javax.lang.model.element.Modifier;
+import com.palantir.javapoet.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
+
+import javax.lang.model.element.Modifier;
 
 import static be.appify.prefab.processor.event.ConsumerWriterSupport.keyField;
 import static be.appify.prefab.processor.event.kafka.KafkaPlugin.platformIsKafka;
@@ -85,20 +78,15 @@ class KafkaProducerWriter {
     }
 
     private MethodSpec producer(TypeManifest event) {
-        var sendResultType = ParameterizedTypeName.get(
-                ClassName.get(SendResult.class),
-                ClassName.get(String.class),
-                ClassName.get(Object.class));
-        var returnType = ParameterizedTypeName.get(ClassName.get(CompletableFuture.class), sendResultType);
         var method = MethodSpec.methodBuilder("publish")
                 .addModifiers(PUBLIC)
-                .returns(returnType)
+                .returns(void.class)
                 .addParameter(event.asTypeName(), "event")
                 .addAnnotation(EventListener.class)
                 .addStatement("log.debug($S, event, topic)", "Publishing event {} on topic {}");
         keyField(event, context).ifPresentOrElse(
-                keyField -> method.addStatement("return kafkaTemplate.send(topic, $L, event)", keyField),
-                () -> method.addStatement("return kafkaTemplate.send(topic, event)"));
+                keyField -> method.addStatement("kafkaTemplate.send(topic, $L, event).join()", keyField),
+                () -> method.addStatement("kafkaTemplate.send(topic, event).join()"));
         return method.build();
     }
 }

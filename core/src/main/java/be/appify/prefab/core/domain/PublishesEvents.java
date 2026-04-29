@@ -1,6 +1,8 @@
 package be.appify.prefab.core.domain;
 
-/** Interface for entities that can publish domain events. */
+/**
+ * Interface for entities that can publish domain events.
+ */
 public interface PublishesEvents {
     /**
      * Publishes a domain event using the DomainEventPublisher.
@@ -8,6 +10,10 @@ public interface PublishesEvents {
      * @param event the event to publish
      */
     default void publish(Object event) {
+        publishEvent(event);
+    }
+
+    static void publishEvent(Object event) {
         var eventPublisher = DomainEventPublisher.getInstance();
         if (eventPublisher != null) {
             eventPublisher.publish(event);

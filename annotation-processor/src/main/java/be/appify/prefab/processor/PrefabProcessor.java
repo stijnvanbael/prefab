@@ -2,8 +2,6 @@ package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.Avsc;
-import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.core.annotations.EventHandler;
 import com.google.auto.service.AutoService;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -20,7 +18,6 @@ import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -43,7 +40,6 @@ public class PrefabProcessor extends AbstractProcessor {
     private final Set<TypeElement> deferredAggregates = new LinkedHashSet<>();
     private final Set<TypeElement> deferredPolymorphicAggregates = new LinkedHashSet<>();
     private final Set<ExecutableElement> deferredEventHandlers = new LinkedHashSet<>();
-    private final Set<TypeElement> cachedEventElements = new LinkedHashSet<>();
 
     // All aggregate manifests resolved across all rounds, used for global file generation.
     private final List<ClassManifest> allResolvedAggregates = new ArrayList<>();
@@ -54,15 +50,11 @@ public class PrefabProcessor extends AbstractProcessor {
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment environment) {
         var plugins = detectPlugins();
-        var context = new PrefabContext(processingEnv, plugins, environment, deferredEventHandlers, cachedEventElements);
+        var context = new PrefabContext(processingEnv, plugins, environment, deferredEventHandlers);
         plugins.forEach(plugin -> plugin.initContext(context));
         if (hasAvscAnnotations(environment) && !eventFilesWritten) {
             eventFilesWritten = true;
-            cacheAggregateElementsForNextRound(environment);
-            cacheEventElementsForNextRound(environment);
-            cacheEventHandlersForNextRound(environment);
             plugins.forEach(PrefabPlugin::writeEventFiles);
-            return true;
         }
         var aggregates = resolveAggregates(environment);
         var polymorphicAggregates = resolvePolymorphicAggregates(environment);
@@ -82,31 +74,6 @@ public class PrefabProcessor extends AbstractProcessor {
 
     private boolean hasAvscAnnotations(RoundEnvironment environment) {
         return !environment.getElementsAnnotatedWith(Avsc.class).isEmpty();
-    }
-
-    private void cacheAggregateElementsForNextRound(RoundEnvironment environment) {
-        environment.getElementsAnnotatedWith(Aggregate.class).stream()
-                .filter(e -> e.getKind().isClass() && !e.getModifiers().contains(Modifier.ABSTRACT))
-                .map(TypeElement.class::cast)
-                .forEach(deferredAggregates::add);
-        environment.getElementsAnnotatedWith(Aggregate.class).stream()
-                .filter(e -> e.getModifiers().contains(Modifier.SEALED))
-                .map(TypeElement.class::cast)
-                .forEach(deferredPolymorphicAggregates::add);
-    }
-
-    private void cacheEventElementsForNextRound(RoundEnvironment environment) {
-        environment.getElementsAnnotatedWith(Event.class).stream()
-                .map(TypeElement.class::cast)
-                .filter(e -> e.getAnnotation(Avsc.class) == null)
-                .forEach(cachedEventElements::add);
-    }
-
-    private void cacheEventHandlersForNextRound(RoundEnvironment environment) {
-        environment.getElementsAnnotatedWith(EventHandler.class).stream()
-                .filter(e -> e.getKind() == ElementKind.METHOD)
-                .map(ExecutableElement.class::cast)
-                .forEach(deferredEventHandlers::add);
     }
 
     private List<ClassManifest> resolveAggregates(RoundEnvironment environment) {

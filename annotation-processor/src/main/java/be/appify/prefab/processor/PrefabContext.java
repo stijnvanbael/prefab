@@ -25,7 +25,6 @@ public class PrefabContext {
     private final RequestParameterMapper requestParameterMapper;
     private final RoundEnvironment roundEnvironment;
     private final Set<ExecutableElement> inheritedDeferredEventHandlers;
-    private final Set<TypeElement> inheritedEventElements;
     private final Set<ExecutableElement> newlyDeferredEventHandlers = new LinkedHashSet<>();
 
     /**
@@ -64,35 +63,10 @@ public class PrefabContext {
             RoundEnvironment roundEnvironment,
             Set<ExecutableElement> inheritedDeferredEventHandlers
     ) {
-        this(processingEnvironment, plugins, roundEnvironment, inheritedDeferredEventHandlers, Set.of());
-    }
-
-    /**
-     * Constructs a PrefabContext with event handlers and event elements carried over from a previous round.
-     *
-     * @param processingEnvironment
-     *         the processing environment
-     * @param plugins
-     *         the list of Prefab plugins
-     * @param roundEnvironment
-     *         the round environment
-     * @param inheritedDeferredEventHandlers
-     *         event handlers deferred from a previous processing round
-     * @param inheritedEventElements
-     *         event type elements discovered in a previous processing round
-     */
-    public PrefabContext(
-            ProcessingEnvironment processingEnvironment,
-            List<PrefabPlugin> plugins,
-            RoundEnvironment roundEnvironment,
-            Set<ExecutableElement> inheritedDeferredEventHandlers,
-            Set<TypeElement> inheritedEventElements
-    ) {
         this.processingEnvironment = processingEnvironment;
         this.plugins = plugins;
         this.roundEnvironment = roundEnvironment;
         this.inheritedDeferredEventHandlers = Set.copyOf(inheritedDeferredEventHandlers);
-        this.inheritedEventElements = Set.copyOf(inheritedEventElements);
         requestParameterBuilder = new RequestParameterBuilder(plugins);
         requestParameterMapper = new RequestParameterMapper(plugins);
     }
@@ -196,7 +170,7 @@ public class PrefabContext {
                         .map(i -> (TypeElement) ((DeclaredType) i).asElement())
                         .anyMatch(i -> i.getAnnotation(Avsc.class) != null));
 
-        return Stream.concat(inheritedEventElements.stream(), Stream.concat(annotated, avscGenerated)).distinct();
+        return Stream.concat(annotated, avscGenerated).distinct();
     }
 
     /**

@@ -4,8 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import be.appify.prefab.processor.PrefabProcessor;
 
-import java.io.IOException;
-
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.contentsOf;
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
@@ -41,7 +39,7 @@ class KafkaProducerWriterTest {
     }
 
     @Test
-    void avscEventProducer() throws IOException {
+    void avscEventProducer() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(

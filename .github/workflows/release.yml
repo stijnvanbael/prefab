@@ -1,0 +1,97 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release-version:
+        description: 'Release version (e.g. 1.2.3) — defaults to current version without -SNAPSHOT'
+        required: false
+      next-development-version:
+        description: 'Next development version without -SNAPSHOT suffix (e.g. 1.2.4) — defaults to minor bump'
+        required: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve versions
+        id: versions
+        run: |
+          CURRENT=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          RELEASE="${{ github.event.inputs.release-version }}"
+          if [ -z "$RELEASE" ]; then
+            RELEASE="${CURRENT%-SNAPSHOT}"
+          fi
+          NEXT="${{ github.event.inputs.next-development-version }}"
+          if [ -z "$NEXT" ]; then
+            MAJOR=$(echo "$RELEASE" | cut -d. -f1)
+            MINOR=$(echo "$RELEASE" | cut -d. -f2)
+            PATCH=$(echo "$RELEASE" | cut -d. -f3)
+            NEXT="$MAJOR.$((MINOR + 1)).${PATCH:-0}"
+          fi
+          echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
+          echo "next=$NEXT" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+          server-id: central
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Set release version
+        run: |
+          mvn --no-transfer-progress versions:set -DnewVersion="${{ steps.versions.outputs.release }}"
+          mvn --no-transfer-progress versions:set-property \
+            -Dproperty=prefab.version \
+            -DnewVersion="${{ steps.versions.outputs.release }}"
+
+      - name: Build and verify release
+        run: mvn --no-transfer-progress clean package
+
+      - name: Commit and tag release
+        run: |
+          git add .
+          git commit -m "Release version ${{ steps.versions.outputs.release }}"
+          git tag "${{ steps.versions.outputs.release }}"
+
+      - name: Deploy release artifacts
+        run: mvn --no-transfer-progress deploy -DskipTests -P '!skip-gpg'
+        env:
+          MAVEN_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Push release commit and tag
+        run: git push origin main --tags
+
+      - name: Set next development version
+        run: |
+          mvn --no-transfer-progress versions:set \
+            -DnewVersion="${{ steps.versions.outputs.next }}-SNAPSHOT"
+          mvn --no-transfer-progress versions:set-property \
+            -Dproperty=prefab.version \
+            -DnewVersion="${{ steps.versions.outputs.next }}-SNAPSHOT"
+
+      - name: Commit next development version
+        run: |
+          git add .
+          git commit -m "Start next development iteration"
+          git push origin main

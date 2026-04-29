@@ -44,7 +44,12 @@ class UpdateControllerWriter {
         operationAnnotation(capitalize(update.operationName()) + " " + manifest.simpleName()).ifPresent(method::addAnnotation);
         securedAnnotation(update.security()).ifPresent(method::addAnnotation);
         if (update.requestParameters().isEmpty()) {
-            method.addStatement("return toResponse(service.$N(id))", update.operationName());
+            if (update.asyncCommit()) {
+                method.addStatement("service.$N(id)", update.operationName());
+                method.addStatement("return $T.accepted().build()", ResponseEntity.class);
+            } else {
+                method.addStatement("return toResponse(service.$N(id))", update.operationName());
+            }
         } else {
             method.addParameter(ParameterSpec.builder(
                             ClassName.get("%s.application".formatted(manifest.packageName()),
@@ -58,10 +63,18 @@ class UpdateControllerWriter {
                                     .build())
                     .build());
             requestParts.forEach(method::addParameter);
-            method.addStatement("return toResponse(service.$N(id, request$L))", update.operationName(),
-                    requestParts.stream()
-                            .map(param -> ".with%s(%s)".formatted(capitalize(param.name()), param.name()))
-                            .collect(Collectors.joining(", ")));
+            if (update.asyncCommit()) {
+                method.addStatement("service.$N(id, request$L)", update.operationName(),
+                        requestParts.stream()
+                                .map(param -> ".with%s(%s)".formatted(capitalize(param.name()), param.name()))
+                                .collect(Collectors.joining(", ")));
+                method.addStatement("return $T.accepted().build()", ResponseEntity.class);
+            } else {
+                method.addStatement("return toResponse(service.$N(id, request$L))", update.operationName(),
+                        requestParts.stream()
+                                .map(param -> ".with%s(%s)".formatted(capitalize(param.name()), param.name()))
+                                .collect(Collectors.joining(", ")));
+            }
         }
         return method.build();
     }

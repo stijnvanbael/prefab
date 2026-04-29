@@ -135,18 +135,20 @@ class UpdateTestClientWriter {
             MethodSpec.Builder method,
             String pathVariables
     ) {
+        var statusMatcher = update.asyncCommit() ? "isAccepted()" : "isOk()";
         return method.addStatement("""
                                 mockMvc.perform($T.$N($L, id)$L
                                         .contentType($T.APPLICATION_JSON)
                                         $L
-                                        .andExpect($T.status().isOk())""",
+                                        .andExpect($T.status().$L)""",
                         MOCK_MVC_REQUEST_BUILDERS,
                         update.method().toLowerCase(),
                         pathVariables(manifest, update, pathVariables),
                         ControllerUtil.withMockUser(update.security()),
                         MediaType.class,
                          update.requestParameters().isEmpty() ? ")" : ".content(jsonMapper.writeValueAsString(request)))",
-                        MOCK_MVC_RESULT_MATCHERS)
+                        MOCK_MVC_RESULT_MATCHERS,
+                        statusMatcher)
                 .build();
     }
 
@@ -172,10 +174,11 @@ class UpdateTestClientWriter {
                         MediaType.class);
             }
         });
+        var statusMatcher = update.asyncCommit() ? "isAccepted()" : "isOk()";
         return method.addStatement("""
                                 return mockMvc.perform($T.multipart($L, id)$L
                                         $L
-                                        ).andExpect($T.status().isOk())""",
+                                        ).andExpect($T.status().$L)""",
                         MOCK_MVC_REQUEST_BUILDERS,
                         pathVariables(manifest, update, pathVariables),
                         ControllerUtil.withMockUser(update.security()),
@@ -189,7 +192,8 @@ class UpdateTestClientWriter {
                                 })
                                 .reduce(CodeBlock.builder(), CodeBlock.Builder::add, (a, b) -> a)
                                 .build(),
-                        MOCK_MVC_RESULT_MATCHERS)
+                        MOCK_MVC_RESULT_MATCHERS,
+                        statusMatcher)
                 .build();
     }
 

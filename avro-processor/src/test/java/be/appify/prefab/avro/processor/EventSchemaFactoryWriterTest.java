@@ -4,8 +4,8 @@ import be.appify.prefab.processor.PrefabProcessor;
 
 import org.junit.jupiter.api.Test;
 
-import static be.appify.prefab.processor.event.avro.ProcessorTestUtil.contentsOf;
-import static be.appify.prefab.processor.event.avro.ProcessorTestUtil.sourceOf;
+import static be.appify.prefab.avro.processor.ProcessorTestUtil.contentsOf;
+import static be.appify.prefab.avro.processor.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
 

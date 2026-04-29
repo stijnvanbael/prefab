@@ -2,6 +2,7 @@ package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.AsyncCommit;
+import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.annotations.TenantId;
 import be.appify.prefab.core.annotations.rest.Parent;
 import com.palantir.javapoet.ClassName;
@@ -46,10 +47,23 @@ public class ClassManifest {
     }
 
     public static boolean hasUnresolvedFields(TypeElement typeElement) {
+        return hasUnresolvedFieldTypes(typeElement) || hasUnresolvedEventHandlerParameterTypes(typeElement);
+    }
+
+    private static boolean hasUnresolvedFieldTypes(TypeElement typeElement) {
         return typeElement.getEnclosedElements().stream()
                 .filter(VariableElement.class::isInstance)
                 .map(VariableElement.class::cast)
                 .anyMatch(e -> TypeManifest.containsUnresolvedType(e.asType()));
+    }
+
+    private static boolean hasUnresolvedEventHandlerParameterTypes(TypeElement typeElement) {
+        return typeElement.getEnclosedElements().stream()
+                .filter(ExecutableElement.class::isInstance)
+                .map(ExecutableElement.class::cast)
+                .filter(e -> e.getAnnotationsByType(EventHandler.class).length > 0)
+                .flatMap(e -> e.getParameters().stream())
+                .anyMatch(p -> TypeManifest.containsUnresolvedType(p.asType()));
     }
 
     private ClassManifest(TypeElement typeElement, ProcessingEnvironment processingEnvironment) {

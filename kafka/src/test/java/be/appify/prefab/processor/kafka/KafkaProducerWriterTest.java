@@ -4,8 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import be.appify.prefab.processor.PrefabProcessor;
 
-import java.io.IOException;
-
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.contentsOf;
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
@@ -38,5 +36,32 @@ class KafkaProducerWriterTest {
         assertThat(compilation).generatedSourceFile("kafka.multiple.infrastructure.kafka.UserEventKafkaProducer")
                 .contentsAsUtf8String()
                 .isEqualTo(contentsOf("expected/kafka/multiple/UserEventKafkaProducer.java"));
+    }
+
+    @Test
+    void avscEventProducer() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/avsc/OrderCreated.java"),
+                        sourceOf("kafka/avsc/OrderProcessor.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("kafka.avsc.infrastructure.kafka.OrderCreatedEventKafkaProducer")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("expected/kafka/avsc/OrderCreatedEventKafkaProducer.java"));
+    }
+
+    @Test
+    void avscAggregateEventProducers() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("kafka/avscaggregate/OrderEvent.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("kafka.avscaggregate.infrastructure.kafka.OrderCreatedEventKafkaProducer")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("expected/kafka/avscaggregate/OrderCreatedEventKafkaProducer.java"));
+        assertThat(compilation).generatedSourceFile("kafka.avscaggregate.infrastructure.kafka.OrderShippedEventKafkaProducer")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("expected/kafka/avscaggregate/OrderShippedEventKafkaProducer.java"));
     }
 }

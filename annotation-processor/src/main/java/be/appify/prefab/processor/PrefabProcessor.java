@@ -76,7 +76,6 @@ public class PrefabProcessor extends AbstractProcessor {
         return !environment.getElementsAnnotatedWith(Avsc.class).isEmpty();
     }
 
-
     private List<ClassManifest> resolveAggregates(RoundEnvironment environment) {
         var aggregateElements = Stream.concat(
                         environment.getElementsAnnotatedWith(Aggregate.class).stream()

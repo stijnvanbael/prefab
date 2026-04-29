@@ -18,6 +18,8 @@
     <modules>
         <module>core</module>
         <module>annotation-processor</module>
+        <module>avro</module>
+        <module>avro-processor</module>
         <module>test</module>
         <module>postgres</module>
         <module>mongodb</module>
@@ -91,6 +93,16 @@
             <dependency>
                 <groupId>be.appify.prefab</groupId>
                 <artifactId>prefab-async-api</artifactId>
+                <version>${prefab.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>be.appify.prefab</groupId>
+                <artifactId>prefab-avro</artifactId>
+                <version>${prefab.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>be.appify.prefab</groupId>
+                <artifactId>prefab-avro-processor</artifactId>
                 <version>${prefab.version}</version>
             </dependency>
             <dependency>

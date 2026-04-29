@@ -12,6 +12,7 @@ record UpdateManifest(
         List<VariableManifest> aggregateParameters,
         List<VariableManifest> parentEntityParameters,
         boolean stateful,
+        boolean asyncCommit,
         String method,
         String path,
         Security security) {

@@ -1,6 +1,7 @@
 package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.AsyncCommit;
 import be.appify.prefab.core.annotations.TenantId;
 import be.appify.prefab.core.annotations.rest.Parent;
 import com.palantir.javapoet.ClassName;
@@ -240,6 +241,21 @@ public class ClassManifest {
                 .map(ExecutableElement.class::cast)
                 .filter(element -> element.getAnnotationsByType(annotation).length > 0)
                 .toList();
+    }
+
+    public List<ExecutableElement> staticMethodsWith(Class<? extends Annotation> annotation) {
+        return typeElement.getEnclosedElements()
+                .stream()
+                .filter(element -> element.getKind() == ElementKind.METHOD
+                        && element.getModifiers().contains(Modifier.PUBLIC)
+                        && element.getModifiers().contains(Modifier.STATIC))
+                .map(ExecutableElement.class::cast)
+                .filter(element -> element.getAnnotationsByType(annotation).length > 0)
+                .toList();
+    }
+
+    public boolean isAsyncCommit() {
+        return typeElement.getAnnotationsByType(AsyncCommit.class).length > 0;
     }
 
     public boolean dependsOn(ClassManifest manifest) {

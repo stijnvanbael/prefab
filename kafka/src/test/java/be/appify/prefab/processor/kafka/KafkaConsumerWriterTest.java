@@ -142,4 +142,15 @@ class KafkaConsumerWriterTest {
                 .contentsAsUtf8String()
                 .isEqualTo(contentsOf("expected/kafka/createorupdate/ChannelSummaryKafkaConsumer.java"));
     }
+
+    @Test
+    void asyncCommitAggregateConsumerIsTransactional() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("kafka/asynccommit/Order.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("kafka.asynccommit.infrastructure.kafka.OrderKafkaConsumer")
+                .contentsAsUtf8String()
+                .contains("@Transactional");
+    }
 }

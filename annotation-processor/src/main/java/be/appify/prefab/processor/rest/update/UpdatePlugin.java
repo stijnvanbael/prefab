@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.rest.update;
 
 import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.AsyncCommit;
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.JavaFileWriter;
@@ -188,6 +189,8 @@ public class UpdatePlugin implements PrefabPlugin {
                             aggregateParams,
                             parentEntityParams,
                             element.getReturnType().toString().equals("void"),
+                            manifest.isAsyncCommit()
+                                    || element.getAnnotationsByType(AsyncCommit.class).length > 0,
                             update.method(),
                             update.path(),
                             update.security());

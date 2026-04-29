@@ -12,6 +12,7 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import jakarta.validation.Valid;
+
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.lang.model.element.ExecutableElement;
@@ -48,14 +49,7 @@ class AsyncCreateControllerWriter {
                 .returns(ParameterizedTypeName.get(ResponseEntity.class, Void.class));
         operationAnnotation("Create " + manifest.simpleName() + " (async)").ifPresent(method::addAnnotation);
         securedAnnotation(create.security()).ifPresent(method::addAnnotation);
-        params.stream()
-                .filter(p -> pathVarNames.contains(p.name()))
-                .forEach(p -> {
-                    var spec = ParameterSpec.builder(String.class, p.name())
-                            .addAnnotation(PathVariable.class);
-                    ControllerUtil.pathParameterAnnotation("The " + p.name()).ifPresent(spec::addAnnotation);
-                    method.addParameter(spec.build());
-                });
+        addParameters(pathVarNames, params, method);
         var pathVarArgs = params.stream()
                 .map(VariableManifest::name)
                 .filter(pathVarNames::contains)
@@ -76,5 +70,16 @@ class AsyncCreateControllerWriter {
         }
         method.addStatement("return $T.accepted().build()", ResponseEntity.class);
         return method.build();
+    }
+
+    static void addParameters(Set<String> pathVarNames, List<VariableManifest> params, MethodSpec.Builder method) {
+        params.stream()
+                .filter(p -> pathVarNames.contains(p.name()))
+                .forEach(p -> {
+                    var spec = ParameterSpec.builder(String.class, p.name())
+                            .addAnnotation(PathVariable.class);
+                    ControllerUtil.pathParameterAnnotation("The " + p.name()).ifPresent(spec::addAnnotation);
+                    method.addParameter(spec.build());
+                });
     }
 }

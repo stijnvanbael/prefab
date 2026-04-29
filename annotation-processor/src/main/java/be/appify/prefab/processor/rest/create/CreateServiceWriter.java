@@ -13,6 +13,8 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import jakarta.validation.Valid;
+import org.jspecify.annotations.NonNull;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -53,6 +55,10 @@ class CreateServiceWriter {
                         subtype.type().asTypeName());
         addConstructorArgs(method, subtype, leafName, subtype.packageName(), subtype.type().asTypeName(),
                 subtype.fields(), constructor, context);
+        return saveAndReturnId(polymorphic, subtype, method);
+    }
+
+    private MethodSpec saveAndReturnId(PolymorphicAggregateManifest polymorphic, ClassManifest subtype, MethodSpec.Builder method) {
         var idName = subtype.idField().map(VariableManifest::name).orElse("id");
         var idSuffix = subtype.idField().filter(f -> f.type().isSingleValueType())
                 .map(f -> ".%s()".formatted(f.type().singleValueAccessor())).orElse("");
@@ -73,10 +79,7 @@ class CreateServiceWriter {
                 .addStatement("log.debug($S, $T.class.getSimpleName())", "Creating new {}",
                         subtype.type().asTypeName());
         addConstructorArgsForUnion(method, polymorphic, subtype, leafName, constructor, context);
-        var idName = subtype.idField().map(VariableManifest::name).orElse("id");
-        var idSuffix = subtype.idField().filter(f -> f.type().isSingleValueType())
-                .map(f -> ".%s()".formatted(f.type().singleValueAccessor())).orElse("");
-        return saveAndReturnId(method, polymorphic.simpleName(), idName, idSuffix);
+        return saveAndReturnId(polymorphic, subtype, method);
     }
 
     private void addConstructorArgsForUnion(

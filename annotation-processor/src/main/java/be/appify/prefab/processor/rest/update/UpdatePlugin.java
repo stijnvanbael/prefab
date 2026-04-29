@@ -14,6 +14,7 @@ import com.palantir.javapoet.TypeSpec;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
@@ -118,7 +119,7 @@ public class UpdatePlugin implements PrefabPlugin {
         var grouped = groupSubtypesByPath(manifest);
         grouped.forEach((pathKey, entries) -> {
             if (isUnionGroup(entries)) {
-                builder.addMethod(updateControllerWriter.updateDispatchMethodForPolymorphic(manifest, entries, context));
+                builder.addMethod(updateControllerWriter.updateDispatchMethodForPolymorphic(manifest, entries));
             } else {
                 entries.forEach(e -> builder.addMethod(
                         updateControllerWriter.updateMethodForPolymorphic(manifest, e.getKey(), e.getValue(), context)));
@@ -207,7 +208,7 @@ public class UpdatePlugin implements PrefabPlugin {
 
     private List<VariableManifest> resolveParentEntityParameters(
             List<VariableManifest> allParams,
-            java.util.Optional<VariableManifest> parentField
+            Optional<VariableManifest> parentField
     ) {
         if (parentField.isEmpty()) {
             return List.of();

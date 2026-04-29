@@ -156,14 +156,7 @@ class CreateControllerWriter {
                         .ifPresent(pathVarSpec::addAnnotation);
                 method.addParameter(pathVarSpec.build());
             });
-            params.stream()
-                    .filter(p -> pathVarNames.contains(p.name()))
-                    .forEach(p -> {
-                        var spec = ParameterSpec.builder(String.class, p.name())
-                                .addAnnotation(PathVariable.class);
-                        ControllerUtil.pathParameterAnnotation("The " + p.name()).ifPresent(spec::addAnnotation);
-                        method.addParameter(spec.build());
-                    });
+            AsyncCreateControllerWriter.addParameters(pathVarNames, params, method);
             if (!bodyParams.isEmpty()) {
                 method.addParameter(ParameterSpec.builder(
                                 ClassName.get("%s.application".formatted(packageName),

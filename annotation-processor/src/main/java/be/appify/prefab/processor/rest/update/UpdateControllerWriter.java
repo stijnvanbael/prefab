@@ -93,8 +93,7 @@ class UpdateControllerWriter {
 
     MethodSpec updateDispatchMethodForPolymorphic(
             PolymorphicAggregateManifest polymorphic,
-            List<Map.Entry<ClassManifest, UpdateManifest>> group,
-            PrefabContext context
+            List<Map.Entry<ClassManifest, UpdateManifest>> group
     ) {
         var update = group.getFirst().getValue();
         var operationName = capitalize(update.operationName());

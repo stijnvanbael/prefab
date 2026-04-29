@@ -13,6 +13,8 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeSpec;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 
@@ -29,6 +31,10 @@ class CreateRequestRecordWriter {
         var pathVarNames = PathVariables.extractFrom(create != null ? create.path() : "");
         var name = "Create%sRequest".formatted(manifest.simpleName());
         var parentName = CreateServiceWriter.parentFieldName(manifest);
+        buildRequestRecord(fileWriter, manifest, constructor, context, pathVarNames, name, parentName);
+    }
+
+    private void buildRequestRecord(JavaFileWriter fileWriter, ClassManifest manifest, ExecutableElement constructor, PrefabContext context, Set<String> pathVarNames, String name, Optional<String> parentName) {
         var bodyParams = constructor.getParameters().stream()
                 .map(param -> VariableManifest.of(param, context.processingEnvironment()))
                 .filter(param -> parentName.map(parentFieldName -> !parentFieldName.equals(param.name())).orElse(true))
@@ -141,18 +147,7 @@ class CreateRequestRecordWriter {
         var name = "Create%sRequest".formatted(manifest.simpleName());
         var parentName = manifest.parent()
                 .filter(p -> !p.type().parameters().isEmpty())
-                .map(p -> p.name());
-        var bodyParams = factoryMethod.getParameters().stream()
-                .map(param -> VariableManifest.of(param, context.processingEnvironment()))
-                .filter(param -> parentName.map(pfn -> !pfn.equals(param.name())).orElse(true))
-                .filter(param -> !pathVarNames.contains(param.name()))
-                .toList();
-        if (bodyParams.isEmpty()) {
-            return;
-        }
-        var type = writeRecord(ClassName.get(manifest.packageName() + ".application", name),
-                bodyParams,
-                context.requestParameterBuilder());
-        fileWriter.writeFile(manifest.packageName(), name, type);
+                .map(VariableManifest::name);
+        buildRequestRecord(fileWriter, manifest, factoryMethod, context, pathVarNames, name, parentName);
     }
 }

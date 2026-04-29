@@ -34,7 +34,7 @@ class UpdateServiceWriter {
                 manifest.className());
         if (update.asyncCommit()) {
             var domainCallBlock = buildDomainCallBlock(update);
-            updateAsync(method, uncapitalize(manifest.simpleName()) + "Repository", update.operationName(),
+            updateAsync(method, uncapitalize(manifest.simpleName()) + "Repository",
                     domainCallBlock);
             return method.build();
         }
@@ -58,7 +58,6 @@ class UpdateServiceWriter {
     private static void updateAsync(
             MethodSpec.Builder method,
             String repositoryName,
-            String operationName,
             CodeBlock domainCallBlock
     ) {
         method.addStatement("""

@@ -52,4 +52,18 @@ class KafkaProducerWriterTest {
                 .contentsAsUtf8String()
                 .isEqualTo(contentsOf("expected/kafka/avsc/OrderCreatedEventKafkaProducer.java"));
     }
+
+    @Test
+    void avscAggregateEventProducers() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("kafka/avscaggregate/OrderEvent.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("kafka.avscaggregate.infrastructure.kafka.OrderCreatedEventKafkaProducer")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("expected/kafka/avscaggregate/OrderCreatedEventKafkaProducer.java"));
+        assertThat(compilation).generatedSourceFile("kafka.avscaggregate.infrastructure.kafka.OrderShippedEventKafkaProducer")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("expected/kafka/avscaggregate/OrderShippedEventKafkaProducer.java"));
+    }
 }

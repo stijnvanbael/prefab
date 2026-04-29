@@ -50,8 +50,11 @@ public class TestJavaFileWriter {
                 }
                 var javaSourceFile = createJavaSourceFile(outputPath, typeName);
                 if (javaSourceFile.exists()) {
-                    System.out.println("Prefab: Skipping generation of " + packageName + "." + typeName
-                            + " in target/prefab-test-sources/: file already exists and is treated as a manual override.");
+                    System.out.println(
+                            "Prefab: Skipping generation of %s.%s in target/prefab-test-sources/: file already exists"
+                                    .formatted(packageName, typeName)
+                                    + " and is treated as a manual override."
+                    );
                     return;
                 }
                 writeJavaTestClass(packageName, type, javaSourceFile);

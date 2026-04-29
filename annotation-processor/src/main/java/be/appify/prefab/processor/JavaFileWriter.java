@@ -39,12 +39,12 @@ public class JavaFileWriter {
     public void writeFile(String packagePrefix, String typeName, TypeSpec type) {
         try {
             var packageName = !isBlank(packageSuffix) ? "%s.%s".formatted(packagePrefix, packageSuffix) : packagePrefix;
+            var qualifiedName = "%s.%s".formatted(packageName, typeName);
             JavaFileObject builderFile;
             try {
                 builderFile = processingEnvironment.getFiler()
-                        .createSourceFile("%s.%s".formatted(packageName, typeName));
+                        .createSourceFile(qualifiedName);
             } catch (FilerException e) {
-                var qualifiedName = "%s.%s".formatted(packageName, typeName);
                 processingEnvironment.getMessager().printMessage(
                         Diagnostic.Kind.NOTE,
                         "Skipping generation of " + qualifiedName + ": a source file with this name already exists"

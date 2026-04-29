@@ -47,6 +47,11 @@ public class PrefabProcessor extends AbstractProcessor {
     private boolean globalFilesWritten = false;
     private boolean eventFilesWritten = false;
 
+    // Tracking sets for writeAdditionalFiles round-deduplication (AC#2).
+    private final Set<String> processedAdditionalFilesAggregates = new LinkedHashSet<>();
+    private final Set<String> processedAdditionalFilesPolymorphicAggregates = new LinkedHashSet<>();
+    private final Set<String> seenEventElementNames = new LinkedHashSet<>();
+
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment environment) {
         var plugins = detectPlugins();
@@ -60,7 +65,7 @@ public class PrefabProcessor extends AbstractProcessor {
         var polymorphicAggregates = resolvePolymorphicAggregates(environment);
         writeAggregates(context, aggregates);
         writePolymorphicAggregates(context, polymorphicAggregates);
-        plugins.forEach(plugin -> plugin.writeAdditionalFiles(aggregates, polymorphicAggregates));
+        writeAdditionalFilesIfNeeded(context, plugins, aggregates, polymorphicAggregates);
         allResolvedAggregates.addAll(aggregates);
         allResolvedPolymorphicAggregates.addAll(polymorphicAggregates);
         if (!globalFilesWritten && deferredAggregates.isEmpty() && deferredPolymorphicAggregates.isEmpty()) {
@@ -139,6 +144,33 @@ public class PrefabProcessor extends AbstractProcessor {
             new ApplicationWriter(context).writePolymorphicApplicationLayer(manifest);
             new TestClientWriter(context).writePolymorphicTestSupport(manifest);
         });
+    }
+
+    private void writeAdditionalFilesIfNeeded(
+            PrefabContext context,
+            List<PrefabPlugin> plugins,
+            List<ClassManifest> aggregates,
+            List<PolymorphicAggregateManifest> polymorphicAggregates) {
+        var newAggregates = aggregates.stream()
+                .filter(m -> !processedAdditionalFilesAggregates.contains(m.qualifiedName()))
+                .toList();
+        var newPolymorphicAggregates = polymorphicAggregates.stream()
+                .filter(m -> !processedAdditionalFilesPolymorphicAggregates.contains(
+                        m.packageName() + "." + m.simpleName()))
+                .toList();
+        var currentEventElementNames = context.eventElements()
+                .map(e -> e.getQualifiedName().toString())
+                .collect(Collectors.toSet());
+        var hasNewEventElements = !seenEventElementNames.containsAll(currentEventElementNames);
+        if (newAggregates.isEmpty() && newPolymorphicAggregates.isEmpty() && !hasNewEventElements) {
+            return;
+        }
+        plugins.forEach(plugin -> plugin.writeAdditionalFiles(newAggregates, newPolymorphicAggregates));
+        newAggregates.stream().map(ClassManifest::qualifiedName).forEach(processedAdditionalFilesAggregates::add);
+        newPolymorphicAggregates.stream()
+                .map(m -> m.packageName() + "." + m.simpleName())
+                .forEach(processedAdditionalFilesPolymorphicAggregates::add);
+        seenEventElementNames.addAll(currentEventElementNames);
     }
 
     private List<PrefabPlugin> detectPlugins() {

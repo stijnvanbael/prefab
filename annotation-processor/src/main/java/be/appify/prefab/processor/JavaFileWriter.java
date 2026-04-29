@@ -5,6 +5,7 @@ import com.palantir.javapoet.TypeSpec;
 
 import javax.annotation.processing.FilerException;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import java.io.IOException;
 
@@ -43,6 +44,12 @@ public class JavaFileWriter {
                 builderFile = processingEnvironment.getFiler()
                         .createSourceFile("%s.%s".formatted(packageName, typeName));
             } catch (FilerException e) {
+                var qualifiedName = "%s.%s".formatted(packageName, typeName);
+                processingEnvironment.getMessager().printMessage(
+                        Diagnostic.Kind.NOTE,
+                        "Skipping generation of " + qualifiedName + ": a source file with this name already exists"
+                                + " and will be used as-is. Remove it to let the annotation processor regenerate it."
+                );
                 return;
             }
             try (var writer = builderFile.openWriter()) {

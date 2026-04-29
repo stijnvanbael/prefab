@@ -64,6 +64,8 @@ public class CreatePlugin implements PrefabPlugin {
 
     @Override
     public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
+        asyncCreateFactoryOf(manifest).ifPresent(factory ->
+                testClientWriter.asyncCreateMethods(manifest, factory, context).forEach(builder::addMethod));
         if (asyncCreateFactoryOf(manifest).isEmpty()) {
             createConstructorOf(manifest).ifPresent(createConstructor ->
                     testClientWriter.createMethods(manifest, createConstructor, context).forEach(builder::addMethod));

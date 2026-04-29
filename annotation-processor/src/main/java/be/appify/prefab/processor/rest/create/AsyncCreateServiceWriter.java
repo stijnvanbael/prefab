@@ -1,6 +1,5 @@
 package be.appify.prefab.processor.rest.create;
 
-import be.appify.prefab.core.domain.DomainEventPublisher;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.VariableManifest;
@@ -10,18 +9,15 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.Optional;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
-
-import static org.apache.commons.text.WordUtils.uncapitalize;
 
 /**
  * Generates the service method for an async-commit {@code @Create} static factory.
  *
- * <p>The generated method calls the static factory, publishes the returned event via
- * {@link DomainEventPublisher}, and returns {@code void} so the controller can respond
- * with {@code 202 Accepted}.
+ * <p>The generated method calls the static factory and returns {@code void} so the
+ * controller can respond with {@code 202 Accepted}. The aggregate root is responsible
+ * for publishing any domain events itself.
  */
 class AsyncCreateServiceWriter {
 
@@ -31,7 +27,6 @@ class AsyncCreateServiceWriter {
                 .returns(void.class)
                 .addStatement("log.debug($S, $T.class.getSimpleName())", "Async-creating new {}", manifest.className());
         addFactoryArgs(method, manifest, factoryMethod, context);
-        method.addStatement("$T.getInstance().publish(event)", DomainEventPublisher.class);
         return method.build();
     }
 
@@ -45,7 +40,7 @@ class AsyncCreateServiceWriter {
                 .map(p -> VariableManifest.of(p, context.processingEnvironment()))
                 .toList();
         if (params.isEmpty()) {
-            method.addStatement("var event = $T.$N()", manifest.type().asTypeName(),
+            method.addStatement("$T.$N()", manifest.type().asTypeName(),
                     factoryMethod.getSimpleName());
             return;
         }
@@ -57,7 +52,7 @@ class AsyncCreateServiceWriter {
                     .addAnnotation(Valid.class)
                     .build());
         }
-        method.addStatement("var event = $T.$N($L)",
+        method.addStatement("$T.$N($L)",
                 manifest.type().asTypeName(),
                 factoryMethod.getSimpleName(),
                 params.stream()
@@ -74,4 +69,3 @@ class AsyncCreateServiceWriter {
                 .toList();
     }
 }
-

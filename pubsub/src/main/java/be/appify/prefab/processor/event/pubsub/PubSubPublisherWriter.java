@@ -15,9 +15,7 @@ import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
-import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeSpec;
-import java.util.concurrent.CompletableFuture;
 import javax.lang.model.element.Modifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -83,17 +81,17 @@ class PubSubPublisherWriter {
     private MethodSpec producer(TypeManifest event) {
         return MethodSpec.methodBuilder("publish")
                 .addModifiers(Modifier.PUBLIC)
-                .returns(ParameterizedTypeName.get(ClassName.get(CompletableFuture.class), ClassName.get(String.class)))
+                .returns(void.class)
                 .addParameter(event.asTypeName(), "event")
                 .addAnnotation(EventListener.class)
                 .addStatement("log.debug($S, event, topic)", "Publishing event {} on topic {}")
                 .addStatement("""
-                                return pubSubTemplate.publish(
+                                pubSubTemplate.publish(
                                     topic,
                                     $T.newBuilder()
                                         .setData($T.copyFrom(serializer.serialize($T.simpleTopicName(topic), event)))$L
                                         .putAttributes($S, event.getClass().getName())
-                                        .build())""",
+                                        .build()).join()""",
                         PubsubMessage.class,
                         ByteString.class,
                         PubSubUtil.class,

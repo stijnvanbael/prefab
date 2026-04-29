@@ -10,7 +10,7 @@ import static com.google.testing.compile.Compiler.javac;
 class AsyncCommitWriterTest {
 
     @Test
-    void asyncCreateGenerates202AndPublishesEvent() {
+    void asyncCreateGenerates202AndCallsFactory() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("rest/asynccreate/source/Order.java"));
@@ -23,7 +23,7 @@ class AsyncCommitWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.asynccreate.application.OrderService")
                 .contentsAsUtf8String()
-                .contains("DomainEventPublisher");
+                .doesNotContain("DomainEventPublisher");
         assertThat(compilation)
                 .generatedSourceFile("rest.asynccreate.application.OrderService")
                 .contentsAsUtf8String()
@@ -72,21 +72,9 @@ class AsyncCommitWriterTest {
                 .doesNotContain("orderRepository.save");
     }
 
+
     @Test
     void methodLevelAsyncCommitOnCreateGenerates202() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/asyncmethodlevel/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
-                .generatedSourceFile("rest.asyncmethodlevel.infrastructure.http.OrderController")
-                .contentsAsUtf8String()
-                .contains("accepted()");
-    }
-
-    @Test
-    void methodLevelAsyncCommitOnUpdateGenerates202() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("rest/asyncmethodlevel/source/Order.java"));

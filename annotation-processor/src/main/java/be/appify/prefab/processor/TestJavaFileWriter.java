@@ -21,7 +21,7 @@ import java.util.stream.Stream;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
-public class TestJavaFileWriter {
+public class TestJavaFileWriter implements TestFileOutput {
     private final StandardJavaFileManager fileManager = getJavaFileManager();
     private final PrefabContext context;
     private final String packageSuffix;

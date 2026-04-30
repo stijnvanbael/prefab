@@ -4,6 +4,7 @@ import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.TypeSpec;
 import java.util.ArrayList;
 import java.util.List;
+import javax.lang.model.element.TypeElement;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.test.ProcessorTestUtil.sourceOf;
@@ -48,17 +49,16 @@ class MultipleAsyncCreateTestClientTest {
         }
     }
 
-    static class CapturingFileWriter extends TestJavaFileWriter {
+    static class CapturingFileWriter implements TestFileOutput {
         private final List<String> capturedSources;
 
-        /**
-         * Passing {@code null} for context and packageSuffix is safe because
-         * {@link #writeFile} is fully overridden and never delegates to the parent
-         * implementation, so neither field is accessed during capture.
-         */
         CapturingFileWriter(List<String> capturedSources) {
-            super(null, null);
             this.capturedSources = capturedSources;
+        }
+
+        @Override
+        public void setPreferredElement(TypeElement element) {
+            // no-op: path resolution is not needed when capturing to memory
         }
 
         @Override

@@ -19,19 +19,14 @@ import static be.appify.prefab.processor.TestClasses.MOCK_MVC_CONFIGURER;
 import static be.appify.prefab.processor.TestClasses.SECURITY_MOCK_MVC_CONFIGURERS;
 
 class TestClientWriter {
-    private final TestJavaFileWriter fileWriter;
+    private final TestFileOutput fileWriter;
     private final PrefabContext context;
 
     TestClientWriter(PrefabContext context) {
         this(context, new TestJavaFileWriter(context, null));
     }
 
-    /**
-     * Secondary constructor for testing: accepts a custom {@link TestJavaFileWriter}
-     * so tests can capture or redirect the generated test client source without
-     * writing to the physical file system.
-     */
-    TestClientWriter(PrefabContext context, TestJavaFileWriter fileWriter) {
+    TestClientWriter(PrefabContext context, TestFileOutput fileWriter) {
         this.context = context;
         this.fileWriter = fileWriter;
     }

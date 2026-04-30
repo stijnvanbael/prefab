@@ -12,8 +12,10 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /** A plugin for generating Avro converters and schema factories for events annotated with {@link Event} with Avro serialization. */
@@ -22,6 +24,7 @@ public class AvroPlugin implements PrefabPlugin {
     private GenericRecordToEventConverterWriter toEventConverterWriter;
     private EventSchemaFactoryWriter eventSchemaFactoryWriter;
     private PrefabContext context;
+    private final Set<String> writtenTypeNames = new LinkedHashSet<>();
 
 
     @Override
@@ -42,22 +45,19 @@ public class AvroPlugin implements PrefabPlugin {
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .toList();
 
-        events.forEach(event -> {
-            toGenericRecordConverterWriter.writeConverter(event);
-            toEventConverterWriter.writeConverter(event);
-            eventSchemaFactoryWriter.writeSchemaFactory(event);
-        });
-        allNestedTypes(events)
-                .forEach(type -> {
-                    toGenericRecordConverterWriter.writeConverter(type);
-                    toEventConverterWriter.writeConverter(type);
-                    eventSchemaFactoryWriter.writeSchemaFactory(type);
-                });
-        sealedSubtypes(events).forEach(type -> {
-            toGenericRecordConverterWriter.writeConverter(type);
-            toEventConverterWriter.writeConverter(type);
-            eventSchemaFactoryWriter.writeSchemaFactory(type);
-        });
+        events.forEach(this::writeConvertersIfNotWritten);
+        allNestedTypes(events).forEach(this::writeConvertersIfNotWritten);
+        sealedSubtypes(events).forEach(this::writeConvertersIfNotWritten);
+    }
+
+    private void writeConvertersIfNotWritten(TypeManifest type) {
+        var key = type.packageName() + "." + type.simpleName();
+        if (!writtenTypeNames.add(key)) {
+            return;
+        }
+        toGenericRecordConverterWriter.writeConverter(type);
+        toEventConverterWriter.writeConverter(type);
+        eventSchemaFactoryWriter.writeSchemaFactory(type);
     }
 
     static List<TypeManifest> nestedTypes(List<TypeManifest> events) {

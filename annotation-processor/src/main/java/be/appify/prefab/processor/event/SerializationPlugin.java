@@ -4,7 +4,9 @@ import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -13,6 +15,7 @@ import java.util.stream.Collectors;
 public class SerializationPlugin implements PrefabPlugin {
     private SerializationRegistryConfigurationWriter serializationRegistryConfigurationWriter;
     private PrefabContext context;
+    private final Set<String> writtenPackages = new LinkedHashSet<>();
 
     @Override
     public void initContext(PrefabContext context) {
@@ -26,7 +29,9 @@ public class SerializationPlugin implements PrefabPlugin {
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .collect(Collectors.groupingBy(TypeManifest::packageName));
 
-        eventsByPackage.forEach(
-                serializationRegistryConfigurationWriter::writeConfigurationForPackage);
+        eventsByPackage.entrySet().stream()
+                .filter(entry -> writtenPackages.add(entry.getKey()))
+                .forEach(entry -> serializationRegistryConfigurationWriter
+                        .writeConfigurationForPackage(entry.getKey(), entry.getValue()));
     }
 }

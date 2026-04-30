@@ -77,8 +77,7 @@ public class DynamicDeserializer implements Deserializer<Object> {
     private Object toEvent(GenericRecord genericRecord) {
         var schema = genericRecord.getSchema();
         var resolvedName = resolveClassName(schema.getFullName());
-        var allowedClasses = jsonTypeResolver.registeredTypes();
-        if (allowedClasses.stream().noneMatch(t -> t.getName().equals(resolvedName))) {
+        if (!jsonTypeResolver.allowedClassNames().contains(resolvedName)) {
             throw new IllegalArgumentException("Class not registered in allowlist: " + resolvedName);
         }
         Class<?> targetClass;

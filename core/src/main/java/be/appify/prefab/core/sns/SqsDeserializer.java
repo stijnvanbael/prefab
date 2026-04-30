@@ -5,8 +5,9 @@ import be.appify.prefab.core.util.SerializationRegistry;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import java.io.IOException;
 import java.util.Base64;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DecoderFactory;
@@ -26,7 +27,7 @@ public class SqsDeserializer {
     private final JsonUtil jsonUtil;
     private final SerializationRegistry serializationRegistry;
     private final ConversionService conversionService;
-    private final Map<String, Class<?>> allowedTypes = new HashMap<>();
+    private final Map<String, Class<?>> allowedTypes = new ConcurrentHashMap<>();
 
     /**
      * Constructs a SqsDeserializer with the given JsonUtil, SerializationRegistry, and ConversionService.

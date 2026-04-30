@@ -3,6 +3,7 @@ package be.appify.prefab.core.kafka;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.kafka.common.header.Headers;
 import org.springframework.kafka.support.serializer.JacksonJsonTypeResolver;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,7 @@ import tools.jackson.databind.type.TypeFactory;
 @Component
 public class KafkaJsonTypeResolver implements JacksonJsonTypeResolver {
     private final Map<String, Class<?>> types = new HashMap<>();
+    private final Set<String> allowedClassNames = ConcurrentHashMap.newKeySet();
 
     /** Constructs a new KafkaJsonTypeResolver. */
     public KafkaJsonTypeResolver() {
@@ -37,6 +39,16 @@ public class KafkaJsonTypeResolver implements JacksonJsonTypeResolver {
      */
     public void registerType(String topic, Class<?> type) {
         types.put(topic, type);
+        allowedClassNames.add(type.getName());
+    }
+
+    /**
+     * Returns the set of all registered event class names for allowlist validation.
+     *
+     * @return set of fully-qualified class names of registered event types
+     */
+    public Set<String> allowedClassNames() {
+        return allowedClassNames;
     }
 
     /**

@@ -3,6 +3,8 @@ package be.appify.prefab.processor.rest;
 import be.appify.prefab.processor.PrefabProcessor;
 import org.junit.jupiter.api.Test;
 
+import javax.tools.StandardLocation;
+
 import static be.appify.prefab.processor.test.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
@@ -93,6 +95,19 @@ class AsyncCommitWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.asyncmultiplecreate.application.QuickOrderRequest")
                 .isNotNull();
+    }
+
+    @Test
+    void multipleAsyncCreateFactoriesGenerateAllMethodsInTestClient() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/asyncmultiplecreate/source/Order.java"));
+
+        assertThat(compilation).succeeded();
+        var clientFile = assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "rest/asyncmultiplecreate/OrderClient.java");
+        clientFile.contentsAsUtf8String().contains("void placeOrder(");
+        clientFile.contentsAsUtf8String().contains("void quickOrder(");
     }
 
     @Test

@@ -1,15 +1,15 @@
 ---
 id: TASK-006
 title: Skip generating classes that already exist
-status: In Progress
+status: Done
 assignee: []
 created_date: '2025-10-10 13:32'
-updated_date: '2026-04-29 20:10'
+updated_date: '2026-04-30 06:23'
 labels:
   - annotation-processor
   - code-generation
 dependencies: []
-ordinal: 4000
+ordinal: 1000
 ---
 
 ## Description

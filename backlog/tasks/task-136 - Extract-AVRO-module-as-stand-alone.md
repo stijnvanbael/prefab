@@ -1,14 +1,14 @@
 ---
 id: TASK-136
 title: Extract AVRO module as stand-alone
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-04-24 06:56'
-updated_date: '2026-04-24 06:57'
+updated_date: '2026-04-30 06:45'
 labels: []
 dependencies: []
 priority: high
-ordinal: 139500
+ordinal: 2000
 ---
 
 ## Goal

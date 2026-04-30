@@ -234,7 +234,14 @@ class MotherWriter {
     private boolean hasInlineDefault(TypeManifest type) {
         if (isNestedObjectType(type)) return false;
         if (type.is(List.class) && isNestedObjectType(type.parameters().getFirst())) return false;
+        if (type.isSingleValueType() && containsNestedObjectType(type)) return false;
         return true;
+    }
+
+    private boolean containsNestedObjectType(TypeManifest type) {
+        if (isNestedObjectType(type)) return true;
+        if (type.isSingleValueType()) return containsNestedObjectType(type.fields().getFirst().type());
+        return false;
     }
 
     private MethodSpec withMethod(String fieldName, TypeName fieldType, ClassName builderType) {

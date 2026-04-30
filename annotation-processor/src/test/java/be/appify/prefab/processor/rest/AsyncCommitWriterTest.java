@@ -160,6 +160,18 @@ class AsyncCommitWriterTest {
                 .doesNotContain("orderRepository.save");
     }
 
+    @Test
+    void asyncUpdateReturns404WhenAggregateNotFound() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/asyncupdate/source/Order.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.asyncupdate.infrastructure.http.OrderController")
+                .contentsAsUtf8String()
+                .contains("notFound()");
+    }
 
     @Test
     void methodLevelAsyncCommitOnCreateGenerates202() {

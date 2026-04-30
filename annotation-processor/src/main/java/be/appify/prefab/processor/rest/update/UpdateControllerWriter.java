@@ -52,8 +52,8 @@ class UpdateControllerWriter {
         var idAndPathArgs = buildIdAndPathArgs(update);
         if (update.requestParameters().isEmpty()) {
             if (update.asyncCommit()) {
-                method.addStatement("service.$N($L)", update.operationName(), idAndPathArgs);
-                method.addStatement("return $T.accepted().build()", ResponseEntity.class);
+                method.addStatement("return service.$N($L).map(it -> $T.accepted().<$T>build()).orElse($T.notFound().build())",
+                        update.operationName(), idAndPathArgs, ResponseEntity.class, responseType, ResponseEntity.class);
             } else {
                 method.addStatement("return toResponse(service.$N($L))", update.operationName(), idAndPathArgs);
             }
@@ -74,8 +74,8 @@ class UpdateControllerWriter {
                     .map(param -> ".with%s(%s)".formatted(capitalize(param.name()), param.name()))
                     .collect(Collectors.joining());
             if (update.asyncCommit()) {
-                method.addStatement("service.$N($L, request$L)", update.operationName(), idAndPathArgs, withArgs);
-                method.addStatement("return $T.accepted().build()", ResponseEntity.class);
+                method.addStatement("return service.$N($L, request$L).map(it -> $T.accepted().<$T>build()).orElse($T.notFound().build())",
+                        update.operationName(), idAndPathArgs, withArgs, ResponseEntity.class, responseType, ResponseEntity.class);
             } else {
                 method.addStatement("return toResponse(service.$N($L, request$L))", update.operationName(),
                         idAndPathArgs, withArgs);

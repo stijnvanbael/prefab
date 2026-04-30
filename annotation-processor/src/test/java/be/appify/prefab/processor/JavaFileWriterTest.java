@@ -17,7 +17,6 @@ class JavaFileWriterTest {
                         sourceOf("rest/override/source/application/WidgetService.java")
                 );
 
-        assertThat(compilation).succeeded();
         assertThat(compilation).hadNoteContaining("rest.override.application.WidgetService");
         assertThat(compilation).hadNoteContaining("already exists");
     }

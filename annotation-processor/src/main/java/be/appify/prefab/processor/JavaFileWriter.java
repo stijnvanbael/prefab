@@ -45,7 +45,7 @@ public class JavaFileWriter {
                 builderFile = processingEnvironment.getFiler()
                         .createSourceFile(qualifiedName);
             } catch (FilerException e) {
-                if (isFileAlreadyExists(e)) {
+                if (indicatesFileAlreadyExists(e)) {
                     processingEnvironment.getMessager().printMessage(
                             Diagnostic.Kind.NOTE,
                             "Skipping generation of %s: a source file with this name already exists".formatted(qualifiedName)
@@ -69,7 +69,7 @@ public class JavaFileWriter {
         }
     }
 
-    private static boolean isFileAlreadyExists(FilerException e) {
+    private static boolean indicatesFileAlreadyExists(FilerException e) {
         return e.getMessage() != null && e.getMessage().startsWith("Attempt to recreate a file for type");
     }
 }

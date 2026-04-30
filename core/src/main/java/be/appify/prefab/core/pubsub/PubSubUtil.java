@@ -1,5 +1,6 @@
 package be.appify.prefab.core.pubsub;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.google.cloud.spring.pubsub.PubSubAdmin;
 import com.google.cloud.spring.pubsub.core.subscriber.PubSubSubscriberTemplate;
 import com.google.cloud.spring.pubsub.support.BasicAcknowledgeablePubsubMessage;
@@ -118,7 +119,7 @@ public class PubSubUtil {
 
     /**
      * Registers an event type in the allowlist for safe deserialization from the Pub/Sub message {@code type} attribute.
-     * Permitted subtypes of sealed interfaces are registered recursively.
+     * Permitted subtypes of sealed interfaces and {@code @JsonSubTypes}-annotated subtypes are registered recursively.
      *
      * @param typeName
      *         the fully-qualified class name that may appear as the Pub/Sub message {@code type} attribute
@@ -131,6 +132,12 @@ public class PubSubUtil {
         if (permittedSubclasses != null) {
             for (var subclass : permittedSubclasses) {
                 registerType(subclass.getName(), subclass);
+            }
+        }
+        var jsonSubTypes = type.getAnnotation(JsonSubTypes.class);
+        if (jsonSubTypes != null) {
+            for (var subType : jsonSubTypes.value()) {
+                registerType(subType.value().getName(), subType.value());
             }
         }
     }

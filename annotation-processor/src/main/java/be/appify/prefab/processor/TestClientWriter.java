@@ -44,7 +44,7 @@ class TestClientWriter {
         writePolymorphicTestClient(manifest);
     }
 
-    protected void writeTestClient(ClassManifest manifest) {
+    private void writeTestClient(ClassManifest manifest) {
         var className = "%sClient".formatted(manifest.simpleName());
         var type = buildClientType(className);
         context.plugins().forEach(plugin -> plugin.writeTestClient(manifest, type));

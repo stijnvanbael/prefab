@@ -1,21 +1,13 @@
 package mother.withmap.source;
 
-import be.appify.prefab.core.annotations.Aggregate;
-import be.appify.prefab.core.annotations.rest.Create;
+import be.appify.prefab.core.annotations.Event;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import java.util.Map;
-import java.util.UUID;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.Version;
 
-@Aggregate
-public record Inventory(
-        @Id String id,
-        @Version long version,
-        String name,
-        Map<String, Integer> stock) {
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
+@Event(topic = "inventory-events")
+public sealed interface InventoryEvent permits InventoryEvent.Updated {
 
-    @Create
-    public Inventory(String name, Map<String, Integer> stock) {
-        this(UUID.randomUUID().toString(), 0L, name, stock);
+    record Updated(String name, Map<String, Integer> stock) implements InventoryEvent {
     }
 }

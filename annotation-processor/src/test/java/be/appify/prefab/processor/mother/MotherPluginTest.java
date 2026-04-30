@@ -187,11 +187,11 @@ class MotherPluginTest {
     void motherUsesEmptyMapForMapField() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/withmap/source/Inventory.java"));
+                .compile(sourceOf("mother/withmap/source/InventoryEvent.java"));
 
         assertThat(compilation).succeeded();
         assertThat(compilation)
-                .generatedSourceFile("mother.withmap.application.CreateInventoryRequest")
+                .generatedSourceFile("mother.withmap.source.InventoryEventUpdatedMother")
                 .contentsAsUtf8String()
                 .contains("Map.of()");
     }

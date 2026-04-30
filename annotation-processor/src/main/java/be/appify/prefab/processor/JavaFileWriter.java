@@ -8,7 +8,6 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -21,8 +20,7 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
  */
 public class JavaFileWriter {
 
-    private static final Map<ProcessingEnvironment, Set<String>> PROCESSOR_GENERATED_FILES =
-            Collections.synchronizedMap(new WeakHashMap<>());
+    private static final Map<ProcessingEnvironment, Set<String>> PROCESSOR_GENERATED_FILES = new WeakHashMap<>();
 
     private final ProcessingEnvironment processingEnvironment;
     private final String packageSuffix;
@@ -82,15 +80,19 @@ public class JavaFileWriter {
     }
 
     private boolean wasGeneratedByProcessor(String qualifiedName) {
-        return PROCESSOR_GENERATED_FILES
-                .getOrDefault(processingEnvironment, Set.of())
-                .contains(qualifiedName);
+        synchronized (PROCESSOR_GENERATED_FILES) {
+            return PROCESSOR_GENERATED_FILES
+                    .getOrDefault(processingEnvironment, Set.of())
+                    .contains(qualifiedName);
+        }
     }
 
     private void markAsGeneratedByProcessor(String qualifiedName) {
-        PROCESSOR_GENERATED_FILES
-                .computeIfAbsent(processingEnvironment, k -> new HashSet<>())
-                .add(qualifiedName);
+        synchronized (PROCESSOR_GENERATED_FILES) {
+            PROCESSOR_GENERATED_FILES
+                    .computeIfAbsent(processingEnvironment, k -> new HashSet<>())
+                    .add(qualifiedName);
+        }
     }
 
     private static boolean indicatesFileAlreadyExists(FilerException e) {

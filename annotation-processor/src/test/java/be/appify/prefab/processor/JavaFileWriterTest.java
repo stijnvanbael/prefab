@@ -48,12 +48,12 @@ class JavaFileWriterTest {
     @SupportedSourceVersion(SourceVersion.RELEASE_21)
     static class DoubleWriteProcessor extends AbstractProcessor {
 
-        private boolean firstRound = true;
+        private boolean alreadyWritten = false;
 
         @Override
         public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-            if (firstRound) {
-                firstRound = false;
+            if (!alreadyWritten) {
+                alreadyWritten = true;
                 var writer = new JavaFileWriter(processingEnv, "application");
                 var type = TypeSpec.classBuilder("GeneratedService").build();
                 writer.writeFile("rest.override", "GeneratedService", type);

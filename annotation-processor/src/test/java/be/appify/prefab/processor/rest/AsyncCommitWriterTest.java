@@ -151,6 +151,24 @@ class AsyncCommitWriterTest {
                         "rest/asyncmultiplecreatenopathvar/MeteringConfigClient.java")
                 .contentsAsUtf8String()
                 .contains("void openForInput(");
+        assertThat(compilation)
+                .generatedSourceFile(
+                        "rest.asyncmultiplecreatenopathvar.infrastructure.http.MeteringConfigController")
+                .contentsAsUtf8String()
+                .contains("closeForInput(");
+        assertThat(compilation)
+                .generatedSourceFile(
+                        "rest.asyncmultiplecreatenopathvar.infrastructure.http.MeteringConfigController")
+                .contentsAsUtf8String()
+                .contains("openForInput(");
+        assertThat(compilation)
+                .generatedSourceFile("rest.asyncmultiplecreatenopathvar.application.MeteringConfigService")
+                .contentsAsUtf8String()
+                .contains("void closeForInput(");
+        assertThat(compilation)
+                .generatedSourceFile("rest.asyncmultiplecreatenopathvar.application.MeteringConfigService")
+                .contentsAsUtf8String()
+                .contains("void openForInput(");
     }
 
     @Test

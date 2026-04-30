@@ -2,12 +2,6 @@ package be.appify.prefab.processor;
 
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.TypeSpec;
-
-import javax.lang.model.element.TypeElement;
-import javax.tools.JavaFileObject;
-import javax.tools.StandardJavaFileManager;
-import javax.tools.StandardLocation;
-import javax.tools.ToolProvider;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -18,6 +12,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Stream;
+import javax.lang.model.element.TypeElement;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.StandardLocation;
+import javax.tools.ToolProvider;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
@@ -57,6 +56,14 @@ public class TestJavaFileWriter implements TestFileOutput {
                 Files.createDirectories(outputPath);
             }
             var javaSourceFile = createJavaSourceFile(outputPath, typeName);
+            if (javaSourceFile.exists()) {
+                System.out.println(
+                        "Prefab: Skipping generation of %s.%s in target/prefab-test-sources/: file already exists"
+                                .formatted(packageName, typeName)
+                                + " and is treated as a manual override."
+                );
+                return;
+            }
             writeJavaTestClass(packageName, type, javaSourceFile);
         } catch (Exception e) {
             System.err.println(e.getMessage());

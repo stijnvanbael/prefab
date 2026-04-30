@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "SimpleAvscEvent",
+  "namespace": "event.avsc",
+  "fields": [
+    {"name": "name", "type": "string"},
+    {"name": "age", "type": "int"},
+    {"name": "score", "type": "double"},
+    {"name": "active", "type": "boolean"}
+  ]
+}

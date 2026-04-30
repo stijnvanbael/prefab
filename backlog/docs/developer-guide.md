@@ -216,7 +216,7 @@ Marks a class as an aggregate root — the primary domain entity managed by Pref
 - `{Type}Repository` – Spring Data `CrudRepository` + `PagingAndSortingRepository`
 - `{Type}Request` records (one per `@Create`/`@Update` method)
 - `{Type}Response` record
-- Flyway migration script (`V{n}__{type_snake_case}.sql`) or MongoDB script
+- Flyway migration script (e.g. `V001__order.sql`) or MongoDB script
 
 **Rules:**
 - Must be a Java `record`
@@ -1305,7 +1305,7 @@ The consumer:
 
 #### PostgreSQL (Flyway)
 
-**Location:** `src/main/resources/db/migration/V{n}__{AggregateSnakeCase}.sql`
+**Location:** `src/main/resources/db/migration/V{n}__{aggregate_snake_case}.sql` (e.g. `V001__order.sql`)
 
 Generated SQL:
 

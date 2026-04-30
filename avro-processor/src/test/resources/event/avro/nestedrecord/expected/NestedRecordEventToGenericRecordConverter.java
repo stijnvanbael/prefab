@@ -7,7 +7,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.stereotype.Component;
 
-@Component
+@Component("event_avro_NestedRecordEventToGenericRecordConverter")
 public class NestedRecordEventToGenericRecordConverter implements Converter<NestedRecordEvent, GenericRecord> {
     private final Schema schema;
 

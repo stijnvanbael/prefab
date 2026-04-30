@@ -1,7 +1,6 @@
 package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.processor.PrefabProcessor;
-import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.avro.processor.ProcessorTestUtil.contentsOf;
@@ -15,7 +14,7 @@ import static com.google.testing.compile.Compiler.javac;
 class DeepNestedRecordTest {
 
     @Test
-    void deepNestedRecord_schemaFactories() throws IOException {
+    void deepNestedRecord_schemaFactories() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/deepnestedrecord/source/DeepNestedRecordEvent.java"));
@@ -34,7 +33,7 @@ class DeepNestedRecordTest {
     }
 
     @Test
-    void deepNestedRecord_toGenericRecordConverters() throws IOException {
+    void deepNestedRecord_toGenericRecordConverters() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/deepnestedrecord/source/DeepNestedRecordEvent.java"));
@@ -53,7 +52,7 @@ class DeepNestedRecordTest {
     }
 
     @Test
-    void deepNestedRecord_fromGenericRecordConverters() throws IOException {
+    void deepNestedRecord_fromGenericRecordConverters() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/deepnestedrecord/source/DeepNestedRecordEvent.java"));

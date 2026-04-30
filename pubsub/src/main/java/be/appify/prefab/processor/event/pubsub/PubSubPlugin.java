@@ -65,8 +65,7 @@ public class PubSubPlugin implements PrefabPlugin {
     }
 
     private void writePublishers() {
-        var events = context.roundEnvironment().getElementsAnnotatedWith(Event.class)
-                .stream()
+        var events = context.eventElements()
                 .filter(e -> !isAvscGeneratedRecord(e))
                 .filter(e -> platformIsPubSub(requireNonNull(e.getAnnotation(Event.class)), e, context))
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))

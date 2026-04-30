@@ -1,7 +1,6 @@
 package be.appify.prefab.avro.processor.asyncapi;
 
 import be.appify.prefab.processor.PrefabProcessor;
-import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.avro.processor.ProcessorTestUtil.sourceOf;
@@ -11,7 +10,7 @@ import static com.google.testing.compile.Compiler.javac;
 class AvscEventSchemaDocumentationTest {
 
     @Test
-    void avscEventGeneratesAsyncApiDocumentation() throws IOException {
+    void avscEventGeneratesAsyncApiDocumentation() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"));

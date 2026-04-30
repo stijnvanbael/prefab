@@ -9,7 +9,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.stereotype.Component;
 
-@Component
+@Component("event_avro_GenericRecordToNonPrimitiveEventConverter")
 public class GenericRecordToNonPrimitiveEventConverter implements Converter<GenericRecord, NonPrimitiveEvent> {
     public GenericRecordToNonPrimitiveEventConverter() {
     }

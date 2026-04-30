@@ -5,12 +5,8 @@ import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
-import com.palantir.javapoet.ClassName;
-import com.palantir.javapoet.CodeBlock;
-import com.palantir.javapoet.FieldSpec;
-import com.palantir.javapoet.MethodSpec;
-import com.palantir.javapoet.ParameterizedTypeName;
-import com.palantir.javapoet.TypeSpec;
+import com.palantir.javapoet.*;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -26,11 +22,11 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
-import org.springframework.stereotype.Component;
 
 import static be.appify.prefab.avro.processor.AvroPlugin.isLogicalType;
 import static be.appify.prefab.avro.processor.AvroPlugin.isNestedRecord;
 import static be.appify.prefab.avro.processor.AvroPlugin.nestedTypes;
+import static be.appify.prefab.avro.processor.AvroSupport.componentAnnotation;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 class EventToGenericRecordConverterWriter {
@@ -53,7 +49,7 @@ class EventToGenericRecordConverterWriter {
         var name = "%sToGenericRecordConverter".formatted(event.simpleName().replace(".", ""));
         var type = TypeSpec.classBuilder(name)
                 .addModifiers(Modifier.PUBLIC)
-                .addAnnotation(Component.class)
+                .addAnnotation(componentAnnotation(event, name))
                 .addSuperinterface(
                         ParameterizedTypeName.get(ClassName.get(Converter.class), event.asTypeName(), ClassName.get(GenericRecord.class)))
                 .addField(FieldSpec.builder(Schema.class, "schema", Modifier.PRIVATE, Modifier.FINAL).build());
@@ -87,7 +83,7 @@ class EventToGenericRecordConverterWriter {
 
         var type = TypeSpec.classBuilder(name)
                 .addModifiers(Modifier.PUBLIC)
-                .addAnnotation(Component.class)
+                .addAnnotation(componentAnnotation(contractInterface, name))
                 .addSuperinterface(ParameterizedTypeName.get(
                         ClassName.get(Converter.class), contractInterface.asTypeName(), ClassName.get(GenericRecord.class)));
 

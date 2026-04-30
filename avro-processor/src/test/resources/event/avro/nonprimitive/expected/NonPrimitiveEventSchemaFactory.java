@@ -6,7 +6,7 @@ import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.springframework.stereotype.Component;
 
-@Component
+@Component("event_avro_NonPrimitiveEventSchemaFactory")
 public class NonPrimitiveEventSchemaFactory {
     private final Schema schema;
 

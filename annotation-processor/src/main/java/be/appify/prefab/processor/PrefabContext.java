@@ -2,6 +2,7 @@ package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.annotations.EventHandler;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -12,6 +13,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.tools.Diagnostic;
 
@@ -170,7 +172,21 @@ public class PrefabContext {
                         .map(i -> (TypeElement) ((DeclaredType) i).asElement())
                         .anyMatch(i -> i.getAnnotation(Avsc.class) != null));
 
-        return Stream.concat(annotated, avscGenerated).distinct();
+        var fromClasspath = eventElementsFromClasspath();
+
+        return Stream.concat(Stream.concat(annotated, avscGenerated), fromClasspath).distinct();
+    }
+
+    private Stream<TypeElement> eventElementsFromClasspath() {
+        return roundEnvironment.getElementsAnnotatedWith(EventHandler.class)
+                .stream()
+                .filter(e -> e.getKind() == ElementKind.METHOD)
+                .map(ExecutableElement.class::cast)
+                .flatMap(method -> method.getParameters().stream())
+                .map(VariableElement::asType)
+                .filter(type -> type.getKind().name().equals("DECLARED"))
+                .map(type -> (TypeElement) ((DeclaredType) type).asElement())
+                .filter(type -> type.getAnnotation(Event.class) != null);
     }
 
     /**

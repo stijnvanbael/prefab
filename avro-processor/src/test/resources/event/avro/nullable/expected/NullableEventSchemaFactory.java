@@ -5,7 +5,7 @@ import java.util.List;
 import org.apache.avro.Schema;
 import org.springframework.stereotype.Component;
 
-@Component
+@Component("event_avro_NullableEventSchemaFactory")
 public class NullableEventSchemaFactory {
     private final Schema schema;
 

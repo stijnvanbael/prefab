@@ -85,7 +85,6 @@ class AsyncCommitWriterTest {
                 .contains("notFound()");
     }
 
-
     @Test
     void methodLevelAsyncCommitOnCreateGenerates202() {
         var compilation = javac()

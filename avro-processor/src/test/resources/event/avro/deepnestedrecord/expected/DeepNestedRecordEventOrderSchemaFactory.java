@@ -4,7 +4,7 @@ import java.util.List;
 import org.apache.avro.Schema;
 import org.springframework.stereotype.Component;
 
-@Component
+@Component("event_avro_DeepNestedRecordEventOrderSchemaFactory")
 public class DeepNestedRecordEventOrderSchemaFactory {
     private final Schema schema;
 

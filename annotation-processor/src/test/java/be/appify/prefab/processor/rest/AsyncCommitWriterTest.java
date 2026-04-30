@@ -38,7 +38,7 @@ class AsyncCommitWriterTest {
 
         assertThat(compilation).succeeded();
         assertThat(compilation)
-                .generatedSourceFile("rest.asynccreate.application.CreateOrderRequest")
+                .generatedSourceFile("rest.asynccreate.application.PlaceOrderRequest")
                 .isNotNull();
     }
 
@@ -52,7 +52,47 @@ class AsyncCommitWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.asynccreate.application.OrderService")
                 .contentsAsUtf8String()
-                .contains("void create(");
+                .contains("void placeOrder(");
+    }
+
+    @Test
+    void multipleAsyncCreateFactoriesGenerateOneMethodEach() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/asyncmultiplecreate/source/Order.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.asyncmultiplecreate.infrastructure.http.OrderController")
+                .contentsAsUtf8String()
+                .contains("placeOrder(");
+        assertThat(compilation)
+                .generatedSourceFile("rest.asyncmultiplecreate.infrastructure.http.OrderController")
+                .contentsAsUtf8String()
+                .contains("quickOrder(");
+        assertThat(compilation)
+                .generatedSourceFile("rest.asyncmultiplecreate.application.OrderService")
+                .contentsAsUtf8String()
+                .contains("void placeOrder(");
+        assertThat(compilation)
+                .generatedSourceFile("rest.asyncmultiplecreate.application.OrderService")
+                .contentsAsUtf8String()
+                .contains("void quickOrder(");
+    }
+
+    @Test
+    void multipleAsyncCreateFactoriesGenerateOneRequestRecordEach() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/asyncmultiplecreate/source/Order.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.asyncmultiplecreate.application.PlaceOrderRequest")
+                .isNotNull();
+        assertThat(compilation)
+                .generatedSourceFile("rest.asyncmultiplecreate.application.QuickOrderRequest")
+                .isNotNull();
     }
 
     @Test
@@ -94,11 +134,11 @@ class AsyncCommitWriterTest {
 
         assertThat(compilation).succeeded();
         assertThat(compilation)
-                .generatedSourceFile("rest.asyncpathvariable.application.CreateTicketRequest")
+                .generatedSourceFile("rest.asyncpathvariable.application.OpenRequest")
                 .contentsAsUtf8String()
                 .doesNotContain("String queue");
         assertThat(compilation)
-                .generatedSourceFile("rest.asyncpathvariable.application.CreateTicketRequest")
+                .generatedSourceFile("rest.asyncpathvariable.application.OpenRequest")
                 .contentsAsUtf8String()
                 .contains("String subject");
     }
@@ -144,7 +184,7 @@ class AsyncCommitWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.asyncpathvariable.infrastructure.http.TicketController")
                 .contentsAsUtf8String()
-                .contains("service.create(queue, request)");
+                .contains("service.open(queue, request)");
     }
 
     @Test

@@ -25,6 +25,7 @@ import static be.appify.prefab.processor.rest.ControllerUtil.operationAnnotation
 import static be.appify.prefab.processor.rest.ControllerUtil.requestMapping;
 import static be.appify.prefab.processor.rest.ControllerUtil.securedAnnotation;
 import static javax.lang.model.element.Modifier.PUBLIC;
+import static org.apache.commons.text.WordUtils.capitalize;
 
 /**
  * Generates the controller method for an async-commit {@code @Create} static factory.
@@ -44,30 +45,32 @@ class AsyncCreateControllerWriter {
         var requestParts = params.stream()
                 .flatMap(p -> context.requestParameterBuilder().buildMethodParameter(p).stream())
                 .toList();
-        var method = MethodSpec.methodBuilder("create")
+        var operationName = factoryMethod.getSimpleName().toString();
+        var method = MethodSpec.methodBuilder(operationName)
                 .addModifiers(PUBLIC)
                 .addAnnotation(requestMapping(create.method(), create.path(), requestParts))
                 .returns(ParameterizedTypeName.get(ResponseEntity.class, Void.class));
-        operationAnnotation("Create " + manifest.simpleName() + " (async)").ifPresent(method::addAnnotation);
+        operationAnnotation(capitalize(operationName) + " " + manifest.simpleName() + " (async)").ifPresent(method::addAnnotation);
         securedAnnotation(create.security()).ifPresent(method::addAnnotation);
         addParameters(pathVarNames, params, method);
         var pathVarArgs = params.stream()
                 .map(VariableManifest::name)
                 .filter(pathVarNames::contains)
                 .collect(Collectors.joining(", "));
+        var requestRecordName = capitalize(operationName) + "Request";
         if (!bodyParams.isEmpty()) {
             method.addParameter(ParameterSpec.builder(
                             ClassName.get("%s.application".formatted(manifest.packageName()),
-                                    "Create%sRequest".formatted(manifest.simpleName())), "request")
+                                    requestRecordName), "request")
                     .addAnnotation(Valid.class)
                     .addAnnotation(AnnotationSpec.builder(RequestBody.class).build())
                     .build());
             var serviceArgs = pathVarArgs.isBlank() ? "request" : pathVarArgs + ", request";
-            method.addStatement("service.create($L)", serviceArgs);
+            method.addStatement("service.$N($L)", operationName, serviceArgs);
         } else if (!pathVarArgs.isBlank()) {
-            method.addStatement("service.create($L)", pathVarArgs);
+            method.addStatement("service.$N($L)", operationName, pathVarArgs);
         } else {
-            method.addStatement("service.create()");
+            method.addStatement("service.$N()", operationName);
         }
         method.addStatement("return $T.accepted().build()", ResponseEntity.class);
         return method.build();

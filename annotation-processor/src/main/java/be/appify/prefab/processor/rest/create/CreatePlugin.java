@@ -33,7 +33,7 @@ public class CreatePlugin implements PrefabPlugin {
     private final CreateTestClientWriter testClientWriter = new CreateTestClientWriter();
     private final Map<ClassManifest, Optional<ExecutableElement>> createConstructorsCache =
             Collections.synchronizedMap(new WeakHashMap<>());
-    private final Map<ClassManifest, Optional<ExecutableElement>> asyncCreateMethodsCache =
+    private final Map<ClassManifest, List<ExecutableElement>> asyncCreateMethodsCache =
             Collections.synchronizedMap(new WeakHashMap<>());
     private PrefabContext context;
 
@@ -44,9 +44,10 @@ public class CreatePlugin implements PrefabPlugin {
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
-        asyncCreateFactoryOf(manifest).ifPresent(factory ->
+        var asyncFactories = asyncCreateFactoriesOf(manifest);
+        asyncFactories.forEach(factory ->
                 builder.addMethod(asyncControllerWriter.createMethod(manifest, factory, context)));
-        if (asyncCreateFactoryOf(manifest).isEmpty()) {
+        if (asyncFactories.isEmpty()) {
             createConstructorOf(manifest).ifPresent(createConstructor ->
                     builder.addMethod(controllerWriter.createMethod(manifest, createConstructor, context)));
         }
@@ -54,9 +55,10 @@ public class CreatePlugin implements PrefabPlugin {
 
     @Override
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder) {
-        asyncCreateFactoryOf(manifest).ifPresent(factory ->
+        var asyncFactories = asyncCreateFactoriesOf(manifest);
+        asyncFactories.forEach(factory ->
                 builder.addMethod(asyncServiceWriter.createMethod(manifest, factory, context)));
-        if (asyncCreateFactoryOf(manifest).isEmpty()) {
+        if (asyncFactories.isEmpty()) {
             createConstructorOf(manifest).ifPresent(createConstructor ->
                     builder.addMethod(serviceWriter.createMethod(manifest, createConstructor, context)));
         }
@@ -64,9 +66,10 @@ public class CreatePlugin implements PrefabPlugin {
 
     @Override
     public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
-        asyncCreateFactoryOf(manifest).ifPresent(factory ->
+        var asyncFactories = asyncCreateFactoriesOf(manifest);
+        asyncFactories.forEach(factory ->
                 testClientWriter.asyncCreateMethods(manifest, factory, context).forEach(builder::addMethod));
-        if (asyncCreateFactoryOf(manifest).isEmpty()) {
+        if (asyncFactories.isEmpty()) {
             createConstructorOf(manifest).ifPresent(createConstructor ->
                     testClientWriter.createMethods(manifest, createConstructor, context).forEach(builder::addMethod));
         }
@@ -77,12 +80,13 @@ public class CreatePlugin implements PrefabPlugin {
         if (!manifests.isEmpty()) {
             var fileWriter = new JavaFileWriter(context.processingEnvironment(), "application");
             manifests.forEach(manifest -> {
-                asyncCreateFactoryOf(manifest).ifPresent(factory -> {
+                var asyncFactories = asyncCreateFactoriesOf(manifest);
+                asyncFactories.forEach(factory -> {
                     if (!factory.getParameters().isEmpty()) {
                         requestRecordWriter.writeRequestRecordForFactory(fileWriter, manifest, factory, context);
                     }
                 });
-                if (asyncCreateFactoryOf(manifest).isEmpty()) {
+                if (asyncFactories.isEmpty()) {
                     createConstructorOf(manifest).ifPresent(createConstructor -> {
                         if (!createConstructor.getParameters().isEmpty()) {
                             requestRecordWriter.writeRequestRecord(fileWriter, manifest, createConstructor, context);
@@ -200,19 +204,13 @@ public class CreatePlugin implements PrefabPlugin {
         return entries.size() >= 2 && entries.stream().anyMatch(e -> !e.getValue().getParameters().isEmpty());
     }
 
-    private Optional<ExecutableElement> asyncCreateFactoryOf(ClassManifest manifest) {
-        return asyncCreateMethodsCache.computeIfAbsent(manifest, m -> {
-            var factories = m.staticMethodsWith(Create.class).stream()
-                    .filter(method -> m.isAsyncCommit()
-                            || method.getAnnotationsByType(AsyncCommit.class).length > 0)
-                    .toList();
-            if (factories.size() > 1) {
-                context.logError(
-                        "Multiple async @Create static methods found in " + m.qualifiedName(),
-                        factories.get(1));
-            }
-            return factories.stream().findFirst();
-        });
+    private List<ExecutableElement> asyncCreateFactoriesOf(ClassManifest manifest) {
+        return asyncCreateMethodsCache.computeIfAbsent(manifest, m ->
+                m.staticMethodsWith(Create.class).stream()
+                        .filter(method -> m.isAsyncCommit()
+                                || method.getAnnotationsByType(AsyncCommit.class).length > 0)
+                        .toList()
+        );
     }
 
     private Optional<ExecutableElement> createConstructorOf(ClassManifest manifest) {

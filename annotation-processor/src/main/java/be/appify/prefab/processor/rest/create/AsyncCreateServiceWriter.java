@@ -15,6 +15,8 @@ import java.util.Set;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 
+import static org.apache.commons.text.WordUtils.capitalize;
+
 /**
  * Generates the service method for an async-commit {@code @Create} static factory.
  *
@@ -25,7 +27,8 @@ import javax.lang.model.element.Modifier;
 class AsyncCreateServiceWriter {
 
     MethodSpec createMethod(ClassManifest manifest, ExecutableElement factoryMethod, PrefabContext context) {
-        var method = MethodSpec.methodBuilder("create")
+        var operationName = factoryMethod.getSimpleName().toString();
+        var method = MethodSpec.methodBuilder(operationName)
                 .addModifiers(Modifier.PUBLIC)
                 .returns(void.class)
                 .addStatement("log.debug($S, $T.class.getSimpleName())", "Async-creating new {}", manifest.className());
@@ -53,9 +56,10 @@ class AsyncCreateServiceWriter {
                 .forEach(p -> method.addParameter(String.class, p.name()));
         var bodyParams = nonParentNonPathParams(params, manifest, pathVarNames);
         if (!bodyParams.isEmpty()) {
+            var requestRecordName = capitalize(factoryMethod.getSimpleName().toString()) + "Request";
             method.addParameter(ParameterSpec.builder(
                             ClassName.get("%s.application".formatted(manifest.packageName()),
-                                    "Create%sRequest".formatted(manifest.simpleName())), "request")
+                                    requestRecordName), "request")
                     .addAnnotation(Valid.class)
                     .build());
         }

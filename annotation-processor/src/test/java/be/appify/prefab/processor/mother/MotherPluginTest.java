@@ -184,6 +184,19 @@ class MotherPluginTest {
     }
 
     @Test
+    void motherUsesEmptyMapForMapField() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/withmap/source/InventoryEvent.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("mother.withmap.source.InventoryEventUpdatedBuilder")
+                .contentsAsUtf8String()
+                .contains("Map.of()");
+    }
+
+    @Test
     void motherUsesRecordBuilderInsteadOfCanonicalConstructor() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

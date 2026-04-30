@@ -18,6 +18,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Modifier;
@@ -214,9 +215,13 @@ class MotherWriter {
         var builder = TypeSpec.classBuilder(builderType.simpleName())
                 .addModifiers(Modifier.PUBLIC);
 
-        fields.forEach(field -> builder.addField(
-                FieldSpec.builder(field.type().asTypeName(), field.name(), Modifier.PRIVATE).build()
-        ));
+        fields.forEach(field -> {
+            var fieldSpec = FieldSpec.builder(field.type().asTypeName(), field.name(), Modifier.PRIVATE);
+            if (hasInlineDefault(field.type())) {
+                fieldSpec.initializer(defaultValueFor(field, field.type()));
+            }
+            builder.addField(fieldSpec.build());
+        });
 
         fields.forEach(field -> builder.addMethod(withMethod(field.name(), field.type().asTypeName(), builderType)));
 
@@ -224,6 +229,19 @@ class MotherWriter {
                 fields.stream().map(VariableManifest::name).collect(Collectors.joining(", "))));
 
         return builder.build();
+    }
+
+    private boolean hasInlineDefault(TypeManifest type) {
+        if (isNestedObjectType(type)) return false;
+        if (type.is(List.class) && isNestedObjectType(type.parameters().getFirst())) return false;
+        if (type.isSingleValueType() && containsNestedObjectType(type)) return false;
+        return true;
+    }
+
+    private boolean containsNestedObjectType(TypeManifest type) {
+        if (isNestedObjectType(type)) return true;
+        if (type.isSingleValueType()) return containsNestedObjectType(type.fields().getFirst().type());
+        return false;
     }
 
     private MethodSpec withMethod(String fieldName, TypeName fieldType, ClassName builderType) {
@@ -238,9 +256,9 @@ class MotherWriter {
 
     private MethodSpec builderFactoryMethodWithDefaults(ClassName builderType, List<VariableManifest> fields) {
         var code = CodeBlock.builder().add("return new $T()", builderType);
-        for (var field : fields) {
-            code.add("\n        .with$L($L)", capitalize(field.name()), defaultValueFor(field, field.type()));
-        }
+        fields.stream()
+                .filter(field -> !hasInlineDefault(field.type()))
+                .forEach(field -> code.add("\n        .with$L($L)", capitalize(field.name()), defaultValueFor(field, field.type())));
         code.add(";\n");
         return MethodSpec.methodBuilder("builder")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
@@ -281,6 +299,9 @@ class MotherWriter {
         if (type.is(List.class)) {
             var elementType = type.parameters().getFirst();
             return CodeBlock.of("$T.of($L)", List.class, typeDefaultValue(elementType, fieldName));
+        }
+        if (type.is(Map.class)) {
+            return CodeBlock.of("$T.of()", Map.class);
         }
         var temporalDefault = temporalDefaultValue(type);
         if (temporalDefault != null) return temporalDefault;

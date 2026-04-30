@@ -25,6 +25,7 @@ this document as the primary source of truth for Prefab behaviour.
    - [4.6 Audit Annotations](#46-audit-annotations)
    - [4.7 Multi-tenancy Annotations](#47-multi-tenancy-annotations)
    - [4.8 Validation Annotations](#48-validation-annotations)
+   - [4.9 Extension Annotations](#49-extension-annotations)
 5. [Built-in Types](#5-built-in-types)
 6. [Generated Artefacts](#6-generated-artefacts)
    - [6.1 Controller](#61-controller)
@@ -88,6 +89,7 @@ request/response DTOs, event consumer, and database migration scripts at compile
 | `openapi` | `prefab-openapi` | OpenAPI docs | SpringDoc OpenAPI / Swagger UI |
 | `async-api` | `prefab-async-api` | AsyncAPI docs | AsyncAPI specification generation |
 | `test` | `prefab-test` | Testing | Testcontainers-based integration test support |
+| `terraform` | `prefab-terraform` | GCP infra | GCP Terraform configuration generation |
 
 ### Feature → Module Mapping
 
@@ -256,7 +258,7 @@ An `@EventHandler` on the same aggregate then persists it when the event arrives
 **Behaviour:**
 - On `@Create` static factory method: must return the event type; generates `202 Accepted`
 - On `@Update` void method: method must call `publish()` internally; generates `202 Accepted`
-- Auto-generates deduplication guard in the event consumer using the `@EventId`-annotated field
+- `@EventHandler` methods on an `@AsyncCommit` aggregate receive a deduplication guard in the generated consumer
 
 **Example:**
 
@@ -265,17 +267,17 @@ An `@EventHandler` on the same aggregate then persists it when the event arrives
 @AsyncCommit
 public record Order(
         @Id Reference<Order> id,
-        @Version long version,
-        String customerName
+        String customerId,
+        String status
 ) {
     @Create
-    public static OrderCreated create(String customerName) {
-        return new OrderCreated(Reference.create(), customerName);
+    public static OrderPlaced create(@NotNull String customerId) {
+        return new OrderPlaced(Reference.create(), customerId);
     }
 
     @EventHandler
-    public static Order onCreate(OrderCreated event) {
-        return new Order(event.id(), 0L, event.customerName());
+    public static Order onOrderPlaced(OrderPlaced event) {
+        return new Order(event.id(), event.customerId(), "PLACED");
     }
 }
 ```
@@ -1009,6 +1011,8 @@ Binary document;
 
 ---
 
+### 4.9 Extension Annotations
+
 #### `@RepositoryMixin`
 
 **Package:** `be.appify.prefab.core.annotations`
@@ -1649,29 +1653,26 @@ Use when you need at-least-once delivery semantics for aggregate creation via an
 @GetById
 public record Order(
         @Id Reference<Order> id,
-        @Version long version,
-        String customerName,
-        String eventId         // deduplication key from @EventId
-) implements PublishesEvents {
-
+        String customerId,
+        String status
+) {
     // REST call publishes event and returns 202
     @Create
-    public static OrderCreated create(String customerName) {
-        return new OrderCreated(UUID.randomUUID().toString(), Reference.create(), customerName);
+    public static OrderPlaced create(@NotNull String customerId) {
+        return new OrderPlaced(Reference.create(), customerId);
     }
 
     // Aggregate is persisted when event arrives
     @EventHandler
-    public static Order onCreate(OrderCreated event) {
-        return new Order(event.orderId(), 0L, event.customerName(), event.eventId());
+    public static Order onOrderPlaced(OrderPlaced event) {
+        return new Order(event.id(), event.customerId(), "PLACED");
     }
 }
 
 @Event(topic = "orders")
-public record OrderCreated(
-        String eventId,
-        @PartitioningKey Reference<Order> orderId,
-        String customerName
+public record OrderPlaced(
+        @PartitioningKey Reference<Order> id,
+        String customerId
 ) { }
 ```
 

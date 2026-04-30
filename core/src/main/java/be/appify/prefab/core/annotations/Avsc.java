@@ -31,6 +31,17 @@ import java.lang.annotation.Target;
  * public interface SaleEvent {}
  * }</pre>
  *
+ * <p>Sealed multiple-event usage – the interface may be declared {@code sealed} with a
+ * {@code permits} clause that lists the names of the generated records. The annotation processor
+ * generates the permitted records in round 1; javac resolves the {@code permits} clause in round 2
+ * once the generated classes are available.
+ *
+ * <pre>{@code
+ * @Event(topic = "sale", serialization = Event.Serialization.AVRO)
+ * @Avsc({"avro/sale-created.avsc", "avro/sale-paid.avsc"})
+ * public sealed interface SaleEvent permits SaleCreated, SalePaid {}
+ * }</pre>
+ *
  * <p>Each AVSC file must be placed on the classpath (e.g.,
  * {@code src/main/resources/avro/sale-created.avsc}). Generated event records are placed in the
  * package defined by each AVSC schema's {@code namespace} field.

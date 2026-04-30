@@ -5,6 +5,7 @@ import com.palantir.javapoet.TypeSpec;
 
 import javax.annotation.processing.FilerException;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import java.io.IOException;
 
@@ -38,11 +39,21 @@ public class JavaFileWriter {
     public void writeFile(String packagePrefix, String typeName, TypeSpec type) {
         try {
             var packageName = !isBlank(packageSuffix) ? "%s.%s".formatted(packagePrefix, packageSuffix) : packagePrefix;
+            var qualifiedName = "%s.%s".formatted(packageName, typeName);
             JavaFileObject builderFile;
             try {
                 builderFile = processingEnvironment.getFiler()
-                        .createSourceFile("%s.%s".formatted(packageName, typeName));
+                        .createSourceFile(qualifiedName);
             } catch (FilerException e) {
+                if (indicatesFileAlreadyExists(e)) {
+                    processingEnvironment.getMessager().printMessage(
+                            Diagnostic.Kind.NOTE,
+                            "Skipping generation of %s: a source file with this name already exists".formatted(qualifiedName)
+                                    + " and will be used as-is. Remove it to let the annotation processor regenerate it."
+                    );
+                    return;
+                }
+                processingEnvironment.getMessager().printMessage(Diagnostic.Kind.ERROR, e.getMessage());
                 return;
             }
             try (var writer = builderFile.openWriter()) {
@@ -56,5 +67,9 @@ public class JavaFileWriter {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static boolean indicatesFileAlreadyExists(FilerException e) {
+        return e.getMessage() != null && e.getMessage().startsWith("Attempt to recreate a file for type");
     }
 }

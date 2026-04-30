@@ -1,10 +1,10 @@
 ---
 id: TASK-006
 title: Skip generating classes that already exist
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2025-10-10 13:32'
-updated_date: '2026-04-29 19:08'
+updated_date: '2026-04-29 20:10'
 labels:
   - annotation-processor
   - code-generation
@@ -44,8 +44,8 @@ Both are guarded by boolean flags (`eventFilesWritten`, `globalFilesWritten`) in
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 When `JavaFileWriter.writeFile()` skips a file because a source file with the same qualified name already exists (either user-written or from a prior round), a `NOTE`-level compiler message is emitted so the developer can distinguish an intentional override from an accidental collision
-- [ ] #2 Each plugin's `writeAdditionalFiles()` is guarded so that files it has already generated in a previous round are not attempted again (either via an explicit round-tracking set or by checking whether the target element set has changed), eliminating silent `FilerException` catches in round 2+
-- [ ] #3 `TestJavaFileWriter.writeFile()` checks whether the output file already exists before writing; if it does, generation is skipped and a message is printed explaining that the file in `target/prefab-test-sources/` is treated as a regenerated artifact
-- [ ] #4 All existing annotation-processor tests continue to pass after the changes
+- [x] #1 When `JavaFileWriter.writeFile()` skips a file because a source file with the same qualified name already exists (either user-written or from a prior round), a `NOTE`-level compiler message is emitted so the developer can distinguish an intentional override from an accidental collision
+- [x] #2 Each plugin's `writeAdditionalFiles()` is guarded so that files it has already generated in a previous round are not attempted again (either via an explicit round-tracking set or by checking whether the target element set has changed), eliminating silent `FilerException` catches in round 2+
+- [x] #3 `TestJavaFileWriter.writeFile()` checks whether the output file already exists before writing; if it does, generation is skipped and a message is printed explaining that the file in `target/prefab-test-sources/` is treated as a regenerated artifact
+- [x] #4 All existing annotation-processor tests continue to pass after the changes
 <!-- AC:END -->

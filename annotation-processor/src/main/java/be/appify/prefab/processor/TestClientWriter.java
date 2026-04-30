@@ -23,8 +23,17 @@ class TestClientWriter {
     private final PrefabContext context;
 
     TestClientWriter(PrefabContext context) {
+        this(context, new TestJavaFileWriter(context, null));
+    }
+
+    /**
+     * Secondary constructor for testing: accepts a custom {@link TestJavaFileWriter}
+     * so tests can capture or redirect the generated test client source without
+     * writing to the physical file system.
+     */
+    TestClientWriter(PrefabContext context, TestJavaFileWriter fileWriter) {
         this.context = context;
-        fileWriter = new TestJavaFileWriter(context, null);
+        this.fileWriter = fileWriter;
     }
 
     void writeTestSupport(ClassManifest manifest) {
@@ -35,7 +44,7 @@ class TestClientWriter {
         writePolymorphicTestClient(manifest);
     }
 
-    private void writeTestClient(ClassManifest manifest) {
+    protected void writeTestClient(ClassManifest manifest) {
         var className = "%sClient".formatted(manifest.simpleName());
         var type = buildClientType(className);
         context.plugins().forEach(plugin -> plugin.writeTestClient(manifest, type));

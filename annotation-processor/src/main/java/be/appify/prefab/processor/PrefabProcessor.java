@@ -128,22 +128,28 @@ public class PrefabProcessor extends AbstractProcessor {
     }
 
     private void writeAggregates(PrefabContext context, List<ClassManifest> aggregates) {
+        var testClientWriter = createTestClientWriter(context);
         aggregates.forEach(manifest -> {
             new HttpWriter(context).writeHttpLayer(manifest);
             new ApplicationWriter(context).writeApplicationLayer(manifest);
             new PersistenceWriter(context).writePersistenceLayer(manifest);
-            new TestClientWriter(context).writeTestSupport(manifest);
+            testClientWriter.writeTestSupport(manifest);
         });
     }
 
     private void writePolymorphicAggregates(PrefabContext context, List<PolymorphicAggregateManifest> polymorphicAggregates) {
+        var testClientWriter = createTestClientWriter(context);
         polymorphicAggregates.forEach(manifest -> {
             new PersistenceWriter(context).writePolymorphicPersistenceLayer(manifest);
             new PolymorphicJdbcConverterWriter(context).writeConverters(manifest);
             new HttpWriter(context).writePolymorphicHttpLayer(manifest);
             new ApplicationWriter(context).writePolymorphicApplicationLayer(manifest);
-            new TestClientWriter(context).writePolymorphicTestSupport(manifest);
+            testClientWriter.writePolymorphicTestSupport(manifest);
         });
+    }
+
+    protected TestClientWriter createTestClientWriter(PrefabContext context) {
+        return new TestClientWriter(context);
     }
 
     private void writeAdditionalFilesIfNeeded(

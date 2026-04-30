@@ -161,6 +161,20 @@ class AvscPluginTest {
     }
 
     @Test
+    void sealedInterfaceWithPermitsReferencingGeneratedTypesCompiles() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/sealed/source/SealedMultiAvsc.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("event.avsc.sealed.SealedMultiAvscEventA")
+                .contentsAsUtf8String()
+                .contains("implements SealedMultiAvsc");
+        assertThat(compilation).generatedSourceFile("event.avsc.sealed.SealedMultiAvscEventB")
+                .contentsAsUtf8String()
+                .contains("implements SealedMultiAvsc");
+    }
+
+    @Test
     void generatedAvscEventRecordContainsNestedBuilder() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

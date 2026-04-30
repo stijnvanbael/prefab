@@ -16,6 +16,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.lang.model.element.ExecutableElement;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,6 +26,7 @@ import static be.appify.prefab.processor.rest.ControllerUtil.operationAnnotation
 import static be.appify.prefab.processor.rest.ControllerUtil.requestMapping;
 import static be.appify.prefab.processor.rest.ControllerUtil.securedAnnotation;
 import static javax.lang.model.element.Modifier.PUBLIC;
+import static org.apache.commons.text.WordUtils.capitalize;
 
 /**
  * Generates the controller method for an async-commit {@code @Create} static factory.
@@ -44,30 +46,47 @@ class AsyncCreateControllerWriter {
         var requestParts = params.stream()
                 .flatMap(p -> context.requestParameterBuilder().buildMethodParameter(p).stream())
                 .toList();
-        var method = MethodSpec.methodBuilder("create")
+        var operationName = factoryMethod.getSimpleName().toString();
+        var method = MethodSpec.methodBuilder(operationName)
                 .addModifiers(PUBLIC)
                 .addAnnotation(requestMapping(create.method(), create.path(), requestParts))
                 .returns(ParameterizedTypeName.get(ResponseEntity.class, Void.class));
-        operationAnnotation("Create " + manifest.simpleName() + " (async)").ifPresent(method::addAnnotation);
+        operationAnnotation(capitalize(operationName) + " " + manifest.simpleName() + " (async)").ifPresent(method::addAnnotation);
         securedAnnotation(create.security()).ifPresent(method::addAnnotation);
+        var parentName = CreateServiceWriter.parentFieldName(manifest);
+        parentName.ifPresent(name -> {
+            var parentParam = manifest.parent().orElseThrow();
+            var aggregateTypeName = parentParam.type().parameters().getFirst().simpleName();
+            var pathVarSpec = ParameterSpec.builder(String.class, name + "Id")
+                    .addAnnotation(PathVariable.class);
+            ControllerUtil.pathParameterAnnotation("The " + aggregateTypeName + " ID")
+                    .ifPresent(pathVarSpec::addAnnotation);
+            method.addParameter(pathVarSpec.build());
+        });
         addParameters(pathVarNames, params, method);
         var pathVarArgs = params.stream()
                 .map(VariableManifest::name)
                 .filter(pathVarNames::contains)
                 .collect(Collectors.joining(", "));
+        var requestRecordName = capitalize(operationName) + "Request";
         if (!bodyParams.isEmpty()) {
             method.addParameter(ParameterSpec.builder(
                             ClassName.get("%s.application".formatted(manifest.packageName()),
-                                    "Create%sRequest".formatted(manifest.simpleName())), "request")
+                                    requestRecordName), "request")
                     .addAnnotation(Valid.class)
                     .addAnnotation(AnnotationSpec.builder(RequestBody.class).build())
                     .build());
-            var serviceArgs = pathVarArgs.isBlank() ? "request" : pathVarArgs + ", request";
-            method.addStatement("service.create($L)", serviceArgs);
-        } else if (!pathVarArgs.isBlank()) {
-            method.addStatement("service.create($L)", pathVarArgs);
+        }
+        var serviceArgs = Stream.of(
+                        parentName.map(name -> name + "Id").orElse(""),
+                        pathVarArgs,
+                        bodyParams.isEmpty() ? "" : "request")
+                .filter(s -> !s.isBlank())
+                .collect(Collectors.joining(", "));
+        if (serviceArgs.isBlank()) {
+            method.addStatement("service.$N()", operationName);
         } else {
-            method.addStatement("service.create()");
+            method.addStatement("service.$N($L)", operationName, serviceArgs);
         }
         method.addStatement("return $T.accepted().build()", ResponseEntity.class);
         return method.build();

@@ -104,6 +104,7 @@ class TypeMembers {
 
     List<TypeManifest> permittedSubtypes() {
         return element == null ? Collections.emptyList() : element.getPermittedSubclasses().stream()
+                .filter(type -> type.getKind() != TypeKind.ERROR)
                 .map(type -> TypeManifest.of(type, processingEnvironment))
                 .toList();
     }

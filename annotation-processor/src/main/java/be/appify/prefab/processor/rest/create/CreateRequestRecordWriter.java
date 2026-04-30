@@ -19,6 +19,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 
 import static be.appify.prefab.processor.rest.ControllerUtil.writeRecord;
+import static org.apache.commons.text.WordUtils.capitalize;
 
 class CreateRequestRecordWriter {
     void writeRequestRecord(
@@ -152,7 +153,7 @@ class CreateRequestRecordWriter {
     ) {
         var create = factoryMethod.getAnnotation(Create.class);
         var pathVarNames = PathVariables.extractFrom(create != null ? create.path() : "");
-        var name = "Create%sRequest".formatted(manifest.simpleName());
+        var name = capitalize(factoryMethod.getSimpleName().toString()) + "Request";
         var parentName = manifest.parent()
                 .filter(p -> !p.type().parameters().isEmpty())
                 .map(VariableManifest::name);

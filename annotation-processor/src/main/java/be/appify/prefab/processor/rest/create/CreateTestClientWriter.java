@@ -27,6 +27,7 @@ import static be.appify.prefab.processor.TestClasses.MOCK_MVC_REQUEST_BUILDERS;
 import static be.appify.prefab.processor.TestClasses.MOCK_MVC_RESULT_MATCHERS;
 import static be.appify.prefab.processor.TestClasses.MOCK_PART;
 import static be.appify.prefab.processor.TestClasses.TEST_UTIL;
+import static org.apache.commons.lang3.StringUtils.capitalize;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 class CreateTestClientWriter {
@@ -49,7 +50,7 @@ class CreateTestClientWriter {
                         individualBodyParams.stream())
                 .toList();
         var bodyType = ClassName.get("%s.application".formatted(manifest.packageName()),
-                "Create%sRequest".formatted(manifest.simpleName()));
+                capitalize(methodName) + "Request");
         return List.of(
                 buildAsyncIndividualParamsMethod(methodName, allIndividualParams, bodyType, individualBodyParams,
                         createMethodInfo.parentPathParam(), pathVarNamesStr),

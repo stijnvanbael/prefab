@@ -143,7 +143,8 @@ class AsyncCommitWriterTest {
         assertThat(compilation).hadErrorContaining("same HTTP method and path");
     }
 
-
+    @Test
+    void asyncUpdateGenerates202AndDoesNotSave() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("rest/asyncupdate/source/Order.java"));

@@ -18,6 +18,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Modifier;
@@ -281,6 +282,9 @@ class MotherWriter {
         if (type.is(List.class)) {
             var elementType = type.parameters().getFirst();
             return CodeBlock.of("$T.of($L)", List.class, typeDefaultValue(elementType, fieldName));
+        }
+        if (type.is(Map.class)) {
+            return CodeBlock.of("$T.of()", Map.class);
         }
         var temporalDefault = temporalDefaultValue(type);
         if (temporalDefault != null) return temporalDefault;

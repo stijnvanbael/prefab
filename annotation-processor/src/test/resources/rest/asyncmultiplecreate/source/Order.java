@@ -21,8 +21,8 @@ public record Order(
     }
 
     @Create(path = "/quick")
-    public static OrderPlaced quickOrder(@NotNull String customerId, @NotNull String status) {
-        return new OrderPlaced(Reference.create(), customerId);
+    public static OrderPlaced quickOrder(@NotNull String customerId, @NotNull String vipCode) {
+        return new OrderPlaced(Reference.create(), customerId + ":" + vipCode);
     }
 
     @Event(topic = "orders")

@@ -373,10 +373,12 @@ class RestWriterTest {
                 .compile(sourceOf("rest/allpathvariable/source/Slot.java"));
 
         assertThat(compilation).succeeded();
-        var generatedNames = compilation.generatedSourceFiles().stream()
+        var unexpectedFiles = compilation.generatedSourceFiles().stream()
                 .map(javax.tools.JavaFileObject::getName)
+                .filter(name -> name.contains("CreateSlotRequest"))
                 .toList();
-        assertTrue(generatedNames.stream().noneMatch(name -> name.contains("CreateSlotRequest")));
+        assertTrue(unexpectedFiles.isEmpty(),
+                () -> "Expected no files with 'CreateSlotRequest' but found: " + unexpectedFiles);
     }
 
     @Test
@@ -386,10 +388,12 @@ class RestWriterTest {
                 .compile(sourceOf("rest/allpathvariable/source/Slot.java"));
 
         assertThat(compilation).succeeded();
-        var generatedNames = compilation.generatedSourceFiles().stream()
+        var unexpectedFiles = compilation.generatedSourceFiles().stream()
                 .map(javax.tools.JavaFileObject::getName)
+                .filter(name -> name.contains("SlotRescheduleRequest"))
                 .toList();
-        assertTrue(generatedNames.stream().noneMatch(name -> name.contains("SlotRescheduleRequest")));
+        assertTrue(unexpectedFiles.isEmpty(),
+                () -> "Expected no files with 'SlotRescheduleRequest' but found: " + unexpectedFiles);
     }
 
     @Test

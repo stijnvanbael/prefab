@@ -8,6 +8,7 @@ import javax.tools.StandardLocation;
 import static be.appify.prefab.processor.test.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AsyncCommitWriterTest {
 
@@ -246,11 +247,12 @@ class AsyncCommitWriterTest {
                 .compile(sourceOf("rest/asyncpathvariable/source/Ticket.java"));
 
         assertThat(compilation).succeeded();
-        var generatedNames = compilation.generatedSourceFiles().stream()
+        var unexpectedFiles = compilation.generatedSourceFiles().stream()
                 .map(javax.tools.JavaFileObject::getName)
+                .filter(name -> name.contains("TicketTransitionRequest"))
                 .toList();
-        org.junit.jupiter.api.Assertions.assertTrue(
-                generatedNames.stream().noneMatch(name -> name.contains("TicketTransitionRequest")));
+        assertTrue(unexpectedFiles.isEmpty(),
+                () -> "Expected no files with 'TicketTransitionRequest' but found: " + unexpectedFiles);
     }
 
     @Test

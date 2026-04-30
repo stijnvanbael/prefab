@@ -220,6 +220,16 @@ class AsyncCommitWriterTest {
     }
 
     @Test
+    void nonStaticCreateMethodFailsCompilation() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/asynccreatenotstatic/source/Order.java"));
+
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("must be static");
+    }
+
+    @Test
     void asyncUpdateGenerates202AndDoesNotSave() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

@@ -19,6 +19,7 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.stream.Collectors;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 
 /**
  * Plugin that handles the @Create annotation to generate controller methods, service methods, request records, and test client methods for
@@ -206,6 +207,7 @@ public class CreatePlugin implements PrefabPlugin {
 
     private List<ExecutableElement> asyncCreateFactoriesOf(ClassManifest manifest) {
         return asyncCreateFactoriesCache.computeIfAbsent(manifest, m -> {
+            validateNoNonStaticCreateMethods(m);
             var factories = m.staticMethodsWith(Create.class).stream()
                     .filter(method -> m.isAsyncCommit()
                             || method.getAnnotationsByType(AsyncCommit.class).length > 0)
@@ -213,6 +215,15 @@ public class CreatePlugin implements PrefabPlugin {
             validateNoDuplicateMappings(factories);
             return factories;
         });
+    }
+
+    private void validateNoNonStaticCreateMethods(ClassManifest manifest) {
+        manifest.methodsWith(Create.class).stream()
+                .filter(method -> !method.getModifiers().contains(Modifier.STATIC))
+                .forEach(method -> context.logError(
+                        "@Create factory methods on @AsyncCommit aggregates must be static. "
+                                + "Add the 'static' modifier to this method.",
+                        method));
     }
 
     private void validateNoDuplicateMappings(List<ExecutableElement> factories) {

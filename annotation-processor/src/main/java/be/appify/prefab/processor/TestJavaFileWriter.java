@@ -56,18 +56,25 @@ public class TestJavaFileWriter implements TestFileOutput {
                 Files.createDirectories(outputPath);
             }
             var javaSourceFile = createJavaSourceFile(outputPath, typeName);
-            if (javaSourceFile.exists()) {
-                System.out.println(
-                        "Prefab: Skipping generation of %s.%s in target/prefab-test-sources/: file already exists"
-                                .formatted(packageName, typeName)
-                                + " and is treated as a manual override."
-                );
+            if (isFileOverride(packageName, typeName, javaSourceFile)) {
                 return;
             }
             writeJavaTestClass(packageName, type, javaSourceFile);
         } catch (Exception e) {
             System.err.println(e.getMessage());
         }
+    }
+
+    private static boolean isFileOverride(String packageName, String typeName, File javaSourceFile) {
+        if (javaSourceFile.exists()) {
+            System.out.println(
+                    "Prefab: Skipping generation of %s.%s in target/prefab-test-sources/: file already exists"
+                            .formatted(packageName, typeName)
+                            + " and is treated as a manual override."
+            );
+            return true;
+        }
+        return false;
     }
 
     private void writeToFiler(String packageName, String typeName, TypeSpec type) {

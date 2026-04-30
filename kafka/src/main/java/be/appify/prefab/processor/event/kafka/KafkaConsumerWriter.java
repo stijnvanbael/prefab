@@ -128,7 +128,7 @@ class KafkaConsumerWriter {
         return avscInterfaceOf(rootType, context).orElse(rootType);
     }
 
-    private Optional<TypeManifest> avscInterfaceOf(TypeManifest type, PrefabContext context) {
+    private static Optional<TypeManifest> avscInterfaceOf(TypeManifest type, PrefabContext context) {
         if (type.asElement() == null || !isAvscGeneratedRecord(type.asElement())) {
             return Optional.empty();
         }
@@ -228,6 +228,7 @@ class KafkaConsumerWriter {
             String topic) {
         var rootTypes = eventHandlers.stream()
                 .map(h -> support.rootEventType(h, context))
+                .map(t -> avscInterfaceOf(t, context).orElse(t))
                 .filter(t -> t.annotationsOfType(Event.class).stream().anyMatch(e -> e.topic().equals(topic)))
                 .distinct()
                 .toList();

@@ -131,6 +131,19 @@ class KafkaConsumerWriterTest {
     }
 
     @Test
+    void avscPartialEventConsumer() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/avscpartial/OrderEvent.java"),
+                        sourceOf("kafka/avscpartial/OrderProcessor.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("kafka.avscpartial.infrastructure.kafka.OrderProcessorKafkaConsumer")
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("expected/kafka/avscpartial/OrderProcessorKafkaConsumer.java"));
+    }
+
+    @Test
     void aggregateCreateOrUpdateHandler() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

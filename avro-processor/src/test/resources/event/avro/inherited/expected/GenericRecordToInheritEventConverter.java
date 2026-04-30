@@ -5,7 +5,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.stereotype.Component;
 
-@Component
+@Component("event_avro_GenericRecordToInheritEventConverter")
 public class GenericRecordToInheritEventConverter implements Converter<GenericRecord, InheritEvent> {
     public GenericRecordToInheritEventConverter() {
     }

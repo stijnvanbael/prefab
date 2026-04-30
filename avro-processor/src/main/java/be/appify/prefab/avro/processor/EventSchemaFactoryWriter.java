@@ -8,11 +8,7 @@ import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
-import com.palantir.javapoet.ClassName;
-import com.palantir.javapoet.CodeBlock;
-import com.palantir.javapoet.FieldSpec;
-import com.palantir.javapoet.MethodSpec;
-import com.palantir.javapoet.TypeSpec;
+import com.palantir.javapoet.*;
 import jakarta.annotation.Nullable;
 import java.time.Duration;
 import java.time.Instant;
@@ -25,12 +21,12 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
-import org.springframework.stereotype.Component;
 
 import static be.appify.prefab.avro.processor.AvroPlugin.isLogicalType;
 import static be.appify.prefab.avro.processor.AvroPlugin.isNestedRecord;
 import static be.appify.prefab.avro.processor.AvroPlugin.nestedTypes;
 import static be.appify.prefab.avro.processor.AvroPlugin.sealedSubtypes;
+import static be.appify.prefab.avro.processor.AvroSupport.componentAnnotation;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
@@ -53,7 +49,7 @@ class EventSchemaFactoryWriter {
         var name = schemaFactorySimpleName(event);
         var type = TypeSpec.classBuilder(name)
                 .addModifiers(Modifier.PUBLIC)
-                .addAnnotation(Component.class)
+                .addAnnotation(componentAnnotation(event, name))
                 .addField(FieldSpec.builder(Schema.class, "schema", Modifier.PRIVATE, Modifier.FINAL).build())
                 .addMethod(constructor(event))
                 .addMethod(createSchemaMethod());
@@ -79,7 +75,7 @@ class EventSchemaFactoryWriter {
         var constructor = buildImplementationConstructor(implementations);
         var type = TypeSpec.classBuilder(name)
                 .addModifiers(Modifier.PUBLIC)
-                .addAnnotation(Component.class)
+                .addAnnotation(componentAnnotation(contractInterface, name))
                 .addField(FieldSpec.builder(Schema.class, "schema", Modifier.PRIVATE, Modifier.FINAL).build())
                 .addMethod(constructor)
                 .addMethod(createSchemaMethod());

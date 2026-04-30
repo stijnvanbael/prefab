@@ -1,7 +1,6 @@
 package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.processor.PrefabProcessor;
-import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.avro.processor.ProcessorTestUtil.contentsOf;
@@ -17,7 +16,7 @@ import static com.google.testing.compile.Compiler.javac;
 class SingleValuedNestedRecordTest {
 
     @Test
-    void singleValuedNested_schemaFactories() throws IOException {
+    void singleValuedNested_schemaFactories() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/singlevaluednested/source/SingleValuedNestedEvent.java"));
@@ -33,7 +32,7 @@ class SingleValuedNestedRecordTest {
     }
 
     @Test
-    void singleValuedNested_toGenericRecordConverters() throws IOException {
+    void singleValuedNested_toGenericRecordConverters() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/singlevaluednested/source/SingleValuedNestedEvent.java"));
@@ -49,7 +48,7 @@ class SingleValuedNestedRecordTest {
     }
 
     @Test
-    void singleValuedNested_fromGenericRecordConverters() throws IOException {
+    void singleValuedNested_fromGenericRecordConverters() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/singlevaluednested/source/SingleValuedNestedEvent.java"));

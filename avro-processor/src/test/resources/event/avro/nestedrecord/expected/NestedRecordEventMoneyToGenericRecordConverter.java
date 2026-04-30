@@ -7,7 +7,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.stereotype.Component;
 
-@Component
+@Component("event_avro_NestedRecordEventMoneyToGenericRecordConverter")
 public class NestedRecordEventMoneyToGenericRecordConverter implements Converter<NestedRecordEvent.Money, GenericRecord> {
     private final Schema schema;
 

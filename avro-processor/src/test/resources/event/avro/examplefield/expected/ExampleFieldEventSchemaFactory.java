@@ -5,7 +5,7 @@ import java.util.List;
 import org.apache.avro.Schema;
 import org.springframework.stereotype.Component;
 
-@Component
+@Component("event_avro_ExampleFieldEventSchemaFactory")
 public class ExampleFieldEventSchemaFactory {
     private final Schema schema;
 

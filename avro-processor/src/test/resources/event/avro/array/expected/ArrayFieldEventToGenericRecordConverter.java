@@ -8,7 +8,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.stereotype.Component;
 
-@Component
+@Component("event_avro_ArrayFieldEventToGenericRecordConverter")
 public class ArrayFieldEventToGenericRecordConverter implements Converter<ArrayFieldEvent, GenericRecord> {
     private final Schema schema;
 

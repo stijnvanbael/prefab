@@ -1,7 +1,6 @@
 package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.processor.PrefabProcessor;
-import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.avro.processor.ProcessorTestUtil.contentsOf;
@@ -12,7 +11,7 @@ import static com.google.testing.compile.Compiler.javac;
 class AvscPluginTest {
 
     @Test
-    void simpleAvscEvent() throws IOException {
+    void simpleAvscEvent() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"));
@@ -44,7 +43,7 @@ class AvscPluginTest {
     }
 
     @Test
-    void nonPrimitiveAvscEvent() throws IOException {
+    void nonPrimitiveAvscEvent() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avsc/nonprimitive/source/NonPrimitiveAvsc.java"));
@@ -61,7 +60,7 @@ class AvscPluginTest {
     }
 
     @Test
-    void nullableAvscEventSchemaFactoryGeneratesNullableUnion() throws IOException {
+    void nullableAvscEventSchemaFactoryGeneratesNullableUnion() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avsc/nullable/source/NullableAvsc.java"));
@@ -73,7 +72,7 @@ class AvscPluginTest {
     }
 
     @Test
-    void nullableAvscEvent() throws IOException {
+    void nullableAvscEvent() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avsc/nullable/source/NullableAvsc.java"));
@@ -93,7 +92,7 @@ class AvscPluginTest {
     }
 
     @Test
-    void arrayAvscEvent() throws IOException {
+    void arrayAvscEvent() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avsc/array/source/ArrayAvsc.java"));
@@ -110,7 +109,7 @@ class AvscPluginTest {
     }
 
     @Test
-    void interfaceNameCollidingWithRecordNameReportsError() throws IOException {
+    void interfaceNameCollidingWithRecordNameReportsError() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avsc/array/source/ArrayAvscEvent.java"));
@@ -119,7 +118,7 @@ class AvscPluginTest {
     }
 
     @Test
-    void simpleAvscEventGeneratesSchemaFactory() throws IOException {
+    void simpleAvscEventGeneratesSchemaFactory() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"));
@@ -136,7 +135,7 @@ class AvscPluginTest {
     }
 
     @Test
-    void multiPathAvscGeneratesOneRecordPerSchema() throws IOException {
+    void multiPathAvscGeneratesOneRecordPerSchema() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avsc/multi/source/MultiAvsc.java"));
@@ -162,12 +161,7 @@ class AvscPluginTest {
     }
 
     @Test
-    void docPropertyInAvscEmitsDocAnnotationOnField() throws IOException {
-        // ...existing code...
-    }
-
-    @Test
-    void generatedAvscEventRecordContainsNestedBuilder() throws IOException {
+    void generatedAvscEventRecordContainsNestedBuilder() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"));

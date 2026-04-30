@@ -61,7 +61,7 @@ public class KafkaPlugin implements PrefabPlugin {
     private void writeConsumers() {
         filteredEventHandlersByOwner(context, this::isKafkaEvent)
                 .forEach((owner, eventHandlers) ->
-                        kafkaConsumerWriter.writeKafkaConsumer(owner, eventHandlers, context));
+                        kafkaConsumerWriter.writeKafkaConsumer(owner, eventHandlers));
     }
 
     private boolean isKafkaEvent(ExecutableElement method) {

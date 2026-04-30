@@ -7,7 +7,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.stereotype.Component;
 
-@Component
+@Component("event_avro_HierarchyEventUpdatedToGenericRecordConverter")
 public class HierarchyEventUpdatedToGenericRecordConverter implements Converter<HierarchyEvent.Updated, GenericRecord> {
     private final Schema schema;
 

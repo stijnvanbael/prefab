@@ -18,6 +18,8 @@
     <modules>
         <module>core</module>
         <module>annotation-processor</module>
+        <module>avro</module>
+        <module>avro-processor</module>
         <module>test</module>
         <module>postgres</module>
         <module>mongodb</module>
@@ -49,7 +51,7 @@
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
         <compile-testing.version>0.23.0</compile-testing.version>
         <confluent.version>7.6.1</confluent.version>
-        <avro.version>1.11.3</avro.version>
+        <avro.version>1.11.4</avro.version>
         <commons-io.version>2.21.0</commons-io.version>
         <commons-compress.version>1.28.0</commons-compress.version>
         <jsr305.version>3.0.2</jsr305.version>
@@ -91,6 +93,16 @@
             <dependency>
                 <groupId>be.appify.prefab</groupId>
                 <artifactId>prefab-async-api</artifactId>
+                <version>${prefab.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>be.appify.prefab</groupId>
+                <artifactId>prefab-avro</artifactId>
+                <version>${prefab.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>be.appify.prefab</groupId>
+                <artifactId>prefab-avro-processor</artifactId>
                 <version>${prefab.version}</version>
             </dependency>
             <dependency>

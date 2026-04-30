@@ -18,6 +18,10 @@
             <artifactId>prefab-annotation-processor</artifactId>
         </dependency>
         <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-avro-processor</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-kafka</artifactId>
         </dependency>

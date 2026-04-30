@@ -11,8 +11,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import static be.appify.prefab.processor.event.avro.ProcessorTestUtil.contentsOf;
-import static be.appify.prefab.processor.event.avro.ProcessorTestUtil.sourceOf;
+import static be.appify.prefab.processor.test.ProcessorTestUtil.contentsOf;
+import static be.appify.prefab.processor.test.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
 

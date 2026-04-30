@@ -4,7 +4,7 @@ import be.appify.prefab.processor.PrefabProcessor;
 import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
-import static be.appify.prefab.processor.event.avro.ProcessorTestUtil.sourceOf;
+import static be.appify.prefab.processor.test.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
 
@@ -84,32 +84,6 @@ class EventSchemaDocumentationWriterTest {
                 )
                 .contentsAsUtf8String()
                 .doesNotContain("\"publish\"");
-    }
-
-    @Test
-    void avscEvent() throws IOException {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"));
-        assertThat(compilation).succeeded();
-        assertThat(compilation).generatedFile(
-                        javax.tools.StandardLocation.CLASS_OUTPUT,
-                        "META-INF/async-api/asyncapi.json"
-                )
-                .contentsAsUtf8String()
-                .contains("\"SimpleAvscEvent\"");
-        assertThat(compilation).generatedFile(
-                        javax.tools.StandardLocation.CLASS_OUTPUT,
-                        "META-INF/async-api/asyncapi.json"
-                )
-                .contentsAsUtf8String()
-                .contains("\"name\"");
-        assertThat(compilation).generatedFile(
-                        javax.tools.StandardLocation.CLASS_OUTPUT,
-                        "META-INF/async-api/asyncapi.json"
-                )
-                .contentsAsUtf8String()
-                .contains("\"age\"");
     }
 
     @Test

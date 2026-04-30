@@ -5,6 +5,9 @@ import com.palantir.javapoet.TypeSpec;
 import java.util.ArrayList;
 import java.util.List;
 import javax.lang.model.element.TypeElement;
+import javax.annotation.processing.SupportedAnnotationTypes;
+import javax.annotation.processing.SupportedSourceVersion;
+import javax.lang.model.SourceVersion;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.test.ProcessorTestUtil.sourceOf;
@@ -40,6 +43,8 @@ class MultipleAsyncCreateTestClientTest {
                 "Expected test client to contain placeOrder method");
     }
 
+    @SupportedAnnotationTypes({"be.appify.prefab.core.annotations.*"})
+    @SupportedSourceVersion(SourceVersion.RELEASE_21)
     static class CapturingPrefabProcessor extends PrefabProcessor {
         final List<String> capturedSources = new ArrayList<>();
 

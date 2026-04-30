@@ -33,13 +33,23 @@ public class KafkaJsonTypeResolver implements JacksonJsonTypeResolver {
 
     /**
      * Registers a Java type for a specific Kafka topic.
+     * If the type is a sealed interface, all permitted subtypes are recursively added to the allowlist.
      *
      * @param topic the Kafka topic
      * @param type  the Java class type to register
      */
     public void registerType(String topic, Class<?> type) {
         types.put(topic, type);
+        addToAllowedClassNames(type);
+    }
+
+    private void addToAllowedClassNames(Class<?> type) {
         allowedClassNames.add(type.getName());
+        if (type.isSealed()) {
+            for (Class<?> subtype : type.getPermittedSubclasses()) {
+                addToAllowedClassNames(subtype);
+            }
+        }
     }
 
     /**

@@ -11,6 +11,7 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
@@ -47,6 +48,8 @@ class AsyncCreateServiceWriter {
         var params = factoryMethod.getParameters().stream()
                 .map(p -> VariableManifest.of(p, context.processingEnvironment()))
                 .toList();
+        var parentFieldName = CreateServiceWriter.parentFieldName(manifest);
+        parentFieldName.ifPresent(name -> method.addParameter(String.class, name + "Id"));
         if (params.isEmpty()) {
             method.addStatement("$T.$N()", manifest.type().asTypeName(), factoryMethod.getSimpleName());
             return;
@@ -64,14 +67,23 @@ class AsyncCreateServiceWriter {
                     .build());
         }
         var constructorArgs = params.stream()
-                .map(p -> resolveParam(p, pathVarNames, context))
+                .map(p -> resolveParam(p, pathVarNames, parentFieldName, context))
                 .collect(CodeBlock.joining(", "));
         method.addStatement("$T.$N($L)", manifest.type().asTypeName(), factoryMethod.getSimpleName(), constructorArgs);
     }
 
-    private static CodeBlock resolveParam(VariableManifest param, Set<String> pathVarNames, PrefabContext context) {
+    private static CodeBlock resolveParam(
+            VariableManifest param,
+            Set<String> pathVarNames,
+            Optional<String> parentFieldName,
+            PrefabContext context
+    ) {
         if (pathVarNames.contains(param.name())) {
             return CodeBlock.of("$N", param.name());
+        }
+        if (parentFieldName.map(name -> name.equals(param.name())).orElse(false)) {
+            return CodeBlock.of("new $T<>($NId)",
+                    ClassName.get("be.appify.prefab.core.service", "Reference"), param.name());
         }
         return context.requestParameterMapper().mapRequestParameter(param);
     }

@@ -33,7 +33,7 @@ public class CreatePlugin implements PrefabPlugin {
     private final CreateTestClientWriter testClientWriter = new CreateTestClientWriter();
     private final Map<ClassManifest, Optional<ExecutableElement>> createConstructorsCache =
             Collections.synchronizedMap(new WeakHashMap<>());
-    private final Map<ClassManifest, List<ExecutableElement>> asyncCreateMethodsCache =
+    private final Map<ClassManifest, List<ExecutableElement>> asyncCreateFactoriesCache =
             Collections.synchronizedMap(new WeakHashMap<>());
     private PrefabContext context;
 
@@ -205,12 +205,29 @@ public class CreatePlugin implements PrefabPlugin {
     }
 
     private List<ExecutableElement> asyncCreateFactoriesOf(ClassManifest manifest) {
-        return asyncCreateMethodsCache.computeIfAbsent(manifest, m ->
-                m.staticMethodsWith(Create.class).stream()
-                        .filter(method -> m.isAsyncCommit()
-                                || method.getAnnotationsByType(AsyncCommit.class).length > 0)
-                        .toList()
-        );
+        return asyncCreateFactoriesCache.computeIfAbsent(manifest, m -> {
+            var factories = m.staticMethodsWith(Create.class).stream()
+                    .filter(method -> m.isAsyncCommit()
+                            || method.getAnnotationsByType(AsyncCommit.class).length > 0)
+                    .toList();
+            validateNoDuplicateMappings(factories);
+            return factories;
+        });
+    }
+
+    private void validateNoDuplicateMappings(List<ExecutableElement> factories) {
+        factories.stream()
+                .collect(Collectors.groupingBy(f -> {
+                    var create = f.getAnnotation(Create.class);
+                    return create.method() + "|" + create.path();
+                }))
+                .values().stream()
+                .filter(group -> group.size() > 1)
+                .forEach(group -> group.stream().skip(1).forEach(duplicate ->
+                        context.logError(
+                                "Multiple async @Create methods share the same HTTP method and path. "
+                                        + "Each factory must have a unique @Create.method + @Create.path combination.",
+                                duplicate)));
     }
 
     private Optional<ExecutableElement> createConstructorOf(ClassManifest manifest) {

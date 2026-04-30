@@ -96,7 +96,54 @@ class AsyncCommitWriterTest {
     }
 
     @Test
-    void asyncUpdateGenerates202AndDoesNotSave() {
+    void asyncCreateWithParentAddsPathVariableToController() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("rest/asynccreatewithparent/source/Project.java"),
+                        sourceOf("rest/asynccreatewithparent/source/Task.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.asynccreatewithparent.infrastructure.http.TaskController")
+                .contentsAsUtf8String()
+                .contains("@PathVariable");
+        assertThat(compilation)
+                .generatedSourceFile("rest.asynccreatewithparent.infrastructure.http.TaskController")
+                .contentsAsUtf8String()
+                .contains("String projectId");
+    }
+
+    @Test
+    void asyncCreateWithParentPassesParentIdToService() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("rest/asynccreatewithparent/source/Project.java"),
+                        sourceOf("rest/asynccreatewithparent/source/Task.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.asynccreatewithparent.application.TaskService")
+                .contentsAsUtf8String()
+                .contains("String projectId");
+        assertThat(compilation)
+                .generatedSourceFile("rest.asynccreatewithparent.application.TaskService")
+                .contentsAsUtf8String()
+                .contains("new Reference<>(projectId)");
+    }
+
+    @Test
+    void asyncCreateWithDuplicateMappingFailsCompilation() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/asyncduplicatemapping/source/Order.java"));
+
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("same HTTP method and path");
+    }
+
+
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("rest/asyncupdate/source/Order.java"));

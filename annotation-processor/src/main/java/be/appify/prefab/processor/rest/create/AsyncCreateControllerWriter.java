@@ -16,6 +16,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.lang.model.element.ExecutableElement;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -52,6 +53,16 @@ class AsyncCreateControllerWriter {
                 .returns(ParameterizedTypeName.get(ResponseEntity.class, Void.class));
         operationAnnotation(capitalize(operationName) + " " + manifest.simpleName() + " (async)").ifPresent(method::addAnnotation);
         securedAnnotation(create.security()).ifPresent(method::addAnnotation);
+        var parentName = CreateServiceWriter.parentFieldName(manifest);
+        parentName.ifPresent(name -> {
+            var parentParam = manifest.parent().orElseThrow();
+            var aggregateTypeName = parentParam.type().parameters().getFirst().simpleName();
+            var pathVarSpec = ParameterSpec.builder(String.class, name + "Id")
+                    .addAnnotation(PathVariable.class);
+            ControllerUtil.pathParameterAnnotation("The " + aggregateTypeName + " ID")
+                    .ifPresent(pathVarSpec::addAnnotation);
+            method.addParameter(pathVarSpec.build());
+        });
         addParameters(pathVarNames, params, method);
         var pathVarArgs = params.stream()
                 .map(VariableManifest::name)
@@ -65,12 +76,17 @@ class AsyncCreateControllerWriter {
                     .addAnnotation(Valid.class)
                     .addAnnotation(AnnotationSpec.builder(RequestBody.class).build())
                     .build());
-            var serviceArgs = pathVarArgs.isBlank() ? "request" : pathVarArgs + ", request";
-            method.addStatement("service.$N($L)", operationName, serviceArgs);
-        } else if (!pathVarArgs.isBlank()) {
-            method.addStatement("service.$N($L)", operationName, pathVarArgs);
-        } else {
+        }
+        var serviceArgs = Stream.of(
+                        parentName.map(name -> name + "Id").orElse(""),
+                        pathVarArgs,
+                        bodyParams.isEmpty() ? "" : "request")
+                .filter(s -> !s.isBlank())
+                .collect(Collectors.joining(", "));
+        if (serviceArgs.isBlank()) {
             method.addStatement("service.$N()", operationName);
+        } else {
+            method.addStatement("service.$N($L)", operationName, serviceArgs);
         }
         method.addStatement("return $T.accepted().build()", ResponseEntity.class);
         return method.build();

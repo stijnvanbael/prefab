@@ -116,6 +116,44 @@ class AsyncCommitWriterTest {
     }
 
     @Test
+    void multipleVoidAsyncCreateFactoriesWithPathVarsGenerateAllMethodsInTestClient() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/asyncmultiplecreatewithpathvar/source/MeteringConfig.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT,
+                        "rest/asyncmultiplecreatewithpathvar/MeteringConfigClient.java")
+                .contentsAsUtf8String()
+                .contains("void closeForInput(");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT,
+                        "rest/asyncmultiplecreatewithpathvar/MeteringConfigClient.java")
+                .contentsAsUtf8String()
+                .contains("void openForInput(");
+    }
+
+    @Test
+    void multipleVoidAsyncCreateFactoriesGenerateAllMethodsInTestClient() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/asyncmultiplecreatenopathvar/source/MeteringConfig.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT,
+                        "rest/asyncmultiplecreatenopathvar/MeteringConfigClient.java")
+                .contentsAsUtf8String()
+                .contains("void closeForInput(");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT,
+                        "rest/asyncmultiplecreatenopathvar/MeteringConfigClient.java")
+                .contentsAsUtf8String()
+                .contains("void openForInput(");
+    }
+
+    @Test
     void asyncCreateWithParentAddsPathVariableToController() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

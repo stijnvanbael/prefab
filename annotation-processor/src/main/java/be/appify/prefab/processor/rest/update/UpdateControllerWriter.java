@@ -52,7 +52,10 @@ class UpdateControllerWriter {
         var idAndPathArgs = buildIdAndPathArgs(update);
         if (update.requestParameters().isEmpty()) {
             if (update.asyncCommit()) {
-                method.addStatement("service.$N($L)", update.operationName(), idAndPathArgs);
+                method.addStatement("var found = service.$N($L)", update.operationName(), idAndPathArgs);
+                method.beginControlFlow("if (found.isEmpty())");
+                method.addStatement("return $T.notFound().build()", ResponseEntity.class);
+                method.endControlFlow();
                 method.addStatement("return $T.accepted().build()", ResponseEntity.class);
             } else {
                 method.addStatement("return toResponse(service.$N($L))", update.operationName(), idAndPathArgs);
@@ -74,7 +77,10 @@ class UpdateControllerWriter {
                     .map(param -> ".with%s(%s)".formatted(capitalize(param.name()), param.name()))
                     .collect(Collectors.joining());
             if (update.asyncCommit()) {
-                method.addStatement("service.$N($L, request$L)", update.operationName(), idAndPathArgs, withArgs);
+                method.addStatement("var found = service.$N($L, request$L)", update.operationName(), idAndPathArgs, withArgs);
+                method.beginControlFlow("if (found.isEmpty())");
+                method.addStatement("return $T.notFound().build()", ResponseEntity.class);
+                method.endControlFlow();
                 method.addStatement("return $T.accepted().build()", ResponseEntity.class);
             } else {
                 method.addStatement("return toResponse(service.$N($L, request$L))", update.operationName(),

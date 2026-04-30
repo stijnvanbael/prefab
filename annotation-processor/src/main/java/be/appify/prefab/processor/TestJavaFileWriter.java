@@ -39,29 +39,49 @@ public class TestJavaFileWriter {
 
     public void writeFile(String packagePrefix, String typeName, TypeSpec type) {
         var packageName = !isBlank(packageSuffix) ? "%s.%s".formatted(packagePrefix, packageSuffix) : packagePrefix;
-        getRootPath().ifPresent(rootPath -> {
-            var testSourcePath = rootPath + "/target/prefab-test-sources/"
-                    + packagePrefix.replace(".", "/")
-                    + (packageSuffix != null ? "/" + packageSuffix.replace(".", "/") : "");
-            try {
-                var outputPath = new File(testSourcePath).toPath();
-                if (!Files.exists(outputPath)) {
-                    Files.createDirectories(outputPath);
-                }
-                var javaSourceFile = createJavaSourceFile(outputPath, typeName);
-                if (javaSourceFile.exists()) {
-                    System.out.println(
-                            "Prefab: Skipping generation of %s.%s in target/prefab-test-sources/: file already exists"
-                                    .formatted(packageName, typeName)
-                                    + " and is treated as a manual override."
-                    );
-                    return;
-                }
-                writeJavaTestClass(packageName, type, javaSourceFile);
-            } catch (Exception e) {
-                System.err.println(e.getMessage());
+        var rootPath = getRootPath();
+        if (rootPath.isPresent()) {
+            writeToFilesystem(rootPath.get(), packagePrefix, packageName, typeName, type);
+        } else if (context != null) {
+            writeToFiler(packageName, typeName, type);
+        }
+    }
+
+    private void writeToFilesystem(String rootPath, String packagePrefix, String packageName, String typeName, TypeSpec type) {
+        var testSourcePath = rootPath + "/target/prefab-test-sources/"
+                + packagePrefix.replace(".", "/")
+                + (packageSuffix != null ? "/" + packageSuffix.replace(".", "/") : "");
+        try {
+            var outputPath = new File(testSourcePath).toPath();
+            if (!Files.exists(outputPath)) {
+                Files.createDirectories(outputPath);
             }
-        });
+            var javaSourceFile = createJavaSourceFile(outputPath, typeName);
+            if (javaSourceFile.exists()) {
+                System.out.println(
+                        "Prefab: Skipping generation of %s.%s in target/prefab-test-sources/: file already exists"
+                                .formatted(packageName, typeName)
+                                + " and is treated as a manual override."
+                );
+                return;
+            }
+            writeJavaTestClass(packageName, type, javaSourceFile);
+        } catch (Exception e) {
+            System.err.println(e.getMessage());
+        }
+    }
+
+    private void writeToFiler(String packageName, String typeName, TypeSpec type) {
+        try {
+            var relativePath = packageName.replace(".", "/") + "/" + typeName + ".java";
+            var resource = context.processingEnvironment().getFiler()
+                    .createResource(StandardLocation.CLASS_OUTPUT, "", relativePath);
+            try (var writer = resource.openWriter()) {
+                JavaFile.builder(packageName, type).indent("    ").build().writeTo(writer);
+            }
+        } catch (IOException e) {
+            System.err.println(e.getMessage());
+        }
     }
 
     private static File createJavaSourceFile(Path path, String className) {
@@ -89,6 +109,9 @@ public class TestJavaFileWriter {
     }
 
     public Optional<String> getRootPath() {
+        if (context == null) {
+            return Optional.empty();
+        }
         var candidates = preferredElement != null
                 ? Stream.concat(Stream.of(preferredElement),
                         context.roundEnvironment().getRootElements().stream()

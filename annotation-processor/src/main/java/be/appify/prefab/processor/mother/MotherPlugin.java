@@ -5,7 +5,6 @@ import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.core.domain.Binary;
-import org.springframework.web.multipart.MultipartFile;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
@@ -13,6 +12,7 @@ import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.event.EventPlatformPluginSupport;
+import be.appify.prefab.processor.rest.PathVariables;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -20,6 +20,7 @@ import java.util.Set;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
+import org.springframework.web.multipart.MultipartFile;
 
 import static org.apache.commons.text.WordUtils.capitalize;
 
@@ -30,7 +31,6 @@ public class MotherPlugin implements PrefabPlugin {
 
     private PrefabContext context;
     private final Set<String> writtenTypes = Collections.synchronizedSet(new HashSet<>());
-
 
     @Override
     public void initContext(PrefabContext context) {
@@ -67,21 +67,26 @@ public class MotherPlugin implements PrefabPlugin {
         var preferredElement = manifest.type().asElement();
 
         manifest.constructorsWith(Create.class).forEach(ctor -> {
-            if (!ctor.getParameters().isEmpty()) {
+            var create = ctor.getAnnotationsByType(Create.class)[0];
+            var pathVarNames = PathVariables.extractFrom(create.path());
+            var parentName = manifest.parent()
+                    .filter(parent -> !parent.type().parameters().isEmpty())
+                    .map(VariableManifest::name);
+            var params = parametersOf(ctor).stream()
+                    .filter(p -> parentName.map(n -> !n.equals(p.name())).orElse(true))
+                    .filter(p -> !pathVarNames.contains(p.name()))
+                    .map(p -> isAggregateTyped(p) ? p.withType(String.class).withName(p.name() + "Id") : p)
+                    .map(p -> isBinaryTyped(p) ? p.withType(MultipartFile.class) : p)
+                    .toList();
+            if (!params.isEmpty()) {
                 var name = "Create%sRequest".formatted(manifest.simpleName());
-                var parentName = manifest.parent()
-                        .filter(parent -> !parent.type().parameters().isEmpty())
-                        .map(VariableManifest::name);
-                var params = parametersOf(ctor).stream()
-                        .filter(p -> parentName.map(n -> !n.equals(p.name())).orElse(true))
-                        .map(p -> isAggregateTyped(p) ? p.withType(String.class).withName(p.name() + "Id") : p)
-                        .map(p -> isBinaryTyped(p) ? p.withType(MultipartFile.class) : p)
-                        .toList();
                 writer.writeRequestMother(name, manifest.packageName(), params, preferredElement);
             }
         });
 
         manifest.methodsWith(Update.class).forEach(method -> {
+            var update = method.getAnnotationsByType(Update.class)[0];
+            var pathVarNames = PathVariables.extractFrom(update.path());
             var opName = capitalize(method.getSimpleName().toString());
             var name = "%s%sRequest".formatted(manifest.simpleName(), opName);
             var parentName = manifest.parent()
@@ -90,6 +95,7 @@ public class MotherPlugin implements PrefabPlugin {
             var params = parametersOf(method).stream()
                     .filter(p -> !isAggregateTyped(p))
                     .filter(p -> parentName.map(n -> !n.equals(p.name())).orElse(true))
+                    .filter(p -> !pathVarNames.contains(p.name()))
                     .map(p -> isBinaryTyped(p) ? p.withType(MultipartFile.class) : p)
                     .toList();
             if (!params.isEmpty()) {

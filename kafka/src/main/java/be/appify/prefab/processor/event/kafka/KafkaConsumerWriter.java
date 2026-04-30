@@ -16,6 +16,7 @@ import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeSpec;
+
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,6 +28,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -51,8 +53,7 @@ class KafkaConsumerWriter {
 
     void writeKafkaConsumer(
             TypeManifest owner,
-            List<ExecutableElement> eventHandlers,
-            PrefabContext context
+            List<ExecutableElement> eventHandlers
     ) {
         var resolvedHandlers = eventHandlers.stream()
                 .filter(h -> !TypeManifest.containsUnresolvedType(h.getParameters().getFirst().asType()))
@@ -83,27 +84,26 @@ class KafkaConsumerWriter {
                         .build());
 
         var fields = support.addFields(resolvedHandlers, context, type);
-        addEventHandlers(resolvedHandlers, owner, context, type, isAsyncCommit);
+        addEventHandlers(resolvedHandlers, owner, type, isAsyncCommit);
         var topics = resolvedHandlers.stream()
-                .map(e -> listenerEventTypeFor(support.rootEventType(e, context), context)
+                .map(e -> listenerEventTypeFor(support.rootEventType(e, context))
                         .annotationsOfType(Event.class).stream().findFirst()
                         .orElseThrow()
                         .topic())
                 .collect(Collectors.toSet());
-        type.addMethod(constructor(topics, fields, resolvedHandlers, context));
+        type.addMethod(constructor(topics, fields, resolvedHandlers));
         fileWriter.writeFile(packageName, name, type.build());
     }
 
     private void addEventHandlers(
             List<ExecutableElement> allEventHandlers,
             TypeManifest owner,
-            PrefabContext context,
             TypeSpec.Builder type,
             boolean asyncCommit
     ) {
         var eventHandlersByEventType = allEventHandlers.stream()
                 .collect(Collectors.groupingBy(
-                        e -> listenerEventTypeFor(support.rootEventType(e, context), context),
+                        e -> listenerEventTypeFor(support.rootEventType(e, context)),
                         LinkedHashMap::new,
                         Collectors.toList()));
         for (Map.Entry<TypeManifest, List<ExecutableElement>> eventHandlersForEvent : eventHandlersByEventType.entrySet()) {
@@ -124,15 +124,15 @@ class KafkaConsumerWriter {
         }
     }
 
-    private TypeManifest listenerEventTypeFor(TypeManifest rootType, PrefabContext context) {
-        return avscInterfaceOf(rootType, context).orElse(rootType);
+    private TypeManifest listenerEventTypeFor(TypeManifest rootType) {
+        return avscInterfaceOf(rootType).orElse(rootType);
     }
 
-    private static Optional<TypeManifest> avscInterfaceOf(TypeManifest type, PrefabContext context) {
+    private Optional<TypeManifest> avscInterfaceOf(TypeManifest type) {
         if (type.asElement() == null || !isAvscGeneratedRecord(type.asElement())) {
             return Optional.empty();
         }
-        return ((TypeElement) type.asElement()).getInterfaces().stream()
+        return (type.asElement()).getInterfaces().stream()
                 .filter(iface -> iface.getKind().name().equals("DECLARED"))
                 .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
                 .filter(iface -> iface.getAnnotation(Avsc.class) != null)
@@ -156,11 +156,10 @@ class KafkaConsumerWriter {
         return kafkaListener.build();
     }
 
-    private static MethodSpec constructor(
+    private MethodSpec constructor(
             Set<String> topics,
             Set<FieldSpec> fields,
-            List<ExecutableElement> eventHandlers,
-            PrefabContext context
+            List<ExecutableElement> eventHandlers
     ) {
         var constructor = MethodSpec.constructorBuilder().addModifiers(PUBLIC);
         fields.forEach(field -> constructor.addParameter(ParameterSpec.builder(field.type(), field.name()).build()));
@@ -170,14 +169,14 @@ class KafkaConsumerWriter {
         return constructor.build();
     }
 
-    private static void addTopic(List<ExecutableElement> eventHandlers, PrefabContext context, String topic,
-            MethodSpec.Builder constructor) {
-        var concreteTypes = concreteTypesForTopic(eventHandlers, context, topic);
+    private void addTopic(List<ExecutableElement> eventHandlers, PrefabContext context, String topic,
+                          MethodSpec.Builder constructor) {
+        var concreteTypes = concreteTypesForTopic(eventHandlers, topic);
         if (concreteTypes.isEmpty()) {
             support.eventTypeOf(eventHandlers, context, topic);
             return;
         }
-        var registrationTypes = resolveRegistrationTypes(concreteTypes, eventHandlers, context, topic);
+        var registrationTypes = resolveRegistrationTypes(concreteTypes, topic);
         if (topic.matches("\\$\\{.+}")) {
             var eventType = support.eventTypeOf(eventHandlers, context, topic);
             var topicVariableName = uncapitalize(eventType.simpleName().replace(".", "")) + "Topic";
@@ -194,28 +193,25 @@ class KafkaConsumerWriter {
         }
     }
 
-    private static List<TypeManifest> resolveRegistrationTypes(
+    private List<TypeManifest> resolveRegistrationTypes(
             List<TypeManifest> concreteTypes,
-            List<ExecutableElement> eventHandlers,
-            PrefabContext context,
             String topic) {
         if (concreteTypes.size() <= 1) {
             return concreteTypes;
         }
-        return sharedEventInterfaceOf(concreteTypes, topic, context)
+        return sharedEventInterfaceOf(concreteTypes, topic)
                 .map(List::of)
                 .orElseGet(() -> concreteTypes.stream()
-                        .sorted(Comparator.comparing(t -> t.simpleName()))
+                        .sorted(Comparator.comparing(TypeManifest::simpleName))
                         .toList());
     }
 
-    private static Optional<TypeManifest> sharedEventInterfaceOf(
+    private Optional<TypeManifest> sharedEventInterfaceOf(
             List<TypeManifest> concreteTypes,
-            String topic,
-            PrefabContext context) {
+            String topic) {
         return concreteTypes.stream()
                 .filter(t -> t.asElement() != null)
-                .flatMap(t -> ((TypeElement) t.asElement()).getInterfaces().stream())
+                .flatMap(t -> (t.asElement()).getInterfaces().stream())
                 .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
                 .filter(iface -> iface.getAnnotation(Event.class) != null
                         && iface.getAnnotation(Event.class).topic().equals(topic))
@@ -224,11 +220,10 @@ class KafkaConsumerWriter {
                 .map(iface -> TypeManifest.of(iface.asType(), context.processingEnvironment()));
     }
 
-    private static List<TypeManifest> concreteTypesForTopic(List<ExecutableElement> eventHandlers, PrefabContext context,
-            String topic) {
+    private List<TypeManifest> concreteTypesForTopic(List<ExecutableElement> eventHandlers, String topic) {
         var rootTypes = eventHandlers.stream()
                 .map(h -> support.rootEventType(h, context))
-                .map(t -> avscInterfaceOf(t, context).orElse(t))
+                .map(t -> avscInterfaceOf(t).orElse(t))
                 .filter(t -> t.annotationsOfType(Event.class).stream().anyMatch(e -> e.topic().equals(topic)))
                 .distinct()
                 .toList();

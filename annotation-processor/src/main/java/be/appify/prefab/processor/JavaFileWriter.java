@@ -45,11 +45,15 @@ public class JavaFileWriter {
                 builderFile = processingEnvironment.getFiler()
                         .createSourceFile(qualifiedName);
             } catch (FilerException e) {
-                processingEnvironment.getMessager().printMessage(
-                        Diagnostic.Kind.NOTE,
-                        "Skipping generation of " + qualifiedName + ": a source file with this name already exists"
-                                + " and will be used as-is. Remove it to let the annotation processor regenerate it."
-                );
+                if (isFileAlreadyExists(e)) {
+                    processingEnvironment.getMessager().printMessage(
+                            Diagnostic.Kind.NOTE,
+                            "Skipping generation of %s: a source file with this name already exists".formatted(qualifiedName)
+                                    + " and will be used as-is. Remove it to let the annotation processor regenerate it."
+                    );
+                    return;
+                }
+                processingEnvironment.getMessager().printMessage(Diagnostic.Kind.ERROR, e.getMessage());
                 return;
             }
             try (var writer = builderFile.openWriter()) {
@@ -63,5 +67,9 @@ public class JavaFileWriter {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static boolean isFileAlreadyExists(FilerException e) {
+        return e.getMessage() != null && e.getMessage().startsWith("Attempt to recreate a file for type");
     }
 }

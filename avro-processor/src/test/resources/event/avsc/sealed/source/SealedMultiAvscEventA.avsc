@@ -1,0 +1,8 @@
+{
+  "type": "record",
+  "name": "SealedMultiAvscEventA",
+  "namespace": "event.avsc.sealed",
+  "fields": [
+    {"name": "id", "type": "string"}
+  ]
+}

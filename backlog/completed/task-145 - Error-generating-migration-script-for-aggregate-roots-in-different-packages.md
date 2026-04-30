@@ -4,10 +4,10 @@ title: Error generating migration script for aggregate roots in different packag
 status: Done
 assignee: []
 created_date: '2026-04-27 14:41'
-updated_date: '2026-04-29 14:51'
+updated_date: '2026-04-30 06:04'
 labels: []
 dependencies: []
-ordinal: 9000
+ordinal: 10000
 ---
 
 ## Description

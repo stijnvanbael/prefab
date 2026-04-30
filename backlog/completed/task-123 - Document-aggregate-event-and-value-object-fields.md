@@ -4,11 +4,11 @@ title: 'Document aggregate, event and value object fields'
 status: Done
 assignee: []
 created_date: '2026-04-17 00:00'
-updated_date: '2026-04-29 14:53'
+updated_date: '2026-04-30 06:04'
 labels:
   - "\U0001F4E6feature"
 dependencies: []
-ordinal: 16000
+ordinal: 17000
 ---
 
 ## Description

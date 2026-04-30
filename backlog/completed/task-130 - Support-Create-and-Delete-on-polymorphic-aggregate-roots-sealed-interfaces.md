@@ -4,11 +4,11 @@ title: Support @Create and @Delete on polymorphic aggregate roots (sealed interf
 status: Done
 assignee: []
 created_date: '2026-04-18 14:38'
-updated_date: '2026-04-29 14:51'
+updated_date: '2026-04-30 06:04'
 labels:
   - "\U0001F4E6feature"
 dependencies: []
-ordinal: 12000
+ordinal: 13000
 ---
 
 ## Description

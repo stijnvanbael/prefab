@@ -4,14 +4,14 @@ title: Listen-to-self semantics in AggregateRoot for transactional event handlin
 status: Done
 assignee: []
 created_date: '2026-04-27 13:10'
-updated_date: '2026-04-29 14:52'
+updated_date: '2026-04-30 06:04'
 labels:
   - ddd
   - aggregate
   - events
 dependencies: []
 priority: high
-ordinal: 13000
+ordinal: 14000
 ---
 
 ## Description

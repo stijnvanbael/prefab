@@ -4,12 +4,12 @@ title: Autoconfigure datasource and driver class name for PostgreSQL
 status: Done
 assignee: []
 created_date: '2026-04-20'
-updated_date: '2026-04-22 13:38'
+updated_date: '2026-04-30 06:04'
 labels:
   - postgres
 dependencies: []
 priority: medium
-ordinal: 2000
+ordinal: 3000
 ---
 
 ## Description

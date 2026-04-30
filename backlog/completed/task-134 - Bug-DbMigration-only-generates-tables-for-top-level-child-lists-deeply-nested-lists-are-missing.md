@@ -6,14 +6,14 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-04-20'
-updated_date: '2026-04-22 13:38'
+updated_date: '2026-04-30 06:04'
 labels:
   - bug
   - postgres
   - annotation-processor
 dependencies: []
 priority: high
-ordinal: 4000
+ordinal: 5000
 ---
 
 ## Description

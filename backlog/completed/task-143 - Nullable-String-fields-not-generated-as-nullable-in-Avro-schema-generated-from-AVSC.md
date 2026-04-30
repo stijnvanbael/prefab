@@ -3,13 +3,13 @@ id: TASK-143
 title: >-
   Nullable String fields not generated as nullable in Avro schema generated from
   AVSC
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-04-27 14:07'
-updated_date: '2026-04-29 14:52'
+updated_date: '2026-04-30 06:04'
 labels: []
 dependencies: []
-ordinal: 1000
+ordinal: 18000
 ---
 
 ## Description

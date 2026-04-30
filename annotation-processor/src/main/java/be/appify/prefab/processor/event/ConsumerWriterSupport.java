@@ -79,14 +79,14 @@ public class ConsumerWriterSupport {
      * @param context               prefab context
      * @param type                  type spec builder to add the method to
      * @param eventHandlersForEvent map entry containing the event type and its associated event handlers
-     * @param eventType             the event type manifest
+     * @param listenerParamType     the actual type of the {@code event} parameter on the listener method
      * @param method                method spec builder for the event handler method
      */
     public void writeEventHandler(PrefabContext context, TypeSpec.Builder type,
-                                  Map.Entry<TypeManifest, List<ExecutableElement>> eventHandlersForEvent, TypeManifest eventType,
-                                  MethodSpec.Builder method) {
+                                  Map.Entry<TypeManifest, List<ExecutableElement>> eventHandlersForEvent,
+                                  TypeManifest listenerParamType, MethodSpec.Builder method) {
         var eventHandlers = deduplicateByEventType(context, eventHandlersForEvent.getValue());
-        if (eventHandlers.size() == 1 && sameType(eventType, eventHandlers.getFirst(), context)) {
+        if (eventHandlers.size() == 1 && sameType(listenerParamType, eventHandlers.getFirst(), context)) {
             singleTypeHandler(context, eventHandlers.getFirst(), method, "event");
         } else {
             multiTypeHandler(context, eventHandlers, method);
@@ -94,9 +94,10 @@ public class ConsumerWriterSupport {
         type.addMethod(method.build());
     }
 
-    private static boolean sameType(TypeManifest eventType, ExecutableElement eventHandler, PrefabContext context) {
-        var parameter = eventType(eventHandler, context);
-        return Objects.equals(parameter, eventType) || isConcreteAvscRecordOf(parameter, eventType);
+    private static boolean sameType(TypeManifest listenerParamType, ExecutableElement eventHandler, PrefabContext context) {
+        var handlerParamType = eventType(eventHandler, context);
+        return Objects.equals(handlerParamType, listenerParamType)
+                || isConcreteAvscRecordOf(listenerParamType, handlerParamType);
     }
 
     private static boolean isConcreteAvscRecordOf(TypeManifest eventRecord, TypeManifest contractInterface) {

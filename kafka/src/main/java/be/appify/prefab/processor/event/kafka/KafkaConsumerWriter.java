@@ -120,7 +120,7 @@ class KafkaConsumerWriter {
             if (asyncCommit) {
                 method.addAnnotation(Transactional.class);
             }
-            support.writeEventHandler(context, type, eventHandlersForEvent, eventType, method);
+            support.writeEventHandler(context, type, eventHandlersForEvent, listenerParamType, method);
         }
     }
 

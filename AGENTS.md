@@ -192,6 +192,27 @@ interactive-quote state (`dquote>` / `cmdand quote>`), requiring a manual reset 
 
 ---
 
+## 13. Developer Guide Maintenance
+
+The file `backlog/docs/developer-guide.md` is the single authoritative reference for all Prefab features,
+annotations, built-in types, modules, generated artefacts, and extension points.
+
+**Rule**: Any agent or developer that **changes or adds** any Prefab feature — annotation, generated artefact,
+module, configuration property, extension point, or behaviour — **must** update the relevant section of
+`backlog/docs/developer-guide.md` in the same commit or PR.
+
+This includes but is not limited to:
+- Adding or modifying an annotation or its attributes
+- Changing generated controller, service, repository, or migration output
+- Adding a new module or changing module dependencies
+- Adding a new built-in type or changing an existing type's behaviour
+- Adding or modifying a plugin or extension point
+
+**Why it matters**: The guide is used by both human developers and LLMs as the primary reference. Stale
+documentation causes incorrect code generation and wasted debugging time.
+
+---
+
 ## Summary Principle
 
 > *"Any fool can write code that a computer can understand.*

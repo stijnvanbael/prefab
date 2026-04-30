@@ -1,21 +1,22 @@
 ---
 id: TASK-150
 title: Support sealed @Avsc contract interfaces
-status: In Progress
-assignee: [ ]
+status: Done
+assignee: []
 created_date: '2026-04-30'
-updated_date: '2026-04-30'
+updated_date: '2026-04-30 13:44'
 labels:
   - avsc
   - code-generation
   - bug
-dependencies: [ ]
+dependencies: []
 priority: high
-ordinal: 15000
+ordinal: 3000
 ---
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 When generating events from AVSC, allow the `@Avsc`-annotated contract interface to be declared as
 `sealed` with the generated record subclasses listed in the `permits` clause.
 
@@ -44,12 +45,14 @@ writers to generate invalid converter files for them.
 Filter out `ERROR`-kind `TypeMirror`s in `TypeMembers.permittedSubtypes()`. These will be resolved correctly
 in round 2 when the AP-generated records are compiled. The Avro converter writers then process the proper
 `TypeManifest` objects in round 2 and generate correct converters.
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
-
-- [ ] A `sealed @Avsc` contract interface with a `permits` clause naming the AP-generated records compiles
+<!-- AC:BEGIN -->
+- [ ] #1 A `sealed @Avsc` contract interface with a `permits` clause naming the AP-generated records compiles
       successfully in a multi-round annotation processing build.
-- [ ] `TypeMembers.permittedSubtypes()` skips `ERROR`-kind permitted-subtype mirrors (unresolved in round 1).
-- [ ] Avro infrastructure files (converters, schema factories) are generated correctly for the sealed subclasses.
-- [ ] A test in `AvscPluginTest` verifies that the sealed interface and its generated records compile and
+- [ ] #2 `TypeMembers.permittedSubtypes()` skips `ERROR`-kind permitted-subtype mirrors (unresolved in round 1).
+- [ ] #3 Avro infrastructure files (converters, schema factories) are generated correctly for the sealed subclasses.
+- [ ] #4 A test in `AvscPluginTest` verifies that the sealed interface and its generated records compile and
       that both records implement the sealed contract interface.
+<!-- AC:END -->

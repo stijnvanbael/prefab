@@ -4,6 +4,7 @@ When generating code in this repository, follow all guidelines defined in [AGENT
 
 Key principles to honor:
 
+- **Security First**: Always prioritize security. Avoid hardcoding secrets, validate inputs, and follow best practices for secure coding.
 - **Meaningful Names**: Use intention-revealing, pronounceable, searchable names. Classes are nouns, methods are verbs.
 - **Small Functions**: Each function does one thing, has few arguments, no flag parameters, and follows Command-Query Separation.
 - **Self-Documenting Code**: Prefer clear code over comments. Remove commented-out code.

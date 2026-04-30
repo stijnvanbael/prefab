@@ -2,6 +2,7 @@ package be.appify.prefab.core.kafka;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import org.apache.kafka.common.header.Headers;
 import org.springframework.kafka.support.serializer.JacksonJsonTypeResolver;
 import org.springframework.stereotype.Component;
@@ -36,5 +37,14 @@ public class KafkaJsonTypeResolver implements JacksonJsonTypeResolver {
      */
     public void registerType(String topic, Class<?> type) {
         types.put(topic, type);
+    }
+
+    /**
+     * Returns the set of all registered event classes.
+     *
+     * @return set of registered event classes
+     */
+    public Set<Class<?>> registeredTypes() {
+        return Set.copyOf(types.values());
     }
 }

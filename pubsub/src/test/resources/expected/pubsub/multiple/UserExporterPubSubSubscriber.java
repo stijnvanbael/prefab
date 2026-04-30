@@ -23,6 +23,7 @@ public class UserExporterPubSubSubscriber {
             UserExporter userExporter, PubSubUtil pubSub,
             @Value("${topic.user.name}") String userEventTopic) {
         userEventExecutor = Executors.newFixedThreadPool(Integer.parseInt(concurrency));
+        pubSub.registerType(UserEvent.class.getName(), UserEvent.class);
         pubSub.subscribe(new SubscriptionRequest<UserEvent>(userEventTopic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
                 .withExecutor(userEventExecutor));
         this.userExporter = userExporter;

@@ -24,8 +24,10 @@ public class DayTotalSqsSubscriber {
             @Value("${topic.sale.name}") String saleCreatedTopic,
             @Value("${topic.refund.name}") String refundCreatedTopic) {
         executor = Executors.newFixedThreadPool(1);
+        sqsUtil.registerType(Sale.Created.class.getName(), Sale.Created.class);
         sqsUtil.subscribe(new SqsSubscriptionRequest<Sale.Created>(saleCreatedTopic, "day-total-on-sale-created", Sale.Created.class, this::onSaleCreated)
                 .withExecutor(executor));
+        sqsUtil.registerType(Refund.Created.class.getName(), Refund.Created.class);
         sqsUtil.subscribe(new SqsSubscriptionRequest<Refund.Created>(refundCreatedTopic, "day-total-on-refund-created", Refund.Created.class, this::onRefundCreated)
                 .withExecutor(executor));
         this.dayTotalService = dayTotalService;

@@ -159,6 +159,8 @@ class SqsSubscriberWriter {
                             .build())
                     .build());
         }
+        constructor.addStatement("sqsUtil.registerType($T.class.getName(), $T.class)",
+                eventType.asTypeName(), eventType.asTypeName());
         constructor.addStatement("""
                         sqsUtil.subscribe(new $T($L, $S, $T.class, this::on$L)
                         .withExecutor(executor)$L)""",

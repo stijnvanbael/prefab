@@ -5,9 +5,8 @@ import be.appify.prefab.core.util.SerializationRegistry;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import java.io.IOException;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DecoderFactory;
@@ -27,7 +26,7 @@ public class SqsDeserializer {
     private final JsonUtil jsonUtil;
     private final SerializationRegistry serializationRegistry;
     private final ConversionService conversionService;
-    private final ConcurrentMap<String, Class<?>> typeCache = new ConcurrentHashMap<>();
+    private final Map<String, Class<?>> allowedTypes = new HashMap<>();
 
     /**
      * Constructs a SqsDeserializer with the given JsonUtil, SerializationRegistry, and ConversionService.
@@ -88,18 +87,34 @@ public class SqsDeserializer {
     @SuppressWarnings("unchecked")
     private <T> T deserializeJson(String payload, String typeName, Class<T> type) {
         if (typeName != null) {
-            var resolvedType = typeCache.computeIfAbsent(typeName, key -> {
-                try {
-                    return Class.forName(typeName);
-                } catch (ClassNotFoundException e) {
-                    throw new IllegalArgumentException("Could not find class for type: " + typeName, e);
-                }
-            });
+            var resolvedType = allowedTypes.get(typeName);
+            if (resolvedType == null) {
+                throw new IllegalArgumentException("Type not registered in allowlist: " + typeName);
+            }
             if (type.isAssignableFrom(resolvedType)) {
                 return (T) jsonUtil.parseJson(payload, resolvedType);
             }
         }
         return jsonUtil.parseJson(payload, type);
+    }
+
+    /**
+     * Registers an event type in the allowlist for safe deserialization from the SNS Subject header.
+     * Permitted subtypes of sealed interfaces are registered recursively.
+     *
+     * @param typeName
+     *         the fully-qualified class name that may appear as the SNS message Subject
+     * @param type
+     *         the corresponding Java class
+     */
+    public void registerType(String typeName, Class<?> type) {
+        allowedTypes.put(typeName, type);
+        var permittedSubclasses = type.getPermittedSubclasses();
+        if (permittedSubclasses != null) {
+            for (var subclass : permittedSubclasses) {
+                registerType(subclass.getName(), subclass);
+            }
+        }
     }
 
     private <T> T deserializeAvro(String payload, Class<T> type) {

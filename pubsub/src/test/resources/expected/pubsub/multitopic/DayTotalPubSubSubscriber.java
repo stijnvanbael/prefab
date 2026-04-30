@@ -26,9 +26,11 @@ public class DayTotalPubSubSubscriber {
             @Value("${topic.sale.name}") String saleCreatedTopic,
             @Value("${topic.refund.name}") String refundCreatedTopic) {
         saleCreatedExecutor = Executors.newFixedThreadPool(1);
+        pubSub.registerType(Sale.Created.class.getName(), Sale.Created.class);
         pubSub.subscribe(new SubscriptionRequest<Sale.Created>(saleCreatedTopic, "day-total-on-sale-created", Sale.Created.class, this::onSaleCreated)
                 .withExecutor(saleCreatedExecutor));
         refundCreatedExecutor = Executors.newFixedThreadPool(1);
+        pubSub.registerType(Refund.Created.class.getName(), Refund.Created.class);
         pubSub.subscribe(new SubscriptionRequest<Refund.Created>(refundCreatedTopic, "day-total-on-refund-created", Refund.Created.class, this::onRefundCreated)
                 .withExecutor(refundCreatedExecutor));
         this.dayTotalService = dayTotalService;

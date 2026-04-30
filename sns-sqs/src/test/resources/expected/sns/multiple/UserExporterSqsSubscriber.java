@@ -23,6 +23,7 @@ public class UserExporterSqsSubscriber {
             UserExporter userExporter, SqsUtil sqsUtil,
             @Value("${topic.user.name}") String userEventTopic) {
         executor = Executors.newFixedThreadPool(Integer.parseInt(concurrency));
+        sqsUtil.registerType(UserEvent.class.getName(), UserEvent.class);
         sqsUtil.subscribe(new SqsSubscriptionRequest<UserEvent>(userEventTopic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
                 .withExecutor(executor));
         this.userExporter = userExporter;

@@ -7,7 +7,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.stereotype.Component;
 
-@Component
+@Component("event_avro_DeepNestedRecordEventOrderAddressToGenericRecordConverter")
 public class DeepNestedRecordEventOrderAddressToGenericRecordConverter implements Converter<DeepNestedRecordEvent.Order.Address, GenericRecord> {
     private final Schema schema;
 

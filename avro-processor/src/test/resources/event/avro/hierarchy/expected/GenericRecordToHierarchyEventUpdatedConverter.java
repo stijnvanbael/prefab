@@ -5,7 +5,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.stereotype.Component;
 
-@Component
+@Component("event_avro_GenericRecordToHierarchyEventUpdatedConverter")
 public class GenericRecordToHierarchyEventUpdatedConverter implements Converter<GenericRecord, HierarchyEvent.Updated> {
     public GenericRecordToHierarchyEventUpdatedConverter() {
     }

@@ -4,7 +4,7 @@ import java.util.List;
 import org.apache.avro.Schema;
 import org.springframework.stereotype.Component;
 
-@Component
+@Component("event_avro_DocFieldEventSchemaFactory")
 public class DocFieldEventSchemaFactory {
     private final Schema schema;
 

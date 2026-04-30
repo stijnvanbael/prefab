@@ -4,7 +4,7 @@ import java.util.List;
 import org.apache.avro.Schema;
 import org.springframework.stereotype.Component;
 
-@Component
+@Component("event_avro_SingleValuedNestedEventOuterSchemaFactory")
 public class SingleValuedNestedEventOuterSchemaFactory {
     private final Schema schema;
 

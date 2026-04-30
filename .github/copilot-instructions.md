@@ -4,7 +4,9 @@ When generating code in this repository, follow all guidelines defined in [AGENT
 
 Key principles to honor:
 
-- **Security First**: Always prioritize security. Avoid hardcoding secrets, validate inputs, and follow best practices for secure coding.
+- **Security First**: Never hardcode secrets, validate all external input, avoid dependencies with known CVEs,
+  apply least-privilege access, mask sensitive data in logs, use parameterised queries, and default to the most
+  restrictive configuration. See [section 14 of AGENTS.md](../AGENTS.md#14-security-first) for the full rules.
 - **Meaningful Names**: Use intention-revealing, pronounceable, searchable names. Classes are nouns, methods are verbs.
 - **Small Functions**: Each function does one thing, has few arguments, no flag parameters, and follows Command-Query Separation.
 - **Self-Documenting Code**: Prefer clear code over comments. Remove commented-out code.
@@ -14,4 +16,6 @@ Key principles to honor:
 - **SRP & DI**: One responsibility per class, depend on abstractions, inject dependencies.
 - **No Speculation**: Do not add complexity for hypothetical future needs.
 - **Boyscout rule**: Leave the code cleaner than you found it. Refactor when you see an opportunity. Fix any tests that fail.
+- **Report Issues**: When a task reveals a problem outside its scope, create a new backlog task instead of
+  silently ignoring it or over-extending the fix. See [section 15 of AGENTS.md](../AGENTS.md#15-report-issues) for the full rules.
 - **Terminal truncation**: Keep terminal commands shorter than 256 characters to avoid truncation issues.

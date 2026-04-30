@@ -213,6 +213,96 @@ documentation causes incorrect code generation and wasted debugging time.
 
 ---
 
+## 14. Security First
+
+Security is a non-negotiable property of every change. Agents and developers must apply secure coding practices
+by default, not as an afterthought.
+
+### Secrets and credentials
+
+- **Never hardcode** secrets, passwords, API keys, tokens, or certificates in source code or test resources.
+- Use environment variables, Spring `@Value` with property placeholders, or a secrets manager instead.
+- If a test requires a credential, use a clearly fake placeholder (e.g., `"test-secret-placeholder"`) and document
+  why it is safe.
+
+### Input validation
+
+- Validate all external input at the boundary (HTTP request bodies, Kafka messages, query parameters, path
+  variables) before processing it.
+- Reject or sanitise input that does not meet expected constraints; never propagate raw untrusted data into
+  persistence or downstream calls.
+- Prefer allow-lists over deny-lists when validating values.
+
+### Dependencies
+
+- Do not introduce dependencies with known CVEs. Run `mvn dependency:check` or use the CVE Remediator agent to
+  verify new dependencies before committing.
+- Prefer minimal, well-maintained libraries with a small attack surface.
+- Pin dependency versions explicitly; avoid open-ended version ranges.
+
+### Principle of least privilege
+
+- Grant the minimum permissions necessary. Service accounts, IAM roles, and database users must only have the
+  access they need to perform their function.
+- Do not share credentials or roles across unrelated services.
+
+### Sensitive data handling
+
+- Do not log sensitive fields (passwords, tokens, personal data). Annotate or mask them before they reach log
+  statements.
+- Do not include sensitive data in exception messages that may surface to clients.
+- Apply `@JsonIgnore`, field-level access controls, or dedicated response DTOs to prevent accidental exposure
+  through serialisation.
+
+### Injection prevention
+
+- Use parameterised queries or the ORM — never concatenate user input into SQL strings.
+- Encode output that is rendered in a UI to prevent XSS.
+- Treat every external value as untrusted regardless of its origin.
+
+### Secure defaults
+
+- Default to the most restrictive configuration and open access explicitly where needed.
+- Enable HTTPS/TLS for all external endpoints; do not accept plaintext connections in production configurations.
+- Set `HttpOnly` and `Secure` flags on cookies.
+
+---
+
+## 15. Report Issues
+
+Agents operate within a defined scope. When a task reveals a problem that is **larger than the current scope** —
+an architectural flaw, a security vulnerability in unrelated code, a failing test in another module, or a missing
+feature that blocks progress — the agent must not silently ignore it or over-extend the fix.
+
+### When to report
+
+- A bug or inconsistency is found that falls **outside the current task's scope**.
+- Fixing the root cause would require changes across multiple modules or subsystems.
+- A security vulnerability is discovered that is not the direct subject of the task.
+- A test in a module the agent did not touch starts failing as a side-effect of a change.
+- An architectural decision needs to be made that the task description does not authorise.
+
+### How to report
+
+Create a new backlog task using the `backlog` CLI (see [BACKLOG.md](BACKLOG.md)) with:
+- A clear, descriptive title that identifies the problem.
+- A concise description of what was observed and why it matters.
+- A reference to the file, class, or module where the issue was found.
+- The acceptance criteria needed to consider the issue resolved.
+
+Do **not** silently work around the problem, leave a `// TODO` comment as the only record, or expand the current
+task scope without creating a separate tracking item.
+
+### What not to do
+
+- **Do not over-scope a fix**: applying a one-line patch is fine; refactoring an entire subsystem to fix a
+  tangential issue is not.
+- **Do not block the current task**: report the issue, note the dependency in the current task if relevant, and
+  continue with what can be done safely.
+- **Do not duplicate**: check open backlog tasks before creating a new one to avoid redundant entries.
+
+---
+
 ## Summary Principle
 
 > *"Any fool can write code that a computer can understand.*

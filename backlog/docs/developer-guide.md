@@ -111,17 +111,19 @@ request/response DTOs, event consumer, and database migration scripts at compile
 
 ### Maven Dependency Snippet
 
+Replace `LATEST_VERSION` with the current release version:
+
 ```xml
 <!-- Always required -->
 <dependency>
     <groupId>be.appify.prefab</groupId>
     <artifactId>prefab-core</artifactId>
-    <version>${prefab.version}</version>
+    <version>LATEST_VERSION</version>
 </dependency>
 <dependency>
     <groupId>be.appify.prefab</groupId>
     <artifactId>prefab-annotation-processor</artifactId>
-    <version>${prefab.version}</version>
+    <version>LATEST_VERSION</version>
     <scope>provided</scope>
 </dependency>
 
@@ -129,14 +131,14 @@ request/response DTOs, event consumer, and database migration scripts at compile
 <dependency>
     <groupId>be.appify.prefab</groupId>
     <artifactId>prefab-postgres</artifactId>
-    <version>${prefab.version}</version>
+    <version>LATEST_VERSION</version>
 </dependency>
 
 <!-- Kafka events -->
 <dependency>
     <groupId>be.appify.prefab</groupId>
     <artifactId>prefab-kafka</artifactId>
-    <version>${prefab.version}</version>
+    <version>LATEST_VERSION</version>
 </dependency>
 ```
 

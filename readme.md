@@ -35,24 +35,24 @@ therefore be valid aggregate roots.
 
 ## 🏁 Getting started
 
-Add the following to your `pom.xml`:
+Add the following to your `pom.xml` (replace `LATEST_VERSION` with the current release):
 
 ```xml
 <dependency>
     <groupId>be.appify.prefab</groupId>
     <artifactId>prefab-core</artifactId>
-    <version>${prefab.version}</version>
+    <version>LATEST_VERSION</version>
 </dependency>
 <!-- Choose your database backend: prefab-postgres for PostgreSQL or prefab-mongodb for MongoDB -->
 <dependency>
     <groupId>be.appify.prefab</groupId>
     <artifactId>prefab-postgres</artifactId>
-    <version>${prefab.version}</version>
+    <version>LATEST_VERSION</version>
 </dependency>
 <dependency>
     <groupId>be.appify.prefab</groupId>
     <artifactId>prefab-annotation-processor</artifactId>
-    <version>${prefab.version}</version>
+    <version>LATEST_VERSION</version>
     <scope>provided</scope>
 </dependency>
 ```

@@ -109,6 +109,9 @@ public class TestJavaFileWriter {
     }
 
     public Optional<String> getRootPath() {
+        if (context == null) {
+            return Optional.empty();
+        }
         var candidates = preferredElement != null
                 ? Stream.concat(Stream.of(preferredElement),
                         context.roundEnvironment().getRootElements().stream()

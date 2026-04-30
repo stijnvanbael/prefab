@@ -104,10 +104,14 @@ class AsyncCommitWriterTest {
                 .compile(sourceOf("rest/asyncmultiplecreate/source/Order.java"));
 
         assertThat(compilation).succeeded();
-        var clientFile = assertThat(compilation)
-                .generatedFile(StandardLocation.CLASS_OUTPUT, "rest/asyncmultiplecreate/OrderClient.java");
-        clientFile.contentsAsUtf8String().contains("void placeOrder(");
-        clientFile.contentsAsUtf8String().contains("void quickOrder(");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "rest/asyncmultiplecreate/OrderClient.java")
+                .contentsAsUtf8String()
+                .contains("void placeOrder(");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "rest/asyncmultiplecreate/OrderClient.java")
+                .contentsAsUtf8String()
+                .contains("void quickOrder(");
     }
 
     @Test

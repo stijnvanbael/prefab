@@ -16,3 +16,4 @@ be.appify.prefab.processor.rest.aggregate.AggregateParameterPlugin
 be.appify.prefab.processor.tenant.TenantPlugin
 be.appify.prefab.processor.audit.AuditPlugin
 be.appify.prefab.processor.mother.MotherPlugin
+be.appify.prefab.processor.assertion.AssertionPlugin

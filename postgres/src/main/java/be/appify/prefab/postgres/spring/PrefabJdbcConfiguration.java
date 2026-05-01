@@ -3,6 +3,7 @@ package be.appify.prefab.postgres.spring;
 import be.appify.prefab.core.spring.data.jdbc.PolymorphicReadingConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.ByteArrayToFileConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.FileToByteArrayConverter;
+import be.appify.prefab.postgres.spring.data.jdbc.JdbcOutboxRepository;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabDataAccessStrategy;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabJdbcAggregateTemplate;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabJdbcMappingContext;
@@ -48,6 +49,9 @@ public class PrefabJdbcConfiguration extends AbstractJdbcConfiguration {
 
     @Autowired
     private JsonMapper jsonMapper;
+
+    @Autowired(required = false)
+    private JdbcOutboxRepository outboxRepository;
 
     /**
      * Constructs a new PrefabJdbcConfiguration.
@@ -114,6 +118,7 @@ public class PrefabJdbcConfiguration extends AbstractJdbcConfiguration {
             JdbcConverter converter,
             DataAccessStrategy dataAccessStrategy
     ) {
-        return new PrefabJdbcAggregateTemplate(applicationContext, mappingContext, converter, dataAccessStrategy);
+        return new PrefabJdbcAggregateTemplate(applicationContext, mappingContext, converter, dataAccessStrategy,
+                outboxRepository, jsonMapper);
     }
 }

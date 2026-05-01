@@ -32,7 +32,7 @@ public class SpringDomainEventPublisher extends DomainEventPublisher {
      * @throws IllegalStateException if the registered {@link DomainEventPublisher} is not a
      *                               {@link SpringDomainEventPublisher}
      */
-    static ApplicationEventPublisher getApplicationEventPublisher() {
+    public static ApplicationEventPublisher getApplicationEventPublisher() {
         DomainEventPublisher instance = getInstance();
         if (!(instance instanceof SpringDomainEventPublisher publisher)) {
             throw new IllegalStateException(

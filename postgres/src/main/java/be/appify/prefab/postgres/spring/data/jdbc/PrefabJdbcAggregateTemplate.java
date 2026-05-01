@@ -1,10 +1,13 @@
 package be.appify.prefab.postgres.spring.data.jdbc;
 
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
+import be.appify.prefab.core.annotations.Outbox;
+import be.appify.prefab.core.outbox.OutboxEntry;
+import be.appify.prefab.core.outbox.OutboxRepository;
+import be.appify.prefab.core.outbox.PendingEventBuffer;
+import be.appify.prefab.core.spring.SpringDomainEventPublisher;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.jdbc.core.JdbcAggregateTemplate;
 import org.springframework.data.jdbc.core.convert.DataAccessStrategy;
 import org.springframework.data.jdbc.core.convert.JdbcConverter;
@@ -12,6 +15,14 @@ import org.springframework.data.mapping.PersistentPropertyAccessor;
 import org.springframework.data.relational.core.mapping.RelationalMappingContext;
 import org.springframework.data.relational.core.mapping.RelationalPersistentEntity;
 import org.springframework.data.relational.core.mapping.RelationalPersistentProperty;
+import tools.jackson.databind.json.JsonMapper;
+
+import java.time.Instant;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * Custom {@link JdbcAggregateTemplate} that avoids unnecessary child-entity delete and re-insert operations when saving
@@ -42,6 +53,8 @@ import org.springframework.data.relational.core.mapping.RelationalPersistentProp
 public class PrefabJdbcAggregateTemplate extends JdbcAggregateTemplate {
 
     private final RelationalMappingContext context;
+    private final @Nullable OutboxRepository outboxRepository;
+    private final @Nullable JsonMapper jsonMapper;
 
     /**
      * Constructs a new PrefabJdbcAggregateTemplate.
@@ -54,15 +67,23 @@ public class PrefabJdbcAggregateTemplate extends JdbcAggregateTemplate {
      *         the JDBC converter
      * @param dataAccessStrategy
      *         the data access strategy (should be a {@link PrefabDataAccessStrategy})
+     * @param outboxRepository
+     *         the outbox repository for transactional outbox support; may be {@code null}
+     * @param jsonMapper
+     *         the JSON mapper for serializing domain events; may be {@code null}
      */
     public PrefabJdbcAggregateTemplate(
             ApplicationContext applicationContext,
             RelationalMappingContext context,
             JdbcConverter converter,
-            DataAccessStrategy dataAccessStrategy
+            DataAccessStrategy dataAccessStrategy,
+            @Nullable OutboxRepository outboxRepository,
+            @Nullable JsonMapper jsonMapper
     ) {
         super(applicationContext, context, converter, dataAccessStrategy);
         this.context = context;
+        this.outboxRepository = outboxRepository;
+        this.jsonMapper = jsonMapper;
     }
 
     @Override
@@ -70,7 +91,12 @@ public class PrefabJdbcAggregateTemplate extends JdbcAggregateTemplate {
     public <T> T save(T instance) {
         Class<T> type = (Class<T>) instance.getClass();
         RelationalPersistentEntity<T> entity = (RelationalPersistentEntity<T>) context.getRequiredPersistentEntity(type);
+        T result = performSave(instance, entity, type);
+        drainEventsToOutbox(result, entity);
+        return result;
+    }
 
+    private <T> T performSave(T instance, RelationalPersistentEntity<T> entity, Class<T> type) {
         if (!entity.isNew(instance) && hasCollectionProperties(entity)) {
             Object id = entity.getIdentifierAccessor(instance).getRequiredIdentifier();
             T current = findCurrentState(id, type);
@@ -86,8 +112,53 @@ public class PrefabJdbcAggregateTemplate extends JdbcAggregateTemplate {
                 }
             }
         }
-
         return super.save(instance);
+    }
+
+    private <T> void drainEventsToOutbox(T result, RelationalPersistentEntity<T> entity) {
+        List<Object> events = PendingEventBuffer.drainAll();
+        if (events.isEmpty()) {
+            return;
+        }
+        Outbox outbox = result.getClass().getAnnotation(Outbox.class);
+        boolean outboxDisabled = outbox != null && !outbox.enabled();
+        if (outboxRepository == null || outboxDisabled) {
+            publishDirectly(events);
+        } else {
+            saveToOutbox(result, entity, events);
+        }
+    }
+
+    private void publishDirectly(List<Object> events) {
+        ApplicationEventPublisher publisher = SpringDomainEventPublisher.getApplicationEventPublisher();
+        events.forEach(publisher::publishEvent);
+    }
+
+    private <T> void saveToOutbox(T result, RelationalPersistentEntity<T> entity, List<Object> events) {
+        String aggregateType = result.getClass().getSimpleName();
+        String aggregateId = entity.getIdentifierAccessor(result).getRequiredIdentifier().toString();
+        for (Object event : events) {
+            outboxRepository.save(new OutboxEntry(
+                    UUID.randomUUID().toString(),
+                    aggregateType,
+                    aggregateId,
+                    event.getClass().getName(),
+                    serializeToJson(event),
+                    Instant.now(),
+                    null
+            ));
+        }
+    }
+
+    private String serializeToJson(Object event) {
+        if (jsonMapper == null) {
+            throw new IllegalStateException("JsonMapper is required for outbox serialization but was not configured");
+        }
+        try {
+            return jsonMapper.writeValueAsString(event);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize event to JSON: " + event.getClass().getName(), e);
+        }
     }
 
     private <T> boolean hasCollectionProperties(RelationalPersistentEntity<T> entity) {

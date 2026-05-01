@@ -29,8 +29,16 @@ public class SpringDomainEventPublisher extends DomainEventPublisher {
      * (e.g. JDBC/MongoDB templates and the relay service) can publish events directly.
      *
      * @return the Spring application event publisher
+     * @throws IllegalStateException if the registered {@link DomainEventPublisher} is not a
+     *                               {@link SpringDomainEventPublisher}
      */
     static ApplicationEventPublisher getApplicationEventPublisher() {
-        return ((SpringDomainEventPublisher) getInstance()).applicationEventPublisher;
+        DomainEventPublisher instance = getInstance();
+        if (!(instance instanceof SpringDomainEventPublisher publisher)) {
+            throw new IllegalStateException(
+                    "Expected a SpringDomainEventPublisher but found: "
+                            + (instance == null ? "null" : instance.getClass().getName()));
+        }
+        return publisher.applicationEventPublisher;
     }
 }

@@ -31,14 +31,14 @@ public final class PendingEventBuffer {
      */
     public static List<Object> drainAll() {
         List<Object> events = new ArrayList<>(BUFFER.get());
-        BUFFER.get().clear();
+        BUFFER.remove();
         return events;
     }
 
     /**
-     * Clears the buffer without returning its contents.
+     * Clears the buffer and removes the ThreadLocal to prevent memory leaks in thread-pooled environments.
      */
     public static void clear() {
-        BUFFER.get().clear();
+        BUFFER.remove();
     }
 }

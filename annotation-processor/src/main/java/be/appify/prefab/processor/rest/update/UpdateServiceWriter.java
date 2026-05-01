@@ -63,10 +63,12 @@ class UpdateServiceWriter {
         method.addStatement("""
                         return $N.findById(id).map(aggregate -> {
                             $L
+                            $T.publishPending();
                             return aggregate;
                         })""",
                 repositoryName,
-                domainCallBlock);
+                domainCallBlock,
+                ClassName.get("be.appify.prefab.core.outbox", "PendingEventBuffer"));
     }
 
     private CodeBlock buildAggregateFunction(UpdateManifest update, CodeBlock domainCallBlock) {

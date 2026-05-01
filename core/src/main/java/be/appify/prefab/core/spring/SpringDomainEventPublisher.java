@@ -17,6 +17,7 @@ public class SpringDomainEventPublisher extends DomainEventPublisher {
     ) {
         this.applicationEventPublisher = applicationEventPublisher;
         DomainEventPublisher.serviceLocator = serviceLocator;
+        PendingEventBuffer.setDirectPublisher(applicationEventPublisher::publishEvent);
     }
 
     @Override

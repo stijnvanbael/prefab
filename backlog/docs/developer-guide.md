@@ -34,8 +34,7 @@ this document as the primary source of truth for Prefab behaviour.
    - [6.4 Request/Response Records](#64-requestresponse-records)
    - [6.5 Event Consumer](#65-event-consumer)
    - [6.6 Database Migration Scripts](#66-database-migration-scripts)
-   - [6.7 Generated Test Client](#67-generated-test-client)
-   - [6.8 Event Consumer Assertions](#68-event-consumer-assertions)
+   - [6.7 Event Consumer Assertions](#67-event-consumer-assertions)
 7. [Feature Guides](#7-feature-guides)
    - [7.1 REST CRUD Operations](#71-rest-crud-operations)
    - [7.2 Event Publishing](#72-event-publishing)
@@ -1348,52 +1347,7 @@ Column type mapping:
 | `enum` | `VARCHAR(255)` | Enum name |
 | `Binary` | Omitted | Stored externally |
 
-### 6.7 Generated Test Client
-
-Each aggregate with REST annotations gets a `{Aggregate}Client` Spring `@Component` generated in the
-`{basePackage}.test` package. The test client wraps a MockMvc instance and exposes one method per REST
-operation.
-
-#### Return Types
-
-All test client methods return a `RestResponseAssert<R>` object instead of raw values:
-
-| Operation | Method pattern | Response type |
-|-----------|----------------|---------------|
-| Create | `create{Aggregate}(...)` | `RestResponseAssert<Void>` |
-| Get by ID | `get{Aggregate}ById(id)` | `RestResponseAssert<{Aggregate}Response>` |
-| Get list | `find{Aggregates}(pageable)` | `RestResponseAssert<Page<{Aggregate}Response>>` |
-| Update | `{operation}(id, ...)` | `RestResponseAssert<Void>` |
-| Delete | `delete{Aggregate}(id)` | `RestResponseAssert<Void>` |
-
-#### `RestResponseAssert<R>` API
-
-| Method | Description |
-|--------|-------------|
-| `id()` | Returns the resource ID extracted from the `Location` header (populated for create) |
-| `response()` | Returns the deserialized response body (populated for get/getList) |
-| `resultActions()` | Returns the underlying `ResultActions` for MockMvc status/header assertions |
-| `andAssert(Consumer<RestResponseAssert<R>>)` | Applies a custom assertion and returns `this` for chaining |
-
-Example:
-
-```java
-// Capture id from create
-var productId = productClient.createProduct("Widget").id();
-
-// Capture response from get
-var product = productClient.getProductById(productId).response();
-assertThat(product.name()).isEqualTo("Widget");
-
-// Custom assertion with andAssert
-productClient.createProduct("Gadget")
-    .andAssert(r -> assertThat(r.id()).isNotBlank())
-    .andAssert(r -> assertThat(r.resultActions()).isNotNull());
-```
-
----
-
-### 6.8 Event Consumer Assertions
+### 6.7 Event Consumer Assertions
 
 The `EventConsumerWhereStep<V>` interface (returned by `EventConsumerAssert.assertThat(consumer)...within(...)`)
 supports two overloads of `where()` for asserting received events:

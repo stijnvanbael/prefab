@@ -24,12 +24,12 @@ class CategoryStatsIntegrationTest {
 
     @Test
     void updateProductCountOnProductCreated() throws Exception {
-        var categoryId = categories.createCategory("Electronics").id();
+        var categoryId = categories.createCategory("Electronics");
         products.createProduct("Laptop", "A laptop", BigDecimal.valueOf(999.99), "USD", categoryId);
         products.createProduct("Phone", "A phone", BigDecimal.valueOf(499.99), "USD", categoryId);
 
         await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
-                assertThat(categoryStats.findCategoryStatses(Pageable.unpaged(), (String) null).response().content())
+                assertThat(categoryStats.findCategoryStatses(Pageable.unpaged(), (String) null).content())
                         .anySatisfy(stats -> {
                             assertThat(stats.name()).isEqualTo("Electronics");
                             assertThat(stats.totalProducts()).isEqualTo(2);

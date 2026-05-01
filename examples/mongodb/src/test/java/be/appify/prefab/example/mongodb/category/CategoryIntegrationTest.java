@@ -14,9 +14,9 @@ class CategoryIntegrationTest {
 
     @Test
     void createAndRetrieveCategory() throws Exception {
-        var categoryId = categories.createCategory("Electronics").id();
+        var categoryId = categories.createCategory("Electronics");
 
-        var category = categories.getCategoryById(categoryId).response();
+        var category = categories.getCategoryById(categoryId);
 
         assertThat(category.name()).isEqualTo("Electronics");
         assertThat(category.id().id()).isEqualTo(categoryId);
@@ -27,7 +27,7 @@ class CategoryIntegrationTest {
         categories.createCategory("Books");
         categories.createCategory("Clothing");
 
-        var page = categories.findCategories(null).response();
+        var page = categories.findCategories(null);
 
         assertThat(page.content())
                 .extracting(be.appify.prefab.example.mongodb.category.infrastructure.http.CategoryResponse::name)

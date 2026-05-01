@@ -19,14 +19,14 @@ class ChannelIntegrationTest {
 
     @Test
     void subscribeToChannel() throws Exception {
-        var channelId = channels.createChannel("general").id();
-        var johnId = users.createUser("John").id();
-        var janeId = users.createUser("Jane").id();
+        var channelId = channels.createChannel("general");
+        var johnId = users.createUser("John");
+        var janeId = users.createUser("Jane");
         users.subscribeToChannel(johnId, channelId);
         users.subscribeToChannel(janeId, channelId);
 
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
-            var channel = channels.getChannelById(channelId).response();
+            var channel = channels.getChannelById(channelId);
             assertThat(channel.subscribers()).contains(Reference.fromId(johnId), Reference.fromId(janeId));
         });
     }

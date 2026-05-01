@@ -26,17 +26,17 @@ class SaleIntegrationTest {
 
     @Test
     void sale() throws Exception {
-        var cashRegisterId = cashRegisters.createCashRegister("Service 1").id();
+        var cashRegisterId = cashRegisters.createCashRegister("Service 1");
         cashRegisters.cashIn(cashRegisterId, 100.0);
-        var customerId = customers.createCustomer(new PersonName("John", "Doe"), "john.doe@gmail.com").id();
-        var saleId = sales.createSale(cashRegisterId).id();
+        var customerId = customers.createCustomer(new PersonName("John", "Doe"), "john.doe@gmail.com");
+        var saleId = sales.createSale(cashRegisterId);
         sales.addCustomer(saleId, customerId);
         sales.addLine(saleId, "Shampoo", 2, 3.5);
         sales.addLine(saleId, "Toothpaste", 1, 4.0);
         sales.pay(saleId, 7.5, Sale.PaymentMethod.CASH);
 
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
-            var cashRegister = cashRegisters.getCashRegisterById(cashRegisterId).response();
+            var cashRegister = cashRegisters.getCashRegisterById(cashRegisterId);
             assertThat(cashRegister.cashInDrawer()).isEqualTo(107.5);
         });
     }

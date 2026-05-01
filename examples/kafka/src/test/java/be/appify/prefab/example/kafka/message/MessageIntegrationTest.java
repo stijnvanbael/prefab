@@ -32,24 +32,24 @@ class MessageIntegrationTest {
 
     @Test
     void addMessageToUnreadMessagesOnAllUsersInChannel() throws Exception {
-        var channelId = channels.createChannel("general").id();
-        var johnId = users.createUser("John").id();
-        var janeId = users.createUser("Jane").id();
-        var daveId = users.createUser("Dave").id();
+        var channelId = channels.createChannel("general");
+        var johnId = users.createUser("John");
+        var janeId = users.createUser("Jane");
+        var daveId = users.createUser("Dave");
         users.subscribeToChannel(johnId, channelId);
         users.subscribeToChannel(janeId, channelId);
 
-        var messageId = messages.createMessage(johnId, channelId, "Hello, World!").id();
+        var messageId = messages.createMessage(johnId, channelId, "Hello, World!");
 
         await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
-                assertThat(userStatuses.findUserStatuses(Pageable.unpaged()).response().getContent())
+                assertThat(userStatuses.findUserStatuses(Pageable.unpaged()).getContent())
                         .extracting(UserStatusResponse::unreadMessages)
                         .contains(
                                 List.of(new UnreadMessage(Reference.fromId(messageId), Reference.fromId(channelId))),
                                 List.of(new UnreadMessage(Reference.fromId(messageId), Reference.fromId(channelId)))
                         ));
 
-        var dave = userStatuses.findUserStatuses(Pageable.unpaged()).response().getContent()
+        var dave = userStatuses.findUserStatuses(Pageable.unpaged()).getContent()
                 .stream()
                 .filter(userStatus -> daveId.equals(userStatus.user().id())).findFirst();
         assertThat(dave).hasValueSatisfying(u ->

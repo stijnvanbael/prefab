@@ -5,14 +5,11 @@ import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.rest.ControllerUtil;
 import com.palantir.javapoet.MethodSpec;
-import com.palantir.javapoet.ParameterizedTypeName;
-import com.palantir.javapoet.TypeName;
 import java.util.List;
 import javax.lang.model.element.Modifier;
 
 import static be.appify.prefab.processor.TestClasses.MOCK_MVC_REQUEST_BUILDERS;
 import static be.appify.prefab.processor.TestClasses.MOCK_MVC_RESULT_MATCHERS;
-import static be.appify.prefab.processor.TestClasses.REST_RESPONSE_ASSERT;
 
 class DeleteTestClientWriter {
     List<MethodSpec> deleteMethods(ClassManifest manifest) {
@@ -26,10 +23,6 @@ class DeleteTestClientWriter {
                 givenVariantForPolymorphic(manifest));
     }
 
-    private static TypeName voidResponseAssert() {
-        return ParameterizedTypeName.get(REST_RESPONSE_ASSERT, TypeName.get(Void.class));
-    }
-
     private MethodSpec whenVariant(ClassManifest manifest) {
         return variant(manifest, "whenDeleting" + manifest.simpleName());
     }
@@ -41,12 +34,12 @@ class DeleteTestClientWriter {
     private static MethodSpec variant(ClassManifest manifest, String methodName) {
         var method = MethodSpec.methodBuilder(methodName)
                 .addModifiers(Modifier.PUBLIC)
-                .returns(voidResponseAssert())
+                .returns(void.class)
                 .addParameter(String.class, "id");
         manifest.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
         return method
                 .addException(Exception.class)
-                .addStatement("return delete$L($L)",
+                .addStatement("delete$L($L)",
                         manifest.simpleName(),
                         "id" + manifest.parent().map(parent -> ", " + parent.name()).orElse(""))
                 .build();
@@ -59,13 +52,13 @@ class DeleteTestClientWriter {
                 .orElseThrow();
         var method = MethodSpec.methodBuilder("delete" + manifest.simpleName())
                 .addModifiers(Modifier.PUBLIC)
-                .returns(voidResponseAssert())
+                .returns(void.class)
                 .addParameter(String.class, "id");
         manifest.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
         return method
                 .addException(Exception.class)
                 .addStatement("""
-                                var result = mockMvc.perform($T.$N($S, $L)$L)
+                                mockMvc.perform($T.$N($S, $L)$L)
                                         .andExpect($T.status().isNoContent())""",
                         MOCK_MVC_REQUEST_BUILDERS,
                         delete.method().toLowerCase(),
@@ -73,7 +66,6 @@ class DeleteTestClientWriter {
                         manifest.parent().map(parent -> parent.name() + ", ").orElse("") + "id",
                         ControllerUtil.withMockUser(delete.security()),
                         MOCK_MVC_RESULT_MATCHERS)
-                .addStatement("return new $T<>(result, null, null)", REST_RESPONSE_ASSERT)
                 .build();
     }
 
@@ -81,13 +73,13 @@ class DeleteTestClientWriter {
         var delete = manifest.annotationsOfType(Delete.class).stream().findFirst().orElseThrow();
         var method = MethodSpec.methodBuilder("delete" + manifest.simpleName())
                 .addModifiers(Modifier.PUBLIC)
-                .returns(voidResponseAssert())
+                .returns(void.class)
                 .addParameter(String.class, "id");
         manifest.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
         return method
                 .addException(Exception.class)
                 .addStatement("""
-                                var result = mockMvc.perform($T.$N($S, $L)$L)
+                                mockMvc.perform($T.$N($S, $L)$L)
                                         .andExpect($T.status().isNoContent())""",
                         MOCK_MVC_REQUEST_BUILDERS,
                         delete.method().toLowerCase(),
@@ -95,7 +87,6 @@ class DeleteTestClientWriter {
                         manifest.parent().map(parent -> parent.name() + ", ").orElse("") + "id",
                         ControllerUtil.withMockUser(delete.security()),
                         MOCK_MVC_RESULT_MATCHERS)
-                .addStatement("return new $T<>(result, null, null)", REST_RESPONSE_ASSERT)
                 .build();
     }
 
@@ -110,12 +101,12 @@ class DeleteTestClientWriter {
     private static MethodSpec variantForPolymorphic(PolymorphicAggregateManifest manifest, String methodName) {
         var method = MethodSpec.methodBuilder(methodName)
                 .addModifiers(Modifier.PUBLIC)
-                .returns(voidResponseAssert())
+                .returns(void.class)
                 .addParameter(String.class, "id");
         manifest.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
         return method
                 .addException(Exception.class)
-                .addStatement("return delete$L($L)",
+                .addStatement("delete$L($L)",
                         manifest.simpleName(),
                         "id" + manifest.parent().map(parent -> ", " + parent.name()).orElse(""))
                 .build();

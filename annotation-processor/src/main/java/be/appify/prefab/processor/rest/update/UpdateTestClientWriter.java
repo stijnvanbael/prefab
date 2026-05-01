@@ -9,8 +9,6 @@ import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
-import com.palantir.javapoet.ParameterizedTypeName;
-import com.palantir.javapoet.TypeName;
 
 import java.util.List;
 import java.util.Map;
@@ -24,7 +22,6 @@ import org.springframework.web.multipart.MultipartFile;
 import static be.appify.prefab.processor.TestClasses.MOCK_MVC_REQUEST_BUILDERS;
 import static be.appify.prefab.processor.TestClasses.MOCK_MVC_RESULT_MATCHERS;
 import static be.appify.prefab.processor.TestClasses.MOCK_PART;
-import static be.appify.prefab.processor.TestClasses.REST_RESPONSE_ASSERT;
 import static be.appify.prefab.processor.TestClasses.TEST_UTIL;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
@@ -71,10 +68,6 @@ class UpdateTestClientWriter {
                         annotationPathVarNames, bodyType, requestParts));
     }
 
-    private static TypeName voidResponseAssert() {
-        return ParameterizedTypeName.get(REST_RESPONSE_ASSERT, TypeName.get(Void.class));
-    }
-
     private static MethodSpec buildNoBodyMethod(
             ClassManifest manifest,
             UpdateManifest update,
@@ -87,15 +80,10 @@ class UpdateTestClientWriter {
         return withRequestBody(manifest, update, method, parentPathVariables, annotationPathVarNames);
     }
 
-    private static MethodSpec.Builder buildRequestMethod(
-            ClassManifest manifest,
-            UpdateManifest update,
-            String parentPathVariables,
-            List<ParameterSpec> pathVarParams
-    ) {
+    private static MethodSpec.Builder buildRequestMethod(ClassManifest manifest, UpdateManifest update, String parentPathVariables, List<ParameterSpec> pathVarParams) {
         var method = MethodSpec.methodBuilder(update.operationName())
                 .addModifiers(Modifier.PUBLIC)
-                .returns(voidResponseAssert())
+                .returns(void.class)
                 .addParameter(String.class, "id");
         if (!parentPathVariables.isBlank()) {
             method.addParameters(manifest.parent().stream()
@@ -120,7 +108,7 @@ class UpdateTestClientWriter {
                 .addParameters(individualParams)
                 .addException(Exception.class);
         var idAndParentAndPathVarArgs = buildIdAndExtras(parentPathVariables, annotationPathVarNames);
-        method.addStatement("return $L($L, new $T($L))",
+        method.addStatement("$L($L, new $T($L))",
                 update.operationName(),
                 idAndParentAndPathVarArgs,
                 bodyType,
@@ -162,9 +150,8 @@ class UpdateTestClientWriter {
     ) {
         var statusMatcher = update.asyncCommit() ? "isAccepted()" : "isOk()";
         var annotationPathVarSuffix = annotationPathVarNames.isBlank() ? "" : ", " + annotationPathVarNames;
-        return method
-                .addStatement("""
-                                var result = mockMvc.perform($T.$N($L, id$L)$L
+        return method.addStatement("""
+                                mockMvc.perform($T.$N($L, id$L)$L
                                         .contentType($T.APPLICATION_JSON)
                                         $L
                                         .andExpect($T.status().$L)""",
@@ -177,7 +164,6 @@ class UpdateTestClientWriter {
                         update.requestParameters().isEmpty() ? ")" : ".content(jsonMapper.writeValueAsString(request)))",
                         MOCK_MVC_RESULT_MATCHERS,
                         statusMatcher)
-                .addStatement("return new $T<>(result, null, null)", REST_RESPONSE_ASSERT)
                 .build();
     }
 
@@ -205,9 +191,8 @@ class UpdateTestClientWriter {
         });
         var statusMatcher = update.asyncCommit() ? "isAccepted()" : "isOk()";
         var annotationPathVarSuffix = annotationPathVarNames.isBlank() ? "" : ", " + annotationPathVarNames;
-        return method
-                .addStatement("""
-                                var result = mockMvc.perform($T.multipart($L, id$L)$L
+        return method.addStatement("""
+                                return mockMvc.perform($T.multipart($L, id$L)$L
                                         $L
                                         ).andExpect($T.status().$L)""",
                         MOCK_MVC_REQUEST_BUILDERS,
@@ -226,7 +211,6 @@ class UpdateTestClientWriter {
                                 .build(),
                         MOCK_MVC_RESULT_MATCHERS,
                         statusMatcher)
-                .addStatement("return new $T<>(result, null, null)", REST_RESPONSE_ASSERT)
                 .build();
     }
 
@@ -251,14 +235,14 @@ class UpdateTestClientWriter {
                 .orElse(CodeBlock.of("$S", rawPath));
         var method = MethodSpec.methodBuilder(uncapitalize(update.operationName()))
                 .addModifiers(Modifier.PUBLIC)
-                .returns(voidResponseAssert())
+                .returns(void.class)
                 .addParameter(String.class, "id");
         polymorphic.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
         return method
                 .addParameter(unionClass, "request")
                 .addException(Exception.class)
                 .addStatement("""
-                                var result = mockMvc.perform($T.$N($L, id)$L
+                                mockMvc.perform($T.$N($L, id)$L
                                         .contentType($T.APPLICATION_JSON)
                                         .content(jsonMapper.writeValueAsString(request)))
                                         .andExpect($T.status().isOk())""",
@@ -268,7 +252,6 @@ class UpdateTestClientWriter {
                         ControllerUtil.withMockUser(update.security()),
                         org.springframework.http.MediaType.class,
                         MOCK_MVC_RESULT_MATCHERS)
-                .addStatement("return new $T<>(result, null, null)", REST_RESPONSE_ASSERT)
                 .build();
     }
 
@@ -298,13 +281,13 @@ class UpdateTestClientWriter {
 
         var wrapperBuilder = MethodSpec.methodBuilder(operationMethodName)
                 .addModifiers(Modifier.PUBLIC)
-                .returns(voidResponseAssert())
+                .returns(void.class)
                 .addParameter(String.class, "id");
         polymorphic.parent().ifPresent(parent -> wrapperBuilder.addParameter(String.class, parent.name()));
         var wrapperMethod = wrapperBuilder
                 .addParameter(flatClass, "request")
                 .addException(Exception.class)
-                .addStatement("return $L(id$L, new $T($L))",
+                .addStatement("$L(id$L, new $T($L))",
                         uncapitalize(update.operationName()),
                         polymorphic.parent().map(parent -> ", " + parent.name()).orElse(""),
                         nestedClass,
@@ -349,13 +332,13 @@ class UpdateTestClientWriter {
     ) {
         var method = MethodSpec.methodBuilder(operationName)
                 .addModifiers(Modifier.PUBLIC)
-                .returns(voidResponseAssert())
+                .returns(void.class)
                 .addParameter(String.class, "id");
         polymorphic.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
         return method
                 .addException(Exception.class)
                 .addStatement("""
-                                var result = mockMvc.perform($T.$N($L, id)$L
+                                mockMvc.perform($T.$N($L, id)$L
                                         .contentType($T.APPLICATION_JSON)
                                         )
                                         .andExpect($T.status().isOk())""",
@@ -365,7 +348,6 @@ class UpdateTestClientWriter {
                         ControllerUtil.withMockUser(update.security()),
                         org.springframework.http.MediaType.class,
                         MOCK_MVC_RESULT_MATCHERS)
-                .addStatement("return new $T<>(result, null, null)", REST_RESPONSE_ASSERT)
                 .build();
     }
 
@@ -388,13 +370,13 @@ class UpdateTestClientWriter {
         var parentArg = polymorphic.parent().map(parent -> ", " + parent.name()).orElse("");
         var method = MethodSpec.methodBuilder(methodName)
                 .addModifiers(Modifier.PUBLIC)
-                .returns(voidResponseAssert())
+                .returns(void.class)
                 .addParameter(String.class, "id");
         polymorphic.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
         return method
                 .addParameters(individualParams)
                 .addException(Exception.class)
-                .addStatement("return $L(id$L, new $T($L))",
+                .addStatement("$L(id$L, new $T($L))",
                         delegateTarget,
                         parentArg,
                         bodyType,
@@ -411,14 +393,14 @@ class UpdateTestClientWriter {
     ) {
         var method = MethodSpec.methodBuilder(operationName)
                 .addModifiers(Modifier.PUBLIC)
-                .returns(voidResponseAssert())
+                .returns(void.class)
                 .addParameter(String.class, "id");
         polymorphic.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
         return method
                 .addParameter(bodyType, "request")
                 .addException(Exception.class)
                 .addStatement("""
-                                var result = mockMvc.perform($T.$N($L, id)$L
+                                mockMvc.perform($T.$N($L, id)$L
                                         .contentType($T.APPLICATION_JSON)
                                         .content(jsonMapper.writeValueAsString(request)))
                                         .andExpect($T.status().isOk())""",
@@ -428,7 +410,6 @@ class UpdateTestClientWriter {
                         ControllerUtil.withMockUser(update.security()),
                         org.springframework.http.MediaType.class,
                         MOCK_MVC_RESULT_MATCHERS)
-                .addStatement("return new $T<>(result, null, null)", REST_RESPONSE_ASSERT)
                 .build();
     }
 
@@ -437,4 +418,3 @@ class UpdateTestClientWriter {
         return dotIndex >= 0 ? simpleName.substring(dotIndex + 1) : simpleName;
     }
 }
-

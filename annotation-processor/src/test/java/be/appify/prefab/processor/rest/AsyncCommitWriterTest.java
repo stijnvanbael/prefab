@@ -108,11 +108,11 @@ class AsyncCommitWriterTest {
         assertThat(compilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "rest/asyncmultiplecreate/OrderClient.java")
                 .contentsAsUtf8String()
-                .contains("RestResponseAssert<Void> placeOrder(");
+                .contains("void placeOrder(");
         assertThat(compilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "rest/asyncmultiplecreate/OrderClient.java")
                 .contentsAsUtf8String()
-                .contains("RestResponseAssert<Void> quickOrder(");
+                .contains("void quickOrder(");
     }
 
     @Test
@@ -126,12 +126,12 @@ class AsyncCommitWriterTest {
                 .generatedFile(StandardLocation.CLASS_OUTPUT,
                         "rest/asyncmultiplecreatewithpathvar/MeteringConfigClient.java")
                 .contentsAsUtf8String()
-                .contains("RestResponseAssert<Void> closeForInput(");
+                .contains("void closeForInput(");
         assertThat(compilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT,
                         "rest/asyncmultiplecreatewithpathvar/MeteringConfigClient.java")
                 .contentsAsUtf8String()
-                .contains("RestResponseAssert<Void> openForInput(");
+                .contains("void openForInput(");
     }
 
     @Test
@@ -145,12 +145,12 @@ class AsyncCommitWriterTest {
                 .generatedFile(StandardLocation.CLASS_OUTPUT,
                         "rest/asyncmultiplecreatenopathvar/MeteringConfigClient.java")
                 .contentsAsUtf8String()
-                .contains("RestResponseAssert<Void> closeForInput(");
+                .contains("void closeForInput(");
         assertThat(compilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT,
                         "rest/asyncmultiplecreatenopathvar/MeteringConfigClient.java")
                 .contentsAsUtf8String()
-                .contains("RestResponseAssert<Void> openForInput(");
+                .contains("void openForInput(");
         assertThat(compilation)
                 .generatedSourceFile(
                         "rest.asyncmultiplecreatenopathvar.infrastructure.http.MeteringConfigController")

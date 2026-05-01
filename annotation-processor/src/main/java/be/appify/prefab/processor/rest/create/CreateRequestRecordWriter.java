@@ -21,8 +21,8 @@ import javax.lang.model.element.Modifier;
 import static be.appify.prefab.processor.rest.ControllerUtil.writeRecord;
 import static org.apache.commons.text.WordUtils.capitalize;
 
-class CreateRequestRecordWriter {
-    void writeRequestRecord(
+public class CreateRequestRecordWriter {
+    public void writeRequestRecord(
             JavaFileWriter fileWriter,
             ClassManifest manifest,
             ExecutableElement constructor,

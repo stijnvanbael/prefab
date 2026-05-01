@@ -5,7 +5,7 @@ import be.appify.prefab.processor.VariableManifest;
 
 import java.util.List;
 
-record UpdateManifest(
+public record UpdateManifest(
         String operationName,
         List<VariableManifest> parameters,
         List<VariableManifest> requestParameters,

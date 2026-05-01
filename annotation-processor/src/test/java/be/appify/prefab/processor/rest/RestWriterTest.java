@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import static be.appify.prefab.processor.test.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RestWriterTest {
@@ -420,5 +421,104 @@ class RestWriterTest {
                 .generatedSourceFile("rest.allpathvariable.application.SlotService")
                 .contentsAsUtf8String()
                 .contains("aggregate.reschedule(day, hour)");
+    }
+
+    @Test
+    void createOrUpdateGeneratesSingleServiceMethod() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/createorupdate/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.createorupdate.application.ProductService")
+                .contentsAsUtf8String()
+                .contains("public String create(");
+    }
+
+    @Test
+    void createOrUpdateServiceLooksUpAggregateByPathVariable() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/createorupdate/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.createorupdate.application.ProductService")
+                .contentsAsUtf8String()
+                .contains("productRepository.findById(id)");
+    }
+
+    @Test
+    void createOrUpdateServiceCallsUpdateMethodWhenFound() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/createorupdate/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.createorupdate.application.ProductService")
+                .contentsAsUtf8String()
+                .contains("aggregate.update(");
+    }
+
+    @Test
+    void createOrUpdateServiceCallsConstructorWhenNotFound() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/createorupdate/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.createorupdate.application.ProductService")
+                .contentsAsUtf8String()
+                .contains("new Product(id,");
+    }
+
+    @Test
+    void createOrUpdateDoesNotGenerateSeparateCreateEndpoint() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/createorupdate/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.createorupdate.infrastructure.http.ProductController")
+                .contentsAsUtf8String()
+                .doesNotContain("PostMapping");
+    }
+
+    @Test
+    void createOrUpdateDoesNotGenerateSeparateUpdateEndpoint() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/createorupdate/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        var serviceContent = compilation.generatedSourceFiles().stream()
+                .filter(f -> f.getName().contains("ProductService"))
+                .findFirst()
+                .map(f -> {
+                    try {
+                        return f.getCharContent(false).toString();
+                    } catch (Exception e) {
+                        return "";
+                    }
+                })
+                .orElse("");
+        assertFalse(serviceContent.contains("public Optional<Product> update("),
+                "Should not generate a separate update method");
+    }
+
+    @Test
+    void createOrUpdateGeneratesRequestRecord() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/createorupdate/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.createorupdate.application.CreateProductRequest")
+                .isNotNull();
     }
 }

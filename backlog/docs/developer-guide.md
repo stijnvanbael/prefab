@@ -362,6 +362,45 @@ public Order update(String customerName) {
 
 ---
 
+#### Create-or-Update (Upsert) Pattern
+
+When a `@Create` constructor and an `@Update` method share the same HTTP method and effective URL path,
+the framework generates a **single combined endpoint** instead of separate create and update endpoints.
+
+**Pairing rule:** The `@Create.path` must start with a path variable segment (e.g. `/{id}`) and the
+remainder must equal `@Update.path`. Both must use the same HTTP method.
+
+The generated service:
+1. Calls `repository.findById(lookupVariable)` using the path variable from the URL.
+2. If found → delegates to the `@Update` method and saves.
+3. If not found → calls the `@Create` constructor with the path variable + request body and saves.
+4. Always returns `201 Created` with the resource location.
+
+```java
+@Aggregate
+public record Product(
+        @Id String id,
+        @Version long version,
+        String name,
+        String price
+) {
+    @Create(method = HttpMethod.PUT, path = "/{id}")
+    public Product(String id, String name, String price) {
+        this(id, 0L, name, price);
+    }
+
+    @Update(method = HttpMethod.PUT)
+    public Product update(String name, String price) {
+        return new Product(id, version, name, price);
+    }
+}
+```
+
+This generates a single `PUT /products/{id}` endpoint. The `@Create` constructor must accept the path
+variable (`id` here) as one of its parameters.
+
+---
+
 #### `@Delete`
 
 **Target:** `TYPE`, `METHOD`

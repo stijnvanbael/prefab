@@ -2,6 +2,7 @@ package be.appify.prefab.processor.rest.create;
 
 import be.appify.prefab.core.annotations.AsyncCommit;
 import be.appify.prefab.core.annotations.rest.Create;
+import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
@@ -17,6 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.lang.model.element.ExecutableElement;
 
@@ -25,6 +27,8 @@ import javax.lang.model.element.ExecutableElement;
  * creating new instances of a class.
  */
 public class CreatePlugin implements PrefabPlugin {
+    private static final Pattern LEADING_PATH_VAR = Pattern.compile("^/\\{(\\w+)}(.*)$");
+
     private final CreateControllerWriter controllerWriter = new CreateControllerWriter();
     private final AsyncCreateControllerWriter asyncControllerWriter = new AsyncCreateControllerWriter();
     private final CreateServiceWriter serviceWriter = new CreateServiceWriter();
@@ -232,7 +236,9 @@ public class CreatePlugin implements PrefabPlugin {
 
     private Optional<ExecutableElement> createConstructorOf(ClassManifest manifest) {
         return createConstructorsCache.computeIfAbsent(manifest, m -> {
-            var createConstructors = m.constructorsWith(Create.class);
+            var createConstructors = m.constructorsWith(Create.class).stream()
+                    .filter(ctor -> !isPairedWithUpdate(m, ctor))
+                    .toList();
             if (createConstructors.isEmpty()) {
                 return Optional.empty();
             }
@@ -243,5 +249,19 @@ public class CreatePlugin implements PrefabPlugin {
             }
             return createConstructors.stream().findFirst();
         });
+    }
+
+    private boolean isPairedWithUpdate(ClassManifest manifest, ExecutableElement ctor) {
+        var create = ctor.getAnnotation(Create.class);
+        var matcher = LEADING_PATH_VAR.matcher(create.path());
+        if (!matcher.matches()) {
+            return false;
+        }
+        var pathSuffix = matcher.group(2);
+        return manifest.methodsWith(Update.class).stream()
+                .anyMatch(m -> {
+                    var update = m.getAnnotationsByType(Update.class)[0];
+                    return update.method().equals(create.method()) && update.path().equals(pathSuffix);
+                });
     }
 }

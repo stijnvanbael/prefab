@@ -1,10 +1,10 @@
 ---
 id: TASK-154
 title: Spike — Prefab Flutter
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-05-01 05:46'
-updated_date: '2026-05-01 05:46'
+updated_date: '2026-05-01 18:04'
 labels:
   - spike
   - flutter
@@ -58,12 +58,12 @@ they can inform a broader Prefab Frontend initiative.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A landscape survey document or section in the design doc lists relevant existing Flutter code-generation tools and explains how Prefab Flutter differs from / builds on them
-- [ ] #2 A proposed annotation/DSL API is documented with at least one concrete example showing how a developer describes a model and what gets generated
-- [ ] #3 The design doc defines the full set of generated artefacts for a single model entity (screens, widgets, state management, API client stub, routing)
-- [ ] #4 The build pipeline approach (build_runner plugin, standalone CLI, or other) is evaluated and a recommendation with rationale is documented
-- [ ] #5 A minimal proof-of-concept generates a working Flutter list screen and create form from a sample annotated Dart class or YAML spec
-- [ ] #6 Design document `backlog/docs/prefab-flutter-design.md` is committed, covering API design, architecture decisions, open questions, and notes on generalising to Prefab Frontend
-- [ ] #7 Follow-up implementation tasks are created in the backlog, covering at minimum: annotation/DSL parser, code generators for each artefact type, CLI or build_runner integration, and example app
-- [ ] #8 A pull request containing the design document, prototype code (if any), and follow-up tasks is open for review
+- [x] #1 A landscape survey document or section in the design doc lists relevant existing Flutter code-generation tools and explains how Prefab Flutter differs from / builds on them
+- [x] #2 A proposed annotation/DSL API is documented with at least one concrete example showing how a developer describes a model and what gets generated
+- [x] #3 The design doc defines the full set of generated artefacts for a single model entity (screens, widgets, state management, API client stub, routing)
+- [x] #4 The build pipeline approach (build_runner plugin, standalone CLI, or other) is evaluated and a recommendation with rationale is documented
+- [x] #5 A minimal proof-of-concept generates a working Flutter list screen and create form from a sample annotated Dart class or YAML spec
+- [x] #6 Design document `backlog/docs/prefab-flutter-design.md` is committed, covering API design, architecture decisions, open questions, and notes on generalising to Prefab Frontend
+- [x] #7 Follow-up implementation tasks are created in the backlog, covering at minimum: annotation/DSL parser, code generators for each artefact type, CLI or build_runner integration, and example app (see TASK-155 through TASK-159)
+- [x] #8 A pull request containing the design document, prototype code (if any), and follow-up tasks is open for review
 <!-- AC:END -->

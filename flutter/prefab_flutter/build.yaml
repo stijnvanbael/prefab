@@ -1,0 +1,15 @@
+targets:
+  $default:
+    builders:
+      prefab_flutter:prefab_flutter_builder:
+        generate_for:
+          - lib/**.dart
+
+builders:
+  prefab_flutter_builder:
+    import: "package:prefab_flutter/prefab_flutter.dart"
+    builder_factories: ["prefabFlutterBuilder"]
+    build_extensions: {".dart": [".prefab.g.dart"]}
+    auto_apply: dependents
+    build_to: source
+    runs_before: ["source_gen|combining_builder"]

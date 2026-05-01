@@ -50,6 +50,14 @@ public class TestJavaFileWriter implements TestFileOutput {
                 Files.createDirectories(outputPath);
             }
             var javaSourceFile = createJavaSourceFile(outputPath, typeName);
+            if (javaSourceFile.exists()) {
+                System.out.println(
+                        "Prefab: Skipping generation of %s.%s in target/prefab-test-sources/: file already exists"
+                                .formatted(packageName, typeName)
+                                + " and is treated as a manual override."
+                );
+                return;
+            }
             writeJavaTestClass(packageName, type, javaSourceFile);
         } catch (Exception e) {
             System.err.println(e.getMessage());

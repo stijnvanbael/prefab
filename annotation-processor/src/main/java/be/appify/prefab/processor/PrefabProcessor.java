@@ -47,7 +47,9 @@ public class PrefabProcessor extends AbstractProcessor {
     private boolean globalFilesWritten = false;
     private boolean eventFilesWritten = false;
 
-    // Tracking sets for writeAdditionalFiles round-deduplication (AC#2).
+    // Tracking sets for deduplication across rounds (source elements are visible in every round).
+    private final Set<String> processedAggregateNames = new LinkedHashSet<>();
+    private final Set<String> processedPolymorphicAggregateNames = new LinkedHashSet<>();
     private final Set<String> processedAdditionalFilesAggregates = new LinkedHashSet<>();
     private final Set<String> processedAdditionalFilesPolymorphicAggregates = new LinkedHashSet<>();
     private final Set<String> seenEventElementNames = new LinkedHashSet<>();
@@ -129,23 +131,28 @@ public class PrefabProcessor extends AbstractProcessor {
 
     private void writeAggregates(PrefabContext context, List<ClassManifest> aggregates) {
         var testClientWriter = createTestClientWriter(context);
-        aggregates.forEach(manifest -> {
-            new HttpWriter(context).writeHttpLayer(manifest);
-            new ApplicationWriter(context).writeApplicationLayer(manifest);
-            new PersistenceWriter(context).writePersistenceLayer(manifest);
-            testClientWriter.writeTestSupport(manifest);
-        });
+        aggregates.stream()
+                .filter(manifest -> processedAggregateNames.add(manifest.qualifiedName()))
+                .forEach(manifest -> {
+                    new HttpWriter(context).writeHttpLayer(manifest);
+                    new ApplicationWriter(context).writeApplicationLayer(manifest);
+                    new PersistenceWriter(context).writePersistenceLayer(manifest);
+                    testClientWriter.writeTestSupport(manifest);
+                });
     }
 
     private void writePolymorphicAggregates(PrefabContext context, List<PolymorphicAggregateManifest> polymorphicAggregates) {
         var testClientWriter = createTestClientWriter(context);
-        polymorphicAggregates.forEach(manifest -> {
-            new PersistenceWriter(context).writePolymorphicPersistenceLayer(manifest);
-            new PolymorphicJdbcConverterWriter(context).writeConverters(manifest);
-            new HttpWriter(context).writePolymorphicHttpLayer(manifest);
-            new ApplicationWriter(context).writePolymorphicApplicationLayer(manifest);
-            testClientWriter.writePolymorphicTestSupport(manifest);
-        });
+        polymorphicAggregates.stream()
+                .filter(manifest -> processedPolymorphicAggregateNames.add(
+                        manifest.packageName() + "." + manifest.simpleName()))
+                .forEach(manifest -> {
+                    new PersistenceWriter(context).writePolymorphicPersistenceLayer(manifest);
+                    new PolymorphicJdbcConverterWriter(context).writeConverters(manifest);
+                    new HttpWriter(context).writePolymorphicHttpLayer(manifest);
+                    new ApplicationWriter(context).writePolymorphicApplicationLayer(manifest);
+                    testClientWriter.writePolymorphicTestSupport(manifest);
+                });
     }
 
     protected TestClientWriter createTestClientWriter(PrefabContext context) {

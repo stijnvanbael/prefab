@@ -20,6 +20,7 @@ public class UserExporterPubSubSubscriber {
 
     public UserExporterPubSubSubscriber(UserExporter userExporter, PubSubUtil pubSub) {
         userCreatedExecutor = Executors.newFixedThreadPool(2);
+        pubSub.registerType(UserCreated.class.getName(), UserCreated.class);
         pubSub.subscribe(new SubscriptionRequest<UserCreated>("user", "user-exporter-on-user-created", UserCreated.class, this::onUserCreated)
                 .withExecutor(userCreatedExecutor));
         this.userExporter = userExporter;

@@ -20,6 +20,7 @@ public class UserExporterSqsSubscriber {
 
     public UserExporterSqsSubscriber(UserExporter userExporter, SqsUtil sqsUtil) {
         executor = Executors.newFixedThreadPool(2);
+        sqsUtil.registerType(UserCreated.class.getName(), UserCreated.class);
         sqsUtil.subscribe(new SqsSubscriptionRequest<UserCreated>("user", "user-exporter-on-user-created", UserCreated.class, this::onUserCreated)
                 .withExecutor(executor));
         this.userExporter = userExporter;

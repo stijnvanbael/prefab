@@ -1,5 +1,6 @@
 package be.appify.prefab.core.pubsub;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.google.cloud.spring.pubsub.PubSubAdmin;
 import com.google.cloud.spring.pubsub.core.subscriber.PubSubSubscriberTemplate;
 import com.google.cloud.spring.pubsub.support.BasicAcknowledgeablePubsubMessage;
@@ -37,7 +38,7 @@ public class PubSubUtil {
     private final PubSubAdmin pubSubAdmin;
     private final PubSubSubscriberTemplate subscriberTemplate;
     private final PubSubDeserializer deserializer;
-    private final ConcurrentMap<String, Class<?>> messageTypes = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Class<?>> allowedTypes = new ConcurrentHashMap<>();
     private final String deadLetterTopicName;
     private final RetryTemplate retryTemplate;
 
@@ -117,6 +118,31 @@ public class PubSubUtil {
     }
 
     /**
+     * Registers an event type in the allowlist for safe deserialization from the Pub/Sub message {@code type} attribute.
+     * Permitted subtypes of sealed interfaces and {@code @JsonSubTypes}-annotated subtypes are registered recursively.
+     *
+     * @param typeName
+     *         the fully-qualified class name that may appear as the Pub/Sub message {@code type} attribute
+     * @param type
+     *         the corresponding Java class
+     */
+    public void registerType(String typeName, Class<?> type) {
+        allowedTypes.put(typeName, type);
+        var permittedSubclasses = type.getPermittedSubclasses();
+        if (permittedSubclasses != null) {
+            for (var subclass : permittedSubclasses) {
+                registerType(subclass.getName(), subclass);
+            }
+        }
+        var jsonSubTypes = type.getAnnotation(JsonSubTypes.class);
+        if (jsonSubTypes != null) {
+            for (var subType : jsonSubTypes.value()) {
+                registerType(subType.value().getName(), subType.value());
+            }
+        }
+    }
+
+    /**
      * Subscribes to a Pub/Sub topic using the provided subscription request.
      *
      * @param request
@@ -148,7 +174,7 @@ public class PubSubUtil {
                     }
                     message.ack();
                 } catch (Exception e) {
-                    log.warn("Error processing Pub/Sub message: {}, cause: {}", pubsubMessage.getData().toStringUtf8(),
+                    log.warn("Error processing Pub/Sub message: {}, cause: {}", truncate(pubsubMessage.getData().toStringUtf8(), 200),
                             e.getCause() != null ? e.getCause().getMessage() : e.getMessage(), e);
                     throw e;
                 }
@@ -163,13 +189,10 @@ public class PubSubUtil {
 
     private <T> void consumeTyped(SubscriptionRequest<T> request, PubsubMessage pubsubMessage) {
         var typeName = pubsubMessage.getAttributesOrThrow("type");
-        var consumedType = messageTypes.computeIfAbsent(typeName, key -> {
-            try {
-                return Class.forName(typeName);
-            } catch (ClassNotFoundException e) {
-                throw new IllegalArgumentException("Could not find class for type found in message: " + typeName, e);
-            }
-        });
+        var consumedType = allowedTypes.get(typeName);
+        if (consumedType == null) {
+            throw new IllegalArgumentException("Type not registered in allowlist: " + typeName);
+        }
         if (request.type().isAssignableFrom(consumedType)) {
             request.consumer().accept(deserializer.deserialize(request.topic(), pubsubMessage.getData(), request.type()));
         }
@@ -277,5 +300,12 @@ public class PubSubUtil {
         if (pubSubAdmin.getSubscription(subscriptionName) != null) {
             pubSubAdmin.deleteSubscription(subscriptionName);
         }
+    }
+
+    private static String truncate(String body, int maxLength) {
+        if (body == null) {
+            return "<null>";
+        }
+        return body.length() <= maxLength ? body : body.substring(0, maxLength) + "...[truncated " + (body.length() - maxLength) + " chars]";
     }
 }

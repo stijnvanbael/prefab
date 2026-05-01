@@ -1,6 +1,7 @@
 package be.appify.prefab.test.kafka;
 
 import be.appify.prefab.core.kafka.DynamicDeserializer;
+import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
 import be.appify.prefab.core.util.SerializationRegistry;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.springframework.beans.factory.ObjectProvider;
@@ -96,7 +97,7 @@ public class KafkaTestAutoConfiguration {
             KafkaProperties kafkaProperties,
             ConversionService conversionService,
             SerializationRegistry serializationRegistry,
-            JacksonJsonTypeResolver jsonTypeResolver
+            KafkaJsonTypeResolver jsonTypeResolver
     ) {
         var consumerProperties = (properties != null ? properties : kafkaProperties).buildConsumerProperties();
         consumerProperties.putIfAbsent(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");

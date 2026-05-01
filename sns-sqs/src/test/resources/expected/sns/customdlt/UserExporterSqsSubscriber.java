@@ -27,6 +27,7 @@ public class UserExporterSqsSubscriber {
             @Value("${topic.user.name}") String userEventTopic,
             @Value("${custom.dlt.name}") String deadLetterTopic) {
         executor = Executors.newFixedThreadPool(1);
+        sqsUtil.registerType(UserEvent.class.getName(), UserEvent.class);
         sqsUtil.subscribe(new SqsSubscriptionRequest<UserEvent>(userEventTopic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
                 .withExecutor(executor)
                 .withDeadLetterQueueName(deadLetterTopic)

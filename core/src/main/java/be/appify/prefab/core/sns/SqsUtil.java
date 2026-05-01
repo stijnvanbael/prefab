@@ -137,6 +137,19 @@ public class SqsUtil implements DisposableBean {
         startPolling(request, queueUrl);
     }
 
+    /**
+     * Registers an event type in the deserializer allowlist for safe deserialization from SNS Subject headers.
+     * Permitted subtypes of sealed interfaces are registered recursively.
+     *
+     * @param typeName
+     *         the fully-qualified class name that may appear as the SNS message Subject
+     * @param type
+     *         the corresponding Java class
+     */
+    public void registerType(String typeName, Class<?> type) {
+        sqsDeserializer.registerType(typeName, type);
+    }
+
     private String ensureQueueExists(String queueName) {
         var sanitizedName = queueName.replaceAll("[^a-zA-Z0-9_-]", "-");
         if (!sanitizedName.equals(queueName)) {
@@ -242,7 +255,7 @@ public class SqsUtil implements DisposableBean {
                     request.consumer().accept(event);
                     deleteMessage(queueUrl, message);
                 } catch (Exception e) {
-                    log.warn("Error processing SQS message: {}, cause: {}", message.body(),
+                    log.warn("Error processing SQS message: {}, cause: {}", truncate(message.body(), 200),
                             e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
                     throw e;
                 }
@@ -310,5 +323,12 @@ public class SqsUtil implements DisposableBean {
      */
     public String applicationName() {
         return applicationName;
+    }
+
+    private static String truncate(String body, int maxLength) {
+        if (body == null) {
+            return "<null>";
+        }
+        return body.length() <= maxLength ? body : body.substring(0, maxLength) + "...[truncated " + (body.length() - maxLength) + " chars]";
     }
 }

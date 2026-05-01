@@ -2,6 +2,8 @@ package be.appify.prefab.core.kafka;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.kafka.common.header.Headers;
 import org.springframework.kafka.support.serializer.JacksonJsonTypeResolver;
 import org.springframework.stereotype.Component;
@@ -14,6 +16,7 @@ import tools.jackson.databind.type.TypeFactory;
 @Component
 public class KafkaJsonTypeResolver implements JacksonJsonTypeResolver {
     private final Map<String, Class<?>> types = new HashMap<>();
+    private final Set<String> allowedClassNames = ConcurrentHashMap.newKeySet();
 
     /** Constructs a new KafkaJsonTypeResolver. */
     public KafkaJsonTypeResolver() {
@@ -30,11 +33,40 @@ public class KafkaJsonTypeResolver implements JacksonJsonTypeResolver {
 
     /**
      * Registers a Java type for a specific Kafka topic.
+     * If the type is a sealed interface, all permitted subtypes are recursively added to the allowlist.
      *
      * @param topic the Kafka topic
      * @param type  the Java class type to register
      */
     public void registerType(String topic, Class<?> type) {
         types.put(topic, type);
+        addToAllowedClassNames(type);
+    }
+
+    private void addToAllowedClassNames(Class<?> type) {
+        allowedClassNames.add(type.getName());
+        if (type.isSealed()) {
+            for (Class<?> subtype : type.getPermittedSubclasses()) {
+                addToAllowedClassNames(subtype);
+            }
+        }
+    }
+
+    /**
+     * Returns the set of all registered event class names for allowlist validation.
+     *
+     * @return set of fully-qualified class names of registered event types
+     */
+    public Set<String> allowedClassNames() {
+        return allowedClassNames;
+    }
+
+    /**
+     * Returns the set of all registered event classes.
+     *
+     * @return set of registered event classes
+     */
+    public Set<Class<?>> registeredTypes() {
+        return Set.copyOf(types.values());
     }
 }

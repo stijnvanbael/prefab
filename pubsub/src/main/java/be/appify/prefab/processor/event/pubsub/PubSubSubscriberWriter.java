@@ -169,6 +169,8 @@ class PubSubSubscriberWriter {
         }
         constructor.addStatement("$L = $T.newFixedThreadPool($L)", executorName, ClassName.get(Executors.class),
                 concurrency.matches("\\$\\{.+}") ? "Integer.parseInt(concurrency)" : concurrency);
+        constructor.addStatement("pubSub.registerType($T.class.getName(), $T.class)",
+                eventType.asTypeName(), eventType.asTypeName());
         constructor.addStatement("""
                         pubSub.subscribe(new $T($L, $S, $T.class, this::on$L)
                         .withExecutor($L)$L)""",

@@ -22,6 +22,7 @@ public class ChannelSummaryPubSubSubscriber {
     public ChannelSummaryPubSubSubscriber(ChannelSummaryService channelSummaryService,
             PubSubUtil pubSub, @Value("${topic.message.name}") String messageEventTopic) {
         messageEventExecutor = Executors.newFixedThreadPool(1);
+        pubSub.registerType(MessageEvent.class.getName(), MessageEvent.class);
         pubSub.subscribe(new SubscriptionRequest<MessageEvent>(messageEventTopic, "channel-summary-on-message-event", MessageEvent.class, this::onMessageEvent)
                 .withExecutor(messageEventExecutor));
         this.channelSummaryService = channelSummaryService;

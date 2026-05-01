@@ -8,7 +8,6 @@ import org.apache.kafka.common.serialization.Deserializer;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
-import org.springframework.kafka.support.serializer.JacksonJsonTypeResolver;
 import org.springframework.stereotype.Component;
 
 /**
@@ -22,6 +21,7 @@ public class DynamicDeserializer implements Deserializer<Object> {
     private final GenericAvroDeserializer avroDeserializer = new GenericAvroDeserializer();
     private final ConversionService conversionService;
     private final SerializationRegistry serializationRegistry;
+    private final KafkaJsonTypeResolver jsonTypeResolver;
 
     /**
      * Constructs a DynamicDeserializer and configures the underlying JsonDeserializer and AvroDeserializer with the provided Kafka properties.
@@ -33,16 +33,17 @@ public class DynamicDeserializer implements Deserializer<Object> {
      * @param serializationRegistry
      *         the SerializationRegistry that contains the serialization format for each topic
      * @param jsonTypeResolver
-     *         the JacksonJsonTypeResolver to resolve types for JSON deserialization
+     *         the KafkaJsonTypeResolver to resolve types for JSON deserialization
      */
     public DynamicDeserializer(
             KafkaProperties kafkaProperties,
             ConversionService conversionService,
             SerializationRegistry serializationRegistry,
-            JacksonJsonTypeResolver jsonTypeResolver
+            KafkaJsonTypeResolver jsonTypeResolver
     ) {
         this.conversionService = conversionService;
         this.serializationRegistry = serializationRegistry;
+        this.jsonTypeResolver = jsonTypeResolver;
         var consumerProperties = kafkaProperties.buildConsumerProperties();
         jsonDeserializer.setTypeResolver(jsonTypeResolver);
         jsonDeserializer.configure(consumerProperties, false);
@@ -75,9 +76,13 @@ public class DynamicDeserializer implements Deserializer<Object> {
 
     private Object toEvent(GenericRecord genericRecord) {
         var schema = genericRecord.getSchema();
+        var resolvedName = resolveClassName(schema.getFullName());
+        if (!jsonTypeResolver.allowedClassNames().contains(resolvedName)) {
+            throw new IllegalArgumentException("Class not registered in allowlist: " + resolvedName);
+        }
         Class<?> targetClass;
         try {
-            targetClass = Class.forName(resolveClassName(schema.getFullName()));
+            targetClass = Class.forName(resolvedName);
         } catch (ClassNotFoundException e) {
              throw new NoSuchElementException(schema.getFullName(), e);
         }

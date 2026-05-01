@@ -22,6 +22,7 @@ public class ChannelSummarySqsSubscriber {
     public ChannelSummarySqsSubscriber(ChannelSummaryService channelSummaryService, SqsUtil sqsUtil,
             @Value("${topic.message.name}") String messageEventTopic) {
         executor = Executors.newFixedThreadPool(1);
+        sqsUtil.registerType(MessageEvent.class.getName(), MessageEvent.class);
         sqsUtil.subscribe(new SqsSubscriptionRequest<MessageEvent>(messageEventTopic, "channel-summary-on-message-event", MessageEvent.class, this::onMessageEvent)
                 .withExecutor(executor));
         this.channelSummaryService = channelSummaryService;

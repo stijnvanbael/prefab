@@ -1,7 +1,7 @@
 import '../model/entity_manifest.dart';
 import 'prefab_generator_base.dart';
 
-/// Generates Riverpod `AsyncNotifier` providers for a `@PrefabView` entity.
+/// Generates Riverpod `AsyncNotifier` providers for a `@View` entity.
 ///
 /// The generated provider manages the full CRUD lifecycle:
 ///

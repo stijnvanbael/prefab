@@ -6,9 +6,8 @@ part 'product.prefab.g.dart';  // Prefab Flutter generated
 
 /// A product in the catalogue.
 ///
-/// Annotate with [@PrefabView], [@PrefabCreate], [@PrefabUpdate],
-/// [@PrefabDelete], and [@PrefabApi] to generate a complete CRUD UI.
-/// Prefab Flutter generates:
+/// Annotate with [@View], [@Create], [@Update], [@Delete], and [@Api]
+/// to generate a complete CRUD UI. Prefab Flutter generates:
 ///
 /// - [ProductListScreen]  — paginated, searchable, sortable list
 /// - [ProductDetailScreen] — read-only detail view
@@ -17,11 +16,11 @@ part 'product.prefab.g.dart';  // Prefab Flutter generated
 /// - [ProductListNotifier] — Riverpod [AsyncNotifier] provider
 /// - [ProductApiClient]   — dio REST client
 /// - [ProductListRoute], [ProductDetailRoute], ... — typed go_router routes
-@PrefabView(title: 'Products')
-@PrefabCreate(title: 'New Product', submitLabel: 'Create')
-@PrefabUpdate(title: 'Edit Product', submitLabel: 'Save')
-@PrefabDelete(confirmMessage: 'Remove this product permanently?')
-@PrefabApi(path: '/products')
+@View(title: 'Products')
+@Create(title: 'New Product', submitLabel: 'Create')
+@Update(title: 'Edit Product', submitLabel: 'Save')
+@Delete(confirmMessage: 'Remove this product permanently?')
+@Api(path: '/products')
 @JsonSerializable()
 class Product {
   final String id;

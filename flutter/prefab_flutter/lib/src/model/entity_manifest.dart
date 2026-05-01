@@ -2,7 +2,7 @@ import 'package:analyzer/dart/element/element.dart';
 import 'package:source_gen/source_gen.dart';
 import 'package:prefab_flutter_annotations/prefab_flutter_annotations.dart';
 
-/// Parsed representation of a single `@PrefabView`-annotated class.
+/// Parsed representation of a single `@View`-annotated class.
 ///
 /// All generators receive an [EntityManifest] so they never need to touch
 /// the analyser API directly.
@@ -53,10 +53,10 @@ class EntityManifest {
   ) {
     final title = annotation.read('title').stringValue;
 
-    final createChecker = TypeChecker.fromRuntime(PrefabCreate);
-    final updateChecker = TypeChecker.fromRuntime(PrefabUpdate);
-    final deleteChecker = TypeChecker.fromRuntime(PrefabDelete);
-    final apiChecker = TypeChecker.fromRuntime(PrefabApi);
+    final createChecker = TypeChecker.fromRuntime(Create);
+    final updateChecker = TypeChecker.fromRuntime(Update);
+    final deleteChecker = TypeChecker.fromRuntime(Delete);
+    final apiChecker = TypeChecker.fromRuntime(Api);
 
     final createAnnotation = createChecker.firstAnnotationOf(element);
     final updateAnnotation = updateChecker.firstAnnotationOf(element);
@@ -92,7 +92,7 @@ class EntityManifest {
   }
 }
 
-/// Parsed representation of a single field on a `@PrefabView` class.
+/// Parsed representation of a single field on a `@View` class.
 class FieldManifest {
   final String name;
   final String dartType;
@@ -116,7 +116,7 @@ class FieldManifest {
     final listColumnChecker = TypeChecker.fromRuntime(ListColumn);
     final formFieldChecker = TypeChecker.fromRuntime(FormField);
     final hiddenChecker = TypeChecker.fromRuntime(Hidden);
-    final parentChecker = TypeChecker.fromRuntime(PrefabParent);
+    final parentChecker = TypeChecker.fromRuntime(Parent);
 
     final listColumnAnnotation = listColumnChecker.firstAnnotationOf(element);
     final formFieldAnnotation = formFieldChecker.firstAnnotationOf(element);

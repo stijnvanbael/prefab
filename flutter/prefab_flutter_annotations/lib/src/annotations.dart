@@ -13,11 +13,11 @@
 ///
 /// Example:
 /// ```dart
-/// @PrefabView(title: 'Products', icon: Icons.inventory_2)
-/// @PrefabApi(path: '/products')
+/// @View(title: 'Products', icon: Icons.inventory_2)
+/// @Api(path: '/products')
 /// class Product { ... }
 /// ```
-class PrefabView {
+class View {
   /// Human-readable title shown in the app-bar and navigation drawer.
   final String title;
 
@@ -25,7 +25,7 @@ class PrefabView {
   /// Defaults to [Icons.list] when not provided.
   final int? icon;
 
-  const PrefabView({required this.title, this.icon});
+  const View({required this.title, this.icon});
 }
 
 // ---------------------------------------------------------------------------
@@ -34,60 +34,60 @@ class PrefabView {
 
 /// Generates a create-form screen and wires it to a POST endpoint.
 ///
-/// The annotated class must also carry [PrefabApi] so the generator knows
+/// The annotated class must also carry [Api] so the generator knows
 /// the REST endpoint to call. All fields annotated with [FormField] appear
 /// in the generated form; remaining fields are hidden.
 ///
 /// Example:
 /// ```dart
-/// @PrefabView(title: 'Products')
-/// @PrefabCreate(title: 'New Product', submitLabel: 'Create')
-/// @PrefabApi(path: '/products')
+/// @View(title: 'Products')
+/// @Create(title: 'New Product', submitLabel: 'Create')
+/// @Api(path: '/products')
 /// class Product { ... }
 /// ```
-class PrefabCreate {
+class Create {
   /// App-bar title of the create-form screen. Defaults to `'New <EntityName>'`.
   final String? title;
 
   /// Label for the primary submit button. Defaults to `'Create'`.
   final String submitLabel;
 
-  const PrefabCreate({this.title, this.submitLabel = 'Create'});
+  const Create({this.title, this.submitLabel = 'Create'});
 }
 
 /// Generates an edit-form screen and wires it to a PUT endpoint.
 ///
-/// Shares the same form-field definitions as [PrefabCreate]. The generated
+/// Shares the same form-field definitions as [Create]. The generated
 /// form is pre-populated with the current aggregate values.
 ///
 /// Example:
 /// ```dart
-/// @PrefabUpdate(title: 'Edit Product', submitLabel: 'Save')
+/// @Update(title: 'Edit Product', submitLabel: 'Save')
 /// class Product { ... }
 /// ```
-class PrefabUpdate {
+class Update {
   /// App-bar title of the edit-form screen. Defaults to `'Edit <EntityName>'`.
   final String? title;
 
   /// Label for the primary submit button. Defaults to `'Save'`.
   final String submitLabel;
 
-  const PrefabUpdate({this.title, this.submitLabel = 'Save'});
+  const Update({this.title, this.submitLabel = 'Save'});
 }
 
 /// Generates a delete confirmation dialog and wires it to a DELETE endpoint.
 ///
 /// Example:
 /// ```dart
-/// @PrefabDelete(confirmMessage: 'Remove this product?')
+/// @Delete(confirmMessage: 'Remove this product?')
 /// class Product { ... }
 /// ```
-class PrefabDelete {
+class Delete {
   /// Confirmation message shown in the dialog. Defaults to
   /// `'Are you sure you want to delete this item?'`.
   final String confirmMessage;
 
-  const PrefabDelete({
+  const Delete({
     this.confirmMessage = 'Are you sure you want to delete this item?',
   });
 }
@@ -104,19 +104,19 @@ class PrefabDelete {
 ///
 /// Example:
 /// ```dart
-/// @PrefabApi(path: '/products')
+/// @Api(path: '/products')
 /// class Product { ... }
 ///
 /// // With a parent resource:
-/// @PrefabApi(path: '/orders/{orderId}/lines')
+/// @Api(path: '/orders/{orderId}/lines')
 /// class OrderLine { ... }
 /// ```
-class PrefabApi {
+class Api {
   /// Path relative to the configured base URL. May contain `{paramName}`
   /// placeholders for parent-resource identifiers.
   final String path;
 
-  const PrefabApi({required this.path});
+  const Api({required this.path});
 }
 
 // ---------------------------------------------------------------------------
@@ -214,18 +214,18 @@ class Hidden {
 
 /// Marks a field as referencing a parent resource.
 ///
-/// When a field carries [PrefabParent], the list and detail screens for this
+/// When a field carries [Parent], the list and detail screens for this
 /// entity are nested under the parent's route (e.g. `/orders/:orderId/lines`).
 /// The parent ID is extracted from the route and injected into API calls
 /// automatically.
 ///
 /// Example:
 /// ```dart
-/// @PrefabParent()
+/// @Parent()
 /// final String orderId;
 /// ```
-class PrefabParent {
-  const PrefabParent();
+class Parent {
+  const Parent();
 }
 
 // ---------------------------------------------------------------------------

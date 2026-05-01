@@ -1,8 +1,8 @@
 /// Prefab Flutter code generator.
 ///
 /// This package is a [build_runner] plugin that reads classes annotated with
-/// `@PrefabView`, `@PrefabCreate`, `@PrefabUpdate`, `@PrefabDelete`, and
-/// `@PrefabApi` and generates:
+/// `@View`, `@Create`, `@Update`, `@Delete`, and
+/// `@Api` and generates:
 ///
 /// - A list screen widget (`{entity}_list_screen.g.dart`)
 /// - A detail screen widget (`{entity}_detail_screen.g.dart`)

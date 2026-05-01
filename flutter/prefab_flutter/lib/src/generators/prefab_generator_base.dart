@@ -10,7 +10,7 @@ import '../model/entity_manifest.dart';
 /// annotated entity. This class handles annotation discovery and manifest
 /// construction.
 abstract class PrefabGeneratorBase extends Generator {
-  static const _viewChecker = TypeChecker.fromRuntime(PrefabView);
+  static const _viewChecker = TypeChecker.fromRuntime(View);
 
   @override
   Future<String?> generate(LibraryReader library, BuildStep buildStep) async {

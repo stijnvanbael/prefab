@@ -2,7 +2,7 @@ import '../model/entity_manifest.dart';
 import 'prefab_generator_base.dart';
 
 /// Generates a create form screen and an edit form screen for a
-/// `@PrefabCreate`- and/or `@PrefabUpdate`-annotated entity.
+/// `@Create`- and/or `@Update`-annotated entity.
 ///
 /// Both screens share the same form widget ([_{Entity}Form]); the difference
 /// is that the edit screen pre-populates field controllers with the existing

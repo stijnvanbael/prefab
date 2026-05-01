@@ -46,19 +46,19 @@ fully-wired, modern UI scaffold generated for free.*
 
 Just as a Java developer annotates a `record` with `@Aggregate`, `@Create`, and `@GetList` to
 receive a complete Spring MVC + Spring Data JDBC stack, a Flutter developer annotates a Dart class
-with `@PrefabView`, `@PrefabCreate`, and field-level `@ListColumn` / `@FormField` annotations to
+with `@View`, `@Create`, and field-level `@ListColumn` / `@FormField` annotations to
 receive:
 
 | Generated artefact | Annotation that triggers it |
 |---|---|
-| Paginated, searchable, sortable **list screen** | `@PrefabView` + `@ListColumn` on fields |
-| Read-only **detail screen** | `@PrefabView` |
-| Create **form screen** | `@PrefabCreate` |
-| Edit **form screen** | `@PrefabUpdate` |
-| Delete **confirmation dialog** | `@PrefabDelete` |
-| Riverpod **`AsyncNotifier` provider** (full CRUD lifecycle) | `@PrefabView` |
-| `dio`-based **REST API client** | `@PrefabApi` |
-| Typed **`go_router` routes** | `@PrefabView` |
+| Paginated, searchable, sortable **list screen** | `@View` + `@ListColumn` on fields |
+| Read-only **detail screen** | `@View` |
+| Create **form screen** | `@Create` |
+| Edit **form screen** | `@Update` |
+| Delete **confirmation dialog** | `@Delete` |
+| Riverpod **`AsyncNotifier` provider** (full CRUD lifecycle) | `@View` |
+| `dio`-based **REST API client** | `@Api` |
+| Typed **`go_router` routes** | `@View` |
 
 The generator runs as a standard `build_runner` plugin, so it integrates with the existing
 Flutter toolchain without any new CLI tool or IDE plugin.
@@ -102,7 +102,7 @@ developer can inspect and, when needed, override).
 
 Prefab Flutter inherits the same principles as Prefab Java:
 
-1. **High-level intent, sensible defaults.** A single `@PrefabView` annotation generates a
+1. **High-level intent, sensible defaults.** A single `@View` annotation generates a
    complete CRUD UI. Override defaults incrementally with `@ListColumn`, `@FormField`, etc.
 
 2. **Generated code is visible.** All generated code lands in `.prefab.g.dart` files that are
@@ -121,7 +121,7 @@ Prefab Flutter inherits the same principles as Prefab Java:
 
 6. **Backend-aligned by default.** When the backend is also a Prefab Java project, Prefab
    Flutter reads the OpenAPI spec (or the Prefab annotations directly via a shared schema) to
-   derive the `@PrefabApi` path, field types, and validation rules automatically.
+   derive the `@Api` path, field types, and validation rules automatically.
 
 ---
 
@@ -131,7 +131,7 @@ All annotations are in the `prefab_flutter_annotations` package.
 
 ### 4.1 Entity-level Annotations
 
-#### `@PrefabView`
+#### `@View`
 
 Marks a Dart class as a Prefab-managed UI entity. Always required.
 
@@ -140,7 +140,7 @@ Marks a Dart class as a Prefab-managed UI entity. Always required.
 | `title` | `String` | — (required) | App-bar title on the list screen |
 | `icon` | `int?` | `Icons.list` | Material icon code-point for navigation drawer |
 
-#### `@PrefabApi`
+#### `@Api`
 
 Configures the REST endpoint.
 
@@ -150,21 +150,21 @@ Configures the REST endpoint.
 
 ### 4.2 Operation Annotations
 
-#### `@PrefabCreate`
+#### `@Create`
 
 | Attribute | Type | Default | Description |
 |---|---|---|---|
 | `title` | `String?` | `'New {Entity}'` | App-bar title on the create screen |
 | `submitLabel` | `String` | `'Create'` | Primary button label |
 
-#### `@PrefabUpdate`
+#### `@Update`
 
 | Attribute | Type | Default | Description |
 |---|---|---|---|
 | `title` | `String?` | `'Edit {Entity}'` | App-bar title on the edit screen |
 | `submitLabel` | `String` | `'Save'` | Primary button label |
 
-#### `@PrefabDelete`
+#### `@Delete`
 
 | Attribute | Type | Default | Description |
 |---|---|---|---|
@@ -201,7 +201,7 @@ Controls create/edit form field appearance and validation.
 | `inList` | `bool` | `true` | Hides from list columns |
 | `inForm` | `bool` | `true` | Hides from form fields |
 
-#### `@PrefabParent`
+#### `@Parent`
 
 Marks a field as a parent-resource reference. The parent ID is extracted from the route
 and injected into API calls (mirrors `@Parent` in Prefab Java).
@@ -217,11 +217,11 @@ import 'package:prefab_flutter_annotations/prefab_flutter_annotations.dart';
 part 'product.g.dart';
 part 'product.prefab.g.dart';
 
-@PrefabView(title: 'Products')
-@PrefabCreate(title: 'New Product', submitLabel: 'Create')
-@PrefabUpdate(title: 'Edit Product', submitLabel: 'Save')
-@PrefabDelete(confirmMessage: 'Remove this product permanently?')
-@PrefabApi(path: '/products')
+@View(title: 'Products')
+@Create(title: 'New Product', submitLabel: 'Create')
+@Update(title: 'Edit Product', submitLabel: 'Save')
+@Delete(confirmMessage: 'Remove this product permanently?')
+@Api(path: '/products')
 @JsonSerializable()
 class Product {
   final String id;
@@ -267,13 +267,13 @@ All artefacts are generated into a single `{model}.prefab.g.dart` `part` file.
 
 `{Entity}ListScreen` — a `ConsumerWidget` that:
 
-- Displays an `AppBar` with the `@PrefabView.title`
+- Displays an `AppBar` with the `@View.title`
 - Renders a `PrefabSearchBar` if any field has `@ListColumn(searchable: true)`
 - Renders a `DataTable` with one `DataColumn` per `@ListColumn` field; sortable columns
   include `onSort` callbacks that call the provider's `sort()` method
 - Renders `DataRow`s with `onSelectChanged` → detail navigation
-- Renders `onLongPress` on rows to trigger delete confirmation if `@PrefabDelete` is present
-- Renders a `FloatingActionButton` → create form if `@PrefabCreate` is present
+- Renders `onLongPress` on rows to trigger delete confirmation if `@Delete` is present
+- Renders a `FloatingActionButton` → create form if `@Create` is present
 - Renders a `PrefabPaginationBar` (previous / next page controls)
 
 ### 5.2 Detail Screen
@@ -282,8 +282,8 @@ All artefacts are generated into a single `{model}.prefab.g.dart` `part` file.
 
 - Loads the entity via `{entity}DetailProvider(id)` from the API
 - Renders each non-`@Hidden(inList: true)` field as a read-only `ListTile`
-- Provides an "Edit" `IconButton` in the `AppBar` if `@PrefabUpdate` is present
-- Provides a "Delete" `IconButton` / menu option if `@PrefabDelete` is present
+- Provides an "Edit" `IconButton` in the `AppBar` if `@Update` is present
+- Provides a "Delete" `IconButton` / menu option if `@Delete` is present
 
 ### 5.3 Create / Edit Form Screens
 
@@ -351,7 +351,7 @@ passed to `GoRouter(routes: [...])`.
 **How it works:**
 
 ```
-Developer writes product.dart with @PrefabView annotations
+Developer writes product.dart with @View annotations
         │
         ▼
 flutter pub run build_runner build
@@ -423,7 +423,7 @@ flutter/
 │   ├── pubspec.yaml
 │   └── lib/
 │       ├── prefab_flutter_annotations.dart
-│       └── src/annotations.dart         # @PrefabView, @PrefabCreate, @ListColumn, …
+│       └── src/annotations.dart         # @View, @Create, @ListColumn, …
 │
 ├── prefab_flutter/               # build_runner code generator
 │   ├── pubspec.yaml
@@ -494,7 +494,7 @@ The design decisions made for Prefab Flutter apply almost identically to a frame
 | Form validation | Flutter `Form` + `validator` callbacks | React Hook Form / Angular Reactive Forms / VeeValidate |
 | Component granularity | Screen → Table → Row | Page → Component → Cell |
 
-**Key insight:** The annotation API (`@PrefabView`, `@ListColumn`, `@FormField`, etc.) is
+**Key insight:** The annotation API (`@View`, `@ListColumn`, `@FormField`, etc.) is
 UI-framework–agnostic. It expresses *intent* (this field appears in lists; this field appears in
 forms with this validator). The generator layer translates intent into framework-specific code.
 
@@ -513,46 +513,51 @@ This mirrors how Prefab Java's `prefab-core` (annotations) is separate from `pre
 
 ---
 
-## 9. Open Questions
+## 9. Design Decisions
 
-1. **Detail screen template.** Should the detail screen use a `ListTile`-per-field layout, a
-   custom `Card`, or delegate entirely to the developer? A `@DetailLayout` annotation could
-   specify `list | card | custom`.
+The following questions were resolved during the spike review:
 
-2. **Nested entities / `@PrefabParent`.** When `OrderLine` has `@PrefabParent` referencing
-   `Order`, should the generated `OrderLineListScreen` be embedded inside `OrderDetailScreen`
-   as a tab/section, or always a separate navigated route?
+1. **Detail screen template.** The detail layout (`ListTile`-per-field vs `Card` vs custom) is
+   configurable at the **application level** (via a `PrefabConfig` or theme extension) and
+   overridable **per entity** with an annotation (e.g. `@DetailLayout`). This follows the same
+   "sensible default + opt-in override" pattern as the rest of the API.
 
-3. **Dark mode / theming.** Should generated screens be pure Material 3 (and benefit from the
-   app's `ThemeData`) or should Prefab Flutter expose a `PrefabTheme` extension point?
+2. **Nested entities / `@Parent`.** Navigation behaviour depends on the relationship type:
+   - **Child entity** (e.g. `OrderLine` is part of `Order`): the child list is **embedded
+     inside the parent's detail screen** as a tab or section.
+   - **Separate aggregate root** that references another root: navigation goes to a **separate
+     full-screen route**.
 
-4. **Form field type inference.** The PoC uses `TextFormField` for all types. The full
-   implementation needs to select widgets based on the Dart type: `DateTime` → `DatePicker`,
-   `enum` → `DropdownButton`, custom enums → same. Should this mapping be in annotations or
-   auto-inferred?
+3. **Theming.** Generated screens are built using **Material 3 and Cupertino** so they
+   benefit from the app's existing `ThemeData` out of the box, without any Prefab-specific
+   theme abstraction.
 
-5. **Validation beyond built-in `Validator` enum.** Complex cross-field validators (e.g.
-   "end date must be after start date") cannot be expressed as a simple enum. A `@Validator`
-   annotation accepting a function reference or a `ValidatorClass` approach is needed.
+4. **Form field type inference.** Widget selection is **auto-inferred from the Dart field type**
+   by default (`DateTime` → DatePicker, `enum` → Dropdown, `bool` → Switch, `double`/`int` →
+   numeric TextField). Only **exceptions to the rule** need explicit annotation via
+   `@FormField(widget: FieldWidget.multilineText)`.
 
-6. **Backend integration / shared schema.** When the backend is Prefab Java, the frontend
-   should be able to consume the generated OpenAPI spec to auto-derive `@PrefabApi.path`,
-   field types, and server-side validation rules. This eliminates duplication between the
-   backend model and the Flutter model.
+5. **Custom validation.** A `@Validate` annotation accepting a custom validator **class** (not
+   a function reference, to work with source_gen's const evaluation) will be provided for
+   complex cross-field validators (e.g. "end date must be after start date").
 
-7. **Offline / optimistic updates.** Should the generated `AsyncNotifier` support optimistic
-   updates (updating local state before the API call completes)?
+6. **Backend integration / shared schema.** The OpenAPI spec generated by a Prefab Java
+   backend is a high-priority feature that can auto-derive `@Api.path`, field types, and
+   server-side validation rules (e.g. `@NotNull` → `Validator.required`, `@Email` →
+   `Validator.email`), eliminating duplication between the backend model and the Flutter model.
 
-8. **Testing utilities.** Should Prefab Flutter generate widget tests for each generated
-   screen, mirroring Prefab Java's generated `TestClient`?
+7. **Offline / optimistic updates.** Optimistic updates will be supported out of the box in
+   the generated `AsyncNotifier` — the local state is updated immediately and rolled back if
+   the API call fails.
 
-9. **Search and sort input sanitization.** The generated API client passes `search` and
-   `sortField` query parameters directly to the server. In production these values come from
-   user input (search bar text, sort column name). The full implementation must encode these
-   values correctly (percent-encoding via `dio`'s `queryParameters` map handles URL encoding
-   automatically) and ensure the `sortField` value is restricted to a known allow-list of
-   field names derived from `@ListColumn(sortable: true)` fields — preventing injection of
-   arbitrary sort expressions.
+8. **Testing utilities.** Prefab Flutter will generate widget tests for each generated screen,
+   mirroring Prefab Java's generated `TestClient`. Each generated test pre-wires a mock API
+   client and asserts the key interactions (list loaded, form submitted, delete confirmed).
+
+9. **Search and sort input sanitization.** The `sortField` parameter is restricted to a
+   statically-generated allow-list of `@ListColumn(sortable: true)` field names, preventing
+   arbitrary sort injection. The `search` query is URL-encoded automatically by `dio`'s
+   `queryParameters` map.
 
 ---
 
@@ -564,17 +569,16 @@ accepted:
 | Priority | Title | Description |
 |---|---|---|
 | High | Publish `prefab_flutter_annotations` to pub.dev | Stable public API for the annotations package |
-| High | Implement `ListScreenGenerator` fully | Handle responsive layout (mobile/tablet/desktop), `@PrefabParent` nesting, `PrefabPage` model |
-| High | Implement `FormScreenGenerator` fully | Type-based widget selection, cross-field validation, file upload support |
-| High | Implement `ProviderGenerator` fully | Error boundary, optimistic update option |
+| High | Implement `ListScreenGenerator` fully | Responsive layout (mobile/tablet/desktop), `@Parent` nesting, `PrefabPage` model |
+| High | Implement `FormScreenGenerator` fully | Type-based widget auto-inference, custom `@Validate` class validators, file upload |
+| High | Implement `ProviderGenerator` fully | Error boundary, optimistic update out of the box |
 | High | Implement `ApiClientGenerator` fully | Authentication headers, error mapping, retry |
 | High | Implement `RoutesGenerator` fully | Nested parent routes, named routes |
-| Medium | Implement `DetailScreenGenerator` | Detail layout variants (list / card / custom) |
+| Medium | Implement `DetailScreenGenerator` | App-level default layout + per-entity `@DetailLayout` override |
 | Medium | Create `PrefabPage<T>` shared model class | Standardise pagination response parsing |
 | Medium | Create `PrefabSearchBar`, `PrefabPaginationBar`, `PrefabDeleteDialog` shared widgets | Runtime widget library (separate package: `prefab_flutter_widgets`) |
-| Medium | Backend integration — read Prefab Java OpenAPI spec | Derive `@PrefabApi.path`, field types, and validators from the backend spec automatically |
-| Medium | Write widget tests for all generated screen types | Ensure generated code is always correct |
-| Low | Support `@PrefabParent` nested entity navigation | Embed nested list in detail screen as a tab |
-| Low | Custom `PrefabTheme` extension point | Allow design-system overrides |
+| Medium | Support child-entity embedding | Embed `@Parent`-annotated child lists as tabs inside the parent detail screen |
+| Medium | Backend integration — read Prefab Java OpenAPI spec | Derive `@Api.path`, field types, and validators from the OpenAPI spec automatically |
+| Medium | Generate widget tests for all generated screen types | Mirror Prefab Java's generated TestClient |
 | Low | Explore Prefab Frontend (React) | Apply same annotation API to generate React + RTK + React Router components |
 | Low | Explore Prefab Frontend (Angular) | Apply same annotation API to generate Angular components + services + router |

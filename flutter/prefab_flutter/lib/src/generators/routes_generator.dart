@@ -1,15 +1,15 @@
 import '../model/entity_manifest.dart';
 import 'prefab_generator_base.dart';
 
-/// Generates typed `go_router` routes for a `@PrefabView` entity.
+/// Generates typed `go_router` routes for a `@View` entity.
 ///
 /// The generated route classes follow the `@TypedGoRoute` pattern from
 /// `go_router_builder`. Generated routes:
 ///
 /// - `{Entity}ListRoute` — navigates to the list screen (`/{entities}`)
 /// - `{Entity}DetailRoute` — navigates to the detail screen (`/{entities}/:id`)
-/// - `{Entity}CreateRoute` — navigates to the create form (when `@PrefabCreate` present)
-/// - `{Entity}EditRoute` — navigates to the edit form (when `@PrefabUpdate` present)
+/// - `{Entity}CreateRoute` — navigates to the create form (when `@Create` present)
+/// - `{Entity}EditRoute` — navigates to the edit form (when `@Update` present)
 ///
 /// All routes are collected in the top-level `\$prefabRoutes` list, which is
 /// passed to `GoRouter(routes: [...])` in your app.

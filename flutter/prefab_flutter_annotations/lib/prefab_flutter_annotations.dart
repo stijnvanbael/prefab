@@ -1,8 +1,8 @@
 /// Annotations for Prefab Flutter code generation.
 ///
-/// Annotate your model classes with [PrefabView], [PrefabCreate], [PrefabUpdate],
-/// [PrefabDelete], and field-level annotations ([ListColumn], [FormField],
-/// [PrefabApi]) to have Prefab Flutter generate a full-featured CRUD UI.
+/// Annotate your model classes with [View], [Create], [Update], [Delete],
+/// and [Api], plus field-level annotations ([ListColumn], [FormField],
+/// [Parent]) to have Prefab Flutter generate a full-featured CRUD UI.
 ///
 /// ## Minimal example
 ///
@@ -11,18 +11,18 @@
 ///
 /// part 'product.g.dart';
 ///
-/// @PrefabView(title: 'Products')
-/// @PrefabCreate()
-/// @PrefabUpdate()
-/// @PrefabDelete()
-/// @PrefabApi(path: '/products')
+/// @View(title: 'Products')
+/// @Create()
+/// @Update()
+/// @Delete()
+/// @Api(path: '/products')
 /// class Product {
 ///   final String id;
 ///
 ///   @ListColumn(label: 'Name', sortable: true, searchable: true)
 ///   final String name;
 ///
-///   @ListColumn(label: 'Price', sortable: true)
+///   @ListColumn(label: 'Price')
 ///   final double price;
 ///
 ///   const Product({required this.id, required this.name, required this.price});

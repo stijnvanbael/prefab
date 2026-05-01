@@ -1,7 +1,7 @@
 import '../model/entity_manifest.dart';
 import 'prefab_generator_base.dart';
 
-/// Generates a `dio`-based REST API client for a `@PrefabView` + `@PrefabApi`
+/// Generates a `dio`-based REST API client for a `@View` + `@Api`
 /// entity.
 ///
 /// The generated client class (`{Entity}ApiClient`) is a Riverpod-injectable

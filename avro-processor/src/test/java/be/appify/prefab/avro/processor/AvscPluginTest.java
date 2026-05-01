@@ -125,13 +125,30 @@ class AvscPluginTest {
         assertThat(compilation).succeeded();
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.SimpleAvscEventSchemaFactory")
-                .isNotNull();
+                .contentsAsUtf8String()
+                .isEqualTo(contentsOf("event/avsc/simple/expected/SimpleAvscEventSchemaFactory.java"));
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.SimpleAvscEventToGenericRecordConverter")
                 .isNotNull();
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.GenericRecordToSimpleAvscEventConverter")
                 .isNotNull();
+    }
+
+    @Test
+    void multiPathAvscSchemaFactoriesLoadFromCorrectAvscFiles() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/multi/source/MultiAvsc.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.multi.infrastructure.avro.MultiAvscEventASchemaFactory")
+                .contentsAsUtf8String()
+                .contains("event/avsc/multi/source/MultiAvscEventA.avsc");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.multi.infrastructure.avro.MultiAvscEventBSchemaFactory")
+                .contentsAsUtf8String()
+                .contains("event/avsc/multi/source/MultiAvscEventB.avsc");
     }
 
     @Test

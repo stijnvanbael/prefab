@@ -8,11 +8,17 @@ import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.event.EventPlatformPluginSupport;
 import com.palantir.javapoet.*;
 import jakarta.annotation.Nullable;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import javax.lang.model.element.ElementKind;
@@ -46,6 +52,20 @@ class EventSchemaFactoryWriter {
             return;
         }
 
+        if (isAvscGeneratedRecord(event)) {
+            var avscPath = findAvscPath(event);
+            if (avscPath.isEmpty()) {
+                context.logError(
+                        "Could not find the AVSC file for AVSC-generated record '%s'. "
+                        + "Ensure the @Avsc paths on the contract interface are accessible on the classpath."
+                                .formatted(event.simpleName()),
+                        event.asElement());
+                return;
+            }
+            writeAvscRecordSchemaFactory(event, avscPath.get());
+            return;
+        }
+
         var name = schemaFactorySimpleName(event);
         var type = TypeSpec.classBuilder(name)
                 .addModifiers(Modifier.PUBLIC)
@@ -55,6 +75,71 @@ class EventSchemaFactoryWriter {
                 .addMethod(createSchemaMethod());
 
         newFileWriter(event).writeFile(event.packageName(), name, type.build());
+    }
+
+    private void writeAvscRecordSchemaFactory(TypeManifest event, String avscPath) {
+        var name = schemaFactorySimpleName(event);
+        var schemaFactoryClass = ClassName.get(event.packageName() + "." + AVRO_PACKAGE_SUFFIX, name);
+        var constructor = MethodSpec.constructorBuilder()
+                .addModifiers(Modifier.PUBLIC)
+                .beginControlFlow("try (var stream = $T.class.getClassLoader().getResourceAsStream($S))",
+                        schemaFactoryClass, avscPath)
+                .beginControlFlow("if (stream == null)")
+                .addStatement("throw new $T($S)", IllegalStateException.class,
+                        "AVSC file not found on classpath: " + avscPath)
+                .endControlFlow()
+                .addStatement("this.schema = new $T().parse(stream)", Schema.Parser.class)
+                .nextControlFlow("catch ($T e)", IOException.class)
+                .addStatement("throw new $T(e)", RuntimeException.class)
+                .endControlFlow()
+                .build();
+
+        var type = TypeSpec.classBuilder(name)
+                .addModifiers(Modifier.PUBLIC)
+                .addAnnotation(componentAnnotation(event, name))
+                .addField(FieldSpec.builder(Schema.class, "schema", Modifier.PRIVATE, Modifier.FINAL).build())
+                .addMethod(constructor)
+                .addMethod(createSchemaMethod());
+
+        newFileWriter(event).writeFile(event.packageName(), name, type.build());
+    }
+
+    private boolean isAvscGeneratedRecord(TypeManifest event) {
+        return event.asElement() != null
+                && EventPlatformPluginSupport.isAvscGeneratedRecord(event.asElement());
+    }
+
+    private Optional<String> findAvscPath(TypeManifest event) {
+        if (!(event.asElement() instanceof TypeElement typeElement)) {
+            return Optional.empty();
+        }
+        return typeElement.getInterfaces().stream()
+                .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
+                .filter(iface -> iface.getAnnotation(Avsc.class) != null)
+                .flatMap(iface -> Arrays.stream(iface.getAnnotation(Avsc.class).value()))
+                .filter(path -> matchesRecordName(path, event.simpleName()))
+                .findFirst();
+    }
+
+    private boolean matchesRecordName(String avscPath, String recordSimpleName) {
+        try (var stream = openResource(avscPath)) {
+            if (stream == null) return false;
+            return new Schema.Parser().parse(stream).getName().equals(recordSimpleName);
+        } catch (IOException e) {
+            context.processingEnvironment().getMessager().printMessage(
+                    javax.tools.Diagnostic.Kind.WARNING,
+                    "Could not read or parse AVSC file '%s' while resolving schema for '%s': %s"
+                            .formatted(avscPath, recordSimpleName, e.getMessage()));
+            return false;
+        }
+    }
+
+    private InputStream openResource(String path) throws IOException {
+        var stream = getClass().getClassLoader().getResourceAsStream(path);
+        if (stream != null) return stream;
+        var file = Path.of("src/main/resources", path);
+        if (Files.exists(file)) return Files.newInputStream(file);
+        return null;
     }
 
     /**

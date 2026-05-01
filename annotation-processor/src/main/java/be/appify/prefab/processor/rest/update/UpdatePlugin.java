@@ -2,6 +2,7 @@ package be.appify.prefab.processor.rest.update;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.AsyncCommit;
+import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.JavaFileWriter;
@@ -15,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
@@ -27,6 +29,8 @@ import static org.apache.commons.text.WordUtils.capitalize;
  * client methods.
  */
 public class UpdatePlugin implements PrefabPlugin {
+    private static final Pattern LEADING_PATH_VAR = Pattern.compile("^/\\{(\\w+)}(.*)$");
+
     private final UpdateControllerWriter updateControllerWriter = new UpdateControllerWriter();
     private final UpdateServiceWriter updateServiceWriter = new UpdateServiceWriter();
     private final UpdateRequestRecordWriter updateRequestRecordWriter = new UpdateRequestRecordWriter();
@@ -174,6 +178,7 @@ public class UpdatePlugin implements PrefabPlugin {
         var parentField = manifest.parent();
         var parentFieldName = parentField.map(VariableManifest::name);
         return manifest.methodsWith(Update.class).stream()
+                .filter(element -> !isPairedWithCreate(manifest, element))
                 .map(element -> {
                     var update = element.getAnnotationsByType(Update.class)[0];
                     var allParams = getParametersOf(element, context.processingEnvironment());
@@ -204,6 +209,20 @@ public class UpdatePlugin implements PrefabPlugin {
                             update.security());
                 })
                 .toList();
+    }
+
+    private boolean isPairedWithCreate(ClassManifest manifest, ExecutableElement updateMethod) {
+        var update = updateMethod.getAnnotationsByType(Update.class)[0];
+        return manifest.constructorsWith(Create.class).stream()
+                .anyMatch(ctor -> {
+                    var create = ctor.getAnnotation(Create.class);
+                    var matcher = LEADING_PATH_VAR.matcher(create.path());
+                    if (!matcher.matches()) {
+                        return false;
+                    }
+                    var pathSuffix = matcher.group(2);
+                    return create.method().equals(update.method()) && pathSuffix.equals(update.path());
+                });
     }
 
     private List<VariableManifest> resolveParentEntityParameters(

@@ -21,7 +21,7 @@ import javax.lang.model.element.Modifier;
 
 import static org.apache.commons.text.WordUtils.uncapitalize;
 
-class CreateServiceWriter {
+public class CreateServiceWriter {
     MethodSpec createMethod(ClassManifest manifest, ExecutableElement constructor, PrefabContext context) {
         var tenantField = manifest.tenantIdField();
         var method = MethodSpec.methodBuilder("create")
@@ -181,7 +181,7 @@ class CreateServiceWriter {
         return context.requestParameterMapper().mapRequestParameter(param);
     }
 
-    static Optional<String> parentFieldName(ClassManifest manifest) {
+    public static Optional<String> parentFieldName(ClassManifest manifest) {
         return manifest.parent()
                 .filter(parent -> !parent.type().parameters().isEmpty())
                 .map(VariableManifest::name);

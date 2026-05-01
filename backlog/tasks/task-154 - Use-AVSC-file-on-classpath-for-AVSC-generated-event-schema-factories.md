@@ -1,10 +1,10 @@
 ---
 id: TASK-154
 title: Use AVSC file on classpath for AVSC-generated event schema factories
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-05-01 05:02'
-updated_date: '2026-05-01 05:03'
+updated_date: '2026-05-01 05:16'
 labels: []
 dependencies: []
 ---
@@ -17,8 +17,8 @@ For AVSC-generated events, the Avro schema factory currently reconstructs the sc
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 EventSchemaFactoryWriter detects AVSC-generated records and generates classpath-loading schema factories
-- [ ] #2 Generated schema factory uses Schema.Parser().parse(stream) to load the AVSC file from the classpath
-- [ ] #3 Multi-path AVSC interfaces correctly map each record to its corresponding AVSC file
-- [ ] #4 Existing tests pass and new tests verify the classpath-loading schema factory content
+- [x] #1 EventSchemaFactoryWriter detects AVSC-generated records and generates classpath-loading schema factories
+- [x] #2 Generated schema factory uses Schema.Parser().parse(stream) to load the AVSC file from the classpath
+- [x] #3 Multi-path AVSC interfaces correctly map each record to its corresponding AVSC file
+- [x] #4 Existing tests pass and new tests verify the classpath-loading schema factory content
 <!-- AC:END -->

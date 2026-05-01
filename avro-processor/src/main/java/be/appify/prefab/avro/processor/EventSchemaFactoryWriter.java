@@ -53,7 +53,16 @@ class EventSchemaFactoryWriter {
         }
 
         if (isAvscGeneratedRecord(event)) {
-            findAvscPath(event).ifPresent(path -> writeAvscRecordSchemaFactory(event, path));
+            var avscPath = findAvscPath(event);
+            if (avscPath.isEmpty()) {
+                context.logError(
+                        "Could not find the AVSC file for AVSC-generated record '%s'. "
+                        + "Ensure the @Avsc paths on the contract interface are accessible on the classpath."
+                                .formatted(event.simpleName()),
+                        event.asElement());
+                return;
+            }
+            writeAvscRecordSchemaFactory(event, avscPath.get());
             return;
         }
 
@@ -101,7 +110,9 @@ class EventSchemaFactoryWriter {
     }
 
     private Optional<String> findAvscPath(TypeManifest event) {
-        var typeElement = (TypeElement) event.asElement();
+        if (!(event.asElement() instanceof TypeElement typeElement)) {
+            return Optional.empty();
+        }
         return typeElement.getInterfaces().stream()
                 .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
                 .filter(iface -> iface.getAnnotation(Avsc.class) != null)
@@ -115,6 +126,10 @@ class EventSchemaFactoryWriter {
             if (stream == null) return false;
             return new Schema.Parser().parse(stream).getName().equals(recordSimpleName);
         } catch (IOException e) {
+            context.processingEnvironment().getMessager().printMessage(
+                    javax.tools.Diagnostic.Kind.WARNING,
+                    "Could not read or parse AVSC file '%s' while resolving schema for '%s': %s"
+                            .formatted(avscPath, recordSimpleName, e.getMessage()));
             return false;
         }
     }

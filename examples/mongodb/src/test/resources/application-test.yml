@@ -1,6 +1,19 @@
 logging.level:
   be.appify.prefab.example: DEBUG
 
-prefab.dlt.retries:
-  limit: 1
-  initial-interval-ms: 10
+prefab:
+  dlt:
+    retries:
+      limit: 1
+      initial-interval-ms: 10
+  outbox:
+    poll-interval-ms: 500
+    batch-size: 10
+
+spring:
+  kafka:
+    producer:
+      properties:
+        request.timeout.ms: 1000
+        delivery.timeout.ms: 2000
+        max.block.ms: 1000

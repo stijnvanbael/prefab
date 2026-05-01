@@ -18,6 +18,7 @@ import tools.jackson.core.type.TypeReference;
 
 import static be.appify.prefab.processor.TestClasses.MOCK_MVC_REQUEST_BUILDERS;
 import static be.appify.prefab.processor.TestClasses.MOCK_MVC_RESULT_MATCHERS;
+import static be.appify.prefab.processor.TestClasses.REST_RESPONSE_ASSERT;
 import static org.atteo.evo.inflector.English.plural;
 
 class GetListTestClientWriter {
@@ -27,7 +28,8 @@ class GetListTestClientWriter {
                 .filter(field -> field.hasAnnotation(Filter.class))
                 .map(field -> field.type().isSingleValueType() ? field.withType(String.class) : field)
                 .toList();
-        var returnType = returnType(manifest);
+        var pageResponseType = pageResponseType(manifest);
+        var returnType = ParameterizedTypeName.get(REST_RESPONSE_ASSERT, pageResponseType);
         var method = methodSignature(manifest, returnType, filterProperties);
         createRequest(manifest, method, search);
         addPaging(method);
@@ -35,12 +37,13 @@ class GetListTestClientWriter {
         for (var property : filterProperties) {
             addFilterParam(property.name(), method);
         }
-        return performRequest(method, returnType);
+        return performRequest(method, pageResponseType);
     }
 
     MethodSpec getListMethodForPolymorphic(PolymorphicAggregateManifest manifest) {
         var search = manifest.annotationsOfType(GetList.class).stream().findFirst().orElseThrow();
-        var returnType = polymorphicReturnType(manifest);
+        var pageResponseType = polymorphicPageResponseType(manifest);
+        var returnType = ParameterizedTypeName.get(REST_RESPONSE_ASSERT, pageResponseType);
         var method = MethodSpec.methodBuilder("find" + plural(manifest.simpleName()))
                 .addModifiers(Modifier.PUBLIC)
                 .returns(returnType)
@@ -61,16 +64,16 @@ class GetListTestClientWriter {
                         ControllerUtil.withMockUser(search.security())));
         addPaging(method);
         addSorting(method);
-        return performRequest(method, returnType);
+        return performRequest(method, pageResponseType);
     }
 
-    private static ParameterizedTypeName returnType(ClassManifest manifest) {
+    private static ParameterizedTypeName pageResponseType(ClassManifest manifest) {
         return ParameterizedTypeName.get(ClassName.get(Page.class),
                 ClassName.get(manifest.packageName() + ".infrastructure.http",
-                        "%sResponse" .formatted(manifest.simpleName())));
+                        "%sResponse".formatted(manifest.simpleName())));
     }
 
-    private static ParameterizedTypeName polymorphicReturnType(PolymorphicAggregateManifest manifest) {
+    private static ParameterizedTypeName polymorphicPageResponseType(PolymorphicAggregateManifest manifest) {
         return ParameterizedTypeName.get(ClassName.get(Page.class),
                 ControllerUtil.responseType(manifest));
     }
@@ -138,18 +141,17 @@ class GetListTestClientWriter {
         }
     }
 
-    private static MethodSpec performRequest(MethodSpec.Builder method, ParameterizedTypeName returnType) {
-        return method.addStatement("""
-                                var json = mockMvc.perform(request.accept($T.APPLICATION_JSON))
-                                        .andExpect($T.status().isOk())
-                                        .andReturn()
-                                        .getResponse()
-                                        .getContentAsString()""",
+    private static MethodSpec performRequest(MethodSpec.Builder method, ParameterizedTypeName pageResponseType) {
+        return method
+                .addStatement("""
+                                var result = mockMvc.perform(request.accept($T.APPLICATION_JSON))
+                                        .andExpect($T.status().isOk())""",
                         MediaType.class,
-                        MOCK_MVC_RESULT_MATCHERS
-                )
-                .addStatement("return jsonMapper.readValue(json, new $T() {})",
-                        ParameterizedTypeName.get(ClassName.get(TypeReference.class), returnType))
+                        MOCK_MVC_RESULT_MATCHERS)
+                .addStatement("var json = result.andReturn().getResponse().getContentAsString()")
+                .addStatement("return new $T<>(result, null, jsonMapper.readValue(json, new $T() {}))",
+                        REST_RESPONSE_ASSERT,
+                        ParameterizedTypeName.get(ClassName.get(TypeReference.class), pageResponseType))
                 .build();
     }
 }

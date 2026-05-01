@@ -25,9 +25,9 @@ class MultipleAsyncCreateTestClientTest {
                 .compile(sourceOf("rest/asyncmultiplecreate/source/Order.java"));
 
         assertThat(compilation).succeeded();
-        assertTrue(processor.capturedSources.stream().anyMatch(s -> s.contains("void placeOrder(")),
+        assertTrue(processor.capturedSources.stream().anyMatch(s -> s.contains("RestResponseAssert<Void> placeOrder(")),
                 "Expected test client to contain placeOrder method");
-        assertTrue(processor.capturedSources.stream().anyMatch(s -> s.contains("void quickOrder(")),
+        assertTrue(processor.capturedSources.stream().anyMatch(s -> s.contains("RestResponseAssert<Void> quickOrder(")),
                 "Expected test client to contain quickOrder method");
     }
 
@@ -39,7 +39,7 @@ class MultipleAsyncCreateTestClientTest {
                 .compile(sourceOf("rest/asynccreate/source/Order.java"));
 
         assertThat(compilation).succeeded();
-        assertTrue(processor.capturedSources.stream().anyMatch(s -> s.contains("void placeOrder(")),
+        assertTrue(processor.capturedSources.stream().anyMatch(s -> s.contains("RestResponseAssert<Void> placeOrder(")),
                 "Expected test client to contain placeOrder method");
     }
 

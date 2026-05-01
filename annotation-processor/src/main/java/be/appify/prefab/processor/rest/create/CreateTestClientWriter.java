@@ -10,6 +10,8 @@ import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
+import com.palantir.javapoet.ParameterizedTypeName;
+import com.palantir.javapoet.TypeName;
 
 import java.util.List;
 import java.util.Map;
@@ -26,11 +28,16 @@ import org.springframework.web.multipart.MultipartFile;
 import static be.appify.prefab.processor.TestClasses.MOCK_MVC_REQUEST_BUILDERS;
 import static be.appify.prefab.processor.TestClasses.MOCK_MVC_RESULT_MATCHERS;
 import static be.appify.prefab.processor.TestClasses.MOCK_PART;
+import static be.appify.prefab.processor.TestClasses.REST_RESPONSE_ASSERT;
 import static be.appify.prefab.processor.TestClasses.TEST_UTIL;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 class CreateTestClientWriter {
+
+    private static TypeName voidResponseAssert() {
+        return ParameterizedTypeName.get(REST_RESPONSE_ASSERT, TypeName.get(Void.class));
+    }
 
     List<MethodSpec> asyncCreateMethods(ClassManifest manifest, ExecutableElement factoryMethod, PrefabContext context) {
         var create = Objects.requireNonNull(factoryMethod.getAnnotation(Create.class));
@@ -99,21 +106,23 @@ class CreateTestClientWriter {
     ) {
         var method = MethodSpec.methodBuilder(methodName)
                 .addModifiers(Modifier.PUBLIC)
-                .returns(void.class)
+                .returns(voidResponseAssert())
                 .addException(Exception.class);
         parentPathParam.ifPresent(method::addParameter);
         method.addParameters(pathVarParams);
         var pathVariables = Stream.of(parentPathParam.map(ParameterSpec::name).orElse(""), pathVarNamesStr)
                 .filter(s -> !s.isBlank())
                 .collect(Collectors.joining(", "));
-        return method.addStatement("""
-                        mockMvc.perform($T.$N($L)$L)
-                                .andExpect($T.status().isAccepted())""",
-                MOCK_MVC_REQUEST_BUILDERS,
-                create.method().toLowerCase(),
-                asyncPathVariables(manifest, create, pathVariables),
-                ControllerUtil.withMockUser(create.security()),
-                MOCK_MVC_RESULT_MATCHERS)
+        return method
+                .addStatement("""
+                                var result = mockMvc.perform($T.$N($L)$L)
+                                        .andExpect($T.status().isAccepted())""",
+                        MOCK_MVC_REQUEST_BUILDERS,
+                        create.method().toLowerCase(),
+                        asyncPathVariables(manifest, create, pathVariables),
+                        ControllerUtil.withMockUser(create.security()),
+                        MOCK_MVC_RESULT_MATCHERS)
+                .addStatement("return new $T<>(result, null, null)", REST_RESPONSE_ASSERT)
                 .build();
     }
 
@@ -136,16 +145,16 @@ class CreateTestClientWriter {
                 .collect(Collectors.joining(", "));
         var builder = MethodSpec.methodBuilder(methodName)
                 .addModifiers(Modifier.PUBLIC)
-                .returns(void.class)
+                .returns(voidResponseAssert())
                 .addParameters(allIndividualParams)
                 .addException(Exception.class);
         if (hasBody) {
             var serviceCallArgs = prefixArgs.isBlank()
                     ? "new $T(" + bodyParamNames + ")"
                     : prefixArgs + ", new $T(" + bodyParamNames + ")";
-            builder.addStatement(methodName + "(" + serviceCallArgs + ")", bodyType);
+            builder.addStatement("return " + methodName + "(" + serviceCallArgs + ")", bodyType);
         } else {
-            builder.addStatement("$L($L)", methodName, prefixArgs);
+            builder.addStatement("return $L($L)", methodName, prefixArgs);
         }
         return builder.build();
     }
@@ -162,7 +171,7 @@ class CreateTestClientWriter {
         var createRequest = uncapitalize(manifest.simpleName());
         var method = MethodSpec.methodBuilder(methodName)
                 .addModifiers(Modifier.PUBLIC)
-                .returns(void.class)
+                .returns(voidResponseAssert())
                 .addException(Exception.class);
         parentPathParam.ifPresent(method::addParameter);
         method.addParameters(pathVarParams);
@@ -170,18 +179,20 @@ class CreateTestClientWriter {
         var pathVariables = Stream.of(parentPathParam.map(ParameterSpec::name).orElse(""), pathVarNamesStr)
                 .filter(s -> !s.isBlank())
                 .collect(Collectors.joining(", "));
-        return method.addStatement("""
-                        mockMvc.perform($T.$N($L)$L
-                        .contentType($T.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString($L)))
-                        .andExpect($T.status().isAccepted())""",
-                MOCK_MVC_REQUEST_BUILDERS,
-                create.method().toLowerCase(),
-                asyncPathVariables(manifest, create, pathVariables),
-                ControllerUtil.withMockUser(create.security()),
-                MediaType.class,
-                createRequest,
-                MOCK_MVC_RESULT_MATCHERS)
+        return method
+                .addStatement("""
+                                var result = mockMvc.perform($T.$N($L)$L
+                                .contentType($T.APPLICATION_JSON)
+                                .content(jsonMapper.writeValueAsString($L)))
+                                .andExpect($T.status().isAccepted())""",
+                        MOCK_MVC_REQUEST_BUILDERS,
+                        create.method().toLowerCase(),
+                        asyncPathVariables(manifest, create, pathVariables),
+                        ControllerUtil.withMockUser(create.security()),
+                        MediaType.class,
+                        createRequest,
+                        MOCK_MVC_RESULT_MATCHERS)
+                .addStatement("return new $T<>(result, null, null)", REST_RESPONSE_ASSERT)
                 .build();
     }
 
@@ -220,14 +231,15 @@ class CreateTestClientWriter {
         var path = "/" + ControllerUtil.pathOf(polymorphic) + create.path();
         var method = MethodSpec.methodBuilder("create")
                 .addModifiers(Modifier.PUBLIC)
-                .returns(String.class)
+                .returns(voidResponseAssert())
                 .addException(Exception.class);
         polymorphic.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
         method.addParameter(unionClass, "request");
         var pathExpression = polymorphic.parent()
                 .map(parent -> CodeBlock.of("$S, $L", path, parent.name()))
                 .orElseGet(() -> CodeBlock.of("$S", path));
-        return method.addStatement("""
+        return method
+                .addStatement("""
                                 var result = mockMvc.perform($T.$N($L)$L
                                 .contentType($T.APPLICATION_JSON)
                                 .content(jsonMapper.writeValueAsString(request)))
@@ -238,7 +250,7 @@ class CreateTestClientWriter {
                         ControllerUtil.withMockUser(create.security()),
                         MediaType.class,
                         MOCK_MVC_RESULT_MATCHERS)
-                .addStatement("return $T.idOf(result)", TEST_UTIL)
+                .addStatement("return new $T<>(result, $T.idOf(result), null)", REST_RESPONSE_ASSERT, TEST_UTIL)
                 .build();
     }
 
@@ -272,7 +284,7 @@ class CreateTestClientWriter {
                 .orElse(individualParams);
         return MethodSpec.methodBuilder("create" + leafName)
                 .addModifiers(Modifier.PUBLIC)
-                .returns(String.class)
+                .returns(voidResponseAssert())
                 .addParameters(allParams)
                 .addException(Exception.class)
                 .addStatement("return create(" + createCallArgs + ")", nestedClass)
@@ -316,7 +328,7 @@ class CreateTestClientWriter {
                 .orElseGet(() -> CodeBlock.of("$S", path));
         return MethodSpec.methodBuilder("create" + leafName)
                 .addModifiers(Modifier.PUBLIC)
-                .returns(String.class)
+                .returns(voidResponseAssert())
                 .addParameters(allParams)
                 .addException(Exception.class)
                 .addStatement("""
@@ -332,7 +344,7 @@ class CreateTestClientWriter {
                         bodyType,
                         bodyParamNames,
                         MOCK_MVC_RESULT_MATCHERS)
-                .addStatement("return $T.idOf(result)", TEST_UTIL)
+                .addStatement("return new $T<>(result, $T.idOf(result), null)", REST_RESPONSE_ASSERT, TEST_UTIL)
                 .build();
     }
 
@@ -373,7 +385,7 @@ class CreateTestClientWriter {
                 .collect(Collectors.joining(", "));
         var builder = MethodSpec.methodBuilder("create" + manifest.simpleName())
                 .addModifiers(Modifier.PUBLIC)
-                .returns(String.class)
+                .returns(voidResponseAssert())
                 .addParameters(allIndividualParams)
                 .addException(Exception.class);
         if (hasBodyParams) {
@@ -413,7 +425,7 @@ class CreateTestClientWriter {
         ).toList();
         var method = MethodSpec.methodBuilder("create" + manifest.simpleName())
                 .addModifiers(Modifier.PUBLIC)
-                .returns(String.class)
+                .returns(voidResponseAssert())
                 .addException(Exception.class);
         parentPathParam.ifPresent(method::addParameter);
         method.addParameters(pathVarParams);
@@ -434,7 +446,7 @@ class CreateTestClientWriter {
         var create = Objects.requireNonNull(constructor.getAnnotation(Create.class));
         var method = MethodSpec.methodBuilder("create" + manifest.simpleName())
                 .addModifiers(Modifier.PUBLIC)
-                .returns(String.class)
+                .returns(voidResponseAssert())
                 .addException(Exception.class);
         manifest.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
         var pathVariables = manifest.parent()
@@ -444,7 +456,8 @@ class CreateTestClientWriter {
     }
 
     private static MethodSpec withoutRequestBody(ClassManifest manifest, MethodSpec.Builder method, Create create, String pathVariables) {
-        return method.addStatement("""
+        return method
+                .addStatement("""
                                 var result = mockMvc.perform($T.$N($L)$L)
                                         .andExpect($T.status().isCreated())""",
                         MOCK_MVC_REQUEST_BUILDERS,
@@ -452,7 +465,7 @@ class CreateTestClientWriter {
                         pathVariables(manifest, create, pathVariables),
                         ControllerUtil.withMockUser(create.security()),
                         MOCK_MVC_RESULT_MATCHERS)
-                .addStatement("return $T.idOf(result)", TEST_UTIL)
+                .addStatement("return new $T<>(result, $T.idOf(result), null)", REST_RESPONSE_ASSERT, TEST_UTIL)
                 .build();
     }
 
@@ -463,7 +476,8 @@ class CreateTestClientWriter {
             String pathVariables,
             String createRequest
     ) {
-        return method.addStatement("""
+        return method
+                .addStatement("""
                                 var result = mockMvc.perform($T.$N($L)$L
                                 .contentType($T.APPLICATION_JSON)
                                 .content(jsonMapper.writeValueAsString($L)))
@@ -475,7 +489,7 @@ class CreateTestClientWriter {
                         MediaType.class,
                         createRequest,
                         MOCK_MVC_RESULT_MATCHERS)
-                .addStatement("return $T.idOf(result)", TEST_UTIL)
+                .addStatement("return new $T<>(result, $T.idOf(result), null)", REST_RESPONSE_ASSERT, TEST_UTIL)
                 .build();
     }
 
@@ -503,7 +517,8 @@ class CreateTestClientWriter {
                         MediaType.class);
             }
         });
-        return method.addStatement("""
+        return method
+                .addStatement("""
                                 var result = mockMvc.perform($T.multipart($L)
                                     $L
                                 ).andExpect($T.status().isCreated())""",
@@ -517,7 +532,7 @@ class CreateTestClientWriter {
                             }
                         }).collect(Collectors.joining("\n")),
                         MOCK_MVC_RESULT_MATCHERS)
-                .addStatement("return $T.idOf(result)", TEST_UTIL)
+                .addStatement("return new $T<>(result, $T.idOf(result), null)", REST_RESPONSE_ASSERT, TEST_UTIL)
                 .build();
     }
 
@@ -537,13 +552,14 @@ class CreateTestClientWriter {
         var path = "/" + ControllerUtil.pathOf(polymorphic) + create.path();
         var method = MethodSpec.methodBuilder("create" + leafName)
                 .addModifiers(Modifier.PUBLIC)
-                .returns(String.class)
+                .returns(voidResponseAssert())
                 .addException(Exception.class);
         polymorphic.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
         var pathExpression = polymorphic.parent()
                 .map(parent -> CodeBlock.of("$S, $L", path, parent.name()))
                 .orElseGet(() -> CodeBlock.of("$S", path));
-        return method.addStatement("""
+        return method
+                .addStatement("""
                                 var result = mockMvc.perform($T.$N($L)$L)
                                         .andExpect($T.status().isCreated())""",
                         MOCK_MVC_REQUEST_BUILDERS,
@@ -551,7 +567,7 @@ class CreateTestClientWriter {
                         pathExpression,
                         ControllerUtil.withMockUser(create.security()),
                         MOCK_MVC_RESULT_MATCHERS)
-                .addStatement("return $T.idOf(result)", TEST_UTIL)
+                .addStatement("return new $T<>(result, $T.idOf(result), null)", REST_RESPONSE_ASSERT, TEST_UTIL)
                 .build();
     }
 

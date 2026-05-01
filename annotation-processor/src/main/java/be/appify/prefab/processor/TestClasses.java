@@ -70,4 +70,11 @@ public class TestClasses {
     public static final ClassName ANNOTATION_AWARE_ORDER_COMPARATOR = ClassName.get(
             "org.springframework.core.annotation",
             "AnnotationAwareOrderComparator");
+
+    /**
+     * ClassName for be.appify.prefab.test.asserts.RestResponseAssert, the fluent assertion object returned by generated test client methods.
+     */
+    public static final ClassName REST_RESPONSE_ASSERT = ClassName.get(
+            "be.appify.prefab.test.asserts",
+            "RestResponseAssert");
 }

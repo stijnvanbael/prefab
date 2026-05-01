@@ -111,7 +111,7 @@ class CreateOrUpdateServiceWriter {
             boolean noBodyParams,
             ClassManifest manifest
     ) {
-        var saveAndReturn = updateReturnBlock(manifest, repositoryName, idName, idSuffix, false);
+        var saveAndReturn = updateReturnBlock(manifest, repositoryName, idName, idSuffix);
         method.addStatement("""
                         return $N.findById($N)
                                 .map(aggregate -> {
@@ -141,7 +141,7 @@ class CreateOrUpdateServiceWriter {
             String idSuffix,
             boolean noBodyParams
     ) {
-        var saveAndReturn = updateReturnBlock(manifest, repositoryName, idName, idSuffix, true);
+        var saveAndReturn = updateReturnBlock(manifest, repositoryName, idName, idSuffix);
         var createSaveAndReturn = createReturnBlock(manifest, repositoryName, idName, idSuffix);
         method.addStatement("""
                         return $N.findById($N)
@@ -170,8 +170,7 @@ class CreateOrUpdateServiceWriter {
             ClassManifest manifest,
             String repositoryName,
             String idName,
-            String idSuffix,
-            boolean hasAudit
+            String idSuffix
     ) {
         return CodeBlock.of("var saved = $N.save(aggregate);\nreturn saved.$N()$L;\n",
                 repositoryName, idName, idSuffix);

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import static be.appify.prefab.processor.test.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RestWriterTest {
@@ -505,7 +506,7 @@ class RestWriterTest {
                     }
                 })
                 .orElse("");
-        assertTrue(!serviceContent.contains("public Optional<Product> update("),
+        assertFalse(serviceContent.contains("public Optional<Product> update("),
                 "Should not generate a separate update method");
     }
 

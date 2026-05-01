@@ -11,11 +11,8 @@ import be.appify.prefab.processor.rest.PathVariables;
 import be.appify.prefab.processor.rest.create.CreateRequestRecordWriter;
 import be.appify.prefab.processor.rest.update.UpdateManifest;
 import com.palantir.javapoet.TypeSpec;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -37,7 +34,7 @@ public class CreateOrUpdatePlugin implements PrefabPlugin {
     private final CreateOrUpdateTestClientWriter testClientWriter = new CreateOrUpdateTestClientWriter();
     private final CreateRequestRecordWriter requestRecordWriter = new CreateRequestRecordWriter();
     private final java.util.Map<ClassManifest, List<CreateOrUpdateManifest>> pairsCache =
-            Collections.synchronizedMap(new WeakHashMap<>());
+            new java.util.concurrent.ConcurrentHashMap<>();
     private PrefabContext context;
 
     @Override

@@ -35,6 +35,7 @@ this document as the primary source of truth for Prefab behaviour.
    - [6.5 Event Consumer](#65-event-consumer)
    - [6.6 Database Migration Scripts](#66-database-migration-scripts)
    - [6.7 Event Consumer Assertions](#67-event-consumer-assertions)
+   - [6.8 Generated Assertion Classes](#68-generated-assertion-classes)
 7. [Feature Guides](#7-feature-guides)
    - [7.1 REST CRUD Operations](#71-rest-crud-operations)
    - [7.2 Event Publishing](#72-event-publishing)
@@ -1387,6 +1388,78 @@ EventConsumerAssert.assertThat(userConsumer)
     .hasReceivedMessages(1)
     .within(5, TimeUnit.SECONDS)
     .where(UserEventAssert.class, assert_ -> assert_.hasCreatedUserWithName("Alice"));
+```
+
+---
+
+### 6.8 Generated Assertion Classes
+
+For each response record, `@Event`-annotated type, and nested record, Prefab generates an AssertJ assertion class
+in the same package as the type (written to `target/prefab-test-sources/`).
+
+#### `{Type}ResponseAssert`
+
+Generated for every aggregate. Extends `AbstractAssert<{Type}ResponseAssert, {Type}Response>` and exposes one
+`has{FieldName}(FieldType expected)` method per record component, plus a static `assertThat()` factory method.
+
+```java
+// Generated: assertion.infrastructure.http.ProductResponseAssert
+public class ProductResponseAssert
+        extends AbstractAssert<ProductResponseAssert, ProductResponse> {
+
+    public static ProductResponseAssert assertThat(ProductResponse actual) { ... }
+
+    public ProductResponseAssert hasId(String expected) { ... }
+    public ProductResponseAssert hasName(String expected) { ... }
+    public ProductResponseAssert hasPrice(Double expected) { ... }
+}
+```
+
+#### `{EventName}Assert`
+
+Generated for every `@Event`-annotated record. Same structure as above.
+
+```java
+// Generated: com.example.event.OrderCreatedAssert
+public class OrderCreatedAssert
+        extends AbstractAssert<OrderCreatedAssert, OrderCreated> {
+
+    public static OrderCreatedAssert assertThat(OrderCreated actual) { ... }
+
+    public OrderCreatedAssert hasOrderId(String expected) { ... }
+    public OrderCreatedAssert hasCustomerName(String expected) { ... }
+}
+```
+
+#### `{NestedType}Assert`
+
+If a response record or event has fields of a record type (multi-field, not a single-value wrapper), an assertion
+class is generated recursively for that nested record type as well.
+
+#### `Assertions` factory class
+
+One `Assertions` class is generated per package that contains assertion classes, collecting all `assertThat()`
+overloads for that package:
+
+```java
+// Generated: assertion.infrastructure.http.Assertions
+public class Assertions {
+    private Assertions() {}
+
+    public static ProductResponseAssert assertThat(ProductResponse actual) {
+        return ProductResponseAssert.assertThat(actual);
+    }
+}
+```
+
+Use it in tests:
+
+```java
+import static assertion.infrastructure.http.Assertions.assertThat;
+
+assertThat(client.getProductById(id))
+    .hasName("Widget")
+    .hasPrice(9.99);
 ```
 
 ---

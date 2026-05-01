@@ -66,4 +66,3 @@ public class AssertionPlugin implements PrefabPlugin {
                 .orElse(element);
     }
 }
-

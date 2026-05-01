@@ -14,7 +14,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -222,10 +221,5 @@ class AssertionWriter {
     }
 
     record AssertionEntry(ClassName subjectType, ClassName assertType) {
-    }
-
-    /** Creates a new list that accumulates entries for the Assertions class. */
-    static List<AssertionEntry> newEntryList() {
-        return new ArrayList<>();
     }
 }

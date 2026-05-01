@@ -8,6 +8,10 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
@@ -15,6 +19,9 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
  * Utility class to write Java files using the annotation processing environment.
  */
 public class JavaFileWriter {
+
+    private static final Map<ProcessingEnvironment, Set<String>> PROCESSOR_GENERATED_FILES = new WeakHashMap<>();
+
     private final ProcessingEnvironment processingEnvironment;
     private final String packageSuffix;
 
@@ -46,11 +53,13 @@ public class JavaFileWriter {
                         .createSourceFile(qualifiedName);
             } catch (FilerException e) {
                 if (indicatesFileAlreadyExists(e)) {
-                    processingEnvironment.getMessager().printMessage(
-                            Diagnostic.Kind.NOTE,
-                            "Skipping generation of %s: a source file with this name already exists".formatted(qualifiedName)
-                                    + " and will be used as-is. Remove it to let the annotation processor regenerate it."
-                    );
+                    if (!wasGeneratedByProcessor(qualifiedName)) {
+                        processingEnvironment.getMessager().printMessage(
+                                Diagnostic.Kind.NOTE,
+                                "Skipping generation of %s: a source file with this name already exists".formatted(qualifiedName)
+                                        + " and will be used as-is. Remove it to let the annotation processor regenerate it."
+                        );
+                    }
                     return;
                 }
                 processingEnvironment.getMessager().printMessage(Diagnostic.Kind.ERROR, e.getMessage());
@@ -64,8 +73,25 @@ public class JavaFileWriter {
                         .build();
                 javaFile.writeTo(writer);
             }
+            markAsGeneratedByProcessor(qualifiedName);
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private boolean wasGeneratedByProcessor(String qualifiedName) {
+        synchronized (PROCESSOR_GENERATED_FILES) {
+            return PROCESSOR_GENERATED_FILES
+                    .getOrDefault(processingEnvironment, Set.of())
+                    .contains(qualifiedName);
+        }
+    }
+
+    private void markAsGeneratedByProcessor(String qualifiedName) {
+        synchronized (PROCESSOR_GENERATED_FILES) {
+            PROCESSOR_GENERATED_FILES
+                    .computeIfAbsent(processingEnvironment, k -> new HashSet<>())
+                    .add(qualifiedName);
         }
     }
 

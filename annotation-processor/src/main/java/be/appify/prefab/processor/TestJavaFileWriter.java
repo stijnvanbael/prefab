@@ -2,26 +2,20 @@ package be.appify.prefab.processor;
 
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.TypeSpec;
+
+import javax.lang.model.element.TypeElement;
+import javax.tools.StandardLocation;
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Stream;
-import javax.lang.model.element.TypeElement;
-import javax.tools.JavaFileObject;
-import javax.tools.StandardJavaFileManager;
-import javax.tools.StandardLocation;
-import javax.tools.ToolProvider;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
 public class TestJavaFileWriter implements TestFileOutput {
-    private final StandardJavaFileManager fileManager = getJavaFileManager();
     private final PrefabContext context;
     private final String packageSuffix;
     /** Optional: a specific TypeElement (always from a source file) to use when resolving the root path. */
@@ -88,23 +82,12 @@ public class TestJavaFileWriter implements TestFileOutput {
     }
 
     private void writeJavaTestClass(String packageName, TypeSpec type, File javaSourceFile) throws IOException {
-        var javaFileObject = getJavaFileObject(fileManager, javaSourceFile);
-        try (var writer = javaFileObject.openWriter()) {
-            var javaFile = JavaFile
-                    .builder(packageName, type)
+        try (var writer = Files.newBufferedWriter(javaSourceFile.toPath())) {
+            JavaFile.builder(packageName, type)
                     .indent("    ")
-                    .build();
-            javaFile.writeTo(writer);
+                    .build()
+                    .writeTo(writer);
         }
-    }
-
-    protected JavaFileObject getJavaFileObject(StandardJavaFileManager fileManager, File javaSrcFile) {
-        return fileManager.getJavaFileObjectsFromFiles(List.of(javaSrcFile)).iterator().next();
-    }
-
-    private static StandardJavaFileManager getJavaFileManager() {
-        return ToolProvider.getSystemJavaCompiler()
-                .getStandardFileManager(null, Locale.getDefault(), Charset.defaultCharset());
     }
 
     public Optional<String> getRootPath() {

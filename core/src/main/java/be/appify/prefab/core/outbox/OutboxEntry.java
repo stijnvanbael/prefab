@@ -10,7 +10,7 @@ import java.time.Instant;
  * deleted once the relay has successfully published the event to the broker.
  *
  * @param id            unique identifier of the outbox entry
- * @param aggregateType fully-qualified class name of the aggregate that produced the event
+ * @param aggregateType simple class name of the aggregate that produced the event
  * @param aggregateId   string representation of the aggregate's identifier
  * @param eventType     fully-qualified class name of the domain event
  * @param payload       JSON-serialised event payload

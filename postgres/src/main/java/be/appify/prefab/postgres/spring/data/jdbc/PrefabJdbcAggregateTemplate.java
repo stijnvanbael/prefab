@@ -152,7 +152,10 @@ public class PrefabJdbcAggregateTemplate extends JdbcAggregateTemplate {
 
     private String serializeToJson(Object event) {
         if (jsonMapper == null) {
-            throw new IllegalStateException("JsonMapper is required for outbox serialization but was not configured");
+            throw new IllegalStateException(
+                    "JsonMapper is required for outbox serialization but was not configured. "
+                    + "Ensure a JsonMapper bean is available in the application context, "
+                    + "or disable the outbox for this aggregate using @Outbox(enabled=false).");
         }
         try {
             return jsonMapper.writeValueAsString(event);

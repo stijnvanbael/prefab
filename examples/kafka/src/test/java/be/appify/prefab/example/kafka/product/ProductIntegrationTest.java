@@ -16,9 +16,9 @@ class ProductIntegrationTest {
     @Test
     void createProductWithJsonbDetails() throws Exception {
         var details = new ProductDetails("A high-performance laptop", "Electronics");
-        var productId = productClient.createProduct("Laptop Pro", details);
+        var productId = productClient.createProduct("Laptop Pro", details).id();
 
-        var product = productClient.getProductById(productId);
+        var product = productClient.getProductById(productId).response();
 
         assertThat(product.name()).isEqualTo("Laptop Pro");
         assertThat(product.details()).isNotNull();
@@ -29,12 +29,12 @@ class ProductIntegrationTest {
     @Test
     void createProductWithJsonbTagsList() throws Exception {
         var details = new ProductDetails("A smartphone", "Mobile");
-        var productId = productClient.createProduct("Phone X", details);
+        var productId = productClient.createProduct("Phone X", details).id();
 
         productClient.addTag(productId, new ProductTag("color", "black"));
         productClient.addTag(productId, new ProductTag("storage", "256GB"));
 
-        var product = productClient.getProductById(productId);
+        var product = productClient.getProductById(productId).response();
 
         assertThat(product.tags()).hasSize(2);
         assertThat(product.tags()).extracting(ProductTag::name).containsExactlyInAnyOrder("color", "storage");
@@ -48,7 +48,7 @@ class ProductIntegrationTest {
         var home = new ProductDetails("A table", "HomeOffice");
         productClient.createProduct("Desk", home);
 
-        var products = productClient.findProducts(Pageable.unpaged());
+        var products = productClient.findProducts(Pageable.unpaged()).response();
 
         assertThat(products.getContent()).extracting(p -> p.details().category())
                 .containsExactlyInAnyOrder("Electronics", "HomeOffice");

@@ -21,7 +21,7 @@ class UserIntegrationTest {
 
     @Test
     void createUser() throws Exception {
-        var userId = userClient.createUser("Alice");
+        var userId = userClient.createUser("Alice").id();
 
         EventAssertions.assertThat(userConsumer).hasReceivedValueSatisfying(UserEvent.Created.class, userEvent -> {
             assertThat(userEvent.reference()).isNotNull();

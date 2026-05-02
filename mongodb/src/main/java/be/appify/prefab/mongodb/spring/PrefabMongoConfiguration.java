@@ -1,5 +1,7 @@
 package be.appify.prefab.mongodb.spring;
 
+import be.appify.prefab.core.outbox.OutboxRepository;
+import be.appify.prefab.mongodb.spring.data.mongodb.MongoDbOutboxRepository;
 import be.appify.prefab.mongodb.spring.data.mongodb.PrefabMongoMappingContext;
 import be.appify.prefab.mongodb.spring.data.mongodb.PrefabMongoTemplate;
 import be.appify.prefab.mongodb.spring.data.mongodb.ReferenceToStringConverter;
@@ -7,7 +9,6 @@ import be.appify.prefab.mongodb.spring.data.mongodb.StringToReferenceConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.mongodb.MongoDatabaseFactory;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -32,7 +33,6 @@ import tools.jackson.databind.json.JsonMapper;
  * </p>
  */
 @Configuration
-@ComponentScan("be.appify.prefab.mongodb.spring.data.mongodb")
 public class PrefabMongoConfiguration {
 
     @Autowired
@@ -114,5 +114,22 @@ public class PrefabMongoConfiguration {
     @ConditionalOnMissingBean
     public MongoTemplate mongoTemplate(MongoDatabaseFactory mongoDatabaseFactory, MappingMongoConverter converter) {
         return new PrefabMongoTemplate(mongoDatabaseFactory, converter, jsonMapper);
+    }
+
+    /**
+     * Registers the MongoDB-backed {@link OutboxRepository} implementation.
+     * <p>
+     * Declared as an explicit {@code @Bean} (not via component scan) so that the bean definition is
+     * guaranteed to be registered when {@code OutboxConfiguration} evaluates its
+     * {@code @ConditionalOnBean(OutboxRepository.class)} condition.
+     * </p>
+     *
+     * @param mongoDatabaseFactory the factory used to obtain database connections
+     * @return the MongoDB outbox repository
+     */
+    @Bean
+    @ConditionalOnMissingBean(OutboxRepository.class)
+    public OutboxRepository mongoDbOutboxRepository(MongoDatabaseFactory mongoDatabaseFactory) {
+        return new MongoDbOutboxRepository(mongoDatabaseFactory);
     }
 }

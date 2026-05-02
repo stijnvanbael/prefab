@@ -4,7 +4,6 @@ import be.appify.prefab.core.outbox.OutboxEntry;
 import be.appify.prefab.core.outbox.OutboxRepository;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
-import org.springframework.stereotype.Component;
 
 import java.sql.Timestamp;
 import java.util.List;
@@ -17,7 +16,6 @@ import java.util.Map;
  * as the aggregate state change, guaranteeing at-least-once delivery semantics.
  * </p>
  */
-@Component
 public class JdbcOutboxRepository implements OutboxRepository {
 
     private static final String INSERT_SQL =

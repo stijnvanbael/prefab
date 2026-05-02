@@ -8,8 +8,6 @@ import org.springframework.data.mongodb.MongoDatabaseFactory;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.stereotype.Component;
-
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
@@ -26,7 +24,6 @@ import java.util.List;
  * {@link PrefabMongoTemplate}.
  * </p>
  */
-@Component
 public class MongoDbOutboxRepository implements OutboxRepository {
 
     static final String COLLECTION_NAME = "prefab_outbox";

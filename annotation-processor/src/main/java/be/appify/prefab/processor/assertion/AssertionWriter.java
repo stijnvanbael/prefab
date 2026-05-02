@@ -51,9 +51,10 @@ class AssertionWriter {
         var responseTypeName = manifest.simpleName() + "Response";
         var subjectType = ClassName.get(responsePackage, responseTypeName);
         var assertName = responseTypeName + "Assert";
-        writeAssertClass(responsePackage, assertName, subjectType, manifest.fields(), manifest.type().asElement());
-        addEntry(responsePackage, subjectType, ClassName.get(responsePackage, assertName));
-        manifest.fields().forEach(field -> writeNestedAssertFor(field.type(), manifest.type().asElement()));
+        if (writeAssertClass(responsePackage, assertName, subjectType, manifest.fields(), manifest.type().asElement())) {
+            addEntry(responsePackage, subjectType, ClassName.get(responsePackage, assertName));
+            manifest.fields().forEach(field -> writeNestedAssertFor(field.type(), manifest.type().asElement()));
+        }
     }
 
     void writeEventAssert(TypeElement element) {
@@ -100,25 +101,23 @@ class AssertionWriter {
 
     private void writeEventTypeAssert(TypeManifest eventType, TypeElement preferredElement) {
         fileWriter.setPreferredElement(preferredElement);
-        var simpleName = eventType.simpleName().replace(".", "");
+        var flatName = eventType.simpleName().replace(".", "");
         var packageName = eventType.packageName();
-        var subjectType = ClassName.get(packageName, simpleName);
-        var assertName = simpleName + "Assert";
-        writeAssertClass(packageName, assertName, subjectType, eventType.fields(), preferredElement);
-        addEntry(packageName, subjectType, ClassName.get(packageName, assertName));
-        eventType.fields().forEach(field -> writeNestedAssertFor(field.type(), preferredElement));
+        var subjectType = (ClassName) eventType.asTypeName();
+        var assertName = flatName + "Assert";
+        if (writeAssertClass(packageName, assertName, subjectType, eventType.fields(), preferredElement)) {
+            addEntry(packageName, subjectType, ClassName.get(packageName, assertName));
+            eventType.fields().forEach(field -> writeNestedAssertFor(field.type(), preferredElement));
+        }
     }
 
     private void writeNestedAssertFor(TypeManifest type, TypeElement preferredElement) {
         if (isNestedRecordType(type)) {
-            var qualifiedName = type.packageName() + "." + type.simpleName() + "Assert";
-            if (writtenTypes.add(qualifiedName)) {
-                fileWriter.setPreferredElement(preferredElement);
-                var simpleName = type.simpleName();
-                var packageName = type.packageName();
-                var subjectType = ClassName.get(packageName, simpleName);
-                var assertName = simpleName + "Assert";
-                writeAssertClass(packageName, assertName, subjectType, type.fields(), preferredElement);
+            var flatName = type.simpleName().replace(".", "");
+            var packageName = type.packageName();
+            var subjectType = (ClassName) type.asTypeName();
+            var assertName = flatName + "Assert";
+            if (writeAssertClass(packageName, assertName, subjectType, type.fields(), preferredElement)) {
                 addEntry(packageName, subjectType, ClassName.get(packageName, assertName));
                 type.fields().forEach(field -> writeNestedAssertFor(field.type(), preferredElement));
             }
@@ -128,7 +127,7 @@ class AssertionWriter {
         }
     }
 
-    private void writeAssertClass(
+    private boolean writeAssertClass(
             String packageName,
             String assertName,
             ClassName subjectType,
@@ -137,7 +136,7 @@ class AssertionWriter {
     ) {
         var qualifiedName = packageName + "." + assertName;
         if (!writtenTypes.add(qualifiedName)) {
-            return;
+            return false;
         }
         var assertType = ClassName.get(packageName, assertName);
         var typeSpec = TypeSpec.classBuilder(assertName)
@@ -149,6 +148,7 @@ class AssertionWriter {
                 .build();
         fileWriter.setPreferredElement(preferredElement);
         fileWriter.writeFile(packageName, assertName, typeSpec);
+        return true;
     }
 
     private MethodSpec privateConstructor() {
@@ -214,6 +214,8 @@ class AssertionWriter {
         if (!type.isRecord()) return false;
         if (type.isSingleValueType()) return false;
         if (type.isStandardType()) return false;
+        if (!type.parameters().isEmpty()) return false;
+        if (type.isCustomType()) return false;
         if (type.is(Instant.class) || type.is(LocalDate.class) || type.is(LocalDateTime.class)
                 || type.is(Duration.class)) return false;
         if (type.is(BigDecimal.class)) return false;

@@ -37,7 +37,7 @@ class OutboxIntegrationTest {
     MongoDBContainer mongoDBContainer;
 
     @Test
-    void outboxIsEventuallyEmptyAfterRelay() {
+    void outboxIsEventuallyEmptyAfterRelay() throws Exception {
         categories.createCategory("Outbox-Relay-Category");
 
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() ->
@@ -45,7 +45,7 @@ class OutboxIntegrationTest {
     }
 
     @Test
-    void eventRemainsInOutboxWhenBrokerIsUnavailable() {
+    void eventRemainsInOutboxWhenBrokerIsUnavailable() throws Exception {
         var dockerClient = DockerClientFactory.instance().client();
         var kafkaContainerId = findKafkaContainerId();
         if (kafkaContainerId == null) {

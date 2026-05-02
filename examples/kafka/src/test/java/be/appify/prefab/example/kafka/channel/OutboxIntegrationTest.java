@@ -28,7 +28,7 @@ class OutboxIntegrationTest {
     KafkaContainer kafkaContainer;
 
     @Test
-    void outboxIsEventuallyEmptyAfterRelay() {
+    void outboxIsEventuallyEmptyAfterRelay() throws Exception {
         channels.createChannel("outbox-relay-channel");
 
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() ->
@@ -36,7 +36,7 @@ class OutboxIntegrationTest {
     }
 
     @Test
-    void eventRemainsInOutboxWhenBrokerIsUnavailable() {
+    void eventRemainsInOutboxWhenBrokerIsUnavailable() throws Exception {
         var dockerClient = DockerClientFactory.instance().client();
         var containerId = kafkaContainer.getContainerId();
 

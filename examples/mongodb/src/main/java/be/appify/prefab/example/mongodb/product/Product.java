@@ -1,6 +1,7 @@
 package be.appify.prefab.example.mongodb.product;
 
 import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.Outbox;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.Delete;
 import be.appify.prefab.core.annotations.rest.Filter;
@@ -26,6 +27,7 @@ import org.springframework.data.annotation.Version;
 @GetById
 @GetList
 @Delete
+@Outbox
 public record Product(
         @Id Reference<Product> id,
         @Version long version,

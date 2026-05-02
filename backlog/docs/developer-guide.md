@@ -2076,7 +2076,16 @@ public SerializationRegistryCustomizer myCustomizer() {
 
 ### Transactional Outbox
 
-By default, every aggregate root that calls `publish(event)` uses the **transactional outbox pattern**:
+Aggregate roots opt in to the **transactional outbox pattern** by annotating the class with `@Outbox`:
+
+```java
+@Aggregate
+@Outbox   // opt in to the transactional outbox
+public record Order(...) implements PublishesEvents { ... }
+```
+
+Without `@Outbox`, events are published directly via the Spring `ApplicationEventPublisher` (the
+original behaviour). When `@Outbox` is present:
 
 1. The event is buffered during aggregate construction/update.
 2. After `repository.save(aggregate)` (JDBC or MongoDB), the buffer is drained and each event is written
@@ -2087,11 +2096,11 @@ By default, every aggregate root that calls `publish(event)` uses the **transact
 This guarantees **at-least-once** delivery: if the application crashes after step 2 but before step 3,
 the event is retried on the next relay cycle. Consumers should be idempotent.
 
-**Disable outbox for a specific aggregate:**
+**Disable outbox for a specific aggregate (explicit opt-out):**
 
 ```java
 @Aggregate
-@Outbox(enabled = false)   // publishes directly without the outbox
+@Outbox(enabled = false)   // same as not annotating with @Outbox at all
 public record NotificationPreference(...) { ... }
 ```
 
@@ -2249,7 +2258,7 @@ Verify `maven.compiler.release` is set to `21`. Run `mvn clean compile` to force
 | `@LastModifiedAt` | Field | RUNTIME | Audit: last-modified timestamp |
 | `@LastModifiedBy` | Field | RUNTIME | Audit: last-modifier user ID |
 | `@TenantId` | Field | RUNTIME | Multi-tenancy discriminator |
-| `@Outbox` | Type | RUNTIME | Control transactional outbox (default: enabled) |
+| `@Outbox` | Type | RUNTIME | Opt in to transactional outbox pattern for this aggregate |
 | `@RepositoryMixin` | Type | RUNTIME | Add custom query methods to repository |
 | `@ContentType` | Field | — | Allowed MIME types for `Binary` uploads |
 | `@FileSize` | Field | — | Maximum file size for `Binary` uploads |

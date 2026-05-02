@@ -22,7 +22,9 @@ class CategoryStatsIntegrationTest {
     ProductClient products;
     @Autowired
     CategoryStatsClient categoryStats;
+    // Ensures the relay is eagerly initialized so @Scheduled fires in this context.
     @Autowired
+    @SuppressWarnings("unused")
     OutboxRelayService outboxRelayService;
 
     @Test

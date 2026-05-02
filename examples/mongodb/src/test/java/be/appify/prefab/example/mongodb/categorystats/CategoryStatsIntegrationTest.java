@@ -1,5 +1,6 @@
 package be.appify.prefab.example.mongodb.categorystats;
 
+import be.appify.prefab.core.outbox.OutboxRelayService;
 import be.appify.prefab.example.mongodb.category.CategoryClient;
 import be.appify.prefab.example.mongodb.product.ProductClient;
 import be.appify.prefab.test.IntegrationTest;
@@ -21,6 +22,8 @@ class CategoryStatsIntegrationTest {
     ProductClient products;
     @Autowired
     CategoryStatsClient categoryStats;
+    @Autowired
+    OutboxRelayService outboxRelayService;
 
     @Test
     void updateProductCountOnProductCreated() throws Exception {

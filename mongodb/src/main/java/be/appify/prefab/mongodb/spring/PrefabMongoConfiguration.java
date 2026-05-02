@@ -119,9 +119,9 @@ public class PrefabMongoConfiguration {
     /**
      * Registers the MongoDB-backed {@link OutboxRepository} implementation.
      * <p>
-     * Declared as an explicit {@code @Bean} (not via component scan) so that the bean definition is
-     * guaranteed to be registered when {@code OutboxConfiguration} evaluates its
-     * {@code @ConditionalOnBean(OutboxRepository.class)} condition.
+     * Declared as an explicit {@code @Bean} (not discovered via component scan) to guarantee it is
+     * registered as a bean definition and available for injection into
+     * {@link be.appify.prefab.core.outbox.OutboxRelayService}.
      * </p>
      *
      * @param mongoDatabaseFactory the factory used to obtain database connections

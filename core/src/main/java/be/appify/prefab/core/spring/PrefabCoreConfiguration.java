@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Configuration;
  * </p>
  */
 @Configuration
-@ComponentScan({"be.appify.prefab.core.spring", "be.appify.prefab.core.outbox"})
+@ComponentScan("be.appify.prefab.core.spring")
 public class PrefabCoreConfiguration {
 
     /**

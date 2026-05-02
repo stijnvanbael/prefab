@@ -26,11 +26,19 @@ import tools.jackson.databind.json.JsonMapper;
 })
 @EnableConfigurationProperties(OutboxProperties.class)
 @EnableScheduling
-@ConditionalOnBean(OutboxRepository.class)
 public class OutboxConfiguration {
 
     /**
      * Creates the {@link OutboxRelayService} bean.
+     * <p>
+     * The {@link ConditionalOnBean} annotation is placed on this method (not the class) so that the
+     * condition is evaluated after <em>all</em> configuration classes have been processed and their bean
+     * definitions registered — including the database-specific configurations that register the
+     * {@link OutboxRepository} implementation via {@code @ComponentScan}. A class-level condition would
+     * be evaluated too early (when the configuration class is first registered), before the
+     * {@code @ComponentScan} in {@code PrefabMongoConfiguration} / {@code PrefabJdbcConfiguration} has
+     * had a chance to register the repository bean definition.
+     * </p>
      *
      * @param outboxRepository         repository for reading and deleting outbox entries
      * @param applicationEventPublisher Spring event publisher for dispatching relayed events
@@ -39,6 +47,7 @@ public class OutboxConfiguration {
      * @return the configured relay service
      */
     @Bean
+    @ConditionalOnBean(OutboxRepository.class)
     public OutboxRelayService outboxRelayService(
             OutboxRepository outboxRepository,
             ApplicationEventPublisher applicationEventPublisher,

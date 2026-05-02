@@ -121,11 +121,11 @@ public class PrefabJdbcAggregateTemplate extends JdbcAggregateTemplate {
             return;
         }
         Outbox outbox = result.getClass().getAnnotation(Outbox.class);
-        boolean outboxDisabled = outbox != null && !outbox.enabled();
-        if (outboxRepository == null || outboxDisabled) {
-            publishDirectly(events);
-        } else {
+        boolean outboxEnabled = outbox != null && outbox.enabled();
+        if (outboxEnabled && outboxRepository != null) {
             saveToOutbox(result, entity, events);
+        } else {
+            publishDirectly(events);
         }
     }
 

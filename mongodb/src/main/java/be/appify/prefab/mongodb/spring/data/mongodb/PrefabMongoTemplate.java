@@ -68,11 +68,11 @@ public class PrefabMongoTemplate extends MongoTemplate {
             return;
         }
         Outbox outbox = aggregate.getClass().getAnnotation(Outbox.class);
-        boolean outboxDisabled = outbox != null && !outbox.enabled();
-        if (outboxDisabled || outboxRepository == null) {
-            publishDirectly(events);
-        } else {
+        boolean outboxEnabled = outbox != null && outbox.enabled();
+        if (outboxEnabled && outboxRepository != null) {
             saveToOutbox(aggregate, events);
+        } else {
+            publishDirectly(events);
         }
     }
 

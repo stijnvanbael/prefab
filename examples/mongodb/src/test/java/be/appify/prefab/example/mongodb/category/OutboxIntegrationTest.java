@@ -1,22 +1,27 @@
 package be.appify.prefab.example.mongodb.category;
 
+import be.appify.prefab.core.outbox.OutboxEntry;
 import be.appify.prefab.core.outbox.OutboxRelayService;
 import be.appify.prefab.core.outbox.OutboxRepository;
+import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.test.IntegrationTest;
+import java.time.Instant;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.MongoDBContainer;
+import org.testcontainers.kafka.KafkaContainer;
+import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 /**
- * Integration tests for the transactional outbox pattern with MongoDB.
+ * Integration tests for the transactional outbox relay with MongoDB.
  *
- * <p>AC#6: Events are persisted to the {@code prefab_outbox} collection in the same
- * MongoDB write as the aggregate and are relayed to Kafka by the scheduled relay service.</p>
+ * <p>AC#6: Outbox entries saved to the {@code prefab_outbox} collection are relayed to Kafka
+ * by the scheduled relay service.</p>
  *
  * <p>AC#7: When the Kafka broker is unavailable, outbox entries remain in the collection
  * until the broker recovers and the relay successfully delivers them.</p>
@@ -25,20 +30,20 @@ import static org.awaitility.Awaitility.await;
 class OutboxIntegrationTest {
 
     @Autowired
-    CategoryClient categories;
-
-    @Autowired
     OutboxRepository outboxRepository;
 
     @Autowired
     OutboxRelayService outboxRelayService;
 
-    @Autowired(required = false)
-    MongoDBContainer mongoDBContainer;
+    @Autowired
+    KafkaContainer kafkaContainer;
+
+    @Autowired
+    JsonMapper jsonMapper;
 
     @Test
     void outboxIsEventuallyEmptyAfterRelay() throws Exception {
-        categories.createCategory("Outbox-Relay-Category");
+        outboxRepository.save(pendingEntry());
 
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() ->
                 assertThat(outboxRepository.findPending(100)).isEmpty());
@@ -47,36 +52,40 @@ class OutboxIntegrationTest {
     @Test
     void eventRemainsInOutboxWhenBrokerIsUnavailable() throws Exception {
         var dockerClient = DockerClientFactory.instance().client();
-        var kafkaContainerId = findKafkaContainerId();
-        if (kafkaContainerId == null) {
-            return;
-        }
+        var containerId = kafkaContainer.getContainerId();
 
-        dockerClient.pauseContainerCmd(kafkaContainerId).exec();
+        dockerClient.pauseContainerCmd(containerId).exec();
         try {
-            categories.createCategory("Broker-Down-Category");
-
-            assertThat(outboxRepository.findPending(100)).isNotEmpty();
+            outboxRepository.save(pendingEntry());
 
             outboxRelayService.relayPendingEvents();
 
             assertThat(outboxRepository.findPending(100)).isNotEmpty();
         } finally {
-            dockerClient.unpauseContainerCmd(kafkaContainerId).exec();
+            dockerClient.unpauseContainerCmd(containerId).exec();
         }
 
         await().atMost(30, TimeUnit.SECONDS).untilAsserted(() ->
                 assertThat(outboxRepository.findPending(100)).isEmpty());
     }
 
-    private String findKafkaContainerId() {
-        return DockerClientFactory.instance().client()
-                .listContainersCmd()
-                .exec()
-                .stream()
-                .filter(c -> c.getImage() != null && c.getImage().contains("kafka"))
-                .findFirst()
-                .map(com.github.dockerjava.api.model.Container::getId)
-                .orElse(null);
+    private OutboxEntry pendingEntry() {
+        var categoryId = Reference.<Category>create();
+        var event = new CategoryCreated(categoryId, "Outbox-Test-Category");
+        String payload;
+        try {
+            payload = jsonMapper.writeValueAsString(event);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialise test event", e);
+        }
+        return new OutboxEntry(
+                UUID.randomUUID().toString(),
+                Category.class.getSimpleName(),
+                categoryId.id(),
+                CategoryCreated.class.getName(),
+                payload,
+                Instant.now(),
+                null
+        );
     }
 }

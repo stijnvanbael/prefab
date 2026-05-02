@@ -1,6 +1,7 @@
 package be.appify.prefab.example.kafka.message;
 
 import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.Outbox;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.domain.PublishesEvents;
 import be.appify.prefab.core.service.Reference;
@@ -15,6 +16,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 
 @Aggregate
+@Outbox
 public record Message(
         @Id Reference<Message> id,
         @Version long version,

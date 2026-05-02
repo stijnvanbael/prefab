@@ -7,6 +7,7 @@ import be.appify.prefab.mongodb.spring.data.mongodb.StringToReferenceConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.mongodb.MongoDatabaseFactory;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -31,6 +32,7 @@ import tools.jackson.databind.json.JsonMapper;
  * </p>
  */
 @Configuration
+@ComponentScan("be.appify.prefab.mongodb.spring.data.mongodb")
 public class PrefabMongoConfiguration {
 
     @Autowired

@@ -100,10 +100,12 @@ class AssertionWriter {
     }
 
     private void writeEventTypeAssert(TypeManifest eventType, TypeElement preferredElement) {
+        if (!(eventType.asTypeName() instanceof ClassName subjectType)) {
+            return;
+        }
         fileWriter.setPreferredElement(preferredElement);
         var flatName = eventType.simpleName().replace(".", "");
         var packageName = eventType.packageName();
-        var subjectType = (ClassName) eventType.asTypeName();
         var assertName = flatName + "Assert";
         if (writeAssertClass(packageName, assertName, subjectType, eventType.fields(), preferredElement)) {
             addEntry(packageName, subjectType, ClassName.get(packageName, assertName));
@@ -112,10 +114,9 @@ class AssertionWriter {
     }
 
     private void writeNestedAssertFor(TypeManifest type, TypeElement preferredElement) {
-        if (isNestedRecordType(type)) {
+        if (isNestedRecordType(type) && type.asTypeName() instanceof ClassName subjectType) {
             var flatName = type.simpleName().replace(".", "");
             var packageName = type.packageName();
-            var subjectType = (ClassName) type.asTypeName();
             var assertName = flatName + "Assert";
             if (writeAssertClass(packageName, assertName, subjectType, type.fields(), preferredElement)) {
                 addEntry(packageName, subjectType, ClassName.get(packageName, assertName));
@@ -214,8 +215,8 @@ class AssertionWriter {
         if (!type.isRecord()) return false;
         if (type.isSingleValueType()) return false;
         if (type.isStandardType()) return false;
-        if (!type.parameters().isEmpty()) return false;
         if (type.isCustomType()) return false;
+        if (!type.parameters().isEmpty()) return false;
         if (type.is(Instant.class) || type.is(LocalDate.class) || type.is(LocalDateTime.class)
                 || type.is(Duration.class)) return false;
         if (type.is(BigDecimal.class)) return false;

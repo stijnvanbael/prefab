@@ -8,6 +8,7 @@ CREATE TABLE "prefab_outbox" (
   "published_at" TIMESTAMP,
   PRIMARY KEY("id")
 );
+
 CREATE TABLE "product" (
   "id" VARCHAR (255) NOT NULL,
   "version" BIGINT NOT NULL,

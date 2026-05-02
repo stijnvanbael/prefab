@@ -10,10 +10,3 @@ prefab:
     poll-interval-ms: 500
     batch-size: 10
 
-spring:
-  kafka:
-    producer:
-      properties:
-        request.timeout.ms: 1000
-        delivery.timeout.ms: 2000
-        max.block.ms: 1000

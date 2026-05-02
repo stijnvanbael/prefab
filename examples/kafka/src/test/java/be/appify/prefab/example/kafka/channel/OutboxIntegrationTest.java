@@ -6,6 +6,7 @@ import be.appify.prefab.test.IntegrationTest;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.kafka.KafkaContainer;
 
@@ -13,6 +14,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 @IntegrationTest
+@TestPropertySource(properties = {
+        "spring.kafka.producer.properties.max.block.ms=1000",
+        "spring.kafka.producer.properties.request.timeout.ms=1000",
+        "spring.kafka.producer.properties.delivery.timeout.ms=2000"
+})
 class OutboxIntegrationTest {
 
     @Autowired

@@ -10,6 +10,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.kafka.KafkaContainer;
 import tools.jackson.databind.json.JsonMapper;
@@ -27,6 +28,11 @@ import static org.awaitility.Awaitility.await;
  * until the broker recovers and the relay successfully delivers them.</p>
  */
 @IntegrationTest
+@TestPropertySource(properties = {
+        "spring.kafka.producer.properties.max.block.ms=1000",
+        "spring.kafka.producer.properties.request.timeout.ms=1000",
+        "spring.kafka.producer.properties.delivery.timeout.ms=2000"
+})
 class OutboxIntegrationTest {
 
     @Autowired

@@ -93,7 +93,8 @@ void main() {
       expect(find.text('2 / 5'), findsOneWidget);
     });
 
-    testWidgets('tapping previous goes back a page', (tester) async {
+    testWidgets('tapping previous on page 3 shows page 2', (tester) async {
+      // initialPage: 2 → displayed as "3 / 5"; after tap → "2 / 5"
       final notifier =
           PaginationNotifier(initialPage: 2, totalPages: 5);
       await tester.pumpWidget(

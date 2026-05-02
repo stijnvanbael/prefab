@@ -2076,16 +2076,9 @@ public SerializationRegistryCustomizer myCustomizer() {
 
 ### Transactional Outbox
 
-Aggregate roots opt in to the **transactional outbox pattern** by annotating the class with `@Outbox`:
-
-```java
-@Aggregate
-@Outbox   // opt in to the transactional outbox
-public record Order(...) implements PublishesEvents { ... }
-```
-
-Without `@Outbox`, events are published directly via the Spring `ApplicationEventPublisher` (the
-original behaviour). When `@Outbox` is present:
+Aggregate roots use the **transactional outbox pattern** by default. Events are buffered during the aggregate
+operation and written to the `prefab_outbox` table/collection in the same transaction, then relayed to the
+broker by a background scheduler:
 
 1. The event is buffered during aggregate construction/update.
 2. After `repository.save(aggregate)` (JDBC or MongoDB), the buffer is drained and each event is written
@@ -2096,11 +2089,12 @@ original behaviour). When `@Outbox` is present:
 This guarantees **at-least-once** delivery: if the application crashes after step 2 but before step 3,
 the event is retried on the next relay cycle. Consumers should be idempotent.
 
-**Disable outbox for a specific aggregate (explicit opt-out):**
+**Opt out of the outbox for a specific aggregate** by annotating it with `@Outbox(enabled = false)`.
+This publishes events directly via the Spring `ApplicationEventPublisher` without the durability guarantee:
 
 ```java
 @Aggregate
-@Outbox(enabled = false)   // same as not annotating with @Outbox at all
+@Outbox(enabled = false)   // bypass the outbox – events published directly
 public record NotificationPreference(...) { ... }
 ```
 

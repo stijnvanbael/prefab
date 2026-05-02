@@ -1,7 +1,6 @@
 package be.appify.prefab.example.mongodb.category;
 
 import be.appify.prefab.core.annotations.Aggregate;
-import be.appify.prefab.core.annotations.Outbox;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.GetList;
@@ -14,7 +13,6 @@ import org.springframework.data.annotation.Version;
 @Aggregate
 @GetById
 @GetList
-@Outbox
 public record Category(
         @Id Reference<Category> id,
         @Version long version,

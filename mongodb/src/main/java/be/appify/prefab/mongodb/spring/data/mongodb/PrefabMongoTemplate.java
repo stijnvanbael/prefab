@@ -27,7 +27,8 @@ import java.util.UUID;
  * When the saved object is annotated with {@link Aggregate}, any events buffered during the save are
  * either persisted to the transactional outbox (when a {@link MongoDbOutboxRepository} is available and
  * the aggregate has not disabled the outbox via {@link Outbox#enabled()}) or published directly via the
- * Spring application event publisher.
+ * Spring application event publisher. The outbox is <strong>enabled by default</strong>; add
+ * {@code @Outbox(enabled = false)} to an aggregate class to publish events directly without the outbox.
  * </p>
  */
 public class PrefabMongoTemplate extends MongoTemplate {
@@ -68,7 +69,7 @@ public class PrefabMongoTemplate extends MongoTemplate {
             return;
         }
         Outbox outbox = aggregate.getClass().getAnnotation(Outbox.class);
-        boolean outboxEnabled = outbox != null && outbox.enabled();
+        boolean outboxEnabled = outbox == null || outbox.enabled();
         if (outboxEnabled && outboxRepository != null) {
             saveToOutbox(aggregate, events);
         } else {

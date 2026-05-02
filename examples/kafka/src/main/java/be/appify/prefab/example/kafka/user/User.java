@@ -1,7 +1,6 @@
 package be.appify.prefab.example.kafka.user;
 
 import be.appify.prefab.core.annotations.Aggregate;
-import be.appify.prefab.core.annotations.Outbox;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.Update;
@@ -18,7 +17,6 @@ import org.springframework.data.annotation.Version;
 
 @Aggregate
 @GetById
-@Outbox
 public record User(
         @Id Reference<User> id,
         @Version long version,

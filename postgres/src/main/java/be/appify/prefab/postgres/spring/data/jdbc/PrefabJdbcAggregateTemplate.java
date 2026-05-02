@@ -121,7 +121,7 @@ public class PrefabJdbcAggregateTemplate extends JdbcAggregateTemplate {
             return;
         }
         Outbox outbox = result.getClass().getAnnotation(Outbox.class);
-        boolean outboxEnabled = outbox != null && outbox.enabled();
+        boolean outboxEnabled = outbox == null || outbox.enabled();
         if (outboxEnabled && outboxRepository != null) {
             saveToOutbox(result, entity, events);
         } else {

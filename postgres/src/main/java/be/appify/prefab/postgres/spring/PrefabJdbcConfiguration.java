@@ -52,9 +52,6 @@ public class PrefabJdbcConfiguration extends AbstractJdbcConfiguration {
     @Autowired
     private JsonMapper jsonMapper;
 
-    @Autowired(required = false)
-    private OutboxRepository outboxRepository;
-
     /**
      * Constructs a new PrefabJdbcConfiguration.
      */
@@ -120,6 +117,7 @@ public class PrefabJdbcConfiguration extends AbstractJdbcConfiguration {
             JdbcConverter converter,
             DataAccessStrategy dataAccessStrategy
     ) {
+        OutboxRepository outboxRepository = applicationContext.getBeanProvider(OutboxRepository.class).getIfAvailable();
         return new PrefabJdbcAggregateTemplate(applicationContext, mappingContext, converter, dataAccessStrategy,
                 outboxRepository, jsonMapper);
     }

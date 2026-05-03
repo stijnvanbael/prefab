@@ -11,6 +11,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Scheduled relay that reads pending outbox entries and publishes them as Spring application events.
@@ -25,6 +26,7 @@ public class OutboxRelayService {
 
     private static final Logger log = LoggerFactory.getLogger(OutboxRelayService.class);
 
+    private final ReentrantLock lock = new ReentrantLock();
     private final ObjectProvider<OutboxRepository> outboxRepositoryProvider;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final JsonMapper jsonMapper;
@@ -55,23 +57,35 @@ public class OutboxRelayService {
      * Reads a batch of pending outbox entries, publishes each event, and removes the entry on success.
      * Failures for individual entries are logged as warnings so that other entries can still be processed.
      * Does nothing when no {@link OutboxRepository} bean is available.
+     * <p>
+     * A {@link ReentrantLock} guards against concurrent invocations from the {@code @Scheduled} poll and
+     * the {@code @Async} after-commit trigger firing simultaneously: if one relay is already in progress
+     * the concurrent caller returns immediately to prevent duplicate event delivery.
+     * </p>
      */
     @Scheduled(fixedDelayString = "${prefab.outbox.poll-interval-ms:1000}")
     public void relayPendingEvents() {
-        OutboxRepository outboxRepository = outboxRepositoryProvider.getIfAvailable();
-        if (outboxRepository == null) {
+        if (!lock.tryLock()) {
             return;
         }
-        List<OutboxEntry> entries = outboxRepository.findPending(properties.getBatchSize());
-        for (OutboxEntry entry : entries) {
-            try {
-                Class<?> eventType = Class.forName(entry.eventType());
-                Object event = jsonMapper.readValue(entry.payload(), eventType);
-                applicationEventPublisher.publishEvent(event);
-                outboxRepository.delete(entry.id());
-            } catch (Exception e) {
-                log.warn("Failed to relay outbox entry {}: {}", entry.id(), e.getMessage(), e);
+        try {
+            OutboxRepository outboxRepository = outboxRepositoryProvider.getIfAvailable();
+            if (outboxRepository == null) {
+                return;
             }
+            List<OutboxEntry> entries = outboxRepository.findPending(properties.getBatchSize());
+            for (OutboxEntry entry : entries) {
+                try {
+                    Class<?> eventType = Class.forName(entry.eventType());
+                    Object event = jsonMapper.readValue(entry.payload(), eventType);
+                    applicationEventPublisher.publishEvent(event);
+                    outboxRepository.delete(entry.id());
+                } catch (Exception e) {
+                    log.warn("Failed to relay outbox entry {}: {}", entry.id(), e.getMessage(), e);
+                }
+            }
+        } finally {
+            lock.unlock();
         }
     }
 

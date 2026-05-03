@@ -11,7 +11,6 @@ import org.springframework.util.ReflectionUtils;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -20,11 +19,9 @@ import static be.appify.prefab.processor.CaseUtil.toKebabCase;
 import static org.springframework.util.ReflectionUtils.setField;
 
 /**
- * Test execution listener that injects Pub/Sub subscribers into test fields annotated with {@link TestSubscriber}
- * or {@link TestEventConsumer}.
+ * Test execution listener that injects Pub/Sub subscribers into test fields annotated with {@link TestEventConsumer}.
  */
 public class TestSubscriberExecutionListener extends AbstractTestExecutionListener {
-    private final Map<Field, Subscriber<?>> subscriberByField = new HashMap<>();
     private final Map<Field, EventConsumer<?>> eventConsumerByField = new HashMap<>();
     private Environment environment;
     private PubSubUtil pubSubUtil;
@@ -39,29 +36,11 @@ public class TestSubscriberExecutionListener extends AbstractTestExecutionListen
         testContext.getApplicationContext().getBeanProvider(PubSubUtil.class).ifAvailable(pubSubUtil -> {
             this.pubSubUtil = pubSubUtil;
             Arrays.stream(testContext.getTestClass().getDeclaredFields())
-                    .filter(field -> field.getType().isAssignableFrom(Subscriber.class) && field.isAnnotationPresent(
-                            TestSubscriber.class))
-                    .map(field -> new TestSubscriberField(field, field.getAnnotation(TestSubscriber.class)))
-                    .forEach(testSubscriberField ->
-                            injectTestSubscriber(testSubscriberField, testContext.getTestInstance()));
-            subscriberByField.values().forEach(Subscriber::reset);
-
-            Arrays.stream(testContext.getTestClass().getDeclaredFields())
                     .filter(field -> field.getType().isAssignableFrom(EventConsumer.class)
                             && AnnotationUtils.getAnnotation(field, TestEventConsumer.class) != null)
                     .forEach(field -> injectEventConsumer(field, testContext.getTestInstance()));
             eventConsumerByField.values().forEach(EventConsumer::reset);
         });
-    }
-
-    private void injectTestSubscriber(TestSubscriberField testSubscriberField, Object testInstance) {
-        var subscriber = subscriberByField.computeIfAbsent(testSubscriberField.field(), field -> {
-            var topic = environment.resolvePlaceholders(testSubscriberField.annotation.topic());
-            var subscriptionName = subscriptionNameFor(testInstance);
-            return createSubscriber(subscriptionName, topic, field);
-        });
-        ReflectionUtils.makeAccessible(testSubscriberField.field());
-        setField(testSubscriberField.field(), testInstance, subscriber);
     }
 
     private void injectEventConsumer(Field field, Object testInstance) {
@@ -79,17 +58,6 @@ public class TestSubscriberExecutionListener extends AbstractTestExecutionListen
         return toKebabCase(testInstance.getClass().getSimpleName());
     }
 
-    private <T> Subscriber<T> createSubscriber(
-            String subscriptionName,
-            String topic,
-            Field field
-    ) {
-        var messages = new ArrayList<T>();
-        pubSubUtil.subscribe(topic, subscriptionName,
-                (Class<T>) ((ParameterizedType) field.getGenericType()).getActualTypeArguments()[0], messages::add);
-        return new Subscriber<>(messages);
-    }
-
     @SuppressWarnings("unchecked")
     private <T> EventConsumer<T> createEventConsumer(String subscriptionName, String topic, Field field) {
         var consumer = new EventConsumer<T>();
@@ -97,9 +65,6 @@ public class TestSubscriberExecutionListener extends AbstractTestExecutionListen
                 (Class<T>) ((ParameterizedType) field.getGenericType()).getActualTypeArguments()[0],
                 consumer.messages()::add);
         return consumer;
-    }
-
-    private record TestSubscriberField(Field field, TestSubscriber annotation) {
     }
 }
 

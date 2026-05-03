@@ -239,12 +239,6 @@ public class PrefabPersistentEntity<T> extends BasicPersistentEntity<T, Relation
         return SqlIdentifier.from(schema, getTableName());
     }
 
-    @Override
-    @Deprecated(forRemoval = true)
-    public SqlIdentifier getIdColumn() {
-        return getRequiredIdProperty().getColumnName();
-    }
-
     /**
      * Returns the first directly-implemented sealed interface that is annotated with {@link Aggregate}, or
      * {@code null} if the given type is not a subtype of a polymorphic aggregate.

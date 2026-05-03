@@ -16,7 +16,6 @@ import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
-import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.ExecutableElement;
@@ -30,10 +29,14 @@ import javax.lang.model.type.TypeKind;
 @SupportedAnnotationTypes({
         "be.appify.prefab.core.annotations.*",
 })
-@SupportedSourceVersion(SourceVersion.RELEASE_21)
 @AutoService(Processor.class)
 @SuppressWarnings("unused")
 public class PrefabProcessor extends AbstractProcessor {
+
+    @Override
+    public SourceVersion getSupportedSourceVersion() {
+        return SourceVersion.latestSupported();
+    }
 
     // Aggregates whose field types were unresolved in a previous round.
     // AbstractProcessor is instantiated once per compilation, so instance state persists across rounds.

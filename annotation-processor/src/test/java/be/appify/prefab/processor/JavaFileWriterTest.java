@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
-import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.TypeElement;
 import java.util.Set;
@@ -45,10 +44,14 @@ class JavaFileWriterTest {
      * where the annotation processor tries to regenerate a file it already produced.
      */
     @SupportedAnnotationTypes("be.appify.prefab.core.annotations.Aggregate")
-    @SupportedSourceVersion(SourceVersion.RELEASE_21)
     static class DoubleWriteProcessor extends AbstractProcessor {
 
         private boolean alreadyWritten = false;
+
+        @Override
+        public SourceVersion getSupportedSourceVersion() {
+            return SourceVersion.latestSupported();
+        }
 
         @Override
         public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {

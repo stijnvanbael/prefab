@@ -14,7 +14,7 @@
     <name>Prefab Pub/Sub Example</name>
 
     <properties>
-        <google-cloud.version>7.4.1</google-cloud.version>
+        <google-cloud.version>8.0.2</google-cloud.version>
     </properties>
 
     <dependencies>

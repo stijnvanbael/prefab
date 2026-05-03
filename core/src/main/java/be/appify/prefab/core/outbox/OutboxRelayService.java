@@ -11,6 +11,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -27,6 +29,7 @@ public class OutboxRelayService {
     private static final Logger log = LoggerFactory.getLogger(OutboxRelayService.class);
 
     private final ReentrantLock lock = new ReentrantLock();
+    private final Set<String> inFlightEntryIds = ConcurrentHashMap.newKeySet();
     private final ObjectProvider<OutboxRepository> outboxRepositoryProvider;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final JsonMapper jsonMapper;
@@ -35,11 +38,11 @@ public class OutboxRelayService {
     /**
      * Constructs a new {@code OutboxRelayService}.
      *
-     * @param outboxRepositoryProvider provider for the outbox repository; may return {@code null} when
-     *                                 no repository is configured
+     * @param outboxRepositoryProvider  provider for the outbox repository; may return {@code null} when
+     *                                  no repository is configured
      * @param applicationEventPublisher Spring event publisher used to dispatch deserialised events
-     * @param jsonMapper               JSON mapper used to deserialise event payloads
-     * @param properties               outbox configuration properties
+     * @param jsonMapper                JSON mapper used to deserialise event payloads
+     * @param properties                outbox configuration properties
      */
     public OutboxRelayService(
             ObjectProvider<OutboxRepository> outboxRepositoryProvider,
@@ -58,9 +61,17 @@ public class OutboxRelayService {
      * Failures for individual entries are logged as warnings so that other entries can still be processed.
      * Does nothing when no {@link OutboxRepository} bean is available.
      * <p>
-     * A {@link ReentrantLock} guards against concurrent invocations from the {@code @Scheduled} poll and
-     * the {@code @Async} after-commit trigger firing simultaneously: if one relay is already in progress
-     * the concurrent caller returns immediately to prevent duplicate event delivery.
+     * The {@link ReentrantLock} is held <em>only</em> during the brief read-and-claim phase (a single
+     * database query plus an in-memory set update, typically a few milliseconds).  Kafka I/O happens
+     * entirely outside the lock, so the {@code @Scheduled} backup poller can always acquire the lock
+     * and retry failed entries even while an {@code @Async} relay invocation is blocked on a slow broker.
+     * </p>
+     * <p>
+     * The {@code inFlightEntryIds} set prevents two concurrent relay invocations from processing the
+     * same entry: when a second invocation reads the outbox it finds the same pending entries, but the
+     * {@link Set#add} call returns {@code false} for entries already in-flight, so they are filtered out.
+     * Entries are removed from the set in a {@code finally} block whether the publish succeeds or fails,
+     * which guarantees the {@code @Scheduled} poller can pick them up on the next cycle.
      * </p>
      */
     @Scheduled(fixedDelayString = "${prefab.outbox.poll-interval-ms:1000}")
@@ -69,23 +80,42 @@ public class OutboxRelayService {
         if (outboxRepository == null) {
             return;
         }
-        if (!lock.tryLock()) {
+
+        List<OutboxEntry> entriesToProcess = claimPendingEntries(outboxRepository);
+        if (entriesToProcess.isEmpty()) {
             return;
         }
+
+        for (OutboxEntry entry : entriesToProcess) {
+            processEntry(entry, outboxRepository);
+        }
+    }
+
+    private List<OutboxEntry> claimPendingEntries(OutboxRepository outboxRepository) {
+        if (!lock.tryLock()) {
+            return List.of();
+        }
+        // Both findPending and inFlightEntryIds.add are inside the lock, so the
+        // read-and-claim is atomic: no two concurrent invocations can claim the same entry.
         try {
-            List<OutboxEntry> entries = outboxRepository.findPending(properties.getBatchSize());
-            for (OutboxEntry entry : entries) {
-                try {
-                    Class<?> eventType = Class.forName(entry.eventType());
-                    Object event = jsonMapper.readValue(entry.payload(), eventType);
-                    applicationEventPublisher.publishEvent(event);
-                    outboxRepository.delete(entry.id());
-                } catch (Exception e) {
-                    log.warn("Failed to relay outbox entry {}: {}", entry.id(), e.getMessage(), e);
-                }
-            }
+            return outboxRepository.findPending(properties.getBatchSize()).stream()
+                    .filter(entry -> inFlightEntryIds.add(entry.id()))
+                    .toList();
         } finally {
             lock.unlock();
+        }
+    }
+
+    private void processEntry(OutboxEntry entry, OutboxRepository outboxRepository) {
+        try {
+            Class<?> eventType = Class.forName(entry.eventType());
+            Object event = jsonMapper.readValue(entry.payload(), eventType);
+            applicationEventPublisher.publishEvent(event);
+            outboxRepository.delete(entry.id());
+        } catch (Exception e) {
+            log.warn("Failed to relay outbox entry {}: {}", entry.id(), e.getMessage(), e);
+        } finally {
+            inFlightEntryIds.remove(entry.id());
         }
     }
 

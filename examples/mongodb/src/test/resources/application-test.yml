@@ -1,20 +1,6 @@
 logging.level:
   be.appify.prefab.example: DEBUG
 
-spring:
-  kafka:
-    producer:
-      properties:
-        # Short Kafka producer timeouts are required by the outbox relay tests.
-        # The relay holds the ReentrantLock while publishing to Kafka. With the default
-        # max.block.ms of 60 s, three pending entries (CategoryCreated + 2×ProductCreated)
-        # block the lock for up to 180 s when topics don't exist yet, preventing the
-        # @Scheduled retry from running within the 30 s test timeout.
-        # These fast-fail values ensure the lock is released in ~3 s so the retry succeeds.
-        max.block.ms: 1000
-        request.timeout.ms: 1000
-        delivery.timeout.ms: 2000
-
 prefab:
   dlt:
     retries:

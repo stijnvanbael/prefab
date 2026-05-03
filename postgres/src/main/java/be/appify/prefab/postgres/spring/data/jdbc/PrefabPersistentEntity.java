@@ -178,6 +178,7 @@ public class PrefabPersistentEntity<T> extends BasicPersistentEntity<T, Relation
         return new PreferredConstructor<>(constructor, parameters);
     }
 
+    @SuppressWarnings("unchecked")
     private org.springframework.data.mapping.Parameter<T, RelationalPersistentProperty> mapParameter(MethodParameter parameter) {
         return new org.springframework.data.mapping.Parameter<>(
                 parameter.getParameterName(),

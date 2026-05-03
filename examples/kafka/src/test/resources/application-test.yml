@@ -1,12 +1,6 @@
 spring:
   flyway:
     clean-disabled: false
-  kafka:
-    producer:
-      properties:
-        max.block.ms: 1000
-        request.timeout.ms: 1000
-        delivery.timeout.ms: 2000
 
 logging.level:
   be.appify.prefab.example: DEBUG

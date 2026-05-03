@@ -3,6 +3,7 @@ package be.appify.prefab.mongodb.spring.data.mongodb;
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.Outbox;
 import be.appify.prefab.core.outbox.OutboxEntry;
+import be.appify.prefab.core.outbox.OutboxEntryAdded;
 import be.appify.prefab.core.outbox.OutboxRepository;
 import be.appify.prefab.core.outbox.PendingEventBuffer;
 import be.appify.prefab.core.spring.SpringDomainEventPublisher;
@@ -96,6 +97,7 @@ public class PrefabMongoTemplate extends MongoTemplate {
                     null
             ));
         }
+        SpringDomainEventPublisher.getApplicationEventPublisher().publishEvent(new OutboxEntryAdded());
     }
 
     private String serializeToJson(Object event) {

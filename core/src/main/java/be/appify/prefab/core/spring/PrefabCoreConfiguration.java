@@ -2,6 +2,7 @@ package be.appify.prefab.core.spring;
 
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
@@ -12,16 +13,18 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * It is imported by {@link EnablePrefab} and does not include any database-specific configuration.
  * </p>
  * <p>
- * {@link EnableScheduling} is declared here (rather than only in
+ * {@link EnableScheduling} and {@link EnableAsync} are declared here (rather than only in
  * {@link be.appify.prefab.core.outbox.OutboxConfiguration}) so that the
- * {@code ScheduledAnnotationBeanPostProcessor} is registered early in the context lifecycle —
- * before auto-configuration beans such as {@link be.appify.prefab.core.outbox.OutboxRelayService}
- * are created — guaranteeing that the relay's {@code @Scheduled} method is always picked up.
+ * {@code ScheduledAnnotationBeanPostProcessor} and {@code AsyncAnnotationBeanPostProcessor}
+ * are registered early in the context lifecycle — before auto-configuration beans such as
+ * {@link be.appify.prefab.core.outbox.OutboxRelayService} are created — guaranteeing that
+ * the relay's {@code @Scheduled} and {@code @Async} methods are always picked up.
  * </p>
  */
 @Configuration
 @ComponentScan("be.appify.prefab.core.spring")
 @EnableScheduling
+@EnableAsync
 public class PrefabCoreConfiguration {
 
     /**

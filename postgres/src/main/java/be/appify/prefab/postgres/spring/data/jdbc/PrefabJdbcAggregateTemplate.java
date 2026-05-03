@@ -2,6 +2,7 @@ package be.appify.prefab.postgres.spring.data.jdbc;
 
 import be.appify.prefab.core.annotations.Outbox;
 import be.appify.prefab.core.outbox.OutboxEntry;
+import be.appify.prefab.core.outbox.OutboxEntryAdded;
 import be.appify.prefab.core.outbox.OutboxRepository;
 import be.appify.prefab.core.outbox.PendingEventBuffer;
 import be.appify.prefab.core.spring.SpringDomainEventPublisher;
@@ -148,6 +149,7 @@ public class PrefabJdbcAggregateTemplate extends JdbcAggregateTemplate {
                     null
             ));
         }
+        SpringDomainEventPublisher.getApplicationEventPublisher().publishEvent(new OutboxEntryAdded());
     }
 
     private String serializeToJson(Object event) {

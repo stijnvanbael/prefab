@@ -4,7 +4,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
@@ -70,5 +73,24 @@ public class OutboxRelayService {
                 log.warn("Failed to relay outbox entry {}: {}", entry.id(), e.getMessage(), e);
             }
         }
+    }
+
+    /**
+     * Triggered asynchronously after an outbox entry is persisted.
+     * <p>
+     * When a Spring transaction is active (e.g. a JDBC-backed aggregate save), this method fires
+     * after the transaction commits, guaranteeing that the new entries are visible to the read
+     * query in {@link #relayPendingEvents()}.  When there is no active transaction (e.g. a MongoDB
+     * save without explicit transaction management), {@code fallbackExecution = true} causes this
+     * listener to fire immediately.  The {@code @Async} annotation ensures the relay runs on a
+     * separate thread so the calling request thread is never blocked by Kafka I/O.
+     * </p>
+     *
+     * @param event the marker event signalling that at least one entry was added to the outbox
+     */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    public void onOutboxEntryAdded(OutboxEntryAdded event) {
+        relayPendingEvents();
     }
 }

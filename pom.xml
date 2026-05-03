@@ -43,19 +43,19 @@
         <prefab.version>0.7.2-SNAPSHOT</prefab.version>
 
         <commons-text.version>1.15.0</commons-text.version>
-        <error-handling.version>5.1.0</error-handling.version>
-        <google-cloud.version>8.0.1</google-cloud.version>
-        <spring-cloud-aws.version>4.0.0</spring-cloud-aws.version>
+        <error-handling.version>5.1.1</error-handling.version>
+        <google-cloud.version>8.0.2</google-cloud.version>
+        <spring-cloud-aws.version>4.0.2</spring-cloud-aws.version>
         <central-publishing-maven-plugin.version>0.10.0</central-publishing-maven-plugin.version>
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
         <compile-testing.version>0.23.0</compile-testing.version>
         <confluent.version>7.6.1</confluent.version>
-        <avro.version>1.11.4</avro.version>
-        <commons-io.version>2.21.0</commons-io.version>
+        <avro.version>1.12.1</avro.version>
+        <commons-io.version>2.22.0</commons-io.version>
         <commons-compress.version>1.28.0</commons-compress.version>
         <jsr305.version>3.0.2</jsr305.version>
-        <springdoc.version>3.0.2</springdoc.version>
+        <springdoc.version>3.0.3</springdoc.version>
     </properties>
 
     <dependencyManagement>

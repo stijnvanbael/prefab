@@ -65,14 +65,14 @@ public class OutboxRelayService {
      */
     @Scheduled(fixedDelayString = "${prefab.outbox.poll-interval-ms:1000}")
     public void relayPendingEvents() {
+        OutboxRepository outboxRepository = outboxRepositoryProvider.getIfAvailable();
+        if (outboxRepository == null) {
+            return;
+        }
         if (!lock.tryLock()) {
             return;
         }
         try {
-            OutboxRepository outboxRepository = outboxRepositoryProvider.getIfAvailable();
-            if (outboxRepository == null) {
-                return;
-            }
             List<OutboxEntry> entries = outboxRepository.findPending(properties.getBatchSize());
             for (OutboxEntry entry : entries) {
                 try {

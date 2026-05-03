@@ -1,6 +1,14 @@
 logging.level:
   be.appify.prefab.example: DEBUG
 
+spring:
+  kafka:
+    producer:
+      properties:
+        max.block.ms: 1000
+        request.timeout.ms: 1000
+        delivery.timeout.ms: 2000
+
 prefab:
   dlt:
     retries:

@@ -42,8 +42,17 @@ public class KafkaJsonTypeResolver implements JacksonJsonTypeResolver {
      */
     public void registerType(String topic, Class<?> type) {
         types.put(topic, type);
+        addToTopicTypes(topic, type);
+    }
+
+    private void addToTopicTypes(String topic, Class<?> type) {
         topicTypes.computeIfAbsent(topic, ignored -> new LinkedHashSet<>()).add(type);
         addToAllowedClassNames(type);
+        if (type.isSealed()) {
+            for (Class<?> subtype : type.getPermittedSubclasses()) {
+                addToTopicTypes(topic, subtype);
+            }
+        }
     }
 
     /**

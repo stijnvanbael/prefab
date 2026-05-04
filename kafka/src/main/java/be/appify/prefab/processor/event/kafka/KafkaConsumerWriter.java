@@ -1,7 +1,7 @@
 package be.appify.prefab.processor.event.kafka;
 
-import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.AsyncCommit;
+import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
@@ -214,7 +214,8 @@ class KafkaConsumerWriter {
                 .flatMap(t -> (t.asElement()).getInterfaces().stream())
                 .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
                 .filter(iface -> iface.getAnnotation(Event.class) != null
-                        && iface.getAnnotation(Event.class).topic().equals(topic))
+                        && iface.getAnnotation(Event.class).topic().equals(topic)
+                        && iface.getAnnotation(Avsc.class) == null)
                 .distinct()
                 .findFirst()
                 .map(iface -> TypeManifest.of(iface.asType(), context.processingEnvironment()));

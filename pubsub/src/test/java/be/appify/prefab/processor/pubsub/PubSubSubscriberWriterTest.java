@@ -4,7 +4,7 @@ import be.appify.prefab.processor.PrefabProcessor;
 import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
-import static be.appify.prefab.processor.pubsub.ProcessorTestUtil.contentsOf;
+import static be.appify.prefab.processor.pubsub.ProcessorTestUtil.assertGeneratedSourceEqualsIgnoringWhitespace;
 import static be.appify.prefab.processor.pubsub.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
@@ -19,9 +19,10 @@ class PubSubSubscriberWriterTest {
                         sourceOf("pubsub/single/UserCreated.java"),
                         sourceOf("pubsub/single/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("pubsub.single.infrastructure.pubsub.UserExporterPubSubSubscriber")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/pubsub/single/UserExporterPubSubSubscriber.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "pubsub.single.infrastructure.pubsub.UserExporterPubSubSubscriber",
+                "expected/pubsub/single/UserExporterPubSubSubscriber.java");
     }
 
     @Test
@@ -33,10 +34,10 @@ class PubSubSubscriberWriterTest {
                         sourceOf("pubsub/multiple/UserEvent.java"),
                         sourceOf("pubsub/multiple/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile(
-                        "pubsub.multiple.infrastructure.pubsub.UserExporterPubSubSubscriber")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/pubsub/multiple/UserExporterPubSubSubscriber.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "pubsub.multiple.infrastructure.pubsub.UserExporterPubSubSubscriber",
+                "expected/pubsub/multiple/UserExporterPubSubSubscriber.java");
     }
 
     @Test
@@ -60,9 +61,10 @@ class PubSubSubscriberWriterTest {
                         sourceOf("pubsub/multitopic/DayTotal.java"),
                         sourceOf("pubsub/multitopic/DayTotalRepositoryMixin.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("pubsub.multitopic.infrastructure.pubsub.DayTotalPubSubSubscriber")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/pubsub/multitopic/DayTotalPubSubSubscriber.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "pubsub.multitopic.infrastructure.pubsub.DayTotalPubSubSubscriber",
+                "expected/pubsub/multitopic/DayTotalPubSubSubscriber.java");
     }
 
     @Test
@@ -74,10 +76,10 @@ class PubSubSubscriberWriterTest {
                         sourceOf("pubsub/customdlt/UserEvent.java"),
                         sourceOf("pubsub/customdlt/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile(
-                        "pubsub.customdlt.infrastructure.pubsub.UserExporterPubSubSubscriber")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/pubsub/customdlt/UserExporterPubSubSubscriber.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "pubsub.customdlt.infrastructure.pubsub.UserExporterPubSubSubscriber",
+                "expected/pubsub/customdlt/UserExporterPubSubSubscriber.java");
     }
 
     @Test
@@ -89,10 +91,10 @@ class PubSubSubscriberWriterTest {
                         sourceOf("pubsub/dltdisabled/UserEvent.java"),
                         sourceOf("pubsub/dltdisabled/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile(
-                        "pubsub.dltdisabled.infrastructure.pubsub.UserExporterPubSubSubscriber")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/pubsub/dltdisabled/UserExporterPubSubSubscriber.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "pubsub.dltdisabled.infrastructure.pubsub.UserExporterPubSubSubscriber",
+                "expected/pubsub/dltdisabled/UserExporterPubSubSubscriber.java");
     }
 
     @Test
@@ -103,9 +105,9 @@ class PubSubSubscriberWriterTest {
                         sourceOf("pubsub/createorupdate/ChannelSummary.java"),
                         sourceOf("pubsub/createorupdate/MessageEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile(
-                        "pubsub.createorupdate.infrastructure.pubsub.ChannelSummaryPubSubSubscriber")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/pubsub/createorupdate/ChannelSummaryPubSubSubscriber.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "pubsub.createorupdate.infrastructure.pubsub.ChannelSummaryPubSubSubscriber",
+                "expected/pubsub/createorupdate/ChannelSummaryPubSubSubscriber.java");
     }
 }

@@ -18,7 +18,8 @@ public class OrderProcessorKafkaConsumer {
 
     public OrderProcessorKafkaConsumer(OrderProcessor orderProcessor,
             KafkaJsonTypeResolver typeResolver) {
-        typeResolver.registerType("prefab.order", OrderEvent.class);
+        typeResolver.registerType("prefab.order", OrderCreatedEvent.class);
+        typeResolver.registerType("prefab.order", OrderShippedEvent.class);
         this.orderProcessor = orderProcessor;
     }
 

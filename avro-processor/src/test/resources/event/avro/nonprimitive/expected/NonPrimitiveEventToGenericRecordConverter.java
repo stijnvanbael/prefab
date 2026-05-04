@@ -23,7 +23,7 @@ public class NonPrimitiveEventToGenericRecordConverter implements Converter<NonP
         genericRecord.put("timestamp", event.timestamp() != null ? event.timestamp().toEpochMilli() : null);
         genericRecord.put("date", event.date() != null ? (int) event.date().toEpochDay() : null);
         genericRecord.put("duration", event.duration() != null ? event.duration().toMillis() : null);
-        genericRecord.put("reference", event.reference() != null ? event.reference().id() : null);
+        genericRecord.put("reference", event.reference() != null ? SchemaSupport.isRecordSchema(schema.getField("reference").schema()) ? SchemaSupport.singleValueRecord(schema.getField("reference").schema(), "id", event.reference().id()) : event.reference().id() : null);
         return genericRecord;
     }
 }

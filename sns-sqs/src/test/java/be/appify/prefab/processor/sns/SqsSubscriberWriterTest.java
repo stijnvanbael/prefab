@@ -4,7 +4,7 @@ import be.appify.prefab.processor.PrefabProcessor;
 import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
-import static be.appify.prefab.processor.sns.ProcessorTestUtil.contentsOf;
+import static be.appify.prefab.processor.sns.ProcessorTestUtil.assertGeneratedSourceEqualsIgnoringWhitespace;
 import static be.appify.prefab.processor.sns.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
@@ -19,9 +19,10 @@ class SqsSubscriberWriterTest {
                         sourceOf("sns/single/UserCreated.java"),
                         sourceOf("sns/single/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("sns.single.infrastructure.sns.UserExporterSqsSubscriber")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/sns/single/UserExporterSqsSubscriber.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "sns.single.infrastructure.sns.UserExporterSqsSubscriber",
+                "expected/sns/single/UserExporterSqsSubscriber.java");
     }
 
     @Test
@@ -33,10 +34,10 @@ class SqsSubscriberWriterTest {
                         sourceOf("sns/multiple/UserEvent.java"),
                         sourceOf("sns/multiple/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile(
-                        "sns.multiple.infrastructure.sns.UserExporterSqsSubscriber")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/sns/multiple/UserExporterSqsSubscriber.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "sns.multiple.infrastructure.sns.UserExporterSqsSubscriber",
+                "expected/sns/multiple/UserExporterSqsSubscriber.java");
     }
 
     @Test
@@ -60,9 +61,10 @@ class SqsSubscriberWriterTest {
                         sourceOf("sns/multitopic/DayTotal.java"),
                         sourceOf("sns/multitopic/DayTotalRepositoryMixin.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("sns.multitopic.infrastructure.sns.DayTotalSqsSubscriber")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/sns/multitopic/DayTotalSqsSubscriber.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "sns.multitopic.infrastructure.sns.DayTotalSqsSubscriber",
+                "expected/sns/multitopic/DayTotalSqsSubscriber.java");
     }
 
     @Test
@@ -74,10 +76,10 @@ class SqsSubscriberWriterTest {
                         sourceOf("sns/customdlt/UserEvent.java"),
                         sourceOf("sns/customdlt/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile(
-                        "sns.customdlt.infrastructure.sns.UserExporterSqsSubscriber")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/sns/customdlt/UserExporterSqsSubscriber.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "sns.customdlt.infrastructure.sns.UserExporterSqsSubscriber",
+                "expected/sns/customdlt/UserExporterSqsSubscriber.java");
     }
 
     @Test
@@ -89,10 +91,10 @@ class SqsSubscriberWriterTest {
                         sourceOf("sns/dltdisabled/UserEvent.java"),
                         sourceOf("sns/dltdisabled/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile(
-                        "sns.dltdisabled.infrastructure.sns.UserExporterSqsSubscriber")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/sns/dltdisabled/UserExporterSqsSubscriber.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "sns.dltdisabled.infrastructure.sns.UserExporterSqsSubscriber",
+                "expected/sns/dltdisabled/UserExporterSqsSubscriber.java");
     }
 
     @Test
@@ -103,9 +105,9 @@ class SqsSubscriberWriterTest {
                         sourceOf("sns/createorupdate/ChannelSummary.java"),
                         sourceOf("sns/createorupdate/MessageEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile(
-                        "sns.createorupdate.infrastructure.sns.ChannelSummarySqsSubscriber")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/sns/createorupdate/ChannelSummarySqsSubscriber.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "sns.createorupdate.infrastructure.sns.ChannelSummarySqsSubscriber",
+                "expected/sns/createorupdate/ChannelSummarySqsSubscriber.java");
     }
 }

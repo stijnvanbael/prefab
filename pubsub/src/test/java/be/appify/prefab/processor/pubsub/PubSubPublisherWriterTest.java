@@ -6,7 +6,7 @@ import be.appify.prefab.processor.PrefabProcessor;
 
 import java.io.IOException;
 
-import static be.appify.prefab.processor.pubsub.ProcessorTestUtil.contentsOf;
+import static be.appify.prefab.processor.pubsub.ProcessorTestUtil.assertGeneratedSourceEqualsIgnoringWhitespace;
 import static be.appify.prefab.processor.pubsub.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
@@ -21,9 +21,10 @@ class PubSubPublisherWriterTest {
                         sourceOf("pubsub/single/UserCreated.java"),
                         sourceOf("pubsub/single/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("pubsub.single.infrastructure.pubsub.UserCreatedPubSubPublisher")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/pubsub/single/UserCreatedPubSubPublisher.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "pubsub.single.infrastructure.pubsub.UserCreatedPubSubPublisher",
+                "expected/pubsub/single/UserCreatedPubSubPublisher.java");
     }
 
     @Test
@@ -35,8 +36,9 @@ class PubSubPublisherWriterTest {
                         sourceOf("pubsub/multiple/UserEvent.java"),
                         sourceOf("pubsub/multiple/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("pubsub.multiple.infrastructure.pubsub.UserEventPubSubPublisher")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/pubsub/multiple/UserEventPubSubPublisher.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "pubsub.multiple.infrastructure.pubsub.UserEventPubSubPublisher",
+                "expected/pubsub/multiple/UserEventPubSubPublisher.java");
     }
 }

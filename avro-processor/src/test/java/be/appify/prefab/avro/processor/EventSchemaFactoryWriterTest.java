@@ -4,7 +4,7 @@ import be.appify.prefab.processor.PrefabProcessor;
 
 import org.junit.jupiter.api.Test;
 
-import static be.appify.prefab.avro.processor.ProcessorTestUtil.contentsOf;
+import static be.appify.prefab.avro.processor.ProcessorTestUtil.assertGeneratedSourceEqualsIgnoringWhitespace;
 import static be.appify.prefab.avro.processor.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
@@ -16,9 +16,10 @@ class EventSchemaFactoryWriterTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/simple/source/SimpleEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.SimpleEventSchemaFactory")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/simple/expected/SimpleEventSchemaFactory.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.SimpleEventSchemaFactory",
+                "event/avro/simple/expected/SimpleEventSchemaFactory.java");
 
     }
 
@@ -30,9 +31,10 @@ class EventSchemaFactoryWriterTest {
                         sourceOf("event/avro/inherited/source/SuperType.java"),
                         sourceOf("event/avro/inherited/source/InheritEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.InheritEventSchemaFactory")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/inherited/expected/InheritEventSchemaFactory.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.InheritEventSchemaFactory",
+                "event/avro/inherited/expected/InheritEventSchemaFactory.java");
     }
 
     @Test
@@ -41,9 +43,10 @@ class EventSchemaFactoryWriterTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/nonprimitive/source/NonPrimitiveEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.NonPrimitiveEventSchemaFactory")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/nonprimitive/expected/NonPrimitiveEventSchemaFactory.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.NonPrimitiveEventSchemaFactory",
+                "event/avro/nonprimitive/expected/NonPrimitiveEventSchemaFactory.java");
     }
 
     @Test
@@ -52,9 +55,10 @@ class EventSchemaFactoryWriterTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/nullable/source/NullableEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.NullableEventSchemaFactory")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/nullable/expected/NullableEventSchemaFactory.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.NullableEventSchemaFactory",
+                "event/avro/nullable/expected/NullableEventSchemaFactory.java");
     }
 
     @Test
@@ -63,12 +67,14 @@ class EventSchemaFactoryWriterTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/nestedrecord/source/NestedRecordEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.NestedRecordEventSchemaFactory")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/nestedrecord/expected/NestedRecordEventSchemaFactory.java"));
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.NestedRecordEventMoneySchemaFactory")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/nestedrecord/expected/NestedRecordEventMoneySchemaFactory.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.NestedRecordEventSchemaFactory",
+                "event/avro/nestedrecord/expected/NestedRecordEventSchemaFactory.java");
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.NestedRecordEventMoneySchemaFactory",
+                "event/avro/nestedrecord/expected/NestedRecordEventMoneySchemaFactory.java");
     }
 
     @Test
@@ -77,9 +83,10 @@ class EventSchemaFactoryWriterTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/array/source/ArrayFieldEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.ArrayFieldEventSchemaFactory")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/array/expected/ArrayFieldEventSchemaFactory.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.ArrayFieldEventSchemaFactory",
+                "event/avro/array/expected/ArrayFieldEventSchemaFactory.java");
     }
 
     @Test
@@ -88,9 +95,10 @@ class EventSchemaFactoryWriterTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/hierarchy/source/HierarchyEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.HierarchyEventSchemaFactory")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/hierarchy/expected/HierarchyEventSchemaFactory.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.HierarchyEventSchemaFactory",
+                "event/avro/hierarchy/expected/HierarchyEventSchemaFactory.java");
     }
 
     @Test
@@ -99,9 +107,10 @@ class EventSchemaFactoryWriterTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/examplefield/source/ExampleFieldEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.ExampleFieldEventSchemaFactory")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/examplefield/expected/ExampleFieldEventSchemaFactory.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.ExampleFieldEventSchemaFactory",
+                "event/avro/examplefield/expected/ExampleFieldEventSchemaFactory.java");
     }
 
     @Test
@@ -110,8 +119,9 @@ class EventSchemaFactoryWriterTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/docfield/source/DocFieldEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.DocFieldEventSchemaFactory")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/docfield/expected/DocFieldEventSchemaFactory.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.DocFieldEventSchemaFactory",
+                "event/avro/docfield/expected/DocFieldEventSchemaFactory.java");
     }
 }

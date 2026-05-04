@@ -12,6 +12,10 @@
     <artifactId>prefab-pubsub</artifactId>
     <name>Prefab Pub/Sub Support</name>
 
+    <properties>
+        <assertj.version>3.27.3</assertj.version>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>be.appify.prefab</groupId>
@@ -30,6 +34,12 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>${assertj.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

@@ -3,7 +3,7 @@ package be.appify.prefab.avro.processor;
 import be.appify.prefab.processor.PrefabProcessor;
 import org.junit.jupiter.api.Test;
 
-import static be.appify.prefab.avro.processor.ProcessorTestUtil.contentsOf;
+import static be.appify.prefab.avro.processor.ProcessorTestUtil.assertGeneratedSourceEqualsIgnoringWhitespace;
 import static be.appify.prefab.avro.processor.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
@@ -22,13 +22,15 @@ class SingleValuedNestedRecordTest {
                 .compile(sourceOf("event/avro/singlevaluednested/source/SingleValuedNestedEvent.java"));
         assertThat(compilation).succeeded();
 
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.SingleValuedNestedEventSchemaFactory")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/singlevaluednested/expected/SingleValuedNestedEventSchemaFactory.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.SingleValuedNestedEventSchemaFactory",
+                "event/avro/singlevaluednested/expected/SingleValuedNestedEventSchemaFactory.java");
         // Outer is a single-value type whose component is Inner (a record) — must get its own schema factory
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.SingleValuedNestedEventOuterSchemaFactory")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/singlevaluednested/expected/SingleValuedNestedEventOuterSchemaFactory.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.SingleValuedNestedEventOuterSchemaFactory",
+                "event/avro/singlevaluednested/expected/SingleValuedNestedEventOuterSchemaFactory.java");
     }
 
     @Test
@@ -38,13 +40,15 @@ class SingleValuedNestedRecordTest {
                 .compile(sourceOf("event/avro/singlevaluednested/source/SingleValuedNestedEvent.java"));
         assertThat(compilation).succeeded();
 
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.SingleValuedNestedEventToGenericRecordConverter")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/singlevaluednested/expected/SingleValuedNestedEventToGenericRecordConverter.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.SingleValuedNestedEventToGenericRecordConverter",
+                "event/avro/singlevaluednested/expected/SingleValuedNestedEventToGenericRecordConverter.java");
         // Outer must produce a proper nested-record converter, not one using toString()
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.SingleValuedNestedEventOuterToGenericRecordConverter")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/singlevaluednested/expected/SingleValuedNestedEventOuterToGenericRecordConverter.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.SingleValuedNestedEventOuterToGenericRecordConverter",
+                "event/avro/singlevaluednested/expected/SingleValuedNestedEventOuterToGenericRecordConverter.java");
     }
 
     @Test
@@ -54,13 +58,15 @@ class SingleValuedNestedRecordTest {
                 .compile(sourceOf("event/avro/singlevaluednested/source/SingleValuedNestedEvent.java"));
         assertThat(compilation).succeeded();
 
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.GenericRecordToSingleValuedNestedEventConverter")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/singlevaluednested/expected/GenericRecordToSingleValuedNestedEventConverter.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.GenericRecordToSingleValuedNestedEventConverter",
+                "event/avro/singlevaluednested/expected/GenericRecordToSingleValuedNestedEventConverter.java");
         // Outer must produce a proper nested-record converter, not one using toString()
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.GenericRecordToSingleValuedNestedEventOuterConverter")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/singlevaluednested/expected/GenericRecordToSingleValuedNestedEventOuterConverter.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.GenericRecordToSingleValuedNestedEventOuterConverter",
+                "event/avro/singlevaluednested/expected/GenericRecordToSingleValuedNestedEventOuterConverter.java");
     }
 }
 

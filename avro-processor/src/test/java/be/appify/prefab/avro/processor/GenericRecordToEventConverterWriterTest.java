@@ -3,7 +3,7 @@ package be.appify.prefab.avro.processor;
 import be.appify.prefab.processor.PrefabProcessor;
 import org.junit.jupiter.api.Test;
 
-import static be.appify.prefab.avro.processor.ProcessorTestUtil.contentsOf;
+import static be.appify.prefab.avro.processor.ProcessorTestUtil.assertGeneratedSourceEqualsIgnoringWhitespace;
 import static be.appify.prefab.avro.processor.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
@@ -15,9 +15,10 @@ class GenericRecordToEventConverterWriterTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/simple/source/SimpleEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.GenericRecordToSimpleEventConverter")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/simple/expected/GenericRecordToSimpleEventConverter.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.GenericRecordToSimpleEventConverter",
+                "event/avro/simple/expected/GenericRecordToSimpleEventConverter.java");
     }
 
     @Test
@@ -27,9 +28,10 @@ class GenericRecordToEventConverterWriterTest {
                 .compile(sourceOf("event/avro/inherited/source/SuperType.java"),
                         sourceOf("event/avro/inherited/source/InheritEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.GenericRecordToInheritEventConverter")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/inherited/expected/GenericRecordToInheritEventConverter.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.GenericRecordToInheritEventConverter",
+                "event/avro/inherited/expected/GenericRecordToInheritEventConverter.java");
     }
 
     @Test
@@ -38,9 +40,10 @@ class GenericRecordToEventConverterWriterTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/nonprimitive/source/NonPrimitiveEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.GenericRecordToNonPrimitiveEventConverter")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/nonprimitive/expected/GenericRecordToNonPrimitiveEventConverter.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.GenericRecordToNonPrimitiveEventConverter",
+                "event/avro/nonprimitive/expected/GenericRecordToNonPrimitiveEventConverter.java");
     }
 
     @Test
@@ -49,9 +52,10 @@ class GenericRecordToEventConverterWriterTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/nullable/source/NullableEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.GenericRecordToNullableEventConverter")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/nullable/expected/GenericRecordToNullableEventConverter.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.GenericRecordToNullableEventConverter",
+                "event/avro/nullable/expected/GenericRecordToNullableEventConverter.java");
     }
 
     @Test
@@ -60,12 +64,14 @@ class GenericRecordToEventConverterWriterTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/nestedrecord/source/NestedRecordEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.GenericRecordToNestedRecordEventConverter")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/nestedrecord/expected/GenericRecordToNestedRecordEventConverter.java"));
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.GenericRecordToNestedRecordEventMoneyConverter")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/nestedrecord/expected/GenericRecordToNestedRecordEventMoneyConverter.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.GenericRecordToNestedRecordEventConverter",
+                "event/avro/nestedrecord/expected/GenericRecordToNestedRecordEventConverter.java");
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.GenericRecordToNestedRecordEventMoneyConverter",
+                "event/avro/nestedrecord/expected/GenericRecordToNestedRecordEventMoneyConverter.java");
     }
 
     @Test
@@ -74,9 +80,10 @@ class GenericRecordToEventConverterWriterTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/array/source/ArrayFieldEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.GenericRecordToArrayFieldEventConverter")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/array/expected/GenericRecordToArrayFieldEventConverter.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.GenericRecordToArrayFieldEventConverter",
+                "event/avro/array/expected/GenericRecordToArrayFieldEventConverter.java");
     }
 
     @Test
@@ -85,14 +92,17 @@ class GenericRecordToEventConverterWriterTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/hierarchy/source/HierarchyEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.GenericRecordToHierarchyEventConverter")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/hierarchy/expected/GenericRecordToHierarchyEventConverter.java"));
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.GenericRecordToHierarchyEventCreatedConverter")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/hierarchy/expected/GenericRecordToHierarchyEventCreatedConverter.java"));
-        assertThat(compilation).generatedSourceFile("event.avro.infrastructure.avro.GenericRecordToHierarchyEventUpdatedConverter")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avro/hierarchy/expected/GenericRecordToHierarchyEventUpdatedConverter.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.GenericRecordToHierarchyEventConverter",
+                "event/avro/hierarchy/expected/GenericRecordToHierarchyEventConverter.java");
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.GenericRecordToHierarchyEventCreatedConverter",
+                "event/avro/hierarchy/expected/GenericRecordToHierarchyEventCreatedConverter.java");
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.GenericRecordToHierarchyEventUpdatedConverter",
+                "event/avro/hierarchy/expected/GenericRecordToHierarchyEventUpdatedConverter.java");
     }
 }

@@ -1,5 +1,6 @@
 package event.avsc.infrastructure.avro;
 
+import be.appify.prefab.avro.SchemaSupport;
 import java.io.IOException;
 import org.apache.avro.Schema;
 import org.springframework.stereotype.Component;
@@ -13,7 +14,8 @@ public class NullableAvscEventSchemaFactory {
             if (stream == null) {
                 throw new IllegalStateException("AVSC file not found on classpath: event/avsc/nullable/source/NullableAvscEvent.avsc");
             }
-            this.schema = new Schema.Parser().parse(stream);
+            var parsedSchema = new Schema.Parser().parse(stream);
+            this.schema = SchemaSupport.namedTypeOf(parsedSchema, "NullableAvscEvent");
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

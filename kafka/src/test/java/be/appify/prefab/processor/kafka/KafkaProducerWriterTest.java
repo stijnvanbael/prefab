@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import be.appify.prefab.processor.PrefabProcessor;
 
-import static be.appify.prefab.processor.kafka.ProcessorTestUtil.contentsOf;
+import static be.appify.prefab.processor.kafka.ProcessorTestUtil.assertGeneratedSourceEqualsIgnoringWhitespace;
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
@@ -19,9 +19,10 @@ class KafkaProducerWriterTest {
                         sourceOf("kafka/single/UserCreated.java"),
                         sourceOf("kafka/single/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("kafka.single.infrastructure.kafka.UserCreatedKafkaProducer")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/kafka/single/UserCreatedKafkaProducer.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.single.infrastructure.kafka.UserCreatedKafkaProducer",
+                "expected/kafka/single/UserCreatedKafkaProducer.java");
     }
 
     @Test
@@ -33,9 +34,10 @@ class KafkaProducerWriterTest {
                         sourceOf("kafka/multiple/UserEvent.java"),
                         sourceOf("kafka/multiple/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("kafka.multiple.infrastructure.kafka.UserEventKafkaProducer")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/kafka/multiple/UserEventKafkaProducer.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.multiple.infrastructure.kafka.UserEventKafkaProducer",
+                "expected/kafka/multiple/UserEventKafkaProducer.java");
     }
 
     @Test
@@ -46,9 +48,10 @@ class KafkaProducerWriterTest {
                         sourceOf("kafka/avsc/OrderCreated.java"),
                         sourceOf("kafka/avsc/OrderProcessor.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("kafka.avsc.infrastructure.kafka.OrderCreatedEventKafkaProducer")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/kafka/avsc/OrderCreatedEventKafkaProducer.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.avsc.infrastructure.kafka.OrderCreatedEventKafkaProducer",
+                "expected/kafka/avsc/OrderCreatedEventKafkaProducer.java");
     }
 
     @Test
@@ -57,11 +60,13 @@ class KafkaProducerWriterTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("kafka/avscaggregate/OrderEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("kafka.avscaggregate.infrastructure.kafka.OrderCreatedEventKafkaProducer")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/kafka/avscaggregate/OrderCreatedEventKafkaProducer.java"));
-        assertThat(compilation).generatedSourceFile("kafka.avscaggregate.infrastructure.kafka.OrderShippedEventKafkaProducer")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/kafka/avscaggregate/OrderShippedEventKafkaProducer.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.avscaggregate.infrastructure.kafka.OrderCreatedEventKafkaProducer",
+                "expected/kafka/avscaggregate/OrderCreatedEventKafkaProducer.java");
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.avscaggregate.infrastructure.kafka.OrderShippedEventKafkaProducer",
+                "expected/kafka/avscaggregate/OrderShippedEventKafkaProducer.java");
     }
 }

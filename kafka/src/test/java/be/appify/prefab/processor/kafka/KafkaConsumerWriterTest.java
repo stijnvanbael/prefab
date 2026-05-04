@@ -3,7 +3,7 @@ package be.appify.prefab.processor.kafka;
 import be.appify.prefab.processor.PrefabProcessor;
 import org.junit.jupiter.api.Test;
 
-import static be.appify.prefab.processor.kafka.ProcessorTestUtil.contentsOf;
+import static be.appify.prefab.processor.kafka.ProcessorTestUtil.assertGeneratedSourceEqualsIgnoringWhitespace;
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
@@ -18,9 +18,10 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/single/UserCreated.java"),
                         sourceOf("kafka/single/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("kafka.single.infrastructure.kafka.UserExporterKafkaConsumer")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/kafka/single/UserExporterKafkaConsumer.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.single.infrastructure.kafka.UserExporterKafkaConsumer",
+                "expected/kafka/single/UserExporterKafkaConsumer.java");
     }
 
     @Test
@@ -32,9 +33,10 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/multiple/UserEvent.java"),
                         sourceOf("kafka/multiple/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("kafka.multiple.infrastructure.kafka.UserExporterKafkaConsumer")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/kafka/multiple/UserExporterKafkaConsumer.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.multiple.infrastructure.kafka.UserExporterKafkaConsumer",
+                "expected/kafka/multiple/UserExporterKafkaConsumer.java");
     }
 
     @Test
@@ -58,9 +60,10 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/multitopic/DayTotal.java"),
                         sourceOf("kafka/multitopic/DayTotalRepositoryMixin.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("kafka.multitopic.infrastructure.kafka.DayTotalKafkaConsumer")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/kafka/multitopic/DayTotalKafkaConsumer.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.multitopic.infrastructure.kafka.DayTotalKafkaConsumer",
+                "expected/kafka/multitopic/DayTotalKafkaConsumer.java");
     }
 
     @Test
@@ -72,9 +75,10 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/customdlt/UserEvent.java"),
                         sourceOf("kafka/customdlt/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("kafka.customdlt.infrastructure.kafka.UserExporterKafkaConsumer")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/kafka/customdlt/UserExporterKafkaConsumer.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.customdlt.infrastructure.kafka.UserExporterKafkaConsumer",
+                "expected/kafka/customdlt/UserExporterKafkaConsumer.java");
     }
 
     @Test
@@ -86,9 +90,10 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/dltdisabled/UserEvent.java"),
                         sourceOf("kafka/dltdisabled/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("kafka.dltdisabled.infrastructure.kafka.UserExporterKafkaConsumer")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/kafka/dltdisabled/UserExporterKafkaConsumer.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.dltdisabled.infrastructure.kafka.UserExporterKafkaConsumer",
+                "expected/kafka/dltdisabled/UserExporterKafkaConsumer.java");
     }
 
     @Test
@@ -99,9 +104,10 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/avsc/OrderCreated.java"),
                         sourceOf("kafka/avsc/OrderProcessor.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("kafka.avsc.infrastructure.kafka.OrderProcessorKafkaConsumer")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/kafka/avsc/OrderProcessorKafkaConsumer.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.avsc.infrastructure.kafka.OrderProcessorKafkaConsumer",
+                "expected/kafka/avsc/OrderProcessorKafkaConsumer.java");
     }
 
     @Test
@@ -112,9 +118,10 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/avscaggregate/OrderEvent.java"),
                         sourceOf("kafka/avscaggregate/OrderProcessor.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("kafka.avscaggregate.infrastructure.kafka.OrderProcessorKafkaConsumer")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/kafka/avscaggregate/OrderProcessorKafkaConsumer.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.avscaggregate.infrastructure.kafka.OrderProcessorKafkaConsumer",
+                "expected/kafka/avscaggregate/OrderProcessorKafkaConsumer.java");
     }
 
     @Test
@@ -125,9 +132,10 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/avscmulti/OrderEvent.java"),
                         sourceOf("kafka/avscmulti/OrderProcessor.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("kafka.avscmulti.infrastructure.kafka.OrderProcessorKafkaConsumer")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/kafka/avscmulti/OrderProcessorKafkaConsumer.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.avscmulti.infrastructure.kafka.OrderProcessorKafkaConsumer",
+                "expected/kafka/avscmulti/OrderProcessorKafkaConsumer.java");
     }
 
     @Test
@@ -138,9 +146,10 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/avscpartial/OrderEvent.java"),
                         sourceOf("kafka/avscpartial/OrderProcessor.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("kafka.avscpartial.infrastructure.kafka.OrderProcessorKafkaConsumer")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/kafka/avscpartial/OrderProcessorKafkaConsumer.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.avscpartial.infrastructure.kafka.OrderProcessorKafkaConsumer",
+                "expected/kafka/avscpartial/OrderProcessorKafkaConsumer.java");
     }
 
     @Test
@@ -151,9 +160,10 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/createorupdate/ChannelSummary.java"),
                         sourceOf("kafka/createorupdate/MessageEvent.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("kafka.createorupdate.infrastructure.kafka.ChannelSummaryKafkaConsumer")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("expected/kafka/createorupdate/ChannelSummaryKafkaConsumer.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.createorupdate.infrastructure.kafka.ChannelSummaryKafkaConsumer",
+                "expected/kafka/createorupdate/ChannelSummaryKafkaConsumer.java");
     }
 
     @Test

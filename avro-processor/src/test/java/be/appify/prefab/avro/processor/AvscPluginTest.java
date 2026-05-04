@@ -3,7 +3,7 @@ package be.appify.prefab.avro.processor;
 import be.appify.prefab.processor.PrefabProcessor;
 import org.junit.jupiter.api.Test;
 
-import static be.appify.prefab.avro.processor.ProcessorTestUtil.contentsOf;
+import static be.appify.prefab.avro.processor.ProcessorTestUtil.assertGeneratedSourceEqualsIgnoringWhitespace;
 import static be.appify.prefab.avro.processor.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
@@ -65,10 +65,10 @@ class AvscPluginTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avsc/nullable/source/NullableAvsc.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation)
-                .generatedSourceFile("event.avsc.infrastructure.avro.NullableAvscEventSchemaFactory")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avsc/nullable/expected/NullableAvscEventSchemaFactory.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avsc.infrastructure.avro.NullableAvscEventSchemaFactory",
+                "event/avsc/nullable/expected/NullableAvscEventSchemaFactory.java");
     }
 
     @Test
@@ -123,10 +123,10 @@ class AvscPluginTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation)
-                .generatedSourceFile("event.avsc.infrastructure.avro.SimpleAvscEventSchemaFactory")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("event/avsc/simple/expected/SimpleAvscEventSchemaFactory.java"));
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avsc.infrastructure.avro.SimpleAvscEventSchemaFactory",
+                "event/avsc/simple/expected/SimpleAvscEventSchemaFactory.java");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.SimpleAvscEventToGenericRecordConverter")
                 .isNotNull();

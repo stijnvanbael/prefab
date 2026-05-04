@@ -21,7 +21,9 @@ public class GenericRecordToNonPrimitiveEventConverter implements Converter<Gene
                     genericRecord.get("timestamp") != null ? Instant.ofEpochMilli((Long) genericRecord.get("timestamp")) : null,
                     genericRecord.get("date") != null ? LocalDate.ofEpochDay((Integer) genericRecord.get("date")) : null,
                     genericRecord.get("duration") != null ? Duration.ofMillis((Long) genericRecord.get("duration")) : null,
-                    genericRecord.get("reference") != null ? new Reference<Object>(genericRecord.get("reference").toString()) : null
+                    genericRecord.get("reference") != null ? genericRecord.get("reference") instanceof GenericRecord singleValueRecord
+                        ? new Reference<Object>(singleValueRecord.get("id").toString())
+                        : new Reference<Object>(genericRecord.get("reference").toString()) : null
                 );
     }
 }

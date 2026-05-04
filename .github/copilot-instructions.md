@@ -17,7 +17,7 @@ Key principles to honor:
 - **Clean Tests**: Fast, Independent, Repeatable, Self-Validating, Timely (F.I.R.S.T.).
 - **SRP & DI**: One responsibility per class, depend on abstractions, inject dependencies.
 - **No Speculation**: Do not add complexity for hypothetical future needs.
-- **Boyscout rule**: Leave the code cleaner than you found it. Refactor when you see an opportunity. Fix any tests that fail.
+- **Boyscout rule**: Leave the code cleaner than you found it. Refactor when you see an opportunity. Fix failing tests, regardless of whether you broke them or not.
 - **Report Issues**: When a task reveals a problem outside its scope, create a new backlog task instead of
   silently ignoring it or over-extending the fix. See [section 15 of AGENTS.md](../AGENTS.md#15-report-issues) for the full rules.
 - **Terminal truncation**: Keep terminal commands shorter than 256 characters to avoid truncation issues.

@@ -1,8 +1,10 @@
 package kafka.avscmulti.infrastructure.kafka;
 
 import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
+import kafka.avscmulti.OrderCreatedEvent;
 import kafka.avscmulti.OrderEvent;
 import kafka.avscmulti.OrderProcessor;
+import kafka.avscmulti.OrderShippedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -16,7 +18,8 @@ public class OrderProcessorKafkaConsumer {
 
     public OrderProcessorKafkaConsumer(OrderProcessor orderProcessor,
             KafkaJsonTypeResolver typeResolver) {
-        typeResolver.registerType("prefab.order", OrderEvent.class);
+        typeResolver.registerType("prefab.order", OrderCreatedEvent.class);
+        typeResolver.registerType("prefab.order", OrderShippedEvent.class);
         this.orderProcessor = orderProcessor;
     }
 

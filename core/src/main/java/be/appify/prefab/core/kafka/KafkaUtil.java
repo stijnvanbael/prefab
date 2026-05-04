@@ -4,7 +4,6 @@ import java.util.List;
 import org.apache.kafka.common.errors.InvalidTopicException;
 import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.apache.kafka.common.errors.SerializationException;
-import org.springframework.dao.DataIntegrityViolationException;
 
 /**
  * <p>Utility class that provides constants and configurations for Kafka-related operations.
@@ -25,6 +24,12 @@ public class KafkaUtil {
      *
      * <p>This list is intended to be used as a reference for exception handling logic, particularly in scenarios
      * where retries need to be selectively applied based on the nature of the exception encountered.</p>
+     *
+     * <p>Note: {@code DataIntegrityViolationException} is intentionally excluded from this list. When a unique
+     * constraint violation occurs due to a concurrent insert race condition (e.g. two Kafka consumer threads both
+     * find no existing record and both attempt to insert), retrying the message allows the handler to find the
+     * now-existing record and perform an update instead. Other integrity violations (e.g. NOT NULL, FK) will still
+     * exhaust the retry limit and be sent to the DLT.</p>
      */
     public static final List<Class<? extends Exception>> DEFAULT_NOT_RETRYABLE = List.of(
             SerializationException.class,
@@ -32,6 +37,5 @@ public class KafkaUtil {
             IllegalArgumentException.class,
             IllegalStateException.class,
             RecordDeserializationException.class,
-            InvalidTopicException.class,
-            DataIntegrityViolationException.class);
+            InvalidTopicException.class);
 }

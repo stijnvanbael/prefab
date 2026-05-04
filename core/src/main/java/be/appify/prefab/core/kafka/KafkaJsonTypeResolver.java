@@ -1,6 +1,7 @@
 package be.appify.prefab.core.kafka;
 
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -16,6 +17,7 @@ import tools.jackson.databind.type.TypeFactory;
 @Component
 public class KafkaJsonTypeResolver implements JacksonJsonTypeResolver {
     private final Map<String, Class<?>> types = new HashMap<>();
+    private final Map<String, Set<Class<?>>> topicTypes = new ConcurrentHashMap<>();
     private final Set<String> allowedClassNames = ConcurrentHashMap.newKeySet();
 
     /** Constructs a new KafkaJsonTypeResolver. */
@@ -40,7 +42,19 @@ public class KafkaJsonTypeResolver implements JacksonJsonTypeResolver {
      */
     public void registerType(String topic, Class<?> type) {
         types.put(topic, type);
+        topicTypes.computeIfAbsent(topic, ignored -> new LinkedHashSet<>()).add(type);
         addToAllowedClassNames(type);
+    }
+
+    /**
+     * Returns registered event classes for a topic.
+     *
+     * @param topic
+     *         the Kafka topic
+     * @return registered classes for the topic, or an empty set if none were registered
+     */
+    public Set<Class<?>> registeredTypesForTopic(String topic) {
+        return Set.copyOf(topicTypes.getOrDefault(topic, Set.of()));
     }
 
     private void addToAllowedClassNames(Class<?> type) {

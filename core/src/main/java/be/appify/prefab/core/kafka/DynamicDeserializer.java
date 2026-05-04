@@ -68,38 +68,39 @@ public class DynamicDeserializer implements Deserializer<Object> {
             return null;
         } else {
             return switch (serializationRegistry.get(topic)) {
-                case AVRO -> toEvent(avroDeserializer.deserialize(topic, data));
+                case AVRO -> toEvent(topic, avroDeserializer.deserialize(topic, data));
                 case JSON -> jsonDeserializer.deserialize(topic, data);
             };
         }
     }
 
-    private Object toEvent(GenericRecord genericRecord) {
+    private Object toEvent(String topic, GenericRecord genericRecord) {
         var schema = genericRecord.getSchema();
-        var resolvedName = resolveClassName(schema.getFullName());
-        if (!jsonTypeResolver.allowedClassNames().contains(resolvedName)) {
-            throw new IllegalArgumentException("Class not registered in allowlist: " + resolvedName);
-        }
-        Class<?> targetClass;
-        try {
-            targetClass = Class.forName(resolvedName);
-        } catch (ClassNotFoundException e) {
-             throw new NoSuchElementException(schema.getFullName(), e);
-        }
-        if(!conversionService.canConvert(GenericRecord.class, targetClass)) {
+        var targetClass = resolveTargetClass(topic, schema.getName(), schema.getFullName());
+        if (!conversionService.canConvert(GenericRecord.class, targetClass)) {
             throw new IllegalArgumentException("No converter registered for GenericRecord to " + targetClass);
         }
         return conversionService.convert(genericRecord, targetClass);
     }
 
-    private String resolveClassName(String fullName) {
-        var packageSeparatorIndex = fullName.lastIndexOf('.');
-        if (packageSeparatorIndex < 0) {
-            return fullName.replace('_', '$');
+    private Class<?> resolveTargetClass(String topic, String schemaName, String schemaFullName) {
+        var candidates = jsonTypeResolver.registeredTypesForTopic(topic).stream()
+                .filter(type -> typeNameMatchesSchema(type, schemaName))
+                .toList();
+
+        if (candidates.isEmpty()) {
+            throw new NoSuchElementException(schemaFullName);
+        }
+        if (candidates.size() > 1) {
+            throw new IllegalArgumentException("Multiple event types registered for schema "
+                    + schemaFullName + " on topic " + topic + ": " + candidates);
         }
 
-        var packageName = fullName.substring(0, packageSeparatorIndex + 1);
-        var simpleClassName = fullName.substring(packageSeparatorIndex + 1).replace('_', '$');
-        return packageName + simpleClassName;
+        return candidates.getFirst();
+    }
+
+    private boolean typeNameMatchesSchema(Class<?> type, String schemaName) {
+        var normalizedSchemaName = schemaName.replace('_', '$');
+        return type.getName().endsWith("." + normalizedSchemaName);
     }
 }

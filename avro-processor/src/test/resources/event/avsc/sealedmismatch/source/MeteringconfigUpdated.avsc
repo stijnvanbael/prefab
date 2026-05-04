@@ -1,0 +1,9 @@
+{
+  "type": "record",
+  "name": "MeteringconfigUpdated",
+  "namespace": "intern.dcs.meteringconfig.facts.v1",
+  "fields": [
+    {"name": "id", "type": "string"}
+  ]
+}
+

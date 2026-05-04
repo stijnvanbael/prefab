@@ -52,7 +52,7 @@ class AvscEventWriter {
             String defaultPackage, ClassName contractInterface, JavaFileWriter fileWriter) {
         var topLevelSpec = buildTopLevelRecord(schema, topic, platform, defaultPackage, contractInterface);
         if (topLevelSpec != null) {
-            fileWriter.writeFile(contractInterface.packageName(), schema.getName(), topLevelSpec);
+            fileWriter.writeFile(defaultPackage, schema.getName(), topLevelSpec);
         }
     }
 
@@ -98,10 +98,10 @@ class AvscEventWriter {
     }
 
     private TypeSpec buildTopLevelRecord(Schema schema, String topic, Event.Platform platform,
-            String defaultPackage, ClassName contractInterface) {
-        return buildFields(schema, defaultPackage)
+            String schemaPackage, ClassName contractInterface) {
+        return buildFields(schema, schemaPackage)
                 .map(fields -> {
-                    var recordType = ClassName.get(contractInterface.packageName(), schema.getName());
+                    var recordType = ClassName.get(schemaPackage, schema.getName());
                     var builder = TypeSpec.recordBuilder(schema.getName())
                             .addModifiers(Modifier.PUBLIC)
                             .recordConstructor(MethodSpec.compactConstructorBuilder().addParameters(fields).build())
@@ -275,6 +275,7 @@ class AvscEventWriter {
             }
         };
     }
+
 
     private TypeName boxIfNullable(TypeName typeName, boolean nullable) {
         return nullable ? typeName.box() : typeName;

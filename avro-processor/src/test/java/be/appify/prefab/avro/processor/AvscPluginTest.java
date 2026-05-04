@@ -144,11 +144,11 @@ class AvscPluginTest {
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.multi.infrastructure.avro.MultiAvscEventASchemaFactory")
                 .contentsAsUtf8String()
-                .contains("event/avsc/multi/source/MultiAvscEventA.avsc");
+                .doesNotContain("Schema.Parser().parse(");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.multi.infrastructure.avro.MultiAvscEventBSchemaFactory")
                 .contentsAsUtf8String()
-                .contains("event/avsc/multi/source/MultiAvscEventB.avsc");
+                .doesNotContain("Schema.Parser().parse(");
     }
 
     @Test
@@ -192,6 +192,21 @@ class AvscPluginTest {
     }
 
     @Test
+    void sealedInterfaceCompilesWhenAvscNamespaceDiffersFromContractPackage() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/sealedmismatch/source/SealedMismatchAvsc.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("event.avsc.sealedmismatch.MeteringconfigUpdated")
+                .contentsAsUtf8String()
+                .contains("implements SealedMismatchAvsc");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.sealedmismatch.infrastructure.avro.MeteringconfigUpdatedSchemaFactory")
+                .contentsAsUtf8String()
+                .contains("intern.dcs.meteringconfig.facts.v1");
+    }
+
+    @Test
     void generatedAvscEventRecordContainsNestedBuilder() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
@@ -211,16 +226,19 @@ class AvscPluginTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avsc/nullablenestedenum/source/NullableNestedEnumAvsc.java"));
         assertThat(compilation).succeeded();
-
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.NullableNestedEnumAvscEventSchemaFactory")
                 .contentsAsUtf8String()
-                .contains("event/avsc/nullablenestedenum/source/NullableNestedEnumAvscEvent.avsc");
+                .doesNotContain("Schema.Parser().parse(");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.NullableNestedEnumAvscEventSchemaFactory")
+                .contentsAsUtf8String()
+                .contains("intern.dcs.meteringconfig.facts.v1");
 
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.StatusSchemaFactory")
                 .contentsAsUtf8String()
-                .contains("event/avsc/nullablenestedenum/source/NullableNestedEnumAvscEvent.avsc");
+                .doesNotContain("Schema.Parser().parse(");
 
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.NullableNestedEnumAvscEventToGenericRecordConverter")

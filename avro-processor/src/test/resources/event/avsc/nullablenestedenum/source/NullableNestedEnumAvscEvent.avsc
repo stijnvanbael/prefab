@@ -1,0 +1,61 @@
+{
+  "type": "record",
+  "name": "NullableNestedEnumAvscEvent",
+  "namespace": "intern.dcs.meteringconfig.facts.v1",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {
+      "name": "status",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "Status",
+          "fields": [
+            {
+              "name": "fysiekeStatus",
+              "type": {
+                "type": "enum",
+                "name": "FysiekeStatus",
+                "symbols": ["UNDEFINED_DO_NOT_USE", "ACTIVE", "INACTIVE", "REMOVED"],
+                "default": "UNDEFINED_DO_NOT_USE"
+              }
+            },
+            {
+              "name": "statusInactiefReden",
+              "type": [
+                "null",
+                {
+                  "type": "enum",
+                  "name": "StatusInactiefReden",
+                  "symbols": [
+                    "UNDEFINED_DO_NOT_USE",
+                    "VRAAG_VAN_DE_KLANT",
+                    "SCHORSING_POLITIEBEVEL",
+                    "SCHORSING_FRAUDE",
+                    "SCHORSING_DROP_NIET_RESIDENTIEEL",
+                    "SCHORSING_MOZA_UCR",
+                    "SCHORSING_DROP_RESIDENTIEEL",
+                    "VEILIGHED",
+                    "VOLLE_PLAAT",
+                    "GEEN_KEURING",
+                    "GEEN_ATTEST",
+                    "LOKALE_PRODUCTIE_NIET_GEMELD",
+                    "GEEN_LS_ZEKERING",
+                    "GEEN_BINNEN_INSTALLATIE",
+                    "GEEN_SPANNING_GAS_OP_AANSLUITING",
+                    "GEEN_GROEN_LICHT",
+                    "ONGEKEND"
+                  ],
+                  "default": "UNDEFINED_DO_NOT_USE"
+                }
+              ],
+              "default": null
+            }
+          ]
+        }
+      ],
+      "default": null
+    }
+  ]
+}

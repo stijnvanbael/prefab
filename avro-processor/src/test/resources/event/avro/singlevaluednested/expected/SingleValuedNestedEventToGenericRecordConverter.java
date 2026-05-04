@@ -1,5 +1,6 @@
 package event.avro.infrastructure.avro;
 
+import be.appify.prefab.avro.SchemaSupport;
 import event.avro.SingleValuedNestedEvent;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -24,7 +25,7 @@ public class SingleValuedNestedEventToGenericRecordConverter implements Converte
     public GenericRecord convert(SingleValuedNestedEvent event) {
         var genericRecord = new GenericData.Record(schema);
         genericRecord.put("id", event.id());
-        genericRecord.put("outer", event.outer() != null ? singleValuedNestedEventOuterToGenericRecordConverter.convert(event.outer()) : null);
+        genericRecord.put("outer", event.outer() != null ? SchemaSupport.isRecordSchema(schema.getField("outer").schema()) ? singleValuedNestedEventOuterToGenericRecordConverter.convert(event.outer()) : event.outer().inner() : null);
         return genericRecord;
     }
 }

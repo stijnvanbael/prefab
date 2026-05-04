@@ -255,7 +255,19 @@ class GenericRecordToEventConverterWriter {
         } else if (type.is(Duration.class)) {
             return CodeBlock.of("$T.ofMillis((Long) $L)", Duration.class, value);
         } else if (type.isSingleValueType()) {
-            return CodeBlock.of("new $T($L.toString())", type.asTypeName(), value);
+            var component = type.fields().getFirst();
+            var fromRecord = field(CodeBlock.of("singleValueRecord.get($S)", component.name()), component.type());
+            var fromScalar = field(value, component.type());
+            return CodeBlock.of("""
+                    $L instanceof $T singleValueRecord
+                            ? new $T($L)
+                            : new $T($L)""",
+                    value,
+                    GenericRecord.class,
+                    type.asTypeName(),
+                    fromRecord,
+                    type.asTypeName(),
+                    fromScalar);
         } else {
             throw new IllegalArgumentException("Unsupported logical type: " + type.asTypeName());
         }

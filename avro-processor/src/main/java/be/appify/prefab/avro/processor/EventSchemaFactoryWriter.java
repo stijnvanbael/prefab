@@ -8,7 +8,6 @@ import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
-import be.appify.prefab.processor.event.EventPlatformPluginSupport;
 import com.palantir.javapoet.*;
 import jakarta.annotation.Nullable;
 import java.io.IOException;
@@ -19,8 +18,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -52,16 +54,8 @@ class EventSchemaFactoryWriter {
             return;
         }
 
-        if (isAvscGeneratedRecord(event)) {
-            var avscPath = findAvscPath(event);
-            if (avscPath.isEmpty()) {
-                context.logError(
-                        "Could not find the AVSC file for AVSC-generated record '%s'. "
-                        + "Ensure the @Avsc paths on the contract interface are accessible on the classpath."
-                                .formatted(event.simpleName()),
-                        event.asElement());
-                return;
-            }
+        var avscPath = findAvscPath(event);
+        if (avscPath.isPresent()) {
             writeAvscRecordSchemaFactory(event, avscPath.get());
             return;
         }
@@ -88,7 +82,10 @@ class EventSchemaFactoryWriter {
                 .addStatement("throw new $T($S)", IllegalStateException.class,
                         "AVSC file not found on classpath: " + avscPath)
                 .endControlFlow()
-                .addStatement("this.schema = new $T().parse(stream)", Schema.Parser.class)
+                .addStatement("var parsedSchema = new $T().parse(stream)", Schema.Parser.class)
+                .addStatement("this.schema = $T.namedTypeOf(parsedSchema, $S)",
+                        SchemaSupport.class,
+                        event.simpleName())
                 .nextControlFlow("catch ($T e)", IOException.class)
                 .addStatement("throw new $T(e)", RuntimeException.class)
                 .endControlFlow()
@@ -104,33 +101,90 @@ class EventSchemaFactoryWriter {
         newFileWriter(event).writeFile(event.packageName(), name, type.build());
     }
 
-    private boolean isAvscGeneratedRecord(TypeManifest event) {
-        return event.asElement() != null
-                && EventPlatformPluginSupport.isAvscGeneratedRecord(event.asElement());
+    private Optional<String> findAvscPath(TypeManifest event) {
+        var recordSimpleName = event.simpleName();
+
+        if (event.asElement() instanceof TypeElement typeElement) {
+            var directMatch = avscPathsFromImplementedInterfaces(typeElement)
+                    .filter(path -> matchesRecordName(path, recordSimpleName))
+                    .findFirst();
+            if (directMatch.isPresent()) {
+                return directMatch;
+            }
+        }
+
+        var packageName = event.packageName();
+
+        return avscInterfacesInPackage(packageName)
+                .flatMap(e -> Arrays.stream(e.getAnnotation(Avsc.class).value()))
+                .filter(path -> matchesRecordName(path, recordSimpleName))
+                .findFirst();
     }
 
-    private Optional<String> findAvscPath(TypeManifest event) {
-        if (!(event.asElement() instanceof TypeElement typeElement)) {
-            return Optional.empty();
+    private java.util.stream.Stream<TypeElement> avscInterfacesInPackage(String packageName) {
+        var packageElement = context.processingEnvironment().getElementUtils().getPackageElement(packageName);
+        if (packageElement == null) {
+            return java.util.stream.Stream.empty();
         }
+        return packageElement.getEnclosedElements().stream()
+                .filter(element -> element.getKind().isInterface())
+                .map(Element.class::cast)
+                .map(element -> (TypeElement) element)
+                .filter(type -> type.getAnnotation(Avsc.class) != null);
+    }
+
+    private java.util.stream.Stream<String> avscPathsFromImplementedInterfaces(TypeElement typeElement) {
         return typeElement.getInterfaces().stream()
                 .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
                 .filter(iface -> iface.getAnnotation(Avsc.class) != null)
-                .flatMap(iface -> Arrays.stream(iface.getAnnotation(Avsc.class).value()))
-                .filter(path -> matchesRecordName(path, event.simpleName()))
-                .findFirst();
+                .flatMap(iface -> Arrays.stream(iface.getAnnotation(Avsc.class).value()));
     }
 
     private boolean matchesRecordName(String avscPath, String recordSimpleName) {
         try (var stream = openResource(avscPath)) {
             if (stream == null) return false;
-            return new Schema.Parser().parse(stream).getName().equals(recordSimpleName);
+            return containsNamedType(new Schema.Parser().parse(stream), recordSimpleName);
         } catch (IOException e) {
             context.processingEnvironment().getMessager().printMessage(
                     javax.tools.Diagnostic.Kind.WARNING,
                     "Could not read or parse AVSC file '%s' while resolving schema for '%s': %s"
                             .formatted(avscPath, recordSimpleName, e.getMessage()));
             return false;
+        }
+    }
+
+    private boolean containsNamedType(Schema schema, String simpleName) {
+        return containsNamedType(schema, simpleName, new HashSet<>());
+    }
+
+    private boolean containsNamedType(Schema schema, String simpleName, Set<String> visited) {
+        if (schema == null) {
+            return false;
+        }
+
+        switch (schema.getType()) {
+            case RECORD -> {
+                var fullName = schema.getFullName();
+                if (fullName != null && !visited.add(fullName)) {
+                    return false;
+                }
+                if (schema.getName().equals(simpleName)) {
+                    return true;
+                }
+                return schema.getFields().stream().anyMatch(field -> containsNamedType(field.schema(), simpleName, visited));
+            }
+            case ENUM -> {
+                return schema.getName().equals(simpleName);
+            }
+            case ARRAY -> {
+                return containsNamedType(schema.getElementType(), simpleName, visited);
+            }
+            case UNION -> {
+                return schema.getTypes().stream().anyMatch(type -> containsNamedType(type, simpleName, visited));
+            }
+            default -> {
+                return false;
+            }
         }
     }
 

@@ -186,7 +186,9 @@ class EventToGenericRecordConverterWriter {
     }
 
     private CodeBlock field(CodeBlock value, CodeBlock schema, TypeManifest type) {
-        if (isLogicalType(type)) {
+        if (type.isSingleValueType()) {
+            return maybeNull(value, singleValueType(value, schema, type));
+        } else if (isLogicalType(type)) {
             return maybeNull(value, logicalType(value, type));
         } else if (type.isEnum()) {
             return maybeNull(value, CodeBlock.of("new $T($T.enumSchemaOf($L), $L.name())", GenericData.EnumSymbol.class, SchemaSupport.class, schema, value));
@@ -265,5 +267,34 @@ class EventToGenericRecordConverterWriter {
                 arraySchema,
                 value,
                 field(CodeBlock.of("item"), CodeBlock.of("$T.arraySchemaOf($L).getElementType()", SchemaSupport.class, schema), itemType));
+    }
+
+    private CodeBlock singleValueType(CodeBlock value, CodeBlock schema, TypeManifest type) {
+        var component = type.fields().getFirst();
+
+        if (isNestedRecord(type)) {
+            var converterName = uncapitalize("%sToGenericRecordConverter".formatted(type.simpleName().replace(".", "")));
+            return CodeBlock.of(
+                    "$T.isRecordSchema($L) ? $L.convert($L) : $L",
+                    SchemaSupport.class,
+                    schema,
+                    converterName,
+                    value,
+                    logicalType(value, type));
+        }
+
+        var componentValue = field(
+                CodeBlock.of("$L.$N()", value, type.singleValueAccessor()),
+                CodeBlock.of("$T.recordSchemaOf($L).getField($S).schema()", SchemaSupport.class, schema, component.name()),
+                component.type());
+        return CodeBlock.of(
+                "$T.isRecordSchema($L) ? $T.singleValueRecord($L, $S, $L) : $L",
+                SchemaSupport.class,
+                schema,
+                SchemaSupport.class,
+                schema,
+                component.name(),
+                componentValue,
+                logicalType(value, type));
     }
 }

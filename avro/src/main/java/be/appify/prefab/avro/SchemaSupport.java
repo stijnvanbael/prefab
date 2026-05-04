@@ -2,6 +2,11 @@ package be.appify.prefab.avro;
 
 import org.apache.avro.LogicalType;
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecord;
+
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Utility class for creating Avro schemas with logical types.
@@ -100,6 +105,55 @@ public class SchemaSupport {
         return field;
     }
 
+    public static Schema namedTypeOf(Schema schema, String simpleName) {
+        return namedTypeOf(schema, simpleName, new HashSet<>())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "No named type '%s' found in schema: %s".formatted(simpleName, schema)));
+    }
+
+    private static java.util.Optional<Schema> namedTypeOf(Schema schema, String simpleName, Set<String> visited) {
+        if (schema == null) {
+            return java.util.Optional.empty();
+        }
+
+        switch (schema.getType()) {
+            case RECORD -> {
+                var fullName = schema.getFullName();
+                if (fullName != null && !visited.add(fullName)) {
+                    return java.util.Optional.empty();
+                }
+                if (schema.getName().equals(simpleName)) {
+                    return java.util.Optional.of(schema);
+                }
+                for (var field : schema.getFields()) {
+                    var match = namedTypeOf(field.schema(), simpleName, visited);
+                    if (match.isPresent()) {
+                        return match;
+                    }
+                }
+                return java.util.Optional.empty();
+            }
+            case ENUM -> {
+                return schema.getName().equals(simpleName) ? java.util.Optional.of(schema) : java.util.Optional.empty();
+            }
+            case ARRAY -> {
+                return namedTypeOf(schema.getElementType(), simpleName, visited);
+            }
+            case UNION -> {
+                for (var member : schema.getTypes()) {
+                    var match = namedTypeOf(member, simpleName, visited);
+                    if (match.isPresent()) {
+                        return match;
+                    }
+                }
+                return java.util.Optional.empty();
+            }
+            default -> {
+                return java.util.Optional.empty();
+            }
+        }
+    }
+
     private static Schema unwrapUnion(Schema schema, Schema.Type targetType) {
         if (schema.getType() != Schema.Type.UNION) {
             return schema;
@@ -109,5 +163,26 @@ public class SchemaSupport {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
                         "No %s schema found in union: %s".formatted(targetType, schema)));
+    }
+
+    public static Schema recordSchemaOf(Schema schema) {
+        return unwrapUnion(schema, Schema.Type.RECORD);
+    }
+
+    public static boolean isRecordSchema(Schema schema) {
+        if (schema.getType() == Schema.Type.RECORD) {
+            return true;
+        }
+        if (schema.getType() != Schema.Type.UNION) {
+            return false;
+        }
+        return schema.getTypes().stream().anyMatch(s -> s.getType() == Schema.Type.RECORD);
+    }
+
+    public static GenericRecord singleValueRecord(Schema schema, String fieldName, Object fieldValue) {
+        var recordSchema = recordSchemaOf(schema);
+        var record = new GenericData.Record(recordSchema);
+        record.put(fieldName, fieldValue);
+        return record;
     }
 }

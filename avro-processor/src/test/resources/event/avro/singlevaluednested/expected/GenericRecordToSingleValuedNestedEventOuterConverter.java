@@ -13,7 +13,9 @@ public class GenericRecordToSingleValuedNestedEventOuterConverter implements Con
     @Override
     public SingleValuedNestedEvent.Outer convert(GenericRecord genericRecord) {
         return new SingleValuedNestedEvent.Outer(
-                    genericRecord.get("inner") != null ? new SingleValuedNestedEvent.Outer.Inner(genericRecord.get("inner").toString()) : null
+                    genericRecord.get("inner") != null ? genericRecord.get("inner") instanceof GenericRecord singleValueRecord
+                        ? new SingleValuedNestedEvent.Outer.Inner(singleValueRecord.get("value").toString())
+                        : new SingleValuedNestedEvent.Outer.Inner(genericRecord.get("inner").toString()) : null
                 );
     }
 }

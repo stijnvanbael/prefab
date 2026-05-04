@@ -204,4 +204,55 @@ class AvscPluginTest {
                 .contentsAsUtf8String()
                 .contains("public static Builder builder()");
     }
+
+    @Test
+    void nullableNestedRecordWithNullableEnumGeneratesUnionSafeConverters() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/nullablenestedenum/source/NullableNestedEnumAvsc.java"));
+        assertThat(compilation).succeeded();
+
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.NullableNestedEnumAvscEventSchemaFactory")
+                .contentsAsUtf8String()
+                .contains("event/avsc/nullablenestedenum/source/NullableNestedEnumAvscEvent.avsc");
+
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.StatusSchemaFactory")
+                .contentsAsUtf8String()
+                .contains("event/avsc/nullablenestedenum/source/NullableNestedEnumAvscEvent.avsc");
+
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.NullableNestedEnumAvscEventToGenericRecordConverter")
+                .contentsAsUtf8String()
+                .contains("genericRecord.put(\"status\", event.status() != null ? statusToGenericRecordConverter.convert(event.status()) : null);");
+
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.StatusToGenericRecordConverter")
+                .contentsAsUtf8String()
+                .contains("SchemaSupport.enumSchemaOf(schema.getField(\"statusInactiefReden\").schema())");
+
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.StatusToGenericRecordConverter")
+                .contentsAsUtf8String()
+                .contains("genericRecord.put(\"statusInactiefReden\", event.statusInactiefReden() != null ?");
+    }
+
+    @Test
+    void nullableSingleValuedNestedRecordUsesRecordBranchInConverters() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/nullablesinglevaluedrecord/source/NullableSingleValuedRecordAvsc.java"));
+        assertThat(compilation).succeeded();
+
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.NullableSingleValuedRecordAvscEventToGenericRecordConverter")
+                .contentsAsUtf8String()
+                .contains("SchemaSupport.singleValueRecord(");
+
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.GenericRecordToNullableSingleValuedRecordAvscEventConverter")
+                .contentsAsUtf8String()
+                .contains("instanceof GenericRecord singleValueRecord");
+    }
 }

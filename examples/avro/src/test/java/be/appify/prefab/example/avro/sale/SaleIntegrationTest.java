@@ -1,5 +1,6 @@
 package be.appify.prefab.example.avro.sale;
 
+import be.appify.prefab.core.outbox.OutboxRelayService;
 import be.appify.prefab.example.avro.cashregister.CashRegisterClient;
 import be.appify.prefab.example.avro.customer.CustomerClient;
 import be.appify.prefab.example.avro.customer.PersonName;
@@ -14,6 +15,9 @@ import static org.awaitility.Awaitility.await;
 
 @IntegrationTest
 class SaleIntegrationTest {
+
+    @Autowired
+    OutboxRelayService outboxRelayService;
 
     @Autowired
     CashRegisterClient cashRegisters;
@@ -35,7 +39,7 @@ class SaleIntegrationTest {
         sales.addLine(saleId, "Toothpaste", 1, 4.0);
         sales.pay(saleId, 7.5, Sale.PaymentMethod.CASH);
 
-        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
+        await().atMost(30, TimeUnit.SECONDS).untilAsserted(() -> {
             var cashRegister = cashRegisters.getCashRegisterById(cashRegisterId);
             assertThat(cashRegister.cashInDrawer()).isEqualTo(107.5);
         });

@@ -2,7 +2,9 @@ package be.appify.prefab.core.kafka;
 
 import be.appify.prefab.core.util.SerializationRegistry;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroDeserializer;
+import java.util.Arrays;
 import java.util.NoSuchElementException;
+import java.util.stream.Stream;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
@@ -85,6 +87,7 @@ public class DynamicDeserializer implements Deserializer<Object> {
 
     private Class<?> resolveTargetClass(String topic, String schemaName, String schemaFullName) {
         var candidates = jsonTypeResolver.registeredTypesForTopic(topic).stream()
+                .flatMap(this::expandSealedInterface)
                 .filter(type -> typeNameMatchesSchema(type, schemaName))
                 .toList();
 
@@ -97,6 +100,13 @@ public class DynamicDeserializer implements Deserializer<Object> {
         }
 
         return candidates.getFirst();
+    }
+
+    private Stream<Class<?>> expandSealedInterface(Class<?> type) {
+        if (type.isSealed()) {
+            return Arrays.stream(type.getPermittedSubclasses()).flatMap(this::expandSealedInterface);
+        }
+        return Stream.of(type);
     }
 
     private boolean typeNameMatchesSchema(Class<?> type, String schemaName) {

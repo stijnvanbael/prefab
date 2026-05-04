@@ -11,5 +11,5 @@ prefab:
       limit: 3
       initial-interval-ms: 10
   outbox:
-    poll-interval-ms: 500
+    poll-interval-ms: 100
     batch-size: 10

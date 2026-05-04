@@ -39,7 +39,7 @@ class SaleIntegrationTest {
         sales.addLine(saleId, "Toothpaste", 1, 4.0);
         sales.pay(saleId, 7.5, Sale.PaymentMethod.CASH);
 
-        await().atMost(30, TimeUnit.SECONDS).untilAsserted(() -> {
+        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
             var cashRegister = cashRegisters.getCashRegisterById(cashRegisterId);
             assertThat(cashRegister.cashInDrawer()).isEqualTo(107.5);
         });

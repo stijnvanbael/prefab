@@ -8,3 +8,6 @@ logging.level:
 prefab.dlt.retries:
   initial-interval-ms: 10
   multiplier: 2
+
+prefab.outbox:
+  poll-interval-ms: 100

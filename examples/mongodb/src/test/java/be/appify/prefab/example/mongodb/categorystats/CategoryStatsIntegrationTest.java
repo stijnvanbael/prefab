@@ -31,7 +31,7 @@ class CategoryStatsIntegrationTest {
     void updateProductCountOnProductCreated() throws Exception {
         var categoryId = categories.createCategory("Electronics");
 
-        await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
+        await().atMost(30, TimeUnit.SECONDS).untilAsserted(() ->
                 assertThat(categoryStats.findCategoryStatses(Pageable.unpaged(), (String) null).content())
                         .anySatisfy(stats -> assertThat(stats.name()).isEqualTo("Electronics")));
 

@@ -11,8 +11,6 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -23,13 +21,26 @@ import java.util.concurrent.locks.ReentrantLock;
  * be registered unconditionally — without relying on {@code @ConditionalOnBean} timing — and simply
  * skips each relay cycle when no repository is available.
  * </p>
+ * <p>
+ * Entries are processed <em>strictly in insertion order</em> by a single relay thread at a time.
+ * The {@link ReentrantLock} is held for the entire relay cycle, including Kafka I/O, so that
+ * concurrent {@code @Async} invocations triggered by {@link OutboxEntryAdded} events immediately
+ * yield when another relay is already running.  This preserves the causal ordering that consumers
+ * depend on (e.g. an aggregate must be created before downstream events for it can be applied).
+ * </p>
+ * <p>
+ * To avoid holding the lock indefinitely when the broker is unavailable, configure
+ * {@code spring.kafka.producer.properties.max.block.ms} to a value appropriate for your
+ * environment (e.g. 1000 ms in tests; a larger value in production that reflects acceptable
+ * relay latency during a broker outage).  After a failed cycle the {@code @Scheduled} poller
+ * retries at the next interval.
+ * </p>
  */
 public class OutboxRelayService {
 
     private static final Logger log = LoggerFactory.getLogger(OutboxRelayService.class);
 
     private final ReentrantLock lock = new ReentrantLock();
-    private final Set<String> inFlightEntryIds = ConcurrentHashMap.newKeySet();
     private final ObjectProvider<OutboxRepository> outboxRepositoryProvider;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final JsonMapper jsonMapper;
@@ -61,17 +72,19 @@ public class OutboxRelayService {
      * Failures for individual entries are logged as warnings so that other entries can still be processed.
      * Does nothing when no {@link OutboxRepository} bean is available.
      * <p>
-     * The {@link ReentrantLock} is held <em>only</em> during the brief read-and-claim phase (a single
-     * database query plus an in-memory set update, typically a few milliseconds).  Kafka I/O happens
-     * entirely outside the lock, so the {@code @Scheduled} backup poller can always acquire the lock
-     * and retry failed entries even while an {@code @Async} relay invocation is blocked on a slow broker.
+     * The {@link ReentrantLock} is held for the entire duration of this method, including Kafka I/O,
+     * ensuring that entries are delivered to the broker in insertion order.  If another invocation is
+     * already running {@link java.util.concurrent.locks.ReentrantLock#tryLock()} returns {@code false}
+     * and this invocation exits immediately; the running relay will process all currently visible
+     * entries, and the {@code @Scheduled} backup poller will pick up any entries added afterwards.
      * </p>
      * <p>
-     * The {@code inFlightEntryIds} set prevents two concurrent relay invocations from processing the
-     * same entry: when a second invocation reads the outbox it finds the same pending entries, but the
-     * {@link Set#add} call returns {@code false} for entries already in-flight, so they are filtered out.
-     * Entries are removed from the set in a {@code finally} block whether the publish succeeds or fails,
-     * which guarantees the {@code @Scheduled} poller can pick them up on the next cycle.
+     * If the broker is unavailable the loop stops at the first failed publish so that the lock is
+     * released promptly and the {@code @Scheduled} poller can retry the whole batch at the next
+     * interval without waiting for all remaining entries to time out.  Configure
+     * {@code spring.kafka.producer.properties.max.block.ms} to a value appropriate for your
+     * environment (e.g. 1000 ms in tests, a larger value in production) to bound the time the lock
+     * is held during a broker outage.
      * </p>
      */
     @Scheduled(fixedDelayString = "${prefab.outbox.poll-interval-ms:1000}")
@@ -80,42 +93,44 @@ public class OutboxRelayService {
         if (outboxRepository == null) {
             return;
         }
-
-        List<OutboxEntry> entriesToProcess = claimPendingEntries(outboxRepository);
-        if (entriesToProcess.isEmpty()) {
+        if (!lock.tryLock()) {
             return;
         }
-
-        for (OutboxEntry entry : entriesToProcess) {
-            processEntry(entry, outboxRepository);
-        }
-    }
-
-    private List<OutboxEntry> claimPendingEntries(OutboxRepository outboxRepository) {
-        if (!lock.tryLock()) {
-            return List.of();
-        }
-        // Both findPending and inFlightEntryIds.add are inside the lock, so the
-        // read-and-claim is atomic: no two concurrent invocations can claim the same entry.
         try {
-            return outboxRepository.findPending(properties.getBatchSize()).stream()
-                    .filter(entry -> inFlightEntryIds.add(entry.id()))
-                    .toList();
+            List<OutboxEntry> entries = outboxRepository.findPending(properties.getBatchSize());
+            for (OutboxEntry entry : entries) {
+                if (!processEntry(entry, outboxRepository)) {
+                    break;
+                }
+            }
         } finally {
             lock.unlock();
         }
     }
 
-    private void processEntry(OutboxEntry entry, OutboxRepository outboxRepository) {
+    /**
+     * Processes a single outbox entry.
+     *
+     * @return {@code true} if processing should continue with subsequent entries;
+     *         {@code false} if the broker appears to be unavailable and the loop should stop
+     */
+    private boolean processEntry(OutboxEntry entry, OutboxRepository outboxRepository) {
+        Class<?> eventType;
+        Object event;
         try {
-            Class<?> eventType = Class.forName(entry.eventType());
-            Object event = jsonMapper.readValue(entry.payload(), eventType);
+            eventType = Class.forName(entry.eventType());
+            event = jsonMapper.readValue(entry.payload(), eventType);
+        } catch (Exception e) {
+            log.warn("Failed to deserialise outbox entry {}: {}", entry.id(), e.getMessage(), e);
+            return true;
+        }
+        try {
             applicationEventPublisher.publishEvent(event);
             outboxRepository.delete(entry.id());
+            return true;
         } catch (Exception e) {
             log.warn("Failed to relay outbox entry {}: {}", entry.id(), e.getMessage(), e);
-        } finally {
-            inFlightEntryIds.remove(entry.id());
+            return false;
         }
     }
 

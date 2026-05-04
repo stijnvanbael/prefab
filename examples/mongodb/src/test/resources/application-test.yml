@@ -1,3 +1,13 @@
+spring:
+  kafka:
+    producer:
+      properties:
+        # Keep Kafka sends short in tests so the relay lock is never held for more than ~1 s
+        # when topics do not yet exist.  The @Scheduled poller retries after poll-interval-ms.
+        max.block.ms: 1000
+        request.timeout.ms: 1000
+        delivery.timeout.ms: 2000
+
 logging.level:
   be.appify.prefab.example: DEBUG
 

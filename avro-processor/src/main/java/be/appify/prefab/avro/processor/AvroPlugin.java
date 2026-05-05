@@ -1,6 +1,7 @@
 package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
@@ -15,6 +16,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -25,6 +27,7 @@ public class AvroPlugin implements PrefabPlugin {
     private EventSchemaFactoryWriter eventSchemaFactoryWriter;
     private PrefabContext context;
     private final Set<String> writtenTypeNames = new LinkedHashSet<>();
+    private final Set<String> writtenToEventOnlyTypeNames = new LinkedHashSet<>();
 
 
     @Override
@@ -48,16 +51,48 @@ public class AvroPlugin implements PrefabPlugin {
         events.forEach(this::writeConvertersIfNotWritten);
         allNestedTypes(events).forEach(this::writeConvertersIfNotWritten);
         sealedSubtypes(events).forEach(this::writeConvertersIfNotWritten);
+        var supertypes = avroEventSupertypes(events);
+        supertypes.stream()
+                .filter(AvroPlugin::isAvscContract)
+                .forEach(this::writeConvertersIfNotWritten);
+        supertypes.stream()
+                .filter(type -> !isAvscContract(type))
+                .forEach(this::writeToEventConverterIfNotWritten);
     }
 
     private void writeConvertersIfNotWritten(TypeManifest type) {
         var key = type.packageName() + "." + type.simpleName();
-        if (!writtenTypeNames.add(key)) {
+        if (writtenTypeNames.contains(key)) {
             return;
         }
-        toGenericRecordConverterWriter.writeConverter(type);
-        toEventConverterWriter.writeConverter(type);
-        eventSchemaFactoryWriter.writeSchemaFactory(type);
+        var wroteAll = toGenericRecordConverterWriter.writeConverter(type)
+                && toEventConverterWriter.writeConverter(type)
+                && eventSchemaFactoryWriter.writeSchemaFactory(type);
+        if (wroteAll) {
+            writtenTypeNames.add(key);
+        }
+    }
+
+    private void writeToEventConverterIfNotWritten(TypeManifest type) {
+        var key = type.packageName() + "." + type.simpleName();
+        if (writtenTypeNames.contains(key) || writtenToEventOnlyTypeNames.contains(key)) {
+            return;
+        }
+        if (toEventConverterWriter.writeConverter(type)) {
+            writtenToEventOnlyTypeNames.add(key);
+        }
+    }
+
+    private static List<TypeManifest> avroEventSupertypes(List<TypeManifest> events) {
+        return events.stream()
+                .map(event -> event.supertypeWithAnnotation(Event.class))
+                .flatMap(Optional::stream)
+                .distinct()
+                .toList();
+    }
+
+    private static boolean isAvscContract(TypeManifest type) {
+        return type.asElement() != null && type.asElement().getAnnotation(Avsc.class) != null;
     }
 
     static List<TypeManifest> nestedTypes(List<TypeManifest> events) {

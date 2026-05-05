@@ -1697,6 +1697,12 @@ When the `@ByReference` handler finds no aggregate, the static handler creates i
 Define event records with `@Event(serialization = AVRO)`. The processor generates Avro schema and
 converters automatically.
 
+When multiple AVRO events share an `@Event`-annotated supertype, Prefab also generates a
+`GenericRecord -> Supertype` converter. It dispatches by Avro schema name to the concrete subtype
+converter so handlers typed to the supertype can deserialize all subtype payloads.
+The supertype can be a class or an interface and may omit `serialization = AVRO`; AVRO subtypes are
+enough to trigger converter generation.
+
 ```java
 @Aggregate
 public record Customer(

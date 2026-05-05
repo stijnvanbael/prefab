@@ -2,6 +2,7 @@ package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.avro.SchemaSupport;
 import be.appify.prefab.core.annotations.Avsc;
+import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -36,12 +37,11 @@ class EventToGenericRecordConverterWriter {
         this.context = context;
     }
 
-    void writeConverter(TypeManifest event) {
+    boolean writeConverter(TypeManifest event) {
         // @Avsc contract interfaces must not be mapped field-by-field — generate a delegating
         // converter that dispatches on the runtime type of the event to the concrete converter.
         if (event.asElement() != null && event.asElement().getAnnotation(Avsc.class) != null) {
-            writeAvscInterfaceConverter(event);
-            return;
+            return writeAvscInterfaceConverter(event);
         }
 
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
@@ -57,6 +57,7 @@ class EventToGenericRecordConverterWriter {
                 .addMethod(convertMethod(event));
 
         fileWriter.writeFile(event.packageName(), name, type.build());
+        return true;
     }
 
     /**
@@ -64,18 +65,18 @@ class EventToGenericRecordConverterWriter {
      * The converter switches on the runtime type of the event and delegates to the appropriate
      * concrete record converter instead of trying to map the interface's fields directly.
      */
-    private void writeAvscInterfaceConverter(TypeManifest contractInterface) {
+    private boolean writeAvscInterfaceConverter(TypeManifest contractInterface) {
         var implementations = context.eventElementsFromCurrentCompilation()
-                .filter(e -> e.getKind() == ElementKind.RECORD)
-                .filter(e -> e.getInterfaces().stream()
-                        .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
-                        .anyMatch(iface -> iface.equals(contractInterface.asElement())))
+                .filter(e -> !e.equals(contractInterface.asElement()))
+                .filter(e -> e.getAnnotation(Event.class) != null)
+                .filter(e -> context.processingEnvironment().getTypeUtils()
+                        .isSubtype(e.asType(), contractInterface.asElement().asType()))
                 .map(e -> TypeManifest.of(e.asType(), context.processingEnvironment()))
                 .toList();
 
         // Skip round 1: concrete records are compiled in round 2 and not yet available.
         if (implementations.isEmpty()) {
-            return;
+            return false;
         }
 
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
@@ -113,6 +114,7 @@ class EventToGenericRecordConverterWriter {
         type.addMethod(convertMethod.build());
 
         fileWriter.writeFile(contractInterface.packageName(), name, type.build());
+        return true;
     }
 
     private static MethodSpec constructor(TypeManifest event, TypeSpec.Builder type) {

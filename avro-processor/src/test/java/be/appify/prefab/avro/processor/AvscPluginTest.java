@@ -149,7 +149,13 @@ class AvscPluginTest {
                 .generatedSourceFile("event.avsc.infrastructure.avro.SimpleAvscEventToGenericRecordConverter")
                 .isNotNull();
         assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.SimpleAvscToGenericRecordConverter")
+                .isNotNull();
+        assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.GenericRecordToSimpleAvscEventConverter")
+                .isNotNull();
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.GenericRecordToSimpleAvscConverter")
                 .isNotNull();
     }
 
@@ -215,6 +221,12 @@ class AvscPluginTest {
         assertThat(compilation).generatedSourceFile("event.avsc.sealed.SealedMultiAvscEventB")
                 .contentsAsUtf8String()
                 .contains("implements SealedMultiAvsc");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.sealed.infrastructure.avro.SealedMultiAvscToGenericRecordConverter")
+                .isNotNull();
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.sealed.infrastructure.avro.GenericRecordToSealedMultiAvscConverter")
+                .isNotNull();
     }
 
     @Test

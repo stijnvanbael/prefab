@@ -2,6 +2,7 @@ package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.core.util.Streams;
 import be.appify.prefab.core.annotations.Avsc;
+import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -35,12 +36,17 @@ class GenericRecordToEventConverterWriter {
         this.context = context;
     }
 
-    void writeConverter(TypeManifest event) {
+    boolean writeConverter(TypeManifest event) {
         // @Avsc contract interfaces must not be instantiated directly — generate a delegating
         // converter that inspects the schema name and dispatches to the concrete record converter.
         if (event.asElement() != null && event.asElement().getAnnotation(Avsc.class) != null) {
-            writeAvscInterfaceConverter(event);
-            return;
+            return writeAvscInterfaceConverter(event);
+        }
+
+        var eventSubtypes = eventSubtypes(event);
+        if (!eventSubtypes.isEmpty()) {
+            writeEventSupertypeConverter(event, eventSubtypes);
+            return true;
         }
 
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
@@ -55,6 +61,73 @@ class GenericRecordToEventConverterWriter {
                 .addMethod(convertMethod(event));
 
         fileWriter.writeFile(event.packageName(), name, type.build());
+        return true;
+    }
+
+    private void writeEventSupertypeConverter(TypeManifest supertype, List<TypeManifest> subtypes) {
+        var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
+        var name = "GenericRecordTo%sConverter".formatted(supertype.simpleName().replace(".", ""));
+
+        var type = TypeSpec.classBuilder(name)
+                .addModifiers(Modifier.PUBLIC)
+                .addAnnotation(componentAnnotation(supertype, name))
+                .addSuperinterface(ParameterizedTypeName.get(
+                        ClassName.get(Converter.class),
+                        ClassName.get(GenericRecord.class),
+                        supertype.asTypeName()));
+
+        var constructor = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC);
+        subtypes.forEach(subtype -> addConverter(type, subtype, constructor));
+        type.addMethod(constructor.build());
+
+        var defaultCase = canInstantiate(supertype)
+                ? CodeBlock.of("default -> $L", convertRecordExpression(supertype))
+                : CodeBlock.of("default -> throw new $T(\"Unknown schema: \" + genericRecord.getSchema().getName())",
+                        IllegalArgumentException.class);
+
+        var convertMethod = MethodSpec.methodBuilder("convert")
+                .addModifiers(Modifier.PUBLIC)
+                .addAnnotation(Override.class)
+                .addParameter(GenericRecord.class, "genericRecord")
+                .returns(supertype.asTypeName())
+                .addStatement(CodeBlock.of("""
+                        return switch (genericRecord.getSchema().getName()) {
+                            $L
+                            $L;
+                        }""",
+                        subtypeCases(subtypes),
+                        defaultCase));
+        type.addMethod(convertMethod.build());
+
+        fileWriter.writeFile(supertype.packageName(), name, type.build());
+    }
+
+    private CodeBlock subtypeCases(List<TypeManifest> subtypes) {
+        return subtypes.stream()
+                .map(subtype -> {
+                    var converterName = "genericRecordTo%sConverter".formatted(subtype.simpleName().replace(".", ""));
+                    return CodeBlock.of("case $S -> $L.convert(genericRecord);", subtype.simpleName(), converterName);
+                })
+                .collect(CodeBlock.joining("\n    "));
+    }
+
+    private List<TypeManifest> eventSubtypes(TypeManifest event) {
+        if (event.asElement() == null) {
+            return List.of();
+        }
+        return context.eventElementsFromCurrentCompilation()
+                .filter(candidate -> !candidate.equals(event.asElement()))
+                .filter(candidate -> context.processingEnvironment().getTypeUtils()
+                        .isSubtype(candidate.asType(), event.asElement().asType()))
+                .map(candidate -> TypeManifest.of(candidate.asType(), context.processingEnvironment()))
+                .toList();
+    }
+
+    private static boolean canInstantiate(TypeManifest type) {
+        var element = type.asElement();
+        return element != null
+                && element.getKind() == ElementKind.CLASS
+                && !element.getModifiers().contains(Modifier.ABSTRACT);
     }
 
     /**
@@ -62,16 +135,16 @@ class GenericRecordToEventConverterWriter {
      * The converter switches on the incoming {@link GenericRecord}'s schema name and delegates
      * to the appropriate concrete record converter instead of trying to instantiate the interface.
      */
-    private void writeAvscInterfaceConverter(TypeManifest contractInterface) {
+    private boolean writeAvscInterfaceConverter(TypeManifest contractInterface) {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
         var name = "GenericRecordTo%sConverter".formatted(contractInterface.simpleName().replace(".", ""));
 
         // Find all generated records that implement this contract interface
         var implementations = context.eventElementsFromCurrentCompilation()
-                .filter(e -> e.getKind() == ElementKind.RECORD)
-                .filter(e -> e.getInterfaces().stream()
-                        .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
-                        .anyMatch(iface -> iface.equals(contractInterface.asElement())))
+                .filter(e -> !e.equals(contractInterface.asElement()))
+                .filter(e -> e.getAnnotation(Event.class) != null)
+                .filter(e -> context.processingEnvironment().getTypeUtils()
+                        .isSubtype(e.asType(), contractInterface.asElement().asType()))
                 .map(e -> TypeManifest.of(e.asType(), context.processingEnvironment()))
                 .toList();
 
@@ -79,7 +152,7 @@ class GenericRecordToEventConverterWriter {
         // elements in round 2. If none are found yet, skip: the next processing round will call
         // this method again with the records present and write the correct converter then.
         if (implementations.isEmpty()) {
-            return;
+            return false;
         }
 
         var type = TypeSpec.classBuilder(name)
@@ -117,6 +190,7 @@ class GenericRecordToEventConverterWriter {
         type.addMethod(convertMethod.build());
 
         fileWriter.writeFile(contractInterface.packageName(), name, type.build());
+        return true;
     }
 
     private static MethodSpec constructor(TypeManifest event, TypeSpec.Builder type) {
@@ -145,7 +219,7 @@ class GenericRecordToEventConverterWriter {
         if (event.isSealed()) {
             method.addStatement(CodeBlock.of("return $L", sealedType(CodeBlock.of("genericRecord"), event)));
         } else {
-            method.addStatement(convertRecord(event));
+            method.addStatement("return $L", convertRecordExpression(event));
         }
         return method.build();
     }
@@ -166,9 +240,9 @@ class GenericRecordToEventConverterWriter {
         );
     }
 
-    private CodeBlock convertRecord(TypeManifest event) {
+    private CodeBlock convertRecordExpression(TypeManifest event) {
         return CodeBlock.of("""
-                        return new $T(
+                        new $T(
                             $L
                         )""",
                 event.asTypeName(),

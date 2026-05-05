@@ -45,10 +45,9 @@ class EventSchemaFactoryWriter {
         this.context = context;
     }
 
-    void writeSchemaFactory(TypeManifest event) {
+    boolean writeSchemaFactory(TypeManifest event) {
         if (isAvscContractInterface(event)) {
-            writeAvscInterfaceSchemaFactory(event);
-            return;
+            return writeAvscInterfaceSchemaFactory(event);
         }
 
         var avscPath = findAvscPath(event);
@@ -64,6 +63,7 @@ class EventSchemaFactoryWriter {
         avscPath.ifPresent(path -> type.addMethods(runtimeAvscValidationMethods(event, path)));
 
         newFileWriter().writeFile(event.packageName(), name, type.build());
+        return true;
     }
 
     private Optional<String> findAvscPath(TypeManifest event) {
@@ -203,12 +203,12 @@ class EventSchemaFactoryWriter {
      * When there is a single concrete record the factory simply delegates to that record's schema
      * factory. When multiple records exist the factory builds an Avro union schema.
      */
-    private void writeAvscInterfaceSchemaFactory(TypeManifest contractInterface) {
+    private boolean writeAvscInterfaceSchemaFactory(TypeManifest contractInterface) {
         var implementations = resolveImplementations(contractInterface);
 
         // Skip round 1: concrete records are compiled in round 2 and not yet available.
         if (implementations.isEmpty()) {
-            return;
+            return false;
         }
 
         var name = schemaFactorySimpleName(contractInterface);
@@ -219,23 +219,26 @@ class EventSchemaFactoryWriter {
                 .addField(FieldSpec.builder(Schema.class, "schema", Modifier.PRIVATE, Modifier.FINAL).build())
                 .addMethod(constructor)
                 .addMethod(createSchemaMethod());
+        implementations.forEach(impl -> type.addField(FieldSpec.builder(
+                        schemaFactoryClassName(impl),
+                        schemaFactoryFieldName(impl),
+                        Modifier.PRIVATE,
+                        Modifier.FINAL)
+                .build()));
 
         newFileWriter().writeFile(contractInterface.packageName(), name, type.build());
+        return true;
     }
 
     private List<TypeManifest> resolveImplementations(TypeManifest contractInterface) {
         return context.eventElementsFromCurrentCompilation()
-                .filter(e -> e.getKind() == ElementKind.RECORD)
-                .filter(e -> implementsInterface(e, contractInterface))
+                .filter(e -> !e.equals(contractInterface.asElement()))
+                .filter(e -> context.processingEnvironment().getTypeUtils()
+                        .isSubtype(e.asType(), contractInterface.asElement().asType()))
                 .map(e -> TypeManifest.of(e.asType(), context.processingEnvironment()))
                 .toList();
     }
 
-    private boolean implementsInterface(TypeElement element, TypeManifest contractInterface) {
-        return element.getInterfaces().stream()
-                .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
-                .anyMatch(iface -> iface.equals(contractInterface.asElement()));
-    }
 
     private MethodSpec buildImplementationConstructor(List<TypeManifest> implementations) {
         var constructor = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC);

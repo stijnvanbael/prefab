@@ -2,6 +2,7 @@ package be.appify.prefab.example.kafka.channelsummary;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.EventHandler;
+import be.appify.prefab.core.annotations.Indexed;
 import be.appify.prefab.core.annotations.Multicast;
 import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.GetList;
@@ -19,14 +20,21 @@ import org.springframework.data.annotation.Version;
 @Aggregate
 @GetList
 public record ChannelSummary(
-        @Id Reference<ChannelSummary>  id,
+        @Id Reference<ChannelSummary> id,
         @Version long version,
-        Reference<Channel> channel,
+        @Indexed(unique = true) Reference<Channel> channel,
         @Filter @Size(max = 255) String name,
         int totalMessages,
         int totalSubscribers
 ) {
     private static final Logger log = LoggerFactory.getLogger(ChannelSummary.class);
+    private static final String PENDING_NAME = "";
+
+    @EventHandler
+    @Multicast(queryMethod = "findByChannel", parameters = "reference")
+    public ChannelSummary updateChannelName(ChannelCreated event) {
+        return new ChannelSummary(id, version, channel, event.name(), totalMessages, totalSubscribers);
+    }
 
     @EventHandler
     public static ChannelSummary onChannelCreated(ChannelCreated event) {
@@ -41,9 +49,19 @@ public record ChannelSummary(
     }
 
     @EventHandler
+    public static ChannelSummary createFromMessage(MessageSent event) {
+        return new ChannelSummary(Reference.create(), 0L, event.channel(), PENDING_NAME, 1, 0);
+    }
+
+    @EventHandler
     @Multicast(queryMethod = "findByChannel", parameters = "channel")
     public ChannelSummary onUserSubscribed(UserEvent.SubscribedToChannel event) {
         log.info("Handling SubscribedToChannel event for ChannelSummary: {}", event);
         return new ChannelSummary(id, version, channel, name, totalMessages, totalSubscribers + 1);
+    }
+
+    @EventHandler
+    public static ChannelSummary createFromSubscription(UserEvent.SubscribedToChannel event) {
+        return new ChannelSummary(Reference.create(), 0L, event.channel(), PENDING_NAME, 0, 1);
     }
 }

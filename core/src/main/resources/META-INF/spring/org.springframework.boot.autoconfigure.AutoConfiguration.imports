@@ -1,1 +1,2 @@
 be.appify.prefab.core.tenant.TenantConfiguration
+be.appify.prefab.core.outbox.OutboxConfiguration

@@ -1,8 +1,10 @@
 package be.appify.prefab.postgres.spring;
 
 import be.appify.prefab.core.spring.data.jdbc.PolymorphicReadingConverter;
+import be.appify.prefab.core.outbox.OutboxRepository;
 import be.appify.prefab.postgres.spring.data.jdbc.ByteArrayToFileConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.FileToByteArrayConverter;
+import be.appify.prefab.postgres.spring.data.jdbc.JdbcOutboxRepository;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabDataAccessStrategy;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabJdbcAggregateTemplate;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabJdbcMappingContext;
@@ -13,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -114,6 +117,25 @@ public class PrefabJdbcConfiguration extends AbstractJdbcConfiguration {
             JdbcConverter converter,
             DataAccessStrategy dataAccessStrategy
     ) {
-        return new PrefabJdbcAggregateTemplate(applicationContext, mappingContext, converter, dataAccessStrategy);
+        OutboxRepository outboxRepository = applicationContext.getBeanProvider(OutboxRepository.class).getIfAvailable();
+        return new PrefabJdbcAggregateTemplate(applicationContext, mappingContext, converter, dataAccessStrategy,
+                outboxRepository, jsonMapper);
+    }
+
+    /**
+     * Registers the JDBC-backed {@link OutboxRepository} implementation.
+     * <p>
+     * Declared as an explicit {@code @Bean} (not discovered via component scan) to guarantee it is
+     * registered as a bean definition and available for injection into
+     * {@link be.appify.prefab.core.outbox.OutboxRelayService}.
+     * </p>
+     *
+     * @param jdbcOperations the named-parameter JDBC operations to use
+     * @return the JDBC outbox repository
+     */
+    @Bean
+    @ConditionalOnMissingBean(OutboxRepository.class)
+    public OutboxRepository jdbcOutboxRepository(NamedParameterJdbcOperations jdbcOperations) {
+        return new JdbcOutboxRepository(jdbcOperations);
     }
 }

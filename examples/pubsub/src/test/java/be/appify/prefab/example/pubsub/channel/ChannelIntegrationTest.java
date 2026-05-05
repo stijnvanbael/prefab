@@ -25,7 +25,7 @@ class ChannelIntegrationTest {
         users.subscribeToChannel(johnId, channelId);
         users.subscribeToChannel(janeId, channelId);
 
-        await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
+        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
             var channel = channels.getChannelById(channelId);
             assertThat(channel.subscribers()).contains(Reference.fromId(johnId), Reference.fromId(janeId));
         });

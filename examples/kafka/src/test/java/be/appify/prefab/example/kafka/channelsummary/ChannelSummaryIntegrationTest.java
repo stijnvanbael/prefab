@@ -2,6 +2,7 @@ package be.appify.prefab.example.kafka.channelsummary;
 
 import org.junit.jupiter.api.Test;
 
+import be.appify.prefab.core.outbox.OutboxRelayService;
 import be.appify.prefab.example.kafka.channel.ChannelClient;
 import be.appify.prefab.example.kafka.message.MessageClient;
 import be.appify.prefab.example.kafka.user.UserClient;
@@ -25,6 +26,10 @@ public class ChannelSummaryIntegrationTest {
     MessageClient messages;
     @Autowired
     ChannelSummaryClient channelSummaries;
+    // Ensures the relay is eagerly initialized so @Scheduled fires in this context.
+    @Autowired
+    @SuppressWarnings("unused")
+    OutboxRelayService outboxRelayService;
 
     @Test
     void updateChannelSummaryTotals() throws Exception {
@@ -39,7 +44,7 @@ public class ChannelSummaryIntegrationTest {
         messages.createMessage(johnId, channelId, "Hello, World!");
         messages.createMessage(janeId, channelId, "Hello, John!");
 
-        await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
+        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() ->
                 assertThat(channelSummaries.findChannelSummaries(Pageable.unpaged(), "general"))
                         .anySatisfy(summary -> {
                             assertThat(summary.totalSubscribers()).isEqualTo(3);

@@ -41,7 +41,7 @@ class MessageIntegrationTest {
 
         var messageId = messages.createMessage(johnId, channelId, "Hello, World!");
 
-        await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
+        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() ->
                 assertThat(userStatuses.findUserStatuses(Pageable.unpaged()).getContent())
                         .extracting(UserStatusResponse::unreadMessages)
                         .contains(

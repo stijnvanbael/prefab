@@ -290,6 +290,7 @@ class DbMigrationWriter {
             tables.add(rootTable);
             tables.addAll(childTablesForPolymorphicManifest(rootTable, manifest));
         });
+        tables.add(outboxTable());
         return sortByDependencies(tables);
     }
 
@@ -631,6 +632,19 @@ class DbMigrationWriter {
                     );
                     return Stream.empty();
                 });
+    }
+
+    private static Table outboxTable() {
+        return new Table("prefab_outbox", List.of(
+                new Column("sequence_num", DataType.Primitive.BIGSERIAL, false, null, null),
+                new Column("id", new DataType.Varchar(36), false, null, null),
+                new Column("aggregate_type", new DataType.Varchar(255), false, null, null),
+                new Column("aggregate_id", new DataType.Varchar(255), false, null, null),
+                new Column("event_type", new DataType.Varchar(255), false, null, null),
+                new Column("payload", DataType.Primitive.TEXT, false, null, null),
+                new Column("created_at", DataType.Primitive.TIMESTAMP, false, null, null),
+                new Column("published_at", DataType.Primitive.TIMESTAMP, true, null, null)
+        ), List.of("id"));
     }
 
     private List<Table> sortByDependencies(List<Table> tables) {

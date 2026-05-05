@@ -37,6 +37,23 @@ class DynamicDeserializerTest {
     }
 
     @Test
+    void avroToEventResolvesSealedInterfaceSubtypeBySchemaName() {
+        var conversionService = new GenericConversionService();
+        conversionService.addConverter(GenericRecord.class, SealedEvents.SubEvent.class,
+                source -> new SealedEvents.SubEvent(source.get("value").toString()));
+
+        var typeResolver = new KafkaJsonTypeResolver();
+        typeResolver.registerType("avro-topic", SealedEvents.class);
+        var deserializer = createDeserializer(conversionService, typeResolver);
+        var genericRecord = recordWithSchema("different.namespace", "DynamicDeserializerTest_SealedEvents_SubEvent", "hello");
+
+        var event = invokeToEvent(deserializer, genericRecord);
+
+        assertInstanceOf(SealedEvents.SubEvent.class, event);
+        assertEquals("hello", ((SealedEvents.SubEvent) event).value());
+    }
+
+    @Test
     void avroToEventFailsWhenTargetClassCannotBeResolved() {
         var typeResolver = new KafkaJsonTypeResolver();
         typeResolver.registerType("avro-topic", AvroEvent.class);
@@ -145,6 +162,10 @@ class DynamicDeserializerTest {
     }
 
     private record AvroEvent(String value) {}
+
+    private sealed interface SealedEvents permits SealedEvents.SubEvent {
+        record SubEvent(String value) implements SealedEvents {}
+    }
 
     private sealed interface SealedAvroEvents permits ConcreteAvroEvent {}
 

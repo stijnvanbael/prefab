@@ -3,16 +3,19 @@ package be.appify.prefab.test.mongodb;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.test.context.TestContext;
 import org.springframework.test.context.support.AbstractTestExecutionListener;
 import org.springframework.util.ClassUtils;
 
 /**
- * Test execution listener that drops all MongoDB collections before each test instance is prepared.
+ * Test execution listener that removes all MongoDB documents before each test instance is prepared.
  * <p>
  * This listener activates only when {@code spring-data-mongodb} is on the classpath. It ensures that each test starts
- * with a clean MongoDB state, equivalent to manually calling {@code mongoTemplate.dropCollection()} for every
- * collection.
+ * with a clean MongoDB state by removing all documents from every collection, while preserving collection-level
+ * metadata such as indexes. Preserving indexes is important because unique indexes created at application startup
+ * (e.g. via generated {@code MongoIndexConfiguration} classes) enforce idempotency constraints during concurrent
+ * Kafka consumer processing — dropping the collection would silently remove these constraints for subsequent tests.
  * </p>
  */
 public class MongoDbTestExecutionListener extends AbstractTestExecutionListener {
@@ -34,8 +37,8 @@ public class MongoDbTestExecutionListener extends AbstractTestExecutionListener 
         var mongoOperationsMap = testContext.getApplicationContext().getBeansOfType(MongoOperations.class);
         mongoOperationsMap.values().forEach(ops ->
                 ops.getCollectionNames().forEach(collection -> {
-                    log.debug("Dropping MongoDB collection: {}", collection);
-                    ops.dropCollection(collection);
+                    log.debug("Clearing MongoDB collection: {}", collection);
+                    ops.remove(new Query(), collection);
                 }));
     }
 }

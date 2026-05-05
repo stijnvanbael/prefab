@@ -1,5 +1,6 @@
 package be.appify.prefab.example.avro.sale;
 
+import be.appify.prefab.core.outbox.OutboxRelayService;
 import be.appify.prefab.example.avro.cashregister.CashRegisterClient;
 import be.appify.prefab.example.avro.customer.CustomerClient;
 import be.appify.prefab.example.avro.customer.PersonName;
@@ -14,6 +15,9 @@ import static org.awaitility.Awaitility.await;
 
 @IntegrationTest
 class SaleIntegrationTest {
+
+    @Autowired
+    OutboxRelayService outboxRelayService;
 
     @Autowired
     CashRegisterClient cashRegisters;

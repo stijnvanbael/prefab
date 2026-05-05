@@ -1,5 +1,6 @@
 package be.appify.prefab.example.mongodb.categorystats;
 
+import be.appify.prefab.core.outbox.OutboxRelayService;
 import be.appify.prefab.example.mongodb.category.CategoryClient;
 import be.appify.prefab.example.mongodb.product.ProductClient;
 import be.appify.prefab.test.IntegrationTest;
@@ -21,19 +22,23 @@ class CategoryStatsIntegrationTest {
     ProductClient products;
     @Autowired
     CategoryStatsClient categoryStats;
+    // Ensures the relay is eagerly initialized so @Scheduled fires in this context.
+    @Autowired
+    @SuppressWarnings("unused")
+    OutboxRelayService outboxRelayService;
 
     @Test
     void updateProductCountOnProductCreated() throws Exception {
         var categoryId = categories.createCategory("Electronics");
 
-        await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
+        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() ->
                 assertThat(categoryStats.findCategoryStatses(Pageable.unpaged(), (String) null).content())
                         .anySatisfy(stats -> assertThat(stats.name()).isEqualTo("Electronics")));
 
         products.createProduct("Laptop", "A laptop", BigDecimal.valueOf(999.99), "USD", categoryId);
         products.createProduct("Phone", "A phone", BigDecimal.valueOf(499.99), "USD", categoryId);
 
-        await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
+        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() ->
                 assertThat(categoryStats.findCategoryStatses(Pageable.unpaged(), (String) null).content())
                         .anySatisfy(stats -> {
                             assertThat(stats.name()).isEqualTo("Electronics");

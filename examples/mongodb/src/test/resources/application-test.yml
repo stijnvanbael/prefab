@@ -1,6 +1,12 @@
 logging.level:
   be.appify.prefab.example: DEBUG
 
-prefab.dlt.retries:
-  limit: 1
-  initial-interval-ms: 10
+prefab:
+  dlt:
+    retries:
+      limit: 1
+      initial-interval-ms: 10
+  outbox:
+    poll-interval-ms: 100
+    batch-size: 10
+

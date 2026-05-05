@@ -363,8 +363,6 @@ class EventSchemaFactoryWriter {
     private CodeBlock createSchema(TypeManifest type, boolean preserveSingleValueRecords) {
         return switch (type) {
             case TypeManifest t when isTemporalLogicalType(t) -> createLogicalSchema(type);
-            case TypeManifest t when isSingleValueScalarType(t) && !preserveSingleValueRecords ->
-                    CodeBlock.of("$T.create($T.STRING)", Schema.class, Schema.Type.class);
             case TypeManifest t when t.isStandardType() -> createPrimitiveSchema(type);
             case TypeManifest t when t.isEnum() -> createEnumSchema(type);
             case TypeManifest t when t.isCustomType() -> createCustomTypeSchema(type);
@@ -376,9 +374,6 @@ class EventSchemaFactoryWriter {
         return type.is(Instant.class) || type.is(LocalDate.class) || type.is(Duration.class);
     }
 
-    private static boolean isSingleValueScalarType(TypeManifest type) {
-        return type.isSingleValueType() && type.fields().getFirst().type().isStandardType();
-    }
 
     private CodeBlock createCustomTypeSchema(TypeManifest type) {
         return context.plugins().stream()

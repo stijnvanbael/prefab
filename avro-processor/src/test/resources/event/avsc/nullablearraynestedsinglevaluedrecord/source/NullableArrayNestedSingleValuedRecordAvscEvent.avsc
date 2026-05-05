@@ -1,0 +1,35 @@
+{
+  "type": "record",
+  "name": "NullableArrayNestedSingleValuedRecordAvscEvent",
+  "namespace": "intern.dcs.meteringconfig.facts.v1",
+  "fields": [
+    {
+      "name": "toegangspuntList",
+      "type": {
+        "type": "array",
+        "items": {
+          "name": "Toegangspunt",
+          "type": "record",
+          "fields": [
+            {
+              "name": "gelinktMarkttoegangspunt",
+              "type": [
+                "null",
+                {
+                  "name": "GelinktMarkttoegangspunt",
+                  "type": "record",
+                  "fields": [
+                    {"name": "eanGsrn", "type": "string"}
+                  ]
+                }
+              ],
+              "default": null,
+              "doc": "todo"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+

@@ -315,6 +315,20 @@ class AvscPluginTest {
     }
 
     @Test
+    void nullableSingleValuedNestedRecordInArrayItemUsesRecordBranchInSchemaFactory() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf(
+                        "event/avsc/nullablearraynestedsinglevaluedrecord/source/NullableArrayNestedSingleValuedRecordAvsc.java"));
+        assertThat(compilation).succeeded();
+
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.ToegangspuntSchemaFactory")
+                .contentsAsUtf8String()
+                .contains("new Schema.Field(\"gelinktMarkttoegangspunt\", SchemaSupport.createNullableSchema(Schema.createRecord(\"GelinktMarkttoegangspunt\", null, \"intern.dcs.meteringconfig.facts.v1\", false, List.of(");
+    }
+
+    @Test
     void avscArtifactsFromDependencyAreNotRegeneratedInConsumerModule() {
         var dependencyClasspath = compileDependencyClasspath(
                 sourceOf("event/avsc/dependency/source/DependencyAvsc.java"));

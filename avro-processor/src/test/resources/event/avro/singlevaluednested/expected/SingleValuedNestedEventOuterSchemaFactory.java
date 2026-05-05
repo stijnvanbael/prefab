@@ -10,7 +10,9 @@ public class SingleValuedNestedEventOuterSchemaFactory {
 
     public SingleValuedNestedEventOuterSchemaFactory() {
         this.schema = Schema.createRecord("SingleValuedNestedEvent_Outer", null, "event.avro", false, List.of(
-                        new Schema.Field("inner", Schema.create(Schema.Type.STRING))
+                        new Schema.Field("inner", Schema.createRecord("SingleValuedNestedEvent_Outer_Inner", null, "event.avro", false, List.of(
+                                new Schema.Field("value", Schema.create(Schema.Type.STRING))
+                            )))
                     ));
     }
 

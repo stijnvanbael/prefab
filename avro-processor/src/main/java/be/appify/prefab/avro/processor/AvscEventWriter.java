@@ -36,7 +36,6 @@ class AvscEventWriter {
     private static final String LOGICAL_TYPE_DURATION_MILLIS = "duration-millis";
 
     private static final String OPTION_SETTER_PREFIX = "prefab.builder.setterPrefix";
-    private static final String DEFAULT_SETTER_PREFIX = "with";
 
     private final ProcessingEnvironment processingEnvironment;
 
@@ -304,7 +303,7 @@ class AvscEventWriter {
     }
 
     private String builderSetterPrefix() {
-        return processingEnvironment.getOptions().getOrDefault(OPTION_SETTER_PREFIX, DEFAULT_SETTER_PREFIX);
+        return processingEnvironment.getOptions().getOrDefault(OPTION_SETTER_PREFIX, "");
     }
 
     private void reportError(String message) {

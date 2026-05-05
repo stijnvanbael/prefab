@@ -200,7 +200,7 @@ class MotherPluginTest {
 
         assertThat(compilation).succeeded();
         assertThat(compilation)
-                .generatedSourceFile("mother.withmap.source.InventoryEventUpdatedBuilder")
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/withmap/source", "InventoryEventUpdatedMother.java")
                 .contentsAsUtf8String()
                 .contains("Map.of()");
     }

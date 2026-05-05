@@ -273,6 +273,14 @@ class AvscPluginTest {
                 .contentsAsUtf8String()
                 .contains("@Namespace(\"intern.dcs.meteringconfig.facts.v1\")");
         assertThat(compilation)
+                .generatedSourceFile("event.avsc.FysiekeStatus")
+                .contentsAsUtf8String()
+                .contains("@Namespace(\"intern.dcs.meteringconfig.facts.v1\")");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.StatusInactiefReden")
+                .contentsAsUtf8String()
+                .contains("@Namespace(\"intern.dcs.meteringconfig.facts.v1\")");
+        assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.StatusSchemaFactory")
                 .contentsAsUtf8String()
                 .contains("intern.dcs.meteringconfig.facts.v1");

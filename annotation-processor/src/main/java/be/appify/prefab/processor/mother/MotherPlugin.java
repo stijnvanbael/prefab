@@ -43,7 +43,7 @@ public class MotherPlugin implements PrefabPlugin {
 
         manifests.forEach(manifest -> writeRequestMothers(manifest, writer));
 
-        context.eventElements().forEach(element -> {
+        context.eventElementsFromCurrentCompilation().forEach(element -> {
             var type = TypeManifest.of(element.asType(), context.processingEnvironment());
             // AVSC-generated records are compiled in round 2 from generated sources, so
             // TestJavaFileWriter cannot resolve the source root path from them directly.

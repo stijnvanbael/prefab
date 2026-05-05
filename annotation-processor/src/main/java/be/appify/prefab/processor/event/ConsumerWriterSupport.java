@@ -213,13 +213,16 @@ public class ConsumerWriterSupport {
      */
     public TypeManifest rootEventType(ExecutableElement eventHandler, PrefabContext context) {
         var type = eventType(eventHandler, context);
+        var annotatedSupertype = type.supertypeWithAnnotation(Event.class);
+        if (annotatedSupertype.isPresent()) {
+            return annotatedSupertype.get();
+        }
         if (type.annotationsOfType(Event.class).isEmpty()) {
-            return type.supertypeWithAnnotation(Event.class)
-                    .orElseThrow(() -> new IllegalStateException(
-                            "Event parameter type %s or one of its supertypes of method %s is not annotated with @Event".formatted(
-                                    type.simpleName(),
-                                    eventHandler.getSimpleName()
-                            )));
+            throw new IllegalStateException(
+                    "Event parameter type %s or one of its supertypes of method %s is not annotated with @Event".formatted(
+                            type.simpleName(),
+                            eventHandler.getSimpleName()
+                    ));
         }
         return type;
     }

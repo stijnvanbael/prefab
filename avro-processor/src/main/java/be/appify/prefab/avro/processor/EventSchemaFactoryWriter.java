@@ -18,7 +18,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
-import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -52,15 +51,15 @@ class EventSchemaFactoryWriter {
 
         var avscPath = findAvscPath(event);
         var preserveSingleValueRecords = avscPath.isPresent();
-        avscPath.ifPresent(path -> validateGeneratedSchemaAgainstAvsc(event, path));
 
         var name = schemaFactorySimpleName(event);
         var type = TypeSpec.classBuilder(name)
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(componentAnnotation(event, name))
                 .addField(FieldSpec.builder(Schema.class, "schema", Modifier.PRIVATE, Modifier.FINAL).build())
-                .addMethod(constructor(event, preserveSingleValueRecords))
+                .addMethod(constructor(event, preserveSingleValueRecords, avscPath.orElse(null)))
                 .addMethod(createSchemaMethod());
+        avscPath.ifPresent(path -> type.addMethods(runtimeAvscValidationMethods(event, path)));
 
         newFileWriter().writeFile(event.packageName(), name, type.build());
     }
@@ -87,7 +86,7 @@ class EventSchemaFactoryWriter {
         return findAvscPath(type)
                 .flatMap(path -> namedTypeFromAvsc(path, type.simpleName()))
                 .map(Schema::getNamespace)
-                .filter(namespace -> namespace != null && !namespace.isBlank())
+                .filter(namespace -> !namespace.isBlank())
                 .orElse(type.packageName());
     }
 
@@ -97,7 +96,7 @@ class EventSchemaFactoryWriter {
                 return Optional.empty();
             }
             var parsedSchema = new Schema.Parser().parse(stream);
-            return Optional.ofNullable(SchemaSupport.namedTypeOf(parsedSchema, simpleName));
+            return Optional.of(SchemaSupport.namedTypeOf(parsedSchema, simpleName));
         } catch (IOException | RuntimeException ignored) {
             return Optional.empty();
         }
@@ -128,95 +127,6 @@ class EventSchemaFactoryWriter {
                             .formatted(avscPath, recordSimpleName, e.getMessage()));
             return false;
         }
-    }
-
-    private void validateGeneratedSchemaAgainstAvsc(TypeManifest event, String avscPath) {
-        try (var stream = openResource(avscPath)) {
-            if (stream == null) {
-                context.logError("AVSC file not found on classpath: %s".formatted(avscPath), event.asElement());
-                return;
-            }
-
-            var parsedSchema = new Schema.Parser().parse(stream);
-            var expectedSchema = SchemaSupport.namedTypeOf(parsedSchema, event.simpleName());
-            var generatedSchema = schemaModelOf(event, true);
-            var expectedReadsGenerated = SchemaCompatibility.checkReaderWriterCompatibility(expectedSchema, generatedSchema);
-            var generatedReadsExpected = SchemaCompatibility.checkReaderWriterCompatibility(generatedSchema, expectedSchema);
-            if (expectedReadsGenerated.getType() != SchemaCompatibility.SchemaCompatibilityType.COMPATIBLE
-                    || generatedReadsExpected.getType() != SchemaCompatibility.SchemaCompatibilityType.COMPATIBLE) {
-                context.logError(
-                        ("Generated schema factory for '%s' is not compatible with AVSC '%s'. "
-                        + "This likely indicates a bug in Prefab schema generation; please report it with this error. "
-                        + "expected->generated: %s; generated->expected: %s. "
-                        + "expectedSchema=%s; generatedSchema=%s")
-                                .formatted(
-                                        event.simpleName(),
-                                        avscPath,
-                                        compatibilityDetails(expectedReadsGenerated),
-                                        compatibilityDetails(generatedReadsExpected),
-                                        compactSchema(expectedSchema),
-                                        compactSchema(generatedSchema)),
-                        event.asElement());
-            }
-        } catch (IOException e) {
-            context.logError(
-                    "Could not read AVSC file '%s' for '%s': %s"
-                            .formatted(avscPath, event.simpleName(), e.getMessage()),
-                    event.asElement());
-        } catch (RuntimeException e) {
-            context.logError(
-                    "Could not validate AVSC '%s' for '%s': %s"
-                            .formatted(avscPath, event.simpleName(), e.getMessage()),
-                    event.asElement());
-        }
-    }
-
-    private static String compatibilityDescription(SchemaCompatibility.SchemaPairCompatibility compatibility) {
-        var description = compatibility.getDescription();
-        if (description == null || description.isBlank()) {
-            return compatibility.toString();
-        }
-        return description;
-    }
-
-    private static String compatibilityDetails(SchemaCompatibility.SchemaPairCompatibility compatibility) {
-        var incompatibilities = compatibility.getResult().getIncompatibilities();
-        if (incompatibilities == null || incompatibilities.isEmpty()) {
-            return sanitizeDiagnosticText(compatibilityDescription(compatibility));
-        }
-
-        var shown = incompatibilities.stream()
-                .limit(8)
-                .map(EventSchemaFactoryWriter::formatIncompatibility)
-                .collect(java.util.stream.Collectors.joining(" | "));
-        var remaining = incompatibilities.size() - 8;
-        if (remaining <= 0) {
-            return shown;
-        }
-        return shown + " | ... (" + remaining + " more incompatibilities)";
-    }
-
-    private static String formatIncompatibility(SchemaCompatibility.Incompatibility incompatibility) {
-        var location = incompatibility.getLocation();
-        var locationLabel = location.isBlank() ? "<root>" : location;
-        var message = sanitizeDiagnosticText(incompatibility.getMessage());
-        return "%s at %s: %s".formatted(incompatibility.getType(), locationLabel, message);
-    }
-
-    private static String sanitizeDiagnosticText(String text) {
-        if (text == null) {
-            return "<no details>";
-        }
-        return text.replaceAll("\\R+", " ").replaceAll("\\s+", " ").trim();
-    }
-
-    private static String compactSchema(Schema schema) {
-        var schemaText = schema.toString();
-        var maxLength = 700;
-        if (schemaText.length() <= maxLength) {
-            return schemaText;
-        }
-        return schemaText.substring(0, maxLength) + "...<truncated>";
     }
 
     private boolean containsNamedType(Schema schema, String simpleName) {
@@ -327,12 +237,88 @@ class EventSchemaFactoryWriter {
                         .collect(CodeBlock.joining(",\n    ")));
     }
 
-    private MethodSpec constructor(TypeManifest event, boolean preserveSingleValueRecords) {
+    private MethodSpec constructor(TypeManifest event, boolean preserveSingleValueRecords, @Nullable String avscPath) {
         var constructor = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC);
         nestedTypes(List.of(event)).forEach(nestedType -> addSchemaFactory(nestedType, constructor));
         sealedSubtypes(List.of(event)).forEach(subtype -> addSchemaFactory(subtype, constructor));
-        return constructor
-                .addStatement("this.schema = $L", createSchema(event, preserveSingleValueRecords))
+        constructor.addStatement("this.schema = $L", createSchema(event, preserveSingleValueRecords));
+        if (avscPath != null) {
+            constructor.addStatement("verifySchemaCompatibility(this.schema)");
+        }
+        return constructor.build();
+    }
+
+    private List<MethodSpec> runtimeAvscValidationMethods(TypeManifest event, String avscPath) {
+        return List.of(
+                runtimeCompatibilityVerifierMethod(event, avscPath),
+                runtimeExpectedSchemaLoaderMethod(event, avscPath),
+                runtimeCompactSchemaMethod());
+    }
+
+    private MethodSpec runtimeCompatibilityVerifierMethod(TypeManifest event, String avscPath) {
+        return MethodSpec.methodBuilder("verifySchemaCompatibility")
+                .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
+                .addParameter(Schema.class, "generatedSchema")
+                .addStatement("var expectedSchema = loadExpectedSchema()")
+                .addStatement("var expectedReadsGenerated = $T.checkReaderWriterCompatibility(expectedSchema, generatedSchema)",
+                        SchemaCompatibility.class)
+                .addStatement("var generatedReadsExpected = $T.checkReaderWriterCompatibility(generatedSchema, expectedSchema)",
+                        SchemaCompatibility.class)
+                .beginControlFlow("if (expectedReadsGenerated.getType() != $T.SchemaCompatibilityType.COMPATIBLE"
+                                + " || generatedReadsExpected.getType() != $T.SchemaCompatibilityType.COMPATIBLE)",
+                        SchemaCompatibility.class,
+                        SchemaCompatibility.class)
+                .addStatement("throw new $T(\"Generated schema factory for '$L' is not compatible with AVSC '$L'. \""
+                                + " + \"expected->generated: \" + expectedReadsGenerated.getDescription()"
+                                + " + \"; generated->expected: \" + generatedReadsExpected.getDescription()"
+                                + " + \". expectedSchema=\" + compactSchema(expectedSchema)"
+                                + " + \"; generatedSchema=\" + compactSchema(generatedSchema))",
+                        IllegalStateException.class,
+                        event.simpleName(),
+                        avscPath)
+                .endControlFlow()
+                .build();
+    }
+
+    private MethodSpec runtimeExpectedSchemaLoaderMethod(TypeManifest event, String avscPath) {
+        return MethodSpec.methodBuilder("loadExpectedSchema")
+                .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
+                .returns(Schema.class)
+                .beginControlFlow("try (var stream = $T.class.getClassLoader().getResourceAsStream($S))",
+                        schemaFactoryClassName(event),
+                        avscPath)
+                .beginControlFlow("if (stream == null)")
+                .addStatement("throw new $T(\"AVSC file not found on classpath: $L\")",
+                        IllegalStateException.class,
+                        avscPath)
+                .endControlFlow()
+                .addStatement("var parsedSchema = new $T().parse(stream)", Schema.Parser.class)
+                .addStatement("return $T.namedTypeOf(parsedSchema, $S)", SchemaSupport.class, event.simpleName())
+                .nextControlFlow("catch ($T e)", IOException.class)
+                .addStatement("throw new $T(\"Could not read AVSC '$L' for '$L': \" + e.getMessage(), e)",
+                        IllegalStateException.class,
+                        avscPath,
+                        event.simpleName())
+                .nextControlFlow("catch ($T e)", RuntimeException.class)
+                .addStatement("throw new $T(\"Could not validate AVSC '$L' for '$L': \" + e.getMessage(), e)",
+                        IllegalStateException.class,
+                        avscPath,
+                        event.simpleName())
+                .endControlFlow()
+                .build();
+    }
+
+    private MethodSpec runtimeCompactSchemaMethod() {
+        return MethodSpec.methodBuilder("compactSchema")
+                .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
+                .returns(String.class)
+                .addParameter(Schema.class, "schema")
+                .addStatement("var schemaText = schema.toString()")
+                .addStatement("var maxLength = 700")
+                .beginControlFlow("if (schemaText.length() <= maxLength)")
+                .addStatement("return schemaText")
+                .endControlFlow()
+                .addStatement("return schemaText.substring(0, maxLength) + $S", "...<truncated>")
                 .build();
     }
 
@@ -429,11 +415,11 @@ class EventSchemaFactoryWriter {
 
     private CodeBlock createRecordSchema(TypeManifest type, boolean preserveSingleValueRecords) {
         return type.isSealed()
-                ? createUnionSchema(type, preserveSingleValueRecords)
+                ? createUnionSchema(type)
                 : createFlatRecordSchema(type, preserveSingleValueRecords);
     }
 
-    private CodeBlock createUnionSchema(TypeManifest type, boolean preserveSingleValueRecords) {
+    private CodeBlock createUnionSchema(TypeManifest type) {
         return CodeBlock.of("""
                         $T.createUnion($T.of(
                             $L
@@ -486,7 +472,7 @@ class EventSchemaFactoryWriter {
     }
 
     private static CodeBlock buildFieldBlock(VariableManifest field, CodeBlock schema, @Nullable String doc) {
-        if (field.hasAnnotation(Nullable.class)) {
+        if (field.nullable()) {
             var nullableSchema = CodeBlock.of("$T.createNullableSchema($L)", SchemaSupport.class, schema);
             return CodeBlock.of("new $T($S, $L, $S, $T.NULL_DEFAULT_VALUE)",
                     Schema.Field.class, field.name(), nullableSchema, doc, Schema.Field.class);
@@ -518,102 +504,6 @@ class EventSchemaFactoryWriter {
                 : createSchema(type, preserveSingleValueRecords);
     }
 
-    private Schema schemaModelOf(TypeManifest type, boolean preserveSingleValueRecords) {
-        if (isTemporalLogicalType(type)) {
-            return logicalSchemaModelOf(type);
-        }
-        if (isSingleValueScalarType(type) && !preserveSingleValueRecords) {
-            return Schema.create(Schema.Type.STRING);
-        }
-        if (type.isStandardType()) {
-            return primitiveSchemaModelOf(type);
-        }
-        if (type.isEnum()) {
-            return enumSchemaModelOf(type);
-        }
-        if (type.isCustomType()) {
-            context.logError(
-                    ("@CustomType '%s' has no schema model for AVSC validation. " +
-                    "Implementing compile-time validation for this type requires plugin-provided schema modeling.")
-                            .formatted(type),
-                    type.asElement());
-            return Schema.create(Schema.Type.NULL);
-        }
-        return recordSchemaModelOf(type, preserveSingleValueRecords);
-    }
-
-    private Schema logicalSchemaModelOf(TypeManifest type) {
-        if (type.is(Instant.class)) {
-            return SchemaSupport.createLogicalSchema(Schema.Type.LONG, LogicalTypes.timestampMillis());
-        }
-        if (type.is(LocalDate.class)) {
-            return SchemaSupport.createLogicalSchema(Schema.Type.INT, LogicalTypes.date());
-        }
-        if (type.is(Duration.class)) {
-            return SchemaSupport.createLogicalSchema(Schema.Type.LONG, SchemaSupport.DURATION_MILLIS);
-        }
-        throw new IllegalArgumentException("Unsupported type " + type);
-    }
-
-    private Schema enumSchemaModelOf(TypeManifest type) {
-        return Schema.createEnum(
-                type.simpleName().replace('.', '_'),
-                null,
-                avroNamespaceOf(type),
-                type.enumValues());
-    }
-
-    private Schema primitiveSchemaModelOf(TypeManifest type) {
-        return Schema.create(primitiveSchemaType(type));
-    }
-
-    private Schema recordSchemaModelOf(TypeManifest type, boolean preserveSingleValueRecords) {
-        if (type.isSealed()) {
-            return Schema.createUnion(type.permittedSubtypes().stream()
-                    .map(subtype -> schemaModelOf(subtype, preserveSingleValueRecords))
-                    .toList());
-        }
-
-        return Schema.createRecord(
-                type.simpleName().replace('.', '_'),
-                type.doc().orElse(null),
-                avroNamespaceOf(type),
-                false,
-                type.fields().stream()
-                        .filter(this::hasAvroSchema)
-                        .map(field -> fieldSchemaModelOf(field, preserveSingleValueRecords))
-                        .toList());
-    }
-
-    private Schema.Field fieldSchemaModelOf(VariableManifest field, boolean preserveSingleValueRecords) {
-        var schema = maybeArraySchemaModelOf(field, preserveSingleValueRecords);
-        var doc = field.getAnnotation(Doc.class).map(d -> d.value().value()).orElse(null);
-
-        Schema.Field avroField;
-        if (field.hasAnnotation(Nullable.class)) {
-            avroField = new Schema.Field(
-                    field.name(),
-                    SchemaSupport.createNullableSchema(schema),
-                    doc,
-                    Schema.Field.NULL_DEFAULT_VALUE);
-        } else if (doc != null) {
-            avroField = new Schema.Field(field.name(), schema, doc, null);
-        } else {
-            avroField = new Schema.Field(field.name(), schema);
-        }
-
-        field.getAnnotation(Example.class)
-                .ifPresent(example -> SchemaSupport.withSample(avroField, example.value().value()));
-
-        return avroField;
-    }
-
-    private Schema maybeArraySchemaModelOf(VariableManifest field, boolean preserveSingleValueRecords) {
-        if (field.type().is(List.class)) {
-            return Schema.createArray(schemaModelOf(field.type().parameters().getFirst(), preserveSingleValueRecords));
-        }
-        return schemaModelOf(field.type(), preserveSingleValueRecords);
-    }
 
     private JavaFileWriter newFileWriter() {
         return new JavaFileWriter(context.processingEnvironment(), AVRO_PACKAGE_SUFFIX);

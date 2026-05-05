@@ -19,7 +19,7 @@ import java.lang.annotation.Target;
  * </ul>
  */
 @Target({ElementType.TYPE, ElementType.FIELD, ElementType.PARAMETER})
-@Retention(RetentionPolicy.SOURCE)
+@Retention(RetentionPolicy.CLASS)
 public @interface Doc {
 
     /**

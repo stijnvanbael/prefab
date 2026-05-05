@@ -573,9 +573,12 @@ public Order(String customerName) { ... }
 
 **Package:** `be.appify.prefab.core.annotations`
 **Target:** `TYPE`
-**Retention:** `SOURCE`
+**Retention:** `CLASS`
 
 Marks a record or interface as a domain event.
+
+`@Event` metadata is retained in bytecode so consuming modules can generate subscribers for handlers whose
+event types are declared in dependency modules.
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -622,12 +625,15 @@ public sealed interface UserEvent permits UserEvent.Created, UserEvent.Updated {
 
 **Package:** `be.appify.prefab.core.annotations`
 **Target:** `TYPE` (interface)
-**Retention:** `SOURCE`
+**Retention:** `CLASS`
 
 AVSC-first event generation. Must be combined with `@Event(serialization = AVRO)` on the same interface.
 The processor reads each AVSC file from the classpath and generates a corresponding Java record.
-For generated schema factories, Prefab now builds schemas in Java code and validates them against the AVSC
-during annotation processing (compile time). AVSC is not parsed at runtime by generated factories.
+Generated schema factories build schemas in Java code and validate them against the AVSC at runtime when
+the schema factory is initialized.
+
+Because retention is `CLASS`, consuming modules can detect AVSC-backed event contracts from dependency
+bytecode as long as those contracts were compiled with a Prefab version that includes this behavior.
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -635,8 +641,10 @@ during annotation processing (compile time). AVSC is not parsed at runtime by ge
 
 **Generated artefacts:** One Java record per `.avsc` file, placed in the same Java package as the annotated
 interface (so sealed `permits` clauses can resolve generated types). All generated records implement the
-annotated interface. Generated schema factories still use the AVSC namespace and are compile-time validated
-for Avro compatibility against the referenced AVSC files.
+annotated interface. Generated schema factories still use the AVSC namespace and fail fast at runtime if
+the generated schema is not compatible with the referenced AVSC files.
+Nested AVSC records and enums used by those generated records are also emitted in the annotated interface
+package.
 
 ```java
 @Event(topic = "sale", serialization = Event.Serialization.AVRO)
@@ -1706,8 +1714,12 @@ public sealed interface SaleEvent permits SaleCreated, SalePaid { }
 
 The processor generates `SaleCreated` and `SalePaid` records in the same Java package as `SaleEvent`.
 Their schema factories preserve the AVSC namespace (`be.example.sale`) for Avro compatibility.
-During compilation, generated schema factory output is validated against the referenced AVSC files.
-If a generated schema is not compatible with the AVSC contract, compilation fails with an explicit processor error.
+At runtime, generated schema factories validate their in-memory schema against the referenced AVSC files.
+If a generated schema is not compatible with the AVSC contract, schema factory initialization fails fast with
+an explicit exception.
+For nullable Avro fields, Prefab treats annotations named `Nullable` (including
+`jakarta.annotation.Nullable`) as optional markers and generates Avro unions as
+`["null", T]` with a `null` default.
 
 ---
 

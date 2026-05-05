@@ -47,7 +47,7 @@ import java.lang.annotation.Target;
  * package defined by each AVSC schema's {@code namespace} field.
  */
 @Target(ElementType.TYPE)
-@Retention(RetentionPolicy.SOURCE)
+@Retention(RetentionPolicy.CLASS)
 public @interface Avsc {
 
     /**

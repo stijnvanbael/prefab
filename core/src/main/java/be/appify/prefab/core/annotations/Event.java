@@ -7,7 +7,7 @@ import java.lang.annotation.Target;
 
 /** Annotate an event class to specify its messaging topic, platform, producer, and serialization format. */
 @Target(ElementType.TYPE)
-@Retention(RetentionPolicy.SOURCE)
+@Retention(RetentionPolicy.CLASS)
 public @interface Event {
     /**
      * The topic the event is published to or should be consumed from.

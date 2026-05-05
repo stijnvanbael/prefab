@@ -3,7 +3,15 @@ package be.appify.prefab.processor.kafka;
 import be.appify.prefab.processor.PrefabProcessor;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
+import java.util.stream.Stream;
+
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.assertGeneratedSourceEqualsIgnoringWhitespace;
+import static be.appify.prefab.processor.kafka.ProcessorTestUtil.classpathOptionsWith;
+import static be.appify.prefab.processor.kafka.ProcessorTestUtil.compileDependencyClasspath;
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
@@ -198,5 +206,41 @@ class KafkaConsumerWriterTest {
                 .generatedSourceFile("kafka.avscasynccommit.infrastructure.kafka.OrderKafkaConsumer")
                 .contentsAsUtf8String()
                 .contains("@Transactional");
+    }
+
+    @Test
+    void eventTypeFromDependencyModule() {
+        var dependencyClasspath = compileDependencyClasspath(
+                sourceOf("kafka/dependencyevents/ExternalUserCreated.java"));
+        try {
+            var compilation = javac()
+                    .withOptions(classpathOptionsWith(dependencyClasspath))
+                    .withProcessors(new PrefabProcessor())
+                    .compile(sourceOf("kafka/externaldependency/UserImporter.java"));
+            assertThat(compilation).succeeded();
+            assertGeneratedSourceEqualsIgnoringWhitespace(
+                    compilation,
+                    "kafka.externaldependency.infrastructure.kafka.UserImporterKafkaConsumer",
+                    "expected/kafka/externaldependency/UserImporterKafkaConsumer.java");
+        } finally {
+            deleteRecursively(dependencyClasspath);
+        }
+    }
+
+    private static void deleteRecursively(Path root) {
+        if (root == null || !Files.exists(root)) {
+            return;
+        }
+        try (Stream<Path> paths = Files.walk(root)) {
+            paths.sorted(Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

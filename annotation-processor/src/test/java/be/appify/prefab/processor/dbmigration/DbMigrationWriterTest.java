@@ -362,8 +362,8 @@ class DbMigrationWriterTest {
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String();
 
-        migration.containsMatch("(?s).*CREATE TABLE \\\"order\\\".*CREATE TABLE \\\"order_order_line\\\".*"
-                + "CREATE TABLE \\\"order_order_line_note\\\".*");
+        migration.containsMatch("(?s).*CREATE TABLE \"order\".*CREATE TABLE \"order_order_line\".*"
+                + "CREATE TABLE \"order_order_line_note\".*");
     }
 
     @Test

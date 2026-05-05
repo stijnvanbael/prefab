@@ -3,7 +3,6 @@ package be.appify.prefab.avro.processor;
 import be.appify.prefab.processor.PrefabProcessor;
 import org.junit.jupiter.api.Test;
 
-import static be.appify.prefab.avro.processor.ProcessorTestUtil.assertGeneratedSourceEqualsIgnoringWhitespace;
 import static be.appify.prefab.avro.processor.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
@@ -65,10 +64,14 @@ class AvscPluginTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avsc/nullable/source/NullableAvsc.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "event.avsc.infrastructure.avro.NullableAvscEventSchemaFactory",
-                "event/avsc/nullable/expected/NullableAvscEventSchemaFactory.java");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.NullableAvscEventSchemaFactory")
+                .contentsAsUtf8String()
+                .contains("SchemaSupport.createNullableSchema(Schema.create(Schema.Type.STRING))");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.NullableAvscEventSchemaFactory")
+                .contentsAsUtf8String()
+                .contains("verifySchemaCompatibility(this.schema)");
     }
 
     @Test
@@ -123,10 +126,14 @@ class AvscPluginTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "event.avsc.infrastructure.avro.SimpleAvscEventSchemaFactory",
-                "event/avsc/simple/expected/SimpleAvscEventSchemaFactory.java");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.SimpleAvscEventSchemaFactory")
+                .contentsAsUtf8String()
+                .contains("verifySchemaCompatibility(this.schema)");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.SimpleAvscEventSchemaFactory")
+                .contentsAsUtf8String()
+                .contains("Schema.Parser().parse(stream)");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.SimpleAvscEventToGenericRecordConverter")
                 .isNotNull();
@@ -144,11 +151,19 @@ class AvscPluginTest {
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.multi.infrastructure.avro.MultiAvscEventASchemaFactory")
                 .contentsAsUtf8String()
-                .doesNotContain("Schema.Parser().parse(");
+                .contains("verifySchemaCompatibility(this.schema)");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.multi.infrastructure.avro.MultiAvscEventBSchemaFactory")
                 .contentsAsUtf8String()
-                .doesNotContain("Schema.Parser().parse(");
+                .contains("verifySchemaCompatibility(this.schema)");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.multi.infrastructure.avro.MultiAvscEventASchemaFactory")
+                .contentsAsUtf8String()
+                .contains("getResourceAsStream(\"event/avsc/multi/source/MultiAvscEventA.avsc\")");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.multi.infrastructure.avro.MultiAvscEventBSchemaFactory")
+                .contentsAsUtf8String()
+                .contains("getResourceAsStream(\"event/avsc/multi/source/MultiAvscEventB.avsc\")");
     }
 
     @Test
@@ -229,7 +244,7 @@ class AvscPluginTest {
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.NullableNestedEnumAvscEventSchemaFactory")
                 .contentsAsUtf8String()
-                .doesNotContain("Schema.Parser().parse(");
+                .contains("verifySchemaCompatibility(this.schema)");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.NullableNestedEnumAvscEventSchemaFactory")
                 .contentsAsUtf8String()
@@ -238,7 +253,7 @@ class AvscPluginTest {
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.StatusSchemaFactory")
                 .contentsAsUtf8String()
-                .doesNotContain("Schema.Parser().parse(");
+                .doesNotContain("verifySchemaCompatibility(this.schema)");
 
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.NullableNestedEnumAvscEventToGenericRecordConverter")

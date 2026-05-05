@@ -150,8 +150,12 @@ public class VariableManifest {
      */
     public boolean nullable() {
         return !isPrimitive()
-                && annotations.stream().anyMatch(annotation -> annotation.type().is(Nullable.class))
+                && annotations.stream().anyMatch(this::isNullableAnnotation)
                 && annotations.stream().noneMatch(annotation -> annotation.type().is(Id.class));
+    }
+
+    private boolean isNullableAnnotation(AnnotationManifest<?> annotation) {
+        return annotation.type().is(Nullable.class) || "Nullable".equals(annotation.type().simpleName());
     }
 
     @Override

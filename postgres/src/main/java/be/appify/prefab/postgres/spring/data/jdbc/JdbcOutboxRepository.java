@@ -24,7 +24,7 @@ public class JdbcOutboxRepository implements OutboxRepository {
 
     private static final String SELECT_PENDING_SQL =
             "SELECT id, aggregate_type, aggregate_id, event_type, payload, created_at, published_at"
-            + " FROM prefab_outbox WHERE published_at IS NULL ORDER BY created_at LIMIT :batchSize"
+            + " FROM prefab_outbox WHERE published_at IS NULL ORDER BY sequence_num LIMIT :batchSize"
             + " FOR UPDATE SKIP LOCKED";
 
     private static final String DELETE_SQL = "DELETE FROM prefab_outbox WHERE id = :id";

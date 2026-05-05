@@ -636,6 +636,7 @@ class DbMigrationWriter {
 
     private static Table outboxTable() {
         return new Table("prefab_outbox", List.of(
+                new Column("sequence_num", DataType.Primitive.BIGSERIAL, false, null, null),
                 new Column("id", new DataType.Varchar(36), false, null, null),
                 new Column("aggregate_type", new DataType.Varchar(255), false, null, null),
                 new Column("aggregate_id", new DataType.Varchar(255), false, null, null),

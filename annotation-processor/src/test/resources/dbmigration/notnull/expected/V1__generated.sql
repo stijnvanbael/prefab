@@ -1,4 +1,5 @@
 CREATE TABLE "prefab_outbox" (
+  "sequence_num" BIGSERIAL NOT NULL,
   "id" VARCHAR (36) NOT NULL,
   "aggregate_type" VARCHAR (255) NOT NULL,
   "aggregate_id" VARCHAR (255) NOT NULL,

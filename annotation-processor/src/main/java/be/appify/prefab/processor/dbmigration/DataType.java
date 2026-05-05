@@ -89,6 +89,7 @@ public interface DataType {
     enum Primitive implements DataType {
         INTEGER,
         BIGINT,
+        BIGSERIAL,
         BOOLEAN,
         TIMESTAMP,
         DATE,

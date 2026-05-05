@@ -163,6 +163,10 @@ class DynamicDeserializerTest {
 
     private record AvroEvent(String value) {}
 
+    private sealed interface SealedEvents permits SealedEvents.SubEvent {
+        record SubEvent(String value) implements SealedEvents {}
+    }
+
     private sealed interface SealedAvroEvents permits ConcreteAvroEvent {}
 
     private record ConcreteAvroEvent(String value) implements SealedAvroEvents {}

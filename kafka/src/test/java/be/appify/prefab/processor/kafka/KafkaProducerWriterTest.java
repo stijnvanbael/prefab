@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.kafka;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assertions;
 
 import be.appify.prefab.processor.PrefabProcessor;
 
@@ -68,5 +69,25 @@ class KafkaProducerWriterTest {
                 compilation,
                 "kafka.avscaggregate.infrastructure.kafka.OrderShippedEventKafkaProducer",
                 "expected/kafka/avscaggregate/OrderShippedEventKafkaProducer.java");
+    }
+
+    @Test
+    void subtypeEventsGenerateOnlySupertypePublisher() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/supertype/UserEvent.java"),
+                        sourceOf("kafka/supertype/UserCreated.java"),
+                        sourceOf("kafka/supertype/UserUpdated.java"),
+                        sourceOf("kafka/supertype/UserExporter.java"));
+        assertThat(compilation).succeeded();
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.supertype.infrastructure.kafka.UserEventKafkaProducer",
+                "expected/kafka/supertype/UserEventKafkaProducer.java");
+        Assertions.assertThrows(AssertionError.class,
+                () -> assertThat(compilation).generatedSourceFile("kafka.supertype.infrastructure.kafka.UserCreatedKafkaProducer"));
+        Assertions.assertThrows(AssertionError.class,
+                () -> assertThat(compilation).generatedSourceFile("kafka.supertype.infrastructure.kafka.UserUpdatedKafkaProducer"));
     }
 }

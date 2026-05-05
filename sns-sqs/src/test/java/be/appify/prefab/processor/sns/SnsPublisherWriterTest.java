@@ -2,6 +2,7 @@ package be.appify.prefab.processor.sns;
 
 import be.appify.prefab.processor.PrefabProcessor;
 import java.io.IOException;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.sns.ProcessorTestUtil.assertGeneratedSourceEqualsIgnoringWhitespace;
@@ -38,5 +39,26 @@ class SnsPublisherWriterTest {
                 compilation,
                 "sns.multiple.infrastructure.sns.UserEventSnsPublisher",
                 "expected/sns/multiple/UserEventSnsPublisher.java");
+    }
+
+    @Test
+    void subtypeEventsGenerateOnlySupertypePublisher() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("sns/supertype/UserEvent.java"),
+                        sourceOf("sns/supertype/UserCreated.java"),
+                        sourceOf("sns/supertype/UserUpdated.java"),
+                        sourceOf("sns/supertype/UserExporter.java"));
+        assertThat(compilation).succeeded();
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "sns.supertype.infrastructure.sns.UserEventSnsPublisher",
+                "expected/sns/supertype/UserEventSnsPublisher.java");
+        var compilationSubject = assertThat(compilation);
+        Assertions.assertThrows(AssertionError.class,
+                () -> compilationSubject.generatedSourceFile("sns.supertype.infrastructure.sns.UserCreatedSnsPublisher"));
+        Assertions.assertThrows(AssertionError.class,
+                () -> compilationSubject.generatedSourceFile("sns.supertype.infrastructure.sns.UserUpdatedSnsPublisher"));
     }
 }

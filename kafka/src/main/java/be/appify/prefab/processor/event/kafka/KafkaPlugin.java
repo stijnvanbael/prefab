@@ -7,6 +7,8 @@ import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
+import be.appify.prefab.processor.event.EventPlatformPluginSupport;
+
 import java.util.List;
 import java.util.Map;
 import javax.lang.model.element.Element;
@@ -84,6 +86,8 @@ public class KafkaPlugin implements PrefabPlugin {
                 .filter(e -> e.getAnnotation(Avsc.class) == null)
                 .filter(e -> platformIsKafka(requireNonNull(e.getAnnotation(Event.class)), e, context))
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
+                .map(EventPlatformPluginSupport::publisherEventType)
+                .distinct()
                 .toList();
         events.forEach(event -> kafkaProducerWriter.writeKafkaProducer(event));
     }

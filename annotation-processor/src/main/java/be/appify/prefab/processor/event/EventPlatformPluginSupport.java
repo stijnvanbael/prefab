@@ -164,6 +164,16 @@ public class EventPlatformPluginSupport {
                 .anyMatch(iface -> iface.getAnnotation(Avsc.class) != null);
     }
 
+    /**
+     * Resolves the publisher contract for an event type.
+     *
+     * <p>If the event extends or implements an {@link Event}-annotated supertype,
+     * the supertype is used as publisher contract so only one publisher is generated.
+     */
+    public static TypeManifest publisherEventType(TypeManifest eventType) {
+        return eventType.supertypeWithAnnotation(Event.class).orElse(eventType);
+    }
+
     private static boolean isMergedHandler(ExecutableElement method) {
         var annotation = method.getAnnotationsByType(EventHandler.class)[0];
         try {

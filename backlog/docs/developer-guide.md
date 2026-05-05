@@ -1584,7 +1584,10 @@ Generated endpoints:
 
 Any aggregate that `implements PublishesEvents` can call `publish(event)` from constructors or update methods.
 
-```java
+When an event subtype extends or implements a supertype annotated with `@Event`, Prefab generates a publisher for the
+annotated supertype only. It does not generate one publisher class per concrete subtype.
+
+```java 
 @Aggregate
 public record Order(
         @Id Reference<Order> id,

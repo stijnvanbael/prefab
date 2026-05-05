@@ -5,6 +5,8 @@ import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
+import be.appify.prefab.processor.event.EventPlatformPluginSupport;
+
 import java.util.List;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
@@ -14,6 +16,7 @@ import static be.appify.prefab.processor.event.EventPlatformPluginSupport.derive
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.filteredEventHandlersByOwner;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.isAvscGeneratedRecord;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.isMultiplePlatformsDetected;
+import static be.appify.prefab.processor.event.EventPlatformPluginSupport.publisherEventType;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.setDerivedPlatform;
 import static java.util.Objects.requireNonNull;
 
@@ -69,6 +72,8 @@ public class PubSubPlugin implements PrefabPlugin {
                 .filter(e -> !isAvscGeneratedRecord(e))
                 .filter(e -> platformIsPubSub(requireNonNull(e.getAnnotation(Event.class)), e, context))
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
+                .map(EventPlatformPluginSupport::publisherEventType)
+                .distinct()
                 .toList();
         events.forEach(event -> pubSubPublisherWriter.writePubSubPublisher(event));
     }

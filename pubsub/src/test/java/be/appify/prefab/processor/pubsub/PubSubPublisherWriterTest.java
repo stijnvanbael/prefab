@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.pubsub;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assertions;
 
 import be.appify.prefab.processor.PrefabProcessor;
 
@@ -40,5 +41,25 @@ class PubSubPublisherWriterTest {
                 compilation,
                 "pubsub.multiple.infrastructure.pubsub.UserEventPubSubPublisher",
                 "expected/pubsub/multiple/UserEventPubSubPublisher.java");
+    }
+
+    @Test
+    void subtypeEventsGenerateOnlySupertypePublisher() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("pubsub/supertype/UserEvent.java"),
+                        sourceOf("pubsub/supertype/UserCreated.java"),
+                        sourceOf("pubsub/supertype/UserUpdated.java"),
+                        sourceOf("pubsub/supertype/UserExporter.java"));
+        assertThat(compilation).succeeded();
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "pubsub.supertype.infrastructure.pubsub.UserEventPubSubPublisher",
+                "expected/pubsub/supertype/UserEventPubSubPublisher.java");
+        Assertions.assertThrows(AssertionError.class,
+                () -> assertThat(compilation).generatedSourceFile("pubsub.supertype.infrastructure.pubsub.UserCreatedPubSubPublisher"));
+        Assertions.assertThrows(AssertionError.class,
+                () -> assertThat(compilation).generatedSourceFile("pubsub.supertype.infrastructure.pubsub.UserUpdatedPubSubPublisher"));
     }
 }

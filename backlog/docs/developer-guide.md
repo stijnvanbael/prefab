@@ -654,6 +654,21 @@ public sealed interface SaleEvent permits SaleCreated, SalePaid { }
 
 ---
 
+#### `@Namespace`
+
+**Package:** `be.appify.prefab.core.annotations`
+**Target:** `TYPE`
+**Retention:** `SOURCE`
+
+Declares the Avro namespace for a record type. This is primarily emitted by AVSC-first generation on
+generated records so schema factories can preserve the AVSC namespace without guessing from package names.
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `value` | `String` | — **(required)** | Avro namespace to use in generated schema factories. |
+
+---
+
 #### `@PartitioningKey`
 
 **Package:** `be.appify.prefab.core.annotations`
@@ -1713,6 +1728,7 @@ public sealed interface SaleEvent permits SaleCreated, SalePaid { }
 ```
 
 The processor generates `SaleCreated` and `SalePaid` records in the same Java package as `SaleEvent`.
+Generated records include `@Namespace("...")` with the original AVSC namespace.
 Their schema factories preserve the AVSC namespace (`be.example.sale`) for Avro compatibility.
 At runtime, generated schema factories validate their in-memory schema against the referenced AVSC files.
 If a generated schema is not compatible with the AVSC contract, schema factory initialization fails fast with

@@ -21,3 +21,4 @@ Key principles to honor:
 - **Report Issues**: When a task reveals a problem outside its scope, create a new backlog task instead of
   silently ignoring it or over-extending the fix. See [section 15 of AGENTS.md](../AGENTS.md#15-report-issues) for the full rules.
 - **Terminal truncation**: Keep terminal commands shorter than 256 characters to avoid truncation issues.
+- **Clean up after yourself**: If you create temporary files, databases, or other resources during code generation or testing, make sure to clean them up afterwards to avoid clutter and potential security risks.

@@ -26,6 +26,9 @@ class AvscPluginTest {
                 .contains("serialization = Event.Serialization.AVRO");
         assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
+                .contains("@Namespace(\"event.avsc\")");
+        assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
+                .contentsAsUtf8String()
                 .contains("String name");
         assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
@@ -215,6 +218,9 @@ class AvscPluginTest {
         assertThat(compilation).generatedSourceFile("event.avsc.sealedmismatch.MeteringconfigUpdated")
                 .contentsAsUtf8String()
                 .contains("implements SealedMismatchAvsc");
+        assertThat(compilation).generatedSourceFile("event.avsc.sealedmismatch.MeteringconfigUpdated")
+                .contentsAsUtf8String()
+                .contains("@Namespace(\"intern.dcs.meteringconfig.facts.v1\")");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.sealedmismatch.infrastructure.avro.MeteringconfigUpdatedSchemaFactory")
                 .contentsAsUtf8String()
@@ -254,6 +260,14 @@ class AvscPluginTest {
                 .generatedSourceFile("event.avsc.infrastructure.avro.StatusSchemaFactory")
                 .contentsAsUtf8String()
                 .doesNotContain("verifySchemaCompatibility(this.schema)");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.Status")
+                .contentsAsUtf8String()
+                .contains("@Namespace(\"intern.dcs.meteringconfig.facts.v1\")");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.StatusSchemaFactory")
+                .contentsAsUtf8String()
+                .contains("intern.dcs.meteringconfig.facts.v1");
 
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.NullableNestedEnumAvscEventToGenericRecordConverter")
@@ -272,20 +286,15 @@ class AvscPluginTest {
     }
 
     @Test
-    void nullableSingleValuedNestedRecordUsesRecordBranchInConverters() {
+    void nullableSingleValuedNestedRecordUsesRecordBranchInSchemaFactory() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avsc/nullablesinglevaluedrecord/source/NullableSingleValuedRecordAvsc.java"));
         assertThat(compilation).succeeded();
 
         assertThat(compilation)
-                .generatedSourceFile("event.avsc.infrastructure.avro.NullableSingleValuedRecordAvscEventToGenericRecordConverter")
+                .generatedSourceFile("event.avsc.infrastructure.avro.NullableSingleValuedRecordAvscEventSchemaFactory")
                 .contentsAsUtf8String()
-                .contains("SchemaSupport.singleValueRecord(");
-
-        assertThat(compilation)
-                .generatedSourceFile("event.avsc.infrastructure.avro.GenericRecordToNullableSingleValuedRecordAvscEventConverter")
-                .contentsAsUtf8String()
-                .contains("instanceof GenericRecord singleValueRecord");
+                .contains("new Schema.Field(\"eanGsrn\", Schema.create(Schema.Type.STRING))");
     }
 }

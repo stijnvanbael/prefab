@@ -3,6 +3,7 @@ package be.appify.prefab.avro.processor;
 import be.appify.prefab.core.annotations.Doc;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.Example;
+import be.appify.prefab.core.annotations.Namespace;
 import be.appify.prefab.processor.BuilderWriter;
 import be.appify.prefab.processor.JavaFileWriter;
 import com.palantir.javapoet.AnnotationSpec;
@@ -108,6 +109,7 @@ class AvscEventWriter {
                             .addAnnotation(buildEventAnnotation(topic, platform))
                             .addSuperinterface(contractInterface);
                     docOf(schema).ifPresent(doc -> builder.addAnnotation(docAnnotation(doc)));
+                    namespaceAnnotation(schema).ifPresent(builder::addAnnotation);
                     new BuilderWriter().enrichWithBuilder(builder, recordType, strippedParams(fields));
                     return builder.build();
                 })
@@ -122,6 +124,7 @@ class AvscEventWriter {
                             .addModifiers(Modifier.PUBLIC)
                             .recordConstructor(MethodSpec.compactConstructorBuilder().addParameters(fields).build());
                     docOf(schema).ifPresent(doc -> builder.addAnnotation(docAnnotation(doc)));
+                    namespaceAnnotation(schema).ifPresent(builder::addAnnotation);
                     new BuilderWriter().enrichWithBuilder(builder, recordType, strippedParams(fields));
                     return builder.build();
                 })
@@ -214,6 +217,14 @@ class AvscEventWriter {
         return AnnotationSpec.builder(Doc.class)
                 .addMember("value", "$S", doc)
                 .build();
+    }
+
+    private Optional<AnnotationSpec> namespaceAnnotation(Schema schema) {
+        return Optional.ofNullable(schema.getNamespace())
+                .filter(namespace -> !namespace.isBlank())
+                .map(namespace -> AnnotationSpec.builder(Namespace.class)
+                        .addMember("value", "$S", namespace)
+                        .build());
     }
 
     private AnnotationSpec buildEventAnnotation(String topic, Event.Platform platform) {

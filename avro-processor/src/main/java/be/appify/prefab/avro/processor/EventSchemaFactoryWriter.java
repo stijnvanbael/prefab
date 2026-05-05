@@ -4,6 +4,7 @@ import be.appify.prefab.avro.SchemaSupport;
 import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Doc;
 import be.appify.prefab.core.annotations.Example;
+import be.appify.prefab.core.annotations.Namespace;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -18,6 +19,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Stream;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -83,10 +85,14 @@ class EventSchemaFactoryWriter {
     }
 
     private String avroNamespaceOf(TypeManifest type) {
-        return findAvscPath(type)
+        return type.annotationsOfType(Namespace.class).stream()
+                .map(Namespace::value)
+                .filter(namespace -> !namespace.isBlank())
+                .findFirst()
+                .or(() -> findAvscPath(type)
                 .flatMap(path -> namedTypeFromAvsc(path, type.simpleName()))
                 .map(Schema::getNamespace)
-                .filter(namespace -> !namespace.isBlank())
+                .filter(namespace -> !namespace.isBlank()))
                 .orElse(type.packageName());
     }
 
@@ -96,7 +102,10 @@ class EventSchemaFactoryWriter {
                 return Optional.empty();
             }
             var parsedSchema = new Schema.Parser().parse(stream);
-            return Optional.of(SchemaSupport.namedTypeOf(parsedSchema, simpleName));
+            return avroTypeNames(simpleName)
+                    .filter(typeName -> containsNamedType(parsedSchema, typeName))
+                    .findFirst()
+                    .map(typeName -> SchemaSupport.namedTypeOf(parsedSchema, typeName));
         } catch (IOException | RuntimeException ignored) {
             return Optional.empty();
         }
@@ -118,8 +127,11 @@ class EventSchemaFactoryWriter {
 
     private boolean matchesRecordName(String avscPath, String recordSimpleName) {
         try (var stream = openResource(avscPath)) {
-            if (stream == null) return false;
-            return containsNamedType(new Schema.Parser().parse(stream), recordSimpleName);
+            if (stream == null) {
+                return false;
+            }
+            var parsedSchema = new Schema.Parser().parse(stream);
+            return avroTypeNames(recordSimpleName).anyMatch(typeName -> containsNamedType(parsedSchema, typeName));
         } catch (IOException e) {
             context.processingEnvironment().getMessager().printMessage(
                     javax.tools.Diagnostic.Kind.WARNING,
@@ -127,6 +139,19 @@ class EventSchemaFactoryWriter {
                             .formatted(avscPath, recordSimpleName, e.getMessage()));
             return false;
         }
+    }
+
+    private Stream<String> avroTypeNames(String javaSimpleName) {
+        var avroSimpleName = toAvroSimpleName(javaSimpleName);
+        if (javaSimpleName.equals(avroSimpleName)) {
+            return Stream.of(javaSimpleName);
+        }
+        return Stream.of(javaSimpleName, avroSimpleName);
+    }
+
+    private String toAvroSimpleName(String javaSimpleName) {
+        var lastDotIndex = javaSimpleName.lastIndexOf('.');
+        return lastDotIndex >= 0 ? javaSimpleName.substring(lastDotIndex + 1) : javaSimpleName;
     }
 
     private boolean containsNamedType(Schema schema, String simpleName) {
@@ -281,6 +306,7 @@ class EventSchemaFactoryWriter {
     }
 
     private MethodSpec runtimeExpectedSchemaLoaderMethod(TypeManifest event, String avscPath) {
+        var expectedSchemaName = toAvroSimpleName(event.simpleName());
         return MethodSpec.methodBuilder("loadExpectedSchema")
                 .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
                 .returns(Schema.class)
@@ -293,7 +319,7 @@ class EventSchemaFactoryWriter {
                         avscPath)
                 .endControlFlow()
                 .addStatement("var parsedSchema = new $T().parse(stream)", Schema.Parser.class)
-                .addStatement("return $T.namedTypeOf(parsedSchema, $S)", SchemaSupport.class, event.simpleName())
+                .addStatement("return $T.namedTypeOf(parsedSchema, $S)", SchemaSupport.class, expectedSchemaName)
                 .nextControlFlow("catch ($T e)", IOException.class)
                 .addStatement("throw new $T(\"Could not read AVSC '$L' for '$L': \" + e.getMessage(), e)",
                         IllegalStateException.class,

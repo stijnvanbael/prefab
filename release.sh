@@ -14,7 +14,7 @@ git add .
 git commit -m "Release version $1"
 git tag "$1"
 git push origin main --tags --force
-mvn deploy -DskipTests -P '!skip-gpg'
+mvn deploy -DskipTests -P '!development'
 mvn versions:set -DnewVersion="$2-SNAPSHOT"
 mvn versions:set-property -Dproperty=prefab.version -DnewVersion="$2-SNAPSHOT"
 git add .

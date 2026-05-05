@@ -73,7 +73,7 @@ jobs:
           git tag "${{ steps.versions.outputs.release }}"
 
       - name: Deploy release artifacts
-        run: mvn --no-transfer-progress deploy -DskipTests -P '!skip-gpg'
+        run: mvn --no-transfer-progress deploy -DskipTests -P '!development'
         env:
           MAVEN_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}

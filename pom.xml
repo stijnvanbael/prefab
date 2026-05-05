@@ -179,12 +179,14 @@
 
     <profiles>
         <profile>
-            <id>skip-gpg</id>
+            <id>development</id>
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>
             <properties>
                 <gpg.skip>true</gpg.skip>
+                <maven.source.skip>true</maven.source.skip>
+                <maven.javadoc.skip>true</maven.javadoc.skip>
             </properties>
         </profile>
     </profiles>

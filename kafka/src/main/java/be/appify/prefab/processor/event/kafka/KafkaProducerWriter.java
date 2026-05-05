@@ -53,6 +53,29 @@ class KafkaProducerWriter {
         fileWriter.writeFile(event.packageName(), name, type);
     }
 
+    void writeAvscKafkaProducer(String packageName, ClassName eventType, String topic) {
+        var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.kafka");
+        var name = "%sKafkaProducer".formatted(eventType.simpleName());
+        var logClassName = ClassName.get(packageName + ".infrastructure.kafka", name);
+        var type = TypeSpec.classBuilder(name)
+                .addModifiers(Modifier.PUBLIC)
+                .addAnnotation(Component.class)
+                .addField(FieldSpec.builder(Logger.class, "log", Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
+                        .initializer("$T.getLogger($T.class)", ClassName.get(LoggerFactory.class), logClassName)
+                        .build())
+                .addField(ParameterizedTypeName.get(
+                                ClassName.get(KafkaTemplate.class),
+                                ClassName.get(String.class),
+                                ClassName.get(Object.class)
+                        ),
+                        "kafkaTemplate", Modifier.PRIVATE, Modifier.FINAL)
+                .addField(String.class, "topic", Modifier.PRIVATE, Modifier.FINAL)
+                .addMethod(constructor(topic))
+                .addMethod(avscProducer(eventType))
+                .build();
+        fileWriter.writeFile(packageName, name, type);
+    }
+
     private static MethodSpec constructor(String topic) {
         var constructor = MethodSpec.constructorBuilder()
                 .addModifiers(PUBLIC)
@@ -88,5 +111,16 @@ class KafkaProducerWriter {
                 keyField -> method.addStatement("kafkaTemplate.send(topic, $L, event).join()", keyField),
                 () -> method.addStatement("kafkaTemplate.send(topic, event).join()"));
         return method.build();
+    }
+
+    private static MethodSpec avscProducer(ClassName eventType) {
+        return MethodSpec.methodBuilder("publish")
+                .addModifiers(PUBLIC)
+                .returns(void.class)
+                .addParameter(eventType, "event")
+                .addAnnotation(EventListener.class)
+                .addStatement("log.debug($S, event, topic)", "Publishing event {} on topic {}")
+                .addStatement("kafkaTemplate.send(topic, event).join()")
+                .build();
     }
 }

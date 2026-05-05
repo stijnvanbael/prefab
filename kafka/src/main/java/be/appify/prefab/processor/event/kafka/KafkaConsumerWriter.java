@@ -18,6 +18,7 @@ import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeSpec;
 
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -209,14 +210,22 @@ class KafkaConsumerWriter {
     private Optional<TypeManifest> sharedEventInterfaceOf(
             List<TypeManifest> concreteTypes,
             String topic) {
-        return concreteTypes.stream()
-                .filter(t -> t.asElement() != null)
-                .flatMap(t -> (t.asElement()).getInterfaces().stream())
-                .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
-                .filter(iface -> iface.getAnnotation(Event.class) != null
-                        && iface.getAnnotation(Event.class).topic().equals(topic)
-                        && iface.getAnnotation(Avsc.class) == null)
-                .distinct()
+        if (concreteTypes.isEmpty()) return Optional.empty();
+        Set<TypeElement> commonInterfaces = null;
+        for (var type : concreteTypes) {
+            if (type.asElement() == null) return Optional.empty();
+            var interfaces = type.asElement().getInterfaces().stream()
+                    .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
+                    .collect(Collectors.toSet());
+            if (commonInterfaces == null) {
+                commonInterfaces = new HashSet<>(interfaces);
+            } else {
+                commonInterfaces.retainAll(interfaces);
+            }
+        }
+        return commonInterfaces.stream()
+                .filter(iface -> iface.getAnnotation(Event.class) != null && iface.getAnnotation(Event.class).topic()
+                        .equals(topic) && iface.getAnnotation(Avsc.class) == null)
                 .findFirst()
                 .map(iface -> TypeManifest.of(iface.asType(), context.processingEnvironment()));
     }
@@ -236,6 +245,10 @@ class KafkaConsumerWriter {
         var allAvscGenerated = rootTypes.stream()
                 .allMatch(t -> t.asElement() != null && isAvscGeneratedRecord(t.asElement()));
         if (!allAvscGenerated) {
+            var shared = sharedEventInterfaceOf(rootTypes, topic);
+            if (shared.isPresent()) {
+                return rootTypes.stream().distinct().toList();
+            }
             return List.of();
         }
         return rootTypes.stream()

@@ -228,13 +228,23 @@ public class PrefabContext {
     /**
      * Returns whether the given type belongs to the current compilation unit (not dependency
      * classpath input).
+     * <p>
+     * Nested types (e.g. a sealed interface declared inside an {@code @Aggregate} record) are
+     * considered part of the current compilation when their enclosing top-level type is.
      *
      * @param type
      *         the type to check
      * @return true when the type originates from current compilation rounds
      */
     public boolean isFromCurrentCompilation(TypeElement type) {
-        return currentCompilationTypeNames.contains(type.getQualifiedName().toString());
+        if (currentCompilationTypeNames.contains(type.getQualifiedName().toString())) {
+            return true;
+        }
+        var enclosing = type.getEnclosingElement();
+        if (enclosing instanceof TypeElement enclosingType) {
+            return isFromCurrentCompilation(enclosingType);
+        }
+        return false;
     }
 
     private Stream<TypeElement> eventElementsFromClasspath() {

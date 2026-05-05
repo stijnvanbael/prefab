@@ -16,7 +16,9 @@ public class NonPrimitiveEventSchemaFactory {
                         new Schema.Field("timestamp", SchemaSupport.createLogicalSchema(Schema.Type.LONG, LogicalTypes.timestampMillis())),
                         new Schema.Field("date", SchemaSupport.createLogicalSchema(Schema.Type.INT, LogicalTypes.date())),
                         new Schema.Field("duration", SchemaSupport.createLogicalSchema(Schema.Type.LONG, SchemaSupport.DURATION_MILLIS)),
-                        new Schema.Field("reference", Schema.create(Schema.Type.STRING))
+                        new Schema.Field("reference", Schema.createRecord("Reference", null, "be.appify.prefab.core.service", false, List.of(
+                                new Schema.Field("id", Schema.create(Schema.Type.STRING))
+                        )))
                     ));
     }
 

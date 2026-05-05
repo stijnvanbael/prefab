@@ -8,11 +8,18 @@ import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.event.EventPlatformPluginSupport;
+import com.palantir.javapoet.ClassName;
+import org.apache.avro.Schema;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.*;
@@ -82,6 +89,11 @@ public class KafkaPlugin implements PrefabPlugin {
     }
 
     private void writePublishers() {
+        writeRegularPublishers();
+        writeAvscPublishers();
+    }
+
+    private void writeRegularPublishers() {
         var events = context.eventElements()
                 .filter(e -> e.getAnnotation(Avsc.class) == null)
                 .filter(e -> platformIsKafka(requireNonNull(e.getAnnotation(Event.class)), e, context))
@@ -90,6 +102,46 @@ public class KafkaPlugin implements PrefabPlugin {
                 .distinct()
                 .toList();
         events.forEach(event -> kafkaProducerWriter.writeKafkaProducer(event));
+    }
+
+    private void writeAvscPublishers() {
+        context.avscElementsFromCurrentCompilation()
+                .filter(e -> platformIsKafka(requireNonNull(e.getAnnotation(Event.class)), e, context))
+                .forEach(this::writeAvscProducersForElement);
+    }
+
+    private void writeAvscProducersForElement(TypeElement element) {
+        var avsc = element.getAnnotation(Avsc.class);
+        var event = requireNonNull(element.getAnnotation(Event.class));
+        var packageName = context.processingEnvironment().getElementUtils()
+                .getPackageOf(element).getQualifiedName().toString();
+        for (var path : avsc.value()) {
+            var schema = parseAvscSchema(path, element);
+            if (schema == null) continue;
+            var schemaPackage = schema.getNamespace() != null ? schema.getNamespace() : packageName;
+            var eventType = ClassName.get(schemaPackage, schema.getName());
+            kafkaProducerWriter.writeAvscKafkaProducer(schemaPackage, eventType, event.topic());
+        }
+    }
+
+    private Schema parseAvscSchema(String path, TypeElement originatingElement) {
+        try (var stream = openResource(path)) {
+            if (stream == null) {
+                context.logError("AVSC file not found: '" + path + "'", originatingElement);
+                return null;
+            }
+            return new Schema.Parser().parse(stream);
+        } catch (IOException e) {
+            context.logError("Failed to read AVSC file '" + path + "': " + e.getMessage(), originatingElement);
+            return null;
+        }
+    }
+
+    private InputStream openResource(String path) throws IOException {
+        var stream = getClass().getClassLoader().getResourceAsStream(path);
+        if (stream != null) return stream;
+        var file = Path.of("src/main/resources", path);
+        return Files.exists(file) ? Files.newInputStream(file) : null;
     }
 
     static boolean platformIsKafka(Event event, Element element, PrefabContext context) {

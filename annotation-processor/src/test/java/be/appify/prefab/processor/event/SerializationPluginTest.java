@@ -77,6 +77,20 @@ class SerializationPluginTest {
     }
 
     @Test
+    void nestedEventInterfaceGeneratesSerializationRegistryConfiguration() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/serialization/nested/source/sale/Sale.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile(
+                        "event.serialization.nested.sale.infrastructure.event.EventSerializationNestedSaleSerializationRegistryConfiguration")
+                .contentsAsUtf8String()
+                .contains("sale");
+    }
+
+    @Test
     void dependencyEventDoesNotGenerateSerializationRegistryConfiguration() {
         var dependencyClasspath = compileDependencyClasspath(
                 sourceOf("event/serialization/dependency/source/DependencyEvent.java"));

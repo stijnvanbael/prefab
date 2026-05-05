@@ -1,19 +1,36 @@
 package be.appify.prefab.processor.event;
 
-import be.appify.prefab.core.annotations.*;
+import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.Avsc;
+import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.annotations.EventHandlerConfig;
+import be.appify.prefab.core.annotations.PartitioningKey;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
-import com.palantir.javapoet.*;
-import org.springframework.stereotype.Component;
-
+import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.CodeBlock;
+import com.palantir.javapoet.FieldSpec;
+import com.palantir.javapoet.MethodSpec;
+import com.palantir.javapoet.TypeSpec;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
-import java.util.*;
-import java.util.stream.Collectors;
+import org.springframework.stereotype.Component;
 
-import static javax.lang.model.element.Modifier.*;
+import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.STATIC;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 /**
@@ -199,9 +216,34 @@ public class ConsumerWriterSupport {
                         .anyMatch(event -> event.topic().equals(topic)))
                 .collect(Collectors.toSet());
         if (eventTypes.size() > 1) {
+            var sharedAncestor = findSharedEventAncestor(new ArrayList<>(eventTypes), topic, context);
+            if (sharedAncestor.isPresent()) {
+                return sharedAncestor.get();
+            }
             reportNoCommonAncestor(eventHandlers, context, topic, eventTypes);
         }
         return eventTypes.stream().findFirst().orElseThrow();
+    }
+
+    private Optional<TypeManifest> findSharedEventAncestor(
+            List<TypeManifest> types, String topic, PrefabContext context) {
+        if (types.isEmpty()) return Optional.empty();
+        Set<TypeElement> commonInterfaces = null;
+        for (var type : types) {
+            if (type.asElement() == null) return Optional.empty();
+            var interfaces = type.asElement().getInterfaces().stream()
+                    .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
+                    .collect(Collectors.toSet());
+            if (commonInterfaces == null) {
+                commonInterfaces = new HashSet<>(interfaces);
+            } else {
+                commonInterfaces.retainAll(interfaces);
+            }
+        }
+        return commonInterfaces.stream()
+                .filter(iface -> iface.getAnnotation(Event.class) != null && iface.getAnnotation(Event.class).topic().equals(topic))
+                .findFirst()
+                .map(iface -> TypeManifest.of(iface.asType(), context.processingEnvironment()));
     }
 
     /**

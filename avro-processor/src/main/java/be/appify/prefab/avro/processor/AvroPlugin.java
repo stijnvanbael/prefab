@@ -37,9 +37,9 @@ public class AvroPlugin implements PrefabPlugin {
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
-        // Use context.eventElements() which already merges @Event-annotated types and AVSC-generated
-        // records. For non-AVSC events we still restrict to those with AVRO serialization.
-        var events = context.eventElements()
+        // For additional Avro infrastructure, only generate for event types owned by the current
+        // compilation unit. Dependency events may already ship their own generated artifacts.
+        var events = context.eventElementsFromCurrentCompilation()
                 .filter(e -> EventPlatformPluginSupport.isAvscGeneratedRecord(e)
                         || Objects.requireNonNull(e.getAnnotation(Event.class)).serialization() == Event.Serialization.AVRO)
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))

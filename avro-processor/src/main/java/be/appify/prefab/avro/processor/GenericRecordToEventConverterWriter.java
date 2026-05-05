@@ -67,7 +67,7 @@ class GenericRecordToEventConverterWriter {
         var name = "GenericRecordTo%sConverter".formatted(contractInterface.simpleName().replace(".", ""));
 
         // Find all generated records that implement this contract interface
-        var implementations = context.eventElements()
+        var implementations = context.eventElementsFromCurrentCompilation()
                 .filter(e -> e.getKind() == ElementKind.RECORD)
                 .filter(e -> e.getInterfaces().stream()
                         .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())

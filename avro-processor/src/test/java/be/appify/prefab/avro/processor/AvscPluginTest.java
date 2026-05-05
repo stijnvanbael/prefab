@@ -1,11 +1,19 @@
 package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.processor.PrefabProcessor;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
+import static be.appify.prefab.avro.processor.ProcessorTestUtil.classpathOptionsWith;
+import static be.appify.prefab.avro.processor.ProcessorTestUtil.compileDependencyClasspath;
 import static be.appify.prefab.avro.processor.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class AvscPluginTest {
 
@@ -296,5 +304,46 @@ class AvscPluginTest {
                 .generatedSourceFile("event.avsc.infrastructure.avro.NullableSingleValuedRecordAvscEventSchemaFactory")
                 .contentsAsUtf8String()
                 .contains("new Schema.Field(\"eanGsrn\", Schema.create(Schema.Type.STRING))");
+    }
+
+    @Test
+    void avscArtifactsFromDependencyAreNotRegeneratedInConsumerModule() {
+        var dependencyClasspath = compileDependencyClasspath(
+                sourceOf("event/avsc/dependency/source/DependencyAvsc.java"));
+        try {
+            var compilation = javac()
+                    .withOptions(classpathOptionsWith(dependencyClasspath))
+                    .withProcessors(new PrefabProcessor())
+                    .compile(sourceOf("event/avsc/dependencyconsumer/source/DependencyConsumer.java"));
+
+            assertThat(compilation).succeeded();
+            assertFalse(compilation.generatedSourceFiles().stream()
+                    .anyMatch(file -> file.toUri().getPath().endsWith("/event/avsc/dependency/DependencyAvscEvent.java")));
+            assertFalse(compilation.generatedSourceFiles().stream().anyMatch(file -> file.toUri().getPath().endsWith(
+                    "/event/avsc/dependency/infrastructure/avro/DependencyAvscEventSchemaFactory.java")));
+            assertFalse(compilation.generatedSourceFiles().stream().anyMatch(file -> file.toUri().getPath().endsWith(
+                    "/event/avsc/dependency/infrastructure/avro/DependencyAvscEventToGenericRecordConverter.java")));
+            assertFalse(compilation.generatedSourceFiles().stream().anyMatch(file -> file.toUri().getPath().endsWith(
+                    "/event/avsc/dependency/infrastructure/avro/GenericRecordToDependencyAvscEventConverter.java")));
+        } finally {
+            deleteRecursively(dependencyClasspath);
+        }
+    }
+
+    private static void deleteRecursively(Path root) {
+        if (root == null || !Files.exists(root)) {
+            return;
+        }
+        try (Stream<Path> paths = Files.walk(root)) {
+            paths.sorted(Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

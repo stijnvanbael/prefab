@@ -1,0 +1,9 @@
+{
+  "type": "record",
+  "name": "DependencyAvscEvent",
+  "namespace": "event.avsc.dependency",
+  "fields": [
+    {"name": "id", "type": "string"}
+  ]
+}
+

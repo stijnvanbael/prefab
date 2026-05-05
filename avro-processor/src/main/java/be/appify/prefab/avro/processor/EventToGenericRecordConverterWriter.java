@@ -65,7 +65,7 @@ class EventToGenericRecordConverterWriter {
      * concrete record converter instead of trying to map the interface's fields directly.
      */
     private void writeAvscInterfaceConverter(TypeManifest contractInterface) {
-        var implementations = context.eventElements()
+        var implementations = context.eventElementsFromCurrentCompilation()
                 .filter(e -> e.getKind() == ElementKind.RECORD)
                 .filter(e -> e.getInterfaces().stream()
                         .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())

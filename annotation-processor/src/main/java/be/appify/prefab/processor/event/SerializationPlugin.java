@@ -25,7 +25,7 @@ public class SerializationPlugin implements PrefabPlugin {
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
-        var eventsByPackage = context.eventElements()
+        var eventsByPackage = context.eventElementsFromCurrentCompilation()
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .collect(Collectors.groupingBy(TypeManifest::packageName));
 

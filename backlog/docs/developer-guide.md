@@ -634,6 +634,9 @@ the schema factory is initialized.
 
 Because retention is `CLASS`, consuming modules can detect AVSC-backed event contracts from dependency
 bytecode as long as those contracts were compiled with a Prefab version that includes this behavior.
+Prefab only generates AVSC records, Avro converters/schema factories, and serialization registry
+configuration for contracts that belong to the current compilation module. Dependency-provided AVSC
+contracts are treated as already-generated and are not regenerated.
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|

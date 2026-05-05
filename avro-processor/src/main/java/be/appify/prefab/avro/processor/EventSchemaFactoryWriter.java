@@ -224,7 +224,7 @@ class EventSchemaFactoryWriter {
     }
 
     private List<TypeManifest> resolveImplementations(TypeManifest contractInterface) {
-        return context.eventElements()
+        return context.eventElementsFromCurrentCompilation()
                 .filter(e -> e.getKind() == ElementKind.RECORD)
                 .filter(e -> implementsInterface(e, contractInterface))
                 .map(e -> TypeManifest.of(e.asType(), context.processingEnvironment()))

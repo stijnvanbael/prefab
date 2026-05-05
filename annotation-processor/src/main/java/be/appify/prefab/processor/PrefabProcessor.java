@@ -56,13 +56,20 @@ public class PrefabProcessor extends AbstractProcessor {
     private final Set<String> processedAdditionalFilesAggregates = new LinkedHashSet<>();
     private final Set<String> processedAdditionalFilesPolymorphicAggregates = new LinkedHashSet<>();
     private final Set<String> seenEventElementNames = new LinkedHashSet<>();
+    private final Set<String> currentCompilationTypeNames = new LinkedHashSet<>();
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment environment) {
         var plugins = detectPlugins();
-        var context = new PrefabContext(processingEnv, plugins, environment, deferredEventHandlers);
+        rememberCurrentCompilationTypeNames(environment);
+        var context = new PrefabContext(
+                processingEnv,
+                plugins,
+                environment,
+                deferredEventHandlers,
+                currentCompilationTypeNames);
         plugins.forEach(plugin -> plugin.initContext(context));
-        if (hasAvscAnnotations(environment) && !eventFilesWritten) {
+        if (hasAvscAnnotations(context) && !eventFilesWritten) {
             eventFilesWritten = true;
             plugins.forEach(PrefabPlugin::writeEventFiles);
         }
@@ -82,8 +89,16 @@ public class PrefabProcessor extends AbstractProcessor {
         return true;
     }
 
-    private boolean hasAvscAnnotations(RoundEnvironment environment) {
-        return !environment.getElementsAnnotatedWith(Avsc.class).isEmpty();
+    private void rememberCurrentCompilationTypeNames(RoundEnvironment environment) {
+        environment.getRootElements().stream()
+                .filter(TypeElement.class::isInstance)
+                .map(TypeElement.class::cast)
+                .map(type -> type.getQualifiedName().toString())
+                .forEach(currentCompilationTypeNames::add);
+    }
+
+    private boolean hasAvscAnnotations(PrefabContext context) {
+        return context.avscElementsFromCurrentCompilation().findAny().isPresent();
     }
 
     private List<ClassManifest> resolveAggregates(RoundEnvironment environment) {

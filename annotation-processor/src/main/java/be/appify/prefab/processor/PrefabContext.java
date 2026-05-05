@@ -28,6 +28,7 @@ public class PrefabContext {
     private final RoundEnvironment roundEnvironment;
     private final Set<ExecutableElement> inheritedDeferredEventHandlers;
     private final Set<ExecutableElement> newlyDeferredEventHandlers = new LinkedHashSet<>();
+    private final Set<String> currentCompilationTypeNames;
 
     /**
      * Constructs a PrefabContext.
@@ -44,7 +45,7 @@ public class PrefabContext {
             List<PrefabPlugin> plugins,
             RoundEnvironment roundEnvironment
     ) {
-        this(processingEnvironment, plugins, roundEnvironment, Set.of());
+        this(processingEnvironment, plugins, roundEnvironment, Set.of(), Set.of());
     }
 
     /**
@@ -65,10 +66,36 @@ public class PrefabContext {
             RoundEnvironment roundEnvironment,
             Set<ExecutableElement> inheritedDeferredEventHandlers
     ) {
+        this(processingEnvironment, plugins, roundEnvironment, inheritedDeferredEventHandlers, Set.of());
+    }
+
+    /**
+     * Constructs a PrefabContext with event handlers deferred from a previous round and all known
+     * type names that belong to the current compilation (across rounds).
+     *
+     * @param processingEnvironment
+     *         the processing environment
+     * @param plugins
+     *         the list of Prefab plugins
+     * @param roundEnvironment
+     *         the round environment
+     * @param inheritedDeferredEventHandlers
+     *         event handlers deferred from a previous processing round
+     * @param currentCompilationTypeNames
+     *         all type names seen as root elements in this compilation
+     */
+    public PrefabContext(
+            ProcessingEnvironment processingEnvironment,
+            List<PrefabPlugin> plugins,
+            RoundEnvironment roundEnvironment,
+            Set<ExecutableElement> inheritedDeferredEventHandlers,
+            Set<String> currentCompilationTypeNames
+    ) {
         this.processingEnvironment = processingEnvironment;
         this.plugins = plugins;
         this.roundEnvironment = roundEnvironment;
         this.inheritedDeferredEventHandlers = Set.copyOf(inheritedDeferredEventHandlers);
+        this.currentCompilationTypeNames = Set.copyOf(currentCompilationTypeNames);
         requestParameterBuilder = new RequestParameterBuilder(plugins);
         requestParameterMapper = new RequestParameterMapper(plugins);
     }
@@ -175,6 +202,39 @@ public class PrefabContext {
         var fromClasspath = eventElementsFromClasspath();
 
         return Stream.concat(Stream.concat(annotated, avscGenerated), fromClasspath).distinct();
+    }
+
+    /**
+     * Returns event type elements that belong to the currently compiled module only.
+     *
+     * @return deduplicated stream of local event types
+     */
+    public Stream<TypeElement> eventElementsFromCurrentCompilation() {
+        return eventElements().filter(this::isFromCurrentCompilation);
+    }
+
+    /**
+     * Returns {@code @Avsc}-annotated interfaces that belong to the currently compiled module.
+     *
+     * @return stream of local {@code @Avsc}-annotated interfaces
+     */
+    public Stream<TypeElement> avscElementsFromCurrentCompilation() {
+        return roundEnvironment.getElementsAnnotatedWith(Avsc.class)
+                .stream()
+                .map(TypeElement.class::cast)
+                .filter(this::isFromCurrentCompilation);
+    }
+
+    /**
+     * Returns whether the given type belongs to the current compilation unit (not dependency
+     * classpath input).
+     *
+     * @param type
+     *         the type to check
+     * @return true when the type originates from current compilation rounds
+     */
+    public boolean isFromCurrentCompilation(TypeElement type) {
+        return currentCompilationTypeNames.contains(type.getQualifiedName().toString());
     }
 
     private Stream<TypeElement> eventElementsFromClasspath() {

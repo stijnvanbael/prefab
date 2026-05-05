@@ -27,8 +27,7 @@ public class AvscPlugin implements PrefabPlugin {
 
     @Override
     public void writeEventFiles() {
-        context.roundEnvironment()
-                .getElementsAnnotatedWith(Avsc.class)
+        context.avscElementsFromCurrentCompilation()
                 .forEach(element -> processElement(element, element.getAnnotation(Avsc.class)));
     }
 

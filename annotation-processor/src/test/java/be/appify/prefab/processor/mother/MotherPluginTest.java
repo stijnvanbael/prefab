@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.stream.Stream;
+import javax.tools.StandardLocation;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.test.ProcessorTestUtil.classpathOptionsWith;
@@ -219,6 +220,32 @@ class MotherPluginTest {
                 .generatedSourceFile("mother.person.application.CreatePersonRequest")
                 .contentsAsUtf8String()
                 .contains("public static final class Builder");
+    }
+
+    @Test
+    void requestMotherHasConsumerOverload() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/person/source/Person.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/person", "CreatePersonRequestMother.java")
+                .contentsAsUtf8String()
+                .contains("Consumer");
+    }
+
+    @Test
+    void eventMotherHasConsumerOverload() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/events/source/PersonEvent.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/events/source", "PersonEventCreatedMother.java")
+                .contentsAsUtf8String()
+                .contains("Consumer");
     }
 
     @Test

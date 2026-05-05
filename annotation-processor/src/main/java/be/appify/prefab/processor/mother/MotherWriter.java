@@ -10,6 +10,7 @@ import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
+import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.math.BigDecimal;
@@ -20,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -78,6 +80,7 @@ class MotherWriter {
                 .addModifiers(Modifier.PUBLIC)
                 .addMethod(recordBuilderPassthroughMethod(requestType))
                 .addMethod(createFactoryMethod(requestType, typeName, effectiveParams))
+                .addMethod(createConsumerOverloadForRecord(requestType, typeName, effectiveParams))
                 .build();
 
         fileWriter.writeFile(packageName, motherName, typeSpec);
@@ -113,6 +116,7 @@ class MotherWriter {
                 .addModifiers(Modifier.PUBLIC)
                 .addMethod(builderFactoryMethodWithDefaults(builderType, fields))
                 .addMethod(motherFactoryMethod(eventTypeName, simpleName))
+                .addMethod(motherConsumerOverload(eventTypeName, simpleName, builderType))
                 .build();
 
         fileWriter.writeFile(packageName, motherName, typeSpec);
@@ -145,6 +149,7 @@ class MotherWriter {
                 .addModifiers(Modifier.PUBLIC)
                 .addMethod(builderFactoryMethodWithDefaults(builderType, fields))
                 .addMethod(motherFactoryMethod(type.asTypeName(), simpleName))
+                .addMethod(motherConsumerOverload(type.asTypeName(), simpleName, builderType))
                 .build();
 
         fileWriter.writeFile(packageName, motherName, typeSpec);
@@ -189,10 +194,11 @@ class MotherWriter {
     }
 
     private MethodSpec createFactoryMethod(ClassName recordType, String typeName, List<EffectiveParam> params) {
-        var body = buildChainedBuilderCall(recordType,
-                params.stream()
-                        .map(ep -> new FieldDefault(ep.param().name(), defaultValueFor(ep.param(), ep.effectiveType())))
-                        .toList());
+        var fieldDefaults = fieldDefaultsFor(params);
+        var body = CodeBlock.builder()
+                .add(builderWithDefaultsSetup(recordType, fieldDefaults))
+                .addStatement("return builder.build()")
+                .build();
         return MethodSpec.methodBuilder("create" + capitalize(typeName))
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .returns(recordType)
@@ -200,12 +206,35 @@ class MotherWriter {
                 .build();
     }
 
-    private CodeBlock buildChainedBuilderCall(ClassName recordType, List<FieldDefault> fieldDefaults) {
-        var block = CodeBlock.builder().add("return $T.builder()", recordType);
+    private MethodSpec createConsumerOverloadForRecord(ClassName recordType, String typeName, List<EffectiveParam> params) {
+        var fieldDefaults = fieldDefaultsFor(params);
+        var builderType = recordType.nestedClass(BUILDER);
+        var consumerType = ParameterizedTypeName.get(ClassName.get(Consumer.class), builderType);
+        var body = CodeBlock.builder()
+                .add(builderWithDefaultsSetup(recordType, fieldDefaults))
+                .addStatement("customiser.accept(builder)")
+                .addStatement("return builder.build()")
+                .build();
+        return MethodSpec.methodBuilder("create" + capitalize(typeName))
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .returns(recordType)
+                .addParameter(consumerType, "customiser")
+                .addCode(body)
+                .build();
+    }
+
+    private List<FieldDefault> fieldDefaultsFor(List<EffectiveParam> params) {
+        return params.stream()
+                .map(ep -> new FieldDefault(ep.param().name(), defaultValueFor(ep.param(), ep.effectiveType())))
+                .toList();
+    }
+
+    private CodeBlock builderWithDefaultsSetup(ClassName recordType, List<FieldDefault> fieldDefaults) {
+        var block = CodeBlock.builder().add("var builder = $T.builder()", recordType);
         for (var fd : fieldDefaults) {
             block.add("\n        .$L($L)", setterMethodName(fd.name()), fd.defaultValue());
         }
-        block.add("\n        .build();\n");
+        block.add(";\n");
         return block.build();
     }
 
@@ -234,8 +263,7 @@ class MotherWriter {
     private boolean hasInlineDefault(TypeManifest type) {
         if (isNestedObjectType(type)) return false;
         if (type.is(List.class) && isNestedObjectType(type.parameters().getFirst())) return false;
-        if (type.isSingleValueType() && containsNestedObjectType(type)) return false;
-        return true;
+        return !type.isSingleValueType() || !containsNestedObjectType(type);
     }
 
     private boolean containsNestedObjectType(TypeManifest type) {
@@ -285,6 +313,18 @@ class MotherWriter {
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .returns(returnType)
                 .addStatement("return builder().build()")
+                .build();
+    }
+
+    private MethodSpec motherConsumerOverload(TypeName returnType, String typeName, ClassName builderType) {
+        var consumerType = ParameterizedTypeName.get(ClassName.get(Consumer.class), builderType);
+        return MethodSpec.methodBuilder("create" + capitalize(typeName))
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .returns(returnType)
+                .addParameter(consumerType, "customiser")
+                .addStatement("var builder = builder()")
+                .addStatement("customiser.accept(builder)")
+                .addStatement("return builder.build()")
                 .build();
     }
 

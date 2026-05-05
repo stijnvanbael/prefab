@@ -272,6 +272,21 @@ public class PrefabContext {
     }
 
     /**
+     * Returns the configured builder setter-method prefix.
+     *
+     * <p>Read from the {@code prefab.builder.setterPrefix} annotation-processor option
+     * (pass via {@code -Aprefab.builder.setterPrefix=} on the compiler command line or via the
+     * Maven {@code compilerArg} / Gradle {@code compilerArgs} build configuration).
+     * Defaults to {@code ""} when the option is absent.
+     * An empty string produces prefix-less setter names equal to the field name.
+     *
+     * @return the builder setter prefix, never {@code null}
+     */
+    public String builderSetterPrefix() {
+        return processingEnvironment.getOptions().getOrDefault("prefab.builder.setterPrefix", "");
+    }
+
+    /**
      * Logs a note message associated with a specific element.
      *
      * @param message

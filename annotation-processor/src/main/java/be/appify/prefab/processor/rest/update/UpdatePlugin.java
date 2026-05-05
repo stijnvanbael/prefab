@@ -61,7 +61,7 @@ public class UpdatePlugin implements PrefabPlugin {
             manifests.forEach(manifest -> updateMethodsOf(manifest).forEach(update -> {
                 if (!update.requestParameters().isEmpty()) {
                     updateRequestRecordWriter.writeUpdateRequestRecord(fileWriter, manifest, update,
-                            context.requestParameterBuilder());
+                            context.requestParameterBuilder(), context.builderSetterPrefix());
                 }
             }));
         }
@@ -108,7 +108,8 @@ public class UpdatePlugin implements PrefabPlugin {
         var type = be.appify.prefab.processor.rest.ControllerUtil.writeRecord(
                 com.palantir.javapoet.ClassName.get(polymorphic.packageName() + ".application", name),
                 update.requestParameters(),
-                context.requestParameterBuilder());
+                context.requestParameterBuilder(),
+                context.builderSetterPrefix());
         fileWriter.writeFile(polymorphic.packageName(), name, type);
     }
 

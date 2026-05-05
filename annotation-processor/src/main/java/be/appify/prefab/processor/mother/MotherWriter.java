@@ -203,7 +203,7 @@ class MotherWriter {
     private CodeBlock buildChainedBuilderCall(ClassName recordType, List<FieldDefault> fieldDefaults) {
         var block = CodeBlock.builder().add("return $T.builder()", recordType);
         for (var fd : fieldDefaults) {
-            block.add("\n        .with$L($L)", capitalize(fd.name()), fd.defaultValue());
+            block.add("\n        .$L($L)", setterMethodName(fd.name()), fd.defaultValue());
         }
         block.add("\n        .build();\n");
         return block.build();
@@ -245,7 +245,7 @@ class MotherWriter {
     }
 
     private MethodSpec withMethod(String fieldName, TypeName fieldType, ClassName builderType) {
-        return MethodSpec.methodBuilder("with" + capitalize(fieldName))
+        return MethodSpec.methodBuilder(setterMethodName(fieldName))
                 .addModifiers(Modifier.PUBLIC)
                 .returns(builderType)
                 .addParameter(fieldType, fieldName)
@@ -254,11 +254,16 @@ class MotherWriter {
                 .build();
     }
 
+    private String setterMethodName(String fieldName) {
+        var prefix = context.builderSetterPrefix();
+        return prefix.isEmpty() ? fieldName : prefix + capitalize(fieldName);
+    }
+
     private MethodSpec builderFactoryMethodWithDefaults(ClassName builderType, List<VariableManifest> fields) {
         var code = CodeBlock.builder().add("return new $T()", builderType);
         fields.stream()
                 .filter(field -> !hasInlineDefault(field.type()))
-                .forEach(field -> code.add("\n        .with$L($L)", capitalize(field.name()), defaultValueFor(field, field.type())));
+                .forEach(field -> code.add("\n        .$L($L)", setterMethodName(field.name()), defaultValueFor(field, field.type())));
         code.add(";\n");
         return MethodSpec.methodBuilder("builder")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)

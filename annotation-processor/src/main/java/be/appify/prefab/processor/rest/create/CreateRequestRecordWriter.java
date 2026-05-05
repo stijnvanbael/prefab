@@ -54,7 +54,8 @@ public class CreateRequestRecordWriter {
         }
         var type = writeRecord(ClassName.get(manifest.packageName() + ".application", name),
                 bodyParams,
-                context.requestParameterBuilder());
+                context.requestParameterBuilder(),
+                context.builderSetterPrefix());
         fileWriter.writeFile(manifest.packageName(), name, type);
     }
 
@@ -136,7 +137,8 @@ public class CreateRequestRecordWriter {
                 .toList();
         var type = writeRecord(ClassName.get(subtype.packageName() + ".application", name),
                 bodyParams,
-                context.requestParameterBuilder());
+                context.requestParameterBuilder(),
+                context.builderSetterPrefix());
         fileWriter.writeFile(polymorphic.packageName(), name, type);
     }
 

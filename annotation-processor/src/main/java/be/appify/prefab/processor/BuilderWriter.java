@@ -13,10 +13,26 @@ import static org.apache.commons.text.WordUtils.capitalize;
 /**
  * Generates a nested {@code Builder} class and a static {@code builder()} factory method
  * for a record {@link TypeSpec.Builder}.
+ *
+ * <p>The setter method prefix (e.g. {@code with}) is configurable. Pass the desired prefix via
+ * the {@code prefab.builder.setterPrefix} annotation-processor option (compiler {@code -A} flag).
+ * An empty prefix produces method names equal to the field name (e.g. {@code name(String name)}).
  */
 public class BuilderWriter {
 
     private static final String BUILDER = "Builder";
+
+    private final String setterPrefix;
+
+    /**
+     * Creates a {@code BuilderWriter} with a custom setter prefix.
+     *
+     * @param setterPrefix the prefix prepended to the capitalised field name; use {@code ""}
+     *                     for prefix-less methods where the method name equals the field name
+     */
+    public BuilderWriter(String setterPrefix) {
+        this.setterPrefix = setterPrefix;
+    }
 
     /**
      * Adds a nested {@code Builder} class and a static {@code builder()} factory method to the given record builder.
@@ -54,7 +70,7 @@ public class BuilderWriter {
 
     private MethodSpec withMethod(ParameterSpec field) {
         var plainParam = ParameterSpec.builder(field.type(), field.name()).build();
-        return MethodSpec.methodBuilder("with" + capitalize(field.name()))
+        return MethodSpec.methodBuilder(setterMethodName(field.name()))
                 .addModifiers(Modifier.PUBLIC)
                 .returns(ClassName.get("", BUILDER))
                 .addParameter(plainParam)
@@ -63,8 +79,12 @@ public class BuilderWriter {
                 .build();
     }
 
+    private String setterMethodName(String fieldName) {
+        return setterPrefix.isEmpty() ? fieldName : setterPrefix + capitalize(fieldName);
+    }
+
     private MethodSpec buildMethod(ClassName recordType, List<ParameterSpec> fields) {
-        var args = fields.stream().map(f -> f.name()).collect(Collectors.joining(", "));
+        var args = fields.stream().map(ParameterSpec::name).collect(Collectors.joining(", "));
         return MethodSpec.methodBuilder("build")
                 .addModifiers(Modifier.PUBLIC)
                 .returns(recordType)

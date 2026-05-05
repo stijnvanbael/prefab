@@ -35,6 +35,9 @@ class AvscEventWriter {
     private static final String LOGICAL_TYPE_DATE = "date";
     private static final String LOGICAL_TYPE_DURATION_MILLIS = "duration-millis";
 
+    private static final String OPTION_SETTER_PREFIX = "prefab.builder.setterPrefix";
+    private static final String DEFAULT_SETTER_PREFIX = "with";
+
     private final ProcessingEnvironment processingEnvironment;
 
     AvscEventWriter(ProcessingEnvironment processingEnvironment) {
@@ -110,7 +113,7 @@ class AvscEventWriter {
                             .addSuperinterface(contractInterface);
                     docOf(schema).ifPresent(doc -> builder.addAnnotation(docAnnotation(doc)));
                     namespaceAnnotation(schema).ifPresent(builder::addAnnotation);
-                    new BuilderWriter().enrichWithBuilder(builder, recordType, strippedParams(fields));
+                    new BuilderWriter(builderSetterPrefix()).enrichWithBuilder(builder, recordType, strippedParams(fields));
                     return builder.build();
                 })
                 .orElse(null);
@@ -125,7 +128,7 @@ class AvscEventWriter {
                             .recordConstructor(MethodSpec.compactConstructorBuilder().addParameters(fields).build());
                     docOf(schema).ifPresent(doc -> builder.addAnnotation(docAnnotation(doc)));
                     namespaceAnnotation(schema).ifPresent(builder::addAnnotation);
-                    new BuilderWriter().enrichWithBuilder(builder, recordType, strippedParams(fields));
+                    new BuilderWriter(builderSetterPrefix()).enrichWithBuilder(builder, recordType, strippedParams(fields));
                     return builder.build();
                 })
                 .orElse(null);
@@ -298,6 +301,10 @@ class AvscEventWriter {
         if (elementType == null) return null;
         var boxed = elementType.isPrimitive() ? elementType.box() : elementType;
         return ParameterizedTypeName.get(ClassName.get(List.class), boxed);
+    }
+
+    private String builderSetterPrefix() {
+        return processingEnvironment.getOptions().getOrDefault(OPTION_SETTER_PREFIX, DEFAULT_SETTER_PREFIX);
     }
 
     private void reportError(String message) {

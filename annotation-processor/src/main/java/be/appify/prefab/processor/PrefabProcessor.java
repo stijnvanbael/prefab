@@ -1,7 +1,6 @@
 package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Aggregate;
-import be.appify.prefab.core.annotations.Avsc;
 import com.google.auto.service.AutoService;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -16,9 +15,10 @@ import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
+import javax.annotation.processing.SupportedOptions;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
@@ -29,6 +29,7 @@ import javax.lang.model.type.TypeKind;
 @SupportedAnnotationTypes({
         "be.appify.prefab.core.annotations.*",
 })
+@SupportedOptions("prefab.builder.setterPrefix")
 @AutoService(Processor.class)
 @SuppressWarnings("unused")
 public class PrefabProcessor extends AbstractProcessor {

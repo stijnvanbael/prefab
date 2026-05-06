@@ -4,14 +4,12 @@ spring:
 
 logging.level:
   be.appify.prefab.example: DEBUG
-  org.springframework.jdbc: DEBUG
 
 prefab:
   flyway:
     auto-clean-on-mismatch: true
   dlt.retries:
-    limit: 1
-    initial-interval-ms: 100
+    initial-interval-ms: 10
   test:
     schema-registry:
       enabled: true

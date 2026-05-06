@@ -5,6 +5,11 @@ spring:
 logging.level:
   be.appify.prefab.example: DEBUG
 
-prefab.dlt.retries:
-  initial-interval-ms: 10
-  multiplier: 2
+prefab:
+  flyway:
+    auto-clean-on-mismatch: true
+  dlt.retries:
+    initial-interval-ms: 10
+  test:
+    schema-registry:
+      enabled: true

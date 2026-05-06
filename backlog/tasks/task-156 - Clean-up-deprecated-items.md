@@ -1,12 +1,13 @@
 ---
 id: TASK-156
 title: Clean up deprecated items
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-05-03 07:41'
-updated_date: '2026-05-03 07:58'
+updated_date: '2026-05-06 06:05'
 labels: []
 dependencies: []
+ordinal: 9000
 ---
 
 ## Description

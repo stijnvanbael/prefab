@@ -1,14 +1,15 @@
 ---
 id: TASK-152
 title: Security vulnerabilities identified by full framework scan
-status: To Do
-assignee: [ ]
+status: Done
+assignee: []
 created_date: '2026-04-30 09:20'
-updated_date: '2026-04-30 09:20'
+updated_date: '2026-05-06 06:06'
 labels:
   - security
-dependencies: [ ]
+dependencies: []
 priority: high
+ordinal: 10000
 ---
 
 ## Description
@@ -31,9 +32,7 @@ Each criterion corresponds to one finding and its recommended fix.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
-
 <!-- AC:BEGIN -->
-
 - [ ] #1 **[HIGH] VUL-001 – Unsafe class loading from SQS message Subject header (CWE-470)**
 
   **Location**: `core/src/main/java/be/appify/prefab/core/sns/SqsDeserializer.java:93`
@@ -217,5 +216,4 @@ Each criterion corresponds to one finding and its recommended fix.
   Also add `spring-boot-starter-oauth2-resource-server` as a dependency in `security/pom.xml` if it
   is not already transitively present (check `spring-boot-starter-oauth2-client` transitive deps;
   add explicitly if absent to avoid relying on a transitive dependency).
-
 <!-- AC:END -->

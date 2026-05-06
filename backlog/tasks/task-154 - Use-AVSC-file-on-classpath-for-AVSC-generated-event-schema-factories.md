@@ -4,9 +4,10 @@ title: Use AVSC file on classpath for AVSC-generated event schema factories
 status: Done
 assignee: []
 created_date: '2026-05-01 05:02'
-updated_date: '2026-05-01 05:16'
+updated_date: '2026-05-06 06:05'
 labels: []
 dependencies: []
+ordinal: 7000
 ---
 
 ## Description

@@ -1469,7 +1469,10 @@ in the same package as the type (written to `target/prefab-test-sources/`).
 #### `{Type}ResponseAssert`
 
 Generated for every aggregate. Extends `AbstractAssert<{Type}ResponseAssert, {Type}Response>` and exposes one
-`has{FieldName}(FieldType expected)` method per record component, plus a static `assertThat()` factory method.
+assertion method per record component, plus a static `assertThat()` factory method.
+
+- Non-list fields generate `has{FieldName}(FieldType expected)`.
+- List fields generate `has{FieldName}Satisfying(Consumer<ListAssert<ElementType>> requirements)`.
 
 ```java
 // Generated: assertion.infrastructure.http.ProductResponseAssert
@@ -1481,6 +1484,7 @@ public class ProductResponseAssert
     public ProductResponseAssert hasId(String expected) { ... }
     public ProductResponseAssert hasName(String expected) { ... }
     public ProductResponseAssert hasPrice(Double expected) { ... }
+    public ProductResponseAssert hasTagsSatisfying(Consumer<ListAssert<String>> requirements) { ... }
 }
 ```
 
@@ -1497,6 +1501,7 @@ public class OrderCreatedAssert
 
     public OrderCreatedAssert hasOrderId(String expected) { ... }
     public OrderCreatedAssert hasCustomerName(String expected) { ... }
+    public OrderCreatedAssert hasItemsSatisfying(Consumer<ListAssert<String>> requirements) { ... }
 }
 ```
 
@@ -1528,7 +1533,8 @@ import static assertion.infrastructure.http.Assertions.assertThat;
 
 assertThat(client.getProductById(id))
     .hasName("Widget")
-    .hasPrice(9.99);
+    .hasPrice(9.99)
+    .hasTagsSatisfying(list -> list.contains("featured"));
 ```
 
 ---

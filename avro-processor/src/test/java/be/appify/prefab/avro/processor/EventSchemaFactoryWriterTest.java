@@ -1,6 +1,8 @@
 package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.processor.PrefabProcessor;
+import com.google.testing.compile.JavaFileObjects;
+import java.io.IOException;
 
 import org.junit.jupiter.api.Test;
 
@@ -123,5 +125,62 @@ class EventSchemaFactoryWriterTest {
                 compilation,
                 "event.avro.infrastructure.avro.DocFieldEventSchemaFactory",
                 "event/avro/docfield/expected/DocFieldEventSchemaFactory.java");
+    }
+
+    @Test
+    void nullableMetadataUsesLatestCompilationSnapshot() {
+        var baseSource = JavaFileObjects.forSourceString("event.avro.NullableEvent", """
+                package event.avro;
+
+                import be.appify.prefab.core.annotations.Event;
+
+                @Event(topic = "nullable", serialization = Event.Serialization.AVRO)
+                public record NullableEvent(
+                        String id,
+                        String name,
+                        String description
+                ) {
+                }
+                """);
+        var nullableSource = JavaFileObjects.forSourceString("event.avro.NullableEvent", """
+                package event.avro;
+
+                import be.appify.prefab.core.annotations.Event;
+                import jakarta.annotation.Nullable;
+
+                @Event(topic = "nullable", serialization = Event.Serialization.AVRO)
+                public record NullableEvent(
+                        String id,
+                        String name,
+                        @Nullable String description
+                ) {
+                }
+                """);
+
+        var firstCompilation = javac().withProcessors(new PrefabProcessor()).compile(baseSource);
+        assertThat(firstCompilation).succeeded();
+        org.assertj.core.api.Assertions.assertThat(
+                        generatedSource(firstCompilation, "event.avro.infrastructure.avro.NullableEventSchemaFactory"))
+                .doesNotContain("SchemaSupport.createNullableSchema");
+
+        var secondCompilation = javac().withProcessors(new PrefabProcessor()).compile(nullableSource);
+        assertThat(secondCompilation).succeeded();
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                secondCompilation,
+                "event.avro.infrastructure.avro.NullableEventSchemaFactory",
+                "event/avro/nullable/expected/NullableEventSchemaFactory.java");
+    }
+
+    private static String generatedSource(com.google.testing.compile.Compilation compilation, String generatedTypeName) {
+        var expectedSuffix = "/" + generatedTypeName.replace('.', '/') + ".java";
+        var generatedFile = compilation.generatedSourceFiles().stream()
+                .filter(file -> file.toUri().getPath().endsWith(expectedSuffix))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Generated source file not found: " + generatedTypeName));
+        try {
+            return generatedFile.getCharContent(true).toString();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

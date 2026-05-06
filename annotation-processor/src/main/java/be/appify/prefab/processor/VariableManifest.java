@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.VariableElement;
 import org.springframework.data.annotation.Id;
@@ -53,7 +54,20 @@ public class VariableManifest {
             // Type (or a type argument) is unresolved — do not cache; will be re-resolved in the next processing round.
             return new VariableManifest(variableElement, processingEnvironment);
         }
+        var isRecordComponent = variableElement.getKind() == ElementKind.RECORD_COMPONENT;
+        var isRecordField = variableElement.getKind() == ElementKind.FIELD
+                && variableElement.getEnclosingElement() != null
+                && variableElement.getEnclosingElement().getKind() == ElementKind.RECORD;
+        if (isRecordComponent || isRecordField) {
+            // Record metadata can be completed over rounds (especially in incremental IDE compilers).
+            // Use a fresh snapshot to avoid serving stale nullability/annotation data from previous rounds.
+            return new VariableManifest(variableElement, processingEnvironment);
+        }
         return manifestCache.computeIfAbsent(variableElement, variable -> new VariableManifest(variable, processingEnvironment));
+    }
+
+    static void clearCache() {
+        manifestCache.clear();
     }
 
     /**

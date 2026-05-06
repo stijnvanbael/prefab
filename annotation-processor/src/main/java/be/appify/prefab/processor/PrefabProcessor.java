@@ -61,6 +61,7 @@ public class PrefabProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment environment) {
+        clearRoundCaches();
         var plugins = detectPlugins();
         rememberCurrentCompilationTypeNames(environment);
         var context = new PrefabContext(
@@ -88,6 +89,12 @@ public class PrefabProcessor extends AbstractProcessor {
         deferredEventHandlers.clear();
         deferredEventHandlers.addAll(context.newlyDeferredEventHandlers());
         return true;
+    }
+
+    private void clearRoundCaches() {
+        TypeManifest.clearCaches();
+        VariableManifest.clearCache();
+        ClassManifest.clearCache();
     }
 
     private void rememberCurrentCompilationTypeNames(RoundEnvironment environment) {

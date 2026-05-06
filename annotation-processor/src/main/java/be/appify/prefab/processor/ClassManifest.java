@@ -46,6 +46,10 @@ public class ClassManifest {
         return manifestCache.computeIfAbsent(typeElement, type -> new ClassManifest(type, processingEnvironment));
     }
 
+    static void clearCache() {
+        manifestCache.clear();
+    }
+
     public static boolean hasUnresolvedFields(TypeElement typeElement) {
         return hasUnresolvedFieldTypes(typeElement) || hasUnresolvedEventHandlerParameterTypes(typeElement);
     }

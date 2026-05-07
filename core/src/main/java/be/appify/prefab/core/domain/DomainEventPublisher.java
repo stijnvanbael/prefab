@@ -1,33 +1,43 @@
 package be.appify.prefab.core.domain;
 
-import be.appify.prefab.core.util.ServiceLocator;
-
-/** Publisher for domain events */
+/** Publisher for domain events. */
 public abstract class DomainEventPublisher {
 
-    /** Service locator to get the instance of the publisher */
-    protected static ServiceLocator serviceLocator;
+    private static volatile DomainEventPublisher instance;
 
     /** Constructs a new DomainEventPublisher. */
     public DomainEventPublisher() {
     }
 
-    private static final class InstanceHolder {
-        private static final DomainEventPublisher instance = serviceLocator != null
-            ? serviceLocator.getInstance(DomainEventPublisher.class)
-            : null;
+    /**
+     * Registers the active publisher instance. Called by framework infrastructure on startup.
+     *
+     * @param publisher the publisher to register
+     */
+    public static void setInstance(DomainEventPublisher publisher) {
+        instance = publisher;
     }
 
     /**
-     * Get the singleton instance of the DomainEventPublisher
-     * @return The singleton instance of the DomainEventPublisher
+     * Clears the active publisher instance. Called by framework infrastructure on shutdown
+     * and by test infrastructure after each test.
+     */
+    public static void reset() {
+        instance = null;
+    }
+
+    /**
+     * Returns the active publisher instance, or {@code null} when no publisher is registered.
+     *
+     * @return the active publisher, or {@code null}
      */
     public static DomainEventPublisher getInstance() {
-        return InstanceHolder.instance;
+        return instance;
     }
 
     /**
-     * Publish a domain event
+     * Publishes a domain event.
+     *
      * @param event the event to publish
      */
     public abstract void publish(Object event);

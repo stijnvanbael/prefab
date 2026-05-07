@@ -33,7 +33,7 @@ class GetListTestClientWriter {
         addPaging(method);
         addSorting(method);
         for (var property : filterProperties) {
-            addFilterParam(property.name(), method);
+            addFilterParam(property, method);
         }
         return performRequest(method, returnType);
     }
@@ -128,13 +128,23 @@ class GetListTestClientWriter {
                 ControllerUtil.class);
     }
 
-    private static void addFilterParam(String property, MethodSpec.Builder method) {
-        if (property != null) {
+    private static void addFilterParam(VariableManifest property, MethodSpec.Builder method) {
+        if (property == null) {
+            return;
+        }
+        var name = property.name();
+        if (property.type().is(String.class)) {
             method.addCode("""
                     if ($N != null) {
                         request.queryParam($S, $N);
                     }
-                    """, property, property, property);
+                    """, name, name, name);
+        } else {
+            method.addCode("""
+                    if ($N != null) {
+                        request.queryParam($S, String.valueOf($N));
+                    }
+                    """, name, name, name);
         }
     }
 

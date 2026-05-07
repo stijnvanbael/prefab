@@ -1,12 +1,10 @@
 package kafka.multitopic.infrastructure.kafka;
 
-import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
 import kafka.multitopic.Refund;
 import kafka.multitopic.Sale;
 import kafka.multitopic.application.DayTotalService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
@@ -16,12 +14,7 @@ public class DayTotalKafkaConsumer {
 
     private final DayTotalService dayTotalService;
 
-    public DayTotalKafkaConsumer(DayTotalService dayTotalService,
-            KafkaJsonTypeResolver typeResolver,
-            @Value("${topic.sale.name}") String saleCreatedTopic,
-            @Value("${topic.refund.name}") String refundCreatedTopic) {
-        typeResolver.registerType(saleCreatedTopic, Sale.Created.class);
-        typeResolver.registerType(refundCreatedTopic, Refund.Created.class);
+    public DayTotalKafkaConsumer(DayTotalService dayTotalService) {
         this.dayTotalService = dayTotalService;
     }
 

@@ -4,7 +4,6 @@ import be.appify.prefab.core.annotations.AsyncCommit;
 import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
-import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
 import be.appify.prefab.processor.CaseUtil;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
@@ -17,8 +16,6 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeSpec;
 
-import java.util.Comparator;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +29,6 @@ import javax.lang.model.type.DeclaredType;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -70,6 +66,8 @@ class KafkaConsumerWriter {
             return;
         }
 
+        validateTopicAncestors(resolvedHandlers);
+
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.kafka");
 
         var name = "%sKafkaConsumer".formatted(owner.simpleName());
@@ -86,14 +84,16 @@ class KafkaConsumerWriter {
 
         var fields = support.addFields(resolvedHandlers, context, type);
         addEventHandlers(resolvedHandlers, owner, type, isAsyncCommit);
-        var topics = resolvedHandlers.stream()
-                .map(e -> listenerEventTypeFor(support.rootEventType(e, context))
-                        .annotationsOfType(Event.class).stream().findFirst()
-                        .orElseThrow()
-                        .topic())
-                .collect(Collectors.toSet());
-        type.addMethod(constructor(topics, fields, resolvedHandlers));
+        type.addMethod(constructor(fields));
         fileWriter.writeFile(packageName, name, type.build());
+    }
+
+    private void validateTopicAncestors(List<ExecutableElement> eventHandlers) {
+        var topics = eventHandlers.stream()
+                .map(e -> listenerEventTypeFor(support.rootEventType(e, context))
+                        .annotationsOfType(Event.class).stream().findFirst().orElseThrow().topic())
+                .collect(Collectors.toSet());
+        topics.forEach(topic -> support.eventTypeOf(eventHandlers, context, topic));
     }
 
     private void addEventHandlers(
@@ -157,103 +157,10 @@ class KafkaConsumerWriter {
         return kafkaListener.build();
     }
 
-    private MethodSpec constructor(
-            Set<String> topics,
-            Set<FieldSpec> fields,
-            List<ExecutableElement> eventHandlers
-    ) {
+    private MethodSpec constructor(Set<FieldSpec> fields) {
         var constructor = MethodSpec.constructorBuilder().addModifiers(PUBLIC);
         fields.forEach(field -> constructor.addParameter(ParameterSpec.builder(field.type(), field.name()).build()));
-        constructor.addParameter(KafkaJsonTypeResolver.class, "typeResolver");
-        topics.forEach(topic -> addTopic(eventHandlers, context, topic, constructor));
         fields.forEach(field -> constructor.addStatement("this.$L = $L", field.name(), field.name()));
         return constructor.build();
-    }
-
-    private void addTopic(List<ExecutableElement> eventHandlers, PrefabContext context, String topic,
-                          MethodSpec.Builder constructor) {
-        var concreteTypes = concreteTypesForTopic(eventHandlers, topic);
-        if (concreteTypes.isEmpty()) {
-            support.eventTypeOf(eventHandlers, context, topic);
-            return;
-        }
-        var registrationTypes = resolveRegistrationTypes(concreteTypes, topic);
-        if (topic.matches("\\$\\{.+}")) {
-            var eventType = support.eventTypeOf(eventHandlers, context, topic);
-            var topicVariableName = uncapitalize(eventType.simpleName().replace(".", "")) + "Topic";
-            constructor.addParameter(ParameterSpec.builder(String.class, topicVariableName)
-                    .addAnnotation(AnnotationSpec.builder(Value.class)
-                            .addMember("value", "$S", topic)
-                            .build())
-                    .build());
-            registrationTypes.forEach(type ->
-                    constructor.addStatement("typeResolver.registerType($L, $T.class)", topicVariableName, type.asTypeName()));
-        } else {
-            registrationTypes.forEach(type ->
-                    constructor.addStatement("typeResolver.registerType($S, $T.class)", topic, type.asTypeName()));
-        }
-    }
-
-    private List<TypeManifest> resolveRegistrationTypes(
-            List<TypeManifest> concreteTypes,
-            String topic) {
-        if (concreteTypes.size() <= 1) {
-            return concreteTypes;
-        }
-        return sharedEventInterfaceOf(concreteTypes, topic)
-                .map(List::of)
-                .orElseGet(() -> concreteTypes.stream()
-                        .sorted(Comparator.comparing(TypeManifest::simpleName))
-                        .toList());
-    }
-
-    private Optional<TypeManifest> sharedEventInterfaceOf(
-            List<TypeManifest> concreteTypes,
-            String topic) {
-        if (concreteTypes.isEmpty()) return Optional.empty();
-        Set<TypeElement> commonInterfaces = null;
-        for (var type : concreteTypes) {
-            if (type.asElement() == null) return Optional.empty();
-            var interfaces = type.asElement().getInterfaces().stream()
-                    .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
-                    .collect(Collectors.toSet());
-            if (commonInterfaces == null) {
-                commonInterfaces = new HashSet<>(interfaces);
-            } else {
-                commonInterfaces.retainAll(interfaces);
-            }
-        }
-        return commonInterfaces.stream()
-                .filter(iface -> iface.getAnnotation(Event.class) != null && iface.getAnnotation(Event.class).topic()
-                        .equals(topic) && iface.getAnnotation(Avsc.class) == null)
-                .findFirst()
-                .map(iface -> TypeManifest.of(iface.asType(), context.processingEnvironment()));
-    }
-
-    private List<TypeManifest> concreteTypesForTopic(List<ExecutableElement> eventHandlers, String topic) {
-        var rootTypes = eventHandlers.stream()
-                .map(h -> support.rootEventType(h, context))
-                .map(t -> avscInterfaceOf(t).orElse(t))
-                .filter(t -> t.annotationsOfType(Event.class).stream().anyMatch(e -> e.topic().equals(topic)))
-                .distinct()
-                .toList();
-        if (rootTypes.size() <= 1) {
-            return rootTypes.stream()
-                    .flatMap(t -> support.concreteEventTypes(t, context).stream())
-                    .toList();
-        }
-        var allAvscGenerated = rootTypes.stream()
-                .allMatch(t -> t.asElement() != null && isAvscGeneratedRecord(t.asElement()));
-        if (!allAvscGenerated) {
-            var shared = sharedEventInterfaceOf(rootTypes, topic);
-            if (shared.isPresent()) {
-                return rootTypes.stream().distinct().toList();
-            }
-            return List.of();
-        }
-        return rootTypes.stream()
-                .flatMap(t -> support.concreteEventTypes(t, context).stream())
-                .distinct()
-                .toList();
     }
 }

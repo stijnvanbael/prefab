@@ -1,6 +1,5 @@
 package kafka.externaldependency.infrastructure.kafka;
 
-import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
 import kafka.dependencyevents.ExternalUserCreated;
 import kafka.externaldependency.UserImporter;
 import org.slf4j.Logger;
@@ -14,9 +13,7 @@ public class UserImporterKafkaConsumer {
 
     private final UserImporter userImporter;
 
-    public UserImporterKafkaConsumer(UserImporter userImporter,
-            KafkaJsonTypeResolver typeResolver) {
-        typeResolver.registerType("prefab.external.user", ExternalUserCreated.class);
+    public UserImporterKafkaConsumer(UserImporter userImporter) {
         this.userImporter = userImporter;
     }
 

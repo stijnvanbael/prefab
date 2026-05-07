@@ -685,6 +685,7 @@ event types are declared in dependency modules.
 
 **Generated artefacts:**
 - `{Type}Producer` / `{EventInterface}Producer` — Spring `@Component` that publishes to the topic
+- `{Type}KafkaEventTypeRegistrar` — Spring `@Component` that registers the event type with `KafkaJsonTypeResolver` so it can be deserialized regardless of whether a production consumer exists (enables test consumers to work without a production consumer on the same topic)
 - Consumer class registered in the messaging platform subscriber (Kafka listener, Pub/Sub subscriber, SQS listener)
 - `SerializationRegistryConfiguration` — registers topic → serialization format mapping
 

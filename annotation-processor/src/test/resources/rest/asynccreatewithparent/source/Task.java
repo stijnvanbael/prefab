@@ -5,6 +5,7 @@ import be.appify.prefab.core.annotations.AsyncCommit;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.Parent;
+import be.appify.prefab.core.domain.PublishesEvents;
 import be.appify.prefab.core.service.Reference;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.annotation.Id;
@@ -17,8 +18,8 @@ public record Task(
         @NotNull String title
 ) {
     @Create
-    public static TaskCreated create(Reference<Project> project, @NotNull String title) {
-        return new TaskCreated(Reference.create(), project, title);
+    public static void create(Reference<Project> project, @NotNull String title) {
+        PublishesEvents.publishEvent(new TaskCreated(Reference.create(), project, title));
     }
 
     @Event(topic = "tasks")

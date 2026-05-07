@@ -20,8 +20,8 @@ public record Ticket(
 ) implements PublishesEvents {
 
     @Create(path = "/{queue}")
-    public static TicketOpened open(String queue, @NotNull String subject) {
-        return new TicketOpened(Reference.create(), queue, subject);
+    public static void open(String queue, @NotNull String subject) {
+        PublishesEvents.publishEvent(new TicketOpened(Reference.create(), queue, subject));
     }
 
     @Update(path = "/{status}/transition")

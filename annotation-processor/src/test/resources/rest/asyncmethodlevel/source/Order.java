@@ -18,8 +18,8 @@ public record Order(
 ) implements PublishesEvents {
     @Create
     @AsyncCommit
-    public static OrderPlaced placeOrder(@NotNull String customerId) {
-        return new OrderPlaced(Reference.create(), customerId);
+    public static void placeOrder(@NotNull String customerId) {
+        PublishesEvents.publishEvent(new OrderPlaced(Reference.create(), customerId));
     }
 
     @Update(path = "/cancel")

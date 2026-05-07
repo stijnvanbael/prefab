@@ -261,9 +261,12 @@ An `@EventHandler` on the same aggregate then persists it when the event arrives
 **Attributes:** None
 
 **Behaviour:**
-- On `@Create` static factory method: must return the event type; generates `202 Accepted`
+- On `@Create` static factory method: must have `void` return type and call `PublishesEvents.publishEvent(event)` internally; the generated endpoint returns `202 Accepted`. The event is routed through the Spring application event bus to the generated Kafka (or Pub/Sub, SNS) producer.
 - On `@Update` void method: method must call `publish()` internally; generates `202 Accepted`
 - `@EventHandler` methods on an `@AsyncCommit` aggregate receive a deduplication guard in the generated consumer
+
+> **⚠ Warning**: A `@Create @AsyncCommit` method with a non-void return type will cause a **compile-time error**.
+> The generated service discards any return value, so a non-void factory would silently never publish its event.
 
 **Example:**
 
@@ -276,8 +279,8 @@ public record Order(
         String status
 ) {
     @Create
-    public static OrderPlaced create(@NotNull String customerId) {
-        return new OrderPlaced(Reference.create(), customerId);
+    public static void create(@NotNull String customerId) {
+        PublishesEvents.publishEvent(new OrderPlaced(Reference.create(), customerId));
     }
 
     @EventHandler
@@ -1940,7 +1943,12 @@ Spring Boot auto-configuration.
 
 ### 7.8 Async Commit Pattern
 
-Use when you need at-least-once delivery semantics for aggregate creation via an event broker:
+Use when you need at-least-once delivery semantics for aggregate creation via an event broker.
+
+The `@Create @AsyncCommit` static factory method must have a **`void` return type** and publish
+the event explicitly using `PublishesEvents.publishEvent(event)`. If a non-void return type is used,
+the annotation processor emits a compile-time error — the generated service discards any return value,
+so the event would never be published.
 
 ```java
 @Aggregate
@@ -1951,10 +1959,10 @@ public record Order(
         String customerId,
         String status
 ) {
-    // REST call publishes event and returns 202
+    // REST call publishes event and returns 202 Accepted
     @Create
-    public static OrderPlaced create(@NotNull String customerId) {
-        return new OrderPlaced(Reference.create(), customerId);
+    public static void create(@NotNull String customerId) {
+        PublishesEvents.publishEvent(new OrderPlaced(Reference.create(), customerId));
     }
 
     // Aggregate is persisted when event arrives
@@ -2371,7 +2379,7 @@ Verify `maven.compiler.release` is set to `21`. Run `mvn clean compile` to force
 | Annotation | Target | Retention | Purpose |
 |------------|--------|-----------|---------|
 | `@Aggregate` | Type | RUNTIME | Marks an aggregate root |
-| `@AsyncCommit` | Type, Method | SOURCE | Async-commit (listen-to-self) pattern |
+| `@AsyncCommit` | Type, Constructor, Method | SOURCE | Async-commit (listen-to-self) pattern; `@Create` methods must be `void` and call `PublishesEvents.publishEvent()` |
 | `@CustomType` | Type | RUNTIME | Opt out of automatic field mapping |
 | `@Create` | Constructor, Method | SOURCE | HTTP create endpoint |
 | `@Update` | Method | SOURCE | HTTP update endpoint |

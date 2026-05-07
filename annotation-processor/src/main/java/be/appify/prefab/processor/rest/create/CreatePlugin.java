@@ -3,6 +3,7 @@ package be.appify.prefab.processor.rest.create;
 import be.appify.prefab.core.annotations.AsyncCommit;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.Update;
+import javax.lang.model.type.TypeKind;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
@@ -215,8 +216,20 @@ public class CreatePlugin implements PrefabPlugin {
                             || method.getAnnotationsByType(AsyncCommit.class).length > 0)
                     .toList();
             validateNoDuplicateMappings(factories);
+            validateVoidReturnType(factories);
             return factories;
         });
+    }
+
+    private void validateVoidReturnType(List<ExecutableElement> factories) {
+        factories.stream()
+                .filter(factory -> factory.getReturnType().getKind() != TypeKind.VOID)
+                .forEach(factory -> context.logError(
+                        "@AsyncCommit @Create method must have a void return type and call "
+                                + "PublishesEvents.publishEvent(event) internally. "
+                                + "A non-void return type is silently discarded by the generated service, "
+                                + "so the event is never published.",
+                        factory));
     }
 
     private void validateNoDuplicateMappings(List<ExecutableElement> factories) {

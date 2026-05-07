@@ -1,7 +1,7 @@
 ---
 id: task-160
 title: "Fix developer guide: @AsyncCommit @Create should use void return type with publishEvent()"
-status: "To Do"
+status: "Sone"
 priority: "High"
 labels: ["documentation", "async-commit", "reported-by:maestro"]
 ---
@@ -106,8 +106,8 @@ Update the `@AsyncCommit` row to clarify that `@Create` methods must be `void`.
 
 ## Acceptance Criteria
 
-- [ ] Section 4.1 `@AsyncCommit` corrected to describe void-return + `publishEvent()` pattern
-- [ ] Section 7.8 code example updated with `void` return and `publishEvent()` call
-- [ ] Annotation processor emits a **compile-time warning** (or error) when `@AsyncCommit @Create` has a non-void return type
-- [ ] Example projects / quick-start guide updated if they use the old pattern
+- [x] Section 4.1 `@AsyncCommit` corrected to describe void-return + `publishEvent()` pattern
+- [x] Section 7.8 code example updated with `void` return and `publishEvent()` call
+- [x] Annotation processor emits a **compile-time warning** (or error) when `@AsyncCommit @Create` has a non-void return type
+- [x] Example projects / quick-start guide updated if they use the old pattern
 

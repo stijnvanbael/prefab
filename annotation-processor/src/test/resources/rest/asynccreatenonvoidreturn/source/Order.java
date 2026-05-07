@@ -1,10 +1,9 @@
-package rest.asyncmultiplecreate;
+package rest.asynccreatenonvoidreturn;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.AsyncCommit;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.rest.Create;
-import be.appify.prefab.core.domain.PublishesEvents;
 import be.appify.prefab.core.service.Reference;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.annotation.Id;
@@ -17,16 +16,12 @@ public record Order(
         String status
 ) {
     @Create
-    public static void placeOrder(@NotNull String customerId) {
-        PublishesEvents.publishEvent(new OrderPlaced(Reference.create(), customerId));
-    }
-
-    @Create(path = "/quick")
-    public static void quickOrder(@NotNull String customerId, @NotNull String vipCode) {
-        PublishesEvents.publishEvent(new OrderPlaced(Reference.create(), customerId + ":" + vipCode));
+    public static OrderPlaced placeOrder(@NotNull String customerId) {
+        return new OrderPlaced(Reference.create(), customerId);
     }
 
     @Event(topic = "orders")
     public record OrderPlaced(Reference<Order> id, String customerId) {
     }
 }
+

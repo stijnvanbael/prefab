@@ -409,14 +409,24 @@ class EventSchemaFactoryWriter {
     }
 
     private CodeBlock createEnumSchema(TypeManifest type) {
-        return CodeBlock.of("$T.createEnum($S, null, $S, $T.of($L))",
+        var enumValues = type.enumValues();
+        if (enumValues.isEmpty()) {
+            context.logError("Enum '%s' has no values and cannot generate an Avro enum schema."
+                            .formatted(type.simpleName()),
+                    type.asElement());
+            return CodeBlock.of("$T.create($T.NULL)", Schema.class, Schema.Type.class);
+        }
+
+        return CodeBlock.of("$T.createEnum($S, $S, $S, $T.of($L), $S)",
                 Schema.class,
                 type.simpleName().replace('.', '_'),
+                type.doc().orElse(null),
                 avroNamespaceOf(type),
                 List.class,
-                type.enumValues().stream()
+                enumValues.stream()
                         .map(value -> CodeBlock.of("$S", value))
-                        .collect(CodeBlock.joining(", ")));
+                        .collect(CodeBlock.joining(", ")),
+                enumValues.getFirst());
     }
 
     private CodeBlock createPrimitiveSchema(TypeManifest type) {

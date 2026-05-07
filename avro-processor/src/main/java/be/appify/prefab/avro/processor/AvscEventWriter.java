@@ -242,6 +242,7 @@ class AvscEventWriter {
     private TypeSpec buildEnum(Schema schema) {
         var enumBuilder = TypeSpec.enumBuilder(schema.getName())
                 .addModifiers(Modifier.PUBLIC);
+        docOf(schema).ifPresent(doc -> enumBuilder.addAnnotation(docAnnotation(doc)));
         namespaceAnnotation(schema).ifPresent(enumBuilder::addAnnotation);
         schema.getEnumSymbols().forEach(enumBuilder::addEnumConstant);
         return enumBuilder.build();

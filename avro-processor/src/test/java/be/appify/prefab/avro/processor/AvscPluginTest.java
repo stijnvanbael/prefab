@@ -341,6 +341,26 @@ class AvscPluginTest {
     }
 
     @Test
+    void docFieldAnnotationIsPropagatedFromAvscToGeneratedRecord() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/docfield/source/DocFieldAvsc.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("event.avsc.DocFieldAvscEvent")
+                .contentsAsUtf8String()
+                .contains("@Doc(\"Full name of the person\")");
+        assertThat(compilation).generatedSourceFile("event.avsc.DocFieldAvscEvent")
+                .contentsAsUtf8String()
+                .contains("@Doc(\"An event describing a person\")");
+        assertThat(compilation).generatedSourceFile("event.avsc.DocFieldAvscEvent")
+                .contentsAsUtf8String()
+                .contains("String name");
+        assertThat(compilation).generatedSourceFile("event.avsc.DocFieldAvscStatus")
+                .contentsAsUtf8String()
+                .contains("@Doc(\"The status of the person\")");
+    }
+
+    @Test
     void avscArtifactsFromDependencyAreNotRegeneratedInConsumerModule() {
         var dependencyClasspath = compileDependencyClasspath(
                 sourceOf("event/avsc/dependency/source/DependencyAvsc.java"));

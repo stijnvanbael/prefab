@@ -1,0 +1,8 @@
+{
+  "type": "enum",
+  "name": "DocFieldAvscStatus",
+  "namespace": "event.avsc",
+  "doc": "The status of the person",
+  "symbols": ["ACTIVE", "INACTIVE", "PENDING"]
+}
+

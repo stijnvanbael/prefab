@@ -1,7 +1,7 @@
 ---
 id: task-159
 title: "Add @Stream annotation for SSE and WebSocket endpoint generation"
-status: "In Progress"
+status: "Done"
 priority: "High"
 labels: ["feature", "annotation-processor", "requested-by:maestro"]
 ---

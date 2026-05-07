@@ -1,7 +1,7 @@
 ---
 id: task-163
 title: "Fix generated test client: enum fields passed to queryParam() instead of String"
-status: "To Do"
+status: "Done"
 priority: "Medium"
 labels: ["bug", "annotation-processor", "test-client", "reported-by:maestro"]
 ---

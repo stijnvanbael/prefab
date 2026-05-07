@@ -47,6 +47,7 @@ this document as the primary source of truth for Prefab behaviour.
    - [7.8 Async Commit Pattern](#78-async-commit-pattern)
    - [7.9 Nested Value Objects and Embedded Types](#79-nested-value-objects-and-embedded-types)
    - [7.10 Repository Mixins](#710-repository-mixins)
+   - [7.11 SSE Streaming](#711-sse-streaming)
 8. [Extension Point Guide](#8-extension-point-guide)
 9. [Configuration Reference](#9-configuration-reference)
 10. [Troubleshooting](#10-troubleshooting)
@@ -522,6 +523,90 @@ Binary attachment;
 
 ---
 
+#### `@Streaming`
+
+**Target:** `METHOD`
+**Package:** `be.appify.prefab.core.annotations.rest`
+**Retention:** `SOURCE`
+
+Generates a Server-Sent Events (SSE) streaming endpoint for an aggregate method. Two usage models
+are supported:
+
+- **Pull model**: annotate an instance method returning `Stream<T>` or `Flux<T>`. The processor
+  generates a controller endpoint that consumes the stream on a virtual thread (for `Stream<T>`) or
+  via reactive subscribe (for `Flux<T>`) and forwards each element as an SSE frame.
+- **Push model**: annotate an `@EventHandler @ByReference` method. Each time the event fires for a
+  given aggregate instance, the event payload is pushed to any SSE client currently connected for
+  that instance via a generated `{Aggregate}SseRegistry`.
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `path` | `String` | `"/stream"` | Path suffix appended after `/{id}`. E.g. `"/stream"` → `GET /sessions/{id}/stream`. |
+| `event` | `String` | `"message"` | SSE event name sent in the `event:` field of each SSE frame. |
+| `heartbeatSeconds` | `int` | `15` | Interval between keepalive `event: ping` frames. `0` disables heartbeat. |
+| `terminal` | `String` | `""` | Push model only: name of a `boolean` field on the event record. When `true`, the SSE stream is closed after the final frame. Empty string disables auto-close. |
+| `security` | `@Security` | `@Security` | Security settings for the generated SSE connect endpoint. |
+
+##### Pull model example
+
+```java
+@Aggregate
+@GetById
+public record Session(
+        @Id String id,
+        @Version long version,
+        String title) {
+
+    @Streaming(path = "/stream", event = "token")
+    public Stream<String> streamTokens() {
+        return TokenRegistry.streamFor(id);
+    }
+}
+```
+
+**Generated endpoint:** `GET /sessions/{id}/stream` → `text/event-stream`, each token forwarded on a
+virtual thread using `SseEmitter`. A keepalive `event: ping` frame is sent every 15 seconds.
+
+##### Push model example
+
+```java
+@Event(topic = "${topics.tokens.name}")
+public record TokenEmitted(
+        @PartitioningKey Reference<Session> sessionId,
+        String token,
+        boolean done) {}
+
+@Aggregate
+@GetById
+public record Session(
+        @Id String id,
+        @Version long version,
+        String title) {
+
+    @EventHandler
+    @ByReference(property = "sessionId")
+    @Streaming(path = "/stream", event = "token", terminal = "done")
+    public Session onTokenEmitted(TokenEmitted event) {
+        return new Session(id, version, title);
+    }
+}
+```
+
+**Generated artefacts:**
+- `GET /sessions/{id}/stream` SSE connect endpoint — registers an `SseEmitter` in `SessionSseRegistry`
+  and starts the heartbeat scheduler.
+- `SessionSseRegistry` — a `@Component` backed by a `ConcurrentHashMap<String, SseEmitter>` with
+  `register`, `findById`, and `remove` methods.
+- Augmented `onTokenEmitted` service method — applies the ByReference update logic, then pushes
+  `event.token()` (field matching `event = "token"`) to any connected SSE client. When
+  `event.done() == true` (field matching `terminal = "done"`), calls `emitter.complete()`.
+
+**Validation errors:**
+- Processor error if `terminal` names a field that does not exist on the event record.
+- Processor error if `terminal` names a field that is not `boolean` / `Boolean`.
+
+---
+
 #### `@Parent`
 
 **Target:** `FIELD`, `METHOD`
@@ -553,7 +638,7 @@ public record OrderLine(
 **Target:** (annotation attribute only — not placed directly on types)
 
 Used as the value of the `security` attribute on `@Create`, `@Update`, `@Delete`, `@GetById`,
-`@GetList`, `@Download`.
+`@GetList`, `@Download`, `@Streaming`.
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -1953,6 +2038,88 @@ public interface UserStatusRepositoryMixin {
     List<UserStatus> findUserStatusesInChannel(Reference<Channel> channel);
 }
 ```
+
+---
+
+### 7.11 SSE Streaming
+
+Prefab generates Server-Sent Events (SSE) endpoints for aggregate methods annotated with `@Streaming`.
+Two delivery models are supported.
+
+#### Pull model — blocking `Stream<T>` or reactive `Flux<T>`
+
+Use this when data comes from an in-process source such as a blocking iterator, subprocess stdout, or
+a reactive stream.
+
+```java
+@Aggregate
+@GetById
+public record Session(
+        @Id String id,
+        @Version long version,
+        String title) {
+
+    @Streaming(path = "/stream", event = "token", heartbeatSeconds = 15)
+    public java.util.stream.Stream<String> streamTokens() {
+        return TokenRegistry.streamFor(id);  // blocking source
+    }
+}
+```
+
+Prefab generates:
+- `GET /sessions/{id}/stream` → `text/event-stream` response using `SseEmitter`
+- A virtual thread (`Thread.ofVirtual()`) consumes the `Stream<T>` and sends each element as an SSE
+  frame with the configured `event` name.
+- A heartbeat virtual thread sends `event: ping\ndata: {}\n\n` every `heartbeatSeconds` seconds.
+- On disconnect (emitter completion / timeout) the stream is closed.
+
+For `Flux<T>` return types, `Flux.subscribe()` is used instead of a virtual thread.
+
+#### Push model — `@EventHandler @ByReference @Streaming`
+
+Use this when data arrives via a Kafka (or other messaging) event and should be forwarded to a
+connected SSE client.
+
+```java
+@Event(topic = "${topics.tokens.name}")
+public record TokenEmitted(
+        @PartitioningKey Reference<Session> sessionId,
+        String token,
+        boolean done) {}
+
+@Aggregate
+@GetById
+public record Session(
+        @Id String id,
+        @Version long version,
+        String title) {
+
+    @EventHandler
+    @ByReference(property = "sessionId")
+    @Streaming(path = "/stream", event = "token", terminal = "done")
+    public Session onTokenEmitted(TokenEmitted event) {
+        return this;
+    }
+}
+```
+
+Prefab generates:
+- `GET /sessions/{id}/stream` SSE connect endpoint — registers an `SseEmitter` in
+  `SessionSseRegistry`, sets up `onCompletion`/`onTimeout` cleanup, and starts the heartbeat.
+- `SessionSseRegistry` — a `@Component` backed by a `ConcurrentHashMap<String, SseEmitter>`.
+- An augmented `onTokenEmitted` service method that:
+  1. Applies the `@ByReference` update and saves the aggregate (standard event-handler logic).
+  2. Pushes `event.token()` (field matching `event = "token"`) as the SSE data payload.
+  3. Calls `emitter.complete()` when `event.done() == true` (field matching `terminal = "done"`),
+     cleanly closing the SSE connection.
+
+#### Choosing the right model
+
+| Scenario | Recommended model |
+|----------|------------------|
+| Data from a Kafka event already in the Prefab event flow | **Push** (`@EventHandler @ByReference @Streaming`) |
+| Data from a blocking in-process source (iterator, subprocess) | **Pull** (method returning `Stream<T>`) |
+| Data from a reactive source (Project Reactor) | **Pull** (method returning `Flux<T>`) |
 
 ---
 

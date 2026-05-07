@@ -1,7 +1,7 @@
 ---
-id: TBD
+id: task-159
 title: "Add @Stream annotation for SSE and WebSocket endpoint generation"
-status: "To Do"
+status: "In Progress"
 priority: "High"
 labels: ["feature", "annotation-processor", "requested-by:maestro"]
 ---
@@ -248,31 +248,31 @@ space should reserve `protocol` to avoid a breaking change.
 
 ## Acceptance Criteria
 
-- [ ] `@Stream` annotation defined in `prefab-core` with the attributes above (including `terminal`)
-- [ ] `StreamPlugin` implements `PrefabPlugin`; registered in `META-INF/services`
-- [ ] **Pull model**: `StreamPlugin.writeController()` generates the SSE endpoint for each `@Stream`-annotated method returning `Stream<T>` or `Flux<T>`
-- [ ] **Push model**: `StreamPlugin.writeController()` generates the SSE connect endpoint + `{Aggregate}SseRegistry` for each `@Stream` on an `@EventHandler` method
-- [ ] **Push model**: `StreamPlugin.writeService()` augments the generated event handler service method to push to the registry
-- [ ] Generated SSE connect endpoint: `GET /{basePath}/{id}/{path}` → `text/event-stream` content type (both models)
-- [ ] Pull model: generated method uses `Thread.ofVirtual()` to consume the `Stream<T>`
+- [x] `@Stream` annotation defined in `prefab-core` with the attributes above (including `terminal`) — implemented as `@Streaming` to avoid conflict with `java.util.stream.Stream`
+- [x] `StreamPlugin` implements `PrefabPlugin`; registered in `META-INF/services`
+- [x] **Pull model**: `StreamPlugin.writeController()` generates the SSE endpoint for each `@Streaming`-annotated method returning `Stream<T>` or `Flux<T>`
+- [x] **Push model**: `StreamPlugin.writeController()` generates the SSE connect endpoint + `{Aggregate}SseRegistry` for each `@Streaming` on an `@EventHandler` method
+- [x] **Push model**: `StreamPlugin.writeService()` augments the generated event handler service method to push to the registry
+- [x] Generated SSE connect endpoint: `GET /{basePath}/{id}/{path}` → `text/event-stream` content type (both models)
+- [x] Pull model: generated method uses `Thread.ofVirtual()` to consume the `Stream<T>`
 - [ ] Pull model: generated method uses `Flux.subscribe()` for `Flux<T>` return type
-- [ ] Push model: `{Aggregate}SseRegistry` is a `ConcurrentHashMap`-backed `@Component` scoped to the aggregate type
-- [ ] Push model: `terminal` attribute resolves to a `boolean` field on the event record; `emitter.complete()` called when `true`
-- [ ] Processor error if `terminal` names a field that does not exist on the event record
-- [ ] Processor error if `terminal` names a field that is not `boolean` / `Boolean`
-- [ ] Both models: generated method uses `SseEmitter` with zero timeout; heartbeat scheduler started; `onCompletion` / `onTimeout` remove emitter from registry
-- [ ] `@Security` attribute applied to `@PreAuthorize` on the generated SSE connect endpoint (both models)
-- [ ] `StreamPlugin` registered in the Prefab developer guide's annotation reference table
-- [ ] Unit test: pull model — `@Stream` on `Stream<String>` generates correct endpoint method signature
+- [x] Push model: `{Aggregate}SseRegistry` is a `ConcurrentHashMap`-backed `@Component` scoped to the aggregate type
+- [x] Push model: `terminal` attribute resolves to a `boolean` field on the event record; `emitter.complete()` called when `true`
+- [x] Processor error if `terminal` names a field that does not exist on the event record
+- [x] Processor error if `terminal` names a field that is not `boolean` / `Boolean`
+- [x] Both models: generated method uses `SseEmitter` with zero timeout; heartbeat scheduler started; `onCompletion` / `onTimeout` remove emitter from registry
+- [x] `@Security` attribute applied to `@PreAuthorize` on the generated SSE connect endpoint (both models)
+- [x] `StreamPlugin` registered in the Prefab developer guide's annotation reference table
+- [x] Unit test: pull model — `@Stream` on `Stream<String>` generates correct endpoint method signature
 - [ ] Unit test: pull model — `@Stream` on `Stream<MyRecord>` generates correct JSON SSE data serialisation
-- [ ] Unit test: push model — `@Stream` on `@EventHandler @ByReference` generates registry + service augmentation
-- [ ] Unit test: push model — `terminal = "done"` generates `emitter.complete()` call when `event.done() == true`
+- [x] Unit test: push model — `@Stream` on `@EventHandler @ByReference` generates registry + service augmentation
+- [x] Unit test: push model — `terminal = "done"` generates `emitter.complete()` call when `event.done() == true`
 - [ ] Integration test (pull model): SSE endpoint delivers streamed items to a test client in order
 - [ ] Integration test (push model): Kafka event fires → SSE client receives pushed payload
 - [ ] Integration test (push model): `terminal=true` on event → stream closed after final frame
 - [ ] Integration test (both): heartbeat ping received after configured interval
 - [ ] Integration test (both): client disconnect triggers emitter cleanup
-- [ ] Prefab developer guide updated: section 4.2 REST Annotations (pull model + push model); section 7.x new feature guide with both examples
+- [x] Prefab developer guide updated: section 4.2 REST Annotations (pull model + push model); section 7.x new feature guide with both examples
 
 ## Implementation Notes
 

@@ -44,6 +44,8 @@ public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
                         && !element.getModifiers().contains(Modifier.STATIC))
                 .map(ExecutableElement.class::cast)
                 .filter(element -> element.getAnnotationsByType(ByReference.class).length > 0)
+                // @Streaming push-model methods are handled by StreamPlugin to include SSE push logic
+                .filter(element -> element.getAnnotation(be.appify.prefab.core.annotations.rest.Streaming.class) == null)
                 .flatMap(element -> {
                     var annotation = element.getAnnotationsByType(ByReference.class)[0];
                     var eventType = getEventType(element, context);

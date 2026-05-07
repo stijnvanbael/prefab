@@ -7,6 +7,9 @@ When generating code in this repository, follow all guidelines defined in [AGENT
 - Keep terminal commands short. GitHub Copilot truncates long terminal commands, which can lead to incomplete or
   incorrect instructions. Instead of executing one long command, break it down into multiple shorter commands that can
   be executed sequentially. Try to edit big files with a tool instead.
+- Keep track of your work in the backlog. If you are making changes that are not directly related to the current task, create a new task in the
+  backlog to track that work. This helps maintain a clear record of all changes and ensures that nothing important is
+  overlooked.
 
 ---
 

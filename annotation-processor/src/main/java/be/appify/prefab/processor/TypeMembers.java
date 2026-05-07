@@ -42,7 +42,7 @@ class TypeMembers {
     private Stream<VariableManifest> backingFields() {
         if (element.getKind() != ElementKind.RECORD) {
             return element.getEnclosedElements().stream()
-                    .filter(e -> e.getKind() == ElementKind.FIELD)
+                    .filter(e -> e.getKind() == ElementKind.FIELD && !e.getModifiers().contains(Modifier.STATIC))
                     .map(VariableElement.class::cast)
                     .map(field -> VariableManifest.of(field, processingEnvironment));
         }
@@ -58,7 +58,7 @@ class TypeMembers {
     private Stream<VariableManifest> recordFieldsWithComponentAnnotations() {
         var componentAnnotations = recordComponentAnnotationsByName();
         return element.getEnclosedElements().stream()
-                .filter(e -> e.getKind() == ElementKind.FIELD)
+                .filter(e -> e.getKind() == ElementKind.FIELD && !e.getModifiers().contains(Modifier.STATIC))
                 .map(VariableElement.class::cast)
                 .map(field -> VariableManifest.of(field, processingEnvironment)
                         .withAdditionalAnnotations(

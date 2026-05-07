@@ -193,6 +193,40 @@ class MotherPluginTest {
     }
 
     @Test
+    void compilationSucceedsForAggregateWithFieldTypeContainingStaticConstants() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("mother/staticconstants/source/AgentRole.java"),
+                        sourceOf("mother/staticconstants/source/AgentTask.java"));
+
+        assertThat(compilation).succeeded();
+    }
+
+    @Test
+    void builderForRecordWithStaticConstantsContainsOnlyInstanceComponents() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("mother/staticconstants/source/AgentRole.java"),
+                        sourceOf("mother/staticconstants/source/AgentTask.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("mother.staticconstants.source.application.CreateAgentTaskRequest")
+                .contentsAsUtf8String()
+                .contains("String assignedRole");
+        assertThat(compilation)
+                .generatedSourceFile("mother.staticconstants.source.application.CreateAgentTaskRequest")
+                .contentsAsUtf8String()
+                .doesNotContain("PLANNER");
+        assertThat(compilation)
+                .generatedSourceFile("mother.staticconstants.source.application.CreateAgentTaskRequest")
+                .contentsAsUtf8String()
+                .doesNotContain("RESEARCHER");
+    }
+
+    @Test
     void motherUsesEmptyMapForMapField() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

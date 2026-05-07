@@ -255,7 +255,7 @@ space should reserve `protocol` to avoid a breaking change.
 - [x] **Push model**: `StreamPlugin.writeService()` augments the generated event handler service method to push to the registry
 - [x] Generated SSE connect endpoint: `GET /{basePath}/{id}/{path}` → `text/event-stream` content type (both models)
 - [x] Pull model: generated method uses `Thread.ofVirtual()` to consume the `Stream<T>`
-- [ ] Pull model: generated method uses `Flux.subscribe()` for `Flux<T>` return type
+- [x] Pull model: generated method uses `Flux.subscribe()` for `Flux<T>` return type
 - [x] Push model: `{Aggregate}SseRegistry` is a `ConcurrentHashMap`-backed `@Component` scoped to the aggregate type
 - [x] Push model: `terminal` attribute resolves to a `boolean` field on the event record; `emitter.complete()` called when `true`
 - [x] Processor error if `terminal` names a field that does not exist on the event record
@@ -264,14 +264,14 @@ space should reserve `protocol` to avoid a breaking change.
 - [x] `@Security` attribute applied to `@PreAuthorize` on the generated SSE connect endpoint (both models)
 - [x] `StreamPlugin` registered in the Prefab developer guide's annotation reference table
 - [x] Unit test: pull model — `@Stream` on `Stream<String>` generates correct endpoint method signature
-- [ ] Unit test: pull model — `@Stream` on `Stream<MyRecord>` generates correct JSON SSE data serialisation
+- [x] Unit test: pull model — `@Stream` on `Stream<MyRecord>` generates correct JSON SSE data serialisation
 - [x] Unit test: push model — `@Stream` on `@EventHandler @ByReference` generates registry + service augmentation
 - [x] Unit test: push model — `terminal = "done"` generates `emitter.complete()` call when `event.done() == true`
-- [ ] Integration test (pull model): SSE endpoint delivers streamed items to a test client in order
-- [ ] Integration test (push model): Kafka event fires → SSE client receives pushed payload
-- [ ] Integration test (push model): `terminal=true` on event → stream closed after final frame
-- [ ] Integration test (both): heartbeat ping received after configured interval
-- [ ] Integration test (both): client disconnect triggers emitter cleanup
+- [x] Integration test (pull model): SSE endpoint delivers streamed items to a test client in order (`StreamSessionIntegrationTest` in `examples/mongodb`)
+- [x] Integration test (push model): Kafka event fires → SSE client receives pushed payload (`ChatSessionIntegrationTest` in `examples/kafka`)
+- [x] Integration test (push model): `terminal=true` on event → stream closed after final frame
+- [x] Integration test (both): heartbeat ping received after configured interval
+- [x] Integration test (both): client disconnect triggers emitter cleanup
 - [x] Prefab developer guide updated: section 4.2 REST Annotations (pull model + push model); section 7.x new feature guide with both examples
 
 ## Implementation Notes

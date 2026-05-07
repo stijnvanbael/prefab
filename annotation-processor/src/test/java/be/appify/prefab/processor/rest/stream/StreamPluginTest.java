@@ -171,5 +171,57 @@ class StreamPluginTest {
                 .contentsAsUtf8String()
                 .contains("emitter.complete()");
     }
+
+    @Test
+    @DisplayName("Pull model: @Stream on Stream<MyRecord> generates correct JSON SSE data serialisation")
+    void pullModel_streamOfRecord_generatesJsonDataSend() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("stream/pull/source/TokenItem.java"),
+                        sourceOf("stream/pull/source/RecordSession.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("stream.pull.infrastructure.http.RecordSessionController")
+                .contentsAsUtf8String()
+                .contains(".data(item)");
+    }
+
+    @Test
+    @DisplayName("Pull model: @Stream on Stream<MyRecord> generates endpoint for record type")
+    void pullModel_streamOfRecord_compilesSuccessfully() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("stream/pull/source/TokenItem.java"),
+                        sourceOf("stream/pull/source/RecordSession.java"));
+
+        assertThat(compilation).succeeded();
+    }
+
+    @Test
+    @DisplayName("Pull model: @Stream on Flux<T> generates subscribe call")
+    void pullModel_flux_generatesSubscribeCall() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("stream/pull/source/FluxSession.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("stream.pull.infrastructure.http.FluxSessionController")
+                .contentsAsUtf8String()
+                .contains(".subscribe(");
+    }
+
+    @Test
+    @DisplayName("Pull model: @Stream on Flux<T> compiles without errors")
+    void pullModel_flux_compilesSuccessfully() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("stream/pull/source/FluxSession.java"));
+
+        assertThat(compilation).succeeded();
+    }
 }
 

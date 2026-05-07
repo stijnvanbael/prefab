@@ -207,13 +207,13 @@ class StreamControllerWriter {
                                 } catch ($T e) {
                                     $T.currentThread().interrupt();
                                     return;
-                                } catch ($T e) {
+                                } catch ($T | $T e) {
                                     return;
                                 }
                             }
                         })""",
                         Thread.class, Thread.class, Duration.class, SseEmitter.class,
-                        InterruptedException.class, Thread.class, IOException.class))
+                        InterruptedException.class, Thread.class, IOException.class, IllegalStateException.class))
                 .build();
     }
 }

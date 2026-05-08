@@ -48,8 +48,9 @@ Write code like a modern senior software engineer — clean, idiomatic, testable
 - Use `@EventHandler` on methods that process events to create or update aggregates.
 - Use `@RepositoryMixin` interfaces to add custom query methods to generated repositories.
 - Add `@EnablePrefab` to your Spring Boot application class.
-- Consult the [Developer Guide](../backlog/docs/developer-guide.md) as the authoritative reference for all
-  annotations, modules, generated artefacts, and configuration options.
+- Consult the [Developer Guide](../backlog/docs/developer-guide.md) as the authoritative index for all
+  annotations, modules, generated artefacts, and configuration options. Topic-specific detail lives in
+  the linked sub-documents under `backlog/docs/` (e.g. `annotation-reference.md`, `feature-guides.md`).
 - When adding or modifying any Prefab feature, update the Developer Guide in the same commit.
 
 ---

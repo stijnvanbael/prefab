@@ -194,12 +194,24 @@ interactive-quote state (`dquote>` / `cmdand quote>`), requiring a manual reset 
 
 ## 13. Developer Guide Maintenance
 
-The file `backlog/docs/developer-guide.md` is the single authoritative reference for all Prefab features,
-annotations, built-in types, modules, generated artefacts, and extension points.
+The `backlog/docs/` folder contains the authoritative reference for all Prefab features. The entry point
+is `backlog/docs/developer-guide.md`, which is an index linking to the following topic documents:
+
+| File                                              | Contents                                        |
+|---------------------------------------------------|-------------------------------------------------|
+| `backlog/docs/getting-started.md`                 | Setup and first aggregate                       |
+| `backlog/docs/modules.md`                         | Module matrix and Maven snippets                |
+| `backlog/docs/annotation-reference.md`            | Every annotation with attributes and examples   |
+| `backlog/docs/built-in-types.md`                  | Framework types and provider interfaces         |
+| `backlog/docs/generated-artefacts.md`             | Generated classes, migrations, and test helpers |
+| `backlog/docs/feature-guides.md`                  | How-to guides for every feature                 |
+| `backlog/docs/extension-points.md`                | Plugin API and extension points                 |
+| `backlog/docs/configuration.md`                   | Application properties                          |
+| `backlog/docs/troubleshooting.md`                 | Common errors and fixes                         |
 
 **Rule**: Any agent or developer that **changes or adds** any Prefab feature — annotation, generated artefact,
 module, configuration property, extension point, or behaviour — **must** update the relevant section of
-`backlog/docs/developer-guide.md` in the same commit or PR.
+the appropriate document in `backlog/docs/` in the same commit or PR.
 
 This includes but is not limited to:
 - Adding or modifying an annotation or its attributes

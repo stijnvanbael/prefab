@@ -17,11 +17,16 @@ class TypeIdentity {
     private final String packageName;
     private final String simpleName;
     private final List<TypeManifest> parameters;
+    // Precomputed once; used by is() which is called on every annotation/type check.
+    private final String fqn;
 
     TypeIdentity(String packageName, String simpleName, List<TypeManifest> parameters) {
         this.packageName = packageName;
         this.simpleName = simpleName;
         this.parameters = parameters;
+        this.fqn = packageName.isEmpty()
+                ? simpleName.replace('.', '$')
+                : packageName + "." + simpleName.replace('.', '$');
     }
 
     String packageName() {
@@ -95,9 +100,6 @@ class TypeIdentity {
     }
 
     boolean is(Class<?> type) {
-        String fqn = packageName.isEmpty()
-                ? simpleName.replace('.', '$')
-                : packageName + "." + simpleName.replace('.', '$');
         return Objects.equals(fqn, type.getName());
     }
 

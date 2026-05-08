@@ -111,7 +111,14 @@ public class AvroPlugin implements PrefabPlugin {
         var result = new LinkedHashSet<>(toProcess);
         while (!toProcess.isEmpty()) {
             var type = toProcess.poll();
-            nestedTypes(List.of(type)).stream()
+            // Pass only the single type and its sealed subtypes; avoids re-expanding all
+            // previously processed types' sealed subtypes on every BFS iteration.
+            var combined = Stream.concat(Stream.of(type), type.permittedSubtypes().stream()).toList();
+            combined.stream()
+                    .flatMap(t -> t.fields().stream())
+                    .map(VariableManifest::type)
+                    .filter(fieldType -> isNestedRecord(fieldType) || isListOfNestedRecord(fieldType))
+                    .map(fieldType -> isListOfNestedRecord(fieldType) ? fieldType.parameters().getFirst() : fieldType)
                     .filter(result::add)
                     .forEach(toProcess::add);
         }

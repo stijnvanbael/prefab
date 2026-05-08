@@ -2,6 +2,8 @@ package be.appify.prefab.processor;
 
 import java.lang.annotation.Annotation;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -18,6 +20,8 @@ class TypeAnnotations {
 
     private final TypeElement element;
     private final ProcessingEnvironment processingEnvironment;
+    // Cache results of the recursive supertype walk, keyed by annotation type.
+    private final Map<Class<?>, Set<?>> inheritedAnnotationCache = new HashMap<>();
 
     TypeAnnotations(TypeElement element, ProcessingEnvironment processingEnvironment) {
         this.element = element;
@@ -28,11 +32,12 @@ class TypeAnnotations {
         return element != null ? Set.of(element.getAnnotationsByType(annotationType)) : Collections.emptySet();
     }
 
+    @SuppressWarnings("unchecked")
     <T extends Annotation> Set<T> inheritedAnnotationsOfType(Class<T> annotationType) {
-        return Stream.concat(
+        return (Set<T>) inheritedAnnotationCache.computeIfAbsent(annotationType, type -> Stream.concat(
                 annotationsOfType(annotationType).stream(),
                 supertypes().flatMap(superType -> superType.inheritedAnnotationsOfType(annotationType).stream())
-        ).collect(Collectors.toSet());
+        ).collect(Collectors.toSet()));
     }
 
     Optional<TypeManifest> supertypeWithAnnotation(Class<? extends Annotation> annotationType) {

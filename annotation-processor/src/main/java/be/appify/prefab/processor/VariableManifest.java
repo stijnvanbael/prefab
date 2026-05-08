@@ -66,9 +66,6 @@ public class VariableManifest {
         return manifestCache.computeIfAbsent(variableElement, variable -> new VariableManifest(variable, processingEnvironment));
     }
 
-    static void clearCache() {
-        manifestCache.clear();
-    }
 
     /**
      * Constructs a VariableManifest from a method element, using the method's return type as the variable type

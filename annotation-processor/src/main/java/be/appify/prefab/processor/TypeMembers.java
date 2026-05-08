@@ -23,6 +23,8 @@ class TypeMembers {
 
     private final TypeElement element;
     private final ProcessingEnvironment processingEnvironment;
+    // Lazy-initialised on first call; avoids repeated element-tree traversal for cached TypeManifest instances.
+    private List<VariableManifest> cachedFields;
 
     TypeMembers(TypeElement element, ProcessingEnvironment processingEnvironment) {
         this.element = element;
@@ -33,10 +35,13 @@ class TypeMembers {
         if (element == null) {
             return Collections.emptyList();
         }
-        return Stream.concat(
-                        supertypes().flatMap(supertype -> supertype.fields().stream()),
-                        backingFields())
-                .toList();
+        if (cachedFields == null) {
+            cachedFields = Stream.concat(
+                            supertypes().flatMap(supertype -> supertype.fields().stream()),
+                            backingFields())
+                    .toList();
+        }
+        return cachedFields;
     }
 
     private Stream<VariableManifest> backingFields() {

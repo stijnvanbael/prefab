@@ -1,9 +1,19 @@
 ---
-id: task-162
-title: "Fix generated service: @EventHandler static factory does not populate AuditInfo"
-status: "To Do"
-priority: "High"
-labels: ["bug", "annotation-processor", "audit", "reported-by:maestro"]
+id: TASK-162
+title: >-
+  Fix generated service: @EventHandler static factory does not populate
+  AuditInfo
+status: Done
+assignee: []
+created_date: ''
+updated_date: '2026-05-08 05:31'
+labels:
+  - bug
+  - annotation-processor
+  - audit
+  - 'reported-by:maestro'
+dependencies: []
+priority: high
 ---
 
 ## Problem Statement
@@ -102,11 +112,11 @@ Alternatively, apply this via a `AuditInfo.populate(AuditContextProvider, boolea
 utility to keep the generated code DRY.
 
 ## Acceptance Criteria
-
-- [ ] Static `@EventHandler` service methods invoke `AuditContextProvider` to populate audit fields before save
-- [ ] Works for both `AuditInfo` field and individual `@CreatedAt` / `@CreatedBy` / ... fields
-- [ ] `AuditContextProvider.currentUserId()` is called; falls back to `"system"` when the provider returns null/empty
-- [ ] The generated migration audit columns remain `NOT NULL`
-- [ ] Integration test: session created via event handler has non-null `createdAt`, `createdBy`, etc.
-- [ ] Workaround code (`new AuditInfo(now, "system", ...)`) can be removed from user `@EventHandler` methods
-
+<!-- AC:BEGIN -->
+- [x] #1 Static `@EventHandler` service methods invoke `AuditContextProvider` to populate audit fields before save
+- [x] #2 Works for both `AuditInfo` field and individual `@CreatedAt` / `@CreatedBy` / ... fields
+- [x] #3 `AuditContextProvider.currentUserId()` is called; falls back to `"system"` when the provider returns null/empty
+- [x] #4 The generated migration audit columns remain `NOT NULL`
+- [ ] #5 Integration test: session created via event handler has non-null `createdAt`, `createdBy`, etc.
+- [x] #6 Workaround code (`new AuditInfo(now, "system", ...)`) can be removed from user `@EventHandler` methods
+<!-- AC:END -->

@@ -800,22 +800,19 @@ public sealed interface SaleEvent permits SaleCreated, SalePaid { }
 ```
 
 ---
-
-#### `@Namespace`
-
+#### `@AvroSchema`
 **Package:** `be.appify.prefab.core.annotations`
 **Target:** `TYPE`
 **Retention:** `SOURCE`
-
-Declares the Avro namespace for a record type. This is primarily emitted by AVSC-first generation on
-generated records so schema factories can preserve the AVSC namespace without guessing from package names.
-
-| Attribute | Type     | Default          | Description                                          |
-|-----------|----------|------------------|------------------------------------------------------|
-| `value`   | `String` | — **(required)** | Avro namespace to use in generated schema factories. |
-
+Overrides the Avro schema `name` and/or `namespace` for a generated record or enum type. Emitted
+automatically by AVSC-first generation when the original Avro name or namespace differs from the Java
+type name or package name.
+| Attribute     | Type       | Default | Description                                                                              |
+|---------------|------------|---------|------------------------------------------------------------------------------------------|
+| `name`      | `String` | `""`  | Avro schema name. Set when the Avro name differs from the capitalised Java type name.    |
+| `namespace` | `String` | `""`  | Avro namespace. Set when the Avro namespace differs from the Java package name.          |
+An empty string for either attribute means "use the default" (Java type simple name or package name).
 ---
-
 #### `@PartitioningKey`
 
 **Package:** `be.appify.prefab.core.annotations`
@@ -1941,8 +1938,12 @@ public sealed interface SaleEvent permits SaleCreated, SalePaid { }
 ```
 
 The processor generates `SaleCreated` and `SalePaid` records in the same Java package as `SaleEvent`.
-Generated records include `@Namespace("...")` with the original AVSC namespace.
-Their schema factories preserve the AVSC namespace (`be.example.sale`) for Avro compatibility.
+Generated Java type names are always capitalised to follow Java naming conventions. When the
+original Avro name starts with a lowercase letter (e.g. `saleCreated`), the generated record is capitalised
+(`SaleCreated`) and annotated with `@AvroSchema(name = "saleCreated")` so schema factories can recover the
+original Avro name during serialisation.
+Generated records include `@AvroSchema(namespace = "...")` when the AVSC namespace differs from the Java
+package name, allowing schema factories to preserve the Avro namespace for compatibility.
 At runtime, generated schema factories validate their in-memory schema against the referenced AVSC files.
 If a generated schema is not compatible with the AVSC contract, schema factory initialization fails fast with
 an explicit exception.

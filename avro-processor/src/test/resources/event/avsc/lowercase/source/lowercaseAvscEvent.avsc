@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "lowercaseAvscEvent",
+  "namespace": "event.avsc.lowercase",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {
+      "name": "category",
+      "type": {
+        "type": "enum",
+        "name": "lowercaseCategory",
+        "namespace": "event.avsc.lowercase",
+        "symbols": ["ACTIVE", "INACTIVE"]
+      }
+    }
+  ]
+}

@@ -2,7 +2,7 @@ package be.appify.prefab.avro.processor;
 import be.appify.prefab.core.annotations.Doc;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.Example;
-import be.appify.prefab.core.annotations.Namespace;
+import be.appify.prefab.core.annotations.AvroSchema;
 import be.appify.prefab.processor.BuilderWriter;
 import be.appify.prefab.processor.JavaFileWriter;
 import com.palantir.javapoet.AnnotationSpec;
@@ -49,7 +49,7 @@ class AvscEventWriter {
             JavaFileWriter fileWriter, List<UnionTypeGroup> pendingUnions) {
         var topLevelSpec = buildTopLevelRecord(schema, topic, platform, defaultPackage, contractInterface, pendingUnions);
         if (topLevelSpec != null) {
-            fileWriter.writeFile(defaultPackage, schema.getName(), topLevelSpec);
+            fileWriter.writeFile(defaultPackage, javaTypeName(schema), topLevelSpec);
         }
     }
     private void writeNestedTypes(Schema topLevelSchema, Map<String, Schema> namedTypes,
@@ -65,10 +65,10 @@ class AvscEventWriter {
         if (schema.getType() == Schema.Type.RECORD) {
             var spec = buildNestedRecord(schema, defaultPackage, pendingUnions);
             if (spec != null) {
-                fileWriter.writeFile(defaultPackage, schema.getName(), spec);
+                fileWriter.writeFile(defaultPackage, javaTypeName(schema), spec);
             }
         } else if (schema.getType() == Schema.Type.ENUM) {
-            fileWriter.writeFile(defaultPackage, schema.getName(), buildEnum(schema));
+            fileWriter.writeFile(defaultPackage, javaTypeName(schema), buildEnum(schema));
         }
     }
     private void writeUnionTypes(List<UnionTypeGroup> pendingUnions, String defaultPackage, JavaFileWriter fileWriter) {
@@ -102,14 +102,15 @@ class AvscEventWriter {
             String schemaPackage, ClassName contractInterface, List<UnionTypeGroup> pendingUnions) {
         return buildFields(schema, schemaPackage, pendingUnions)
                 .map(fields -> {
-                    var recordType = ClassName.get(schemaPackage, schema.getName());
-                    var builder = TypeSpec.recordBuilder(schema.getName())
+                    var typeName = javaTypeName(schema);
+                    var recordType = ClassName.get(schemaPackage, typeName);
+                    var builder = TypeSpec.recordBuilder(typeName)
                             .addModifiers(Modifier.PUBLIC)
                             .recordConstructor(MethodSpec.compactConstructorBuilder().addParameters(fields).build())
                             .addAnnotation(buildEventAnnotation(topic, platform))
                             .addSuperinterface(contractInterface);
                     docOf(schema).ifPresent(doc -> builder.addAnnotation(docAnnotation(doc)));
-                    namespaceAnnotation(schema).ifPresent(builder::addAnnotation);
+                    avroSchemaAnnotation(schema).ifPresent(builder::addAnnotation);
                     new BuilderWriter(builderSetterPrefix()).enrichWithBuilder(builder, recordType, strippedParams(fields));
                     return builder.build();
                 })
@@ -118,12 +119,13 @@ class AvscEventWriter {
     private TypeSpec buildNestedRecord(Schema schema, String defaultPackage, List<UnionTypeGroup> pendingUnions) {
         return buildFields(schema, defaultPackage, pendingUnions)
                 .map(fields -> {
-                    var recordType = ClassName.get(defaultPackage, schema.getName());
-                    var builder = TypeSpec.recordBuilder(schema.getName())
+                    var typeName = javaTypeName(schema);
+                    var recordType = ClassName.get(defaultPackage, typeName);
+                    var builder = TypeSpec.recordBuilder(typeName)
                             .addModifiers(Modifier.PUBLIC)
                             .recordConstructor(MethodSpec.compactConstructorBuilder().addParameters(fields).build());
                     docOf(schema).ifPresent(doc -> builder.addAnnotation(docAnnotation(doc)));
-                    namespaceAnnotation(schema).ifPresent(builder::addAnnotation);
+                    avroSchemaAnnotation(schema).ifPresent(builder::addAnnotation);
                     new BuilderWriter(builderSetterPrefix()).enrichWithBuilder(builder, recordType, strippedParams(fields));
                     return builder.build();
                 })
@@ -229,7 +231,7 @@ class AvscEventWriter {
             case DOUBLE -> "Double";
             case FLOAT -> "Float";
             case BOOLEAN -> "Boolean";
-            case RECORD, ENUM -> schema.getName();
+            case RECORD, ENUM -> capitalize(schema.getName());
             case ARRAY -> {
                 var elementSuffix = branchTypeSuffix(schema.getElementType());
                 yield elementSuffix != null ? elementSuffix + "List" : null;
@@ -254,7 +256,7 @@ class AvscEventWriter {
             case DOUBLE -> TypeName.DOUBLE;
             case FLOAT -> TypeName.FLOAT;
             case BOOLEAN -> TypeName.BOOLEAN;
-            case RECORD, ENUM -> ClassName.get(defaultPackage, schema.getName());
+            case RECORD, ENUM -> ClassName.get(defaultPackage, capitalize(schema.getName()));
             case ARRAY -> {
                 var elementType = branchValueType(schema.getElementType(), defaultPackage);
                 if (elementType == null) yield null;
@@ -296,12 +298,23 @@ class AvscEventWriter {
                 .addMember("value", "$S", doc)
                 .build();
     }
-    private Optional<AnnotationSpec> namespaceAnnotation(Schema schema) {
-        return Optional.ofNullable(schema.getNamespace())
-                .filter(namespace -> !namespace.isBlank())
-                .map(namespace -> AnnotationSpec.builder(Namespace.class)
-                        .addMember("value", "$S", namespace)
-                        .build());
+    private Optional<AnnotationSpec> avroSchemaAnnotation(Schema schema) {
+        var javaName = javaTypeName(schema);
+        var avroName = schema.getName();
+        var namespace = schema.getNamespace();
+        var hasNamespace = namespace != null && !namespace.isBlank();
+        var hasNameOverride = !avroName.equals(javaName);
+        if (!hasNamespace && !hasNameOverride) {
+            return Optional.empty();
+        }
+        var builder = AnnotationSpec.builder(AvroSchema.class);
+        if (hasNamespace) {
+            builder.addMember("namespace", "$S", namespace);
+        }
+        if (hasNameOverride) {
+            builder.addMember("name", "$S", avroName);
+        }
+        return Optional.of(builder.build());
     }
     private AnnotationSpec buildEventAnnotation(String topic, Event.Platform platform) {
         var builder = AnnotationSpec.builder(Event.class)
@@ -313,10 +326,11 @@ class AvscEventWriter {
         return builder.build();
     }
     private TypeSpec buildEnum(Schema schema) {
-        var enumBuilder = TypeSpec.enumBuilder(schema.getName())
+        var typeName = javaTypeName(schema);
+        var enumBuilder = TypeSpec.enumBuilder(typeName)
                 .addModifiers(Modifier.PUBLIC);
         docOf(schema).ifPresent(doc -> enumBuilder.addAnnotation(docAnnotation(doc)));
-        namespaceAnnotation(schema).ifPresent(enumBuilder::addAnnotation);
+        avroSchemaAnnotation(schema).ifPresent(enumBuilder::addAnnotation);
         schema.getEnumSymbols().forEach(enumBuilder::addEnumConstant);
         return enumBuilder.build();
     }
@@ -352,7 +366,7 @@ class AvscEventWriter {
             case FLOAT -> boxIfNullable(TypeName.FLOAT, nullable);
             case BOOLEAN -> boxIfNullable(TypeName.BOOLEAN, nullable);
             case ARRAY -> toListTypeName(schema, defaultPackage);
-            case RECORD, ENUM -> ClassName.get(defaultPackage, schema.getName());
+            case RECORD, ENUM -> ClassName.get(defaultPackage, capitalize(schema.getName()));
             default -> {
                 reportError("Unsupported Avro type: " + schema.getType());
                 yield null;
@@ -367,6 +381,9 @@ class AvscEventWriter {
         if (elementType == null) return null;
         var boxed = elementType.isPrimitive() ? elementType.box() : elementType;
         return ParameterizedTypeName.get(ClassName.get(List.class), boxed);
+    }
+    private static String javaTypeName(Schema schema) {
+        return capitalize(schema.getName());
     }
     private static String capitalize(String name) {
         if (name == null || name.isEmpty()) return name;

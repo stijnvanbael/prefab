@@ -52,11 +52,12 @@ public class AvscPlugin implements PrefabPlugin {
         for (var path : annotation.value()) {
             var schema = parseSchema(path, element);
             if (schema == null) continue;
-            if (schema.getName().equals(contractInterface.simpleName())) {
+            var javaTypeName = capitalize(schema.getName());
+            if (javaTypeName.equals(contractInterface.simpleName())) {
                 context.processingEnvironment().getMessager().printMessage(
                         Diagnostic.Kind.ERROR,
-                        "The AVSC record name '" + schema.getName() + "' conflicts with the contract interface name. "
-                                + "Rename the interface or the record in the AVSC schema to avoid the collision.",
+                        "The capitalised AVSC record name '" + javaTypeName + "' conflicts with the contract interface name. "
+                                + "Rename the interface or the AVSC record to avoid the collision.",
                         element);
                 continue;
             }
@@ -85,16 +86,16 @@ public class AvscPlugin implements PrefabPlugin {
     }
 
     private InputStream openResource(String path) throws IOException {
-        // Primary: load from the annotation processor's classpath (covers both
-        // test environments and production Maven builds where resources are on
-        // the compile classpath).
         var stream = getClass().getClassLoader().getResourceAsStream(path);
         if (stream != null) return stream;
-        // Secondary: resolve relative to Maven's conventional resource directory.
-        // Useful when running the processor in a non-standard build environment
-        // where resources have not yet been copied to the compile classpath.
         var file = Path.of("src/main/resources", path);
         if (Files.exists(file)) return Files.newInputStream(file);
         return null;
     }
+
+    private static String capitalize(String name) {
+        if (name == null || name.isEmpty()) return name;
+        return Character.toUpperCase(name.charAt(0)) + name.substring(1);
+    }
 }
+

@@ -35,7 +35,7 @@ class AvscPluginTest {
                 .contains("serialization = Event.Serialization.AVRO");
         assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
-                .contains("@Namespace(\"event.avsc\")");
+                .contains("namespace = \"event.avsc\"");
         assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
                 .contains("String name");
@@ -241,7 +241,7 @@ class AvscPluginTest {
                 .contains("implements SealedMismatchAvsc");
         assertThat(compilation).generatedSourceFile("event.avsc.sealedmismatch.MeteringconfigUpdated")
                 .contentsAsUtf8String()
-                .contains("@Namespace(\"intern.dcs.meteringconfig.facts.v1\")");
+                .contains("namespace = \"intern.dcs.meteringconfig.facts.v1\"");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.sealedmismatch.infrastructure.avro.MeteringconfigUpdatedSchemaFactory")
                 .contentsAsUtf8String()
@@ -301,15 +301,15 @@ class AvscPluginTest {
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.Status")
                 .contentsAsUtf8String()
-                .contains("@Namespace(\"intern.dcs.meteringconfig.facts.v1\")");
+                .contains("namespace = \"intern.dcs.meteringconfig.facts.v1\"");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.FysiekeStatus")
                 .contentsAsUtf8String()
-                .contains("@Namespace(\"intern.dcs.meteringconfig.facts.v1\")");
+                .contains("namespace = \"intern.dcs.meteringconfig.facts.v1\"");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.StatusInactiefReden")
                 .contentsAsUtf8String()
-                .contains("@Namespace(\"intern.dcs.meteringconfig.facts.v1\")");
+                .contains("namespace = \"intern.dcs.meteringconfig.facts.v1\"");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.StatusSchemaFactory")
                 .contentsAsUtf8String()
@@ -529,6 +529,30 @@ class AvscPluginTest {
         } finally {
             deleteRecursively(dependencyClasspath);
         }
+    }
+
+    @Test
+    void lowercaseAvscTypeNamesAreCapitalisedInGeneratedJava() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/lowercase/source/LowercaseAvsc.java"));
+        assertThat(compilation).succeeded();
+        // Record name "lowercaseAvscEvent" must be capitalised to "LowercaseAvscEvent"
+        assertThat(compilation).generatedSourceFile("event.avsc.lowercase.LowercaseAvscEvent")
+                .contentsAsUtf8String()
+                .contains("name = \"lowercaseAvscEvent\"");
+        // Enum name "lowercaseCategory" must be capitalised to "LowercaseCategory"
+        assertThat(compilation).generatedSourceFile("event.avsc.lowercase.LowercaseCategory")
+                .contentsAsUtf8String()
+                .contains("name = \"lowercaseCategory\"");
+        // Enum values must be preserved
+        assertThat(compilation).generatedSourceFile("event.avsc.lowercase.LowercaseCategory")
+                .contentsAsUtf8String()
+                .contains("ACTIVE");
+        // Generated event implements the contract interface
+        assertThat(compilation).generatedSourceFile("event.avsc.lowercase.LowercaseAvscEvent")
+                .contentsAsUtf8String()
+                .contains("implements LowercaseAvsc");
     }
 
     private static void deleteRecursively(Path root) {

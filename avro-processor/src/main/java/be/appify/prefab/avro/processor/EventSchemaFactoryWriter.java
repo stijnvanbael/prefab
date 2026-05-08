@@ -4,7 +4,7 @@ import be.appify.prefab.avro.SchemaSupport;
 import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Doc;
 import be.appify.prefab.core.annotations.Example;
-import be.appify.prefab.core.annotations.Namespace;
+import be.appify.prefab.core.annotations.AvroSchema;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -158,15 +158,28 @@ class EventSchemaFactoryWriter {
     }
 
     private String avroNamespaceOf(TypeManifest type) {
-        return type.annotationsOfType(Namespace.class).stream()
-                .map(Namespace::value)
-                .filter(namespace -> !namespace.isBlank())
+        // @AvroSchema.namespace() takes precedence, then the AVSC file namespace, then the Java package name.
+        return type.annotationsOfType(AvroSchema.class).stream()
+                .map(AvroSchema::namespace)
+                .filter(ns -> !ns.isBlank())
                 .findFirst()
                 .or(() -> findAvscPath(type)
-                .flatMap(path -> namedTypeFromAvsc(path, type.simpleName()))
-                .map(Schema::getNamespace)
-                .filter(namespace -> !namespace.isBlank()))
+                        .flatMap(path -> namedTypeFromAvsc(path, avroSchemaNameOf(type)))
+                        .map(Schema::getNamespace)
+                        .filter(ns -> !ns.isBlank()))
                 .orElse(type.packageName());
+    }
+
+    /**
+     * Returns the Avro schema name for the type, honouring any {@link AvroSchema#name()} override.
+     * Falls back to the Java simple class name when no override is present.
+     */
+    private static String avroSchemaNameOf(TypeManifest type) {
+        return type.annotationsOfType(AvroSchema.class).stream()
+                .map(AvroSchema::name)
+                .filter(name -> !name.isBlank())
+                .findFirst()
+                .orElse(type.simpleName().replace('.', '_'));
     }
 
     private Optional<Schema> namedTypeFromAvsc(String avscPath, String simpleName) {
@@ -491,7 +504,7 @@ class EventSchemaFactoryWriter {
 
         return CodeBlock.of("$T.createEnum($S, $S, $S, $T.of($L), $S)",
                 Schema.class,
-                type.simpleName().replace('.', '_'),
+                avroSchemaNameOf(type),
                 type.doc().orElse(null),
                 avroNamespaceOf(type),
                 List.class,
@@ -571,7 +584,7 @@ class EventSchemaFactoryWriter {
                                 $L
                             ))""",
                 Schema.class,
-                type.simpleName().replace('.', '_'),
+                avroSchemaNameOf(type),
                 type.doc().orElse(null),
                 avroNamespaceOf(type),
                 List.class,

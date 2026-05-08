@@ -36,6 +36,7 @@ this document as the primary source of truth for Prefab behaviour.
    - [6.6 Database Migration Scripts](#66-database-migration-scripts)
    - [6.7 Event Consumer Assertions](#67-event-consumer-assertions)
    - [6.8 Generated Assertion Classes](#68-generated-assertion-classes)
+   - [6.9 Generated Test Client](#69-generated-test-client)
 7. [Feature Guides](#7-feature-guides)
    - [7.1 REST CRUD Operations](#71-rest-crud-operations)
    - [7.2 Event Publishing](#72-event-publishing)
@@ -1686,6 +1687,47 @@ assertThat(client.getProductById(id))
     .hasPrice(9.99)
     .hasTagsSatisfying(list -> list.contains("featured"));
 ```
+
+---
+
+### 6.9 Generated Test Client
+
+For each aggregate, Prefab generates a `{Aggregate}Client` helper class written to
+`target/prefab-test-sources/` in the same package as the aggregate. It wraps the generated
+HTTP endpoints and is intended for use in integration tests.
+
+```java
+// Generated: be.appify.example.ProductClient
+public class ProductClient {
+
+    public ProductClient(String baseUrl) { ... }
+
+    public ProductResponse createProduct(CreateProductRequest request) { ... }
+    public ProductResponse getProductById(String id) { ... }
+    public Page<ProductResponse> listProducts(String nameFilter) { ... }
+    public ProductResponse updateProductDetails(String id, UpdateProductDetailsRequest request) { ... }
+    public void deleteProduct(String id) { ... }
+}
+```
+
+#### Manual Override (Skip Mechanism)
+
+If you place a hand-crafted version of `{Aggregate}Client.java` under
+`src/test/java/<package>/`, Prefab will **not** overwrite it. On every build the processor
+checks whether the file already exists under `src/test/java` and, if so, skips generation
+and emits an `INFO` note:
+
+```
+Prefab: Skipping generation of be.appify.example.ProductClient — manual override found at
+        src/test/java/be/appify/example/ProductClient.java
+```
+
+This allows you to maintain a customised client — for example to work around a code-generation
+limitation — without being overwritten on the next build or after a Prefab upgrade.
+
+> **Note:** The manual override file is never auto-updated by Prefab. If the aggregate's API
+> changes (new `@Create`, `@Update`, etc.) you must update the manual file yourself. Consider
+> removing the manual override once the underlying code-generation issue has been resolved.
 
 ---
 

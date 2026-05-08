@@ -2,9 +2,6 @@ package be.appify.prefab.processor;
 
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.TypeSpec;
-
-import javax.lang.model.element.TypeElement;
-import javax.tools.StandardLocation;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -12,6 +9,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Optional;
 import java.util.stream.Stream;
+import javax.lang.model.element.TypeElement;
+import javax.tools.StandardLocation;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
@@ -41,6 +40,10 @@ public class TestJavaFileWriter implements TestFileOutput {
     }
 
     private void writeToFilesystem(String rootPath, String packagePrefix, String packageName, String typeName, TypeSpec type) {
+        if (manualOverrideExistsInTestSources(rootPath, packageName, typeName)) {
+            System.out.printf("Prefab: Skipping generation of %s.%s — manual override found at src/test/java/%s/%s.java%n", packageName, typeName, packageName.replace(".", "/"), typeName);
+            return;
+        }
         var testSourcePath = rootPath + "/target/prefab-test-sources/"
                 + packagePrefix.replace(".", "/")
                 + (packageSuffix != null ? "/" + packageSuffix.replace(".", "/") : "");
@@ -62,6 +65,15 @@ public class TestJavaFileWriter implements TestFileOutput {
         } catch (Exception e) {
             System.err.println(e.getMessage());
         }
+    }
+
+    private boolean manualOverrideExistsInTestSources(String rootPath, String packageName, String typeName) {
+        var manualOverridePath = Paths.get(
+                rootPath, "src", "test", "java",
+                packageName.replace(".", "/"),
+                typeName + ".java"
+        );
+        return Files.exists(manualOverridePath);
     }
 
     private void writeToFiler(String packageName, String typeName, TypeSpec type) {

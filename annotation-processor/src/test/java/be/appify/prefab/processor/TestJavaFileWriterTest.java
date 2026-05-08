@@ -44,6 +44,31 @@ class TestJavaFileWriterTest {
     }
 
     @Test
+    void skipsWritingWhenManualOverrideExistsInSrcTestJava() throws Exception {
+        var manualOverridePath = new File(tempDir, "src/test/java/com/example");
+        manualOverridePath.mkdirs();
+        var manualFile = new File(manualOverridePath, "MyClass.java");
+        Files.writeString(manualFile.toPath(), "// manual override");
+
+        var captured = new ByteArrayOutputStream();
+        var originalOut = System.out;
+        System.setOut(new PrintStream(captured));
+        try {
+            var writer = new TestJavaFileWriterFixture(tempDir.getAbsolutePath());
+            writer.writeFile("com.example", "MyClass", TypeSpec.classBuilder("MyClass")
+                    .addModifiers(Modifier.PUBLIC)
+                    .build());
+        } finally {
+            System.setOut(originalOut);
+        }
+
+        var generatedFile = new File(tempDir, "target/prefab-test-sources/com/example/MyClass.java");
+        assertFalse(generatedFile.exists(), "Generated file should not be created when manual override exists in src/test/java");
+        assertTrue(captured.toString().contains("MyClass"), "Expected skip message to mention MyClass");
+        assertTrue(captured.toString().contains("src/test/java"), "Expected skip message to mention src/test/java");
+    }
+
+    @Test
     void writesFileWhenItDoesNotExist() {
         var outputPath = new File(tempDir, "target/prefab-test-sources/com/example");
         outputPath.mkdirs();

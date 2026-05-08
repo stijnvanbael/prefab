@@ -1,9 +1,17 @@
 ---
-id: task-164
-title: "Fix generated test client: do not overwrite manual override in src/test/java"
-status: "To Do"
-priority: "Medium"
-labels: ["bug", "annotation-processor", "test-client", "reported-by:maestro"]
+id: TASK-164
+title: 'Fix generated test client: do not overwrite manual override in src/test/java'
+status: Done
+assignee: []
+created_date: ''
+updated_date: '2026-05-08 05:55'
+labels:
+  - bug
+  - annotation-processor
+  - test-client
+  - 'reported-by:maestro'
+dependencies: []
+priority: medium
 ---
 
 ## Problem Statement
@@ -70,17 +78,17 @@ aggregate, or a per-file `.prefab-skip` marker, would give explicit, refactor-sa
 control over which files should not be regenerated.
 
 ## Acceptance Criteria
-
-- [ ] Processor detects a manually-authored `*Client.java` in `src/test/java` and skips
+<!-- AC:BEGIN -->
+- [ ] #1 Processor detects a manually-authored `*Client.java` in `src/test/java` and skips
       generating the corresponding file
-- [ ] An `INFO` diagnostic note is emitted when a file is skipped
-- [ ] A clean build of a project with a manual override compiles without duplicate-class
+- [ ] #2 An `INFO` diagnostic note is emitted when a file is skipped
+- [ ] #3 A clean build of a project with a manual override compiles without duplicate-class
       errors
-- [ ] A project **without** a manual override still has the test client generated as
+- [ ] #4 A project **without** a manual override still has the test client generated as
       before (no regression)
-- [ ] Unit / integration test in `prefab-annotation-processor` verifies skip behaviour
+- [ ] #5 Unit / integration test in `prefab-annotation-processor` verifies skip behaviour
       when a source file pre-exists
-- [ ] Documentation updated to describe the manual-override (skip) mechanism
+- [ ] #6 Documentation updated to describe the manual-override (skip) mechanism
 
 ## Current Workaround (Maestro)
 
@@ -91,4 +99,4 @@ but still requires careful maintenance whenever Prefab regenerates it.
 
 See also: `fix-test-client-enum-queryParam.md` — the underlying bug that made this
 workaround necessary in the first place.
-
+<!-- AC:END -->

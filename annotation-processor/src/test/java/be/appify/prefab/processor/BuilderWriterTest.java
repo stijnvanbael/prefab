@@ -18,7 +18,7 @@ class BuilderWriterTest {
     void builderWithZeroFieldsContainsOnlyBuildMethod() {
         var code = generateCode("EmptyRecord", List.of());
 
-        assertTrue(code.contains("public static final class Builder"), "Expected nested Builder class");
+        assertTrue(code.contains("public static class Builder"), "Expected nested Builder class");
         assertTrue(code.contains("public static Builder builder()"), "Expected static builder() factory");
         assertTrue(code.contains("public EmptyRecord build()"), "Expected build() method");
         assertFalse(code.contains("withA"), "Expected no setter methods for zero fields");
@@ -29,7 +29,7 @@ class BuilderWriterTest {
         var fields = List.of(ParameterSpec.builder(ClassName.get(String.class), "name").build());
         var code = generateCode("NameRecord", fields);
 
-        assertTrue(code.contains("public static final class Builder"), "Expected nested Builder class");
+        assertTrue(code.contains("public static class Builder"), "Expected nested Builder class");
         assertTrue(code.contains("public Builder withName("), "Expected withName setter");
         assertTrue(code.contains("public NameRecord build()"), "Expected build() returning record type");
     }

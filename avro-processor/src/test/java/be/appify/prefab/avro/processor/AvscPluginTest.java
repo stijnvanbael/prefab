@@ -14,6 +14,7 @@ import static be.appify.prefab.avro.processor.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import javax.tools.StandardLocation;
 
 class AvscPluginTest {
 
@@ -255,10 +256,27 @@ class AvscPluginTest {
         assertThat(compilation).succeeded();
         assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
-                .contains("public static final class Builder");
+                .contains("public static class Builder");
         assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
                 .contains("public static Builder builder()");
+    }
+    @Test
+    void avscEventMotherDelegatesToNestedBuilderNotStandaloneClass() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"));
+        assertThat(compilation).succeeded();
+        // The mother must use the nested Builder from the generated record — no standalone class.
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "event/avsc", "SimpleAvscEventMother.java")
+                .contentsAsUtf8String()
+                .contains("SimpleAvscEvent.Builder");
+        assertFalse(
+                compilation.generatedFiles().stream()
+                        .anyMatch(f -> f.toUri().getPath().endsWith("/event/avsc/SimpleAvscEventBuilder.java")),
+                "Standalone SimpleAvscEventBuilder must not be generated when an embedded Builder exists"
+        );
     }
 
     @Test

@@ -48,17 +48,16 @@ public class MotherPlugin implements PrefabPlugin {
             // AVSC-generated records are compiled in round 2 from generated sources, so
             // TestJavaFileWriter cannot resolve the source root path from them directly.
             // Use the @Avsc contract interface (which is always a source file) instead.
-            var preferredElement = EventPlatformPluginSupport.isAvscGeneratedRecord(element)
-                    ? avscContractInterface(element)
-                    : element;
+            var isAvscGenerated = EventPlatformPluginSupport.isAvscGeneratedRecord(element);
+            var preferredElement = isAvscGenerated ? avscContractInterface(element) : element;
             if (type.isSealed()) {
                 type.permittedSubtypes().forEach(subtype -> {
                     if (subtype.isRecord()) {
-                        writer.writeEventMother(subtype, preferredElement);
+                        writer.writeEventMother(subtype, preferredElement, isAvscGenerated);
                     }
                 });
             } else if (type.isRecord()) {
-                writer.writeEventMother(type, preferredElement);
+                writer.writeEventMother(type, preferredElement, isAvscGenerated);
             }
         });
     }
@@ -126,4 +125,3 @@ public class MotherPlugin implements PrefabPlugin {
                 .orElse(element);
     }
 }
-

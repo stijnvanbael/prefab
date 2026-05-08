@@ -158,6 +158,18 @@ class MotherPluginTest {
                 .contentsAsUtf8String()
                 .doesNotContain("class Builder");
     }
+    @Test
+    void handWrittenEventMotherGeneratesStandaloneBuilderClass() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/events/source/PersonEvent.java"));
+        assertThat(compilation).succeeded();
+        // Hand-written @Event records have no embedded Builder, so a standalone builder must be generated.
+        assertThat(compilation)
+                .generatedSourceFile("mother.events.source.PersonEventCreatedBuilder")
+                .contentsAsUtf8String()
+                .contains("public class PersonEventCreatedBuilder");
+    }
 
     @Test
     void motherGeneratedForMultiFieldRecordNestedInsideSingleValueType() {
@@ -253,7 +265,7 @@ class MotherPluginTest {
         assertThat(compilation)
                 .generatedSourceFile("mother.person.application.CreatePersonRequest")
                 .contentsAsUtf8String()
-                .contains("public static final class Builder");
+                .contains("public static class Builder");
     }
 
     @Test

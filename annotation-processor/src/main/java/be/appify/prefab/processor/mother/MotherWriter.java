@@ -87,83 +87,85 @@ class MotherWriter {
 
         effectiveParams.stream()
                 .map(EffectiveParam::effectiveType)
-                .forEach(type -> writeNestedMothersFor(type, preferredElement));
+                .forEach(type -> writeNestedMothersFor(type, preferredElement, false));
     }
 
     /**
      * Writes a Mother for an @Event-annotated type (or its concrete subtype if sealed).
-     * Generates a standalone Builder in production source; the mother only defines defaults.
+     * <p>
+     * When {@code hasEmbeddedBuilder} is {@code true} (e.g. for AVSC-generated records that already
+     * carry a nested {@code Builder} class), the mother delegates to that embedded builder directly
+     * and no standalone builder class is generated. Otherwise a standalone builder is written to
+     * production source.
      */
-    void writeEventMother(TypeManifest eventType, TypeElement preferredElement) {
+    void writeEventMother(TypeManifest eventType, TypeElement preferredElement, boolean hasEmbeddedBuilder) {
         var qualifiedName = eventType.packageName() + "." + eventType.simpleName();
         if (!writtenTypes.add(qualifiedName)) {
             return;
         }
-
         fileWriter.setPreferredElement(preferredElement);
-
         var simpleName = eventType.simpleName().replace(".", "");
         var motherName = simpleName + MOTHER_SUFFIX;
-        var builderName = simpleName + BUILDER;
         var packageName = eventType.packageName();
         var fields = eventType.fields();
-        var eventTypeName = eventType.asTypeName();
-        var builderType = ClassName.get(packageName, builderName);
-
-        productionFileWriter.writeFile(packageName, builderName, buildStandaloneBuilderClass(builderType, eventTypeName, fields));
-
+        var eventTypeName = (ClassName) eventType.asTypeName();
+        var builderType = resolveBuilderType(eventTypeName, packageName, simpleName, fields, hasEmbeddedBuilder);
         var typeSpec = TypeSpec.classBuilder(motherName)
                 .addModifiers(Modifier.PUBLIC)
                 .addMethod(builderFactoryMethodWithDefaults(builderType, fields))
                 .addMethod(motherFactoryMethod(eventTypeName, simpleName))
                 .addMethod(motherConsumerOverload(eventTypeName, simpleName, builderType))
                 .build();
-
         fileWriter.writeFile(packageName, motherName, typeSpec);
-
-        fields.forEach(f -> writeNestedMothersFor(f.type(), preferredElement));
+        fields.forEach(f -> writeNestedMothersFor(f.type(), preferredElement, hasEmbeddedBuilder));
     }
-
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
-
-    private void writeNestedMother(TypeManifest type, TypeElement preferredElement) {
+    private ClassName resolveBuilderType(
+            ClassName eventTypeName,
+            String packageName,
+            String simpleName,
+            List<VariableManifest> fields,
+            boolean hasEmbeddedBuilder
+    ) {
+        if (hasEmbeddedBuilder) {
+            return eventTypeName.nestedClass(BUILDER);
+        }
+        var builderName = simpleName + BUILDER;
+        var builderType = ClassName.get(packageName, builderName);
+        productionFileWriter.writeFile(packageName, builderName,
+                buildStandaloneBuilderClass(builderType, eventTypeName, fields));
+        return builderType;
+    }
+    private void writeNestedMother(TypeManifest type, TypeElement preferredElement, boolean hasEmbeddedBuilder) {
         var qualifiedName = type.packageName() + "." + type.simpleName();
         if (!writtenTypes.add(qualifiedName)) {
             return;
         }
-
         fileWriter.setPreferredElement(preferredElement);
-
         var simpleName = type.simpleName().replace(".", "");
         var motherName = simpleName + MOTHER_SUFFIX;
-        var builderName = simpleName + BUILDER;
         var packageName = type.packageName();
         var fields = type.fields();
-        var builderType = ClassName.get(packageName, builderName);
-
-        productionFileWriter.writeFile(packageName, builderName, buildStandaloneBuilderClass(builderType, type.asTypeName(), fields));
-
+        var typeName = (ClassName) type.asTypeName();
+        var builderType = resolveBuilderType(typeName, packageName, simpleName, fields, hasEmbeddedBuilder);
         var typeSpec = TypeSpec.classBuilder(motherName)
                 .addModifiers(Modifier.PUBLIC)
                 .addMethod(builderFactoryMethodWithDefaults(builderType, fields))
                 .addMethod(motherFactoryMethod(type.asTypeName(), simpleName))
                 .addMethod(motherConsumerOverload(type.asTypeName(), simpleName, builderType))
                 .build();
-
         fileWriter.writeFile(packageName, motherName, typeSpec);
-
-        fields.forEach(f -> writeNestedMothersFor(f.type(), preferredElement));
+        fields.forEach(f -> writeNestedMothersFor(f.type(), preferredElement, hasEmbeddedBuilder));
     }
-
-    private void writeNestedMothersFor(TypeManifest type, TypeElement preferredElement) {
+    private void writeNestedMothersFor(TypeManifest type, TypeElement preferredElement, boolean hasEmbeddedBuilder) {
         if (isNestedObjectType(type)) {
-            writeNestedMother(type, preferredElement);
+            writeNestedMother(type, preferredElement, hasEmbeddedBuilder);
         } else if (type.is(List.class) && isNestedObjectType(type.parameters().getFirst())) {
-            writeNestedMother(type.parameters().getFirst(), preferredElement);
+            writeNestedMother(type.parameters().getFirst(), preferredElement, hasEmbeddedBuilder);
         } else if (type.isSingleValueType()) {
-            writeNestedMothersFor(type.fields().getFirst().type(), preferredElement);
+            writeNestedMothersFor(type.fields().getFirst().type(), preferredElement, hasEmbeddedBuilder);
         }
     }
 

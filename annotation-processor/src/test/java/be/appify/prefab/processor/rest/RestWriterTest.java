@@ -226,7 +226,7 @@ class RestWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.testclient.application.CreatePersonRequest")
                 .contentsAsUtf8String()
-                .contains("public static final class Builder");
+                .contains("public static class Builder");
         assertThat(compilation)
                 .generatedSourceFile("rest.testclient.application.CreatePersonRequest")
                 .contentsAsUtf8String()
@@ -243,7 +243,7 @@ class RestWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.testclient.application.PersonUpdateRequest")
                 .contentsAsUtf8String()
-                .contains("public static final class Builder");
+                .contains("public static class Builder");
         assertThat(compilation)
                 .generatedSourceFile("rest.testclient.application.PersonUpdateRequest")
                 .contentsAsUtf8String()

@@ -56,7 +56,7 @@ public class BuilderWriter {
 
     private TypeSpec buildNestedBuilderClass(ClassName recordType, List<ParameterSpec> fields) {
         var builder = TypeSpec.classBuilder(BUILDER)
-                .addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL);
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC);
 
         fields.forEach(field -> {
             builder.addField(field.type(), field.name(), Modifier.PRIVATE);

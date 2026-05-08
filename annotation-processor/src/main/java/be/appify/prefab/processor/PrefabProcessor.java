@@ -51,6 +51,9 @@ public class PrefabProcessor extends AbstractProcessor {
     private boolean globalFilesWritten = false;
     private boolean eventFilesWritten = false;
 
+    // Plugin list is stable for the lifetime of the processor; detect once and reuse across rounds.
+    private List<PrefabPlugin> cachedPlugins;
+
     // Tracking sets for deduplication across rounds (source elements are visible in every round).
     private final Set<String> processedAggregateNames = new LinkedHashSet<>();
     private final Set<String> processedPolymorphicAggregateNames = new LinkedHashSet<>();
@@ -92,9 +95,9 @@ public class PrefabProcessor extends AbstractProcessor {
     }
 
     private void clearRoundCaches() {
-        TypeManifest.clearCaches();
-        VariableManifest.clearCache();
-        ClassManifest.clearCache();
+        // Only evict ERROR-kind (unresolved) type mirrors; stable, fully-resolved types survive across rounds.
+        // Class-keyed and TypeElement-keyed caches never need eviction because those keys are stable.
+        TypeManifest.clearUnresolvedTypeCache();
     }
 
     private void rememberCurrentCompilationTypeNames(RoundEnvironment environment) {
@@ -213,8 +216,11 @@ public class PrefabProcessor extends AbstractProcessor {
     }
 
     private List<PrefabPlugin> detectPlugins() {
-        var loader = ServiceLoader.load(PrefabPlugin.class, getClass().getClassLoader()).iterator();
-        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(loader, 0), false)
-                .toList();
+        if (cachedPlugins == null) {
+            var loader = ServiceLoader.load(PrefabPlugin.class, getClass().getClassLoader()).iterator();
+            cachedPlugins = StreamSupport.stream(Spliterators.spliteratorUnknownSize(loader, 0), false)
+                    .toList();
+        }
+        return cachedPlugins;
     }
 }

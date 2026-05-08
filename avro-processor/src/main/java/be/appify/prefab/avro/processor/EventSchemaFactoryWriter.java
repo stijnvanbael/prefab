@@ -20,7 +20,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Stream;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
@@ -40,6 +39,15 @@ class EventSchemaFactoryWriter {
     private static final String AVRO_PACKAGE_SUFFIX = "infrastructure.avro";
 
     private final PrefabContext context;
+
+    /** Round-scoped cache: AVSC resource path → parsed Schema (avoids re-parsing the same file multiple times). */
+    private final Map<String, Optional<Schema>> avscSchemaCache = new HashMap<>();
+
+    /**
+     * Round-scoped index: AVSC resource path → set of all simple record/enum names found in that file.
+     * Built once on the first call and reused for every subsequent lookup within the same round.
+     */
+    private Map<String, Set<String>> avscRecordNamesIndex;
 
     EventSchemaFactoryWriter(PrefabContext context) {
         this.context = context;
@@ -78,10 +86,72 @@ class EventSchemaFactoryWriter {
             }
         }
 
-        return avscAnnotatedInterfaces()
-                .flatMap(e -> Arrays.stream(Objects.requireNonNull(e.getAnnotation(Avsc.class)).value()))
-                .filter(path -> matchesRecordName(path, recordSimpleName))
+        var index = avscRecordNamesIndex();
+        return index.entrySet().stream()
+                .filter(entry -> avroTypeNames(recordSimpleName).anyMatch(entry.getValue()::contains))
+                .map(Map.Entry::getKey)
                 .findFirst();
+    }
+
+    /**
+     * Returns the round-scoped path-to-record-names index, building it on the first call.
+     * Each AVSC path found across all {@code @Avsc}-annotated interfaces is parsed once and its
+     * top-level and nested named types are indexed for O(1) lookup.
+     */
+    private Map<String, Set<String>> avscRecordNamesIndex() {
+        if (avscRecordNamesIndex == null) {
+            avscRecordNamesIndex = new HashMap<>();
+            avscAnnotatedInterfaces()
+                    .flatMap(e -> Arrays.stream(Objects.requireNonNull(e.getAnnotation(Avsc.class)).value()))
+                    .distinct()
+                    .forEach(path -> avscRecordNamesIndex.put(path, collectNamedTypes(path)));
+        }
+        return avscRecordNamesIndex;
+    }
+
+    /** Collects all simple names of named types (records and enums) found in the AVSC at {@code path}. */
+    private Set<String> collectNamedTypes(String path) {
+        return cachedAvscSchema(path)
+                .map(schema -> {
+                    Set<String> names = new HashSet<>();
+                    collectNamedTypes(schema, names, new HashSet<>());
+                    return names;
+                })
+                .orElse(Set.of());
+    }
+
+    private void collectNamedTypes(Schema schema, Set<String> names, Set<String> visited) {
+        if (schema == null) {
+            return;
+        }
+        switch (schema.getType()) {
+            case RECORD -> {
+                var fullName = schema.getFullName();
+                if (fullName != null && !visited.add(fullName)) {
+                    return;
+                }
+                names.add(schema.getName());
+                schema.getFields().forEach(field -> collectNamedTypes(field.schema(), names, visited));
+            }
+            case ENUM -> names.add(schema.getName());
+            case ARRAY -> collectNamedTypes(schema.getElementType(), names, visited);
+            case UNION -> schema.getTypes().forEach(type -> collectNamedTypes(type, names, visited));
+            default -> { /* primitives and other types have no named type to index */ }
+        }
+    }
+
+    /** Returns the cached parsed schema for the given AVSC path, parsing it from disk/classpath if not yet loaded. */
+    private Optional<Schema> cachedAvscSchema(String avscPath) {
+        return avscSchemaCache.computeIfAbsent(avscPath, path -> {
+            try (var stream = openResource(path)) {
+                if (stream == null) {
+                    return Optional.empty();
+                }
+                return Optional.of(new Schema.Parser().parse(stream));
+            } catch (IOException | RuntimeException ignored) {
+                return Optional.empty();
+            }
+        });
     }
 
     private String avroNamespaceOf(TypeManifest type) {
@@ -97,18 +167,11 @@ class EventSchemaFactoryWriter {
     }
 
     private Optional<Schema> namedTypeFromAvsc(String avscPath, String simpleName) {
-        try (var stream = openResource(avscPath)) {
-            if (stream == null) {
-                return Optional.empty();
-            }
-            var parsedSchema = new Schema.Parser().parse(stream);
-            return avroTypeNames(simpleName)
-                    .filter(typeName -> containsNamedType(parsedSchema, typeName))
-                    .findFirst()
-                    .map(typeName -> SchemaSupport.namedTypeOf(parsedSchema, typeName));
-        } catch (IOException | RuntimeException ignored) {
-            return Optional.empty();
-        }
+        return cachedAvscSchema(avscPath)
+                .flatMap(parsedSchema -> avroTypeNames(simpleName)
+                        .filter(typeName -> containsNamedType(parsedSchema, typeName))
+                        .findFirst()
+                        .map(typeName -> SchemaSupport.namedTypeOf(parsedSchema, typeName)));
     }
 
     private java.util.stream.Stream<TypeElement> avscAnnotatedInterfaces() {
@@ -126,13 +189,12 @@ class EventSchemaFactoryWriter {
     }
 
     private boolean matchesRecordName(String avscPath, String recordSimpleName) {
-        try (var stream = openResource(avscPath)) {
-            if (stream == null) {
-                return false;
-            }
-            var parsedSchema = new Schema.Parser().parse(stream);
-            return avroTypeNames(recordSimpleName).anyMatch(typeName -> containsNamedType(parsedSchema, typeName));
-        } catch (IOException e) {
+        try {
+            return cachedAvscSchema(avscPath)
+                    .map(parsedSchema -> avroTypeNames(recordSimpleName)
+                            .anyMatch(typeName -> containsNamedType(parsedSchema, typeName)))
+                    .orElse(false);
+        } catch (RuntimeException e) {
             context.processingEnvironment().getMessager().printMessage(
                     javax.tools.Diagnostic.Kind.WARNING,
                     "Could not read or parse AVSC file '%s' while resolving schema for '%s': %s"

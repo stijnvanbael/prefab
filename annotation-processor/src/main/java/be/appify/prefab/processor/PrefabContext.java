@@ -30,6 +30,9 @@ public class PrefabContext {
     private final Set<ExecutableElement> newlyDeferredEventHandlers = new LinkedHashSet<>();
     private final Set<String> currentCompilationTypeNames;
 
+    // Memoized per-round result of eventElements(); computed at most once per PrefabContext instance.
+    private List<TypeElement> memoizedEventElements;
+
     /**
      * Constructs a PrefabContext.
      *
@@ -184,9 +187,19 @@ public class PrefabContext {
      * are compiled. Scanning {@link RoundEnvironment#getRootElements()} for records that implement
      * such an interface is the reliable strategy used throughout the framework.
      *
+     * <p>The result is memoized for the lifetime of this {@link PrefabContext} (one processing round)
+     * to avoid redundant scans of the round environment on each call.
+     *
      * @return a deduplicated stream of {@link TypeElement}s representing all events
      */
     public Stream<TypeElement> eventElements() {
+        if (memoizedEventElements == null) {
+            memoizedEventElements = computeEventElements();
+        }
+        return memoizedEventElements.stream();
+    }
+
+    private List<TypeElement> computeEventElements() {
         var annotated = roundEnvironment.getElementsAnnotatedWith(Event.class)
                 .stream()
                 .map(e -> (TypeElement) e);
@@ -201,7 +214,9 @@ public class PrefabContext {
 
         var fromClasspath = eventElementsFromClasspath();
 
-        return Stream.concat(Stream.concat(annotated, avscGenerated), fromClasspath).distinct();
+        return Stream.concat(Stream.concat(annotated, avscGenerated), fromClasspath)
+                .distinct()
+                .toList();
     }
 
     /**

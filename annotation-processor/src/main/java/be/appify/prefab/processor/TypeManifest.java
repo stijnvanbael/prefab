@@ -123,9 +123,13 @@ public class TypeManifest {
         return manifestByTypeMirrorCache.computeIfAbsent(typeMirror, type -> new TypeManifest(type, processingEnvironment));
     }
 
-    static void clearCaches() {
-        manifestByClassCache.clear();
-        manifestByTypeMirrorCache.clear();
+    /**
+     * Evicts only ERROR-kind (unresolved) entries from the TypeMirror cache.
+     * Stable, fully-resolved types are preserved so they do not need to be rebuilt each round.
+     * The class-keyed cache never needs eviction because {@link Class} objects are stable.
+     */
+    static void clearUnresolvedTypeCache() {
+        manifestByTypeMirrorCache.keySet().removeIf(TypeManifest::containsUnresolvedType);
     }
 
     /**

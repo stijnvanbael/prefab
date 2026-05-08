@@ -12,7 +12,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -107,17 +106,16 @@ public class AvroPlugin implements PrefabPlugin {
 
     static List<TypeManifest> allNestedTypes(List<TypeManifest> events) {
         var toProcess = new ArrayDeque<>(nestedTypes(events));
-        var result = new ArrayList<>(toProcess);
+        // LinkedHashSet preserves insertion order and provides O(1) contains() checks,
+        // replacing the previous ArrayList that caused O(n^2) deduplication behaviour.
+        var result = new LinkedHashSet<>(toProcess);
         while (!toProcess.isEmpty()) {
             var type = toProcess.poll();
             nestedTypes(List.of(type)).stream()
-                    .filter(t -> !result.contains(t))
-                    .forEach(t -> {
-                        result.add(t);
-                        toProcess.add(t);
-                    });
+                    .filter(result::add)
+                    .forEach(toProcess::add);
         }
-        return result;
+        return List.copyOf(result);
     }
 
     static List<TypeManifest> sealedSubtypes(List<TypeManifest> events) {

@@ -1,7 +1,7 @@
 ---
 id: task-160
 title: "Fix developer guide: @AsyncCommit @Create should use void return type with publishEvent()"
-status: "Sone"
+status: "Done"
 priority: "High"
 labels: ["documentation", "async-commit", "reported-by:maestro"]
 ---

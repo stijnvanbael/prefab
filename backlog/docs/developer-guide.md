@@ -64,13 +64,13 @@ request/response DTOs, event consumer, and database migration scripts at compile
 
 ### Core Concepts
 
-| Concept | Description |
-|---------|-------------|
-| **Aggregate Root** | A Java record annotated with `@Aggregate`. The single, consistent unit of data in the domain. |
-| **Event** | A Java record (or sealed interface) annotated with `@Event`. Published to a messaging platform. |
-| **Event Handler** | A method annotated with `@EventHandler`. Processes events to create or update aggregates. |
-| **Repository Mixin** | An interface annotated with `@RepositoryMixin`. Adds custom query methods to generated repositories. |
-| **Plugin** | Implements `PrefabPlugin` and is registered via `META-INF/services`. Participates in code generation. |
+| Concept              | Description                                                                                           |
+|----------------------|-------------------------------------------------------------------------------------------------------|
+| **Aggregate Root**   | A Java record annotated with `@Aggregate`. The single, consistent unit of data in the domain.         |
+| **Event**            | A Java record (or sealed interface) annotated with `@Event`. Published to a messaging platform.       |
+| **Event Handler**    | A method annotated with `@EventHandler`. Processes events to create or update aggregates.             |
+| **Repository Mixin** | An interface annotated with `@RepositoryMixin`. Adds custom query methods to generated repositories.  |
+| **Plugin**           | Implements `PrefabPlugin` and is registered via `META-INF/services`. Participates in code generation. |
 
 ---
 
@@ -78,40 +78,40 @@ request/response DTOs, event consumer, and database migration scripts at compile
 
 ### Prefab Modules
 
-| Module | Artifact ID | Required? | Description |
-|--------|-------------|-----------|-------------|
-| `core` | `prefab-core` | **Always** | Framework types, annotations, interfaces |
-| `annotation-processor` | `prefab-annotation-processor` | **Always** | Compile-time code generator (APT) |
-| `postgres` | `prefab-postgres` | PostgreSQL | Spring Data JDBC + Flyway + PostgreSQL support |
-| `mongodb` | `prefab-mongodb` | MongoDB | Spring Data MongoDB support |
-| `kafka` | `prefab-kafka` | Kafka events | Kafka producer/consumer configuration |
-| `pubsub` | `prefab-pubsub` | GCP Pub/Sub | Google Cloud Pub/Sub support |
-| `sns-sqs` | `prefab-sns-sqs` | AWS SNS/SQS | AWS SNS publisher + SQS consumer support |
-| `avro` | `prefab-avro` | Avro serialization | Avro serialization/deserialization support |
-| `avro-processor` | `prefab-avro-processor` | AVSC-first events | AVSC schema → Java record code generation |
-| `security` | `prefab-security` | Security | Spring Security + OAuth2 integration |
-| `openapi` | `prefab-openapi` | OpenAPI docs | SpringDoc OpenAPI / Swagger UI |
-| `async-api` | `prefab-async-api` | AsyncAPI docs | AsyncAPI specification generation |
-| `test` | `prefab-test` | Testing | Testcontainers-based integration test support |
-| `terraform` | `prefab-terraform` | GCP infra | GCP Terraform configuration generation |
+| Module                 | Artifact ID                   | Required?          | Description                                    |
+|------------------------|-------------------------------|--------------------|------------------------------------------------|
+| `core`                 | `prefab-core`                 | **Always**         | Framework types, annotations, interfaces       |
+| `annotation-processor` | `prefab-annotation-processor` | **Always**         | Compile-time code generator (APT)              |
+| `postgres`             | `prefab-postgres`             | PostgreSQL         | Spring Data JDBC + Flyway + PostgreSQL support |
+| `mongodb`              | `prefab-mongodb`              | MongoDB            | Spring Data MongoDB support                    |
+| `kafka`                | `prefab-kafka`                | Kafka events       | Kafka producer/consumer configuration          |
+| `pubsub`               | `prefab-pubsub`               | GCP Pub/Sub        | Google Cloud Pub/Sub support                   |
+| `sns-sqs`              | `prefab-sns-sqs`              | AWS SNS/SQS        | AWS SNS publisher + SQS consumer support       |
+| `avro`                 | `prefab-avro`                 | Avro serialization | Avro serialization/deserialization support     |
+| `avro-processor`       | `prefab-avro-processor`       | AVSC-first events  | AVSC schema → Java record code generation      |
+| `security`             | `prefab-security`             | Security           | Spring Security + OAuth2 integration           |
+| `openapi`              | `prefab-openapi`              | OpenAPI docs       | SpringDoc OpenAPI / Swagger UI                 |
+| `async-api`            | `prefab-async-api`            | AsyncAPI docs      | AsyncAPI specification generation              |
+| `test`                 | `prefab-test`                 | Testing            | Testcontainers-based integration test support  |
+| `terraform`            | `prefab-terraform`            | GCP infra          | GCP Terraform configuration generation         |
 
 ### Feature → Module Mapping
 
-| Feature | Minimum Required Modules |
-|---------|-------------------------|
-| REST CRUD (PostgreSQL) | `core`, `annotation-processor`, `postgres` |
-| REST CRUD (MongoDB) | `core`, `annotation-processor`, `mongodb` |
-| Kafka JSON events | `core`, `annotation-processor`, `kafka` |
-| Kafka Avro events | `core`, `annotation-processor`, `kafka`, `avro` |
+| Feature                 | Minimum Required Modules                                          |
+|-------------------------|-------------------------------------------------------------------|
+| REST CRUD (PostgreSQL)  | `core`, `annotation-processor`, `postgres`                        |
+| REST CRUD (MongoDB)     | `core`, `annotation-processor`, `mongodb`                         |
+| Kafka JSON events       | `core`, `annotation-processor`, `kafka`                           |
+| Kafka Avro events       | `core`, `annotation-processor`, `kafka`, `avro`                   |
 | Kafka AVSC-first events | `core`, `annotation-processor`, `kafka`, `avro`, `avro-processor` |
-| GCP Pub/Sub events | `core`, `annotation-processor`, `pubsub` |
-| AWS SNS/SQS events | `core`, `annotation-processor`, `sns-sqs` |
-| Audit trail | `core` (no extra module needed) |
-| Multi-tenancy | `core` (no extra module needed) |
-| Binary uploads | `core`, `annotation-processor`, persistence module |
-| OpenAPI documentation | `core`, `annotation-processor`, `openapi` |
-| AsyncAPI documentation | `core`, `annotation-processor`, `async-api` |
-| Integration testing | `test`, plus one or more messaging modules |
+| GCP Pub/Sub events      | `core`, `annotation-processor`, `pubsub`                          |
+| AWS SNS/SQS events      | `core`, `annotation-processor`, `sns-sqs`                         |
+| Audit trail             | `core` (no extra module needed)                                   |
+| Multi-tenancy           | `core` (no extra module needed)                                   |
+| Binary uploads          | `core`, `annotation-processor`, persistence module                |
+| OpenAPI documentation   | `core`, `annotation-processor`, `openapi`                         |
+| AsyncAPI documentation  | `core`, `annotation-processor`, `async-api`                       |
+| Integration testing     | `test`, plus one or more messaging modules                        |
 
 ### Maven Dependency Snippet
 
@@ -261,15 +261,29 @@ An `@EventHandler` on the same aggregate then persists it when the event arrives
 
 **Attributes:** None
 
+**Placement and scope:**
+
+| Placement                               | Scope                                                                                                                      |
+|-----------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
+| On the aggregate **type**               | All `@Create` **and** all `@Update` methods are async — they return `202 Accepted` and do **not** call `repository.save()` |
+| On a specific **`@Create` method**      | Only that method is async                                                                                                  |
+| On a specific **`@Update void` method** | Only that method is async                                                                                                  |
+
+> **ℹ Note**: Placing `@AsyncCommit` at the type level means the entire aggregate follows the
+> listen-to-self pattern. Every `@Create` and `@Update` method must publish an event instead of
+> returning a value, and state is persisted exclusively via `@EventHandler` consumers.
+> If only selected methods should be asynchronous, place `@AsyncCommit` on those methods individually
+> rather than on the type.
+
 **Behaviour:**
 - On `@Create` static factory method: must have `void` return type and call `PublishesEvents.publishEvent(event)` internally; the generated endpoint returns `202 Accepted`. The event is routed through the Spring application event bus to the generated Kafka (or Pub/Sub, SNS) producer.
-- On `@Update` void method: method must call `publish()` internally; generates `202 Accepted`
-- `@EventHandler` methods on an `@AsyncCommit` aggregate receive a deduplication guard in the generated consumer
+- On `@Update void` method: method must call `PublishesEvents.publishEvent(event)` internally; generates `202 Accepted`; `repository.save()` is **not** called.
+- `@EventHandler` methods on an `@AsyncCommit` aggregate receive a deduplication guard in the generated consumer.
 
 > **⚠ Warning**: A `@Create @AsyncCommit` method with a non-void return type will cause a **compile-time error**.
 > The generated service discards any return value, so a non-void factory would silently never publish its event.
 
-**Example:**
+**Example — type-level `@AsyncCommit` (all mutations are async):**
 
 ```java
 @Aggregate
@@ -284,9 +298,48 @@ public record Order(
         PublishesEvents.publishEvent(new OrderPlaced(Reference.create(), customerId));
     }
 
+    @Update
+    public void cancel() {
+        PublishesEvents.publishEvent(new OrderCancelled(id));
+    }
+
     @EventHandler
     public static Order onOrderPlaced(OrderPlaced event) {
         return new Order(event.id(), event.customerId(), "PLACED");
+    }
+
+    @EventHandler
+    @ByReference
+    public Order onOrderCancelled(OrderCancelled event) {
+        return new Order(id, customerId, "CANCELLED");
+    }
+}
+```
+
+**Example — method-level `@AsyncCommit` (only `@Create` is async, `@Update` is synchronous):**
+
+```java
+@Aggregate
+public record Order(
+        @Id Reference<Order> id,
+        @Version long version,
+        String customerId,
+        String status
+) {
+    @Create
+    @AsyncCommit
+    public static void create(@NotNull String customerId) {
+        PublishesEvents.publishEvent(new OrderPlaced(Reference.create(), customerId));
+    }
+
+    @Update
+    public Order complete() {          // synchronous — returns 200 OK and calls repository.save()
+        return new Order(id, version, customerId, "COMPLETED");
+    }
+
+    @EventHandler
+    public static Order onOrderPlaced(OrderPlaced event) {
+        return new Order(event.id(), 0L, event.customerId(), "PLACED");
     }
 }
 ```
@@ -322,11 +375,11 @@ All REST annotations are in package `be.appify.prefab.core.annotations.rest` wit
 
 Exposes a constructor (synchronous) or static factory method (`@AsyncCommit`) as an HTTP create endpoint.
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `method` | `String` | `"POST"` | HTTP method. Use constants from `HttpMethod`. |
-| `path` | `String` | `""` | Path suffix appended to the aggregate's base path. |
-| `security` | `@Security` | `@Security` (enabled, no authority) | Security settings. |
+| Attribute  | Type        | Default                             | Description                                        |
+|------------|-------------|-------------------------------------|----------------------------------------------------|
+| `method`   | `String`    | `"POST"`                            | HTTP method. Use constants from `HttpMethod`.      |
+| `path`     | `String`    | `""`                                | Path suffix appended to the aggregate's base path. |
+| `security` | `@Security` | `@Security` (enabled, no authority) | Security settings.                                 |
 
 **Generated endpoint:** `POST /orders` → creates the aggregate, returns `201 Created` with location header.
 
@@ -345,11 +398,11 @@ public Order(String customerName) {
 
 Exposes an instance method as an HTTP update endpoint.
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `method` | `String` | `"PUT"` | HTTP method. |
-| `path` | `String` | `""` | Path suffix appended after `/{id}`. E.g. `"/lines"` → `PUT /orders/{id}/lines`. |
-| `security` | `@Security` | `@Security` | Security settings. |
+| Attribute  | Type        | Default     | Description                                                                     |
+|------------|-------------|-------------|---------------------------------------------------------------------------------|
+| `method`   | `String`    | `"PUT"`     | HTTP method.                                                                    |
+| `path`     | `String`    | `""`        | Path suffix appended after `/{id}`. E.g. `"/lines"` → `PUT /orders/{id}/lines`. |
+| `security` | `@Security` | `@Security` | Security settings.                                                              |
 
 The method may either return `void` (mutable record update via field replacement) or return a new
 instance of the aggregate (immutable pattern). Parameters become the request body fields.
@@ -415,11 +468,11 @@ variable (`id` here) as one of its parameters.
 Exposes a delete endpoint. On a type, performs a plain delete. On a method, the method runs first
 (e.g. to publish an event) before the aggregate is deleted.
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `method` | `String` | `"DELETE"` | HTTP method. |
-| `path` | `String` | `"/{id}"` | Full path for the endpoint. |
-| `security` | `@Security` | `@Security` | Security settings. |
+| Attribute  | Type        | Default     | Description                 |
+|------------|-------------|-------------|-----------------------------|
+| `method`   | `String`    | `"DELETE"`  | HTTP method.                |
+| `path`     | `String`    | `"/{id}"`   | Full path for the endpoint. |
+| `security` | `@Security` | `@Security` | Security settings.          |
 
 ```java
 @Delete
@@ -436,10 +489,10 @@ public void delete() {
 
 Exposes a get-by-ID endpoint.
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `method` | `String` | `"GET"` | HTTP method. |
-| `path` | `String` | `"/{id}"` | Full path. |
+| Attribute  | Type        | Default     | Description        |
+|------------|-------------|-------------|--------------------|
+| `method`   | `String`    | `"GET"`     | HTTP method.       |
+| `path`     | `String`    | `"/{id}"`   | Full path.         |
 | `security` | `@Security` | `@Security` | Security settings. |
 
 ```java
@@ -458,11 +511,11 @@ public record Order(...) { }
 
 Exposes a paginated list endpoint. Combine with `@Filter` on fields to enable filtering.
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `method` | `String` | `"GET"` | HTTP method. |
-| `path` | `String` | `""` | Path suffix (defaults to base path of aggregate). |
-| `security` | `@Security` | `@Security` | Security settings. |
+| Attribute  | Type        | Default     | Description                                       |
+|------------|-------------|-------------|---------------------------------------------------|
+| `method`   | `String`    | `"GET"`     | HTTP method.                                      |
+| `path`     | `String`    | `""`        | Path suffix (defaults to base path of aggregate). |
+| `security` | `@Security` | `@Security` | Security settings.                                |
 
 ```java
 @Aggregate
@@ -485,20 +538,20 @@ public record Order(
 
 Enables filtering on a field in the `@GetList` endpoint.
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `operator` | `Filter.Operator` | `CONTAINS` | Filter comparison operator. |
-| `ignoreCase` | `boolean` | `true` | Whether to ignore case for string comparisons. |
+| Attribute    | Type              | Default    | Description                                    |
+|--------------|-------------------|------------|------------------------------------------------|
+| `operator`   | `Filter.Operator` | `CONTAINS` | Filter comparison operator.                    |
+| `ignoreCase` | `boolean`         | `true`     | Whether to ignore case for string comparisons. |
 
 **Operators:**
 
-| Operator | SQL equivalent | Description |
-|----------|---------------|-------------|
-| `EQUAL` | `= :value` | Exact match |
-| `CONTAINS` | `ILIKE '%:value%'` | Contains substring |
-| `STARTS_WITH` | `ILIKE ':value%'` | Starts with |
-| `ENDS_WITH` | `ILIKE '%:value'` | Ends with |
-| `MATCHES_REGEX` | `~ :value` | PostgreSQL regex match |
+| Operator        | SQL equivalent     | Description            |
+|-----------------|--------------------|------------------------|
+| `EQUAL`         | `= :value`         | Exact match            |
+| `CONTAINS`      | `ILIKE '%:value%'` | Contains substring     |
+| `STARTS_WITH`   | `ILIKE ':value%'`  | Starts with            |
+| `ENDS_WITH`     | `ILIKE '%:value'`  | Ends with              |
+| `MATCHES_REGEX` | `~ :value`         | PostgreSQL regex match |
 
 ```java
 @Filter(operator = Filter.Operator.EQUAL)
@@ -514,8 +567,8 @@ String name;
 
 Exposes a download endpoint for a `Binary` field.
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
+| Attribute  | Type        | Default     | Description        |
+|------------|-------------|-------------|--------------------|
 | `security` | `@Security` | `@Security` | Security settings. |
 
 ```java
@@ -543,13 +596,13 @@ are supported:
   given aggregate instance, the event payload is pushed to any SSE client currently connected for
   that instance via a generated `{Aggregate}SseRegistry`.
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `path` | `String` | `"/stream"` | Path suffix appended after `/{id}`. E.g. `"/stream"` → `GET /sessions/{id}/stream`. |
-| `event` | `String` | `"message"` | SSE event name sent in the `event:` field of each SSE frame. |
-| `heartbeatSeconds` | `int` | `15` | Interval between keepalive `event: ping` frames. `0` disables heartbeat. |
-| `terminal` | `String` | `""` | Push model only: name of a `boolean` field on the event record. When `true`, the SSE stream is closed after the final frame. Empty string disables auto-close. |
-| `security` | `@Security` | `@Security` | Security settings for the generated SSE connect endpoint. |
+| Attribute          | Type        | Default     | Description                                                                                                                                                    |
+|--------------------|-------------|-------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `path`             | `String`    | `"/stream"` | Path suffix appended after `/{id}`. E.g. `"/stream"` → `GET /sessions/{id}/stream`.                                                                            |
+| `event`            | `String`    | `"message"` | SSE event name sent in the `event:` field of each SSE frame.                                                                                                   |
+| `heartbeatSeconds` | `int`       | `15`        | Interval between keepalive `event: ping` frames. `0` disables heartbeat.                                                                                       |
+| `terminal`         | `String`    | `""`        | Push model only: name of a `boolean` field on the event record. When `true`, the SSE stream is closed after the final frame. Empty string disables auto-close. |
+| `security`         | `@Security` | `@Security` | Security settings for the generated SSE connect endpoint.                                                                                                      |
 
 ##### Pull model example
 
@@ -644,10 +697,10 @@ public record OrderLine(
 Used as the value of the `security` attribute on `@Create`, `@Update`, `@Delete`, `@GetById`,
 `@GetList`, `@Download`, `@Streaming`.
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `enabled` | `boolean` | `true` | Whether Spring Security is enforced. |
-| `authority` | `String` | `""` | Required Spring Security authority (role). |
+| Attribute   | Type      | Default | Description                                |
+|-------------|-----------|---------|--------------------------------------------|
+| `enabled`   | `boolean` | `true`  | Whether Spring Security is enforced.       |
+| `authority` | `String`  | `""`    | Required Spring Security authority (role). |
 
 ```java
 @Create(security = @Security(authority = "ROLE_ADMIN"))
@@ -669,20 +722,20 @@ Marks a record or interface as a domain event.
 `@Event` metadata is retained in bytecode so consuming modules can generate subscribers for handlers whose
 event types are declared in dependency modules.
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `topic` | `String` | — **(required)** | Messaging topic name. Supports Spring property placeholders. |
-| `platform` | `Event.Platform` | `DERIVED` | Messaging platform. Auto-detected when only one is configured. |
-| `serialization` | `Event.Serialization` | `JSON` | Serialization format (`JSON` or `AVRO`). |
+| Attribute       | Type                  | Default          | Description                                                    |
+|-----------------|-----------------------|------------------|----------------------------------------------------------------|
+| `topic`         | `String`              | — **(required)** | Messaging topic name. Supports Spring property placeholders.   |
+| `platform`      | `Event.Platform`      | `DERIVED`        | Messaging platform. Auto-detected when only one is configured. |
+| `serialization` | `Event.Serialization` | `JSON`           | Serialization format (`JSON` or `AVRO`).                       |
 
 **Platforms:**
 
-| Value | Module Required | Description |
-|-------|----------------|-------------|
-| `DERIVED` | — | Auto-detected from classpath |
-| `KAFKA` | `prefab-kafka` | Apache Kafka |
-| `PUB_SUB` | `prefab-pubsub` | Google Cloud Pub/Sub |
-| `SNS_SQS` | `prefab-sns-sqs` | AWS SNS/SQS |
+| Value     | Module Required  | Description                  |
+|-----------|------------------|------------------------------|
+| `DERIVED` | —                | Auto-detected from classpath |
+| `KAFKA`   | `prefab-kafka`   | Apache Kafka                 |
+| `PUB_SUB` | `prefab-pubsub`  | Google Cloud Pub/Sub         |
+| `SNS_SQS` | `prefab-sns-sqs` | AWS SNS/SQS                  |
 
 **Generated artefacts:**
 - `{Type}Producer` / `{EventInterface}Producer` — Spring `@Component` that publishes to the topic
@@ -728,9 +781,9 @@ Prefab only generates AVSC records, Avro converters/schema factories, and serial
 configuration for contracts that belong to the current compilation module. Dependency-provided AVSC
 contracts are treated as already-generated and are not regenerated.
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `value` | `String[]` | — **(required)** | One or more classpath-relative paths to `.avsc` files. |
+| Attribute | Type       | Default          | Description                                            |
+|-----------|------------|------------------|--------------------------------------------------------|
+| `value`   | `String[]` | — **(required)** | One or more classpath-relative paths to `.avsc` files. |
 
 **Generated artefacts:** One Java record per `.avsc` file, placed in the same Java package as the annotated
 interface (so sealed `permits` clauses can resolve generated types). All generated records implement the
@@ -756,9 +809,9 @@ public sealed interface SaleEvent permits SaleCreated, SalePaid { }
 Declares the Avro namespace for a record type. This is primarily emitted by AVSC-first generation on
 generated records so schema factories can preserve the AVSC namespace without guessing from package names.
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `value` | `String` | — **(required)** | Avro namespace to use in generated schema factories. |
+| Attribute | Type     | Default          | Description                                          |
+|-----------|----------|------------------|------------------------------------------------------|
+| `value`   | `String` | — **(required)** | Avro namespace to use in generated schema factories. |
 
 ---
 
@@ -793,17 +846,17 @@ public record OrderCreated(
 
 Marks a method to process a domain event. The method parameter type determines which event type it handles.
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `value` | `Class<?>` | `void.class` | Aggregate class whose service this handler merges into (for cross-aggregate handlers). |
+| Attribute | Type       | Default      | Description                                                                            |
+|-----------|------------|--------------|----------------------------------------------------------------------------------------|
+| `value`   | `Class<?>` | `void.class` | Aggregate class whose service this handler merges into (for cross-aggregate handlers). |
 
 **Variants:**
 
-| Placement | Rules | Behaviour |
-|-----------|-------|-----------|
-| **Static method** on aggregate | `public static`, returns aggregate type or `Optional<Aggregate>` | Creates a new aggregate from the event |
-| **Instance method** on aggregate | Instance method | Updates existing aggregate (combine with `@ByReference` or `@Multicast`) |
-| **Instance method** on `@Component` | Class must have `@Component` | Injected as service dependency; called directly |
+| Placement                           | Rules                                                            | Behaviour                                                                |
+|-------------------------------------|------------------------------------------------------------------|--------------------------------------------------------------------------|
+| **Static method** on aggregate      | `public static`, returns aggregate type or `Optional<Aggregate>` | Creates a new aggregate from the event                                   |
+| **Instance method** on aggregate    | Instance method                                                  | Updates existing aggregate (combine with `@ByReference` or `@Multicast`) |
+| **Instance method** on `@Component` | Class must have `@Component`                                     | Injected as service dependency; called directly                          |
 
 ```java
 // Static (create pattern):
@@ -829,15 +882,15 @@ public void onOrderPaid(OrderPaid event) {
 
 Configures dead-lettering and retry behaviour for all `@EventHandler` methods on the annotated class.
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `concurrency` | `String` | `"1"` | Number of parallel consumer threads. Supports Spring property placeholders. |
-| `deadLetteringEnabled` | `boolean` | `true` | Whether to enable dead-letter routing on failure. |
-| `deadLetterTopic` | `String` | `"${prefab.dlt.topic.name}"` | Dead-letter topic. |
-| `retryLimit` | `String` | `"${prefab.dlt.retries.limit:5}"` | Max retry attempts before dead-lettering. |
-| `minimumBackoffMs` | `String` | `"${prefab.dlt.retries.minimum-backoff-ms:1000}"` | Min retry delay (ms). |
-| `maximumBackoffMs` | `String` | `"${prefab.dlt.retries.maximum-backoff-ms:30000}"` | Max retry delay (ms). |
-| `backoffMultiplier` | `String` | `"${prefab.dlt.retries.backoff-multiplier:1.5}"` | Exponential backoff multiplier. |
+| Attribute              | Type      | Default                                            | Description                                                                 |
+|------------------------|-----------|----------------------------------------------------|-----------------------------------------------------------------------------|
+| `concurrency`          | `String`  | `"1"`                                              | Number of parallel consumer threads. Supports Spring property placeholders. |
+| `deadLetteringEnabled` | `boolean` | `true`                                             | Whether to enable dead-letter routing on failure.                           |
+| `deadLetterTopic`      | `String`  | `"${prefab.dlt.topic.name}"`                       | Dead-letter topic.                                                          |
+| `retryLimit`           | `String`  | `"${prefab.dlt.retries.limit:5}"`                  | Max retry attempts before dead-lettering.                                   |
+| `minimumBackoffMs`     | `String`  | `"${prefab.dlt.retries.minimum-backoff-ms:1000}"`  | Min retry delay (ms).                                                       |
+| `maximumBackoffMs`     | `String`  | `"${prefab.dlt.retries.maximum-backoff-ms:30000}"` | Max retry delay (ms).                                                       |
+| `backoffMultiplier`    | `String`  | `"${prefab.dlt.retries.backoff-multiplier:1.5}"`   | Exponential backoff multiplier.                                             |
 
 ```java
 @Aggregate
@@ -860,9 +913,9 @@ public record Channel(...) {
 Used on an instance `@EventHandler` method to specify which field on the event holds the reference to the
 aggregate to update.
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `property` | `String` | `""` | Name of the event field of type `Reference<Aggregate>`. If empty, uses the default reference field. |
+| Attribute  | Type     | Default | Description                                                                                         |
+|------------|----------|---------|-----------------------------------------------------------------------------------------------------|
+| `property` | `String` | `""`    | Name of the event field of type `Reference<Aggregate>`. If empty, uses the default reference field. |
 
 ```java
 @EventHandler
@@ -883,10 +936,10 @@ public void onMessageSent(MessageSent event) {
 Used on an instance `@EventHandler` method to deliver an event to **multiple** aggregate instances fetched
 by a repository query.
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `queryMethod` | `String` | — **(required)** | Name of the repository method that fetches the target aggregates. |
-| `parameters` | `String[]` | `{}` | Event field names mapped to the query method parameters (in order). |
+| Attribute     | Type       | Default          | Description                                                         |
+|---------------|------------|------------------|---------------------------------------------------------------------|
+| `queryMethod` | `String`   | — **(required)** | Name of the repository method that fetches the target aggregates.   |
+| `parameters`  | `String[]` | `{}`             | Event field names mapped to the query method parameters (in order). |
 
 If no aggregates are found, `IllegalStateException` is thrown to trigger retry.
 
@@ -910,9 +963,9 @@ public ChannelSummary onMessageSent(MessageSent event) {
 
 Controls database migration script generation.
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `enabled` | `boolean` | `true` | Set to `false` to suppress migration generation for this aggregate. |
+| Attribute | Type      | Default | Description                                                         |
+|-----------|-----------|---------|---------------------------------------------------------------------|
+| `enabled` | `boolean` | `true`  | Set to `false` to suppress migration generation for this aggregate. |
 
 By default, a migration script is generated for every `@Aggregate`. Use `@DbMigration(enabled = false)`
 to opt out (e.g. for aggregates managed by external tools or backed by views).
@@ -959,9 +1012,9 @@ public record Product(
 
 Sets a database-level default value on the generated column.
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `value` | `String` | SQL default value expression (e.g. `"0"`, `"NOW()"`, `"'PENDING'"`) |
+| Attribute | Type     | Description                                                         |
+|-----------|----------|---------------------------------------------------------------------|
+| `value`   | `String` | SQL default value expression (e.g. `"0"`, `"NOW()"`, `"'PENDING'"`) |
 
 ```java
 @DbDefaultValue("'PENDING'")
@@ -978,8 +1031,8 @@ Status status;
 
 Generates a migration script that renames the column from `oldName` to the current field name.
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
+| Attribute | Type     | Description                           |
+|-----------|----------|---------------------------------------|
 | `oldName` | `String` | Previous column name in the database. |
 
 ```java
@@ -997,9 +1050,9 @@ String customerName;
 
 Creates a database index on the corresponding column.
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `unique` | `boolean` | `false` | Whether to create a `UNIQUE` index. |
+| Attribute | Type      | Default | Description                         |
+|-----------|-----------|---------|-------------------------------------|
+| `unique`  | `boolean` | `false` | Whether to create a `UNIQUE` index. |
 
 Indexes are also created automatically for `@Filter`-annotated fields and foreign key columns.
 
@@ -1146,9 +1199,9 @@ These annotations are in `be.appify.prefab.core.annotations.validation` and are 
 
 Restricts the allowed MIME content types for a `Binary` upload.
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `value` | `String[]` | Allowed MIME types (e.g. `{"image/jpeg", "image/png"}`). |
+| Attribute | Type       | Description                                              |
+|-----------|------------|----------------------------------------------------------|
+| `value`   | `String[]` | Allowed MIME types (e.g. `{"image/jpeg", "image/png"}`). |
 
 ```java
 @ContentType({"image/jpeg", "image/png", "image/gif"})
@@ -1163,9 +1216,9 @@ Binary profilePicture;
 
 Restricts the maximum file size for a `Binary` upload.
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `max` | `long` | Maximum file size in bytes. |
+| Attribute | Type   | Description                 |
+|-----------|--------|-----------------------------|
+| `max`     | `long` | Maximum file size in bytes. |
 
 ```java
 @FileSize(max = 5 * 1024 * 1024)  // 5 MB
@@ -1185,9 +1238,9 @@ Binary document;
 Marks an interface as a repository mixin. The interface is added as a super-interface of the generated
 repository for the specified aggregate.
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `value` | `Class<?>` | The aggregate type to extend. |
+| Attribute | Type       | Description                   |
+|-----------|------------|-------------------------------|
+| `value`   | `Class<?>` | The aggregate type to extend. |
 
 See [7.10 Repository Mixins](#710-repository-mixins) for a full example.
 
@@ -1280,11 +1333,11 @@ record PageInfo(int size, int number, long totalElements, int totalPages) { }
 
 **Query parameters accepted by generated list endpoints:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `page` | `int` | `0` | Zero-based page number |
-| `size` | `int` | `20` | Page size |
-| Filter fields | `String` | — | One parameter per `@Filter`-annotated field |
+| Parameter     | Type     | Default | Description                                 |
+|---------------|----------|---------|---------------------------------------------|
+| `page`        | `int`    | `0`     | Zero-based page number                      |
+| `size`        | `int`    | `20`    | Page size                                   |
+| Filter fields | `String` | —       | One parameter per `@Filter`-annotated field |
 
 ---
 
@@ -1382,11 +1435,11 @@ interact with this directly.
 
 ### Exception Types
 
-| Class | HTTP Status | Package |
-|-------|-------------|---------|
-| `BadRequestException` | 400 | `be.appify.prefab.core.problem` |
-| `NotFoundException` | 404 | `be.appify.prefab.core.problem` |
-| `ConflictException` | 409 | `be.appify.prefab.core.problem` |
+| Class                 | HTTP Status | Package                         |
+|-----------------------|-------------|---------------------------------|
+| `BadRequestException` | 400         | `be.appify.prefab.core.problem` |
+| `NotFoundException`   | 404         | `be.appify.prefab.core.problem` |
+| `ConflictException`   | 409         | `be.appify.prefab.core.problem` |
 
 Prefab's generated services throw `NotFoundException` when an aggregate is not found by ID.
 
@@ -1404,14 +1457,14 @@ For an aggregate `Order` in package `com.example.order`, Prefab generates the fo
 
 Generated methods for each REST annotation:
 
-| Annotation | Method | Endpoint | Request | Response |
-|------------|--------|----------|---------|----------|
-| `@Create` | `create(CreateOrderRequest)` | `POST /orders` | `CreateOrderRequest` body | `201 Created` + `Location` header |
-| `@Update` | `update{Method}(String id, Update{Method}OrderRequest)` | `PUT /orders/{id}` | `Update{Method}OrderRequest` body | `200 OK` + `OrderResponse` |
-| `@Delete` | `delete(String id)` | `DELETE /orders/{id}` | — | `204 No Content` |
-| `@GetById` | `getById(String id)` | `GET /orders/{id}` | — | `200 OK` + `OrderResponse` |
-| `@GetList` | `list(Pageable, filter params)` | `GET /orders` | Query params | `200 OK` + `Page<OrderResponse>` |
-| `@Download` | `download{Field}(String id)` | `GET /orders/{id}/{field}` | — | Binary stream |
+| Annotation  | Method                                                  | Endpoint                   | Request                           | Response                          |
+|-------------|---------------------------------------------------------|----------------------------|-----------------------------------|-----------------------------------|
+| `@Create`   | `create(CreateOrderRequest)`                            | `POST /orders`             | `CreateOrderRequest` body         | `201 Created` + `Location` header |
+| `@Update`   | `update{Method}(String id, Update{Method}OrderRequest)` | `PUT /orders/{id}`         | `Update{Method}OrderRequest` body | `200 OK` + `OrderResponse`        |
+| `@Delete`   | `delete(String id)`                                     | `DELETE /orders/{id}`      | —                                 | `204 No Content`                  |
+| `@GetById`  | `getById(String id)`                                    | `GET /orders/{id}`         | —                                 | `200 OK` + `OrderResponse`        |
+| `@GetList`  | `list(Pageable, filter params)`                         | `GET /orders`              | Query params                      | `200 OK` + `Page<OrderResponse>`  |
+| `@Download` | `download{Field}(String id)`                            | `GET /orders/{id}/{field}` | —                                 | Binary stream                     |
 
 **Security:** Each method is annotated with `@PreAuthorize` if `security.enabled = true`.
 
@@ -1461,11 +1514,11 @@ Nested value objects (inner records) are also represented as nested response rec
 
 When an aggregate has `@EventHandler` methods, one consumer class is generated per messaging platform:
 
-| Platform | Generated Class | Type |
-|----------|----------------|------|
-| Kafka | `{Aggregate}EventConsumer` | `@KafkaListener` |
-| Pub/Sub | `{Aggregate}PubSubSubscriber` | `MessageReceiver` |
-| SNS/SQS | `{Aggregate}SqsConsumer` | `@SqsListener` |
+| Platform | Generated Class               | Type              |
+|----------|-------------------------------|-------------------|
+| Kafka    | `{Aggregate}EventConsumer`    | `@KafkaListener`  |
+| Pub/Sub  | `{Aggregate}PubSubSubscriber` | `MessageReceiver` |
+| SNS/SQS  | `{Aggregate}SqsConsumer`      | `@SqsListener`    |
 
 The consumer:
 - Deserializes the event from the topic
@@ -1497,22 +1550,22 @@ CREATE INDEX IF NOT EXISTS idx_order_customer_name ON order (customer_name);
 
 Column type mapping:
 
-| Java Type | SQL Type | Notes |
-|-----------|----------|-------|
-| `String` | `VARCHAR(255)` | Default |
-| `String` + `@Text` | `TEXT` | Unbounded |
-| `String` + `@Size(max=N)` | `VARCHAR(N)` | |
-| `int` / `Integer` | `INT` | |
-| `long` / `Long` | `BIGINT` | |
-| `double` / `Double` | `DOUBLE PRECISION` | |
-| `boolean` / `Boolean` | `BOOLEAN` | |
-| `Instant` | `TIMESTAMP` | |
-| `LocalDate` | `DATE` | |
-| `Reference<T>` | `VARCHAR(36)` | Foreign key |
-| `List<X>` (value type) | Array column | PostgreSQL array |
-| `List<X>` + `@DbDocument` | `JSONB` | |
-| `enum` | `VARCHAR(255)` | Enum name |
-| `Binary` | Omitted | Stored externally |
+| Java Type                 | SQL Type           | Notes             |
+|---------------------------|--------------------|-------------------|
+| `String`                  | `VARCHAR(255)`     | Default           |
+| `String` + `@Text`        | `TEXT`             | Unbounded         |
+| `String` + `@Size(max=N)` | `VARCHAR(N)`       |                   |
+| `int` / `Integer`         | `INT`              |                   |
+| `long` / `Long`           | `BIGINT`           |                   |
+| `double` / `Double`       | `DOUBLE PRECISION` |                   |
+| `boolean` / `Boolean`     | `BOOLEAN`          |                   |
+| `Instant`                 | `TIMESTAMP`        |                   |
+| `LocalDate`               | `DATE`             |                   |
+| `Reference<T>`            | `VARCHAR(36)`      | Foreign key       |
+| `List<X>` (value type)    | Array column       | PostgreSQL array  |
+| `List<X>` + `@DbDocument` | `JSONB`            |                   |
+| `enum`                    | `VARCHAR(255)`     | Enum name         |
+| `Binary`                  | Omitted            | Stored externally |
 
 ### 6.7 Event Consumer Assertions
 
@@ -1636,7 +1689,7 @@ assertThat(client.getProductById(id))
 
 ---
 
-
+## 7. Feature Guides
 
 ### 7.1 REST CRUD Operations
 
@@ -2135,11 +2188,11 @@ Prefab generates:
 
 #### Choosing the right model
 
-| Scenario | Recommended model |
-|----------|------------------|
-| Data from a Kafka event already in the Prefab event flow | **Push** (`@EventHandler @ByReference @Streaming`) |
-| Data from a blocking in-process source (iterator, subprocess) | **Pull** (method returning `Stream<T>`) |
-| Data from a reactive source (Project Reactor) | **Pull** (method returning `Flux<T>`) |
+| Scenario                                                      | Recommended model                                  |
+|---------------------------------------------------------------|----------------------------------------------------|
+| Data from a Kafka event already in the Prefab event flow      | **Push** (`@EventHandler @ByReference @Streaming`) |
+| Data from a blocking in-process source (iterator, subprocess) | **Pull** (method returning `Stream<T>`)            |
+| Data from a reactive source (Project Reactor)                 | **Pull** (method returning `Flux<T>`)              |
 
 ---
 
@@ -2156,11 +2209,11 @@ discarded. `prefab-test` provides two classes to make unit-testing event publish
 A `DomainEventPublisher` implementation that records every published event in an in-memory list
 instead of forwarding it to a message broker.
 
-| Method | Description |
-|--------|-------------|
-| `publishedEvents()` | Returns an unmodifiable list of all captured events. |
-| `publishedEventsOf(Class<T>)` | Returns a filtered list of events of the given type. |
-| `clear()` | Clears the captured list (useful when arranging multiple sub-phases in one test). |
+| Method                        | Description                                                                       |
+|-------------------------------|-----------------------------------------------------------------------------------|
+| `publishedEvents()`           | Returns an unmodifiable list of all captured events.                              |
+| `publishedEventsOf(Class<T>)` | Returns a filtered list of events of the given type.                              |
+| `clear()`                     | Clears the captured list (useful when arranging multiple sub-phases in one test). |
 
 #### `PublishedEventsExtension`
 
@@ -2202,10 +2255,10 @@ class OrderTest {
 `DomainEventPublisher` exposes two static methods used exclusively by framework and test
 infrastructure:
 
-| Method | Usage |
-|--------|-------|
-| `DomainEventPublisher.setInstance(publisher)` | Called by `SpringDomainEventPublisher` on startup and by `PublishedEventsExtension` before each test. |
-| `DomainEventPublisher.reset()` | Called by `SpringDomainEventPublisher` on shutdown (`@PreDestroy`) and by `PublishedEventsExtension` after each test. |
+| Method                                        | Usage                                                                                                                 |
+|-----------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| `DomainEventPublisher.setInstance(publisher)` | Called by `SpringDomainEventPublisher` on startup and by `PublishedEventsExtension` before each test.                 |
+| `DomainEventPublisher.reset()`                | Called by `SpringDomainEventPublisher` on shutdown (`@PreDestroy`) and by `PublishedEventsExtension` after each test. |
 
 This design avoids the *static singleton poisoning* problem: if a unit test runs first in the JVM
 and no publisher is installed at that point, events are dropped but the state is always cleaned up
@@ -2261,48 +2314,48 @@ com.example.processor.MyCustomPlugin
 
 ### PrefabPlugin Callback Methods
 
-| Method | When Called | Purpose |
-|--------|-------------|---------|
-| `initContext(PrefabContext)` | Once at startup | Inject processing environment |
-| `writeController(manifest, builder)` | Per aggregate | Add methods to controller |
-| `writeService(manifest, builder)` | Per aggregate | Add methods to service |
-| `writeRepository(manifest, builder)` | Per aggregate | Add methods to repository |
-| `writeTestClient(manifest, builder)` | Per aggregate | Add methods to test REST client |
-| `writeAdditionalFiles(manifests)` | Once, after all aggregates | Generate extra source files |
-| `writeGlobalFiles(manifests, polymorphicManifests)` | Once, all rounds done | Generate files spanning all aggregates |
-| `writeEventFiles()` | Round 1 only | Generate event types (before aggregate code) |
-| `getServiceDependencies(manifest)` | Per aggregate | Add Spring beans injected into service |
-| `requestBodyParameter(parameter)` | Per method parameter | Override how a parameter maps to request body |
-| `mapRequestParameter(parameter)` | Per method parameter | Override how a request param maps to domain type |
-| `dataTypeOf(typeManifest)` | Per `@CustomType` field | Provide SQL column type for custom types |
-| `avroSchemaOf(typeManifest)` | Per `@CustomType` field | Provide Avro schema for custom types |
-| `toAvroValueOf(type, value)` | Per `@CustomType` field | Serialize custom type to Avro |
-| `fromAvroValueOf(type, value)` | Per `@CustomType` field | Deserialize Avro to custom type |
+| Method                                              | When Called                | Purpose                                          |
+|-----------------------------------------------------|----------------------------|--------------------------------------------------|
+| `initContext(PrefabContext)`                        | Once at startup            | Inject processing environment                    |
+| `writeController(manifest, builder)`                | Per aggregate              | Add methods to controller                        |
+| `writeService(manifest, builder)`                   | Per aggregate              | Add methods to service                           |
+| `writeRepository(manifest, builder)`                | Per aggregate              | Add methods to repository                        |
+| `writeTestClient(manifest, builder)`                | Per aggregate              | Add methods to test REST client                  |
+| `writeAdditionalFiles(manifests)`                   | Once, after all aggregates | Generate extra source files                      |
+| `writeGlobalFiles(manifests, polymorphicManifests)` | Once, all rounds done      | Generate files spanning all aggregates           |
+| `writeEventFiles()`                                 | Round 1 only               | Generate event types (before aggregate code)     |
+| `getServiceDependencies(manifest)`                  | Per aggregate              | Add Spring beans injected into service           |
+| `requestBodyParameter(parameter)`                   | Per method parameter       | Override how a parameter maps to request body    |
+| `mapRequestParameter(parameter)`                    | Per method parameter       | Override how a request param maps to domain type |
+| `dataTypeOf(typeManifest)`                          | Per `@CustomType` field    | Provide SQL column type for custom types         |
+| `avroSchemaOf(typeManifest)`                        | Per `@CustomType` field    | Provide Avro schema for custom types             |
+| `toAvroValueOf(type, value)`                        | Per `@CustomType` field    | Serialize custom type to Avro                    |
+| `fromAvroValueOf(type, value)`                      | Per `@CustomType` field    | Deserialize Avro to custom type                  |
 
 ### Built-in Plugins
 
 The following plugins are included in `prefab-annotation-processor`:
 
-| Plugin | Handles |
-|--------|---------|
-| `DbMigrationPlugin` | `@DbMigration` → Flyway SQL scripts |
-| `MongoMigrationPlugin` | `@DbMigration` on MongoDB → JS migration scripts |
-| `MongoIndexPlugin` | `@Indexed` for MongoDB |
-| `SerializationPlugin` | `@Event` → `SerializationRegistryConfiguration` |
-| `EventSchemaDocumentationPlugin` | `@Event` → AsyncAPI schema |
-| `StaticEventHandlerPlugin` | Static `@EventHandler` methods |
-| `ByReferenceEventHandlerPlugin` | `@ByReference` event handlers |
-| `MulticastEventHandlerPlugin` | `@Multicast` event handlers |
-| `CreatePlugin` | `@Create` → controller + service create method |
-| `GetByIdPlugin` | `@GetById` → controller + service getById method |
-| `DeletePlugin` | `@Delete` → controller + service delete method |
-| `GetListPlugin` | `@GetList` + `@Filter` → controller + service list method |
-| `UpdatePlugin` | `@Update` → controller + service update method |
-| `BinaryPlugin` | `Binary` fields + `@Download` |
-| `AggregateParameterPlugin` | Handles `@Aggregate`-typed method parameters |
-| `TenantPlugin` | `@TenantId` → tenant filtering code |
-| `AuditPlugin` | Audit field population code |
-| `MotherPlugin` | Test object mother generation |
+| Plugin                           | Handles                                                   |
+|----------------------------------|-----------------------------------------------------------|
+| `DbMigrationPlugin`              | `@DbMigration` → Flyway SQL scripts                       |
+| `MongoMigrationPlugin`           | `@DbMigration` on MongoDB → JS migration scripts          |
+| `MongoIndexPlugin`               | `@Indexed` for MongoDB                                    |
+| `SerializationPlugin`            | `@Event` → `SerializationRegistryConfiguration`           |
+| `EventSchemaDocumentationPlugin` | `@Event` → AsyncAPI schema                                |
+| `StaticEventHandlerPlugin`       | Static `@EventHandler` methods                            |
+| `ByReferenceEventHandlerPlugin`  | `@ByReference` event handlers                             |
+| `MulticastEventHandlerPlugin`    | `@Multicast` event handlers                               |
+| `CreatePlugin`                   | `@Create` → controller + service create method            |
+| `GetByIdPlugin`                  | `@GetById` → controller + service getById method          |
+| `DeletePlugin`                   | `@Delete` → controller + service delete method            |
+| `GetListPlugin`                  | `@GetList` + `@Filter` → controller + service list method |
+| `UpdatePlugin`                   | `@Update` → controller + service update method            |
+| `BinaryPlugin`                   | `Binary` fields + `@Download`                             |
+| `AggregateParameterPlugin`       | Handles `@Aggregate`-typed method parameters              |
+| `TenantPlugin`                   | `@TenantId` → tenant filtering code                       |
+| `AuditPlugin`                    | Audit field population code                               |
+| `MotherPlugin`                   | Test object mother generation                             |
 
 ### 8.2 Repository Mixins
 
@@ -2336,13 +2389,13 @@ public SerializationRegistryCustomizer myCustomizer() {
 
 ### Application Properties
 
-| Property | Default | Description |
-|----------|---------|-------------|
-| `prefab.dlt.topic.name` | — | Dead-letter topic name (required if dead-lettering is enabled) |
-| `prefab.dlt.retries.limit` | `5` | Default max retries before dead-lettering |
-| `prefab.dlt.retries.minimum-backoff-ms` | `1000` | Default minimum retry backoff (ms) |
-| `prefab.dlt.retries.maximum-backoff-ms` | `30000` | Default maximum retry backoff (ms) |
-| `prefab.dlt.retries.backoff-multiplier` | `1.5` | Default exponential backoff multiplier |
+| Property                                | Default | Description                                                    |
+|-----------------------------------------|---------|----------------------------------------------------------------|
+| `prefab.dlt.topic.name`                 | —       | Dead-letter topic name (required if dead-lettering is enabled) |
+| `prefab.dlt.retries.limit`              | `5`     | Default max retries before dead-lettering                      |
+| `prefab.dlt.retries.minimum-backoff-ms` | `1000`  | Default minimum retry backoff (ms)                             |
+| `prefab.dlt.retries.maximum-backoff-ms` | `30000` | Default maximum retry backoff (ms)                             |
+| `prefab.dlt.retries.backoff-multiplier` | `1.5`   | Default exponential backoff multiplier                         |
 
 ### Kafka Configuration
 
@@ -2478,41 +2531,41 @@ Verify `maven.compiler.release` is set to `21`. Run `mvn clean compile` to force
 
 ## Appendix: Annotation Quick Reference
 
-| Annotation | Target | Retention | Purpose |
-|------------|--------|-----------|---------|
-| `@Aggregate` | Type | RUNTIME | Marks an aggregate root |
-| `@AsyncCommit` | Type, Constructor, Method | SOURCE | Async-commit (listen-to-self) pattern; `@Create` methods must be `void` and call `PublishesEvents.publishEvent()` |
-| `@CustomType` | Type | RUNTIME | Opt out of automatic field mapping |
-| `@Create` | Constructor, Method | SOURCE | HTTP create endpoint |
-| `@Update` | Method | SOURCE | HTTP update endpoint |
-| `@Delete` | Type, Method | SOURCE | HTTP delete endpoint |
-| `@GetById` | Type | SOURCE | HTTP get-by-ID endpoint |
-| `@GetList` | Type | SOURCE | HTTP paginated list endpoint |
-| `@Filter` | Field | SOURCE | Enable filtering on `@GetList` |
-| `@Download` | Field | SOURCE | HTTP binary download endpoint |
-| `@Parent` | Field, Method | SOURCE | Parent aggregate reference for nested paths |
-| `@Security` | (attribute only) | SOURCE | Security settings for REST endpoints |
-| `@Event` | Type | SOURCE | Domain event for a messaging topic |
-| `@Avsc` | Type | SOURCE | AVSC-first event generation |
-| `@PartitioningKey` | Field, Method | SOURCE | Event partitioning/ordering key |
-| `@EventHandler` | Method | SOURCE | Processes a domain event |
-| `@EventHandlerConfig` | Type | — | Dead-letter and retry configuration |
-| `@ByReference` | Method | SOURCE | Event handler — update by reference |
-| `@Multicast` | Method | SOURCE | Event handler — broadcast to many |
-| `@DbMigration` | Type | SOURCE | Control migration script generation |
-| `@DbDocument` | Field | RUNTIME | Store field as JSONB |
-| `@DbDefaultValue` | Field | SOURCE | Database column default value |
-| `@DbRename` | Field | SOURCE | Generate rename migration |
-| `@Indexed` | Field | SOURCE | Create a database index |
-| `@Text` | Field | SOURCE | Map `String` to `TEXT` column |
-| `@CreatedAt` | Field | RUNTIME | Audit: creation timestamp |
-| `@CreatedBy` | Field | RUNTIME | Audit: creator user ID |
-| `@LastModifiedAt` | Field | RUNTIME | Audit: last-modified timestamp |
-| `@LastModifiedBy` | Field | RUNTIME | Audit: last-modifier user ID |
-| `@TenantId` | Field | RUNTIME | Multi-tenancy discriminator |
-| `@RepositoryMixin` | Type | RUNTIME | Add custom query methods to repository |
-| `@ContentType` | Field | — | Allowed MIME types for `Binary` uploads |
-| `@FileSize` | Field | — | Maximum file size for `Binary` uploads |
+| Annotation            | Target                    | Retention | Purpose                                                                                                                                                                                                                                                               |
+|-----------------------|---------------------------|-----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `@Aggregate`          | Type                      | RUNTIME   | Marks an aggregate root                                                                                                                                                                                                                                               |
+| `@AsyncCommit`        | Type, Constructor, Method | SOURCE    | Async-commit (listen-to-self) pattern. At **type level**: all `@Create` and `@Update` methods become async (202, no `repository.save()`). At **method level**: only that method is async. `@Create` methods must be `void` and call `PublishesEvents.publishEvent()`. |
+| `@CustomType`         | Type                      | RUNTIME   | Opt out of automatic field mapping                                                                                                                                                                                                                                    |
+| `@Create`             | Constructor, Method       | SOURCE    | HTTP create endpoint                                                                                                                                                                                                                                                  |
+| `@Update`             | Method                    | SOURCE    | HTTP update endpoint                                                                                                                                                                                                                                                  |
+| `@Delete`             | Type, Method              | SOURCE    | HTTP delete endpoint                                                                                                                                                                                                                                                  |
+| `@GetById`            | Type                      | SOURCE    | HTTP get-by-ID endpoint                                                                                                                                                                                                                                               |
+| `@GetList`            | Type                      | SOURCE    | HTTP paginated list endpoint                                                                                                                                                                                                                                          |
+| `@Filter`             | Field                     | SOURCE    | Enable filtering on `@GetList`                                                                                                                                                                                                                                        |
+| `@Download`           | Field                     | SOURCE    | HTTP binary download endpoint                                                                                                                                                                                                                                         |
+| `@Parent`             | Field, Method             | SOURCE    | Parent aggregate reference for nested paths                                                                                                                                                                                                                           |
+| `@Security`           | (attribute only)          | SOURCE    | Security settings for REST endpoints                                                                                                                                                                                                                                  |
+| `@Event`              | Type                      | SOURCE    | Domain event for a messaging topic                                                                                                                                                                                                                                    |
+| `@Avsc`               | Type                      | SOURCE    | AVSC-first event generation                                                                                                                                                                                                                                           |
+| `@PartitioningKey`    | Field, Method             | SOURCE    | Event partitioning/ordering key                                                                                                                                                                                                                                       |
+| `@EventHandler`       | Method                    | SOURCE    | Processes a domain event                                                                                                                                                                                                                                              |
+| `@EventHandlerConfig` | Type                      | —         | Dead-letter and retry configuration                                                                                                                                                                                                                                   |
+| `@ByReference`        | Method                    | SOURCE    | Event handler — update by reference                                                                                                                                                                                                                                   |
+| `@Multicast`          | Method                    | SOURCE    | Event handler — broadcast to many                                                                                                                                                                                                                                     |
+| `@DbMigration`        | Type                      | SOURCE    | Control migration script generation                                                                                                                                                                                                                                   |
+| `@DbDocument`         | Field                     | RUNTIME   | Store field as JSONB                                                                                                                                                                                                                                                  |
+| `@DbDefaultValue`     | Field                     | SOURCE    | Database column default value                                                                                                                                                                                                                                         |
+| `@DbRename`           | Field                     | SOURCE    | Generate rename migration                                                                                                                                                                                                                                             |
+| `@Indexed`            | Field                     | SOURCE    | Create a database index                                                                                                                                                                                                                                               |
+| `@Text`               | Field                     | SOURCE    | Map `String` to `TEXT` column                                                                                                                                                                                                                                         |
+| `@CreatedAt`          | Field                     | RUNTIME   | Audit: creation timestamp                                                                                                                                                                                                                                             |
+| `@CreatedBy`          | Field                     | RUNTIME   | Audit: creator user ID                                                                                                                                                                                                                                                |
+| `@LastModifiedAt`     | Field                     | RUNTIME   | Audit: last-modified timestamp                                                                                                                                                                                                                                        |
+| `@LastModifiedBy`     | Field                     | RUNTIME   | Audit: last-modifier user ID                                                                                                                                                                                                                                          |
+| `@TenantId`           | Field                     | RUNTIME   | Multi-tenancy discriminator                                                                                                                                                                                                                                           |
+| `@RepositoryMixin`    | Type                      | RUNTIME   | Add custom query methods to repository                                                                                                                                                                                                                                |
+| `@ContentType`        | Field                     | —         | Allowed MIME types for `Binary` uploads                                                                                                                                                                                                                               |
+| `@FileSize`           | Field                     | —         | Maximum file size for `Binary` uploads                                                                                                                                                                                                                                |
 
 ---
 

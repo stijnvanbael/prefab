@@ -1949,6 +1949,39 @@ an explicit exception.
 For nullable Avro fields, Prefab treats annotations named `Nullable` (including
 `jakarta.annotation.Nullable`) as optional markers and generates Avro unions as
 `["null", T]` with a `null` default.
+#### Avro union fields
+When an AVSC field declares a multi-branch union — for example `["double","string"]`,
+`["RecordA","RecordB"]`, or `["null","RecordA","RecordB"]` — Prefab generates a **type-safe sealed
+interface** instead of an untyped field.
+**Scalar union** — `["double","string"]` on field `exactValue`:
+- `ExactValue` — sealed interface
+- `ExactValueDouble(double value)` — implements `ExactValue`
+- `ExactValueString(String value)` — implements `ExactValue`
+**Record union** — `["TextPayload","NumericPayload"]` on field `payload`:
+- `Payload` — sealed interface
+- `PayloadTextPayload(TextPayload value)` — implements `Payload`
+- `PayloadNumericPayload(NumericPayload value)` — implements `Payload`
+- `TextPayload` and `NumericPayload` records are generated separately with their own converters and schema factories.
+**Enum union** — `["AlertLevel","string"]` on field `status`:
+- `Status` — sealed interface
+- `StatusAlertLevel(AlertLevel value)` — implements `Status`
+- `StatusString(String value)` — implements `Status`
+**Array branch union** — `["string",{"type":"array","items":"string"}]` on field `tags`:
+- `Tags` — sealed interface
+- `TagsString(String value)` — implements `Tags`
+- `TagsStringList(List<String> value)` — implements `Tags`
+**Branch naming**: `{CapitalizedFieldName}{Suffix}` where suffix is `Double`, `String`, `Int`, `Long`,
+`Float`, `Boolean`, the record or enum simple name, or `{ElementType}List` for array branches.
+**Nullable multi-branch unions**: For `["null","RecordA","RecordB"]`, the field is annotated `@Nullable`
+and the sealed interface is generated for the non-null branches only. The schema factory uses
+`SchemaSupport.createNullableUnion` to prepend `null` to the flat union (not a nested union).
+**Generated artefacts per union**:
+- One sealed interface (schema factory only — no standalone converter bean)
+- One wrapper record per branch
+- For record branches: full converters and schema factory are generated for each branch record type
+**Converter behaviour**: serialisation and deserialisation logic is inlined into the parent record's
+converter via a `switch` expression over the sealed interface's permitted subtypes. The sealed
+interface itself does not get a separate converter bean.
 
 ---
 

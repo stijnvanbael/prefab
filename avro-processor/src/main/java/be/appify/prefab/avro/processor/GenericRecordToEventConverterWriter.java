@@ -24,6 +24,8 @@ import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
 
 import static be.appify.prefab.avro.processor.AvroPlugin.isLogicalType;
+import static be.appify.prefab.avro.processor.AvroPlugin.avroUnionRecordBranches;
+import static be.appify.prefab.avro.processor.AvroPlugin.isAvroUnion;
 import static be.appify.prefab.avro.processor.AvroPlugin.isNestedRecord;
 import static be.appify.prefab.avro.processor.AvroPlugin.nestedTypes;
 import static be.appify.prefab.avro.processor.AvroPlugin.sealedSubtypes;
@@ -196,7 +198,13 @@ class GenericRecordToEventConverterWriter {
     private static MethodSpec constructor(TypeManifest event, TypeSpec.Builder type) {
         var constructor = MethodSpec.constructorBuilder()
                 .addModifiers(Modifier.PUBLIC);
-        nestedTypes(List.of(event)).forEach(nestedType -> addConverter(type, nestedType, constructor));
+        nestedTypes(List.of(event)).forEach(nestedType -> {
+            if (isAvroUnion(nestedType)) {
+                avroUnionRecordBranches(nestedType).forEach(componentType -> addConverter(type, componentType, constructor));
+            } else {
+                addConverter(type, nestedType, constructor);
+            }
+        });
         sealedSubtypes(List.of(event)).forEach(subtype -> addConverter(type, subtype, constructor));
         return constructor.build();
     }
@@ -277,6 +285,10 @@ class GenericRecordToEventConverterWriter {
         if (type.is(String.class) && field.nullable()) {
             return maybeNull(value, CodeBlock.of("$L.toString()", value));
         }
+        if (isAvroUnion(type)) {
+            var switchExpr = avroToUnionValue(value, type);
+            return field.nullable() ? maybeNull(value, switchExpr) : switchExpr;
+        }
         return field(value, type);
     }
 
@@ -310,6 +322,8 @@ class GenericRecordToEventConverterWriter {
                                 type.asElement());
                         return CodeBlock.of("null");
                     });
+        } else if (isAvroUnion(type)) {
+            return avroToUnionValue(value, type);
         } else if (type.isStandardType()) {
             return CodeBlock.of("($T) $L", type.asBoxed().asTypeName(), value);
         } else {
@@ -357,5 +371,58 @@ class GenericRecordToEventConverterWriter {
                 ParameterizedTypeName.get(ClassName.get(GenericData.Array.class), WildcardTypeName.subtypeOf(Object.class)),
                 value,
                 field(CodeBlock.of("item"), elementType));
+    }
+
+    /** Deserialises a raw Avro union value to the matching sealed-interface branch wrapper. */
+    private CodeBlock avroToUnionValue(CodeBlock value, TypeManifest type) {
+        var cases = type.permittedSubtypes().stream()
+                .map(this::avroToBranchCase)
+                .collect(CodeBlock.joining("\n    "));
+        return CodeBlock.of("switch ($L) {\n    $L\n    default -> throw new $T(\"Unexpected Avro union value: \" + $L);\n}",
+                value, cases, IllegalArgumentException.class, value);
+    }
+    private CodeBlock avroToBranchCase(TypeManifest branchType) {
+        var componentType = branchType.fields().getFirst().type();
+        var runtimeType = avroRuntimeType(componentType);
+        var construct = componentFromAvro(componentType, branchType);
+        if (isNestedRecord(componentType)) {
+            // Use a when-guard so multiple record branches can be distinguished by schema name.
+            return CodeBlock.of("case $T v when $S.equals(v.getSchema().getName()) -> $L;",
+                    runtimeType, componentType.simpleName(), construct);
+        }
+        return CodeBlock.of("case $T v -> $L;", runtimeType, construct);
+    }
+    private TypeName avroRuntimeType(TypeManifest componentType) {
+        if (componentType.is(String.class)) return ClassName.get(CharSequence.class);
+        if (componentType.is(double.class) || componentType.is(Double.class)) return ClassName.get(Double.class);
+        if (componentType.is(int.class) || componentType.is(Integer.class)) return ClassName.get(Integer.class);
+        if (componentType.is(long.class) || componentType.is(Long.class)) return ClassName.get(Long.class);
+        if (componentType.is(float.class) || componentType.is(Float.class)) return ClassName.get(Float.class);
+        if (componentType.is(boolean.class) || componentType.is(Boolean.class)) return ClassName.get(Boolean.class);
+        if (isNestedRecord(componentType)) return ClassName.get(GenericRecord.class);
+        if (componentType.isEnum()) return ClassName.get(GenericData.EnumSymbol.class);
+        if (componentType.is(List.class)) return ParameterizedTypeName.get(
+                ClassName.get(GenericData.Array.class), WildcardTypeName.subtypeOf(Object.class));
+        throw new IllegalStateException("Unsupported Avro union branch component type: " + componentType);
+    }
+    private CodeBlock componentFromAvro(TypeManifest componentType, TypeManifest branchType) {
+        if (componentType.is(String.class)) {
+            return CodeBlock.of("new $T(v.toString())", branchType.asTypeName());
+        }
+        if (isNestedRecord(componentType)) {
+            var converterName = "genericRecordTo" + componentType.simpleName().replace(".", "") + "Converter";
+            return CodeBlock.of("new $T($L.convert(v))", branchType.asTypeName(), converterName);
+        }
+        if (componentType.isEnum()) {
+            return CodeBlock.of("new $T($T.valueOf(v.toString()))", branchType.asTypeName(), componentType.asTypeName());
+        }
+        if (componentType.is(List.class)) {
+            var elementType = componentType.parameters().getFirst();
+            return CodeBlock.of("new $T($T.stream(v.iterator()).map(item -> $L).toList())",
+                    branchType.asTypeName(),
+                    be.appify.prefab.core.util.Streams.class,
+                    field(CodeBlock.of("item"), elementType));
+        }
+        return CodeBlock.of("new $T(v)", branchType.asTypeName());
     }
 }

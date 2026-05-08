@@ -27,6 +27,9 @@ import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaCompatibility;
 
+import static be.appify.prefab.avro.processor.AvroPlugin.avroUnionRecordBranches;
+import static be.appify.prefab.avro.processor.AvroPlugin.isAvroUnion;
+import static be.appify.prefab.avro.processor.AvroPlugin.isLogicalType;
 import static be.appify.prefab.avro.processor.AvroPlugin.isNestedRecord;
 import static be.appify.prefab.avro.processor.AvroPlugin.nestedTypes;
 import static be.appify.prefab.avro.processor.AvroPlugin.sealedSubtypes;
@@ -329,8 +332,15 @@ class EventSchemaFactoryWriter {
 
     private MethodSpec constructor(TypeManifest event, boolean preserveSingleValueRecords, @Nullable String avscPath) {
         var constructor = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC);
-        nestedTypes(List.of(event)).forEach(nestedType -> addSchemaFactory(nestedType, constructor));
-        sealedSubtypes(List.of(event)).forEach(subtype -> addSchemaFactory(subtype, constructor));
+        if (isAvroUnion(event)) {
+            // Avro union sealed interfaces: inject schema factories for record branch components only.
+            // nestedTypes is intentionally skipped here: it would traverse sealedSubtypes and collect
+            // the same branch record types that avroUnionRecordBranches already returns, causing duplicates.
+            avroUnionRecordBranches(event).forEach(componentType -> addSchemaFactory(componentType, constructor));
+        } else {
+            nestedTypes(List.of(event)).forEach(nestedType -> addSchemaFactory(nestedType, constructor));
+            sealedSubtypes(List.of(event)).forEach(subtype -> addSchemaFactory(subtype, constructor));
+        }
         constructor.addStatement("this.schema = $L", createSchema(event, preserveSingleValueRecords));
         if (avscPath != null) {
             constructor.addStatement("verifySchemaCompatibility(this.schema)");
@@ -510,12 +520,14 @@ class EventSchemaFactoryWriter {
     }
 
     private CodeBlock createRecordSchema(TypeManifest type, boolean preserveSingleValueRecords) {
-        return type.isSealed()
-                ? createUnionSchema(type)
-                : createFlatRecordSchema(type, preserveSingleValueRecords);
+        if (type.isSealed()) {
+            return isAvroUnion(type) ? createAvroUnionSchema(type) : createSealedUnionSchema(type);
+        }
+        return createFlatRecordSchema(type, preserveSingleValueRecords);
     }
 
-    private CodeBlock createUnionSchema(TypeManifest type) {
+    /** Generates a union schema for a sealed event hierarchy (each subtype has its own schema factory). */
+    private CodeBlock createSealedUnionSchema(TypeManifest type) {
         return CodeBlock.of("""
                         $T.createUnion($T.of(
                             $L
@@ -525,6 +537,32 @@ class EventSchemaFactoryWriter {
                 type.permittedSubtypes().stream()
                         .map(subtype -> CodeBlock.of("$L.createSchema()", schemaFactoryFieldName(subtype)))
                         .collect(CodeBlock.joining(",\n    ")));
+    }
+
+    /**
+     * Generates a union schema for an Avro union sealed interface.
+     * Each permitted subtype is a single-value wrapper; its component type determines the branch schema.
+     */
+    private CodeBlock createAvroUnionSchema(TypeManifest type) {
+        return CodeBlock.of("$T.createUnion($T.of(\n    $L\n))",
+                Schema.class,
+                List.class,
+                type.permittedSubtypes().stream()
+                        .map(this::avroUnionBranchSchema)
+                        .collect(CodeBlock.joining(",\n    ")));
+    }
+
+    private CodeBlock avroUnionBranchSchema(TypeManifest branchType) {
+        var componentType = branchType.fields().getFirst().type();
+        if (isNestedRecord(componentType)) {
+            return CodeBlock.of("$L.createSchema()", schemaFactoryFieldName(componentType));
+        }
+        if (componentType.is(java.util.List.class)) {
+            // Array branch: generate an Avro array schema from the list element type.
+            return CodeBlock.of("$T.createArray($L)", Schema.class,
+                    createSchema(componentType.parameters().getFirst(), false));
+        }
+        return createSchema(componentType, false);
     }
 
     private CodeBlock createFlatRecordSchema(TypeManifest type, boolean preserveSingleValueRecords) {
@@ -567,9 +605,15 @@ class EventSchemaFactoryWriter {
         return wrapWithSampleIfPresent(field, fieldBlock);
     }
 
-    private static CodeBlock buildFieldBlock(VariableManifest field, CodeBlock schema, @Nullable String doc) {
+    private CodeBlock buildFieldBlock(VariableManifest field, CodeBlock schema, @Nullable String doc) {
         if (field.nullable()) {
-            var nullableSchema = CodeBlock.of("$T.createNullableSchema($L)", SchemaSupport.class, schema);
+            CodeBlock nullableSchema;
+            if (isAvroUnion(field.type())) {
+                // Multi-branch union: prepend null to the flat union to avoid nested unions.
+                nullableSchema = CodeBlock.of("$T.createNullableUnion($L)", SchemaSupport.class, schema);
+            } else {
+                nullableSchema = CodeBlock.of("$T.createNullableSchema($L)", SchemaSupport.class, schema);
+            }
             return CodeBlock.of("new $T($S, $L, $S, $T.NULL_DEFAULT_VALUE)",
                     Schema.Field.class, field.name(), nullableSchema, doc, Schema.Field.class);
         }

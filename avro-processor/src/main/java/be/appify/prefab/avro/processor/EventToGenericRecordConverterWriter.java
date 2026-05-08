@@ -25,6 +25,8 @@ import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
 
 import static be.appify.prefab.avro.processor.AvroPlugin.isLogicalType;
+import static be.appify.prefab.avro.processor.AvroPlugin.avroUnionRecordBranches;
+import static be.appify.prefab.avro.processor.AvroPlugin.isAvroUnion;
 import static be.appify.prefab.avro.processor.AvroPlugin.isNestedRecord;
 import static be.appify.prefab.avro.processor.AvroPlugin.nestedTypes;
 import static be.appify.prefab.avro.processor.AvroSupport.componentAnnotation;
@@ -123,7 +125,14 @@ class EventToGenericRecordConverterWriter {
                 .addParameter(ClassName.get(event.packageName() + ".infrastructure.avro",
                         "%sSchemaFactory".formatted(event.simpleName().replace(".", ""))), "schemaFactory")
                 .addStatement("this.schema = schemaFactory.createSchema()");
-        nestedTypes(List.of(event)).forEach(nestedType -> addConverter(type, nestedType, constructor));
+        nestedTypes(List.of(event)).forEach(nestedType -> {
+            if (isAvroUnion(nestedType)) {
+                // For Avro union interfaces, inject converters for their record branch components instead.
+                avroUnionRecordBranches(nestedType).forEach(componentType -> addConverter(type, componentType, constructor));
+            } else {
+                addConverter(type, nestedType, constructor);
+            }
+        });
         sealedSubtypes(event).forEach(subtype -> addConverter(type, subtype, constructor));
         return constructor.build();
     }
@@ -194,6 +203,8 @@ class EventToGenericRecordConverterWriter {
             return maybeNull(value, logicalType(value, type));
         } else if (type.isEnum()) {
             return maybeNull(value, CodeBlock.of("new $T($T.enumSchemaOf($L), $L.name())", GenericData.EnumSymbol.class, SchemaSupport.class, schema, value));
+        } else if (isAvroUnion(type)) {
+            return maybeNull(value, avroUnionToAvro(value, schema, type));
         } else if (type.isSealed()) {
             return maybeNull(value, sealedType(value, type));
         } else if (isNestedRecord(type)) {
@@ -298,5 +309,29 @@ class EventToGenericRecordConverterWriter {
                 component.name(),
                 componentValue,
                 logicalType(value, type));
+    }
+
+    /** Converts an Avro-union-typed Java field value to its raw Avro representation. */
+    private CodeBlock avroUnionToAvro(CodeBlock value, CodeBlock unionSchema, TypeManifest type) {
+        return CodeBlock.of("switch ($L) {\n    $L\n    default -> throw new $T(\"Unexpected Avro union value: \" + $L);\n}",
+                value,
+                type.permittedSubtypes().stream()
+                        .map(branchType -> avroUnionBranchToAvro(branchType, unionSchema))
+                        .collect(CodeBlock.joining("\n    ")),
+                IllegalArgumentException.class,
+                value);
+    }
+    private CodeBlock avroUnionBranchToAvro(TypeManifest branchType, CodeBlock unionSchema) {
+        var componentType = branchType.fields().getFirst().type();
+        if (isNestedRecord(componentType)) {
+            var converterName = org.apache.commons.lang3.StringUtils.uncapitalize(
+                    componentType.simpleName().replace(".", "") + "ToGenericRecordConverter");
+            return CodeBlock.of("case $T v -> $L.convert(v.value());", branchType.asTypeName(), converterName);
+        } else if (componentType.isEnum()) {
+            return CodeBlock.of("case $T v -> new $T($T.namedBranchOf($L, $S), v.value().name());",
+                    branchType.asTypeName(), org.apache.avro.generic.GenericData.EnumSymbol.class,
+                    SchemaSupport.class, unionSchema, componentType.simpleName());
+        }
+        return CodeBlock.of("case $T v -> v.value();", branchType.asTypeName());
     }
 }

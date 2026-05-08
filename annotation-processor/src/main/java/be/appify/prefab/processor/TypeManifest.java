@@ -59,12 +59,29 @@ public class TypeManifest {
             if (fullyQualifiedName.isEmpty()) {
                 fullyQualifiedName = typeMirror.toString();
             }
-            var packageName = fullyQualifiedName.contains(".")
+            var regexPackageName = fullyQualifiedName.contains(".")
                     ? fullyQualifiedName.replaceAll("\\.[A-Z].+$", "")
                     : "";
-            var simpleName = packageName.isEmpty()
-                    ? fullyQualifiedName
-                    : fullyQualifiedName.substring(packageName.length() + 1);
+            // When the regex finds no [A-Z] boundary (e.g. a lowercase-named type or an unresolved
+            // ERROR type whose string form has no uppercase letter), fall back to splitting on the
+            // last dot so we never attempt substring(length + 1) out of bounds.
+            final String packageName;
+            final String simpleName;
+            if (regexPackageName.equals(fullyQualifiedName)) {
+                var lastDot = fullyQualifiedName.lastIndexOf('.');
+                if (lastDot >= 0) {
+                    packageName = fullyQualifiedName.substring(0, lastDot);
+                    simpleName = fullyQualifiedName.substring(lastDot + 1);
+                } else {
+                    packageName = "";
+                    simpleName = fullyQualifiedName;
+                }
+            } else {
+                packageName = regexPackageName;
+                simpleName = regexPackageName.isEmpty()
+                        ? fullyQualifiedName
+                        : fullyQualifiedName.substring(regexPackageName.length() + 1);
+            }
             var parameters = declaredType.getTypeArguments().stream()
                     .map(type -> new TypeManifest(type, processingEnvironment))
                     .toList();

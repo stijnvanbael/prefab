@@ -1,0 +1,31 @@
+{
+  "type": "record",
+  "name": "NullableMultiBranchAvscEvent",
+  "namespace": "event.avsc.nullablemultibranch",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {
+      "name": "result",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "SuccessResult",
+          "fields": [
+            {"name": "message", "type": "string"},
+            {"name": "code", "type": "int"}
+          ]
+        },
+        {
+          "type": "record",
+          "name": "FailureResult",
+          "fields": [
+            {"name": "error", "type": "string"},
+            {"name": "retryable", "type": "boolean"}
+          ]
+        }
+      ],
+      "default": null
+    }
+  ]
+}

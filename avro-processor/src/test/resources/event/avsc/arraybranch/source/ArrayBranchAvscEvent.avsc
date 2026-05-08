@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "ArrayBranchAvscEvent",
+  "namespace": "event.avsc.arraybranch",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {
+      "name": "tags",
+      "type": [
+        "string",
+        {"type": "array", "items": "string"}
+      ]
+    }
+  ]
+}

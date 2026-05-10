@@ -1,5 +1,6 @@
 package be.appify.prefab.processor;
 
+import com.palantir.javapoet.ArrayTypeName;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
@@ -72,6 +73,24 @@ class TypeIdentity {
             "boolean", "byte", "char", "double", "float", "int", "long", "short", "void");
 
     TypeName asTypeName() {
+        if (simpleName.endsWith("[]")) {
+            // Array type: resolve the component type and wrap in ArrayTypeName.
+            var componentName = simpleName.substring(0, simpleName.length() - 2);
+            TypeName componentTypeName;
+            if (PRIMITIVE_NAMES.contains(componentName)) {
+                try {
+                    componentTypeName = TypeName.get(org.springframework.util.ClassUtils.forName(componentName,
+                            TypeIdentity.class.getClassLoader()));
+                } catch (ClassNotFoundException e) {
+                    throw new RuntimeException(e);
+                }
+            } else if (packageName.isEmpty()) {
+                componentTypeName = ClassName.get("", componentName);
+            } else {
+                componentTypeName = ClassName.get(packageName, componentName);
+            }
+            return ArrayTypeName.of(componentTypeName);
+        }
         if (packageName.isEmpty()) {
             // Only primitive types legitimately have an empty package.
             // An unresolved (ERROR-kind) type may also land here when its package is unknown;

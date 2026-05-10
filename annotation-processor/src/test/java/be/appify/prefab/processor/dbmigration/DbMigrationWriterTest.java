@@ -526,4 +526,75 @@ class DbMigrationWriterTest {
                 .contentsAsUtf8String()
                 .contains("CREATE TABLE \"order\"");
     }
+
+    @Test
+    void dbColumnAnnotationUsesCustomSqlType() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("dbmigration/dbcolumn/source/Embedding.java"),
+                        sourceOf("dbmigration/dbcolumn/source/FloatArrayToVectorConverter.java")
+                );
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"embedding\" vector(1536)");
+    }
+
+    @Test
+    void dbColumnAnnotationAllowsOtherwiseUnsupportedFieldType() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("dbmigration/dbcolumn/source/Embedding.java"),
+                        sourceOf("dbmigration/dbcolumn/source/FloatArrayToVectorConverter.java")
+                );
+        assertThat(compilation).succeeded();
+    }
+
+    @Test
+    void dbColumnAnnotationWithBlankTypeEmitsCompileError() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/dbcolumn/source/EmbeddingBlankType.java"));
+        assertThat(compilation).hadErrorContaining("@DbColumn.type() must not be blank");
+    }
+
+    @Test
+    void dbColumnConverterGeneratesContributorClass() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("dbmigration/dbcolumn/source/Embedding.java"),
+                        sourceOf("dbmigration/dbcolumn/source/FloatArrayToVectorConverter.java")
+                );
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("dbmigration.dbcolumn.infrastructure.persistence.DbColumnConverterContributor")
+                .contentsAsUtf8String()
+                .contains("new FloatArrayToVectorConverter()");
+    }
+
+    @Test
+    void dbColumnSupportsBoxedArrayByteArrayAndCustomRecord() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/dbcolumn/source/EmbeddingVariants.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"embedding\" vector(384)");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"digest\" bytea");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"metadata\" jsonb");
+    }
 }

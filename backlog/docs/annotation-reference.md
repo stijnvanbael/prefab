@@ -346,7 +346,7 @@ public record Order(
 
 ### `@Filter`
 
-**Target:** `FIELD`
+**Target:** `FIELD`, `RECORD_COMPONENT`
 **Repeatable:** Yes (container: `@Filters`)
 
 Enables filtering on a field in the `@GetList` endpoint.
@@ -818,6 +818,56 @@ String summary;  // generates VARCHAR(500)
 
 ---
 
+### `@DbColumn`
+
+**Package:** `be.appify.prefab.core.annotations`
+**Target:** `FIELD`
+**Retention:** `RUNTIME`
+
+Declares a **custom SQL column type** for an aggregate field, bypassing Prefab's built-in type validation.
+
+Use this annotation when a field's Java type is not in Prefab's supported set — for example, `float[]`,
+custom value types, or PostgreSQL extension types such as `vector(N)` (pgvector), PostGIS geometry,
+or `hstore`.
+
+| Attribute   | Type      | Default      | Description                                                                                  |
+|-------------|-----------|--------------|----------------------------------------------------------------------------------------------|
+| `type`      | `String`  | *(required)* | Exact SQL column type in the generated DDL (e.g. `"vector(1536)"`, `"geometry(Point,4326)"`)|
+| `converter` | `Class<?>`| `void.class` | Optional converter class auto-registered with `JdbcCustomConversions`.                       |
+
+**Behaviour:**
+- The annotation processor accepts the field **without** throwing `IllegalArgumentException`, regardless of Java type.
+- When `@DbMigration` is enabled, the value of `type()` is emitted **verbatim** in the generated `CREATE TABLE` or `ALTER TABLE` statement.
+- When `converter()` is specified (non-void), the class is instantiated and registered automatically as a `JdbcCustomConversions` contributor. The converter must have a public no-argument constructor.
+- A compile-time error is emitted if `type()` is blank.
+
+**Example — pgvector embedding:**
+
+```java
+@Aggregate
+public record MemoryEntry(
+        @Id Reference<MemoryEntry> id,
+        @Version long version,
+        String content,
+        @DbColumn(type = "vector(1536)", converter = FloatArrayToVectorConverter.class)
+        float[] embedding
+) { }
+```
+
+The generated DDL will contain:
+
+```sql
+CREATE TABLE "memory_entry" (
+    "id"        VARCHAR (255) NOT NULL,
+    "version"   BIGINT        NOT NULL,
+    "content"   VARCHAR (255) NOT NULL,
+    "embedding" vector(1536)  NOT NULL,
+    PRIMARY KEY ("id")
+);
+```
+
+---
+
 ### `@Doc`
 
 **Package:** `be.appify.prefab.core.annotations`
@@ -1006,6 +1056,7 @@ See [Feature Guides — Repository Mixins](feature-guides.md#710-repository-mixi
 | `@Multicast`          | Method                    | SOURCE    | Event handler — broadcast to many                                                                                                                                                                                                                                     |
 | `@DbMigration`        | Type                      | SOURCE    | Control migration script generation                                                                                                                                                                                                                                   |
 | `@DbDocument`         | Field                     | RUNTIME   | Store field as JSONB                                                                                                                                                                                                                                                  |
+| `@DbColumn`           | Field, Record Component   | RUNTIME   | Custom SQL column type; bypasses built-in type validation                                                                                                                                                                                                             |
 | `@DbDefaultValue`     | Field                     | SOURCE    | Database column default value                                                                                                                                                                                                                                         |
 | `@DbRename`           | Field                     | SOURCE    | Generate rename migration                                                                                                                                                                                                                                             |
 | `@Indexed`            | Field                     | SOURCE    | Create a database index                                                                                                                                                                                                                                               |

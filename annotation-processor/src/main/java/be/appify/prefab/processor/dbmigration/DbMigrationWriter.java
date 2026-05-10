@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.dbmigration;
 
+import be.appify.prefab.core.annotations.DbColumn;
 import be.appify.prefab.core.annotations.DbDocument;
 import be.appify.prefab.core.annotations.DbRename;
 import be.appify.prefab.core.annotations.Indexed;
@@ -318,10 +319,13 @@ class DbMigrationWriter {
                         || field.type().parameters().getFirst().isStandardType()
                         || (field.type().parameters().getFirst().isSingleValueType()
                                 && !isWrappedRecordType(field.type().parameters().getFirst()))
-                        || isDbDocumentField(field))
+                        || isDbDocumentField(field)
+                        || field.hasAnnotation(DbColumn.class))
                 .flatMap(field -> {
                     boolean isSubtypeSpecific = !commonFieldNames.contains(field.name());
-                    if (isDbDocumentField(field)) {
+                    if (field.hasAnnotation(DbColumn.class)) {
+                        return Stream.of(dbColumnFromField(null, field, isSubtypeSpecific || field.nullable()));
+                    } else if (isDbDocumentField(field)) {
                         return Stream.of(Column.fromField(null, field, isSubtypeSpecific || field.nullable(),
                                 DataType.Primitive.JSONB));
                     } else if (field.type().isCustomType()) {
@@ -536,9 +540,12 @@ class DbMigrationWriter {
                         || field.type().parameters().getFirst().isStandardType()
                         || (field.type().parameters().getFirst().isSingleValueType()
                                 && !isWrappedRecordType(field.type().parameters().getFirst()))
-                        || isDbDocumentField(field))
+                        || isDbDocumentField(field)
+                        || field.hasAnnotation(DbColumn.class))
                 .flatMap(field -> {
-                    if (isDbDocumentField(field)) {
+                    if (field.hasAnnotation(DbColumn.class)) {
+                        return Stream.of(dbColumnFromField(prefix, field, parentNullable));
+                    } else if (isDbDocumentField(field)) {
                         return Stream.of(Column.fromField(prefix, field, parentNullable, DataType.Primitive.JSONB));
                     } else if (field.type().isCustomType()) {
                         return customTypeColumn(prefix, field, parentNullable);
@@ -551,6 +558,24 @@ class DbMigrationWriter {
                     }
                 })
                 .toList();
+    }
+
+    private Column dbColumnFromField(String prefix, VariableManifest field, boolean parentNullable) {
+        var annotation = field.getAnnotation(DbColumn.class)
+                .orElseThrow(() -> new IllegalStateException("Expected @DbColumn annotation on field: " + field.name()))
+                .value();
+        validateDbColumnType(annotation.type(), field);
+        return Column.fromField(prefix, field, parentNullable, new DataType.Custom(annotation.type()));
+    }
+
+    private void validateDbColumnType(String type, VariableManifest field) {
+        if (type == null || type.isBlank()) {
+            context.processingEnvironment().getMessager().printMessage(
+                    javax.tools.Diagnostic.Kind.ERROR,
+                    "@DbColumn.type() must not be blank on field '%s'".formatted(field.name()),
+                    field.element()
+            );
+        }
     }
 
     private static boolean isSingleValueWrapperManifest(ClassManifest manifest) {
@@ -587,6 +612,9 @@ class DbMigrationWriter {
             return;
         }
         if (field.hasAnnotation(Id.class)) {
+            return;
+        }
+        if (field.hasAnnotation(DbColumn.class)) {
             return;
         }
         var annotations = field.annotations();

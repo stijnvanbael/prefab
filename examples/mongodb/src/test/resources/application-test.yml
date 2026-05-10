@@ -15,6 +15,3 @@ prefab:
   outbox:
     poll-interval-ms: 100
     batch-size: 10
-  test:
-    schema-registry:
-      enabled: true

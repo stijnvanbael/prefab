@@ -4,7 +4,7 @@ title: Add @DbColumn annotation for custom SQL column types on aggregate fields
 status: In Progress
 assignee: []
 created_date: '2026-05-10 09:24'
-updated_date: '2026-05-10 10:18'
+updated_date: '2026-05-10 10:22'
 labels:
   - feature
   - annotation-processor
@@ -31,3 +31,25 @@ Add a new @DbColumn field annotation that allows aggregate fields to opt into ex
 - [ ] #6 `@DbColumn` works for `float[]`, `Float[]`, `byte[]`, and user-defined record/class field types.
 - [ ] #7 Developer guide docs are updated with `@DbColumn` reference and a pgvector-oriented usage example.
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Next: run broader module test selection (or full reactor tests) and decide whether TASK-187 should be marked Done or kept In Progress until pgvector runtime integration coverage is added.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Started implementation in commit `a46f4c46` with core annotation/API, annotation-processor handling, postgres converter wiring, tests, and developer guide updates.
+
+Added `@DbColumn` annotation and `DbColumnConverterContributor` interface in `core` and wired contributors into `PrefabJdbcConfiguration.userConverters()` in `postgres`.
+
+Extended db migration generation so `@DbColumn(type=...)` emits custom SQL type and blank `type()` emits a compile-time error on the annotated field.
+
+Added processor support for converter contributor generation via `DbColumnConverterContributorWriter` and guarded unresolved converter types to avoid processor crashes.
+
+Expanded db migration tests with fixtures for converter registration, `Float[]`, `byte[]`, and custom record field mapping (`EmbeddingVariants`).
+
+Validation run: `mvn -pl annotation-processor -Dtest=DbMigrationWriterTest test` and `mvn -pl core,postgres -DskipTests compile`.
+<!-- SECTION:NOTES:END -->

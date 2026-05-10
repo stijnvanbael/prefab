@@ -2,9 +2,19 @@
   "type": "record",
   "name": "DocFieldAvscEvent",
   "namespace": "event.avsc",
+  "doc": "An event describing a person",
   "fields": [
     {"name": "name", "type": "string", "doc": "Full name of the person"},
-    {"name": "age", "type": "int"}
+    {"name": "age", "type": "int"},
+    {
+      "name": "status",
+      "type": {
+        "type": "enum",
+        "name": "DocFieldAvscStatus",
+        "doc": "The status of the person",
+        "symbols": ["ACTIVE", "INACTIVE", "PENDING"]
+      }
+    }
   ]
 }
 

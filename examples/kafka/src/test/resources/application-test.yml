@@ -6,10 +6,15 @@ logging.level:
   be.appify.prefab.example: DEBUG
 
 prefab:
+  flyway:
+    auto-clean-on-mismatch: true
   dlt:
     retries:
-      limit: 10
+      limit: 3
       initial-interval-ms: 10
   outbox:
     poll-interval-ms: 100
     batch-size: 10
+  test:
+    schema-registry:
+      enabled: true

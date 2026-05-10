@@ -2,6 +2,7 @@ package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.avro.SchemaSupport;
 import be.appify.prefab.core.annotations.Avsc;
+import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -24,6 +25,8 @@ import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
 
 import static be.appify.prefab.avro.processor.AvroPlugin.isLogicalType;
+import static be.appify.prefab.avro.processor.AvroPlugin.avroUnionRecordBranches;
+import static be.appify.prefab.avro.processor.AvroPlugin.isAvroUnion;
 import static be.appify.prefab.avro.processor.AvroPlugin.isNestedRecord;
 import static be.appify.prefab.avro.processor.AvroPlugin.nestedTypes;
 import static be.appify.prefab.avro.processor.AvroSupport.componentAnnotation;
@@ -36,12 +39,11 @@ class EventToGenericRecordConverterWriter {
         this.context = context;
     }
 
-    void writeConverter(TypeManifest event) {
+    boolean writeConverter(TypeManifest event) {
         // @Avsc contract interfaces must not be mapped field-by-field — generate a delegating
         // converter that dispatches on the runtime type of the event to the concrete converter.
         if (event.asElement() != null && event.asElement().getAnnotation(Avsc.class) != null) {
-            writeAvscInterfaceConverter(event);
-            return;
+            return writeAvscInterfaceConverter(event);
         }
 
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
@@ -57,6 +59,7 @@ class EventToGenericRecordConverterWriter {
                 .addMethod(convertMethod(event));
 
         fileWriter.writeFile(event.packageName(), name, type.build());
+        return true;
     }
 
     /**
@@ -64,18 +67,18 @@ class EventToGenericRecordConverterWriter {
      * The converter switches on the runtime type of the event and delegates to the appropriate
      * concrete record converter instead of trying to map the interface's fields directly.
      */
-    private void writeAvscInterfaceConverter(TypeManifest contractInterface) {
+    private boolean writeAvscInterfaceConverter(TypeManifest contractInterface) {
         var implementations = context.eventElementsFromCurrentCompilation()
-                .filter(e -> e.getKind() == ElementKind.RECORD)
-                .filter(e -> e.getInterfaces().stream()
-                        .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
-                        .anyMatch(iface -> iface.equals(contractInterface.asElement())))
+                .filter(e -> !e.equals(contractInterface.asElement()))
+                .filter(e -> e.getAnnotation(Event.class) != null)
+                .filter(e -> context.processingEnvironment().getTypeUtils()
+                        .isSubtype(e.asType(), contractInterface.asElement().asType()))
                 .map(e -> TypeManifest.of(e.asType(), context.processingEnvironment()))
                 .toList();
 
         // Skip round 1: concrete records are compiled in round 2 and not yet available.
         if (implementations.isEmpty()) {
-            return;
+            return false;
         }
 
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
@@ -113,6 +116,7 @@ class EventToGenericRecordConverterWriter {
         type.addMethod(convertMethod.build());
 
         fileWriter.writeFile(contractInterface.packageName(), name, type.build());
+        return true;
     }
 
     private static MethodSpec constructor(TypeManifest event, TypeSpec.Builder type) {
@@ -121,7 +125,14 @@ class EventToGenericRecordConverterWriter {
                 .addParameter(ClassName.get(event.packageName() + ".infrastructure.avro",
                         "%sSchemaFactory".formatted(event.simpleName().replace(".", ""))), "schemaFactory")
                 .addStatement("this.schema = schemaFactory.createSchema()");
-        nestedTypes(List.of(event)).forEach(nestedType -> addConverter(type, nestedType, constructor));
+        nestedTypes(List.of(event)).forEach(nestedType -> {
+            if (isAvroUnion(nestedType)) {
+                // For Avro union interfaces, inject converters for their record branch components instead.
+                avroUnionRecordBranches(nestedType).forEach(componentType -> addConverter(type, componentType, constructor));
+            } else {
+                addConverter(type, nestedType, constructor);
+            }
+        });
         sealedSubtypes(event).forEach(subtype -> addConverter(type, subtype, constructor));
         return constructor.build();
     }
@@ -192,6 +203,8 @@ class EventToGenericRecordConverterWriter {
             return maybeNull(value, logicalType(value, type));
         } else if (type.isEnum()) {
             return maybeNull(value, CodeBlock.of("new $T($T.enumSchemaOf($L), $L.name())", GenericData.EnumSymbol.class, SchemaSupport.class, schema, value));
+        } else if (isAvroUnion(type)) {
+            return maybeNull(value, avroUnionToAvro(value, schema, type));
         } else if (type.isSealed()) {
             return maybeNull(value, sealedType(value, type));
         } else if (isNestedRecord(type)) {
@@ -296,5 +309,29 @@ class EventToGenericRecordConverterWriter {
                 component.name(),
                 componentValue,
                 logicalType(value, type));
+    }
+
+    /** Converts an Avro-union-typed Java field value to its raw Avro representation. */
+    private CodeBlock avroUnionToAvro(CodeBlock value, CodeBlock unionSchema, TypeManifest type) {
+        return CodeBlock.of("switch ($L) {\n    $L\n    default -> throw new $T(\"Unexpected Avro union value: \" + $L);\n}",
+                value,
+                type.permittedSubtypes().stream()
+                        .map(branchType -> avroUnionBranchToAvro(branchType, unionSchema))
+                        .collect(CodeBlock.joining("\n    ")),
+                IllegalArgumentException.class,
+                value);
+    }
+    private CodeBlock avroUnionBranchToAvro(TypeManifest branchType, CodeBlock unionSchema) {
+        var componentType = branchType.fields().getFirst().type();
+        if (isNestedRecord(componentType)) {
+            var converterName = org.apache.commons.lang3.StringUtils.uncapitalize(
+                    componentType.simpleName().replace(".", "") + "ToGenericRecordConverter");
+            return CodeBlock.of("case $T v -> $L.convert(v.value());", branchType.asTypeName(), converterName);
+        } else if (componentType.isEnum()) {
+            return CodeBlock.of("case $T v -> new $T($T.namedBranchOf($L, $S), v.value().name());",
+                    branchType.asTypeName(), org.apache.avro.generic.GenericData.EnumSymbol.class,
+                    SchemaSupport.class, unionSchema, componentType.simpleName());
+        }
+        return CodeBlock.of("case $T v -> v.value();", branchType.asTypeName());
     }
 }

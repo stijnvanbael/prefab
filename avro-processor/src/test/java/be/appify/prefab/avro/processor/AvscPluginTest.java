@@ -14,6 +14,7 @@ import static be.appify.prefab.avro.processor.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import javax.tools.StandardLocation;
 
 class AvscPluginTest {
 
@@ -34,7 +35,7 @@ class AvscPluginTest {
                 .contains("serialization = Event.Serialization.AVRO");
         assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
-                .contains("@Namespace(\"event.avsc\")");
+                .contains("namespace = \"event.avsc\"");
         assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
                 .contains("String name");
@@ -149,7 +150,13 @@ class AvscPluginTest {
                 .generatedSourceFile("event.avsc.infrastructure.avro.SimpleAvscEventToGenericRecordConverter")
                 .isNotNull();
         assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.SimpleAvscToGenericRecordConverter")
+                .isNotNull();
+        assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.GenericRecordToSimpleAvscEventConverter")
+                .isNotNull();
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.infrastructure.avro.GenericRecordToSimpleAvscConverter")
                 .isNotNull();
     }
 
@@ -215,6 +222,12 @@ class AvscPluginTest {
         assertThat(compilation).generatedSourceFile("event.avsc.sealed.SealedMultiAvscEventB")
                 .contentsAsUtf8String()
                 .contains("implements SealedMultiAvsc");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.sealed.infrastructure.avro.SealedMultiAvscToGenericRecordConverter")
+                .isNotNull();
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.sealed.infrastructure.avro.GenericRecordToSealedMultiAvscConverter")
+                .isNotNull();
     }
 
     @Test
@@ -228,7 +241,7 @@ class AvscPluginTest {
                 .contains("implements SealedMismatchAvsc");
         assertThat(compilation).generatedSourceFile("event.avsc.sealedmismatch.MeteringconfigUpdated")
                 .contentsAsUtf8String()
-                .contains("@Namespace(\"intern.dcs.meteringconfig.facts.v1\")");
+                .contains("namespace = \"intern.dcs.meteringconfig.facts.v1\"");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.sealedmismatch.infrastructure.avro.MeteringconfigUpdatedSchemaFactory")
                 .contentsAsUtf8String()
@@ -243,10 +256,27 @@ class AvscPluginTest {
         assertThat(compilation).succeeded();
         assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
-                .contains("public static final class Builder");
+                .contains("public static class Builder");
         assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
                 .contains("public static Builder builder()");
+    }
+    @Test
+    void avscEventMotherDelegatesToNestedBuilderNotStandaloneClass() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"));
+        assertThat(compilation).succeeded();
+        // The mother must use the nested Builder from the generated record — no standalone class.
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "event/avsc", "SimpleAvscEventMother.java")
+                .contentsAsUtf8String()
+                .contains("SimpleAvscEvent.Builder");
+        assertFalse(
+                compilation.generatedFiles().stream()
+                        .anyMatch(f -> f.toUri().getPath().endsWith("/event/avsc/SimpleAvscEventBuilder.java")),
+                "Standalone SimpleAvscEventBuilder must not be generated when an embedded Builder exists"
+        );
     }
 
     @Test
@@ -271,15 +301,15 @@ class AvscPluginTest {
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.Status")
                 .contentsAsUtf8String()
-                .contains("@Namespace(\"intern.dcs.meteringconfig.facts.v1\")");
+                .contains("namespace = \"intern.dcs.meteringconfig.facts.v1\"");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.FysiekeStatus")
                 .contentsAsUtf8String()
-                .contains("@Namespace(\"intern.dcs.meteringconfig.facts.v1\")");
+                .contains("namespace = \"intern.dcs.meteringconfig.facts.v1\"");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.StatusInactiefReden")
                 .contentsAsUtf8String()
-                .contains("@Namespace(\"intern.dcs.meteringconfig.facts.v1\")");
+                .contains("namespace = \"intern.dcs.meteringconfig.facts.v1\"");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.StatusSchemaFactory")
                 .contentsAsUtf8String()
@@ -329,6 +359,155 @@ class AvscPluginTest {
     }
 
     @Test
+    void docFieldAnnotationIsPropagatedFromAvscToGeneratedRecord() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/docfield/source/DocFieldAvsc.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("event.avsc.DocFieldAvscEvent")
+                .contentsAsUtf8String()
+                .contains("@Doc(\"Full name of the person\")");
+        assertThat(compilation).generatedSourceFile("event.avsc.DocFieldAvscEvent")
+                .contentsAsUtf8String()
+                .contains("@Doc(\"An event describing a person\")");
+        assertThat(compilation).generatedSourceFile("event.avsc.DocFieldAvscEvent")
+                .contentsAsUtf8String()
+                .contains("String name");
+        assertThat(compilation).generatedSourceFile("event.avsc.DocFieldAvscStatus")
+                .contentsAsUtf8String()
+                .contains("@Doc(\"The status of the person\")");
+    }
+
+
+    @Test
+    void scalarUnionFieldGeneratesNestedSealedInterface() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/scalarunion/source/ScalarUnionAvsc.java"));
+        assertThat(compilation).succeeded();
+        // Top-level event record with List of nested records
+        assertThat(compilation).generatedSourceFile("event.avsc.scalarunion.ScalarUnionAvscEvent")
+                .contentsAsUtf8String()
+                .contains("List<ScalarUnionItem> items");
+        // Nested record with the sealed-interface union field
+        assertThat(compilation).generatedSourceFile("event.avsc.scalarunion.ScalarUnionItem")
+                .contentsAsUtf8String()
+                .contains("ExactValue exactValue");
+        // Sealed interface generated from the ["double","string"] union
+        assertThat(compilation).generatedSourceFile("event.avsc.scalarunion.ExactValue")
+                .contentsAsUtf8String()
+                .contains("sealed interface ExactValue");
+        // Double branch wrapper
+        assertThat(compilation).generatedSourceFile("event.avsc.scalarunion.ExactValueDouble")
+                .contentsAsUtf8String()
+                .contains("double value");
+        // String branch wrapper
+        assertThat(compilation).generatedSourceFile("event.avsc.scalarunion.ExactValueString")
+                .contentsAsUtf8String()
+                .contains("String value");
+        // Schema factory for the union emits a union schema
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.scalarunion.infrastructure.avro.ExactValueSchemaFactory")
+                .contentsAsUtf8String()
+                .contains("Schema.createUnion");
+    }
+
+        @Test
+    void recordUnionFieldGeneratesSealedInterfaceWithRecordBranches() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/recordunion/source/RecordUnionAvsc.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("event.avsc.recordunion.RecordUnionAvscEvent")
+                .contentsAsUtf8String().contains("Payload payload");
+        assertThat(compilation).generatedSourceFile("event.avsc.recordunion.Payload")
+                .contentsAsUtf8String().contains("sealed interface Payload");
+        assertThat(compilation).generatedSourceFile("event.avsc.recordunion.PayloadTextPayload")
+                .contentsAsUtf8String().contains("TextPayload value");
+        assertThat(compilation).generatedSourceFile("event.avsc.recordunion.PayloadNumericPayload")
+                .contentsAsUtf8String().contains("NumericPayload value");
+        assertThat(compilation).generatedSourceFile("event.avsc.recordunion.TextPayload")
+                .contentsAsUtf8String().contains("String content");
+        assertThat(compilation).generatedSourceFile("event.avsc.recordunion.NumericPayload")
+                .contentsAsUtf8String().contains("double value");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.recordunion.infrastructure.avro.PayloadSchemaFactory")
+                .contentsAsUtf8String().contains("Schema.createUnion");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.recordunion.infrastructure.avro.TextPayloadToGenericRecordConverter")
+                .isNotNull();
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.recordunion.infrastructure.avro.NumericPayloadToGenericRecordConverter")
+                .isNotNull();
+    }
+    @Test
+    void enumUnionFieldGeneratesSealedInterfaceWithEnumAndStringBranches() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/enumunion/source/EnumUnionAvsc.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("event.avsc.enumunion.EnumUnionAvscEvent")
+                .contentsAsUtf8String().contains("Status status");
+        assertThat(compilation).generatedSourceFile("event.avsc.enumunion.Status")
+                .contentsAsUtf8String().contains("sealed interface Status");
+        assertThat(compilation).generatedSourceFile("event.avsc.enumunion.StatusAlertLevel")
+                .contentsAsUtf8String().contains("AlertLevel value");
+        assertThat(compilation).generatedSourceFile("event.avsc.enumunion.StatusString")
+                .contentsAsUtf8String().contains("String value");
+        assertThat(compilation).generatedSourceFile("event.avsc.enumunion.AlertLevel")
+                .contentsAsUtf8String().contains("LOW");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.enumunion.infrastructure.avro.StatusSchemaFactory")
+                .contentsAsUtf8String().contains("Schema.createUnion");
+    }
+    @Test
+    void nullableMultiBranchUnionGeneratesNullableAnnotationAndSealedInterface() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/nullablemultibranch/source/NullableMultiBranchAvsc.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("event.avsc.nullablemultibranch.NullableMultiBranchAvscEvent")
+                .contentsAsUtf8String().contains("@Nullable");
+        assertThat(compilation).generatedSourceFile("event.avsc.nullablemultibranch.NullableMultiBranchAvscEvent")
+                .contentsAsUtf8String().contains("Result result");
+        assertThat(compilation).generatedSourceFile("event.avsc.nullablemultibranch.Result")
+                .contentsAsUtf8String().contains("sealed interface Result");
+        assertThat(compilation).generatedSourceFile("event.avsc.nullablemultibranch.ResultSuccessResult")
+                .contentsAsUtf8String().contains("SuccessResult value");
+        assertThat(compilation).generatedSourceFile("event.avsc.nullablemultibranch.ResultFailureResult")
+                .contentsAsUtf8String().contains("FailureResult value");
+        assertThat(compilation).generatedSourceFile("event.avsc.nullablemultibranch.SuccessResult")
+                .contentsAsUtf8String().contains("String message");
+        assertThat(compilation).generatedSourceFile("event.avsc.nullablemultibranch.FailureResult")
+                .contentsAsUtf8String().contains("String error");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.nullablemultibranch.infrastructure.avro.ResultSchemaFactory")
+                .contentsAsUtf8String().contains("Schema.createUnion");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.nullablemultibranch.infrastructure.avro.SuccessResultToGenericRecordConverter")
+                .isNotNull();
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.nullablemultibranch.infrastructure.avro.FailureResultToGenericRecordConverter")
+                .isNotNull();
+    }
+    @Test
+    void arrayBranchUnionGeneratesSealedInterfaceWithStringAndListBranches() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/arraybranch/source/ArrayBranchAvsc.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("event.avsc.arraybranch.ArrayBranchAvscEvent")
+                .contentsAsUtf8String().contains("Tags tags");
+        assertThat(compilation).generatedSourceFile("event.avsc.arraybranch.Tags")
+                .contentsAsUtf8String().contains("sealed interface Tags");
+        assertThat(compilation).generatedSourceFile("event.avsc.arraybranch.TagsString")
+                .contentsAsUtf8String().contains("String value");
+        assertThat(compilation).generatedSourceFile("event.avsc.arraybranch.TagsStringList")
+                .contentsAsUtf8String().contains("List<String> value");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.arraybranch.infrastructure.avro.TagsSchemaFactory")
+                .contentsAsUtf8String().contains("Schema.createUnion");
+    }@Test
     void avscArtifactsFromDependencyAreNotRegeneratedInConsumerModule() {
         var dependencyClasspath = compileDependencyClasspath(
                 sourceOf("event/avsc/dependency/source/DependencyAvsc.java"));
@@ -350,6 +529,30 @@ class AvscPluginTest {
         } finally {
             deleteRecursively(dependencyClasspath);
         }
+    }
+
+    @Test
+    void lowercaseAvscTypeNamesAreCapitalisedInGeneratedJava() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/lowercase/source/LowercaseAvsc.java"));
+        assertThat(compilation).succeeded();
+        // Record name "lowercaseAvscEvent" must be capitalised to "LowercaseAvscEvent"
+        assertThat(compilation).generatedSourceFile("event.avsc.lowercase.LowercaseAvscEvent")
+                .contentsAsUtf8String()
+                .contains("name = \"lowercaseAvscEvent\"");
+        // Enum name "lowercaseCategory" must be capitalised to "LowercaseCategory"
+        assertThat(compilation).generatedSourceFile("event.avsc.lowercase.LowercaseCategory")
+                .contentsAsUtf8String()
+                .contains("name = \"lowercaseCategory\"");
+        // Enum values must be preserved
+        assertThat(compilation).generatedSourceFile("event.avsc.lowercase.LowercaseCategory")
+                .contentsAsUtf8String()
+                .contains("ACTIVE");
+        // Generated event implements the contract interface
+        assertThat(compilation).generatedSourceFile("event.avsc.lowercase.LowercaseAvscEvent")
+                .contentsAsUtf8String()
+                .contains("implements LowercaseAvsc");
     }
 
     private static void deleteRecursively(Path root) {

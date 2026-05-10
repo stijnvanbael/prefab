@@ -8,6 +8,7 @@ import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
+import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -32,6 +33,9 @@ import static org.apache.commons.lang3.StringUtils.capitalize;
 class AssertionWriter {
 
     private static final ClassName ABSTRACT_ASSERT = ClassName.get("org.assertj.core.api", "AbstractAssert");
+    private static final ClassName ASSERTIONS = ClassName.get("org.assertj.core.api", "Assertions");
+    private static final ClassName LIST_ASSERT = ClassName.get("org.assertj.core.api", "ListAssert");
+    private static final ClassName CONSUMER = ClassName.get("java.util.function", "Consumer");
 
     private final PrefabContext context;
     private final Set<String> writtenTypes;
@@ -182,6 +186,13 @@ class AssertionWriter {
     }
 
     private MethodSpec fieldAssertMethod(ClassName assertType, VariableManifest field) {
+        if (field.type().is(List.class)) {
+            return listFieldAssertMethod(assertType, field);
+        }
+        return equalsFieldAssertMethod(assertType, field);
+    }
+
+    private MethodSpec equalsFieldAssertMethod(ClassName assertType, VariableManifest field) {
         var fieldName = field.name();
         var paramType = field.type().asBoxed().asTypeName();
         return MethodSpec.methodBuilder("has" + capitalize(fieldName))
@@ -195,6 +206,30 @@ class AssertionWriter {
                 .endControlFlow()
                 .addStatement("return this")
                 .build();
+    }
+
+    private MethodSpec listFieldAssertMethod(ClassName assertType, VariableManifest field) {
+        var fieldName = field.name();
+        var listElementType = listElementTypeOf(field);
+        var listAssertType = ParameterizedTypeName.get(LIST_ASSERT, listElementType);
+        var requirementsType = ParameterizedTypeName.get(CONSUMER, listAssertType);
+        return MethodSpec.methodBuilder("has" + capitalize(fieldName) + "Satisfying")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(assertType)
+                .addParameter(requirementsType, "requirements")
+                .addStatement("isNotNull()")
+                .addStatement("$T.requireNonNull(requirements, $S)", Objects.class, "requirements must not be null")
+                .addStatement("$T actualListAssert = $T.assertThat(actual.$N())", listAssertType, ASSERTIONS, fieldName)
+                .addStatement("requirements.accept(actualListAssert)")
+                .addStatement("return this")
+                .build();
+    }
+
+    private TypeName listElementTypeOf(VariableManifest field) {
+        if (field.type().parameters().isEmpty()) {
+            return TypeName.get(Object.class);
+        }
+        return field.type().parameters().getFirst().asBoxed().asTypeName();
     }
 
     private MethodSpec assertThatDelegateMethod(ClassName subjectType, ClassName assertType) {
@@ -219,8 +254,7 @@ class AssertionWriter {
         if (!type.parameters().isEmpty()) return false;
         if (type.is(Instant.class) || type.is(LocalDate.class) || type.is(LocalDateTime.class)
                 || type.is(Duration.class)) return false;
-        if (type.is(BigDecimal.class)) return false;
-        return true;
+        return !type.is(BigDecimal.class);
     }
 
     record AssertionEntry(ClassName subjectType, ClassName assertType) {

@@ -1,31 +1,35 @@
 package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.event.EventPlatformPluginSupport;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-/** A plugin for generating Avro converters and schema factories for events annotated with {@link Event} with Avro serialization. */
+/**
+ * A plugin for generating Avro converters and schema factories for events annotated with {@link Event} with Avro serialization.
+ */
 public class AvroPlugin implements PrefabPlugin {
     private EventToGenericRecordConverterWriter toGenericRecordConverterWriter;
     private GenericRecordToEventConverterWriter toEventConverterWriter;
     private EventSchemaFactoryWriter eventSchemaFactoryWriter;
     private PrefabContext context;
     private final Set<String> writtenTypeNames = new LinkedHashSet<>();
-
+    private final Set<String> writtenToEventOnlyTypeNames = new LinkedHashSet<>();
 
     @Override
     public void initContext(PrefabContext context) {
@@ -37,27 +41,100 @@ public class AvroPlugin implements PrefabPlugin {
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
-        // For additional Avro infrastructure, only generate for event types owned by the current
-        // compilation unit. Dependency events may already ship their own generated artifacts.
         var events = context.eventElementsFromCurrentCompilation()
                 .filter(e -> EventPlatformPluginSupport.isAvscGeneratedRecord(e)
                         || Objects.requireNonNull(e.getAnnotation(Event.class)).serialization() == Event.Serialization.AVRO)
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .toList();
-
         events.forEach(this::writeConvertersIfNotWritten);
-        allNestedTypes(events).forEach(this::writeConvertersIfNotWritten);
+        allNestedTypes(events).forEach(this::writeNestedTypeIfNotWritten);
         sealedSubtypes(events).forEach(this::writeConvertersIfNotWritten);
+        var supertypes = avroEventSupertypes(events);
+        supertypes.stream()
+                .filter(AvroPlugin::isAvscContract)
+                .forEach(this::writeConvertersIfNotWritten);
+        supertypes.stream()
+                .filter(type -> !isAvscContract(type))
+                .forEach(this::writeToEventConverterIfNotWritten);
+    }
+
+    /**
+     * Writes infrastructure for a nested type. Avro union sealed interfaces only get a schema
+     * factory; serialisation/deserialisation is handled inline by the parent converter.
+     */
+    private void writeNestedTypeIfNotWritten(TypeManifest type) {
+        if (isAvroUnion(type)) {
+            var key = type.packageName() + "." + type.simpleName();
+            if (!writtenTypeNames.contains(key)) {
+                eventSchemaFactoryWriter.writeSchemaFactory(type);
+                writtenTypeNames.add(key);
+            }
+        } else {
+            writeConvertersIfNotWritten(type);
+        }
     }
 
     private void writeConvertersIfNotWritten(TypeManifest type) {
         var key = type.packageName() + "." + type.simpleName();
-        if (!writtenTypeNames.add(key)) {
+        if (writtenTypeNames.contains(key)) {
             return;
         }
-        toGenericRecordConverterWriter.writeConverter(type);
-        toEventConverterWriter.writeConverter(type);
-        eventSchemaFactoryWriter.writeSchemaFactory(type);
+        var wroteAll = toGenericRecordConverterWriter.writeConverter(type)
+                && toEventConverterWriter.writeConverter(type)
+                && eventSchemaFactoryWriter.writeSchemaFactory(type);
+        if (wroteAll) {
+            writtenTypeNames.add(key);
+        }
+    }
+
+    private void writeToEventConverterIfNotWritten(TypeManifest type) {
+        var key = type.packageName() + "." + type.simpleName();
+        if (writtenTypeNames.contains(key) || writtenToEventOnlyTypeNames.contains(key)) {
+            return;
+        }
+        if (toEventConverterWriter.writeConverter(type)) {
+            writtenToEventOnlyTypeNames.add(key);
+        }
+    }
+
+    private static List<TypeManifest> avroEventSupertypes(List<TypeManifest> events) {
+        return events.stream()
+                .map(event -> event.supertypeWithAnnotation(Event.class))
+                .flatMap(Optional::stream)
+                .distinct()
+                .toList();
+    }
+
+    private static boolean isAvscContract(TypeManifest type) {
+        return type.asElement() != null && type.asElement().getAnnotation(Avsc.class) != null;
+    }
+
+    /**
+     * Returns {@code true} when {@code type} is a sealed interface generated by
+     * {@link AvscEventWriter} to represent an Avro multi-branch union field.
+     * <p>
+     * The heuristic: a sealed interface with no {@link Event} annotation whose every permitted
+     * subtype is a single-value wrapper record.
+     * </p>
+     */
+    public static boolean isAvroUnion(TypeManifest type) {
+        if (!type.isSealed()) return false;
+        if (type.asElement() != null && type.asElement().getAnnotation(Event.class) != null) return false;
+        var subtypes = type.permittedSubtypes();
+        return !subtypes.isEmpty() && subtypes.stream().allMatch(TypeManifest::isSingleValueType);
+    }
+
+    /**
+     * Returns the nested-record component types from the permitted subtypes of an Avro union
+     * sealed interface. These are the types that require their own converters injected into the
+     * parent record's converters.
+     */
+    public static List<TypeManifest> avroUnionRecordBranches(TypeManifest unionType) {
+        return unionType.permittedSubtypes().stream()
+                .filter(TypeManifest::isSingleValueType)
+                .map(st -> st.fields().getFirst().type())
+                .filter(AvroPlugin::isNestedRecord)
+                .toList();
     }
 
     static List<TypeManifest> nestedTypes(List<TypeManifest> events) {
@@ -70,19 +147,30 @@ public class AvroPlugin implements PrefabPlugin {
                 .toList();
     }
 
+    /**
+     * Returns all nested types reachable from {@code events}, traversing transitively.
+     * <p>
+     * For sealed Avro union interfaces (detected by {@link #isAvroUnion}), branch record types are
+     * collected via {@link #avroUnionRecordBranches} so their converters and schema factories can be
+     * generated. Non-union sealed types use {@link #nestedTypes} as usual.
+     * </p>
+     */
     static List<TypeManifest> allNestedTypes(List<TypeManifest> events) {
         var toProcess = new ArrayDeque<>(nestedTypes(events));
-        var result = new ArrayList<>(toProcess);
+        // LinkedHashSet preserves insertion order and provides O(1) contains() checks,
+        // replacing the previous ArrayList that caused O(n^2) deduplication behaviour.
+        var result = new LinkedHashSet<>(toProcess);
         while (!toProcess.isEmpty()) {
             var type = toProcess.poll();
-            nestedTypes(List.of(type)).stream()
+            var children = isAvroUnion(type) ? avroUnionRecordBranches(type) : nestedTypes(List.of(type));
+            children.stream()
                     .filter(t -> !result.contains(t))
                     .forEach(t -> {
                         result.add(t);
                         toProcess.add(t);
                     });
         }
-        return result;
+        return List.copyOf(result);
     }
 
     static List<TypeManifest> sealedSubtypes(List<TypeManifest> events) {

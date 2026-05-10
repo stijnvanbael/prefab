@@ -1,7 +1,13 @@
+spring:
+  flyway:
+    clean-disabled: false
+
 logging.level:
   be.appify.prefab.example: DEBUG
 
 prefab:
+  flyway:
+    auto-clean-on-mismatch: true
   dlt:
     retries:
       limit: 1
@@ -9,4 +15,6 @@ prefab:
   outbox:
     poll-interval-ms: 100
     batch-size: 10
-
+  test:
+    schema-registry:
+      enabled: true

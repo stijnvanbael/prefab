@@ -1,7 +1,6 @@
 package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Aggregate;
-import be.appify.prefab.core.annotations.Avsc;
 import com.google.auto.service.AutoService;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -16,9 +15,10 @@ import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
+import javax.annotation.processing.SupportedOptions;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
@@ -29,6 +29,7 @@ import javax.lang.model.type.TypeKind;
 @SupportedAnnotationTypes({
         "be.appify.prefab.core.annotations.*",
 })
+@SupportedOptions("prefab.builder.setterPrefix")
 @AutoService(Processor.class)
 @SuppressWarnings("unused")
 public class PrefabProcessor extends AbstractProcessor {
@@ -50,6 +51,9 @@ public class PrefabProcessor extends AbstractProcessor {
     private boolean globalFilesWritten = false;
     private boolean eventFilesWritten = false;
 
+    // Plugin list is stable for the lifetime of the processor; detect once and reuse across rounds.
+    private List<PrefabPlugin> cachedPlugins;
+
     // Tracking sets for deduplication across rounds (source elements are visible in every round).
     private final Set<String> processedAggregateNames = new LinkedHashSet<>();
     private final Set<String> processedPolymorphicAggregateNames = new LinkedHashSet<>();
@@ -60,6 +64,7 @@ public class PrefabProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment environment) {
+        clearRoundCaches();
         var plugins = detectPlugins();
         rememberCurrentCompilationTypeNames(environment);
         var context = new PrefabContext(
@@ -87,6 +92,12 @@ public class PrefabProcessor extends AbstractProcessor {
         deferredEventHandlers.clear();
         deferredEventHandlers.addAll(context.newlyDeferredEventHandlers());
         return true;
+    }
+
+    private void clearRoundCaches() {
+        // Only evict ERROR-kind (unresolved) type mirrors; stable, fully-resolved types survive across rounds.
+        // Class-keyed and TypeElement-keyed caches never need eviction because those keys are stable.
+        TypeManifest.clearUnresolvedTypeCache();
     }
 
     private void rememberCurrentCompilationTypeNames(RoundEnvironment environment) {
@@ -205,8 +216,11 @@ public class PrefabProcessor extends AbstractProcessor {
     }
 
     private List<PrefabPlugin> detectPlugins() {
-        var loader = ServiceLoader.load(PrefabPlugin.class, getClass().getClassLoader()).iterator();
-        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(loader, 0), false)
-                .toList();
+        if (cachedPlugins == null) {
+            var loader = ServiceLoader.load(PrefabPlugin.class, getClass().getClassLoader()).iterator();
+            cachedPlugins = StreamSupport.stream(Spliterators.spliteratorUnknownSize(loader, 0), false)
+                    .toList();
+        }
+        return cachedPlugins;
     }
 }

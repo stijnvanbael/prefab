@@ -1,11 +1,9 @@
 package kafka.dltdisabled.infrastructure.kafka;
 
-import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
 import kafka.dltdisabled.UserEvent;
 import kafka.dltdisabled.UserExporter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
@@ -15,9 +13,7 @@ public class UserExporterKafkaConsumer {
 
     private final UserExporter userExporter;
 
-    public UserExporterKafkaConsumer(UserExporter userExporter, KafkaJsonTypeResolver typeResolver,
-            @Value("${topic.user.name}") String userEventTopic) {
-        typeResolver.registerType(userEventTopic, UserEvent.class);
+    public UserExporterKafkaConsumer(UserExporter userExporter) {
         this.userExporter = userExporter;
     }
 

@@ -20,11 +20,12 @@ class UpdateRequestRecordWriter {
             JavaFileWriter fileWriter,
             ClassManifest manifest,
             UpdateManifest update,
-            RequestParameterBuilder parameterBuilder
+            RequestParameterBuilder parameterBuilder,
+            String builderSetterPrefix
     ) {
         var name = "%s%sRequest".formatted(manifest.simpleName(), capitalize(update.operationName()));
         var type = writeRecord(ClassName.get(manifest.packageName() + ".application", name), update.requestParameters(),
-                parameterBuilder);
+                parameterBuilder, builderSetterPrefix);
         fileWriter.writeFile(manifest.packageName(), name, type);
     }
 

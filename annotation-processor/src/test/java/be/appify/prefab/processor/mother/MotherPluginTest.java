@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.stream.Stream;
+import javax.tools.StandardLocation;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.test.ProcessorTestUtil.classpathOptionsWith;
@@ -157,6 +158,18 @@ class MotherPluginTest {
                 .contentsAsUtf8String()
                 .doesNotContain("class Builder");
     }
+    @Test
+    void handWrittenEventMotherGeneratesStandaloneBuilderClass() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/events/source/PersonEvent.java"));
+        assertThat(compilation).succeeded();
+        // Hand-written @Event records have no embedded Builder, so a standalone builder must be generated.
+        assertThat(compilation)
+                .generatedSourceFile("mother.events.source.PersonEventCreatedBuilder")
+                .contentsAsUtf8String()
+                .contains("public class PersonEventCreatedBuilder");
+    }
 
     @Test
     void motherGeneratedForMultiFieldRecordNestedInsideSingleValueType() {
@@ -192,6 +205,40 @@ class MotherPluginTest {
     }
 
     @Test
+    void compilationSucceedsForAggregateWithFieldTypeContainingStaticConstants() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("mother/staticconstants/source/AgentRole.java"),
+                        sourceOf("mother/staticconstants/source/AgentTask.java"));
+
+        assertThat(compilation).succeeded();
+    }
+
+    @Test
+    void builderForRecordWithStaticConstantsContainsOnlyInstanceComponents() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("mother/staticconstants/source/AgentRole.java"),
+                        sourceOf("mother/staticconstants/source/AgentTask.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("mother.staticconstants.source.application.CreateAgentTaskRequest")
+                .contentsAsUtf8String()
+                .contains("String assignedRole");
+        assertThat(compilation)
+                .generatedSourceFile("mother.staticconstants.source.application.CreateAgentTaskRequest")
+                .contentsAsUtf8String()
+                .doesNotContain("PLANNER");
+        assertThat(compilation)
+                .generatedSourceFile("mother.staticconstants.source.application.CreateAgentTaskRequest")
+                .contentsAsUtf8String()
+                .doesNotContain("RESEARCHER");
+    }
+
+    @Test
     void motherUsesEmptyMapForMapField() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
@@ -199,7 +246,7 @@ class MotherPluginTest {
 
         assertThat(compilation).succeeded();
         assertThat(compilation)
-                .generatedSourceFile("mother.withmap.source.InventoryEventUpdatedBuilder")
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/withmap/source", "InventoryEventUpdatedMother.java")
                 .contentsAsUtf8String()
                 .contains("Map.of()");
     }
@@ -218,7 +265,33 @@ class MotherPluginTest {
         assertThat(compilation)
                 .generatedSourceFile("mother.person.application.CreatePersonRequest")
                 .contentsAsUtf8String()
-                .contains("public static final class Builder");
+                .contains("public static class Builder");
+    }
+
+    @Test
+    void requestMotherHasConsumerOverload() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/person/source/Person.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/person", "CreatePersonRequestMother.java")
+                .contentsAsUtf8String()
+                .contains("Consumer");
+    }
+
+    @Test
+    void eventMotherHasConsumerOverload() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/events/source/PersonEvent.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/events/source", "PersonEventCreatedMother.java")
+                .contentsAsUtf8String()
+                .contains("Consumer");
     }
 
     @Test

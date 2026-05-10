@@ -1,6 +1,9 @@
 package be.appify.prefab.processor.rest;
 
+import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabProcessor;
+import be.appify.prefab.processor.TestClientWriter;
+import be.appify.prefab.processor.TestFileOutput;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.test.ProcessorTestUtil.sourceOf;
@@ -223,7 +226,7 @@ class RestWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.testclient.application.CreatePersonRequest")
                 .contentsAsUtf8String()
-                .contains("public static final class Builder");
+                .contains("public static class Builder");
         assertThat(compilation)
                 .generatedSourceFile("rest.testclient.application.CreatePersonRequest")
                 .contentsAsUtf8String()
@@ -240,7 +243,7 @@ class RestWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.testclient.application.PersonUpdateRequest")
                 .contentsAsUtf8String()
-                .contains("public static final class Builder");
+                .contains("public static class Builder");
         assertThat(compilation)
                 .generatedSourceFile("rest.testclient.application.PersonUpdateRequest")
                 .contentsAsUtf8String()
@@ -520,5 +523,52 @@ class RestWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.createorupdate.application.CreateProductRequest")
                 .isNotNull();
+    }
+
+    @Test
+    void testClientWithEnumFilterUsesStringValueOf() {
+        var processor = new CapturingTestClientProcessor();
+        var compilation = javac()
+                .withProcessors(processor)
+                .compile(
+                        sourceOf("rest/enumfilter/source/TaskStatus.java"),
+                        sourceOf("rest/enumfilter/source/Task.java"));
+
+        assertThat(compilation).succeeded();
+        var taskClientSource = processor.capturedSources.stream()
+                .filter(s -> s.contains("class TaskClient"))
+                .findFirst()
+                .orElse("");
+        assertTrue(taskClientSource.contains("String.valueOf(status)"),
+                "Expected enum filter to use String.valueOf(status) but got:\n" + taskClientSource);
+        assertFalse(taskClientSource.contains("queryParam(\"status\", status)"),
+                "Expected no raw enum passed to queryParam but got:\n" + taskClientSource);
+    }
+
+    @javax.annotation.processing.SupportedAnnotationTypes({"be.appify.prefab.core.annotations.*"})
+    static class CapturingTestClientProcessor extends PrefabProcessor {
+        final java.util.List<String> capturedSources = new java.util.ArrayList<>();
+
+        @Override
+        protected TestClientWriter createTestClientWriter(PrefabContext context) {
+            return new TestClientWriter(context, new CapturingTestFileOutput(capturedSources));
+        }
+    }
+
+    static class CapturingTestFileOutput implements TestFileOutput {
+        private final java.util.List<String> capturedSources;
+
+        CapturingTestFileOutput(java.util.List<String> capturedSources) {
+            this.capturedSources = capturedSources;
+        }
+
+        @Override
+        public void setPreferredElement(javax.lang.model.element.TypeElement element) {
+        }
+
+        @Override
+        public void writeFile(String packagePrefix, String typeName, com.palantir.javapoet.TypeSpec type) {
+            capturedSources.add(com.palantir.javapoet.JavaFile.builder(packagePrefix, type).build().toString());
+        }
     }
 }

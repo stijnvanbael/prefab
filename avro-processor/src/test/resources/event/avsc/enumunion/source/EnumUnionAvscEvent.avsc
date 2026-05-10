@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "EnumUnionAvscEvent",
+  "namespace": "event.avsc.enumunion",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {
+      "name": "status",
+      "type": [
+        {
+          "type": "enum",
+          "name": "AlertLevel",
+          "symbols": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+        },
+        "string"
+      ]
+    }
+  ]
+}

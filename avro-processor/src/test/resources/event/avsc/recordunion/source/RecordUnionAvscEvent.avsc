@@ -1,0 +1,29 @@
+{
+  "type": "record",
+  "name": "RecordUnionAvscEvent",
+  "namespace": "event.avsc.recordunion",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {
+      "name": "payload",
+      "type": [
+        {
+          "type": "record",
+          "name": "TextPayload",
+          "fields": [
+            {"name": "content", "type": "string"},
+            {"name": "language", "type": "string"}
+          ]
+        },
+        {
+          "type": "record",
+          "name": "NumericPayload",
+          "fields": [
+            {"name": "value", "type": "double"},
+            {"name": "unit", "type": "string"}
+          ]
+        }
+      ]
+    }
+  ]
+}

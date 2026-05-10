@@ -210,6 +210,16 @@ class AsyncCommitWriterTest {
     }
 
     @Test
+    void asyncCreateWithNonVoidReturnFailsCompilation() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/asynccreatenonvoidreturn/source/Order.java"));
+
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("void return type");
+    }
+
+    @Test
     void asyncCreateWithDuplicateMappingFailsCompilation() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

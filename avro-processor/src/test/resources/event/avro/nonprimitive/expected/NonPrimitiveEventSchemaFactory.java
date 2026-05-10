@@ -12,7 +12,7 @@ public class NonPrimitiveEventSchemaFactory {
 
     public NonPrimitiveEventSchemaFactory() {
         this.schema = Schema.createRecord("NonPrimitiveEvent", null, "event.avro", false, List.of(
-                        new Schema.Field("status", Schema.createEnum("NonPrimitiveEvent_Status", null, "event.avro", List.of("ACTIVE", "INACTIVE", "PENDING"))),
+                        new Schema.Field("status", Schema.createEnum("NonPrimitiveEvent_Status", null, "event.avro", List.of("ACTIVE", "INACTIVE", "PENDING"), "ACTIVE")),
                         new Schema.Field("timestamp", SchemaSupport.createLogicalSchema(Schema.Type.LONG, LogicalTypes.timestampMillis())),
                         new Schema.Field("date", SchemaSupport.createLogicalSchema(Schema.Type.INT, LogicalTypes.date())),
                         new Schema.Field("duration", SchemaSupport.createLogicalSchema(Schema.Type.LONG, SchemaSupport.DURATION_MILLIS)),

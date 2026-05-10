@@ -2,59 +2,6 @@
 
 **Version:** 0.7.x | **Framework:** Spring Boot 4.x | **Java:** 21+
 
-This is the single authoritative reference for Prefab. It covers every annotation, built-in type, module,
-generated artefact, extension point, and configuration option. Both human developers and LLMs should treat
-this document as the primary source of truth for Prefab behaviour.
-
-> **Living document rule:** Any agent or developer that changes or adds a Prefab feature **must** update the
-> relevant section of this guide in the same commit/PR. See [AGENTS.md](../../AGENTS.md) for the full rule.
-
----
-
-## Table of Contents
-
-1. [What is Prefab?](#1-what-is-prefab)
-2. [Module Dependency Matrix](#2-module-dependency-matrix)
-3. [Getting Started](#3-getting-started)
-4. [Annotation Reference](#4-annotation-reference)
-   - [4.1 Aggregate Annotations](#41-aggregate-annotations)
-   - [4.2 REST Annotations](#42-rest-annotations)
-   - [4.3 Event Annotations](#43-event-annotations)
-   - [4.4 Event Handler Annotations](#44-event-handler-annotations)
-   - [4.5 Database Annotations](#45-database-annotations)
-   - [4.6 Audit Annotations](#46-audit-annotations)
-   - [4.7 Multi-tenancy Annotations](#47-multi-tenancy-annotations)
-   - [4.8 Validation Annotations](#48-validation-annotations)
-   - [4.9 Extension Annotations](#49-extension-annotations)
-5. [Built-in Types](#5-built-in-types)
-6. [Generated Artefacts](#6-generated-artefacts)
-   - [6.1 Controller](#61-controller)
-   - [6.2 Service](#62-service)
-   - [6.3 Repository](#63-repository)
-   - [6.4 Request/Response Records](#64-requestresponse-records)
-   - [6.5 Event Consumer](#65-event-consumer)
-   - [6.6 Database Migration Scripts](#66-database-migration-scripts)
-   - [6.7 Event Consumer Assertions](#67-event-consumer-assertions)
-   - [6.8 Generated Assertion Classes](#68-generated-assertion-classes)
-7. [Feature Guides](#7-feature-guides)
-   - [7.1 REST CRUD Operations](#71-rest-crud-operations)
-   - [7.2 Event Publishing](#72-event-publishing)
-   - [7.3 Event Handling](#73-event-handling)
-   - [7.4 Avro / AVSC-first Events](#74-avro--avsc-first-events)
-   - [7.5 Audit Trail](#75-audit-trail)
-   - [7.6 Multi-tenancy](#76-multi-tenancy)
-   - [7.7 Binary / File Fields](#77-binary--file-fields)
-   - [7.8 Async Commit Pattern](#78-async-commit-pattern)
-   - [7.9 Nested Value Objects and Embedded Types](#79-nested-value-objects-and-embedded-types)
-   - [7.10 Repository Mixins](#710-repository-mixins)
-8. [Extension Point Guide](#8-extension-point-guide)
-9. [Configuration Reference](#9-configuration-reference)
-10. [Troubleshooting](#10-troubleshooting)
-
----
-
-## 1. What is Prefab?
-
 Prefab is an annotation-driven code-generation framework for Spring Boot applications built around the
 **Aggregate Root** pattern. You write a plain Java record annotated with a handful of Prefab annotations;
 the annotation processor generates a fully-wired Spring MVC controller, service, Spring Data repository,
@@ -2152,47 +2099,36 @@ ran. For multi-tenant setups, verify the `@TenantId` field matches the current t
 mismatch triggers `ConflictException`.
 
 **Fix:** Retry the request with the latest `version` value from a fresh `GET` response.
+> **Living document rule:** Any agent or developer that changes or adds a Prefab feature **must** update the
+> relevant section of the appropriate guide below in the same commit/PR. See [AGENTS.md](../../AGENTS.md) for the full rule.
 
 ---
 
-### Error: `Compilation error: @TenantId field must not appear in @Create or @Update parameters`
+## Core Concepts
 
-**Cause:** A `@TenantId` field was included in a `@Create` constructor or `@Update` method.
-
-**Fix:** Remove the `@TenantId` field from constructor/method parameters. The generated service populates
-it automatically from `TenantContextProvider`.
-
----
-
-### Error: `Compilation error: Cannot map event property to query parameter`
-
-**Cause:** A `@Multicast` `parameters` value references a field that does not exist on the event.
-
-**Fix:** Verify the `parameters` values match the event record field names exactly (case-sensitive).
+| Concept              | Description                                                                                           |
+|----------------------|-------------------------------------------------------------------------------------------------------|
+| **Aggregate Root**   | A Java record annotated with `@Aggregate`. The single, consistent unit of data in the domain.         |
+| **Event**            | A Java record (or sealed interface) annotated with `@Event`. Published to a messaging platform.       |
+| **Event Handler**    | A method annotated with `@EventHandler`. Processes events to create or update aggregates.             |
+| **Repository Mixin** | An interface annotated with `@RepositoryMixin`. Adds custom query methods to generated repositories.  |
+| **Plugin**           | Implements `PrefabPlugin` and is registered via `META-INF/services`. Participates in code generation. |
 
 ---
 
-### Error: `IllegalStateException` during event handling (causes retry)
+## Documentation Index
 
-**Cause:** A `@Multicast` handler found no aggregates to update. Prefab throws `IllegalStateException`
-intentionally to trigger retry (the target aggregate may not have been created yet due to event ordering).
-
-**Fix:** This is expected behaviour. Ensure the dead-letter configuration is set so that events that
-permanently fail are routed to the DLT rather than blocking the consumer.
-
----
-
-### Binary upload returns `400 Bad Request` with content-type error
-
-**Cause:** The uploaded file's MIME type is not in the `@ContentType` whitelist.
-
-**Fix:** Either use an allowed MIME type, or expand the `@ContentType` values on the field.
-
----
-
-### Generated migration script conflicts with existing schema
-
-**Cause:** A column was renamed without `@DbRename`, or a field was removed without a migration.
+| Document                                              | Contents                                                           |
+|-------------------------------------------------------|--------------------------------------------------------------------|
+| [Getting Started](getting-started.md)                 | Setup, first aggregate, quick-start example                        |
+| [Module Dependency Matrix](modules.md)                | All modules, feature-to-module mapping, Maven snippets             |
+| [Annotation Reference](annotation-reference.md)       | Every annotation with attributes, rules, and examples              |
+| [Built-in Types](built-in-types.md)                   | `Reference<T>`, `Binary`, `AuditInfo`, `Page<T>`, provider interfaces, exceptions |
+| [Generated Artefacts](generated-artefacts.md)         | Controller, service, repository, DTOs, consumers, migrations, test helpers |
+| [Feature Guides](feature-guides.md)                   | REST CRUD, events, Avro, audit, multi-tenancy, SSE, testing        |
+| [Extension Point Guide](extension-points.md)          | `PrefabPlugin` API, repository mixins, provider overrides          |
+| [Configuration Reference](configuration.md)           | Application properties, Kafka/Pub/Sub/SNS configuration            |
+| [Troubleshooting](troubleshooting.md)                 | Common errors and fixes                                            |
 
 **Fix:** Use `@DbRename(oldName = "old_column")` when renaming fields, and write manual migration
 scripts for removals.
@@ -2259,5 +2195,3 @@ Verify `maven.compiler.release` is set to `21`. Run `mvn clean compile` to force
 
 ---
 
-*This document is generated from the Prefab source code and maintained as a living document.
-Any agent or developer changing Prefab behaviour must update the relevant section here.*

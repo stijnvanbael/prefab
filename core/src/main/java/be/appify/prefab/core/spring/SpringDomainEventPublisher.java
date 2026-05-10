@@ -2,7 +2,7 @@ package be.appify.prefab.core.spring;
 
 import be.appify.prefab.core.domain.DomainEventPublisher;
 import be.appify.prefab.core.outbox.PendingEventBuffer;
-import be.appify.prefab.core.util.ServiceLocator;
+import jakarta.annotation.PreDestroy;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
@@ -11,13 +11,15 @@ import org.springframework.stereotype.Component;
 public class SpringDomainEventPublisher extends DomainEventPublisher {
     private final ApplicationEventPublisher applicationEventPublisher;
 
-    SpringDomainEventPublisher(
-            ApplicationEventPublisher applicationEventPublisher,
-            ServiceLocator serviceLocator
-    ) {
+    SpringDomainEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
         this.applicationEventPublisher = applicationEventPublisher;
-        DomainEventPublisher.serviceLocator = serviceLocator;
+        DomainEventPublisher.setInstance(this);
         PendingEventBuffer.setDirectPublisher(applicationEventPublisher::publishEvent);
+    }
+
+    @PreDestroy
+    void unregister() {
+        DomainEventPublisher.reset();
     }
 
     @Override

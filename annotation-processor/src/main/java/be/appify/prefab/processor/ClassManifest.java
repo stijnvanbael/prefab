@@ -8,6 +8,7 @@ import be.appify.prefab.core.annotations.rest.Parent;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
 import java.lang.annotation.Annotation;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +38,10 @@ public class ClassManifest {
     private final boolean isAggregate;
     private final TypeElement typeElement;
     private final VariableManifest idField;
+    // Lazy caches for repeated enclosed-element scans. Keys are annotation types.
+    private final Map<Class<?>, List<ExecutableElement>> constructorsWithCache = new HashMap<>();
+    private final Map<Class<?>, List<ExecutableElement>> methodsWithCache = new HashMap<>();
+    private final Map<Class<?>, List<ExecutableElement>> staticMethodsWithCache = new HashMap<>();
 
     public static ClassManifest of(TypeElement typeElement, ProcessingEnvironment processingEnvironment) {
         if (hasUnresolvedFields(typeElement)) {
@@ -45,6 +50,7 @@ public class ClassManifest {
         }
         return manifestCache.computeIfAbsent(typeElement, type -> new ClassManifest(type, processingEnvironment));
     }
+
 
     public static boolean hasUnresolvedFields(TypeElement typeElement) {
         return hasUnresolvedFieldTypes(typeElement) || hasUnresolvedEventHandlerParameterTypes(typeElement);
@@ -233,39 +239,45 @@ public class ClassManifest {
         return type.toString();
     }
 
+    @SuppressWarnings("unchecked")
     public List<ExecutableElement> constructorsWith(Class<? extends Annotation> annotationType) {
-        return typeElement.getEnclosedElements()
-                .stream()
-                .filter(element -> element.getAnnotationsByType(annotationType).length > 0
-                        && element.getKind() == ElementKind.CONSTRUCTOR
-                        && element.getModifiers().contains(Modifier.PUBLIC))
-                .map(ExecutableElement.class::cast)
-                .toList();
+        return constructorsWithCache.computeIfAbsent(annotationType, type ->
+                typeElement.getEnclosedElements()
+                        .stream()
+                        .filter(element -> element.getAnnotationsByType((Class<Annotation>) type).length > 0
+                                && element.getKind() == ElementKind.CONSTRUCTOR
+                                && element.getModifiers().contains(Modifier.PUBLIC))
+                        .map(ExecutableElement.class::cast)
+                        .toList());
     }
 
     public <T extends Annotation> Set<T> annotationsOfType(Class<T> annotationType) {
         return Set.of(typeElement.getAnnotationsByType(annotationType));
     }
 
+    @SuppressWarnings("unchecked")
     public List<ExecutableElement> methodsWith(Class<? extends Annotation> annotation) {
-        return typeElement.getEnclosedElements()
-                .stream()
-                .filter(element -> element.getKind() == ElementKind.METHOD
-                        && element.getModifiers().contains(Modifier.PUBLIC))
-                .map(ExecutableElement.class::cast)
-                .filter(element -> element.getAnnotationsByType(annotation).length > 0)
-                .toList();
+        return methodsWithCache.computeIfAbsent(annotation, type ->
+                typeElement.getEnclosedElements()
+                        .stream()
+                        .filter(element -> element.getKind() == ElementKind.METHOD
+                                && element.getModifiers().contains(Modifier.PUBLIC))
+                        .map(ExecutableElement.class::cast)
+                        .filter(element -> element.getAnnotationsByType((Class<Annotation>) type).length > 0)
+                        .toList());
     }
 
+    @SuppressWarnings("unchecked")
     public List<ExecutableElement> staticMethodsWith(Class<? extends Annotation> annotation) {
-        return typeElement.getEnclosedElements()
-                .stream()
-                .filter(element -> element.getKind() == ElementKind.METHOD
-                        && element.getModifiers().contains(Modifier.PUBLIC)
-                        && element.getModifiers().contains(Modifier.STATIC))
-                .map(ExecutableElement.class::cast)
-                .filter(element -> element.getAnnotationsByType(annotation).length > 0)
-                .toList();
+        return staticMethodsWithCache.computeIfAbsent(annotation, type ->
+                typeElement.getEnclosedElements()
+                        .stream()
+                        .filter(element -> element.getKind() == ElementKind.METHOD
+                                && element.getModifiers().contains(Modifier.PUBLIC)
+                                && element.getModifiers().contains(Modifier.STATIC))
+                        .map(ExecutableElement.class::cast)
+                        .filter(element -> element.getAnnotationsByType((Class<Annotation>) type).length > 0)
+                        .toList());
     }
 
     public boolean isAsyncCommit() {

@@ -1,6 +1,5 @@
 package kafka.avsc.infrastructure.kafka;
 
-import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
 import kafka.avsc.OrderCreatedEvent;
 import kafka.avsc.OrderProcessor;
 import org.slf4j.Logger;
@@ -14,9 +13,7 @@ public class OrderProcessorKafkaConsumer {
 
     private final OrderProcessor orderProcessor;
 
-    public OrderProcessorKafkaConsumer(OrderProcessor orderProcessor,
-            KafkaJsonTypeResolver typeResolver) {
-        typeResolver.registerType("prefab.order", OrderCreatedEvent.class);
+    public OrderProcessorKafkaConsumer(OrderProcessor orderProcessor) {
         this.orderProcessor = orderProcessor;
     }
 

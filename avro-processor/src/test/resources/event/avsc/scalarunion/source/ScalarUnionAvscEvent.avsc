@@ -1,0 +1,22 @@
+﻿{
+  "type": "record",
+  "name": "ScalarUnionAvscEvent",
+  "namespace": "event.avsc.scalarunion",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {
+      "name": "items",
+      "type": {
+        "type": "array",
+        "items": {
+          "name": "ScalarUnionItem",
+          "type": "record",
+          "fields": [
+            {"name": "name", "type": "string"},
+            {"name": "exactValue", "type": ["double", "string"]}
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -185,4 +185,21 @@ public class SchemaSupport {
         record.put(fieldName, fieldValue);
         return record;
     }
+
+    public static Schema createNullableUnion(Schema schema) {
+        if (schema.getType() == Schema.Type.UNION) {
+            var types = new java.util.ArrayList<>(schema.getTypes());
+            if (types.stream().noneMatch(t -> t.getType() == Schema.Type.NULL)) { types.add(0, Schema.create(Schema.Type.NULL)); }
+            return Schema.createUnion(types);
+        }
+        return Schema.createUnion(Schema.create(Schema.Type.NULL), schema);
+    }
+
+    public static Schema namedBranchOf(Schema unionSchema, String branchName) {
+        if (unionSchema.getType() == Schema.Type.UNION) {
+            return unionSchema.getTypes().stream().filter(t -> branchName.equals(t.getName())).findFirst().orElseThrow(() -> new IllegalArgumentException("No branch named " + branchName + " in union: " + unionSchema));
+        }
+        if (branchName.equals(unionSchema.getName())) return unionSchema;
+        throw new IllegalArgumentException("Not a union: " + branchName);
+    }
 }

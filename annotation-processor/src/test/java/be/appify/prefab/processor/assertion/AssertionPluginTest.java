@@ -72,6 +72,22 @@ class AssertionPluginTest {
     }
 
     @Test
+    void responseAssertClassContainsListSatisfyingAssertionMethod() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("assertion/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        var contents = assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "",
+                        "assertion/infrastructure/http/ProductResponseAssert.java")
+                .contentsAsUtf8String();
+        contents.contains("hasTagsSatisfying(Consumer<ListAssert<String>> requirements)");
+        contents.contains("Objects.requireNonNull(requirements, \"requirements must not be null\")");
+        contents.doesNotContain("hasTags(List<String> expected)");
+    }
+
+    @Test
     void assertionsFactoryClassIsGeneratedForAggregate() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

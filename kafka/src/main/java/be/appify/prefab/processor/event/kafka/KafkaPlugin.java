@@ -31,6 +31,7 @@ import static java.util.Objects.requireNonNull;
 public class KafkaPlugin implements PrefabPlugin {
     private KafkaProducerWriter kafkaProducerWriter;
     private KafkaConsumerWriter kafkaConsumerWriter;
+    private KafkaEventTypeRegistrarWriter kafkaEventTypeRegistrarWriter;
     private PrefabContext context;
 
     /** Constructs a new KafkaPlugin. */
@@ -43,6 +44,7 @@ public class KafkaPlugin implements PrefabPlugin {
         this.context = context;
         kafkaProducerWriter = new KafkaProducerWriter(context);
         kafkaConsumerWriter = new KafkaConsumerWriter(context);
+        kafkaEventTypeRegistrarWriter = new KafkaEventTypeRegistrarWriter(context);
     }
 
     @Override
@@ -102,6 +104,7 @@ public class KafkaPlugin implements PrefabPlugin {
                 .distinct()
                 .toList();
         events.forEach(event -> kafkaProducerWriter.writeKafkaProducer(event));
+        events.forEach(event -> kafkaEventTypeRegistrarWriter.writeRegistrar(event));
     }
 
     private void writeAvscPublishers() {
@@ -121,6 +124,7 @@ public class KafkaPlugin implements PrefabPlugin {
             var schemaPackage = schema.getNamespace() != null ? schema.getNamespace() : packageName;
             var eventType = ClassName.get(schemaPackage, schema.getName());
             kafkaProducerWriter.writeAvscKafkaProducer(schemaPackage, eventType, event.topic());
+            kafkaEventTypeRegistrarWriter.writeAvscRegistrar(schemaPackage, eventType, event.topic());
         }
     }
 

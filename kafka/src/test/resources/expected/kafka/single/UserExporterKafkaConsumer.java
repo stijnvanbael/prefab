@@ -1,6 +1,5 @@
 package kafka.single.infrastructure.kafka;
 
-import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
 import kafka.single.UserCreated;
 import kafka.single.UserExporter;
 import org.slf4j.Logger;
@@ -14,9 +13,7 @@ public class UserExporterKafkaConsumer {
 
     private final UserExporter userExporter;
 
-    public UserExporterKafkaConsumer(UserExporter userExporter,
-            KafkaJsonTypeResolver typeResolver) {
-        typeResolver.registerType("prefab.user", UserCreated.class);
+    public UserExporterKafkaConsumer(UserExporter userExporter) {
         this.userExporter = userExporter;
     }
 

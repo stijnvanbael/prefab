@@ -32,6 +32,23 @@ class GenericRecordToEventConverterWriterTest {
                 compilation,
                 "event.avro.infrastructure.avro.GenericRecordToInheritEventConverter",
                 "event/avro/inherited/expected/GenericRecordToInheritEventConverter.java");
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.GenericRecordToSuperTypeConverter",
+                "event/avro/inherited/expected/GenericRecordToSuperTypeConverter.java");
+    }
+
+    @Test
+    void interfaceSupertype() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avro/interfacesupertype/source/UserEvent.java"),
+                        sourceOf("event/avro/interfacesupertype/source/UserCreated.java"));
+        assertThat(compilation).succeeded();
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.GenericRecordToUserEventConverter",
+                "event/avro/interfacesupertype/expected/GenericRecordToUserEventConverter.java");
     }
 
     @Test

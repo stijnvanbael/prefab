@@ -1,16 +1,17 @@
 ---
 id: TASK-142
 title: Custom assertions on events and REST responses in generated test clients
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-04-27 13:18'
-updated_date: '2026-04-27 13:19'
+updated_date: '2026-05-06 06:05'
 labels:
   - test
   - annotation-processor
   - rest
 dependencies: []
 priority: medium
+ordinal: 8000
 ---
 
 ## Description

@@ -10,6 +10,7 @@ import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
+import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.math.BigDecimal;
@@ -20,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -78,87 +80,92 @@ class MotherWriter {
                 .addModifiers(Modifier.PUBLIC)
                 .addMethod(recordBuilderPassthroughMethod(requestType))
                 .addMethod(createFactoryMethod(requestType, typeName, effectiveParams))
+                .addMethod(createConsumerOverloadForRecord(requestType, typeName, effectiveParams))
                 .build();
 
         fileWriter.writeFile(packageName, motherName, typeSpec);
 
         effectiveParams.stream()
                 .map(EffectiveParam::effectiveType)
-                .forEach(type -> writeNestedMothersFor(type, preferredElement));
+                .forEach(type -> writeNestedMothersFor(type, preferredElement, false));
     }
 
     /**
      * Writes a Mother for an @Event-annotated type (or its concrete subtype if sealed).
-     * Generates a standalone Builder in production source; the mother only defines defaults.
+     * <p>
+     * When {@code hasEmbeddedBuilder} is {@code true} (e.g. for AVSC-generated records that already
+     * carry a nested {@code Builder} class), the mother delegates to that embedded builder directly
+     * and no standalone builder class is generated. Otherwise a standalone builder is written to
+     * production source.
      */
-    void writeEventMother(TypeManifest eventType, TypeElement preferredElement) {
+    void writeEventMother(TypeManifest eventType, TypeElement preferredElement, boolean hasEmbeddedBuilder) {
         var qualifiedName = eventType.packageName() + "." + eventType.simpleName();
         if (!writtenTypes.add(qualifiedName)) {
             return;
         }
-
         fileWriter.setPreferredElement(preferredElement);
-
         var simpleName = eventType.simpleName().replace(".", "");
         var motherName = simpleName + MOTHER_SUFFIX;
-        var builderName = simpleName + BUILDER;
         var packageName = eventType.packageName();
         var fields = eventType.fields();
-        var eventTypeName = eventType.asTypeName();
-        var builderType = ClassName.get(packageName, builderName);
-
-        productionFileWriter.writeFile(packageName, builderName, buildStandaloneBuilderClass(builderType, eventTypeName, fields));
-
+        var eventTypeName = (ClassName) eventType.asTypeName();
+        var builderType = resolveBuilderType(eventTypeName, packageName, simpleName, fields, hasEmbeddedBuilder);
         var typeSpec = TypeSpec.classBuilder(motherName)
                 .addModifiers(Modifier.PUBLIC)
                 .addMethod(builderFactoryMethodWithDefaults(builderType, fields))
                 .addMethod(motherFactoryMethod(eventTypeName, simpleName))
+                .addMethod(motherConsumerOverload(eventTypeName, simpleName, builderType))
                 .build();
-
         fileWriter.writeFile(packageName, motherName, typeSpec);
-
-        fields.forEach(f -> writeNestedMothersFor(f.type(), preferredElement));
+        fields.forEach(f -> writeNestedMothersFor(f.type(), preferredElement, hasEmbeddedBuilder));
     }
-
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
-
-    private void writeNestedMother(TypeManifest type, TypeElement preferredElement) {
+    private ClassName resolveBuilderType(
+            ClassName eventTypeName,
+            String packageName,
+            String simpleName,
+            List<VariableManifest> fields,
+            boolean hasEmbeddedBuilder
+    ) {
+        if (hasEmbeddedBuilder) {
+            return eventTypeName.nestedClass(BUILDER);
+        }
+        var builderName = simpleName + BUILDER;
+        var builderType = ClassName.get(packageName, builderName);
+        productionFileWriter.writeFile(packageName, builderName,
+                buildStandaloneBuilderClass(builderType, eventTypeName, fields));
+        return builderType;
+    }
+    private void writeNestedMother(TypeManifest type, TypeElement preferredElement, boolean hasEmbeddedBuilder) {
         var qualifiedName = type.packageName() + "." + type.simpleName();
         if (!writtenTypes.add(qualifiedName)) {
             return;
         }
-
         fileWriter.setPreferredElement(preferredElement);
-
         var simpleName = type.simpleName().replace(".", "");
         var motherName = simpleName + MOTHER_SUFFIX;
-        var builderName = simpleName + BUILDER;
         var packageName = type.packageName();
         var fields = type.fields();
-        var builderType = ClassName.get(packageName, builderName);
-
-        productionFileWriter.writeFile(packageName, builderName, buildStandaloneBuilderClass(builderType, type.asTypeName(), fields));
-
+        var typeName = (ClassName) type.asTypeName();
+        var builderType = resolveBuilderType(typeName, packageName, simpleName, fields, hasEmbeddedBuilder);
         var typeSpec = TypeSpec.classBuilder(motherName)
                 .addModifiers(Modifier.PUBLIC)
                 .addMethod(builderFactoryMethodWithDefaults(builderType, fields))
                 .addMethod(motherFactoryMethod(type.asTypeName(), simpleName))
+                .addMethod(motherConsumerOverload(type.asTypeName(), simpleName, builderType))
                 .build();
-
         fileWriter.writeFile(packageName, motherName, typeSpec);
-
-        fields.forEach(f -> writeNestedMothersFor(f.type(), preferredElement));
+        fields.forEach(f -> writeNestedMothersFor(f.type(), preferredElement, hasEmbeddedBuilder));
     }
-
-    private void writeNestedMothersFor(TypeManifest type, TypeElement preferredElement) {
+    private void writeNestedMothersFor(TypeManifest type, TypeElement preferredElement, boolean hasEmbeddedBuilder) {
         if (isNestedObjectType(type)) {
-            writeNestedMother(type, preferredElement);
+            writeNestedMother(type, preferredElement, hasEmbeddedBuilder);
         } else if (type.is(List.class) && isNestedObjectType(type.parameters().getFirst())) {
-            writeNestedMother(type.parameters().getFirst(), preferredElement);
+            writeNestedMother(type.parameters().getFirst(), preferredElement, hasEmbeddedBuilder);
         } else if (type.isSingleValueType()) {
-            writeNestedMothersFor(type.fields().getFirst().type(), preferredElement);
+            writeNestedMothersFor(type.fields().getFirst().type(), preferredElement, hasEmbeddedBuilder);
         }
     }
 
@@ -189,10 +196,11 @@ class MotherWriter {
     }
 
     private MethodSpec createFactoryMethod(ClassName recordType, String typeName, List<EffectiveParam> params) {
-        var body = buildChainedBuilderCall(recordType,
-                params.stream()
-                        .map(ep -> new FieldDefault(ep.param().name(), defaultValueFor(ep.param(), ep.effectiveType())))
-                        .toList());
+        var fieldDefaults = fieldDefaultsFor(params);
+        var body = CodeBlock.builder()
+                .add(builderWithDefaultsSetup(recordType, fieldDefaults))
+                .addStatement("return builder.build()")
+                .build();
         return MethodSpec.methodBuilder("create" + capitalize(typeName))
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .returns(recordType)
@@ -200,12 +208,35 @@ class MotherWriter {
                 .build();
     }
 
-    private CodeBlock buildChainedBuilderCall(ClassName recordType, List<FieldDefault> fieldDefaults) {
-        var block = CodeBlock.builder().add("return $T.builder()", recordType);
+    private MethodSpec createConsumerOverloadForRecord(ClassName recordType, String typeName, List<EffectiveParam> params) {
+        var fieldDefaults = fieldDefaultsFor(params);
+        var builderType = recordType.nestedClass(BUILDER);
+        var consumerType = ParameterizedTypeName.get(ClassName.get(Consumer.class), builderType);
+        var body = CodeBlock.builder()
+                .add(builderWithDefaultsSetup(recordType, fieldDefaults))
+                .addStatement("customiser.accept(builder)")
+                .addStatement("return builder.build()")
+                .build();
+        return MethodSpec.methodBuilder("create" + capitalize(typeName))
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .returns(recordType)
+                .addParameter(consumerType, "customiser")
+                .addCode(body)
+                .build();
+    }
+
+    private List<FieldDefault> fieldDefaultsFor(List<EffectiveParam> params) {
+        return params.stream()
+                .map(ep -> new FieldDefault(ep.param().name(), defaultValueFor(ep.param(), ep.effectiveType())))
+                .toList();
+    }
+
+    private CodeBlock builderWithDefaultsSetup(ClassName recordType, List<FieldDefault> fieldDefaults) {
+        var block = CodeBlock.builder().add("var builder = $T.builder()", recordType);
         for (var fd : fieldDefaults) {
-            block.add("\n        .with$L($L)", capitalize(fd.name()), fd.defaultValue());
+            block.add("\n        .$L($L)", setterMethodName(fd.name()), fd.defaultValue());
         }
-        block.add("\n        .build();\n");
+        block.add(";\n");
         return block.build();
     }
 
@@ -215,13 +246,9 @@ class MotherWriter {
         var builder = TypeSpec.classBuilder(builderType.simpleName())
                 .addModifiers(Modifier.PUBLIC);
 
-        fields.forEach(field -> {
-            var fieldSpec = FieldSpec.builder(field.type().asTypeName(), field.name(), Modifier.PRIVATE);
-            if (hasInlineDefault(field.type())) {
-                fieldSpec.initializer(defaultValueFor(field, field.type()));
-            }
-            builder.addField(fieldSpec.build());
-        });
+        fields.forEach(field -> builder.addField(
+                FieldSpec.builder(field.type().asTypeName(), field.name(), Modifier.PRIVATE).build()
+        ));
 
         fields.forEach(field -> builder.addMethod(withMethod(field.name(), field.type().asTypeName(), builderType)));
 
@@ -231,21 +258,8 @@ class MotherWriter {
         return builder.build();
     }
 
-    private boolean hasInlineDefault(TypeManifest type) {
-        if (isNestedObjectType(type)) return false;
-        if (type.is(List.class) && isNestedObjectType(type.parameters().getFirst())) return false;
-        if (type.isSingleValueType() && containsNestedObjectType(type)) return false;
-        return true;
-    }
-
-    private boolean containsNestedObjectType(TypeManifest type) {
-        if (isNestedObjectType(type)) return true;
-        if (type.isSingleValueType()) return containsNestedObjectType(type.fields().getFirst().type());
-        return false;
-    }
-
     private MethodSpec withMethod(String fieldName, TypeName fieldType, ClassName builderType) {
-        return MethodSpec.methodBuilder("with" + capitalize(fieldName))
+        return MethodSpec.methodBuilder(setterMethodName(fieldName))
                 .addModifiers(Modifier.PUBLIC)
                 .returns(builderType)
                 .addParameter(fieldType, fieldName)
@@ -254,11 +268,14 @@ class MotherWriter {
                 .build();
     }
 
+    private String setterMethodName(String fieldName) {
+        var prefix = context.builderSetterPrefix();
+        return prefix.isEmpty() ? fieldName : prefix + capitalize(fieldName);
+    }
+
     private MethodSpec builderFactoryMethodWithDefaults(ClassName builderType, List<VariableManifest> fields) {
         var code = CodeBlock.builder().add("return new $T()", builderType);
-        fields.stream()
-                .filter(field -> !hasInlineDefault(field.type()))
-                .forEach(field -> code.add("\n        .with$L($L)", capitalize(field.name()), defaultValueFor(field, field.type())));
+        fields.forEach(field -> code.add("\n        .$L($L)", setterMethodName(field.name()), defaultValueFor(field, field.type())));
         code.add(";\n");
         return MethodSpec.methodBuilder("builder")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
@@ -280,6 +297,18 @@ class MotherWriter {
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .returns(returnType)
                 .addStatement("return builder().build()")
+                .build();
+    }
+
+    private MethodSpec motherConsumerOverload(TypeName returnType, String typeName, ClassName builderType) {
+        var consumerType = ParameterizedTypeName.get(ClassName.get(Consumer.class), builderType);
+        return MethodSpec.methodBuilder("create" + capitalize(typeName))
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .returns(returnType)
+                .addParameter(consumerType, "customiser")
+                .addStatement("var builder = builder()")
+                .addStatement("customiser.accept(builder)")
+                .addStatement("return builder.build()")
                 .build();
     }
 

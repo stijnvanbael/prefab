@@ -4,7 +4,7 @@ import be.appify.prefab.avro.SchemaSupport;
 import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Doc;
 import be.appify.prefab.core.annotations.Example;
-import be.appify.prefab.core.annotations.Namespace;
+import be.appify.prefab.core.annotations.AvroSchema;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -20,7 +20,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Stream;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
@@ -28,6 +27,9 @@ import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaCompatibility;
 
+import static be.appify.prefab.avro.processor.AvroPlugin.avroUnionRecordBranches;
+import static be.appify.prefab.avro.processor.AvroPlugin.isAvroUnion;
+import static be.appify.prefab.avro.processor.AvroPlugin.isLogicalType;
 import static be.appify.prefab.avro.processor.AvroPlugin.isNestedRecord;
 import static be.appify.prefab.avro.processor.AvroPlugin.nestedTypes;
 import static be.appify.prefab.avro.processor.AvroPlugin.sealedSubtypes;
@@ -41,14 +43,22 @@ class EventSchemaFactoryWriter {
 
     private final PrefabContext context;
 
+    /** Round-scoped cache: AVSC resource path → parsed Schema (avoids re-parsing the same file multiple times). */
+    private final Map<String, Optional<Schema>> avscSchemaCache = new HashMap<>();
+
+    /**
+     * Round-scoped index: AVSC resource path → set of all simple record/enum names found in that file.
+     * Built once on the first call and reused for every subsequent lookup within the same round.
+     */
+    private Map<String, Set<String>> avscRecordNamesIndex;
+
     EventSchemaFactoryWriter(PrefabContext context) {
         this.context = context;
     }
 
-    void writeSchemaFactory(TypeManifest event) {
+    boolean writeSchemaFactory(TypeManifest event) {
         if (isAvscContractInterface(event)) {
-            writeAvscInterfaceSchemaFactory(event);
-            return;
+            return writeAvscInterfaceSchemaFactory(event);
         }
 
         var avscPath = findAvscPath(event);
@@ -64,6 +74,7 @@ class EventSchemaFactoryWriter {
         avscPath.ifPresent(path -> type.addMethods(runtimeAvscValidationMethods(event, path)));
 
         newFileWriter().writeFile(event.packageName(), name, type.build());
+        return true;
     }
 
     private Optional<String> findAvscPath(TypeManifest event) {
@@ -78,37 +89,105 @@ class EventSchemaFactoryWriter {
             }
         }
 
-        return avscAnnotatedInterfaces()
-                .flatMap(e -> Arrays.stream(Objects.requireNonNull(e.getAnnotation(Avsc.class)).value()))
-                .filter(path -> matchesRecordName(path, recordSimpleName))
+        var index = avscRecordNamesIndex();
+        return index.entrySet().stream()
+                .filter(entry -> avroTypeNames(recordSimpleName).anyMatch(entry.getValue()::contains))
+                .map(Map.Entry::getKey)
                 .findFirst();
     }
 
+    /**
+     * Returns the round-scoped path-to-record-names index, building it on the first call.
+     * Each AVSC path found across all {@code @Avsc}-annotated interfaces is parsed once and its
+     * top-level and nested named types are indexed for O(1) lookup.
+     */
+    private Map<String, Set<String>> avscRecordNamesIndex() {
+        if (avscRecordNamesIndex == null) {
+            avscRecordNamesIndex = new HashMap<>();
+            avscAnnotatedInterfaces()
+                    .flatMap(e -> Arrays.stream(Objects.requireNonNull(e.getAnnotation(Avsc.class)).value()))
+                    .distinct()
+                    .forEach(path -> avscRecordNamesIndex.put(path, collectNamedTypes(path)));
+        }
+        return avscRecordNamesIndex;
+    }
+
+    /** Collects all simple names of named types (records and enums) found in the AVSC at {@code path}. */
+    private Set<String> collectNamedTypes(String path) {
+        return cachedAvscSchema(path)
+                .map(schema -> {
+                    Set<String> names = new HashSet<>();
+                    collectNamedTypes(schema, names, new HashSet<>());
+                    return names;
+                })
+                .orElse(Set.of());
+    }
+
+    private void collectNamedTypes(Schema schema, Set<String> names, Set<String> visited) {
+        if (schema == null) {
+            return;
+        }
+        switch (schema.getType()) {
+            case RECORD -> {
+                var fullName = schema.getFullName();
+                if (fullName != null && !visited.add(fullName)) {
+                    return;
+                }
+                names.add(schema.getName());
+                schema.getFields().forEach(field -> collectNamedTypes(field.schema(), names, visited));
+            }
+            case ENUM -> names.add(schema.getName());
+            case ARRAY -> collectNamedTypes(schema.getElementType(), names, visited);
+            case UNION -> schema.getTypes().forEach(type -> collectNamedTypes(type, names, visited));
+            default -> { /* primitives and other types have no named type to index */ }
+        }
+    }
+
+    /** Returns the cached parsed schema for the given AVSC path, parsing it from disk/classpath if not yet loaded. */
+    private Optional<Schema> cachedAvscSchema(String avscPath) {
+        return avscSchemaCache.computeIfAbsent(avscPath, path -> {
+            try (var stream = openResource(path)) {
+                if (stream == null) {
+                    return Optional.empty();
+                }
+                return Optional.of(new Schema.Parser().parse(stream));
+            } catch (IOException | RuntimeException ignored) {
+                return Optional.empty();
+            }
+        });
+    }
+
     private String avroNamespaceOf(TypeManifest type) {
-        return type.annotationsOfType(Namespace.class).stream()
-                .map(Namespace::value)
-                .filter(namespace -> !namespace.isBlank())
+        // @AvroSchema.namespace() takes precedence, then the AVSC file namespace, then the Java package name.
+        return type.annotationsOfType(AvroSchema.class).stream()
+                .map(AvroSchema::namespace)
+                .filter(ns -> !ns.isBlank())
                 .findFirst()
                 .or(() -> findAvscPath(type)
-                .flatMap(path -> namedTypeFromAvsc(path, type.simpleName()))
-                .map(Schema::getNamespace)
-                .filter(namespace -> !namespace.isBlank()))
+                        .flatMap(path -> namedTypeFromAvsc(path, avroSchemaNameOf(type)))
+                        .map(Schema::getNamespace)
+                        .filter(ns -> !ns.isBlank()))
                 .orElse(type.packageName());
     }
 
+    /**
+     * Returns the Avro schema name for the type, honouring any {@link AvroSchema#name()} override.
+     * Falls back to the Java simple class name when no override is present.
+     */
+    private static String avroSchemaNameOf(TypeManifest type) {
+        return type.annotationsOfType(AvroSchema.class).stream()
+                .map(AvroSchema::name)
+                .filter(name -> !name.isBlank())
+                .findFirst()
+                .orElse(type.simpleName().replace('.', '_'));
+    }
+
     private Optional<Schema> namedTypeFromAvsc(String avscPath, String simpleName) {
-        try (var stream = openResource(avscPath)) {
-            if (stream == null) {
-                return Optional.empty();
-            }
-            var parsedSchema = new Schema.Parser().parse(stream);
-            return avroTypeNames(simpleName)
-                    .filter(typeName -> containsNamedType(parsedSchema, typeName))
-                    .findFirst()
-                    .map(typeName -> SchemaSupport.namedTypeOf(parsedSchema, typeName));
-        } catch (IOException | RuntimeException ignored) {
-            return Optional.empty();
-        }
+        return cachedAvscSchema(avscPath)
+                .flatMap(parsedSchema -> avroTypeNames(simpleName)
+                        .filter(typeName -> containsNamedType(parsedSchema, typeName))
+                        .findFirst()
+                        .map(typeName -> SchemaSupport.namedTypeOf(parsedSchema, typeName)));
     }
 
     private java.util.stream.Stream<TypeElement> avscAnnotatedInterfaces() {
@@ -126,13 +205,12 @@ class EventSchemaFactoryWriter {
     }
 
     private boolean matchesRecordName(String avscPath, String recordSimpleName) {
-        try (var stream = openResource(avscPath)) {
-            if (stream == null) {
-                return false;
-            }
-            var parsedSchema = new Schema.Parser().parse(stream);
-            return avroTypeNames(recordSimpleName).anyMatch(typeName -> containsNamedType(parsedSchema, typeName));
-        } catch (IOException e) {
+        try {
+            return cachedAvscSchema(avscPath)
+                    .map(parsedSchema -> avroTypeNames(recordSimpleName)
+                            .anyMatch(typeName -> containsNamedType(parsedSchema, typeName)))
+                    .orElse(false);
+        } catch (RuntimeException e) {
             context.processingEnvironment().getMessager().printMessage(
                     javax.tools.Diagnostic.Kind.WARNING,
                     "Could not read or parse AVSC file '%s' while resolving schema for '%s': %s"
@@ -203,12 +281,12 @@ class EventSchemaFactoryWriter {
      * When there is a single concrete record the factory simply delegates to that record's schema
      * factory. When multiple records exist the factory builds an Avro union schema.
      */
-    private void writeAvscInterfaceSchemaFactory(TypeManifest contractInterface) {
+    private boolean writeAvscInterfaceSchemaFactory(TypeManifest contractInterface) {
         var implementations = resolveImplementations(contractInterface);
 
         // Skip round 1: concrete records are compiled in round 2 and not yet available.
         if (implementations.isEmpty()) {
-            return;
+            return false;
         }
 
         var name = schemaFactorySimpleName(contractInterface);
@@ -219,23 +297,26 @@ class EventSchemaFactoryWriter {
                 .addField(FieldSpec.builder(Schema.class, "schema", Modifier.PRIVATE, Modifier.FINAL).build())
                 .addMethod(constructor)
                 .addMethod(createSchemaMethod());
+        implementations.forEach(impl -> type.addField(FieldSpec.builder(
+                        schemaFactoryClassName(impl),
+                        schemaFactoryFieldName(impl),
+                        Modifier.PRIVATE,
+                        Modifier.FINAL)
+                .build()));
 
         newFileWriter().writeFile(contractInterface.packageName(), name, type.build());
+        return true;
     }
 
     private List<TypeManifest> resolveImplementations(TypeManifest contractInterface) {
         return context.eventElementsFromCurrentCompilation()
-                .filter(e -> e.getKind() == ElementKind.RECORD)
-                .filter(e -> implementsInterface(e, contractInterface))
+                .filter(e -> !e.equals(contractInterface.asElement()))
+                .filter(e -> context.processingEnvironment().getTypeUtils()
+                        .isSubtype(e.asType(), contractInterface.asElement().asType()))
                 .map(e -> TypeManifest.of(e.asType(), context.processingEnvironment()))
                 .toList();
     }
 
-    private boolean implementsInterface(TypeElement element, TypeManifest contractInterface) {
-        return element.getInterfaces().stream()
-                .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
-                .anyMatch(iface -> iface.equals(contractInterface.asElement()));
-    }
 
     private MethodSpec buildImplementationConstructor(List<TypeManifest> implementations) {
         var constructor = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC);
@@ -264,8 +345,15 @@ class EventSchemaFactoryWriter {
 
     private MethodSpec constructor(TypeManifest event, boolean preserveSingleValueRecords, @Nullable String avscPath) {
         var constructor = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC);
-        nestedTypes(List.of(event)).forEach(nestedType -> addSchemaFactory(nestedType, constructor));
-        sealedSubtypes(List.of(event)).forEach(subtype -> addSchemaFactory(subtype, constructor));
+        if (isAvroUnion(event)) {
+            // Avro union sealed interfaces: inject schema factories for record branch components only.
+            // nestedTypes is intentionally skipped here: it would traverse sealedSubtypes and collect
+            // the same branch record types that avroUnionRecordBranches already returns, causing duplicates.
+            avroUnionRecordBranches(event).forEach(componentType -> addSchemaFactory(componentType, constructor));
+        } else {
+            nestedTypes(List.of(event)).forEach(nestedType -> addSchemaFactory(nestedType, constructor));
+            sealedSubtypes(List.of(event)).forEach(subtype -> addSchemaFactory(subtype, constructor));
+        }
         constructor.addStatement("this.schema = $L", createSchema(event, preserveSingleValueRecords));
         if (avscPath != null) {
             constructor.addStatement("verifySchemaCompatibility(this.schema)");
@@ -406,14 +494,24 @@ class EventSchemaFactoryWriter {
     }
 
     private CodeBlock createEnumSchema(TypeManifest type) {
-        return CodeBlock.of("$T.createEnum($S, null, $S, $T.of($L))",
+        var enumValues = type.enumValues();
+        if (enumValues.isEmpty()) {
+            context.logError("Enum '%s' has no values and cannot generate an Avro enum schema."
+                            .formatted(type.simpleName()),
+                    type.asElement());
+            return CodeBlock.of("$T.create($T.NULL)", Schema.class, Schema.Type.class);
+        }
+
+        return CodeBlock.of("$T.createEnum($S, $S, $S, $T.of($L), $S)",
                 Schema.class,
-                type.simpleName().replace('.', '_'),
+                avroSchemaNameOf(type),
+                type.doc().orElse(null),
                 avroNamespaceOf(type),
                 List.class,
-                type.enumValues().stream()
+                enumValues.stream()
                         .map(value -> CodeBlock.of("$S", value))
-                        .collect(CodeBlock.joining(", ")));
+                        .collect(CodeBlock.joining(", ")),
+                enumValues.getFirst());
     }
 
     private CodeBlock createPrimitiveSchema(TypeManifest type) {
@@ -435,12 +533,14 @@ class EventSchemaFactoryWriter {
     }
 
     private CodeBlock createRecordSchema(TypeManifest type, boolean preserveSingleValueRecords) {
-        return type.isSealed()
-                ? createUnionSchema(type)
-                : createFlatRecordSchema(type, preserveSingleValueRecords);
+        if (type.isSealed()) {
+            return isAvroUnion(type) ? createAvroUnionSchema(type) : createSealedUnionSchema(type);
+        }
+        return createFlatRecordSchema(type, preserveSingleValueRecords);
     }
 
-    private CodeBlock createUnionSchema(TypeManifest type) {
+    /** Generates a union schema for a sealed event hierarchy (each subtype has its own schema factory). */
+    private CodeBlock createSealedUnionSchema(TypeManifest type) {
         return CodeBlock.of("""
                         $T.createUnion($T.of(
                             $L
@@ -452,13 +552,39 @@ class EventSchemaFactoryWriter {
                         .collect(CodeBlock.joining(",\n    ")));
     }
 
+    /**
+     * Generates a union schema for an Avro union sealed interface.
+     * Each permitted subtype is a single-value wrapper; its component type determines the branch schema.
+     */
+    private CodeBlock createAvroUnionSchema(TypeManifest type) {
+        return CodeBlock.of("$T.createUnion($T.of(\n    $L\n))",
+                Schema.class,
+                List.class,
+                type.permittedSubtypes().stream()
+                        .map(this::avroUnionBranchSchema)
+                        .collect(CodeBlock.joining(",\n    ")));
+    }
+
+    private CodeBlock avroUnionBranchSchema(TypeManifest branchType) {
+        var componentType = branchType.fields().getFirst().type();
+        if (isNestedRecord(componentType)) {
+            return CodeBlock.of("$L.createSchema()", schemaFactoryFieldName(componentType));
+        }
+        if (componentType.is(java.util.List.class)) {
+            // Array branch: generate an Avro array schema from the list element type.
+            return CodeBlock.of("$T.createArray($L)", Schema.class,
+                    createSchema(componentType.parameters().getFirst(), false));
+        }
+        return createSchema(componentType, false);
+    }
+
     private CodeBlock createFlatRecordSchema(TypeManifest type, boolean preserveSingleValueRecords) {
         return CodeBlock.of("""
                         $T.createRecord($S, $S, $S, false, $T.of(
                                 $L
                             ))""",
                 Schema.class,
-                type.simpleName().replace('.', '_'),
+                avroSchemaNameOf(type),
                 type.doc().orElse(null),
                 avroNamespaceOf(type),
                 List.class,
@@ -492,9 +618,15 @@ class EventSchemaFactoryWriter {
         return wrapWithSampleIfPresent(field, fieldBlock);
     }
 
-    private static CodeBlock buildFieldBlock(VariableManifest field, CodeBlock schema, @Nullable String doc) {
+    private CodeBlock buildFieldBlock(VariableManifest field, CodeBlock schema, @Nullable String doc) {
         if (field.nullable()) {
-            var nullableSchema = CodeBlock.of("$T.createNullableSchema($L)", SchemaSupport.class, schema);
+            CodeBlock nullableSchema;
+            if (isAvroUnion(field.type())) {
+                // Multi-branch union: prepend null to the flat union to avoid nested unions.
+                nullableSchema = CodeBlock.of("$T.createNullableUnion($L)", SchemaSupport.class, schema);
+            } else {
+                nullableSchema = CodeBlock.of("$T.createNullableSchema($L)", SchemaSupport.class, schema);
+            }
             return CodeBlock.of("new $T($S, $L, $S, $T.NULL_DEFAULT_VALUE)",
                     Schema.Field.class, field.name(), nullableSchema, doc, Schema.Field.class);
         }

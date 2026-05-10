@@ -2,6 +2,7 @@ package be.appify.prefab.processor.event.handler;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.audit.AuditFields;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import org.springframework.context.event.EventListener;
@@ -28,20 +29,61 @@ class StaticEventHandlerWriter {
         }
         var targetType = eventHandler.isMerged() ? eventHandler.componentType() : manifest.type();
         var repositoryName = uncapitalize(targetType.simpleName()) + "Repository";
-        return eventHandler.returnType().is(Optional.class)
-                ? method.addStatement(CodeBlock.builder()
-                        .add("$T.$L(event).ifPresent(aggregate -> $L.save(aggregate))",
+        var needsAudit = !eventHandler.isMerged() && AuditFields.hasAuditFields(manifest);
+        if (eventHandler.returnType().is(Optional.class)) {
+            return buildOptionalHandlerMethod(method, manifest, eventHandler, targetType, repositoryName, needsAudit);
+        }
+        return buildDirectHandlerMethod(method, manifest, eventHandler, targetType, repositoryName, needsAudit);
+    }
+
+    private MethodSpec buildOptionalHandlerMethod(
+            MethodSpec.Builder method,
+            ClassManifest manifest,
+            StaticEventHandlerManifest eventHandler,
+            be.appify.prefab.processor.TypeManifest targetType,
+            String repositoryName,
+            boolean needsAudit
+    ) {
+        if (needsAudit) {
+            return method.addStatement(CodeBlock.builder()
+                    .add("$T.$L(event).map(aggregate -> new $T($L)).ifPresent(aggregate -> $L.save(aggregate))",
+                            targetType.asTypeName(),
+                            eventHandler.methodName(),
+                            targetType.asTypeName(),
+                            AuditFields.createReconstructionArgs(manifest.fields()),
+                            repositoryName)
+                    .build())
+                    .build();
+        }
+        return method.addStatement(CodeBlock.builder()
+                .add("$T.$L(event).ifPresent(aggregate -> $L.save(aggregate))",
+                        targetType.asTypeName(),
+                        eventHandler.methodName(),
+                        repositoryName)
+                .build())
+                .build();
+    }
+
+    private MethodSpec buildDirectHandlerMethod(
+            MethodSpec.Builder method,
+            ClassManifest manifest,
+            StaticEventHandlerManifest eventHandler,
+            be.appify.prefab.processor.TypeManifest targetType,
+            String repositoryName,
+            boolean needsAudit
+    ) {
+        if (needsAudit) {
+            method.addStatement("var aggregate = $T.$L(event)", targetType.asTypeName(), eventHandler.methodName());
+            method.addStatement("aggregate = new $T($L)", targetType.asTypeName(),
+                    AuditFields.createReconstructionArgs(manifest.fields()));
+            return method.addStatement("$L.save(aggregate)", repositoryName).build();
+        }
+        return method.addStatement(CodeBlock.builder()
+                        .add("$L.save($T.$L(event))",
+                                repositoryName,
                                 targetType.asTypeName(),
-                                eventHandler.methodName(),
-                                repositoryName)
+                                eventHandler.methodName())
                         .build())
-                .build()
-                : method.addStatement(CodeBlock.builder()
-                                .add("$L.save($T.$L(event))",
-                                        repositoryName,
-                                        targetType.asTypeName(),
-                                        eventHandler.methodName())
-                                .build())
-                        .build();
+                .build();
     }
 }

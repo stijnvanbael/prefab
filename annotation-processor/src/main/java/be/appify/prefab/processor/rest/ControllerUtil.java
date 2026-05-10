@@ -280,12 +280,15 @@ public class ControllerUtil {
      *         the list of VariableManifest fields for the record
      * @param parameterBuilder
      *         the RequestParameterBuilder to build parameters
+     * @param builderSetterPrefix
+     *         the prefix used for builder setter methods (e.g. {@code "with"}); use {@code ""} for prefix-less names
      * @return the generated TypeSpec for the record
      */
     public static TypeSpec writeRecord(
             ClassName name,
             List<VariableManifest> fields,
-            RequestParameterBuilder parameterBuilder
+            RequestParameterBuilder parameterBuilder,
+            String builderSetterPrefix
     ) {
         var constructorParams = fields.stream()
                 .flatMap(param -> parameterBuilder.buildBodyParameter(param)
@@ -304,7 +307,7 @@ public class ControllerUtil {
                 .flatMap(parameter -> parameterBuilder.buildMethodParameter(parameter).stream())
                 .map(parameter -> withMethod(name, parameter, fields))
                 .toList());
-        new BuilderWriter().enrichWithBuilder(type, name, builderParams);
+        new BuilderWriter(builderSetterPrefix).enrichWithBuilder(type, name, builderParams);
         return type.build();
     }
 

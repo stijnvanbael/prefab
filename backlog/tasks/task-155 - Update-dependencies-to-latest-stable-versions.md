@@ -4,10 +4,11 @@ title: Update dependencies to latest stable versions
 status: Done
 assignee: []
 created_date: '2026-05-03 07:46'
-updated_date: '2026-05-03 07:54'
+updated_date: '2026-05-06 06:05'
 labels: []
 dependencies: []
 priority: medium
+ordinal: 6000
 ---
 
 ## Description

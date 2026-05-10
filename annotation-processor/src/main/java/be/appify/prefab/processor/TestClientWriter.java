@@ -18,7 +18,7 @@ import static be.appify.prefab.processor.TestClasses.MOCK_MVC_BUILDERS;
 import static be.appify.prefab.processor.TestClasses.MOCK_MVC_CONFIGURER;
 import static be.appify.prefab.processor.TestClasses.SECURITY_MOCK_MVC_CONFIGURERS;
 
-class TestClientWriter {
+public class TestClientWriter {
     private final TestFileOutput fileWriter;
     private final PrefabContext context;
 
@@ -26,7 +26,7 @@ class TestClientWriter {
         this(context, new TestJavaFileWriter(context, null));
     }
 
-    TestClientWriter(PrefabContext context, TestFileOutput fileWriter) {
+    public TestClientWriter(PrefabContext context, TestFileOutput fileWriter) {
         this.context = context;
         this.fileWriter = fileWriter;
     }

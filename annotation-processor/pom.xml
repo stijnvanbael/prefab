@@ -6,7 +6,7 @@
     <parent>
         <groupId>be.appify.prefab</groupId>
         <artifactId>prefab-parent</artifactId>
-        <version>0.7.5-SNAPSHOT</version>
+        <version>0.7.8-SNAPSHOT</version>
     </parent>
 
     <artifactId>prefab-annotation-processor</artifactId>
@@ -89,6 +89,11 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

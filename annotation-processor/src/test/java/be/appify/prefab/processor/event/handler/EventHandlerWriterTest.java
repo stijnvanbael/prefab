@@ -385,6 +385,70 @@ class EventHandlerWriterTest {
     }
 
     @Test
+    void staticEventHandlerWithAuditFieldsPopulatesAuditOnCreate() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/handler/statichandleraudit/source/Order.java"),
+                        sourceOf("event/handler/statichandleraudit/source/OrderCreated.java")
+                );
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("event.handler.statichandleraudit.application.OrderService")
+                .contentsAsUtf8String()
+                .contains("var aggregate = Order.onCreate(event)");
+        assertThat(compilation)
+                .generatedSourceFile("event.handler.statichandleraudit.application.OrderService")
+                .contentsAsUtf8String()
+                .contains("Instant.now()");
+        assertThat(compilation)
+                .generatedSourceFile("event.handler.statichandleraudit.application.OrderService")
+                .contentsAsUtf8String()
+                .contains("auditContextProvider.currentUserId()");
+    }
+
+    @Test
+    void staticEventHandlerWithAuditFieldsInjectsAuditContextProvider() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/handler/statichandleraudit/source/Order.java"),
+                        sourceOf("event/handler/statichandleraudit/source/OrderCreated.java")
+                );
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("event.handler.statichandleraudit.application.OrderService")
+                .contentsAsUtf8String()
+                .contains("AuditContextProvider");
+    }
+
+    @Test
+    void staticEventHandlerWithOptionalReturnAndAuditFieldsPopulatesAuditOnCreate() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/handler/optionalhandleraudit/source/Order.java"),
+                        sourceOf("event/handler/optionalhandleraudit/source/OrderCreated.java")
+                );
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("event.handler.optionalhandleraudit.application.OrderService")
+                .contentsAsUtf8String()
+                .contains(".map(aggregate -> new Order(");
+        assertThat(compilation)
+                .generatedSourceFile("event.handler.optionalhandleraudit.application.OrderService")
+                .contentsAsUtf8String()
+                .contains("new AuditInfo(");
+        assertThat(compilation)
+                .generatedSourceFile("event.handler.optionalhandleraudit.application.OrderService")
+                .contentsAsUtf8String()
+                .contains(".ifPresent(aggregate -> orderRepository.save(aggregate))");
+    }
+
+    @Test
     void multicastWithStaticCompanionDoesNotGenerateSeparateServiceMethodForStaticHandler() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

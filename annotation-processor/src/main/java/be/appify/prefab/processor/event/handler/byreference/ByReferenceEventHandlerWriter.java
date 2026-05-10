@@ -33,19 +33,25 @@ class ByReferenceEventHandlerWriter {
                             return $L.save(aggregate);
                         })
                         """, eventHandler.methodName(), repositoryName);
-        var notFoundClause = eventHandler.staticCompanionMethodName() != null
-                ? CodeBlock.of(".orElseGet(() -> $L.save($T.$L(event)))",
-                        repositoryName,
-                        manifest.type().asTypeName(),
-                        eventHandler.staticCompanionMethodName())
-                : CodeBlock.of(".orElseThrow()");
+        var lookup = CodeBlock.of("$L.findById(event.$L()$L)",
+                repositoryName,
+                eventHandler.annotation().property(),
+                eventHandler.valueAccessor() != null ? "." + eventHandler.valueAccessor() : "");
+        if (eventHandler.staticCompanionMethodName() != null) {
+            return method.addParameter(event.asTypeName(), "event").addStatement(CodeBlock.builder()
+                            .add(lookup)
+                            .add(mapBlock)
+                            .add(CodeBlock.of(".orElseGet(() -> $L.save($T.$L(event)))",
+                                    repositoryName,
+                                    manifest.type().asTypeName(),
+                                    eventHandler.staticCompanionMethodName()))
+                            .build())
+                    .build();
+        }
         return method.addParameter(event.asTypeName(), "event").addStatement(CodeBlock.builder()
-                        .add("$L.findById(event.$L()$L)",
-                                repositoryName,
-                                eventHandler.annotation().property(),
-                                eventHandler.valueAccessor() != null ? "." + eventHandler.valueAccessor() : "")
+                        .add(lookup)
                         .add(mapBlock)
-                        .add(notFoundClause)
+                        .add(".ifPresent(updated -> { })")
                         .build())
                 .build();
     }

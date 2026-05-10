@@ -91,7 +91,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void multicastEventHandlerThrowsWhenNoAggregatesFound() {
+    void multicastEventHandlerSkipsWhenNoAggregatesFound() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -101,10 +101,12 @@ class EventHandlerWriterTest {
                 );
 
         assertThat(compilation).succeeded();
-        assertThat(compilation)
+        var generated = assertThat(compilation)
                 .generatedSourceFile("event.handler.multicast.application.ChannelService")
-                .contentsAsUtf8String()
-                .contains("throw new IllegalStateException");
+                .contentsAsUtf8String();
+        generated.contains("if (aggregates.isEmpty()) {");
+        generated.contains("return;");
+        generated.doesNotContain("throw new IllegalStateException");
     }
 
     @Test
@@ -157,7 +159,7 @@ class EventHandlerWriterTest {
     }
 
     @Test
-    void byReferenceEventHandlerThrowsWhenAggregateNotFound() {
+    void byReferenceEventHandlerSkipsWhenAggregateNotFound() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -166,10 +168,11 @@ class EventHandlerWriterTest {
                 );
 
         assertThat(compilation).succeeded();
-        assertThat(compilation)
+        var generated = assertThat(compilation)
                 .generatedSourceFile("event.handler.byreference.application.ChannelService")
-                .contentsAsUtf8String()
-                .contains(".orElseThrow()");
+                .contentsAsUtf8String();
+        generated.contains(".ifPresent(updated -> { })");
+        generated.doesNotContain(".orElseThrow()");
     }
 
     @Test

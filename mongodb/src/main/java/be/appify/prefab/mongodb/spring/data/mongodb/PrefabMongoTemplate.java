@@ -58,9 +58,16 @@ public class PrefabMongoTemplate extends MongoTemplate {
     @Override
     protected <T> T doSave(String collectionName, T objectToSave, MongoWriter<T> writer) {
         T result = super.doSave(collectionName, objectToSave, writer);
-        if (objectToSave.getClass().isAnnotationPresent(Aggregate.class)) {
-            drainEventsToOutbox(result);
-        }
+        // Drain buffered domain events after every save; non-aggregate saves simply drain an empty buffer.
+        drainEventsToOutbox(result);
+        return result;
+    }
+
+    @Override
+    protected <T> T doInsert(String collectionName, T objectToSave, MongoWriter<T> writer) {
+        T result = super.doInsert(collectionName, objectToSave, writer);
+        // New entities (version = 0) are inserted rather than saved; drain events here too.
+        drainEventsToOutbox(result);
         return result;
     }
 

@@ -91,8 +91,8 @@ class MulticastEventHandlerWriter {
         }
         return CodeBlock.of("""
                 if (aggregates.isEmpty()) {
-                    throw new $T("No aggregates found for event: " + event);
+                    return;
                 }
-                """, IllegalStateException.class);
+                """);
     }
 }

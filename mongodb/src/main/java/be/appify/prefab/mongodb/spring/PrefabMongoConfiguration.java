@@ -7,9 +7,10 @@ import be.appify.prefab.mongodb.spring.data.mongodb.PrefabMongoTemplate;
 import be.appify.prefab.mongodb.spring.data.mongodb.ReferenceToStringConverter;
 import be.appify.prefab.mongodb.spring.data.mongodb.StringToReferenceConverter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.data.mongodb.autoconfigure.DataMongoAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.data.mongodb.MongoDatabaseFactory;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.convert.DbRefResolver;
@@ -32,7 +33,7 @@ import tools.jackson.databind.json.JsonMapper;
  * entity types (e.g. polymorphic aggregate roots).
  * </p>
  */
-@Configuration
+@AutoConfiguration(before = DataMongoAutoConfiguration.class)
 public class PrefabMongoConfiguration {
 
     @Autowired
@@ -111,7 +112,6 @@ public class PrefabMongoConfiguration {
      * @return the Prefab-customised {@link MongoTemplate}
      */
     @Bean
-    @ConditionalOnMissingBean
     public MongoTemplate mongoTemplate(MongoDatabaseFactory mongoDatabaseFactory, MappingMongoConverter converter) {
         return new PrefabMongoTemplate(mongoDatabaseFactory, converter, jsonMapper);
     }

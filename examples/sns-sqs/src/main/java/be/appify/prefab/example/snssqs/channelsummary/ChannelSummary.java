@@ -34,6 +34,12 @@ public record ChannelSummary(
     }
 
     @EventHandler
+    @Multicast(queryMethod = "findByChannel", parameters = "reference")
+    public ChannelSummary updateOnChannelCreated(ChannelCreated event) {
+        return new ChannelSummary(id, version, channel, event.name(), totalMessages, totalSubscribers);
+    }
+
+    @EventHandler
     @Multicast(queryMethod = "findByChannel", parameters = "channel")
     public ChannelSummary onMessageSent(MessageSent event) {
         log.info("Handling MessageSent event for ChannelSummary: {}", event);
@@ -41,9 +47,19 @@ public record ChannelSummary(
     }
 
     @EventHandler
+    public static ChannelSummary createOnMessageSent(MessageSent event) {
+        return new ChannelSummary(Reference.create(), 0L, event.channel(), "", 1, 0);
+    }
+
+    @EventHandler
     @Multicast(queryMethod = "findByChannel", parameters = "channel")
     public ChannelSummary onUserSubscribed(UserEvent.SubscribedToChannel event) {
         log.info("Handling SubscribedToChannel event for ChannelSummary: {}", event);
         return new ChannelSummary(id, version, channel, name, totalMessages, totalSubscribers + 1);
+    }
+
+    @EventHandler
+    public static ChannelSummary createOnUserSubscribed(UserEvent.SubscribedToChannel event) {
+        return new ChannelSummary(Reference.create(), 0L, event.channel(), "", 0, 1);
     }
 }

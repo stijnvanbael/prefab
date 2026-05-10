@@ -10,7 +10,7 @@ prefab:
     auto-clean-on-mismatch: true
   dlt:
     retries:
-      limit: 1
+      limit: 5
       initial-interval-ms: 10
   outbox:
     poll-interval-ms: 100

@@ -49,13 +49,14 @@ it automatically from `TenantContextProvider`.
 
 ---
 
-## Error: `IllegalStateException` during event handling (causes retry)
+## Event arrives before target aggregate exists
 
-**Cause:** A `@Multicast` handler found no aggregates to update. Prefab throws `IllegalStateException`
-intentionally to trigger retry (the target aggregate may not have been created yet due to event ordering).
+**Cause:** In eventually-consistent flows, a `@Multicast`/`@ByReference` event can arrive after the
+target aggregate was deleted or before a projection was created.
 
-**Fix:** This is expected behaviour. Ensure the dead-letter configuration is set so that events that
-permanently fail are routed to the DLT rather than blocking the consumer.
+**Fix:** Prefab treats missing targets as a no-op by default. If you need creation-on-first-event,
+add a static `@EventHandler` companion method for the same event type so Prefab can upsert when
+no existing aggregates are found.
 
 ---
 
@@ -73,6 +74,17 @@ permanently fail are routed to the DLT rather than blocking the consumer.
 
 **Fix:** Use `@DbRename(oldName = "old_column")` when renaming fields, and write manual migration
 scripts for removals.
+
+---
+
+## Error: `relation "prefab_outbox" does not exist`
+
+**Cause:** The transactional outbox table is missing from the active schema (for example after
+switching Prefab versions, stale generated migrations, or partial schema bootstrapping).
+
+**Fix:** Prefab PostgreSQL now ships a repeatable Flyway migration (`R__prefab_outbox.sql`) that
+creates the outbox table when missing. Run `mvn clean test` (or `mvn flyway:migrate`) so Flyway
+re-applies repeatable migrations and reconciles the schema.
 
 ---
 

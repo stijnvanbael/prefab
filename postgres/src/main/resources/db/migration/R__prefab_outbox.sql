@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS prefab_outbox (
+  sequence_num BIGSERIAL NOT NULL,
+  id VARCHAR(36) NOT NULL,
+  aggregate_type VARCHAR(255) NOT NULL,
+  aggregate_id VARCHAR(255) NOT NULL,
+  event_type VARCHAR(255) NOT NULL,
+  payload TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL,
+  published_at TIMESTAMP,
+  PRIMARY KEY (id)
+);
+
+ALTER TABLE prefab_outbox
+  ADD COLUMN IF NOT EXISTS sequence_num BIGSERIAL,
+  ADD COLUMN IF NOT EXISTS aggregate_type VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS aggregate_id VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS event_type VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS payload TEXT,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS published_at TIMESTAMP;
+

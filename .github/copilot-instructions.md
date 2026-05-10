@@ -1,12 +1,14 @@
 <CRITICAL_INSTRUCTION>
 
-**IMPORTANT: Make sure these critical instructions are visible to you at all times during this session. Re-read them after any interruption.**
+**IMPORTANT: Make sure these critical instructions are visible to you at all times during this session. Re-read them
+after any interruption.**
 
 ## BACKLOG WORKFLOW INSTRUCTIONS
 
 This project uses **Backlog.md**, you can access it with the following MCP toolset **`mcp_backlog-prefa_*`**.
 
-Only edit backlog markdown files directly when the MCP tools are unavailable — otherwise use the tools to keep metadata and history consistent.
+Only edit backlog markdown files directly when the MCP tools are unavailable — otherwise use the tools to keep metadata
+and history consistent.
 
 ### Per-turn protocol
 
@@ -19,9 +21,10 @@ Only edit backlog markdown files directly when the MCP tools are unavailable —
 4. **After completing a task**: set status to `Done` and add implementation notes — do
    this before moving on to the next task.
 5. **When a plan changes mid-task** (user interrupts, pivots, or uncovers a side-issue):
-  - If the side-issue is out of scope → create a new task for it rather than silently
-    doing the work.
-  - Re-read *these* instructions before resuming so the workflow is fresh.
+
+- If the side-issue is out of scope → create a new task for it rather than silently
+  doing the work.
+- Re-read *these* instructions before resuming so the workflow is fresh.
 
 ### When to create a task
 
@@ -35,13 +38,15 @@ Skip it for trivial/mechanical changes (typos, version bumps, etc.).
 ## Overview
 
 This is a Java 25 Maven project. Write code like a modern senior software engineer —
-clean, idiomatic, testable, and maintainable.
+clean, idiomatic, testable, and maintainable. In the case you run into issues, do a thorough root cause analysis and fix
+the underlying problem rather than applying a superficial band-aid. No guessing, no shotgun debugging.
 
 ---
 
 ## Language & Platform
 
 Target **Java 25**. Use modern features:
+
 - Records, sealed classes, pattern matching in `switch`, primitive patterns
 - Text blocks, `var` for local inference, `instanceof` pattern matching
 - New-style accessors (`name()` not `getName()`); method references over lambdas

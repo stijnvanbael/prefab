@@ -13,6 +13,7 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
@@ -87,6 +88,15 @@ public class TypeManifest {
                     .toList();
             this.identity = new TypeIdentity(packageName, simpleName, parameters);
             this.kind = element.getKind();
+        } else if (typeMirror.getKind() == TypeKind.ARRAY) {
+            // Array types (e.g. float[], Float[], byte[]) are not DECLARED, so we represent them
+            // as a plain type with the array notation embedded in the simple name.  They have no
+            // TypeElement, but TypeAnnotations/TypeMembers handle null-element gracefully.
+            var arrayType = (ArrayType) typeMirror;
+            var componentTypeName = arrayType.getComponentType().toString();
+            this.identity = new TypeIdentity("", componentTypeName + "[]", List.of());
+            this.kind = null;
+            this.element = null;
         } else {
             processingEnvironment.getMessager().printMessage(
                     Diagnostic.Kind.ERROR,

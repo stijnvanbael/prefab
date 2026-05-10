@@ -169,4 +169,20 @@ public interface DataType {
             return toSql();
         }
     }
+
+    /**
+     * A custom SQL column type declared via {@code @DbColumn(type = "...") }.
+     * The SQL type string is emitted verbatim in the generated DDL.
+     */
+    record Custom(String sqlType) implements DataType {
+        @Override
+        public String toSql() {
+            return sqlType;
+        }
+
+        @Override
+        public String toString() {
+            return sqlType;
+        }
+    }
 }

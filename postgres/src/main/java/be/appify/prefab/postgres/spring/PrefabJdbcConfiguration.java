@@ -1,5 +1,6 @@
 package be.appify.prefab.postgres.spring;
 
+import be.appify.prefab.core.spring.data.jdbc.DbColumnConverterContributor;
 import be.appify.prefab.core.spring.data.jdbc.PolymorphicReadingConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.ByteArrayToFileConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.FileToByteArrayConverter;
@@ -46,6 +47,9 @@ public class PrefabJdbcConfiguration extends AbstractJdbcConfiguration {
     @Autowired(required = false)
     private List<PolymorphicReadingConverter> polymorphicReadingConverters = List.of();
 
+    @Autowired(required = false)
+    private List<DbColumnConverterContributor> dbColumnConverterContributors = List.of();
+
     @Autowired
     private JsonMapper jsonMapper;
 
@@ -61,6 +65,9 @@ public class PrefabJdbcConfiguration extends AbstractJdbcConfiguration {
         converters.add(new FileToByteArrayConverter());
         converters.add(new ByteArrayToFileConverter());
         converters.addAll(polymorphicReadingConverters);
+        dbColumnConverterContributors.stream()
+                .flatMap(contributor -> contributor.converters().stream())
+                .forEach(converters::add);
         return converters;
     }
 

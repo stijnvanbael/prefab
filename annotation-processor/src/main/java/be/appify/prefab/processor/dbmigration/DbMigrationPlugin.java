@@ -20,6 +20,7 @@ public class DbMigrationPlugin implements PrefabPlugin {
     private static final boolean JDBC_INCLUDED = isJdbcIncluded();
 
     private DbMigrationWriter dbMigrationWriter;
+    private DbColumnConverterContributorWriter converterContributorWriter;
     private PrefabContext context;
 
     /** Creates a new instance of DbMigrationPlugin. */
@@ -39,6 +40,7 @@ public class DbMigrationPlugin implements PrefabPlugin {
     public void initContext(PrefabContext context) {
         this.context = context;
         this.dbMigrationWriter = new DbMigrationWriter(context);
+        this.converterContributorWriter = new DbColumnConverterContributorWriter(context);
     }
 
     @Override
@@ -52,6 +54,7 @@ public class DbMigrationPlugin implements PrefabPlugin {
         var polyManifests = polymorphicManifests.stream()
                 .filter(PolymorphicAggregateManifest::isDbMigrationEnabled)
                 .toList();
+        converterContributorWriter.writeContributors(manifests);
         if (classManifests.isEmpty() && polyManifests.isEmpty()) {
             return;
         }

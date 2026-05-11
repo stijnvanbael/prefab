@@ -90,6 +90,7 @@ Avoid: raw types, `StringBuffer`, old `Date`/`Calendar`, `synchronized` (prefer 
 - Minimal, purposeful dependencies with explicit versions.
 - Maven Enforcer Plugin: ban duplicates, enforce minimum Java/Maven versions.
 - `pom.xml`: dependencies first, then plugins, sorted logically.
+- Look for the latest stable versions of libraries.
 
 ---
 

@@ -22,11 +22,13 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonTypeResolver;
+import org.springframework.core.env.PropertyResolver;
 import org.springframework.test.context.DynamicPropertyRegistrar;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.kafka.KafkaContainer;
+import be.appify.prefab.test.TestContainerNameResolver;
 
 /**
  * Autoconfiguration for Kafka test support.
@@ -57,16 +59,23 @@ public class KafkaTestAutoConfiguration {
     @Bean
     @ServiceConnection
     @ConditionalOnMissingBean(name = "kafkaContainer")
-    KafkaContainer kafkaContainer(Network kafkaNetwork) {
+    KafkaContainer kafkaContainer(Network kafkaNetwork, PropertyResolver propertyResolver) {
+        var containerName = TestContainerNameResolver.resolveContainerName(
+                propertyResolver, "kafka", "prefab.test.kafka.container-name");
         return new KafkaContainer("apache/kafka:4.0.2")
                 .withNetwork(kafkaNetwork)
                 .withNetworkAliases("kafka")
-                .withListener("0.0.0.0:9095", () -> "kafka:9095");
+                .withListener("0.0.0.0:9095", () -> "kafka:9095")
+                .withReuse(true)
+                .withCreateContainerCmdModifier(cmd -> cmd.withName(containerName));
     }
 
     @Bean
     @ConditionalOnProperty(name = "prefab.test.schema-registry.enabled", havingValue = "true")
-    GenericContainer<?> kafkaSchemaRegistryContainer(KafkaContainer kafkaContainer, Network kafkaNetwork) {
+    GenericContainer<?> kafkaSchemaRegistryContainer(
+            KafkaContainer kafkaContainer, Network kafkaNetwork, PropertyResolver propertyResolver) {
+        var containerName = TestContainerNameResolver.resolveContainerName(
+                propertyResolver, "schema-registry", "prefab.test.schema-registry.container-name");
         return new GenericContainer<>("confluentinc/cp-schema-registry:8.1.2")
                 .withExposedPorts(8081)
                 .withNetwork(kafkaNetwork)
@@ -74,7 +83,9 @@ public class KafkaTestAutoConfiguration {
                 .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9095")
                 .withEnv("SCHEMA_REGISTRY_HOST_NAME", "schema-registry")
                 .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:8081")
-                .waitingFor(Wait.forHttp("/subjects").forStatusCode(200));
+                .waitingFor(Wait.forHttp("/subjects").forStatusCode(200))
+                .withReuse(true)
+                .withCreateContainerCmdModifier(cmd -> cmd.withName(containerName));
     }
 
     @Bean

@@ -15,8 +15,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.PropertyResolver;
 import org.springframework.test.context.DynamicPropertyRegistrar;
 import org.testcontainers.gcloud.PubSubEmulatorContainer;
+import be.appify.prefab.test.TestContainerNameResolver;
 
 /**
  * Autoconfiguration for Pub/Sub tests.
@@ -27,23 +29,30 @@ import org.testcontainers.gcloud.PubSubEmulatorContainer;
 public class PubSubTestAutoConfiguration {
     private ManagedChannel channel;
 
-    static final PubSubEmulatorContainer pubSubEmulatorContainer = new PubSubEmulatorContainer(
-            "gcr.io/google.com/cloudsdktool/cloud-sdk:529.0.0-emulators")
-            .withReuse(false)
-            .withExposedPorts(8085, 8086);
-
-    static {
-        if (!pubSubEmulatorContainer.isRunning()) {
-            pubSubEmulatorContainer.start();
-        }
-    }
-
-    /** Constructs a new PubSubTestAutoConfiguration. */
+    /**
+     * Constructs a new PubSubTestAutoConfiguration.
+     */
     public PubSubTestAutoConfiguration() {
     }
 
     @Bean
-    DynamicPropertyRegistrar pubSubPropertiesRegistrar() {
+    @ConditionalOnMissingBean(name = "pubSubEmulatorContainer")
+    PubSubEmulatorContainer pubSubEmulatorContainer(PropertyResolver propertyResolver) {
+        var containerName = TestContainerNameResolver.resolveContainerName(
+                propertyResolver, "pubsub", "prefab.test.pubsub.container-name");
+        var container = new PubSubEmulatorContainer(
+                "gcr.io/google.com/cloudsdktool/cloud-sdk:529.0.0-emulators")
+                .withReuse(false)
+                .withExposedPorts(8085, 8086)
+                .withCreateContainerCmdModifier(cmd -> cmd.withName(containerName));
+        if (!container.isRunning()) {
+            container.start();
+        }
+        return container;
+    }
+
+    @Bean
+    DynamicPropertyRegistrar pubSubPropertiesRegistrar(PubSubEmulatorContainer pubSubEmulatorContainer) {
         return registry -> registry.add("spring.cloud.gcp.pubsub.emulator-host",
                 pubSubEmulatorContainer::getEmulatorEndpoint);
     }

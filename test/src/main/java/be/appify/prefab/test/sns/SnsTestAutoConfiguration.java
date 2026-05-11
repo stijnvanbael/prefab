@@ -2,12 +2,15 @@ package be.appify.prefab.test.sns;
 
 import io.awspring.cloud.sns.core.SnsTemplate;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.core.env.PropertyResolver;
 import org.springframework.test.context.DynamicPropertyRegistrar;
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.utility.DockerImageName;
+import be.appify.prefab.test.TestContainerNameResolver;
 
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.SNS;
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.SQS;
@@ -20,23 +23,30 @@ import static org.testcontainers.containers.localstack.LocalStackContainer.Servi
 @ComponentScan(basePackageClasses = SnsTestLifecycle.class)
 public class SnsTestAutoConfiguration {
 
-    static final LocalStackContainer localStackContainer = new LocalStackContainer(
-            DockerImageName.parse("localstack/localstack:3"))
-            .withServices(SNS, SQS)
-            .withReuse(true);
-
-    static {
-        if (!localStackContainer.isRunning()) {
-            localStackContainer.start();
-        }
-    }
-
-    /** Constructs a new SnsTestAutoConfiguration. */
+    /**
+     * Constructs a new SnsTestAutoConfiguration.
+     */
     public SnsTestAutoConfiguration() {
     }
 
     @Bean
-    DynamicPropertyRegistrar snsPropertiesRegistrar() {
+    @ConditionalOnMissingBean(name = "localStackContainer")
+    LocalStackContainer localStackContainer(PropertyResolver propertyResolver) {
+        var containerName = TestContainerNameResolver.resolveContainerName(
+                propertyResolver, "localstack", "prefab.test.localstack.container-name");
+        var container = new LocalStackContainer(
+                DockerImageName.parse("localstack/localstack:3"))
+                .withServices(SNS, SQS)
+                .withReuse(true)
+                .withCreateContainerCmdModifier(cmd -> cmd.withName(containerName));
+        if (!container.isRunning()) {
+            container.start();
+        }
+        return container;
+    }
+
+    @Bean
+    DynamicPropertyRegistrar snsPropertiesRegistrar(LocalStackContainer localStackContainer) {
         return registry -> {
             registry.add("spring.cloud.aws.region.static", localStackContainer::getRegion);
             registry.add("spring.cloud.aws.credentials.access-key", localStackContainer::getAccessKey);

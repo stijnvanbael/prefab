@@ -3,6 +3,7 @@ package be.appify.prefab.test;
 import be.appify.prefab.test.kafka.KafkaTestAutoConfiguration;
 import be.appify.prefab.test.mongodb.MongoDbTestAutoConfiguration;
 import be.appify.prefab.test.persistence.FlywayChecksumMismatchMigrationStrategy;
+import be.appify.prefab.test.persistence.PostgresTestAutoConfiguration;
 import be.appify.prefab.test.pubsub.PubSubTestAutoConfiguration;
 import be.appify.prefab.test.sns.SnsTestAutoConfiguration;
 import java.lang.annotation.Documented;
@@ -36,7 +37,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@ImportAutoConfiguration({ KafkaTestAutoConfiguration.class, PubSubTestAutoConfiguration.class, SnsTestAutoConfiguration.class, MongoDbTestAutoConfiguration.class })
+@ImportAutoConfiguration({ PostgresTestAutoConfiguration.class, KafkaTestAutoConfiguration.class, PubSubTestAutoConfiguration.class, SnsTestAutoConfiguration.class, MongoDbTestAutoConfiguration.class })
 @Import(FlywayChecksumMismatchMigrationStrategy.class)
 public @interface IntegrationTest {
 }

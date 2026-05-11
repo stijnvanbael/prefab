@@ -7,25 +7,19 @@ import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.MapPropertySource;
 
 /**
- * Sets test datasource defaults for PostgreSQL when {@code prefab-postgres} (Spring Data JDBC) is on the classpath.
+ * Deprecated environment post-processor for PostgreSQL test configuration.
  *
- * <p>The following defaults are applied when no explicit value is already present:</p>
- * <ul>
- *   <li>{@code spring.datasource.url} —
- *       {@code jdbc:tc:postgresql:18.3:///<app>?TC_REUSABLE=true&currentSchema=<app>},
- *       where {@code <app>} is the value of {@code spring.application.name} converted to lowercase.</li>
- *   <li>{@code spring.datasource.driver-class-name} —
- *       {@code org.testcontainers.jdbc.ContainerDatabaseDriver}</li>
- * </ul>
+ * <p>This class is deprecated in favor of {@link PostgresTestAutoConfiguration}, which provides
+ * a programmatic bean-based approach with full support for fixed container names and reuse.
  *
- * <p>Any value supplied by the developer in {@code application-test.yml} or any other higher-priority
- * source takes precedence because this processor inserts a property source at the lowest-priority position
- * in the environment.</p>
+ * <p>This processor now only acts as a fallback for projects that haven't yet migrated to using
+ * the auto-configuration. If the datasource URL is not already configured, it will generate
+ * a default JDBC URL using the legacy TC_REUSABLE approach. New projects should use
+ * {@link PostgresTestAutoConfiguration} instead.
  *
- * <p>This processor is only active when both Spring Data Relational
- * ({@code spring-boot-starter-data-jdbc}) and the Testcontainers JDBC URL driver
- * ({@code org.testcontainers.jdbc.ContainerDatabaseDriver}) are on the classpath.</p>
+ * @deprecated Use {@link PostgresTestAutoConfiguration} instead for fixed container names and full reuse support.
  */
+@Deprecated(since = "0.9.0", forRemoval = false)
 public class PostgresTestEnvironmentPostProcessor implements EnvironmentPostProcessor {
 
     private static final String PROPERTY_SOURCE_NAME = "prefabPostgresTestDefaults";
@@ -40,6 +34,11 @@ public class PostgresTestEnvironmentPostProcessor implements EnvironmentPostProc
             return;
         }
         if (environment.getPropertySources().contains(PROPERTY_SOURCE_NAME)) {
+            return;
+        }
+        // Only apply legacy defaults if no datasource URL is configured
+        // The new PostgresTestAutoConfiguration bean will handle the modern approach
+        if (environment.getProperty(URL_KEY) != null) {
             return;
         }
         var appName = resolveApplicationName(environment);

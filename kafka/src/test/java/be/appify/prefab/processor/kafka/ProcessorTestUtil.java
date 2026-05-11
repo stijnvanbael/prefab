@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.kafka;
 
+import be.appify.prefab.processor.PrefabProcessor;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
 import org.springframework.core.io.ClassPathResource;
@@ -90,6 +91,7 @@ public class ProcessorTestUtil {
             fileManager.setLocationFromPaths(StandardLocation.CLASS_OUTPUT, List.of(outputDirectory));
             var options = List.of("-classpath", System.getProperty("java.class.path"));
             var task = compiler.getTask(null, fileManager, diagnostics, options, null, List.of(sources));
+            task.setProcessors(List.of(new PrefabProcessor()));
             if (!Boolean.TRUE.equals(task.call())) {
                 var errors = diagnostics.getDiagnostics().stream().map(Object::toString).toList();
                 throw new IllegalStateException("Dependency compilation failed: " + String.join("\n", errors));

@@ -227,6 +227,29 @@ class KafkaConsumerWriterTest {
         }
     }
 
+    @Test
+    void avscEventTypeFromDependencyModule() {
+        var dependencyClasspath = compileDependencyClasspath(
+                sourceOf("kafka/dependencyavsc/ExternalOrderCreated.java"));
+        try {
+            var compilation = javac()
+                    .withOptions(classpathOptionsWith(dependencyClasspath))
+                    .withProcessors(new PrefabProcessor())
+                    .compile(sourceOf("kafka/externaldependencyavsc/ExternalOrderImporter.java"));
+            assertThat(compilation).succeeded();
+            assertThat(compilation)
+                    .generatedSourceFile("kafka.externaldependencyavsc.infrastructure.kafka.ExternalOrderImporterKafkaConsumer")
+                    .contentsAsUtf8String()
+                    .contains("import kafka.dependencyavsc.ExternalOrderCreatedEvent;");
+            assertThat(compilation)
+                    .generatedSourceFile("kafka.externaldependencyavsc.infrastructure.kafka.ExternalOrderImporterKafkaConsumer")
+                    .contentsAsUtf8String()
+                    .contains("topics = \"prefab.external.order\"");
+        } finally {
+            deleteRecursively(dependencyClasspath);
+        }
+    }
+
     private static void deleteRecursively(Path root) {
         if (root == null || !Files.exists(root)) {
             return;

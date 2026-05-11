@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "ExternalOrderCreatedEvent",
+  "namespace": "kafka.dependencyavsc",
+  "fields": [
+    {
+      "name": "orderId",
+      "type": "string"
+    }
+  ]
+}
+

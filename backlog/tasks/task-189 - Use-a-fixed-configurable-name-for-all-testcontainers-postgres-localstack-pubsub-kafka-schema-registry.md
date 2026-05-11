@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-05-11 05:07'
-updated_date: '2026-05-11 05:29'
+updated_date: '2026-05-11 07:17'
 labels:
   - test
   - testcontainers
@@ -218,4 +218,6 @@ Container names use underscores and drop the "prefab-" prefix for clarity:
 - All modules compiled successfully without errors
 - No breaking changes to existing integration tests
 - Backward-compatible: legacy JDBC URL approach still works as fallback
+
+Follow-up fix: added pre-start cleanup of conflicting named containers to prevent Docker 409 errors on repeated runs when a container with the fixed name already exists. Commit: 1ee12b2b.
 <!-- SECTION:FINAL_SUMMARY:END -->

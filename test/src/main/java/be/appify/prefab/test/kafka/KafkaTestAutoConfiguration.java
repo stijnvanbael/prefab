@@ -62,6 +62,7 @@ public class KafkaTestAutoConfiguration {
     KafkaContainer kafkaContainer(Network kafkaNetwork, PropertyResolver propertyResolver) {
         var containerName = TestContainerNameResolver.resolveContainerName(
                 propertyResolver, "kafka", "prefab.test.kafka.container-name");
+        TestContainerNameResolver.removeConflictingContainer(containerName);
         return new KafkaContainer("apache/kafka:4.0.2")
                 .withNetwork(kafkaNetwork)
                 .withNetworkAliases("kafka")
@@ -76,6 +77,7 @@ public class KafkaTestAutoConfiguration {
             KafkaContainer kafkaContainer, Network kafkaNetwork, PropertyResolver propertyResolver) {
         var containerName = TestContainerNameResolver.resolveContainerName(
                 propertyResolver, "schema-registry", "prefab.test.schema-registry.container-name");
+        TestContainerNameResolver.removeConflictingContainer(containerName);
         return new GenericContainer<>("confluentinc/cp-schema-registry:8.1.2")
                 .withExposedPorts(8081)
                 .withNetwork(kafkaNetwork)

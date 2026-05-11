@@ -34,6 +34,7 @@ public class SnsTestAutoConfiguration {
     LocalStackContainer localStackContainer(PropertyResolver propertyResolver) {
         var containerName = TestContainerNameResolver.resolveContainerName(
                 propertyResolver, "localstack", "prefab.test.localstack.container-name");
+        TestContainerNameResolver.removeConflictingContainer(containerName);
         var container = new LocalStackContainer(
                 DockerImageName.parse("localstack/localstack:3"))
                 .withServices(SNS, SQS)

@@ -1,6 +1,8 @@
 package be.appify.prefab.test;
 
+import java.util.Arrays;
 import org.springframework.core.env.PropertyResolver;
+import org.testcontainers.DockerClientFactory;
 
 /**
  * Utility for resolving test container names.
@@ -34,6 +36,32 @@ public final class TestContainerNameResolver {
             return customName;
         }
         return generateDefaultName(propertyResolver, containerType);
+    }
+
+    /**
+     * Removes an existing Docker container that already uses the target name.
+     *
+     * <p>When fixed names are used, Testcontainers may try to create a new container whose configuration
+     * hash differs from an already existing one (for example due to network differences), which leads to
+     * a Docker 409 conflict. Removing the stale container avoids startup failures on repeated runs.</p>
+     *
+     * @param containerName the container name without leading slash
+     */
+    public static void removeConflictingContainer(String containerName) {
+        var dockerClient = DockerClientFactory.instance().client();
+        var dockerName = "/" + containerName;
+        var existingContainerId = dockerClient.listContainersCmd()
+                .withShowAll(true)
+                .exec()
+                .stream()
+                .filter(container -> Arrays.stream(container.getNames() == null ? new String[0] : container.getNames())
+                        .anyMatch(dockerName::equals))
+                .map(container -> container.getId())
+                .findFirst();
+
+        existingContainerId.ifPresent(containerId -> dockerClient.removeContainerCmd(containerId)
+                .withForce(true)
+                .exec());
     }
 
     /**

@@ -40,6 +40,7 @@ public class PubSubTestAutoConfiguration {
     PubSubEmulatorContainer pubSubEmulatorContainer(PropertyResolver propertyResolver) {
         var containerName = TestContainerNameResolver.resolveContainerName(
                 propertyResolver, "pubsub", "prefab.test.pubsub.container-name");
+        TestContainerNameResolver.removeConflictingContainer(containerName);
         var container = new PubSubEmulatorContainer(
                 "gcr.io/google.com/cloudsdktool/cloud-sdk:529.0.0-emulators")
                 .withReuse(false)

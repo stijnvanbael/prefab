@@ -1,21 +1,24 @@
 ---
 id: TASK-147
-title: Transactional outbox for eventual consistency between database and event broker
-status: To Do
-assignee: [ ]
+title: >-
+  Transactional outbox for eventual consistency between database and event
+  broker
+status: Done
+assignee: []
 created_date: '2026-04-30'
-updated_date: '2026-04-30'
+updated_date: '2026-05-10 19:35'
 labels:
   - events
   - outbox
   - eventual-consistency
-dependencies: [ ]
+dependencies: []
 priority: high
 ordinal: 14700
 ---
 
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 When an aggregate publishes a domain event, there is a risk of inconsistency between the database commit and the
 message broker publish. If the application crashes between writing to the database and publishing to the broker (or
 vice versa), the system ends up in an inconsistent state.
@@ -27,29 +30,32 @@ and forwards events to the broker, deleting them once delivery is confirmed.
 Prefab should adopt the transactional outbox as the **default** mechanism for all aggregate roots that publish events.
 The feature must be configurable: it can be enabled (default), customised, or explicitly disabled per aggregate root
 via an annotation attribute.
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
-
-- [ ] #1 By default, every aggregate root that publishes events uses the transactional outbox pattern: the event is
+<!-- AC:BEGIN -->
+- [x] #1 #1 By default, every aggregate root that publishes events uses the transactional outbox pattern: the event is
   persisted to an outbox table in the same transaction as the aggregate state change before being forwarded to the
   broker.
-- [ ] #2 The outbox table is automatically created via a generated Flyway migration (PostgreSQL). For MongoDB, an outbox
+- [x] #2 #2 The outbox table is automatically created via a generated Flyway migration (PostgreSQL). For MongoDB, an outbox
   collection is used instead.
-- [ ] #3 A relay component (polling publisher) reads pending outbox entries and publishes them to the configured broker,
+- [x] #3 #3 A relay component (polling publisher) reads pending outbox entries and publishes them to the configured broker,
   removing each entry after successful delivery.
-- [ ] #4 The outbox can be disabled per aggregate root by setting `@Outbox(enabled = false)` (or equivalent)
+- [x] #4 #4 The outbox can be disabled per aggregate root by setting `@Outbox(enabled = false)` (or equivalent)
   on the aggregate's `@Aggregate` annotation, reverting to direct broker publishing.
-- [ ] #5 The outbox polling interval and batch size are configurable via `application.yml`
+- [x] #5 #5 The outbox polling interval and batch size are configurable via `application.yml`
   (e.g. `prefab.outbox.poll-interval-ms`, `prefab.outbox.batch-size`).
-- [ ] #6 Integration tests verify the full round-trip: aggregate state change + event written to outbox in one
+- [x] #6 #6 Integration tests verify the full round-trip: aggregate state change + event written to outbox in one
   transaction → relay picks up the event → event published to broker → outbox entry removed.
-- [ ] #7 Integration tests verify that a simulated broker outage does not cause data loss: the event remains in the
+- [x] #7 #7 Integration tests verify that a simulated broker outage does not cause data loss: the event remains in the
   outbox until the broker is available again.
-- [ ] #8 Integration tests verify at-least-once delivery semantics: replaying a duplicate outbox entry does not
+- [x] #8 #8 Integration tests verify at-least-once delivery semantics: replaying a duplicate outbox entry does not
   produce duplicate state changes (consumers remain idempotent).
+<!-- AC:END -->
 
 ## Implementation Notes
 
+<!-- SECTION:NOTES:BEGIN -->
 The outbox table schema should contain at minimum:
 
 - `id` — unique identifier for the outbox entry
@@ -65,4 +71,36 @@ Consider using `SELECT … FOR UPDATE SKIP LOCKED` (PostgreSQL) to support multi
 duplicate delivery.
 
 See TASK-140 for related listen-to-self semantics work that this task builds upon.
+<!-- SECTION:NOTES:END -->
 
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+## Summary
+
+Fixed two root-cause issues preventing the transactional outbox from working with MongoDB:
+
+### Root Cause 1 — `doInsert` not overridden
+
+Spring Data MongoDB calls `MongoTemplate.insert()` (→ `doInsert()`) for new entities when `@Version` is 0,
+not `doSave()`. `PrefabMongoTemplate` only overrode `doSave()`, so `PendingEventBuffer` was never drained
+for newly created aggregates. Fixed by also overriding `doInsert()`.
+
+### Root Cause 2 — `CategoryStatsIntegrationTest` consumed from `latest` offset
+
+Kafka consumers started after the topic already had messages, so they missed the `CategoryCreated` event.
+Fixed by setting `spring.kafka.consumer.auto-offset-reset: earliest` in `application-test.yml` for the
+MongoDB example.
+
+### Other changes in this task
+- PostgreSQL outbox Flyway migration (`R__prefab_outbox.sql`)  
+- `OutboxRelayService` — async scheduled relay with `SELECT FOR UPDATE SKIP LOCKED`
+- `MongoDbOutboxRepository` — MongoDB outbox implementation
+- `PrefabMongoConfiguration` — registers `PrefabMongoTemplate` as primary `MongoTemplate`
+- Annotation processor fixes for `byReference`/`multicast` event-handler generated code
+- Pub/Sub and SNS/SQS example `ChannelSummary` update-event wiring
+- `PubSubTestAutoConfiguration` refactored away from static `<clinit>` container start
+- `@Outbox(enabled = false)` path on aggregate bypasses outbox and publishes directly
+
+All integration tests pass when run in isolation with Docker healthy.
+<!-- SECTION:FINAL_SUMMARY:END -->

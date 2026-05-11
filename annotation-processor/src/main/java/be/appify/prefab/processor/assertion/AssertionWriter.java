@@ -189,7 +189,53 @@ class AssertionWriter {
         if (field.type().is(List.class)) {
             return listFieldAssertMethod(assertType, field);
         }
+        if (isNestedRecordType(field.type())) {
+            return recordFieldAssertMethod(assertType, field);
+        }
+        if (isSingleValueRecordField(field)) {
+            return singleValueRecordFieldAssertMethod(assertType, field);
+        }
         return equalsFieldAssertMethod(assertType, field);
+    }
+
+    private MethodSpec recordFieldAssertMethod(ClassName assertType, VariableManifest field) {
+        var fieldName = field.name();
+        var fieldType = field.type();
+        var flatName = fieldType.simpleName().replace(".", "");
+        var packageName = fieldType.packageName();
+        var fieldAssertType = ClassName.get(packageName, flatName + "Assert");
+        var consumerType = ParameterizedTypeName.get(CONSUMER, fieldAssertType);
+        return MethodSpec.methodBuilder("has" + capitalize(fieldName) + "Satisfying")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(assertType)
+                .addParameter(consumerType, "requirements")
+                .addStatement("isNotNull()")
+                .addStatement("$T.requireNonNull(requirements, $S)", Objects.class, "requirements must not be null")
+                .addStatement("requirements.accept($T.assertThat(actual.$N()))", fieldAssertType, fieldName)
+                .addStatement("return this")
+                .build();
+    }
+
+    private MethodSpec singleValueRecordFieldAssertMethod(ClassName assertType, VariableManifest field) {
+        var fieldName = field.name();
+        var innerField = field.type().fields().getFirst();
+        var innerType = innerField.type().asBoxed().asTypeName();
+        var innerAccessor = innerField.name();
+        return MethodSpec.methodBuilder("has" + capitalize(fieldName))
+                .addModifiers(Modifier.PUBLIC)
+                .returns(assertType)
+                .addParameter(innerType, "expected")
+                .addStatement("isNotNull()")
+                .beginControlFlow("if (!$T.equals(actual.$N().$N(), expected))", Objects.class, fieldName, innerAccessor)
+                .addStatement("failWithMessage($S, expected, actual.$N().$N())",
+                        "Expected " + fieldName + " to be <%s> but was <%s>", fieldName, innerAccessor)
+                .endControlFlow()
+                .addStatement("return this")
+                .build();
+    }
+
+    private boolean isSingleValueRecordField(VariableManifest field) {
+        return field.type().isRecord() && field.type().isSingleValueType();
     }
 
     private MethodSpec equalsFieldAssertMethod(ClassName assertType, VariableManifest field) {

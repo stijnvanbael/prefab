@@ -40,7 +40,7 @@ public class AssertionPlugin implements PrefabPlugin {
 
         manifests.forEach(writer::writeResponseAssert);
 
-        context.eventElements().forEach(element -> {
+        context.eventElementsFromCurrentCompilation().forEach(element -> {
             var preferredElement = avscContractInterface(element);
             writer.writeEventAssert(preferredElement);
         });

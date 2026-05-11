@@ -172,8 +172,13 @@ EventConsumerAssert.assertThat(userConsumer)
 
 ## 6.8 Generated Assertion Classes
 
-For each response record, `@Event`-annotated type, and nested record, Prefab generates an AssertJ assertion class
-in the same package as the type (written to `target/prefab-test-sources/`).
+For each response record, each `@Event`-annotated type in the current compilation, and each nested record,
+Prefab generates an AssertJ assertion class in the same package as the type (written to
+`target/prefab-test-sources/`).
+
+Prefab does not regenerate event assertion classes for dependency-provided events discovered on the classpath.
+This includes events generated upstream from `@Avsc` contracts and consumed from another module's main or test
+artifacts.
 
 ### `{Type}ResponseAssert`
 
@@ -199,7 +204,7 @@ public class ProductResponseAssert
 
 ### `{EventName}Assert`
 
-Generated for every `@Event`-annotated record.
+Generated for every `@Event`-annotated record in the current module.
 
 ```java
 // Generated: com.example.event.OrderCreatedAssert

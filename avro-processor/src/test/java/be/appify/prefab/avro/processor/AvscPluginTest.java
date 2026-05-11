@@ -532,6 +532,26 @@ class AvscPluginTest {
     }
 
     @Test
+    void avscDependencyEventAssertionsAreNotRegeneratedInConsumerModule() {
+        var dependencyClasspath = compileDependencyClasspath(
+                sourceOf("event/avsc/dependency/source/DependencyAvsc.java"));
+        try {
+            var compilation = javac()
+                    .withOptions(classpathOptionsWith(dependencyClasspath))
+                    .withProcessors(new PrefabProcessor())
+                    .compile(sourceOf("event/avsc/dependencygeneratedconsumer/source/DependencyGeneratedConsumer.java"));
+
+            assertThat(compilation).succeeded();
+            assertFalse(compilation.generatedSourceFiles().stream().anyMatch(file -> file.toUri().getPath().endsWith(
+                    "/event/avsc/dependency/DependencyAvscEventAssert.java")));
+            assertFalse(compilation.generatedSourceFiles().stream().anyMatch(file -> file.toUri().getPath().endsWith(
+                    "/event/avsc/dependency/Assertions.java")));
+        } finally {
+            deleteRecursively(dependencyClasspath);
+        }
+    }
+
+    @Test
     void lowercaseAvscTypeNamesAreCapitalisedInGeneratedJava() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

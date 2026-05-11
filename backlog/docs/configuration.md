@@ -50,3 +50,79 @@ Add to your main application class. Imports all Prefab core beans. No attributes
 - `SnsConfiguration` – SNS/SQS support (if AWS library is on classpath)
 - `SerializationRegistry` – topic-to-serialization-format registry
 
+---
+
+## Test Container Configuration
+
+Prefab test infrastructure automatically provisions Docker containers for Postgres, Kafka, LocalStack (SNS/SQS), and Pub/Sub when running integration tests annotated with `@IntegrationTest`. By default, each container is assigned a stable, predictable Docker name and may be reused across test runs on the same machine.
+
+### Container Names and Reuse
+
+All testcontainers use a default Docker name pattern: **`prefab-<type>-<appName>`**, where `appName` is derived from `spring.application.name` with dots and dashes replaced by underscores. For example, with `spring.application.name=my-chat-app`, the Kafka container is named `prefab-kafka-my_chat_app`.
+
+| Container | Default name | Reuse | Notes |
+|-----------|--------------|-------|-------|
+| PostgreSQL | `prefab-postgres-<appName>` | ✅ | Programmatic `PostgreSQLContainer` bean with `.withReuse(true)` |
+| Kafka | `prefab-kafka-<appName>` | ✅ | Configured with `.withReuse(true)` |
+| Schema Registry | `prefab-schema-registry-<appName>` | ✅ | Enabled when `prefab.test.schema-registry.enabled=true`; disabled by default |
+| LocalStack (SNS/SQS) | `prefab-localstack-<appName>` | ✅ | Configured with `.withReuse(true)` |
+| Pub/Sub Emulator | `prefab-pubsub-<appName>` | ❌ | **Reuse disabled** to prevent state corruption; containers are destroyed after each test run |
+
+### Configuration Properties
+
+Each container name can be customized via a `prefab.test.*` property. If not set, the default name is used.
+
+| Property                               | Default | Description |
+|----------------------------------------|---------|-------------|
+| `prefab.test.postgres.container-name` | `prefab-postgres-<appName>` | Override Postgres container name |
+| `prefab.test.kafka.container-name` | `prefab-kafka-<appName>` | Override Kafka container name |
+| `prefab.test.schema-registry.container-name` | `prefab-schema-registry-<appName>` | Override Schema Registry container name |
+| `prefab.test.localstack.container-name` | `prefab-localstack-<appName>` | Override LocalStack container name |
+| `prefab.test.pubsub.container-name` | `prefab-pubsub-<appName>` | Override Pub/Sub Emulator container name |
+
+### Example: Override Postgres Container Name
+
+In `application-test.yml`:
+
+```yaml
+spring:
+  application:
+    name: my-service
+
+prefab:
+  test:
+    postgres:
+      container-name: my-postgres-test
+```
+
+With this configuration, the Postgres container will be named `my-postgres-test` instead of the default `prefab-postgres-my_service`.
+
+### Benefits of Fixed Container Names
+
+1. **Debugging**: Use `docker ps` to easily identify which container belongs to which application.
+2. **Log Inspection**: Tail container logs by a human-readable name instead of a random ID.
+3. **Container Reuse**: Testcontainers reuses containers across test runs when the reuse flag is enabled and the container name matches.
+4. **Multi-app Testing**: Run multiple applications' test suites on the same machine and clearly distinguish their containers.
+
+### Programmatic Container Access
+
+In integration tests, containers are managed as Spring beans. For custom assertions or configuration:
+
+```java
+@IntegrationTest
+class MyTest {
+    @Autowired
+    PostgreSQLContainer<?> postgresContainer;
+
+    @Autowired
+    KafkaContainer kafkaContainer;
+
+    @Test
+    void testWithCustomContainerAccess() {
+        var jdbcUrl = postgresContainer.getJdbcUrl();
+        var bootstrapServers = kafkaContainer.getBootstrapServers();
+        // ... use in test
+    }
+}
+```
+

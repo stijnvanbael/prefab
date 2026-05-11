@@ -39,7 +39,7 @@ public final class TestContainerNameResolver {
     /**
      * Generates a default container name from the application name.
      *
-     * <p>The default name follows the pattern {@code prefab-<type>-<appName>}, where {@code appName}
+     * <p>The default name follows the pattern {@code <type>_<appName>}, where {@code appName}
      * is the value of {@code spring.application.name} with dots and dashes replaced by underscores.
      *
      * @param propertyResolver the property resolver to fetch the application name
@@ -49,7 +49,7 @@ public final class TestContainerNameResolver {
     private static String generateDefaultName(PropertyResolver propertyResolver, String containerType) {
         var appName = propertyResolver.getProperty("spring.application.name", "application");
         var sanitisedName = appName.toLowerCase().replaceAll("[.\\-]", "_");
-        return "prefab-%s-%s".formatted(containerType, sanitisedName);
+        return "%s_%s".formatted(containerType, sanitisedName);
     }
 }
 

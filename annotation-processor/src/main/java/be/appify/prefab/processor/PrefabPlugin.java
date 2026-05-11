@@ -89,6 +89,20 @@ public interface PrefabPlugin {
     }
 
     /**
+     * Declares which event scope should cause {@link #writeAdditionalFiles(List)} to run again when
+     * event discovery changes.
+     *
+     * <p>The default is the safe local-only scope for plugins that generate code owned by the
+     * current module. Plugins that intentionally generate infrastructure for consumed dependency
+     * events must override this and opt into the broader scope explicitly.
+     *
+     * @return the event scope relevant to this plugin's additional-file generation
+     */
+    default PrefabContext.EventScope additionalFileEventScope() {
+        return PrefabContext.EventScope.CURRENT_COMPILATION;
+    }
+
+    /**
      * Write files that depend on the complete set of all resolved aggregate roots across all processing rounds.
      * Called exactly once, after all deferred aggregates have been resolved.
      *

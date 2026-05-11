@@ -200,7 +200,11 @@ public class PrefabProcessor extends AbstractProcessor {
                 .filter(m -> !processedAdditionalFilesPolymorphicAggregates.contains(
                         m.packageName() + "." + m.simpleName()))
                 .toList();
-        var currentEventElementNames = context.eventElements()
+        var eventScope = plugins.stream()
+                .map(PrefabPlugin::additionalFileEventScope)
+                .max(Enum::compareTo)
+                .orElse(PrefabContext.EventScope.CURRENT_COMPILATION);
+        var currentEventElementNames = context.eventElements(eventScope)
                 .map(e -> e.getQualifiedName().toString())
                 .collect(Collectors.toSet());
         var hasNewEventElements = !seenEventElementNames.containsAll(currentEventElementNames);

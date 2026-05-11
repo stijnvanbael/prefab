@@ -3,9 +3,17 @@ package be.appify.prefab.processor.kafka;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assertions;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
+import java.util.stream.Stream;
+
 import be.appify.prefab.processor.PrefabProcessor;
 
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.assertGeneratedSourceEqualsIgnoringWhitespace;
+import static be.appify.prefab.processor.kafka.ProcessorTestUtil.classpathOptionsWith;
+import static be.appify.prefab.processor.kafka.ProcessorTestUtil.compileDependencyClasspath;
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
@@ -89,5 +97,64 @@ class KafkaProducerWriterTest {
                 () -> assertThat(compilation).generatedSourceFile("kafka.supertype.infrastructure.kafka.UserCreatedKafkaProducer"));
         Assertions.assertThrows(AssertionError.class,
                 () -> assertThat(compilation).generatedSourceFile("kafka.supertype.infrastructure.kafka.UserUpdatedKafkaProducer"));
+    }
+
+    @Test
+    void importedDependencyEventGeneratesKafkaProducer() {
+        var dependencyClasspath = compileDependencyClasspath(sourceOf("kafka/dependencyevents/ExternalUserCreated.java"));
+        try {
+            var compilation = javac()
+                    .withOptions(classpathOptionsWith(dependencyClasspath))
+                    .withProcessors(new PrefabProcessor())
+                    .compile(sourceOf("kafka/externaldependency/UserImporter.java"));
+
+            assertThat(compilation).succeeded();
+            assertThat(compilation)
+                    .generatedSourceFile("kafka.dependencyevents.infrastructure.kafka.ExternalUserCreatedKafkaProducer")
+                    .isNotNull();
+            assertThat(compilation)
+                    .generatedSourceFile("kafka.dependencyevents.infrastructure.kafka.ExternalUserCreatedKafkaEventTypeRegistrar")
+                    .isNotNull();
+        } finally {
+            deleteRecursively(dependencyClasspath);
+        }
+    }
+
+    @Test
+    void importedAvscDependencyEventGeneratesKafkaProducer() {
+        var dependencyClasspath = compileDependencyClasspath(sourceOf("kafka/dependencyavsc/ExternalOrderCreated.java"));
+        try {
+            var compilation = javac()
+                    .withOptions(classpathOptionsWith(dependencyClasspath))
+                    .withProcessors(new PrefabProcessor())
+                    .compile(sourceOf("kafka/externaldependencyavsc/ExternalOrderImporter.java"));
+
+            assertThat(compilation).succeeded();
+            assertThat(compilation)
+                    .generatedSourceFile("kafka.dependencyavsc.infrastructure.kafka.ExternalOrderCreatedKafkaProducer")
+                    .isNotNull();
+            assertThat(compilation)
+                    .generatedSourceFile("kafka.dependencyavsc.infrastructure.kafka.ExternalOrderCreatedKafkaEventTypeRegistrar")
+                    .isNotNull();
+        } finally {
+            deleteRecursively(dependencyClasspath);
+        }
+    }
+
+    private static void deleteRecursively(Path root) {
+        if (root == null || !Files.exists(root)) {
+            return;
+        }
+        try (Stream<Path> paths = Files.walk(root)) {
+            paths.sorted(Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

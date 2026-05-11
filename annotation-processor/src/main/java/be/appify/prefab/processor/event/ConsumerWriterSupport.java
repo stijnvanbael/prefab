@@ -310,7 +310,7 @@ public class ConsumerWriterSupport {
         if (eventType.asElement() == null || eventType.asElement().getAnnotation(Avsc.class) == null) {
             return List.of(eventType);
         }
-        var implementations = context.eventElements()
+        var implementations = context.eventElementsIncludingConsumedDependencies()
                 .filter(e -> e.getKind() == ElementKind.RECORD)
                 .filter(e -> e.getInterfaces().stream()
                         .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())

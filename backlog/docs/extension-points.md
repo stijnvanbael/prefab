@@ -55,6 +55,7 @@ com.example.processor.MyCustomPlugin
 | `writeRepository(manifest, builder)`                | Per aggregate              | Add methods to repository                        |
 | `writeTestClient(manifest, builder)`                | Per aggregate              | Add methods to test REST client                  |
 | `writeAdditionalFiles(manifests)`                   | Once, after all aggregates | Generate extra source files                      |
+| `additionalFileEventScope()`                        | With `writeAdditionalFiles`| Declare whether event-triggered reruns use local or consumed dependency events |
 | `writeGlobalFiles(manifests, polymorphicManifests)` | Once, all rounds done      | Generate files spanning all aggregates           |
 | `writeEventFiles()`                                 | Round 1 only               | Generate event types (before aggregate code)     |
 | `getServiceDependencies(manifest)`                  | Per aggregate              | Add Spring beans injected into service           |
@@ -64,6 +65,20 @@ com.example.processor.MyCustomPlugin
 | `avroSchemaOf(typeManifest)`                        | Per `@CustomType` field    | Provide Avro schema for custom types             |
 | `toAvroValueOf(type, value)`                        | Per `@CustomType` field    | Serialize custom type to Avro                    |
 | `fromAvroValueOf(type, value)`                      | Per `@CustomType` field    | Deserialize Avro to custom type                  |
+
+### Event discovery scope for plugins
+
+`PrefabContext.eventElements()` is the safe default for plugin authors. It returns only `@Event` types that belong
+to the current compilation, including AVSC-generated records emitted in the same module.
+
+Use `PrefabContext.eventElementsIncludingConsumedDependencies()` only when a plugin intentionally generates
+infrastructure for dependency events referenced from the current module, such as messaging producers or
+documentation for consumed events.
+
+If your plugin's `writeAdditionalFiles(...)` depends on consumed dependency events, also override
+`PrefabPlugin.additionalFileEventScope()` and return
+`PrefabContext.EventScope.CURRENT_COMPILATION_AND_CONSUMED_DEPENDENCIES`. Otherwise the default
+`CURRENT_COMPILATION` scope is correct and avoids accidental regeneration of dependency-owned artefacts.
 
 ### Built-in Plugins
 

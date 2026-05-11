@@ -21,6 +21,14 @@ import javax.tools.Diagnostic;
  * Context class providing access to processing environment, plugins, and utilities during annotation processing.
  */
 public class PrefabContext {
+    /**
+     * Selects which event set a plugin wants to inspect.
+     */
+    public enum EventScope {
+        CURRENT_COMPILATION,
+        CURRENT_COMPILATION_AND_CONSUMED_DEPENDENCIES
+    }
+
     private final ProcessingEnvironment processingEnvironment;
     private final RequestParameterBuilder requestParameterBuilder;
     private final List<PrefabPlugin> plugins;
@@ -30,8 +38,9 @@ public class PrefabContext {
     private final Set<ExecutableElement> newlyDeferredEventHandlers = new LinkedHashSet<>();
     private final Set<String> currentCompilationTypeNames;
 
-    // Memoized per-round result of eventElements(); computed at most once per PrefabContext instance.
-    private List<TypeElement> memoizedEventElements;
+    // Memoized per-round event views; each computed at most once per PrefabContext instance.
+    private List<TypeElement> memoizedCurrentCompilationEventElements;
+    private List<TypeElement> memoizedCurrentAndConsumedEventElements;
 
     /**
      * Constructs a PrefabContext.
@@ -179,27 +188,61 @@ public class PrefabContext {
     }
 
     /**
-     * Returns all event type elements for the current round: both types directly annotated with
-     * {@link Event} and records generated from {@link Avsc}-annotated contract interfaces.
+     * Returns event type elements that belong to the current compilation only.
      *
-     * <p>AVSC-generated records implement an {@code @Avsc}-annotated interface but may not be
-     * returned by {@link RoundEnvironment#getElementsAnnotatedWith(Class)} in the same round they
-     * are compiled. Scanning {@link RoundEnvironment#getRootElements()} for records that implement
-     * such an interface is the reliable strategy used throughout the framework.
+     * <p>This is the safe default for plugin authors generating local code or test support. It
+     * includes both source-declared {@link Event} types and records generated from
+     * {@link Avsc}-annotated contracts in the current compilation.
      *
-     * <p>The result is memoized for the lifetime of this {@link PrefabContext} (one processing round)
-     * to avoid redundant scans of the round environment on each call.
-     *
-     * @return a deduplicated stream of {@link TypeElement}s representing all events
+     * @return deduplicated stream of current-compilation event types
      */
     public Stream<TypeElement> eventElements() {
-        if (memoizedEventElements == null) {
-            memoizedEventElements = computeEventElements();
-        }
-        return memoizedEventElements.stream();
+        return eventElements(EventScope.CURRENT_COMPILATION);
     }
 
-    private List<TypeElement> computeEventElements() {
+    /**
+     * Returns event type elements for the requested scope.
+     *
+     * @param scope
+     *         event discovery scope
+     * @return deduplicated stream of matching event types
+     */
+    public Stream<TypeElement> eventElements(EventScope scope) {
+        return switch (scope) {
+            case CURRENT_COMPILATION -> currentCompilationEventElements().stream();
+            case CURRENT_COMPILATION_AND_CONSUMED_DEPENDENCIES ->
+                    currentAndConsumedEventElements().stream();
+        };
+    }
+
+    /**
+     * Returns event types from the current compilation plus dependency events consumed through local
+     * {@link EventHandler} signatures.
+     *
+     * <p>Use this explicit opt-in when a plugin must generate infrastructure for dependency events,
+     * such as producer or documentation artefacts.
+     *
+     * @return deduplicated stream of local and consumed dependency event types
+     */
+    public Stream<TypeElement> eventElementsIncludingConsumedDependencies() {
+        return eventElements(EventScope.CURRENT_COMPILATION_AND_CONSUMED_DEPENDENCIES);
+    }
+
+    private List<TypeElement> currentCompilationEventElements() {
+        if (memoizedCurrentCompilationEventElements == null) {
+            memoizedCurrentCompilationEventElements = computeCurrentCompilationEventElements();
+        }
+        return memoizedCurrentCompilationEventElements;
+    }
+
+    private List<TypeElement> currentAndConsumedEventElements() {
+        if (memoizedCurrentAndConsumedEventElements == null) {
+            memoizedCurrentAndConsumedEventElements = computeCurrentAndConsumedEventElements();
+        }
+        return memoizedCurrentAndConsumedEventElements;
+    }
+
+    private List<TypeElement> computeCurrentCompilationEventElements() {
         var annotated = roundEnvironment.getElementsAnnotatedWith(Event.class)
                 .stream()
                 .map(e -> (TypeElement) e);
@@ -212,9 +255,13 @@ public class PrefabContext {
                         .map(i -> (TypeElement) ((DeclaredType) i).asElement())
                         .anyMatch(i -> i.getAnnotation(Avsc.class) != null));
 
-        var fromClasspath = eventElementsFromClasspath();
+        return Stream.concat(annotated, avscGenerated)
+                .distinct()
+                .toList();
+    }
 
-        return Stream.concat(Stream.concat(annotated, avscGenerated), fromClasspath)
+    private List<TypeElement> computeCurrentAndConsumedEventElements() {
+        return Stream.concat(currentCompilationEventElements().stream(), eventElementsFromClasspath())
                 .distinct()
                 .toList();
     }
@@ -225,7 +272,7 @@ public class PrefabContext {
      * @return deduplicated stream of local event types
      */
     public Stream<TypeElement> eventElementsFromCurrentCompilation() {
-        return eventElements().filter(this::isFromCurrentCompilation);
+        return eventElements();
     }
 
     /**

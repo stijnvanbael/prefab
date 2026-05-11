@@ -34,7 +34,7 @@ public class EventSchemaDocumentationPlugin implements PrefabPlugin {
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
-        var rawEvents = context.eventElements()
+        var rawEvents = context.eventElementsIncludingConsumedDependencies()
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .toList();
         if (rawEvents.isEmpty()) {
@@ -45,6 +45,11 @@ public class EventSchemaDocumentationPlugin implements PrefabPlugin {
             return;
         }
         writer.writeDocumentation(resolvedEvents, consumedEventTypes());
+    }
+
+    @Override
+    public PrefabContext.EventScope additionalFileEventScope() {
+        return PrefabContext.EventScope.CURRENT_COMPILATION_AND_CONSUMED_DEPENDENCIES;
     }
 
     /**

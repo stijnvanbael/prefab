@@ -54,6 +54,11 @@ public class KafkaPlugin implements PrefabPlugin {
         writeConsumers();
     }
 
+    @Override
+    public PrefabContext.EventScope additionalFileEventScope() {
+        return PrefabContext.EventScope.CURRENT_COMPILATION_AND_CONSUMED_DEPENDENCIES;
+    }
+
     private void writeConsumerConfigs() {
         filteredEventHandlersByOwner(context, this::isKafkaEvent)
                 .entrySet()
@@ -96,7 +101,7 @@ public class KafkaPlugin implements PrefabPlugin {
     }
 
     private void writeRegularPublishers() {
-        var events = context.eventElements()
+        var events = context.eventElementsIncludingConsumedDependencies()
                 .filter(e -> e.getAnnotation(Avsc.class) == null)
                 .filter(e -> platformIsKafka(requireNonNull(e.getAnnotation(Event.class)), e, context))
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))

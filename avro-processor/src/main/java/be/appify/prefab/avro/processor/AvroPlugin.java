@@ -41,7 +41,7 @@ public class AvroPlugin implements PrefabPlugin {
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
-        var events = context.eventElementsFromCurrentCompilation()
+        var events = context.eventElements()
                 .filter(e -> EventPlatformPluginSupport.isAvscGeneratedRecord(e)
                         || Objects.requireNonNull(e.getAnnotation(Event.class)).serialization() == Event.Serialization.AVRO)
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))

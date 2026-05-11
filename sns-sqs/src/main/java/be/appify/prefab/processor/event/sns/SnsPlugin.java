@@ -39,6 +39,11 @@ public class SnsPlugin implements PrefabPlugin {
     }
 
     @Override
+    public PrefabContext.EventScope additionalFileEventScope() {
+        return PrefabContext.EventScope.CURRENT_COMPILATION_AND_CONSUMED_DEPENDENCIES;
+    }
+
+    @Override
     public void initContext(PrefabContext context) {
         this.context = context;
         snsPublisherWriter = new SnsPublisherWriter(context);
@@ -61,7 +66,7 @@ public class SnsPlugin implements PrefabPlugin {
     }
 
     private void writePublishers() {
-        var events = context.eventElements()
+        var events = context.eventElementsIncludingConsumedDependencies()
                 .filter(e -> !isAvscGeneratedRecord(e))
                 .filter(e -> platformIsSnsSqs(requireNonNull(e.getAnnotation(Event.class)), e, context))
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))

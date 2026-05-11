@@ -1,0 +1,37 @@
+{
+  "asyncapi": "2.6.0",
+  "info": {
+    "title": "Application Events",
+    "version": "1.0.0"
+  },
+  "channels": {
+    "${topics.orders}": {
+      "publish": {
+        "message": {
+          "$ref": "#/components/messages/OrderCreated"
+        }
+      }
+    }
+  },
+  "components": {
+    "messages": {
+      "OrderCreated": {
+        "payload": {
+          "$ref": "#/components/schemas/OrderCreated"
+        }
+      }
+    },
+    "schemas": {
+      "OrderCreated": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string"
+          }
+        },
+        "required": ["orderId"]
+      }
+    }
+  }
+}
+

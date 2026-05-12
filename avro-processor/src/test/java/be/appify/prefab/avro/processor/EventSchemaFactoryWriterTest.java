@@ -171,6 +171,24 @@ class EventSchemaFactoryWriterTest {
                 "event/avro/nullable/expected/NullableEventSchemaFactory.java");
     }
 
+    @Test
+    void avscBackedNestedRecordValidatesTopLevelEventOnly() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avro/nestedavsc/source/NestedAvscContract.java"));
+        assertThat(compilation).succeeded();
+
+        assertThat(compilation)
+                .generatedSourceFile("event.avro.infrastructure.avro.NestedAvscEventSchemaFactory")
+                .contentsAsUtf8String()
+                .contains("verifySchemaCompatibility(this.schema)");
+
+        assertThat(compilation)
+                .generatedSourceFile("event.avro.infrastructure.avro.AddressSchemaFactory")
+                .contentsAsUtf8String()
+                .doesNotContain("verifySchemaCompatibility(this.schema)");
+    }
+
     private static String generatedSource(com.google.testing.compile.Compilation compilation, String generatedTypeName) {
         var expectedSuffix = "/" + generatedTypeName.replace('.', '/') + ".java";
         var generatedFile = compilation.generatedSourceFiles().stream()

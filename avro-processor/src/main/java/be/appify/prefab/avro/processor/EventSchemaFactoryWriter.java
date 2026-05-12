@@ -29,7 +29,6 @@ import org.apache.avro.SchemaCompatibility;
 
 import static be.appify.prefab.avro.processor.AvroPlugin.avroUnionRecordBranches;
 import static be.appify.prefab.avro.processor.AvroPlugin.isAvroUnion;
-import static be.appify.prefab.avro.processor.AvroPlugin.isLogicalType;
 import static be.appify.prefab.avro.processor.AvroPlugin.isNestedRecord;
 import static be.appify.prefab.avro.processor.AvroPlugin.nestedTypes;
 import static be.appify.prefab.avro.processor.AvroPlugin.sealedSubtypes;
@@ -64,35 +63,48 @@ class EventSchemaFactoryWriter {
         var avscPath = findAvscPath(event);
         var preserveSingleValueRecords = avscPath.isPresent();
 
+        var directAvscPath = findDirectAvscPath(event);
+
         var name = schemaFactorySimpleName(event);
         var type = TypeSpec.classBuilder(name)
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(componentAnnotation(event, name))
                 .addField(FieldSpec.builder(Schema.class, "schema", Modifier.PRIVATE, Modifier.FINAL).build())
-                .addMethod(constructor(event, preserveSingleValueRecords, avscPath.orElse(null)))
+                .addMethod(constructor(event, preserveSingleValueRecords, directAvscPath.orElse(null)))
                 .addMethod(createSchemaMethod());
-        avscPath.ifPresent(path -> type.addMethods(runtimeAvscValidationMethods(event, path)));
+        directAvscPath.ifPresent(path -> type.addMethods(runtimeAvscValidationMethods(event, path)));
 
         newFileWriter().writeFile(event.packageName(), name, type.build());
         return true;
     }
 
     private Optional<String> findAvscPath(TypeManifest event) {
-        var recordSimpleName = event.simpleName();
-
-        if (event.asElement() instanceof TypeElement typeElement) {
-            var directMatch = avscPathsFromImplementedInterfaces(typeElement)
-                    .filter(path -> matchesRecordName(path, recordSimpleName))
-                    .findFirst();
-            if (directMatch.isPresent()) {
-                return directMatch;
-            }
+        var directMatch = findDirectAvscPath(event);
+        if (directMatch.isPresent()) {
+            return directMatch;
         }
 
+        var recordSimpleName = event.simpleName();
         var index = avscRecordNamesIndex();
         return index.entrySet().stream()
                 .filter(entry -> avroTypeNames(recordSimpleName).anyMatch(entry.getValue()::contains))
                 .map(Map.Entry::getKey)
+                .findFirst();
+    }
+
+    /**
+     * Returns the AVSC path only when this type is a <em>direct</em> participant of an {@code @Avsc}-annotated
+     * interface (i.e. it implements such an interface and its name appears as a top-level named type in that file).
+     * Nested/embedded types that happen to be referenced inside the same AVSC are intentionally excluded so that
+     * compatibility validation is not duplicated: validating the top-level record implicitly covers all nested ones.
+     */
+    private Optional<String> findDirectAvscPath(TypeManifest event) {
+        if (!(event.asElement() instanceof TypeElement typeElement)) {
+            return Optional.empty();
+        }
+        var recordSimpleName = event.simpleName();
+        return avscPathsFromImplementedInterfaces(typeElement)
+                .filter(path -> matchesRecordName(path, recordSimpleName))
                 .findFirst();
     }
 

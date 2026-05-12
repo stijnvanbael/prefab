@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "name": "NestedAvscEvent",
+  "namespace": "event.avro",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {
+      "name": "address",
+      "type": {
+        "type": "record",
+        "name": "Address",
+        "fields": [
+          {"name": "street", "type": "string"},
+          {"name": "city", "type": "string"}
+        ]
+      }
+    }
+  ]
+}
+

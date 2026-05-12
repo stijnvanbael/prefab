@@ -123,6 +123,7 @@ public class KafkaConfiguration {
     ) {
         var properties = kafkaProperties.buildConsumerProperties();
         properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, connectionDetails.getConsumer().getBootstrapServers());
+        properties.putIfAbsent(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         properties.putIfAbsent(ConsumerConfig.GROUP_ID_CONFIG, applicationName);
         kafkaTransactionManager.ifAvailable(ignored ->
                 properties.putIfAbsent(ConsumerConfig.ISOLATION_LEVEL_CONFIG,

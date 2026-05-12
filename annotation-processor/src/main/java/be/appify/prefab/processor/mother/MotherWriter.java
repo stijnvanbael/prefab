@@ -380,6 +380,9 @@ class MotherWriter {
             }
             return CodeBlock.of("$L", value.toLowerCase());
         }
+        if (type.isEnum()) {
+            return CodeBlock.of("$T.$L", type.asTypeName(), value);
+        }
         return CodeBlock.of("$S", value);
     }
 

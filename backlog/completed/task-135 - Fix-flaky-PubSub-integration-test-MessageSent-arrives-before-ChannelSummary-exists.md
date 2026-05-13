@@ -31,3 +31,12 @@ The ChannelSummaryIntegrationTest (and related tests) are flaky under PubSub bec
 - [ ] #5 The integration test verifies that sending a message after creating a channel reliably updates ChannelSummary without flakiness across at least 10 consecutive runs
 - [ ] #6 Transaction commit visibility is handled: the consumer waits (via retry with meaningful backoff) until the ChannelSummary written by ChannelCreated is visible in the read replica / same DB session before processing MessageSent
 <!-- AC:END -->
+
+## Implementation Notes (2026-05-13)
+
+- Added create-or-update multicast flow for `ChannelSummary` handlers by introducing static companion factories plus multicast instance handlers for `ChannelCreated`, `MessageSent`, and `UserEvent.SubscribedToChannel`.
+- Introduced deterministic `ChannelSummary` IDs derived from `channel.id()` to avoid duplicate aggregate creation when events race.
+- Added upsert behavior for `ChannelCreated` so placeholder summaries created by earlier events are updated with the final channel name.
+- Strengthened `ChannelSummaryIntegrationTest` to execute the scenario for 10 consecutive channels in one run (`general-1` to `general-10`).
+- Verified with Maven test run: `mvn -q -pl examples/pubsub -am -Dtest=ChannelSummaryIntegrationTest#updateChannelSummaryTotals -Dsurefire.failIfNoSpecifiedTests=false test`.
+- Follow-up risk captured in `TASK-198`: optimistic-lock retries remain noisy in `ChannelService`/`UserStatusService` under current UserEvent partitioning and concurrency settings.

@@ -81,6 +81,7 @@ class MotherWriter {
                 .addMethod(recordBuilderPassthroughMethod(requestType))
                 .addMethod(createFactoryMethod(requestType, typeName, effectiveParams))
                 .addMethod(createConsumerOverloadForRecord(requestType, typeName, effectiveParams))
+                .addMethods(nestedFieldOverloadsForRecord(requestType, typeName, effectiveParams))
                 .build();
 
         fileWriter.writeFile(packageName, motherName, typeSpec);
@@ -115,6 +116,7 @@ class MotherWriter {
                 .addMethod(builderFactoryMethodWithDefaults(builderType, fields))
                 .addMethod(motherFactoryMethod(eventTypeName, simpleName))
                 .addMethod(motherConsumerOverload(eventTypeName, simpleName, builderType))
+                .addMethods(nestedFieldOverloads(eventTypeName, simpleName, fields, hasEmbeddedBuilder))
                 .build();
         fileWriter.writeFile(packageName, motherName, typeSpec);
         fields.forEach(f -> writeNestedMothersFor(f.type(), preferredElement, hasEmbeddedBuilder));
@@ -155,6 +157,7 @@ class MotherWriter {
                 .addMethod(builderFactoryMethodWithDefaults(builderType, fields))
                 .addMethod(motherFactoryMethod(type.asTypeName(), simpleName))
                 .addMethod(motherConsumerOverload(type.asTypeName(), simpleName, builderType))
+                .addMethods(nestedFieldOverloads(type.asTypeName(), simpleName, fields, hasEmbeddedBuilder))
                 .build();
         fileWriter.writeFile(packageName, motherName, typeSpec);
         fields.forEach(f -> writeNestedMothersFor(f.type(), preferredElement, hasEmbeddedBuilder));
@@ -434,4 +437,90 @@ class MotherWriter {
 
     /** Pairs an original {@link VariableManifest} with its effective (possibly unwrapped) {@link TypeManifest}. */
     record EffectiveParam(VariableManifest param, TypeManifest effectiveType) {}
+
+    // -- Per-nested-field consumer overloads --
+
+    /**
+     * For each nested-record field in a request mother, generates an overload that accepts a
+     * {@code Consumer<NestedBuilder>} and forwards it to the nested mother, e.g.:
+     * <pre>
+     *   public static OrderRequest createOrderRequest(Consumer&lt;AddressBuilder&gt; addressCustomiser) {
+     *       return createOrderRequest(b -> b.address(AddressMother.createAddress(addressCustomiser)));
+     *   }
+     * </pre>
+     */
+    private List<MethodSpec> nestedFieldOverloadsForRecord(
+            ClassName recordType,
+            String typeName,
+            List<EffectiveParam> params
+    ) {
+        return params.stream()
+                .filter(ep -> isNestedObjectType(ep.effectiveType()))
+                .map(ep -> nestedFieldOverloadForRecord(recordType, typeName, ep))
+                .toList();
+    }
+
+    private MethodSpec nestedFieldOverloadForRecord(ClassName recordType, String typeName, EffectiveParam ep) {
+        var nestedType = ep.effectiveType();
+        var simpleName = nestedType.simpleName().replace(".", "");
+        var motherType = ClassName.get(nestedType.packageName(), simpleName + MOTHER_SUFFIX);
+        var nestedBuilderType = ClassName.get(nestedType.packageName(), simpleName + BUILDER);
+        var consumerType = ParameterizedTypeName.get(ClassName.get(Consumer.class), nestedBuilderType);
+        var paramName = ep.param().name() + "Customiser";
+        return MethodSpec.methodBuilder("create" + capitalize(typeName))
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .returns(recordType)
+                .addParameter(consumerType, paramName)
+                .addStatement("return create$L(b -> b.$L($T.create$L($L)))",
+                        capitalize(typeName), setterMethodName(ep.param().name()), motherType, capitalize(simpleName), paramName)
+                .build();
+    }
+
+    /**
+     * For each nested-record field in an event / nested-type mother, generates an overload that
+     * accepts a {@code Consumer<NestedBuilder>} and forwards it to the nested mother, e.g.:
+     * <pre>
+     *   public static OrderEvent createOrderEvent(Consumer&lt;AddressBuilder&gt; addressCustomiser) {
+     *       var builder = builder();
+     *       builder.withAddress(AddressMother.createAddress(addressCustomiser));
+     *       return builder.build();
+     *   }
+     * </pre>
+     */
+    private List<MethodSpec> nestedFieldOverloads(
+            TypeName parentTypeName,
+            String typeName,
+            List<VariableManifest> fields,
+            boolean hasEmbeddedBuilder
+    ) {
+        return fields.stream()
+                .filter(f -> isNestedObjectType(f.type()))
+                .map(f -> nestedFieldOverload(parentTypeName, typeName, f, hasEmbeddedBuilder))
+                .toList();
+    }
+
+    private MethodSpec nestedFieldOverload(
+            TypeName parentTypeName,
+            String typeName,
+            VariableManifest field,
+            boolean hasEmbeddedBuilder
+    ) {
+        var nestedType = field.type();
+        var simpleName = nestedType.simpleName().replace(".", "");
+        var motherType = ClassName.get(nestedType.packageName(), simpleName + MOTHER_SUFFIX);
+        var nestedBuilderType = hasEmbeddedBuilder
+                ? ((ClassName) nestedType.asTypeName()).nestedClass(BUILDER)
+                : ClassName.get(nestedType.packageName(), simpleName + BUILDER);
+        var consumerType = ParameterizedTypeName.get(ClassName.get(Consumer.class), nestedBuilderType);
+        var paramName = field.name() + "Customiser";
+        return MethodSpec.methodBuilder("create" + capitalize(typeName))
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .returns(parentTypeName)
+                .addParameter(consumerType, paramName)
+                .addStatement("var builder = builder()")
+                .addStatement("builder.$L($T.create$L($L))",
+                        setterMethodName(field.name()), motherType, capitalize(simpleName), paramName)
+                .addStatement("return builder.build()")
+                .build();
+    }
 }

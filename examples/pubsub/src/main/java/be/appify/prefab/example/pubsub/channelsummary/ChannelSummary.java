@@ -27,22 +27,43 @@ public record ChannelSummary(
         int totalSubscribers
 ) {
     private static final Logger log = LoggerFactory.getLogger(ChannelSummary.class);
+    private static final String PENDING_NAME = "<pending-channel-name>";
+
+    private static Reference<ChannelSummary> summaryId(Reference<Channel> channel) {
+        return Reference.fromId("channel-summary-" + channel.id());
+    }
 
     @EventHandler
     public static ChannelSummary onChannelCreated(ChannelCreated event) {
-        return new ChannelSummary(Reference.create(), 0L, event.channel(), event.name(), 0, 0);
+        return new ChannelSummary(summaryId(event.channel()), 0L, event.channel(), event.name(), 0, 0);
     }
 
     @EventHandler
     @Multicast(queryMethod = "findByChannel", parameters = "channel")
-    public ChannelSummary onMessageSent(MessageSent event) {
+    public ChannelSummary applyChannelCreated(ChannelCreated event) {
+        return new ChannelSummary(id, version, channel, event.name(), totalMessages, totalSubscribers);
+    }
+
+    @EventHandler
+    public static ChannelSummary onMessageSent(MessageSent event) {
+        return new ChannelSummary(summaryId(event.channel()), 0L, event.channel(), PENDING_NAME, 1, 0);
+    }
+
+    @EventHandler
+    @Multicast(queryMethod = "findByChannel", parameters = "channel")
+    public ChannelSummary applyMessageSent(MessageSent event) {
         log.info("Handling MessageSent event for ChannelSummary: {}", event);
         return new ChannelSummary(id, version, channel, name, totalMessages + 1, totalSubscribers);
     }
 
     @EventHandler
+    public static ChannelSummary onUserSubscribed(UserEvent.SubscribedToChannel event) {
+        return new ChannelSummary(summaryId(event.channel()), 0L, event.channel(), PENDING_NAME, 0, 1);
+    }
+
+    @EventHandler
     @Multicast(queryMethod = "findByChannel", parameters = "channel")
-    public ChannelSummary onUserSubscribed(UserEvent.SubscribedToChannel event) {
+    public ChannelSummary applyUserSubscribed(UserEvent.SubscribedToChannel event) {
         log.info("Handling SubscribedToChannel event for ChannelSummary: {}", event);
         return new ChannelSummary(id, version, channel, name, totalMessages, totalSubscribers + 1);
     }

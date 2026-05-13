@@ -28,10 +28,16 @@ public class ChannelSummaryIntegrationTest {
 
     @Test
     void updateChannelSummaryTotals() throws Exception {
-        var channelId = channels.createChannel("general");
-        var johnId = users.createUser("John");
-        var janeId = users.createUser("Jane");
-        var daveId = users.createUser("Dave");
+        for (int run = 1; run <= 10; run++) {
+            assertScenario("general-" + run, run);
+        }
+    }
+
+    private void assertScenario(String channelName, int run) throws Exception {
+        var channelId = channels.createChannel(channelName);
+        var johnId = users.createUser("John-" + run);
+        var janeId = users.createUser("Jane-" + run);
+        var daveId = users.createUser("Dave-" + run);
         users.subscribeToChannel(johnId, channelId);
         users.subscribeToChannel(janeId, channelId);
         users.subscribeToChannel(daveId, channelId);
@@ -40,7 +46,7 @@ public class ChannelSummaryIntegrationTest {
         messages.createMessage(janeId, channelId, "Hello, John!");
 
         await().atMost(30, TimeUnit.SECONDS).untilAsserted(() ->
-                assertThat(channelSummaries.findChannelSummaries(Pageable.unpaged(), "general"))
+                assertThat(channelSummaries.findChannelSummaries(Pageable.unpaged(), channelName))
                         .anySatisfy(summary -> {
                             assertThat(summary.totalSubscribers()).isEqualTo(3);
                             assertThat(summary.totalMessages()).isEqualTo(2);

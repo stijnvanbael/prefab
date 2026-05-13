@@ -54,7 +54,7 @@ class MotherWriter {
 
     /**
      * Writes a Mother for a generated request record.
-     * Delegates to the record's own generated builder.
+     * Generates an inner {@code MotherBuilder} that extends the record's own {@code Builder}.
      */
     void writeRequestMother(
             String typeName,
@@ -71,17 +71,20 @@ class MotherWriter {
 
         var requestType = ClassName.get(packageName + ".application", typeName);
         var motherName = typeName + MOTHER_SUFFIX;
+        var motherBuilderRef = ClassName.get("", "MotherBuilder");
 
         var effectiveParams = params.stream()
                 .map(p -> new EffectiveParam(p, effectiveTypeOf(p)))
                 .toList();
 
+        var innerBuilder = buildRequestMotherBuilderInnerClass(requestType.nestedClass(BUILDER), effectiveParams);
+
         var typeSpec = TypeSpec.classBuilder(motherName)
                 .addModifiers(Modifier.PUBLIC)
-                .addMethod(recordBuilderPassthroughMethod(requestType))
-                .addMethod(createFactoryMethod(requestType, typeName, effectiveParams))
-                .addMethod(createConsumerOverloadForRecord(requestType, typeName, effectiveParams))
-                .addMethods(nestedFieldOverloadsForRecord(requestType, typeName, effectiveParams))
+                .addType(innerBuilder)
+                .addMethod(requestMotherBuilderFactoryMethod(motherBuilderRef, effectiveParams))
+                .addMethod(createFactoryMethod(requestType, typeName))
+                .addMethod(createConsumerOverloadForRecord(requestType, typeName, motherBuilderRef))
                 .build();
 
         fileWriter.writeFile(packageName, motherName, typeSpec);
@@ -93,11 +96,6 @@ class MotherWriter {
 
     /**
      * Writes a Mother for an @Event-annotated type (or its concrete subtype if sealed).
-     * <p>
-     * When {@code hasEmbeddedBuilder} is {@code true} (e.g. for AVSC-generated records that already
-     * carry a nested {@code Builder} class), the mother delegates to that embedded builder directly
-     * and no standalone builder class is generated. Otherwise a standalone builder is written to
-     * production source.
      */
     void writeEventMother(TypeManifest eventType, TypeElement preferredElement, boolean hasEmbeddedBuilder) {
         var qualifiedName = eventType.packageName() + "." + eventType.simpleName();
@@ -110,13 +108,15 @@ class MotherWriter {
         var packageName = eventType.packageName();
         var fields = eventType.fields();
         var eventTypeName = (ClassName) eventType.asTypeName();
+        var motherBuilderRef = ClassName.get("", "MotherBuilder");
         var builderType = resolveBuilderType(eventTypeName, packageName, simpleName, fields, hasEmbeddedBuilder);
+        var innerBuilder = buildEventMotherBuilderInnerClass(builderType, fields, hasEmbeddedBuilder);
         var typeSpec = TypeSpec.classBuilder(motherName)
                 .addModifiers(Modifier.PUBLIC)
-                .addMethod(builderFactoryMethodWithDefaults(builderType, fields))
+                .addType(innerBuilder)
+                .addMethod(eventMotherBuilderFactoryMethod(motherBuilderRef, fields))
                 .addMethod(motherFactoryMethod(eventTypeName, simpleName))
-                .addMethod(motherConsumerOverload(eventTypeName, simpleName, builderType))
-                .addMethods(nestedFieldOverloads(eventTypeName, simpleName, fields, hasEmbeddedBuilder))
+                .addMethod(motherConsumerOverload(eventTypeName, simpleName, motherBuilderRef))
                 .build();
         fileWriter.writeFile(packageName, motherName, typeSpec);
         fields.forEach(f -> writeNestedMothersFor(f.type(), preferredElement, hasEmbeddedBuilder));
@@ -152,12 +152,14 @@ class MotherWriter {
         var fields = type.fields();
         var typeName = (ClassName) type.asTypeName();
         var builderType = resolveBuilderType(typeName, packageName, simpleName, fields, hasEmbeddedBuilder);
+        var motherBuilderRef = ClassName.get("", "MotherBuilder");
+        var innerBuilder = buildEventMotherBuilderInnerClass(builderType, fields, hasEmbeddedBuilder);
         var typeSpec = TypeSpec.classBuilder(motherName)
                 .addModifiers(Modifier.PUBLIC)
-                .addMethod(builderFactoryMethodWithDefaults(builderType, fields))
+                .addType(innerBuilder)
+                .addMethod(eventMotherBuilderFactoryMethod(motherBuilderRef, fields))
                 .addMethod(motherFactoryMethod(type.asTypeName(), simpleName))
-                .addMethod(motherConsumerOverload(type.asTypeName(), simpleName, builderType))
-                .addMethods(nestedFieldOverloads(type.asTypeName(), simpleName, fields, hasEmbeddedBuilder))
+                .addMethod(motherConsumerOverload(type.asTypeName(), simpleName, motherBuilderRef))
                 .build();
         fileWriter.writeFile(packageName, motherName, typeSpec);
         fields.forEach(f -> writeNestedMothersFor(f.type(), preferredElement, hasEmbeddedBuilder));
@@ -188,60 +190,137 @@ class MotherWriter {
         return type.isRecord();
     }
 
-    // -- Request record: delegate to the record's own generated builder --
+    // -- MotherBuilder inner class generation --
 
-    private MethodSpec recordBuilderPassthroughMethod(ClassName recordType) {
-        return MethodSpec.methodBuilder("builder")
+    /**
+     * Builds the {@code MotherBuilder} inner class for event/nested mothers.
+     * It extends the standalone or embedded builder and adds {@code Consumer<NestedBuilder>}
+     * overloads for each nested-record field.
+     */
+    private TypeSpec buildEventMotherBuilderInnerClass(
+            ClassName parentBuilderType,
+            List<VariableManifest> fields,
+            boolean hasEmbeddedBuilder
+    ) {
+        var inner = TypeSpec.classBuilder("MotherBuilder")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .returns(recordType.nestedClass(BUILDER))
-                .addStatement("return $T.builder()", recordType)
+                .superclass(parentBuilderType);
+        fields.stream()
+                .filter(f -> isNestedObjectType(f.type()))
+                .forEach(f -> inner.addMethod(nestedConsumerSetterForEventMotherBuilder(f, hasEmbeddedBuilder)));
+        return inner.build();
+    }
+
+    /**
+     * Builds the {@code MotherBuilder} inner class for request-record mothers.
+     * It extends the record's own {@code Builder} and adds {@code Consumer<NestedBuilder>}
+     * overloads for each nested-record effective param.
+     */
+    private TypeSpec buildRequestMotherBuilderInnerClass(
+            ClassName parentBuilderType,
+            List<EffectiveParam> params
+    ) {
+        var inner = TypeSpec.classBuilder("MotherBuilder")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .superclass(parentBuilderType);
+        params.stream()
+                .filter(ep -> isNestedObjectType(ep.effectiveType()))
+                .forEach(ep -> inner.addMethod(nestedConsumerSetterForRequestMotherBuilder(ep)));
+        return inner.build();
+    }
+
+    private MethodSpec nestedConsumerSetterForEventMotherBuilder(VariableManifest field, boolean hasEmbeddedBuilder) {
+        var nestedType = field.type();
+        var simpleName = nestedType.simpleName().replace(".", "");
+        var motherType = ClassName.get(nestedType.packageName(), simpleName + MOTHER_SUFFIX);
+         var nestedMotherBuilderType = motherType.nestedClass("MotherBuilder");
+        return consumerSetterMethod(setterMethodName(field.name()), motherType, capitalize(simpleName), nestedMotherBuilderType);
+    }
+
+    private MethodSpec nestedConsumerSetterForRequestMotherBuilder(EffectiveParam ep) {
+        var nestedType = ep.effectiveType();
+        var simpleName = nestedType.simpleName().replace(".", "");
+        var motherType = ClassName.get(nestedType.packageName(), simpleName + MOTHER_SUFFIX);
+        var nestedMotherBuilderType = motherType.nestedClass("MotherBuilder");
+        return consumerSetterMethod(setterMethodName(ep.param().name()), motherType, capitalize(simpleName), nestedMotherBuilderType);
+    }
+
+    /**
+     * Generates a method like:
+     * <pre>
+     *   public MotherBuilder name(Consumer&lt;PersonNameBuilder&gt; nameCustomiser) {
+     *       name(PersonNameMother.createPersonName(nameCustomiser));
+     *       return this;
+     *   }
+     * </pre>
+     */
+    private MethodSpec consumerSetterMethod(
+            String setterName,
+            ClassName motherType,
+            String capitalizedSimpleName,
+            ClassName nestedBuilderType
+    ) {
+        var consumerType = ParameterizedTypeName.get(ClassName.get(Consumer.class), nestedBuilderType);
+        var paramName = setterName + "Customiser";
+        return MethodSpec.methodBuilder(setterName)
+                .addModifiers(Modifier.PUBLIC)
+                .returns(ClassName.get("", "MotherBuilder"))
+                .addParameter(consumerType, paramName)
+                .addStatement("$L($T.create$L($L))", setterName, motherType, capitalizedSimpleName, paramName)
+                .addStatement("return this")
                 .build();
     }
 
-    private MethodSpec createFactoryMethod(ClassName recordType, String typeName, List<EffectiveParam> params) {
-        var fieldDefaults = fieldDefaultsFor(params);
-        var body = CodeBlock.builder()
-                .add(builderWithDefaultsSetup(recordType, fieldDefaults))
-                .addStatement("return builder.build()")
+    // -- Factory methods --
+
+    /** Returns a {@code builder()} method using statement style (avoids chaining on parent return type). */
+    private MethodSpec eventMotherBuilderFactoryMethod(ClassName motherBuilderRef, List<VariableManifest> fields) {
+        var code = CodeBlock.builder().addStatement("var builder = new $T()", motherBuilderRef);
+        fields.forEach(field ->
+                code.addStatement("builder.$L($L)", setterMethodName(field.name()), defaultValueFor(field, field.type())));
+        code.addStatement("return builder");
+        return MethodSpec.methodBuilder("builder")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .returns(motherBuilderRef)
+                .addCode(code.build())
                 .build();
+    }
+
+    /** Returns a {@code builder()} method for request mothers, populating defaults via statements. */
+    private MethodSpec requestMotherBuilderFactoryMethod(ClassName motherBuilderRef, List<EffectiveParam> params) {
+        var code = CodeBlock.builder().addStatement("var builder = new $T()", motherBuilderRef);
+        params.forEach(ep ->
+                code.addStatement("builder.$L($L)", setterMethodName(ep.param().name()), defaultValueFor(ep.param(), ep.effectiveType())));
+        code.addStatement("return builder");
+        return MethodSpec.methodBuilder("builder")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .returns(motherBuilderRef)
+                .addCode(code.build())
+                .build();
+    }
+
+    private MethodSpec createFactoryMethod(ClassName recordType, String typeName) {
         return MethodSpec.methodBuilder("create" + capitalize(typeName))
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .returns(recordType)
-                .addCode(body)
+                .addStatement("return builder().build()")
                 .build();
     }
 
-    private MethodSpec createConsumerOverloadForRecord(ClassName recordType, String typeName, List<EffectiveParam> params) {
-        var fieldDefaults = fieldDefaultsFor(params);
-        var builderType = recordType.nestedClass(BUILDER);
-        var consumerType = ParameterizedTypeName.get(ClassName.get(Consumer.class), builderType);
-        var body = CodeBlock.builder()
-                .add(builderWithDefaultsSetup(recordType, fieldDefaults))
-                .addStatement("customiser.accept(builder)")
-                .addStatement("return builder.build()")
-                .build();
+    private MethodSpec createConsumerOverloadForRecord(ClassName recordType, String typeName, ClassName motherBuilderRef) {
+        var consumerType = ParameterizedTypeName.get(ClassName.get(Consumer.class), motherBuilderRef);
         return MethodSpec.methodBuilder("create" + capitalize(typeName))
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .returns(recordType)
                 .addParameter(consumerType, "customiser")
-                .addCode(body)
+                .addStatement("var builder = builder()")
+                .addStatement("customiser.accept(builder)")
+                .addStatement("return builder.build()")
                 .build();
     }
 
-    private List<FieldDefault> fieldDefaultsFor(List<EffectiveParam> params) {
-        return params.stream()
-                .map(ep -> new FieldDefault(ep.param().name(), defaultValueFor(ep.param(), ep.effectiveType())))
-                .toList();
-    }
-
-    private CodeBlock builderWithDefaultsSetup(ClassName recordType, List<FieldDefault> fieldDefaults) {
-        var block = CodeBlock.builder().add("var builder = $T.builder()", recordType);
-        for (var fd : fieldDefaults) {
-            block.add("\n        .$L($L)", setterMethodName(fd.name()), fd.defaultValue());
-        }
-        block.add(";\n");
-        return block.build();
-    }
+    /** Pairs an original {@link VariableManifest} with its effective (possibly unwrapped) {@link TypeManifest}. */
+    record EffectiveParam(VariableManifest param, TypeManifest effectiveType) {}
 
     // -- Event / nested types: standalone Builder class in production source --
 
@@ -274,17 +353,6 @@ class MotherWriter {
     private String setterMethodName(String fieldName) {
         var prefix = context.builderSetterPrefix();
         return prefix.isEmpty() ? fieldName : prefix + capitalize(fieldName);
-    }
-
-    private MethodSpec builderFactoryMethodWithDefaults(ClassName builderType, List<VariableManifest> fields) {
-        var code = CodeBlock.builder().add("return new $T()", builderType);
-        fields.forEach(field -> code.add("\n        .$L($L)", setterMethodName(field.name()), defaultValueFor(field, field.type())));
-        code.add(";\n");
-        return MethodSpec.methodBuilder("builder")
-                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .returns(builderType)
-                .addCode(code.build())
-                .build();
     }
 
     private MethodSpec buildMethod(TypeName targetType, String args) {
@@ -386,7 +454,52 @@ class MotherWriter {
         if (type.isEnum()) {
             return CodeBlock.of("$T.$L", type.asTypeName(), value);
         }
+        if (type.isSingleValueType()) {
+            var innerField = type.fields().getFirst();
+            var innerLiteral = tryExampleLiteralFor(value, innerField.type().asBoxed());
+            if (innerLiteral != null) {
+                return CodeBlock.of("new $T($L)", type.asTypeName(), innerLiteral);
+            }
+        }
+        if (type.isSealed()) {
+            for (var subtype : type.permittedSubtypes()) {
+                if (!subtype.isSingleValueType()) continue;
+                var innerField = subtype.fields().getFirst();
+                var innerLiteral = tryExampleLiteralFor(value, innerField.type().asBoxed());
+                if (innerLiteral != null) {
+                    return CodeBlock.of("new $T($L)", subtype.asTypeName(), innerLiteral);
+                }
+            }
+        }
         return CodeBlock.of("$S", value);
+    }
+
+    /**
+     * Attempts to produce a {@link CodeBlock} literal for {@code value} as the given {@code type}.
+     * Returns {@code null} when the value cannot be interpreted as that type.
+     */
+    private CodeBlock tryExampleLiteralFor(String value, TypeManifest type) {
+        if (type.is(String.class)) return CodeBlock.of("$S", value);
+        if (type.is(int.class) || type.is(Integer.class)) {
+            try { return CodeBlock.of("$L", Integer.parseInt(value)); } catch (NumberFormatException ignored) { return null; }
+        }
+        if (type.is(long.class) || type.is(Long.class)) {
+            try { return CodeBlock.of("$LL", Long.parseLong(value)); } catch (NumberFormatException ignored) { return null; }
+        }
+        if (type.is(double.class) || type.is(Double.class)) {
+            try { return CodeBlock.of("$L", Double.parseDouble(value)); } catch (NumberFormatException ignored) { return null; }
+        }
+        if (type.is(float.class) || type.is(Float.class)) {
+            try { return CodeBlock.of("$Lf", Float.parseFloat(value)); } catch (NumberFormatException ignored) { return null; }
+        }
+        if (type.is(boolean.class) || type.is(Boolean.class)) {
+            if ("true".equalsIgnoreCase(value) || "false".equalsIgnoreCase(value)) {
+                return CodeBlock.of("$L", value.toLowerCase());
+            }
+            return null;
+        }
+        if (type.isEnum()) return CodeBlock.of("$T.$L", type.asTypeName(), value);
+        return null;
     }
 
     private CodeBlock numericExampleLiteral(String value, TypeManifest type, VariableManifest param) {
@@ -431,96 +544,5 @@ class MotherWriter {
                         + " on field \"" + param.name() + "\"",
                 param.element()
         );
-    }
-
-    private record FieldDefault(String name, CodeBlock defaultValue) {}
-
-    /** Pairs an original {@link VariableManifest} with its effective (possibly unwrapped) {@link TypeManifest}. */
-    record EffectiveParam(VariableManifest param, TypeManifest effectiveType) {}
-
-    // -- Per-nested-field consumer overloads --
-
-    /**
-     * For each nested-record field in a request mother, generates an overload that accepts a
-     * {@code Consumer<NestedBuilder>} and forwards it to the nested mother, e.g.:
-     * <pre>
-     *   public static OrderRequest createOrderRequest(Consumer&lt;AddressBuilder&gt; addressCustomiser) {
-     *       return createOrderRequest(b -> b.address(AddressMother.createAddress(addressCustomiser)));
-     *   }
-     * </pre>
-     */
-    private List<MethodSpec> nestedFieldOverloadsForRecord(
-            ClassName recordType,
-            String typeName,
-            List<EffectiveParam> params
-    ) {
-        return params.stream()
-                .filter(ep -> isNestedObjectType(ep.effectiveType()))
-                .map(ep -> nestedFieldOverloadForRecord(recordType, typeName, ep))
-                .toList();
-    }
-
-    private MethodSpec nestedFieldOverloadForRecord(ClassName recordType, String typeName, EffectiveParam ep) {
-        var nestedType = ep.effectiveType();
-        var simpleName = nestedType.simpleName().replace(".", "");
-        var motherType = ClassName.get(nestedType.packageName(), simpleName + MOTHER_SUFFIX);
-        var nestedBuilderType = ClassName.get(nestedType.packageName(), simpleName + BUILDER);
-        var consumerType = ParameterizedTypeName.get(ClassName.get(Consumer.class), nestedBuilderType);
-        var paramName = ep.param().name() + "Customiser";
-        return MethodSpec.methodBuilder("create" + capitalize(typeName))
-                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .returns(recordType)
-                .addParameter(consumerType, paramName)
-                .addStatement("return create$L(b -> b.$L($T.create$L($L)))",
-                        capitalize(typeName), setterMethodName(ep.param().name()), motherType, capitalize(simpleName), paramName)
-                .build();
-    }
-
-    /**
-     * For each nested-record field in an event / nested-type mother, generates an overload that
-     * accepts a {@code Consumer<NestedBuilder>} and forwards it to the nested mother, e.g.:
-     * <pre>
-     *   public static OrderEvent createOrderEvent(Consumer&lt;AddressBuilder&gt; addressCustomiser) {
-     *       var builder = builder();
-     *       builder.withAddress(AddressMother.createAddress(addressCustomiser));
-     *       return builder.build();
-     *   }
-     * </pre>
-     */
-    private List<MethodSpec> nestedFieldOverloads(
-            TypeName parentTypeName,
-            String typeName,
-            List<VariableManifest> fields,
-            boolean hasEmbeddedBuilder
-    ) {
-        return fields.stream()
-                .filter(f -> isNestedObjectType(f.type()))
-                .map(f -> nestedFieldOverload(parentTypeName, typeName, f, hasEmbeddedBuilder))
-                .toList();
-    }
-
-    private MethodSpec nestedFieldOverload(
-            TypeName parentTypeName,
-            String typeName,
-            VariableManifest field,
-            boolean hasEmbeddedBuilder
-    ) {
-        var nestedType = field.type();
-        var simpleName = nestedType.simpleName().replace(".", "");
-        var motherType = ClassName.get(nestedType.packageName(), simpleName + MOTHER_SUFFIX);
-        var nestedBuilderType = hasEmbeddedBuilder
-                ? ((ClassName) nestedType.asTypeName()).nestedClass(BUILDER)
-                : ClassName.get(nestedType.packageName(), simpleName + BUILDER);
-        var consumerType = ParameterizedTypeName.get(ClassName.get(Consumer.class), nestedBuilderType);
-        var paramName = field.name() + "Customiser";
-        return MethodSpec.methodBuilder("create" + capitalize(typeName))
-                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .returns(parentTypeName)
-                .addParameter(consumerType, paramName)
-                .addStatement("var builder = builder()")
-                .addStatement("builder.$L($T.create$L($L))",
-                        setterMethodName(field.name()), motherType, capitalize(simpleName), paramName)
-                .addStatement("return builder.build()")
-                .build();
     }
 }

@@ -4,6 +4,7 @@ import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
 import be.appify.prefab.core.util.SerializationRegistry;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -19,13 +20,14 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.boot.testcontainers.service.connection.ServiceConnectionAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.convert.ConversionService;
+import org.springframework.core.env.PropertyResolver;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonTypeResolver;
-import org.springframework.core.env.PropertyResolver;
 import org.springframework.test.context.DynamicPropertyRegistrar;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -54,8 +56,13 @@ public class KafkaTestAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(name = "kafkaNetwork")
-    Network kafkaNetwork() {
-        return Network.newNetwork();
+    Network kafkaNetwork(PropertyResolver propertyResolver) {
+        return new ReusableNetwork(kafkaNetworkName(propertyResolver));
+    }
+
+    static String kafkaNetworkName(PropertyResolver propertyResolver) {
+        return TestContainerNameResolver.resolveContainerName(
+                propertyResolver, "kafka", "prefab.test.kafka.network-name");
     }
 
     @Bean
@@ -153,10 +160,62 @@ public class KafkaTestAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean(name = "testJsonTypeResolver")    @ConditionalOnClass(JacksonJsonDeserializer.class)
+    @ConditionalOnMissingBean(name = "testJsonTypeResolver")
+    @ConditionalOnClass(JacksonJsonDeserializer.class)
     TestJsonTypeResolver testJsonTypeResolver(ObjectProvider<JacksonJsonTypeResolver> delegate) {
         return new TestJsonTypeResolver(delegate.getIfAvailable(() -> (topic, data, headers) -> {
             throw new IllegalStateException("No type resolver configured for topic: " + topic);
         }));
+    }
+
+    private static final class ReusableNetwork implements Network {
+
+        private final String name;
+        private String id;
+
+        private ReusableNetwork(String name) {
+            this.name = name;
+        }
+
+        @Override
+        public synchronized String getId() {
+            if (this.id == null) {
+                this.id = findOrCreateNetworkId();
+            }
+            return this.id;
+        }
+
+        private String findOrCreateNetworkId() {
+            var dockerClient = DockerClientFactory.instance().client();
+            var existingNetworkId = findExistingNetworkId(dockerClient);
+            if (existingNetworkId.isPresent()) {
+                return existingNetworkId.get();
+            }
+
+            try {
+                return dockerClient.createNetworkCmd()
+                        .withName(this.name)
+                        .withCheckDuplicate(true)
+                        .exec()
+                        .getId();
+            } catch (RuntimeException exception) {
+                return findExistingNetworkId(dockerClient)
+                        .orElseThrow(() -> new IllegalStateException(
+                                "Unable to create or locate Kafka test network '" + this.name + "'", exception));
+            }
+        }
+
+        private Optional<String> findExistingNetworkId(com.github.dockerjava.api.DockerClient dockerClient) {
+            return dockerClient.listNetworksCmd()
+                    .withNameFilter(this.name)
+                    .exec()
+                    .stream()
+                    .map(network -> network.getId())
+                    .findFirst();
+        }
+
+        @Override
+        public void close() {
+        }
     }
 }

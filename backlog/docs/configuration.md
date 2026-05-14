@@ -72,10 +72,12 @@ Prefab test infrastructure automatically provisions Docker containers for Postgr
 
 All testcontainers use a default Docker name pattern: **`<type>_<appName>`**, where `appName` is derived from `spring.application.name` with dots and dashes replaced by underscores. For example, with `spring.application.name=my-chat-app`, the Kafka container is named `kafka_my_chat_app`.
 
+Kafka also uses a reusable Docker network with the same default naming pattern so repeated test runs attach to the same network instead of creating a fresh one each time.
+
 | Container | Default name | Reuse | Notes |
 |-----------|--------------|-------|-------|
 | PostgreSQL | `postgres_<appName>` | ✅ | Programmatic `PostgreSQLContainer` bean with `.withReuse(true)` |
-| Kafka | `kafka_<appName>` | ✅ | Configured with `.withReuse(true)` |
+| Kafka | `kafka_<appName>` | ✅ | Configured with `.withReuse(true)` and a reusable named Docker network |
 | Schema Registry | `schema_registry_<appName>` | ✅ | Enabled when `prefab.test.schema-registry.enabled=true`; disabled by default |
 | LocalStack (SNS/SQS) | `localstack_<appName>` | ✅ | Configured with `.withReuse(true)` |
 | Pub/Sub Emulator | `pubsub_<appName>` | ❌ | **Reuse disabled** to prevent state corruption; containers are destroyed after each test run |
@@ -88,6 +90,7 @@ Each container name can be customized via a `prefab.test.*` property. If not set
 |----------------------------------------|---------|-------------|
 | `prefab.test.postgres.container-name` | `postgres_<appName>` | Override Postgres container name |
 | `prefab.test.kafka.container-name` | `kafka_<appName>` | Override Kafka container name |
+| `prefab.test.kafka.network-name` | `kafka_<appName>` | Override the reusable Kafka Docker network name |
 | `prefab.test.schema-registry.container-name` | `schema_registry_<appName>` | Override Schema Registry container name |
 | `prefab.test.localstack.container-name` | `localstack_<appName>` | Override LocalStack container name |
 | `prefab.test.pubsub.container-name` | `pubsub_<appName>` | Override Pub/Sub Emulator container name |

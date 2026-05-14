@@ -5,6 +5,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.mock.env.MockEnvironment;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -77,6 +78,22 @@ class KafkaTestAutoConfigurationTest {
         customizer.customize(factory);
 
         assertEquals("earliest", factory.getConfigurationProperties().get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
+    }
+
+    @Test
+    void kafkaNetworkNameDefaultsToApplicationScopedName() {
+        var environment = new MockEnvironment().withProperty("spring.application.name", "my-chat-app");
+
+        assertEquals("kafka_my_chat_app", KafkaTestAutoConfiguration.kafkaNetworkName(environment));
+    }
+
+    @Test
+    void kafkaNetworkNameUsesExplicitOverride() {
+        var environment = new MockEnvironment()
+                .withProperty("spring.application.name", "my-chat-app")
+                .withProperty("prefab.test.kafka.network-name", "kafka_shared");
+
+        assertEquals("kafka_shared", KafkaTestAutoConfiguration.kafkaNetworkName(environment));
     }
 }
 

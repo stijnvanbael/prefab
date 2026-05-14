@@ -8,6 +8,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.time.Instant;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.springframework.core.annotation.AnnotationUtils;
@@ -80,6 +81,7 @@ public class TestConsumerExecutionListener extends AbstractTestExecutionListener
             var topic = environment.resolvePlaceholders(annotation.topic());
             var kafkaConsumer = (Consumer<String, V>) createConsumer(testInstance);
             kafkaConsumer.subscribe(java.util.List.of(topic));
+            awaitPartitionAssignment(kafkaConsumer);
             var eventConsumer = new EventConsumer<V>();
             var pollingThread = Thread.ofVirtual().start(() -> {
                 while (!Thread.currentThread().isInterrupted()) {
@@ -98,6 +100,14 @@ public class TestConsumerExecutionListener extends AbstractTestExecutionListener
         holder.eventConsumer().reset();
         ReflectionUtils.makeAccessible(field);
         ReflectionUtils.setField(field, testInstance, holder.eventConsumer());
+    }
+
+    /** Waits until Kafka has assigned partitions so tests cannot miss very early events. */
+    private static void awaitPartitionAssignment(Consumer<?, ?> consumer) {
+        var deadline = Instant.now().plusSeconds(5);
+        while (consumer.assignment().isEmpty() && Instant.now().isBefore(deadline)) {
+            consumer.poll(Duration.ofMillis(100));
+        }
     }
 
     private Consumer<?, ?> createConsumer(Object testInstance) {

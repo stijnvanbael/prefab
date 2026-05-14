@@ -7,7 +7,7 @@ status: Done
 assignee:
   - '@copilot'
 created_date: '2026-05-14 09:14'
-updated_date: '2026-05-14 09:49'
+updated_date: '2026-05-14 10:41'
 labels:
   - kafka
   - annotations
@@ -49,4 +49,6 @@ Change Kafka behavior so production keeps default auto-offset-reset at earliest,
 All 6 acceptance criteria met and all tests pass (kafka + test modules).\n\n- Added Kafka-only `autoOffsetReset` attribute to `@EventHandlerConfig` (empty default = inherit Spring/global setting; non-empty = listener-level override taking precedence over `spring.kafka.consumer.auto-offset-reset`).\n- Generated Kafka listeners emit `@KafkaListener(properties = \"auto.offset.reset=...\")` when override is set.\n- Production Kafka consumer factory keeps `earliest` default via `putIfAbsent`.\n- Test consumer factory (`KafkaTestAutoConfiguration`) now defaults to `latest` via `putIfAbsent`.\n- Processor tests added for override generation without a dedicated consumer config class.\n- `KafkaTestAutoConfigurationTest` rewritten at properties level to avoid `DynamicDeserializer` instantiation (Confluent Avro not on test module classpath).\n- Docs updated in `annotation-reference.md` and `configuration.md`.\n- Committed: feat(kafka): default test consumer to latest; add EventHandlerConfig.autoOffsetReset Kafka override
 
 Fix (commit a0de69ae): the initial implementation set testConsumerFactory to latest, causing UserIntegrationTest.createUser to fail due to a race condition — the @TestEventConsumer partition assignment is async, so with latest the consumer misses events published before its first poll's partition assignment completes. Resolution: reverted testConsumerFactory to earliest (reliable event catching for test infrastructure), and instead registered a DefaultKafkaConsumerFactoryCustomizer bean (testLatestOffsetResetCustomizer) that overrides the main application kafkaConsumerFactory to latest in tests — but only when no explicit spring.kafka.consumer.auto-offset-reset is configured. This cleanly separates test-infrastructure (earliest) from application-listener (latest) semantics.
+
+Stabilization follow-up (commit a3fa0ee6): fixed flaky `examples/kafka` `UserIntegrationTest.createUser` timeout by eliminating a race in `TestConsumerExecutionListener`. After subscribing the Kafka consumer, the listener now polls until partition assignment is established (up to 5s) before starting the background polling thread. This prevents missing very early events published immediately after test start. Verified with `mvn -am -pl examples/kafka test` (11 tests, 0 failures).
 <!-- SECTION:FINAL_SUMMARY:END -->

@@ -148,12 +148,19 @@ class KafkaConsumerWriter {
                         "${spring.application.name}." + CaseUtil.toKebabCase(owner.simpleName())
                                 + "-on-" + CaseUtil.toKebabCase(eventName))
                 .addMember("concurrency", "$S", concurrencyExpression(owner));
-        var customConfig = owner.inheritedAnnotationsOfType(EventHandlerConfig.class).stream().findFirst()
+        var eventHandlerConfig = owner.inheritedAnnotationsOfType(EventHandlerConfig.class).stream().findFirst();
+        var customConfig = eventHandlerConfig
                 .map(EventHandlerConfig.Util::hasCustomConfig)
                 .orElse(false);
         if (customConfig) {
             kafkaListener.addMember("errorHandler", "$S", "%sKafkaErrorHandler".formatted(uncapitalize(owner.simpleName())));
         }
+        eventHandlerConfig
+                .filter(EventHandlerConfig.Util::hasCustomAutoOffsetReset)
+                .ifPresent(config -> kafkaListener.addMember(
+                        "properties",
+                        "$S",
+                        "auto.offset.reset=" + config.autoOffsetReset()));
         return kafkaListener.build();
     }
 

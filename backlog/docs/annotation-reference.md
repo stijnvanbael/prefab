@@ -636,6 +636,7 @@ Configures dead-lettering and retry behaviour for all `@EventHandler` methods on
 | `minimumBackoffMs`     | `String`  | `"${prefab.dlt.retries.minimum-backoff-ms:1000}"`  | Min retry delay (ms).                                                       |
 | `maximumBackoffMs`     | `String`  | `"${prefab.dlt.retries.maximum-backoff-ms:30000}"` | Max retry delay (ms).                                                       |
 | `backoffMultiplier`    | `String`  | `"${prefab.dlt.retries.backoff-multiplier:1.5}"`   | Exponential backoff multiplier.                                             |
+| `autoOffsetReset`      | `String`  | `""`                                                 | Kafka-only listener override for `auto.offset.reset`; supports literals and placeholders. |
 
 ```java
 @Aggregate
@@ -646,6 +647,10 @@ public record Channel(...) {
     public void onMessageSent(MessageSent event) { ... }
 }
 ```
+
+When `autoOffsetReset` is set, generated Kafka listeners add
+`@KafkaListener(properties = "auto.offset.reset=...")`. This per-listener setting takes
+precedence over `spring.kafka.consumer.auto-offset-reset`.
 
 ---
 

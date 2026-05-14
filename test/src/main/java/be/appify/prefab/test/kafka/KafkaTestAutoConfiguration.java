@@ -113,7 +113,7 @@ public class KafkaTestAutoConfiguration {
             KafkaJsonTypeResolver jsonTypeResolver
     ) {
         var consumerProperties = (properties != null ? properties : kafkaProperties).buildConsumerProperties();
-        consumerProperties.putIfAbsent(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        consumerProperties.putIfAbsent(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
         consumerProperties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
                 connectionDetails.getConsumer().getBootstrapServers());
         var factory = new DefaultKafkaConsumerFactory<String, Object>(consumerProperties);

@@ -52,4 +52,17 @@ class KafkaConsumerConfigWriterTest {
                 "kafka.dltdisabled.infrastructure.kafka.UserExporterKafkaConsumerConfig",
                 "expected/kafka/dltdisabled/UserExporterKafkaConsumerConfig.java");
     }
+
+    @Test
+    void autoOffsetResetOverrideDoesNotGenerateConsumerConfig() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/offsetoverride/User.java"),
+                        sourceOf("kafka/offsetoverride/UserCreated.java"),
+                        sourceOf("kafka/offsetoverride/UserExporter.java"));
+        assertThat(compilation).succeeded();
+        Assertions.assertThrows(AssertionError.class,
+                () -> assertThat(compilation).generatedSourceFile("kafka.offsetoverride.infrastructure.kafka.UserExporterKafkaConsumerConfig"));
+    }
 }

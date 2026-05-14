@@ -23,6 +23,9 @@ public @interface EventHandlerConfig {
     /** Default backoff multiplier. */
     String DEFAULT_BACKOFF_MULTIPLIER = "${prefab.dlt.retries.backoff-multiplier:1.5}";
 
+    /** Default Kafka auto-offset-reset override (empty means use Spring/global defaults). */
+    String DEFAULT_AUTO_OFFSET_RESET = "";
+
     /**
      * Configure the number of parallel threads to process events. Concurrency can either be a fixed number (e.g. "4") or a property
      * placeholder (e.g. "${event.handler.concurrency}"). Defaults to "1".
@@ -78,6 +81,15 @@ public @interface EventHandlerConfig {
     String backoffMultiplier() default "${prefab.dlt.retries.backoff-multiplier:1.5}";
 
     /**
+     * Kafka-only override for consumer {@code auto.offset.reset}. Accepts either a literal
+     * value such as {@code earliest}/{@code latest} or a Spring property placeholder.
+     * Leave empty to use framework defaults.
+     *
+     * @return Kafka auto-offset-reset override or empty string.
+     */
+    String autoOffsetReset() default DEFAULT_AUTO_OFFSET_RESET;
+
+    /**
      * Utility interface providing helper methods to evaluate configuration properties
      * defined in the {@link EventHandlerConfig}.
      */
@@ -91,7 +103,8 @@ public @interface EventHandlerConfig {
          * @return {@code true} if the configuration is custom, {@code false} otherwise.
          */
         static boolean hasCustomConfig(EventHandlerConfig config) {
-            return config != null && !config.deadLetteringEnabled() || !DEFAULT_DEAD_LETTER_TOPIC.equals(config.deadLetterTopic());
+            return config != null
+                    && (!config.deadLetteringEnabled() || !DEFAULT_DEAD_LETTER_TOPIC.equals(config.deadLetterTopic()));
         }
 
         /**
@@ -120,6 +133,17 @@ public @interface EventHandlerConfig {
                     || !DEFAULT_MINIMUM_BACKOFF_MS.equals(config.minimumBackoffMs())
                     || !DEFAULT_MAXIMUM_BACKOFF_MS.equals(config.maximumBackoffMs())
                     || !DEFAULT_BACKOFF_MULTIPLIER.equals(config.backoffMultiplier()));
+        }
+
+        /**
+         * Determines whether the provided {@link EventHandlerConfig} explicitly overrides Kafka
+         * {@code auto.offset.reset}.
+         *
+         * @param config The {@link EventHandlerConfig} instance to evaluate.
+         * @return {@code true} if a non-empty override is provided, {@code false} otherwise.
+         */
+        static boolean hasCustomAutoOffsetReset(EventHandlerConfig config) {
+            return config != null && !config.autoOffsetReset().isBlank();
         }
     }
 }

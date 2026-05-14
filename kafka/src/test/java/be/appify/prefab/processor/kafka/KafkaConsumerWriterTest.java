@@ -105,6 +105,21 @@ class KafkaConsumerWriterTest {
     }
 
     @Test
+    void autoOffsetResetOverride() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/offsetoverride/User.java"),
+                        sourceOf("kafka/offsetoverride/UserCreated.java"),
+                        sourceOf("kafka/offsetoverride/UserExporter.java"));
+        assertThat(compilation).succeeded();
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.offsetoverride.infrastructure.kafka.UserExporterKafkaConsumer",
+                "expected/kafka/offsetoverride/UserExporterKafkaConsumer.java");
+    }
+
+    @Test
     void avscEventConsumer() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

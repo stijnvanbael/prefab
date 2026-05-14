@@ -22,8 +22,12 @@ Prefab uses standard Spring Kafka properties (`spring.kafka.*`). The `KafkaConfi
 dynamic JSON serializers/deserializers via `DynamicSerializer` and `DynamicDeserializer` that look up the
 correct Avro or JSON schema from `SerializationRegistry`.
 
-By default, Prefab sets `auto.offset.reset=earliest` for consumers when no explicit value is provided.
-You can override this with the standard Spring property `spring.kafka.consumer.auto-offset-reset`.
+By default, Prefab sets `auto.offset.reset=earliest` for production consumers when no explicit value is provided.
+In Prefab test auto-configuration, test consumers default to `auto.offset.reset=latest`.
+
+You can override the global consumer setting with `spring.kafka.consumer.auto-offset-reset`.
+For generated Kafka listeners, `@EventHandlerConfig(autoOffsetReset = "...")` applies a
+listener-level `@KafkaListener(properties = "auto.offset.reset=...")` override that takes precedence.
 
 ---
 

@@ -23,7 +23,12 @@ dynamic JSON serializers/deserializers via `DynamicSerializer` and `DynamicDeser
 correct Avro or JSON schema from `SerializationRegistry`.
 
 By default, Prefab sets `auto.offset.reset=earliest` for production consumers when no explicit value is provided.
-In Prefab test auto-configuration, test consumers default to `auto.offset.reset=latest`.
+
+In test mode, generated Kafka listeners (those backing `@EventHandler` methods) default to `latest`
+via the `testLatestOffsetResetCustomizer` bean provided by `KafkaTestAutoConfiguration`. This prevents
+listeners from replaying historical events on each test run. The test infrastructure consumer
+(`testConsumerFactory` — used by `@TestEventConsumer`) retains `earliest` so it reliably catches
+any event published during a test, regardless of partition-assignment timing.
 
 You can override the global consumer setting with `spring.kafka.consumer.auto-offset-reset`.
 For generated Kafka listeners, `@EventHandlerConfig(autoOffsetReset = "...")` applies a

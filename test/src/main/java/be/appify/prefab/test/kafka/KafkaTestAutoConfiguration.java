@@ -3,6 +3,7 @@ package be.appify.prefab.test.kafka;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
 import be.appify.prefab.core.util.SerializationRegistry;
+import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -18,6 +19,7 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.boot.testcontainers.service.connection.ServiceConnectionAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.convert.ConversionService;
+import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
@@ -113,7 +115,7 @@ public class KafkaTestAutoConfiguration {
             KafkaJsonTypeResolver jsonTypeResolver
     ) {
         var consumerProperties = (properties != null ? properties : kafkaProperties).buildConsumerProperties();
-        consumerProperties.putIfAbsent(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+        consumerProperties.putIfAbsent(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         consumerProperties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
                 connectionDetails.getConsumer().getBootstrapServers());
         var factory = new DefaultKafkaConsumerFactory<String, Object>(consumerProperties);
@@ -129,9 +131,29 @@ public class KafkaTestAutoConfiguration {
         return factory;
     }
 
+    /**
+     * Overrides the application-level Kafka consumer factory's {@code auto.offset.reset} to
+     * {@code latest} in tests when the property has not been explicitly configured by the user.
+     *
+     * <p>This applies to generated {@code @KafkaListener} consumers (e.g. those backing
+     * {@code @EventHandler} methods). It does <em>not</em> affect the {@code testConsumerFactory}
+     * used by {@code @TestEventConsumer}, which retains {@code earliest} so test-assertion consumers
+     * reliably catch any event regardless of partition-assignment timing.
+     */
     @Bean
-    @ConditionalOnMissingBean(name = "testJsonTypeResolver")
-    @ConditionalOnClass(JacksonJsonDeserializer.class)
+    @ConditionalOnClass(KafkaListenerContainerFactory.class)
+    DefaultKafkaConsumerFactoryCustomizer testLatestOffsetResetCustomizer(KafkaProperties kafkaProperties) {
+        return factory -> {
+            var explicitValue = kafkaProperties.buildConsumerProperties()
+                    .get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG);
+            if (explicitValue == null) {
+                factory.updateConfigs(Map.of(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest"));
+            }
+        };
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "testJsonTypeResolver")    @ConditionalOnClass(JacksonJsonDeserializer.class)
     TestJsonTypeResolver testJsonTypeResolver(ObjectProvider<JacksonJsonTypeResolver> delegate) {
         return new TestJsonTypeResolver(delegate.getIfAvailable(() -> (topic, data, headers) -> {
             throw new IllegalStateException("No type resolver configured for topic: " + topic);

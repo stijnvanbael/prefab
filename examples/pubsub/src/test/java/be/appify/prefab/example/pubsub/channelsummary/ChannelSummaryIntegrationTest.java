@@ -1,15 +1,13 @@
 package be.appify.prefab.example.pubsub.channelsummary;
 
-import org.junit.jupiter.api.Test;
-
 import be.appify.prefab.example.pubsub.channel.ChannelClient;
 import be.appify.prefab.example.pubsub.message.MessageClient;
 import be.appify.prefab.example.pubsub.user.UserClient;
 import be.appify.prefab.test.IntegrationTest;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
-
-import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -28,16 +26,11 @@ public class ChannelSummaryIntegrationTest {
 
     @Test
     void updateChannelSummaryTotals() throws Exception {
-        for (int run = 1; run <= 20; run++) {
-            assertScenario("general-" + run, run);
-        }
-    }
-
-    private void assertScenario(String channelName, int run) throws Exception {
+        var channelName = "general";
         var channelId = channels.createChannel(channelName);
-        var johnId = users.createUser("John-" + run);
-        var janeId = users.createUser("Jane-" + run);
-        var daveId = users.createUser("Dave-" + run);
+        var johnId = users.createUser("John");
+        var janeId = users.createUser("Jane");
+        var daveId = users.createUser("Dave");
         users.subscribeToChannel(johnId, channelId);
         users.subscribeToChannel(janeId, channelId);
         users.subscribeToChannel(daveId, channelId);

@@ -1,20 +1,20 @@
 package kafka.offsetoverride;
 
 import be.appify.prefab.core.annotations.Aggregate;
-import be.appify.prefab.core.annotations.Create;
-import be.appify.prefab.core.annotations.Id;
-import be.appify.prefab.core.annotations.Version;
-import be.appify.prefab.core.types.Reference;
+import be.appify.prefab.core.annotations.rest.Create;
+import java.util.UUID;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
 
 @Aggregate
 public record User(
-        @Id Reference<User> id,
+        @Id String id,
         @Version long version,
         String username
 ) {
     @Create
     public User(String username) {
-        this(Reference.create(), 0L, username);
+        this(UUID.randomUUID().toString(), 0L, username);
     }
 }
 

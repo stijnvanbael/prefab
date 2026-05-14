@@ -17,7 +17,7 @@ import org.springframework.data.annotation.Version;
 
 @Aggregate
 @GetList
-@EventHandlerConfig(concurrency = "4")
+@EventHandlerConfig(concurrency = "1")
 public record UserStatus(
         @Id Reference<UserStatus> id,
         @Version long version,

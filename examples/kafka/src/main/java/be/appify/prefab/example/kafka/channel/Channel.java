@@ -19,7 +19,7 @@ import org.springframework.data.annotation.Version;
 @Aggregate
 @GetList
 @GetById
-@EventHandlerConfig(concurrency = "4")
+@EventHandlerConfig(concurrency = "1")
 public record Channel(
         @Id Reference<Channel> id,
         @Version long version,

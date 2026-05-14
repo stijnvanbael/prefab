@@ -28,7 +28,7 @@ public class ChannelSummaryIntegrationTest {
 
     @Test
     void updateChannelSummaryTotals() throws Exception {
-        for (int run = 1; run <= 10; run++) {
+        for (int run = 1; run <= 20; run++) {
             assertScenario("general-" + run, run);
         }
     }

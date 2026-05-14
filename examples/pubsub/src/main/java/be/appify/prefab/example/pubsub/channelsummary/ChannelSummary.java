@@ -2,6 +2,7 @@ package be.appify.prefab.example.pubsub.channelsummary;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.EventHandler;
+import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.core.annotations.Multicast;
 import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.GetList;
@@ -18,6 +19,7 @@ import org.springframework.data.annotation.Version;
 
 @Aggregate
 @GetList
+@EventHandlerConfig(concurrency = "1")
 public record ChannelSummary(
         @Id Reference<ChannelSummary>  id,
         @Version long version,

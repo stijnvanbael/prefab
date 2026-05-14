@@ -19,6 +19,7 @@
 - [7.11 SSE Streaming](#711-sse-streaming)
 - [7.12 Unit Testing Domain Events](#712-unit-testing-domain-events)
 - [7.13 Custom PostgreSQL Types with @DbColumn](#713-custom-postgresql-types-with-dbcolumn)
+- [7.14 Event Consumer Ordering and Hot-Key Stability](#714-event-consumer-ordering-and-hot-key-stability)
 
 ---
 
@@ -27,6 +28,7 @@
 A complete CRUD aggregate with all operations:
 
 ```java
+
 @Aggregate
 @GetById
 @GetList
@@ -53,11 +55,13 @@ public record Product(
     }
 
     @Delete
-    public void delete() { }
+    public void delete() {
+    }
 }
 ```
 
 Generated endpoints:
+
 - `POST   /products`             — create
 - `GET    /products/{id}`        — get by ID
 - `GET    /products?price=9.99`  — paginated list with price filter
@@ -75,6 +79,7 @@ When an event subtype extends or implements a supertype annotated with `@Event`,
 annotated supertype only. It does not generate one publisher class per concrete subtype.
 
 ```java
+
 @Aggregate
 public record Order(
         @Id Reference<Order> id,
@@ -93,7 +98,8 @@ public record Order(
 public record OrderCreated(
         @PartitioningKey Reference<Order> id,
         String customerName
-) { }
+) {
+}
 ```
 
 To assert that the correct events are published in a **unit test** (without a Spring context), see
@@ -108,6 +114,7 @@ Three patterns for handling domain events:
 ### Pattern 1 — Static Handler (Create from event)
 
 ```java
+
 @Aggregate
 public record ChannelSummary(
         @Id Reference<ChannelSummary> id,
@@ -125,6 +132,7 @@ public record ChannelSummary(
 ### Pattern 2 — By-Reference Handler (Update via event)
 
 ```java
+
 @Aggregate
 public record Channel(
         @Id Reference<Channel> id,
@@ -143,6 +151,7 @@ public record Channel(
 ### Pattern 3 — Multicast Handler (Broadcast to many)
 
 ```java
+
 @Aggregate
 public record ChannelSummary(...) {
     @EventHandler
@@ -164,6 +173,7 @@ public interface ChannelSummaryRepositoryMixin {
 Combine a static `@EventHandler` with a `@ByReference` or `@Multicast` handler for the same event type:
 
 ```java
+
 @EventHandler
 public static Order onCreate(OrderCreated event) {
     return new Order(event.id(), 0L, event.customer());
@@ -192,6 +202,7 @@ When multiple AVRO events share an `@Event`-annotated supertype, Prefab also gen
 converter so handlers typed to the supertype can deserialize all subtype payloads.
 
 ```java
+
 @Aggregate
 public record Customer(
         @Id Reference<Customer> id,
@@ -207,10 +218,12 @@ public record Customer(
 
     @Event(topic = "customer", serialization = Event.Serialization.AVRO)
     public sealed interface Events permits Created {
-        @PartitioningKey Reference<Customer> id();
+        @PartitioningKey
+        Reference<Customer> id();
     }
 
-    public record Created(Reference<Customer> id, String name) implements Events { }
+    public record Created(Reference<Customer> id, String name) implements Events {
+    }
 }
 ```
 
@@ -223,8 +236,9 @@ Place `.avsc` files on the classpath and use `@Avsc` + `@Event`:
 // { "type": "record", "name": "SaleCreated", "namespace": "be.example.sale", "fields": [...] }
 
 @Event(topic = "sale", serialization = Event.Serialization.AVRO)
-@Avsc({"avro/sale-created.avsc", "avro/sale-paid.avsc"})
-public sealed interface SaleEvent permits SaleCreated, SalePaid { }
+@Avsc({ "avro/sale-created.avsc", "avro/sale-paid.avsc" })
+public sealed interface SaleEvent permits SaleCreated, SalePaid {
+}
 ```
 
 The processor generates `SaleCreated` and `SalePaid` records in the same Java package as `SaleEvent`.
@@ -248,22 +262,26 @@ When an AVSC field declares a multi-branch union — for example `["double","str
 interface** instead of an untyped field.
 
 **Scalar union** — `["double","string"]` on field `exactValue`:
+
 - `ExactValue` — sealed interface
 - `ExactValueDouble(double value)` — implements `ExactValue`
 - `ExactValueString(String value)` — implements `ExactValue`
 
 **Record union** — `["TextPayload","NumericPayload"]` on field `payload`:
+
 - `Payload` — sealed interface
 - `PayloadTextPayload(TextPayload value)` — implements `Payload`
 - `PayloadNumericPayload(NumericPayload value)` — implements `Payload`
 - `TextPayload` and `NumericPayload` records are generated separately with their own converters and schema factories.
 
 **Enum union** — `["AlertLevel","string"]` on field `status`:
+
 - `Status` — sealed interface
 - `StatusAlertLevel(AlertLevel value)` — implements `Status`
 - `StatusString(String value)` — implements `Status`
 
 **Array branch union** — `["string",{"type":"array","items":"string"}]` on field `tags`:
+
 - `Tags` — sealed interface
 - `TagsString(String value)` — implements `Tags`
 - `TagsStringList(List<String> value)` — implements `Tags`
@@ -275,6 +293,7 @@ interface** instead of an untyped field.
 and the sealed interface is generated for the non-null branches only.
 
 **Generated artefacts per union**:
+
 - One sealed interface (schema factory only — no standalone converter bean)
 - One wrapper record per branch
 - For record branches: full converters and schema factory are generated for each branch record type
@@ -289,6 +308,7 @@ converter via a `switch` expression over the sealed interface's permitted subtyp
 Add the four audit fields individually or use `AuditInfo` as a convenience wrapper:
 
 ```java
+
 @Aggregate
 @GetById
 public record Contract(
@@ -310,6 +330,7 @@ public record Contract(
 ```
 
 The generated service:
+
 - On create: sets `createdAt`, `createdBy`, `lastModifiedAt`, `lastModifiedBy`
 - On update: sets only `lastModifiedAt` and `lastModifiedBy`
 
@@ -320,6 +341,7 @@ Override `AuditContextProvider` to provide the current user from your security c
 ## 7.6 Multi-tenancy
 
 ```java
+
 @Aggregate
 @GetList
 @GetById
@@ -339,6 +361,7 @@ public record Project(
 Implement `TenantContextProvider` as a Spring bean to supply the tenant ID:
 
 ```java
+
 @Component
 public class JwtTenantContextProvider implements TenantContextProvider {
     @Override
@@ -353,6 +376,7 @@ public class JwtTenantContextProvider implements TenantContextProvider {
 ## 7.7 Binary / File Fields
 
 ```java
+
 @Aggregate
 @GetById
 public record Document(
@@ -360,7 +384,7 @@ public record Document(
         @Version long version,
         String title,
         @Download
-        @ContentType({"application/pdf", "application/msword"})
+        @ContentType({ "application/pdf", "application/msword" })
         @FileSize(max = 10 * 1024 * 1024)
         Binary file
 ) {
@@ -372,6 +396,7 @@ public record Document(
 ```
 
 Generated endpoints:
+
 - `POST /documents` (multipart/form-data with `title` field and `file` file part)
 - `GET  /documents/{id}/file` — download the binary
 
@@ -390,6 +415,7 @@ the annotation processor emits a compile-time error — the generated service di
 so the event would never be published.
 
 ```java
+
 @Aggregate
 @AsyncCommit
 @GetById
@@ -415,7 +441,8 @@ public record Order(
 public record OrderPlaced(
         @PartitioningKey Reference<Order> id,
         String customerId
-) { }
+) {
+}
 ```
 
 ---
@@ -429,7 +456,8 @@ public record ProductDetails(
         String brand,
         String model,
         String colour
-) { }
+) {
+}
 
 @Aggregate
 public record Product(
@@ -458,6 +486,7 @@ depending on the nesting level).
 Add custom query methods to the generated repository:
 
 ```java
+
 @RepositoryMixin(ChannelSummary.class)
 public interface ChannelSummaryRepositoryMixin {
     List<ChannelSummary> findByChannel(Reference<Channel> channel);
@@ -469,6 +498,7 @@ Prefab adds `ChannelSummaryRepositoryMixin` as a super-interface of the generate
 `@Query` for complex SQL:
 
 ```java
+
 @RepositoryMixin(UserStatus.class)
 public interface UserStatusRepositoryMixin {
     @Query("""
@@ -499,6 +529,7 @@ Use this when data comes from an in-process source such as a blocking iterator, 
 a reactive stream.
 
 ```java
+
 @Aggregate
 @GetById
 public record Session(
@@ -514,6 +545,7 @@ public record Session(
 ```
 
 Prefab generates:
+
 - `GET /sessions/{id}/stream` → `text/event-stream` response using `SseEmitter`
 - A virtual thread (`Thread.ofVirtual()`) consumes the `Stream<T>` and sends each element as an SSE
   frame with the configured `event` name.
@@ -528,11 +560,13 @@ Use this when data arrives via a Kafka (or other messaging) event and should be 
 connected SSE client.
 
 ```java
+
 @Event(topic = "${topics.tokens.name}")
 public record TokenEmitted(
         @PartitioningKey Reference<Session> sessionId,
         String token,
-        boolean done) {}
+        boolean done) {
+}
 
 @Aggregate
 @GetById
@@ -551,14 +585,15 @@ public record Session(
 ```
 
 Prefab generates:
+
 - `GET /sessions/{id}/stream` SSE connect endpoint — registers an `SseEmitter` in
   `SessionSseRegistry`, sets up `onCompletion`/`onTimeout` cleanup, and starts the heartbeat.
 - `SessionSseRegistry` — a `@Component` backed by a `ConcurrentHashMap<String, SseEmitter>`.
 - An augmented `onTokenEmitted` service method that:
-  1. Applies the `@ByReference` update and saves the aggregate (standard event-handler logic).
-  2. Pushes `event.token()` (field matching `event = "token"`) as the SSE data payload.
-  3. Calls `emitter.complete()` when `event.done() == true` (field matching `terminal = "done"`),
-     cleanly closing the SSE connection.
+    1. Applies the `@ByReference` update and saves the aggregate (standard event-handler logic).
+    2. Pushes `event.token()` (field matching `event = "token"`) as the SSE data payload.
+    3. Calls `emitter.complete()` when `event.done() == true` (field matching `terminal = "done"`),
+       cleanly closing the SSE connection.
 
 ### Choosing the right model
 
@@ -601,6 +636,7 @@ Annotate your test class with `@ExtendWith(PublishedEventsExtension.class)` and 
 `CapturingDomainEventPublisher` parameter on any test method to receive the publisher directly.
 
 ```java
+
 @ExtendWith(PublishedEventsExtension.class)
 class OrderTest {
 
@@ -647,6 +683,7 @@ Use `@DbColumn` when an aggregate field's Java type is not in Prefab's built-in 
 **1. Add `pgvector` dependency:**
 
 ```xml
+
 <dependency>
     <groupId>com.pgvector</groupId>
     <artifactId>pgvector</artifactId>
@@ -668,7 +705,8 @@ public class FloatArrayToVectorConverter implements Converter<float[], PGobject>
         try {
             var sb = new StringBuilder("[");
             for (int i = 0; i < source.length; i++) {
-                if (i > 0) sb.append(',');
+                if (i > 0)
+                    sb.append(',');
                 sb.append(source[i]);
             }
             sb.append(']');
@@ -686,6 +724,7 @@ public class FloatArrayToVectorConverter implements Converter<float[], PGobject>
 **3. Declare the aggregate field:**
 
 ```java
+
 @Aggregate
 @GetById
 @GetList
@@ -712,11 +751,12 @@ public record MemoryEntry(
 **4. Flyway migration (auto-generated):**
 
 ```sql
-CREATE TABLE "memory_entry" (
-    "id"        VARCHAR (255)  NOT NULL,
-    "version"   BIGINT         NOT NULL,
-    "content"   TEXT           NOT NULL,
-    "embedding" vector(1536)   NOT NULL,
+CREATE TABLE "memory_entry"
+(
+    "id"        VARCHAR(255) NOT NULL,
+    "version"   BIGINT       NOT NULL,
+    "content"   TEXT         NOT NULL,
+    "embedding" vector(1536) NOT NULL,
     PRIMARY KEY ("id")
 );
 ```
@@ -735,7 +775,68 @@ CREATE TABLE "memory_entry" (
 ### Notes
 
 - `@DbColumn.type()` must not be blank — a compile-time error is reported if it is.
-- When `converter()` is `void.class` (the default), no converter is registered; handle JDBC mapping via a `@Component`-annotated converter or a `PrefabPlugin`.
+- When `converter()` is `void.class` (the default), no converter is registered; handle JDBC mapping via a `@Component`
+  -annotated converter or a `PrefabPlugin`.
 - The annotation targets both `ElementType.FIELD` and `ElementType.RECORD_COMPONENT`.
+
+---
+
+## 7.14 Event Consumer Ordering and Hot-Key Stability
+
+When multiple events can update the same aggregate row (a "hot key"), parallel event handlers can produce
+`OptimisticLockingFailureException` retry noise and, under load, retry exhaustion.
+
+Use this strategy in event-driven aggregates:
+
+1. **Serialize handler execution per aggregate type** using `@EventHandlerConfig(concurrency = "1")` on aggregates
+   that receive hot-key updates (`@ByReference` / `@Multicast` handlers).
+2. **Prefer deterministic IDs in create-or-update projections** so duplicate create races collapse into one logical
+   aggregate record. For example, derive a summary ID from the source aggregate reference.
+3. **Combine static create handlers + update handlers** for the same event type to make first-write wins deterministic
+   while still allowing subsequent updates.
+4. **Design for idempotency** in projection handlers so that retries and duplicate deliveries do not cause incorrect
+   state or side effects.
+5. **For higher concurrency, partition by hot key first** at the platform level (e.g. Kafka partitioning key, Pub/Sub
+   ordering key) to ensure all events for the same aggregate are processed by the same consumer instance.
+
+### Platform guidance
+
+- **Kafka**: partitioning already keeps a key ordered within a partition, but independent handlers can still race on
+  database updates for the same row. Keep hot-key handlers single-threaded when they target one aggregate table.
+- **Pub/Sub**: at-least-once delivery and parallel callback threads increase race risk; set handler concurrency to `1`
+  for hot-key aggregates and rely on deterministic IDs for projection upserts.
+- **SNS/SQS**: delivery fan-out can cause concurrent updates across consumers; use the same hot-key strategy as Pub/Sub
+  and keep projection creation idempotent with deterministic IDs.
+
+### Example
+
+```java
+
+@Aggregate
+@EventHandlerConfig(concurrency = "1")
+public record ChannelSummary(
+        @Id Reference<ChannelSummary> id,
+        @Version long version,
+        Reference<Channel> channel,
+        String name,
+        int totalMessages,
+        int totalSubscribers
+) {
+    private static Reference<ChannelSummary> summaryId(Reference<Channel> channel) {
+        return Reference.fromId("channel-summary-" + channel.id());
+    }
+
+    @EventHandler
+    public static ChannelSummary onMessageSent(MessageSent event) {
+        return new ChannelSummary(summaryId(event.channel()), 0L, event.channel(), "<pending>", 1, 0);
+    }
+
+    @EventHandler
+    @Multicast(queryMethod = "findByChannel", parameters = "channel")
+    public ChannelSummary applyMessageSent(MessageSent event) {
+        return new ChannelSummary(id, version, channel, name, totalMessages + 1, totalSubscribers);
+    }
+}
+```
 
 

@@ -7,6 +7,7 @@ import be.appify.prefab.streams.PrefabStreams;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.Consumed;
+import org.apache.kafka.streams.kstream.KStream;
 
 /** Kafka-backed implementation for the baseline source DSL operation. */
 public class KafkaPrefabStreams implements PrefabStreams {
@@ -31,11 +32,13 @@ public class KafkaPrefabStreams implements PrefabStreams {
     }
 
     @Override
-    public PrefabStream from(Class<?> type) {
+    @SuppressWarnings("unchecked")
+    public <V> PrefabStream<V> from(Class<V> type) {
         var topic = topicResolver.topicForType(type);
         var valueSerde = new SerdeAdapter<>(serializer, deserializer);
-        var stream = streamsBuilder.stream(topic, Consumed.with(Serdes.String(), valueSerde));
-        return new KafkaPrefabStream(streamsBuilder, stream, topicResolver, serializer, deserializer);
+        // DynamicSerializer/Deserializer operate on Object at runtime; the cast is safe because
+        // the topic is registered for exactly this type and the serde will deserialize to V.
+        KStream<String, V> stream = (KStream<String, V>) streamsBuilder.stream(topic, Consumed.with(Serdes.String(), valueSerde));
+        return new KafkaPrefabStream<>(streamsBuilder, stream, topicResolver, serializer, deserializer);
     }
 }
-

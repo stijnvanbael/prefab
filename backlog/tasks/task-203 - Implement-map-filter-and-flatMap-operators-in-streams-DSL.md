@@ -1,10 +1,10 @@
 ---
 id: TASK-203
 title: Implement map filter and flatMap operators in streams DSL
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-05-17 09:14'
-updated_date: '2026-05-17 09:18'
+updated_date: '2026-05-17 14:37'
 labels:
   - feature
   - streams

@@ -1,12 +1,48 @@
 package be.appify.prefab.streams;
 
-/** Baseline source/sink stream definition contract. */
-public interface PrefabStream {
+import java.util.function.Function;
+import java.util.function.Predicate;
+
+/**
+ * Fluent DSL builder for a single stream pipeline. Parameterised on the current value type {@code V}.
+ *
+ * <p>Each stateless operator returns a new {@code PrefabStream} with the transformed type, enabling
+ * type-safe operator chaining. Terminal operations ({@code to}) materialise the pipeline definition.
+ *
+ * @param <V> current record value type
+ */
+public interface PrefabStream<V> {
+
+    /**
+     * Keeps only records for which {@code predicate} returns {@code true}.
+     *
+     * @param predicate test applied to each record value; must not be {@code null}
+     * @return stream with non-matching records removed
+     */
+    PrefabStream<V> filter(Predicate<V> predicate);
+
+    /**
+     * Transforms each record value using {@code mapper}.
+     *
+     * @param mapper value transformation function; must not be {@code null}
+     * @param <R>    output value type
+     * @return stream of mapped values
+     */
+    <R> PrefabStream<R> map(Function<V, R> mapper);
+
+    /**
+     * Expands each record value into zero or more output values using {@code mapper}.
+     *
+     * @param mapper function returning an {@link Iterable} of output values; must not be {@code null}
+     * @param <R>    output value type
+     * @return stream of expanded values
+     */
+    <R> PrefabStream<R> flatMap(Function<V, Iterable<R>> mapper);
+
     /**
      * Writes stream values to the topic registered for the provided event type.
      *
-     * @param type
-     *         event class registered for exactly one Kafka topic
+     * @param type event class registered for exactly one Kafka topic
      * @return current stream definition wrapper
      */
     StreamDefinition to(Class<?> type);
@@ -14,10 +50,8 @@ public interface PrefabStream {
     /**
      * Writes stream values to an explicit topic name.
      *
-     * @param topic
-     *         Kafka topic
+     * @param topic Kafka topic
      * @return current stream definition wrapper
      */
     StreamDefinition to(String topic);
 }
-

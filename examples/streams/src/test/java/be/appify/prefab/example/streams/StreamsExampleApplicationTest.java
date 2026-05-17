@@ -26,22 +26,26 @@ class StreamsExampleApplicationTest {
 
     @Value("${topics.streams.input}")
     String inputTopic;
-    @Value("${topics.streams.output}")
-    String outputTopic;
+    @Value("${topics.streams.words}")
+    String wordsTopic;
 
     @Test
-    void forwardsStreamEventFromInputTopicToOutputTopic() {
-        kafkaTemplate.send(inputTopic, "s-1", new StreamEvent("s-1", "hello-streams")).join();
+    void filterMapFlatMap_shouldExtractUpperCasedWordsFromCommaSeparatedPayload() {
+        kafkaTemplate.send(inputTopic, "s-1", new StreamEvent("s-1", "hello,world,foo")).join();
+        // blank payload should be filtered out and produce no words
+        kafkaTemplate.send(inputTopic, "s-2", new StreamEvent("s-2", "   ")).join();
 
         try (var consumer = new KafkaConsumer<String, byte[]>(consumerProperties())) {
-            consumer.subscribe(java.util.List.of(outputTopic));
-            Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
-                var records = consumer.poll(Duration.ofMillis(250));
-                assertThat(records.records(outputTopic)).isNotEmpty();
-                var firstRecord = records.records(outputTopic).iterator().next();
-                assertThat(new String(firstRecord.value()))
-                        .contains("s-1")
-                        .contains("hello-streams");
+            consumer.subscribe(java.util.List.of(wordsTopic));
+            Awaitility.await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+                var records = consumer.poll(Duration.ofMillis(500));
+                assertThat(records.records(wordsTopic)).hasSizeGreaterThanOrEqualTo(3);
+                var payloads = records.records(wordsTopic).stream()
+                        .map(r -> new String(r.value()))
+                        .toList();
+                assertThat(payloads).anyMatch(p -> p.contains("HELLO"));
+                assertThat(payloads).anyMatch(p -> p.contains("WORLD"));
+                assertThat(payloads).anyMatch(p -> p.contains("FOO"));
             });
         }
     }
@@ -57,4 +61,3 @@ class StreamsExampleApplicationTest {
         return properties;
     }
 }
-

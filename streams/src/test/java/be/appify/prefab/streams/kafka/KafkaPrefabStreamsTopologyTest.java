@@ -5,6 +5,7 @@ import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
 import be.appify.prefab.core.util.SerializationRegistry;
+import java.util.List;
 import java.util.Properties;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -125,6 +126,97 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     @Test
+    void filter_shouldDropRecordsNotMatchingPredicate() {
+        var fixture = fixture();
+
+        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
+        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
+
+        var streamsBuilder = new StreamsBuilder();
+        var streams = new KafkaPrefabStreams(
+                streamsBuilder,
+                new KafkaTopicResolver(fixture.typeResolver),
+                fixture.serializer,
+                fixture.deserializer
+        );
+        var topology = streams.from(IncomingOrder.class)
+                .filter(order -> order.customer().startsWith("A"))
+                .to("orders.filtered");
+
+        try (var driver = new TopologyTestDriver(topology.nativeTopology(), streamsConfig())) {
+            var inputTopic = driver.createInputTopic("orders.in", new StringSerializer(), fixture.serializer);
+            var outputTopic = driver.createOutputTopic("orders.filtered", new StringDeserializer(), new ByteArrayDeserializer());
+
+            inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "Alice"));
+            inputTopic.pipeInput("o-2", new IncomingOrder("o-2", "Bob"));
+            inputTopic.pipeInput("o-3", new IncomingOrder("o-3", "Anna"));
+
+            var output = outputTopic.readValuesToList();
+            assertThat(output).hasSize(2);
+        }
+    }
+
+    @Test
+    void map_shouldTransformValues() {
+        var fixture = fixture();
+
+        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
+        fixture.typeResolver.registerType("orders.out", ProcessedOrder.class);
+        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
+        fixture.serializationRegistry.register("orders.out", Event.Serialization.JSON);
+
+        var streamsBuilder = new StreamsBuilder();
+        var streams = new KafkaPrefabStreams(
+                streamsBuilder,
+                new KafkaTopicResolver(fixture.typeResolver),
+                fixture.serializer,
+                fixture.deserializer
+        );
+        var topology = streams.from(IncomingOrder.class)
+                .map(order -> new ProcessedOrder(order.orderId(), order.customer().toUpperCase()))
+                .to(ProcessedOrder.class);
+
+        try (var driver = new TopologyTestDriver(topology.nativeTopology(), streamsConfig())) {
+            var inputTopic = driver.createInputTopic("orders.in", new StringSerializer(), fixture.serializer);
+            var outputTopic = driver.createOutputTopic("orders.out", new StringDeserializer(), fixture.deserializer);
+
+            inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "alice"));
+
+            var forwarded = outputTopic.readValue();
+            assertThat(forwarded).isInstanceOf(ProcessedOrder.class);
+            assertThat((ProcessedOrder) forwarded).isEqualTo(new ProcessedOrder("o-1", "ALICE"));
+        }
+    }
+
+    @Test
+    void flatMap_shouldExpandOneRecordToMany() {
+        var fixture = fixture();
+
+        fixture.typeResolver.registerType("words.in", WordBatch.class);
+        fixture.serializationRegistry.register("words.in", Event.Serialization.JSON);
+
+        var streamsBuilder = new StreamsBuilder();
+        var streams = new KafkaPrefabStreams(
+                streamsBuilder,
+                new KafkaTopicResolver(fixture.typeResolver),
+                fixture.serializer,
+                fixture.deserializer
+        );
+        var topology = streams.from(WordBatch.class)
+                .flatMap(batch -> List.of(batch.words().split(",")))
+                .to("words.out");
+
+        try (var driver = new TopologyTestDriver(topology.nativeTopology(), streamsConfig())) {
+            var inputTopic = driver.createInputTopic("words.in", new StringSerializer(), fixture.serializer);
+            var outputTopic = driver.createOutputTopic("words.out", new StringDeserializer(), new ByteArrayDeserializer());
+
+            inputTopic.pipeInput("b-1", new WordBatch("b-1", "hello,world,foo"));
+
+            assertThat(outputTopic.readValuesToList()).hasSize(3);
+        }
+    }
+
+    @Test
     void multipleDefinitions_shouldShareCombinedTopology() {
         var fixture = fixture();
 
@@ -175,6 +267,9 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     record ProcessedOrder(String orderId, String customer) {
+    }
+
+    record WordBatch(String batchId, String words) {
     }
 
     record AuditOrder(String orderId, String status) {

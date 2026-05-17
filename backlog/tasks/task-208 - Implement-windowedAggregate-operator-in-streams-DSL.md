@@ -4,7 +4,7 @@ title: Implement windowedAggregate operator in streams DSL
 status: To Do
 assignee: []
 created_date: '2026-05-17 09:15'
-updated_date: '2026-05-17 09:18'
+updated_date: '2026-05-17 09:41'
 labels:
   - feature
   - streams
@@ -34,3 +34,11 @@ Add windowed aggregation support as a separate capability from non-windowed aggr
 - [ ] #3 `examples/streams` includes a runnable windowed aggregation scenario
 - [ ] #4 Tests verify in-window aggregation and no cross-window aggregation leakage
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Execution sequencing note for event-time lane: complete TASK-208 before TASK-211 and TASK-217.
+
+TASK-208 provides baseline windowed aggregation behavior that later grace/late-event controls must extend without changing core aggregate semantics.
+<!-- SECTION:NOTES:END -->

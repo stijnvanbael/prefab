@@ -1,5 +1,6 @@
 package be.appify.prefab.streams;
 
+import java.util.List;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -38,6 +39,25 @@ public interface PrefabStream<V> {
      * @return stream of expanded values
      */
     <R> PrefabStream<R> flatMap(Function<V, Iterable<R>> mapper);
+
+    /**
+     * Splits the stream into ordered branches using first-match semantics.
+     *
+     * <p>Each record is routed to the first predicate that matches. Records that do not match any
+     * predicate are dropped.
+     *
+     * @param predicates branch predicates in evaluation order; must not be {@code null}
+     * @return one stream per predicate, preserving predicate order
+     */
+    List<PrefabStream<V>> branch(Predicate<V>... predicates);
+
+    /**
+     * Merges the current stream with another stream of the same value type.
+     *
+     * @param other stream to merge with
+     * @return merged stream containing records from both inputs
+     */
+    PrefabStream<V> merge(PrefabStream<V> other);
 
     /**
      * Writes stream values to the topic registered for the provided event type.

@@ -8,5 +8,6 @@ spring:
 topics:
   streams:
     input: streams.input.test
-    output: streams.output.test
     words: streams.words.test
+    short-words: streams.words.short.test
+    long-words: streams.words.long.test

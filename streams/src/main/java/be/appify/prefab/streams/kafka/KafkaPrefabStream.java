@@ -4,13 +4,17 @@ import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.streams.PrefabStream;
 import be.appify.prefab.streams.StreamDefinition;
+import java.util.List;
+import java.util.stream.IntStream;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.KStream;
+import org.apache.kafka.streams.kstream.Named;
 import org.apache.kafka.streams.kstream.Produced;
+import org.apache.kafka.streams.kstream.Branched;
 
 /**
  * Kafka-backed implementation of {@link PrefabStream}.
@@ -55,6 +59,33 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
     @Override
     public <R> PrefabStream<R> flatMap(Function<V, Iterable<R>> mapper) {
         return wrap(stream.flatMapValues(mapper::apply));
+    }
+
+    @Override
+    @SafeVarargs
+    public final List<PrefabStream<V>> branch(Predicate<V>... predicates) {
+        var branchPrefix = "prefab-branch-";
+        var branched = stream.split(Named.as(branchPrefix));
+        for (var index = 0; index < predicates.length; index++) {
+            var predicate = predicates[index];
+            branched.branch((key, value) -> predicate.test(value), Branched.as(Integer.toString(index)));
+        }
+        var namedBranches = branched.noDefaultBranch();
+        return IntStream.range(0, predicates.length)
+                .mapToObj(index -> namedBranches.get(branchPrefix + index))
+                .map(this::wrap)
+                .map(branch -> (PrefabStream<V>) branch)
+                .toList();
+    }
+
+    @Override
+    public PrefabStream<V> merge(PrefabStream<V> other) {
+        if (!(other instanceof KafkaPrefabStream<?> otherKafkaStream)) {
+            throw new IllegalArgumentException("Cannot merge non-Kafka stream implementation");
+        }
+        @SuppressWarnings("unchecked")
+        var otherTypedStream = (KStream<String, V>) otherKafkaStream.stream;
+        return wrap(stream.merge(otherTypedStream));
     }
 
     @Override

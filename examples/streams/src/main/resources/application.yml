@@ -10,6 +10,7 @@ spring:
 topics:
   streams:
     input: streams.input
-    output: streams.output
     words: streams.words
+    short-words: streams.words.short
+    long-words: streams.words.long
 

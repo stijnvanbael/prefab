@@ -844,11 +844,16 @@ public record ChannelSummary(
 
 ## 7.15 Streams DSL Baseline (Kafka Source/Sink)
 
-Prefab now provides a dedicated `streams` module (`prefab-streams`) with a Kafka-backed baseline DSL.
+Prefab provides a dedicated `streams` module (`prefab-streams`) with a Kafka-backed DSL.
 
-Supported baseline operations:
+Supported operations:
 
 - `from(Class<?>)`
+- `filter(Predicate<?>)`
+- `map(Function<?, ?>)`
+- `flatMap(Function<?, Iterable<?>>)`
+- `branch(Predicate<?>...)`
+- `merge(PrefabStream<?>)`
 - `to(Class<?>)`
 - `to(String)`
 
@@ -862,16 +867,24 @@ Serialization and deserialization reuse the existing Kafka dynamic serde infrast
 - Throws `IllegalArgumentException` when no topic is registered for a class
 - Throws `IllegalStateException` when multiple topics are registered for a class
 
-Example topology using only source/sink operations:
+Example topology with branching and merging:
 
 ```java
 @Configuration
 class StreamTopologyConfiguration {
 
     @Bean
-    StreamDefinition streamEventForwardTopology(PrefabStreams streams,
-                                                @Value("${topics.streams.output}") String outputTopic) {
-        return streams.from(StreamEvent.class).to(outputTopic);
+    StreamDefinition streamEventRoutingTopology(PrefabStreams streams) {
+        var branches = streams.from(StreamEvent.class)
+                .flatMap(event -> List.of(event.payload().split(",")))
+                .branch(word -> word.length() <= 4, word -> true);
+
+        branches.get(0).to("streams.words.short");
+        branches.get(1).to("streams.words.long");
+
+        return branches.get(0)
+                .merge(branches.get(1))
+                .to("streams.words.all");
     }
 }
 ```

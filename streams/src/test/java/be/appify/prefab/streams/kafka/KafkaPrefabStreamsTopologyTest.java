@@ -217,6 +217,87 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     @Test
+    void branch_shouldRouteRecordsToMatchingOutputStreams() {
+        var fixture = fixture();
+
+        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
+        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
+
+        var streamsBuilder = new StreamsBuilder();
+        var streams = new KafkaPrefabStreams(
+                streamsBuilder,
+                new KafkaTopicResolver(fixture.typeResolver),
+                fixture.serializer,
+                fixture.deserializer
+        );
+
+        var branches = streams.from(IncomingOrder.class)
+                .branch(
+                        order -> order.customer().startsWith("A"),
+                        order -> true
+                );
+        branches.get(0).to("orders.a-customers");
+        var topology = branches.get(1).to("orders.other-customers");
+
+        try (var driver = new TopologyTestDriver(topology.nativeTopology(), streamsConfig())) {
+            var inputTopic = driver.createInputTopic("orders.in", new StringSerializer(), fixture.serializer);
+            var aCustomersTopic = driver.createOutputTopic("orders.a-customers", new StringDeserializer(), new ByteArrayDeserializer());
+            var otherCustomersTopic = driver.createOutputTopic("orders.other-customers", new StringDeserializer(), new ByteArrayDeserializer());
+
+            inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "Alice"));
+            inputTopic.pipeInput("o-2", new IncomingOrder("o-2", "Bob"));
+            inputTopic.pipeInput("o-3", new IncomingOrder("o-3", "Anna"));
+
+            assertThat(aCustomersTopic.readValuesToList()).hasSize(2);
+            assertThat(otherCustomersTopic.readValuesToList()).hasSize(1);
+        }
+    }
+
+    @Test
+    void merge_shouldCombineRecordsFromTwoBranchesIntoSingleOutput() {
+        var fixture = fixture();
+
+        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
+        fixture.typeResolver.registerType("orders.out", ProcessedOrder.class);
+        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
+        fixture.serializationRegistry.register("orders.out", Event.Serialization.JSON);
+
+        var streamsBuilder = new StreamsBuilder();
+        var streams = new KafkaPrefabStreams(
+                streamsBuilder,
+                new KafkaTopicResolver(fixture.typeResolver),
+                fixture.serializer,
+                fixture.deserializer
+        );
+
+        var branches = streams.from(IncomingOrder.class)
+                .branch(
+                        order -> order.customer().startsWith("A"),
+                        order -> true
+                );
+
+        var topology = branches.get(0)
+                .map(order -> new ProcessedOrder(order.orderId(), "A:" + order.customer()))
+                .merge(branches.get(1).map(order -> new ProcessedOrder(order.orderId(), "B:" + order.customer())))
+                .to(ProcessedOrder.class);
+
+        try (var driver = new TopologyTestDriver(topology.nativeTopology(), streamsConfig())) {
+            var inputTopic = driver.createInputTopic("orders.in", new StringSerializer(), fixture.serializer);
+            var outputTopic = driver.createOutputTopic("orders.out", new StringDeserializer(), fixture.deserializer);
+
+            inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "Alice"));
+            inputTopic.pipeInput("o-2", new IncomingOrder("o-2", "Bob"));
+
+            var merged = outputTopic.readValuesToList();
+            assertThat(merged)
+                    .hasSize(2)
+                    .allMatch(ProcessedOrder.class::isInstance);
+            assertThat(merged.stream().map(ProcessedOrder.class::cast).map(ProcessedOrder::customer).toList())
+                    .containsExactlyInAnyOrder("A:Alice", "B:Bob");
+        }
+    }
+
+    @Test
     void multipleDefinitions_shouldShareCombinedTopology() {
         var fixture = fixture();
 

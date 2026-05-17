@@ -21,19 +21,36 @@ class StreamsExampleApplicationTest {
     @TestEventConsumer(topic = "${topics.streams.words}")
     EventConsumer<WordEvent> wordsConsumer;
 
+    @TestEventConsumer(topic = "${topics.streams.short-words}")
+    EventConsumer<ShortWordEvent> shortWordsConsumer;
+
+    @TestEventConsumer(topic = "${topics.streams.long-words}")
+    EventConsumer<LongWordEvent> longWordsConsumer;
+
     @Test
-    void filterMapFlatMap_shouldExtractUpperCasedWordsFromCommaSeparatedPayload() {
+    void branchAndMerge_shouldRouteWordsAndEmitMergedOutput() {
         streamEventPublisher.publish(new StreamEvent("s-1", "hello,world,foo"));
-        streamEventPublisher.publish(new StreamEvent("s-2", "   "));
+        streamEventPublisher.publish(new StreamEvent("s-2", "toolong,mini,tiny"));
+        streamEventPublisher.publish(new StreamEvent("s-3", "   "));
 
         EventAssertions.assertThat(wordsConsumer)
-                .hasReceivedMessages(3)
+                .hasReceivedMessages(6)
                 .within(30, TimeUnit.SECONDS)
                 .where(events -> {
                     events.extracting(WordEvent::word)
-                            .contains("HELLO", "WORLD", "FOO");
+                            .contains("HELLO", "WORLD", "FOO", "TOOLONG", "MINI", "TINY");
                     events.allMatch(event -> !event.word().isBlank());
                 });
+
+        EventAssertions.assertThat(shortWordsConsumer)
+                .hasReceivedMessages(3)
+                .within(30, TimeUnit.SECONDS)
+                .where(events -> events.extracting(ShortWordEvent::word).contains("FOO", "MINI", "TINY"));
+
+        EventAssertions.assertThat(longWordsConsumer)
+                .hasReceivedMessages(3)
+                .within(30, TimeUnit.SECONDS)
+                .where(events -> events.extracting(LongWordEvent::word).contains("HELLO", "WORLD", "TOOLONG"));
     }
 
     @TestConfiguration(proxyBeanMethods = false)
@@ -45,6 +62,16 @@ class StreamsExampleApplicationTest {
 
         @Bean
         NewTopic streamWordsTopic(@Value("${topics.streams.words}") String topicName) {
+            return new NewTopic(topicName, 1, (short) 1);
+        }
+
+        @Bean
+        NewTopic shortWordsTopic(@Value("${topics.streams.short-words}") String topicName) {
+            return new NewTopic(topicName, 1, (short) 1);
+        }
+
+        @Bean
+        NewTopic longWordsTopic(@Value("${topics.streams.long-words}") String topicName) {
             return new NewTopic(topicName, 1, (short) 1);
         }
     }

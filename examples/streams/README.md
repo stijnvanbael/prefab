@@ -1,11 +1,13 @@
 # Prefab Streams Example
 
-Runnable Prefab Streams DSL baseline example.
+Runnable Prefab Streams DSL example with branch-and-merge routing.
 
-This module defines a topology that uses only source/sink operations:
+This module defines one topology that normalizes input, branches into two output paths, and merges back:
 
 - `from(StreamEvent.class)` reads from `${topics.streams.input}`
-- `to("${topics.streams.output}")` writes to `${topics.streams.output}`
+- `branch(...)` routes short words (`<= 4`) to `${topics.streams.short-words}`
+- `branch(...)` routes long words (`> 4`) to `${topics.streams.long-words}`
+- `merge(...)` combines both branches and writes to `${topics.streams.words}`
 
 ## Commands
 

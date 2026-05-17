@@ -18,6 +18,7 @@ import tools.jackson.databind.type.TypeFactory;
 public class KafkaJsonTypeResolver implements JacksonJsonTypeResolver {
     private final Map<String, Class<?>> types = new HashMap<>();
     private final Map<String, Set<Class<?>>> topicTypes = new ConcurrentHashMap<>();
+    private final Map<Class<?>, Set<String>> typeTopics = new ConcurrentHashMap<>();
     private final Set<String> allowedClassNames = ConcurrentHashMap.newKeySet();
 
     /** Constructs a new KafkaJsonTypeResolver. */
@@ -47,6 +48,7 @@ public class KafkaJsonTypeResolver implements JacksonJsonTypeResolver {
 
     private void addToTopicTypes(String topic, Class<?> type) {
         topicTypes.computeIfAbsent(topic, ignored -> new LinkedHashSet<>()).add(type);
+        typeTopics.computeIfAbsent(type, ignored -> new LinkedHashSet<>()).add(topic);
         addToAllowedClassNames(type);
         if (type.isSealed()) {
             for (Class<?> subtype : type.getPermittedSubclasses()) {
@@ -64,6 +66,28 @@ public class KafkaJsonTypeResolver implements JacksonJsonTypeResolver {
      */
     public Set<Class<?>> registeredTypesForTopic(String topic) {
         return Set.copyOf(topicTypes.getOrDefault(topic, Set.of()));
+    }
+
+    /**
+     * Resolves the single registered topic for a Java type.
+     *
+     * @param type
+     *         the event type
+     * @return the single registered topic name
+     * @throws IllegalArgumentException
+     *         if no topic is registered for the type
+     * @throws IllegalStateException
+     *         if multiple topics are registered for the type
+     */
+    public String topicForType(Class<?> type) {
+        var topics = Set.copyOf(typeTopics.getOrDefault(type, Set.of()));
+        if (topics.isEmpty()) {
+            throw new IllegalArgumentException("No Kafka topic registered for type: " + type.getName());
+        }
+        if (topics.size() > 1) {
+            throw new IllegalStateException("Multiple Kafka topics registered for type " + type.getName() + ": " + topics);
+        }
+        return topics.iterator().next();
     }
 
     private void addToAllowedClassNames(Class<?> type) {

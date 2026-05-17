@@ -1,6 +1,11 @@
 # Prefab Streams Example
 
-Standalone foundation module for upcoming Prefab streams DSL examples.
+Runnable Prefab Streams DSL baseline example.
+
+This module defines a topology that uses only source/sink operations:
+
+- `from(StreamEvent.class)` reads from `${topics.streams.input}`
+- `to("${topics.streams.output}")` writes to `${topics.streams.output}`
 
 ## Commands
 

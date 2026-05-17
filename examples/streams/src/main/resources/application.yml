@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: streams-example
+  kafka:
+    streams:
+      application-id: streams-example-app
+      properties:
+        auto.offset.reset: earliest
+
+topics:
+  streams:
+    input: streams.input
+    output: streams.output
+

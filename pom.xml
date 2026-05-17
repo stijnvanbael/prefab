@@ -17,6 +17,7 @@
     <packaging>pom</packaging>
     <modules>
         <module>core</module>
+        <module>streams</module>
         <module>annotation-processor</module>
         <module>avro</module>
         <module>avro-processor</module>
@@ -64,6 +65,11 @@
             <dependency>
                 <groupId>be.appify.prefab</groupId>
                 <artifactId>prefab-core</artifactId>
+                <version>${prefab.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>be.appify.prefab</groupId>
+                <artifactId>prefab-streams</artifactId>
                 <version>${prefab.version}</version>
             </dependency>
             <dependency>

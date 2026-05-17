@@ -20,6 +20,7 @@
 - [7.12 Unit Testing Domain Events](#712-unit-testing-domain-events)
 - [7.13 Custom PostgreSQL Types with @DbColumn](#713-custom-postgresql-types-with-dbcolumn)
 - [7.14 Event Consumer Ordering and Hot-Key Stability](#714-event-consumer-ordering-and-hot-key-stability)
+- [7.15 Streams DSL Baseline (Kafka Source/Sink)](#715-streams-dsl-baseline-kafka-sourcesink)
 
 ---
 
@@ -835,6 +836,43 @@ public record ChannelSummary(
     @Multicast(queryMethod = "findByChannel", parameters = "channel")
     public ChannelSummary applyMessageSent(MessageSent event) {
         return new ChannelSummary(id, version, channel, name, totalMessages + 1, totalSubscribers);
+    }
+}
+```
+
+---
+
+## 7.15 Streams DSL Baseline (Kafka Source/Sink)
+
+Prefab now provides a dedicated `streams` module (`prefab-streams`) with a Kafka-backed baseline DSL.
+
+Supported baseline operations:
+
+- `from(Class<?>)`
+- `to(Class<?>)`
+- `to(String)`
+
+Serialization and deserialization reuse the existing Kafka dynamic serde infrastructure:
+
+- `DynamicDeserializer` for source records
+- `DynamicSerializer` for sink records
+
+`from(Class<?>)` and `to(Class<?>)` resolve topic names via registered Kafka event types and fail fast:
+
+- Throws `IllegalArgumentException` when no topic is registered for a class
+- Throws `IllegalStateException` when multiple topics are registered for a class
+
+Example topology using only source/sink operations:
+
+```java
+@Configuration
+class StreamTopologyConfiguration {
+
+    @Bean
+    Object streamEventForwardTopology(PrefabStreams streams,
+                                      @Value("${topics.streams.output}") String outputTopic) {
+        streams.from(StreamEvent.class).to(outputTopic);
+        return new Object();
     }
 }
 ```

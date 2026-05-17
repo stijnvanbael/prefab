@@ -35,7 +35,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
         var topic = topicResolver.topicForType(type);
         var valueSerde = new SerdeAdapter<>(serializer, deserializer);
         var stream = streamsBuilder.stream(topic, Consumed.with(Serdes.String(), valueSerde));
-        return new KafkaPrefabStream(stream, topicResolver, serializer, deserializer);
+        return new KafkaPrefabStream(streamsBuilder, stream, topicResolver, serializer, deserializer);
     }
 }
 

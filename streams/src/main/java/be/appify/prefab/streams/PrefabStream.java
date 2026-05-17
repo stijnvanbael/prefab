@@ -1,5 +1,7 @@
 package be.appify.prefab.streams;
 
+import org.apache.kafka.streams.Topology;
+
 /** Baseline source/sink stream definition contract. */
 public interface PrefabStream {
     /**
@@ -7,15 +9,17 @@ public interface PrefabStream {
      *
      * @param type
      *         event class registered for exactly one Kafka topic
+     * @return current topology definition
      */
-    void to(Class<?> type);
+    Topology to(Class<?> type);
 
     /**
      * Writes stream values to an explicit topic name.
      *
      * @param topic
      *         Kafka topic
+     * @return current topology definition
      */
-    void to(String topic);
+    Topology to(String topic);
 }
 

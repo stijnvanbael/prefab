@@ -41,7 +41,7 @@ public class KafkaPrefabStream implements PrefabStream {
     public StreamDefinition to(String topic) {
         var valueSerde = new SerdeAdapter<>(serializer, deserializer);
         stream.to(topic, Produced.with(Serdes.String(), valueSerde));
-        return new StreamDefinition(streamsBuilder.build());
+        return new StreamDefinition(streamsBuilder::build);
     }
 }
 

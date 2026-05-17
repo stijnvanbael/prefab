@@ -30,7 +30,7 @@ class KafkaPrefabStreamsTopologyTest {
         fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
         fixture.serializationRegistry.register("orders.out", Event.Serialization.JSON);
 
-        var streamsBuilder = new StreamsBuilder();
+        var streamsBuilder = new TrackingStreamsBuilder();
         var streams = new KafkaPrefabStreams(
                 streamsBuilder,
                 new KafkaTopicResolver(fixture.typeResolver),
@@ -38,7 +38,10 @@ class KafkaPrefabStreamsTopologyTest {
                 fixture.deserializer
         );
         var topology = streams.from(IncomingOrder.class).to(ProcessedOrder.class);
-        assertThat(topology.nativeTopology().describe().toString()).contains("orders.in").contains("orders.out");
+        assertThat(streamsBuilder.buildInvocations()).isZero();
+
+        assertThat(topology.buildTopology().describe().toString()).contains("orders.in").contains("orders.out");
+        assertThat(streamsBuilder.buildInvocations()).isEqualTo(1);
 
         try (var driver = new TopologyTestDriver(topology.nativeTopology(), streamsConfig())) {
             var inputTopic = driver.createInputTopic("orders.in", new StringSerializer(), fixture.serializer);
@@ -60,7 +63,7 @@ class KafkaPrefabStreamsTopologyTest {
         fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
         fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
 
-        var streamsBuilder = new StreamsBuilder();
+        var streamsBuilder = new TrackingStreamsBuilder();
         var streams = new KafkaPrefabStreams(
                 streamsBuilder,
                 new KafkaTopicResolver(fixture.typeResolver),
@@ -68,7 +71,10 @@ class KafkaPrefabStreamsTopologyTest {
                 fixture.deserializer
         );
         var topology = streams.from(IncomingOrder.class).to("orders.dead-letter");
-        assertThat(topology.nativeTopology().describe().toString()).contains("orders.in").contains("orders.dead-letter");
+        assertThat(streamsBuilder.buildInvocations()).isZero();
+
+        assertThat(topology.buildTopology().describe().toString()).contains("orders.in").contains("orders.dead-letter");
+        assertThat(streamsBuilder.buildInvocations()).isEqualTo(1);
 
         try (var driver = new TopologyTestDriver(topology.nativeTopology(), streamsConfig())) {
             var inputTopic = driver.createInputTopic("orders.in", new StringSerializer(), fixture.serializer);
@@ -147,6 +153,20 @@ class KafkaPrefabStreamsTopologyTest {
             DynamicSerializer serializer,
             DynamicDeserializer deserializer
     ) {
+    }
+
+    private static final class TrackingStreamsBuilder extends StreamsBuilder {
+        private int buildInvocations;
+
+        @Override
+        public org.apache.kafka.streams.Topology build() {
+            buildInvocations++;
+            return super.build();
+        }
+
+        int buildInvocations() {
+            return buildInvocations;
+        }
     }
 }
 

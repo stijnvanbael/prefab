@@ -124,6 +124,36 @@ class KafkaPrefabStreamsTopologyTest {
                 .hasMessageContaining("Multiple Kafka topics registered for type");
     }
 
+    @Test
+    void multipleDefinitions_shouldShareCombinedTopology() {
+        var fixture = fixture();
+
+        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
+        fixture.typeResolver.registerType("orders.audit.in", AuditOrder.class);
+        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
+        fixture.serializationRegistry.register("orders.audit.in", Event.Serialization.JSON);
+
+        var streamsBuilder = new StreamsBuilder();
+        var streams = new KafkaPrefabStreams(
+                streamsBuilder,
+                new KafkaTopicResolver(fixture.typeResolver),
+                fixture.serializer,
+                fixture.deserializer
+        );
+
+        var forwardDefinition = streams.from(IncomingOrder.class).to("orders.out");
+        var auditDefinition = streams.from(AuditOrder.class).to("orders.audit.out");
+
+        var combinedTopologyDescription = forwardDefinition.buildTopology().describe().toString();
+
+        assertThat(combinedTopologyDescription)
+                .contains("orders.in")
+                .contains("orders.out")
+                .contains("orders.audit.in")
+                .contains("orders.audit.out");
+        assertThat(auditDefinition.nativeTopology().describe().toString()).isEqualTo(combinedTopologyDescription);
+    }
+
     private static Fixture fixture() {
         var serializationRegistry = new SerializationRegistry();
         var typeResolver = new KafkaJsonTypeResolver();
@@ -145,6 +175,9 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     record ProcessedOrder(String orderId, String customer) {
+    }
+
+    record AuditOrder(String orderId, String status) {
     }
 
     private record Fixture(

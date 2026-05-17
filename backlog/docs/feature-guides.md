@@ -869,12 +869,14 @@ Example topology using only source/sink operations:
 class StreamTopologyConfiguration {
 
     @Bean
-    Object streamEventForwardTopology(PrefabStreams streams,
-                                      @Value("${topics.streams.output}") String outputTopic) {
-        streams.from(StreamEvent.class).to(outputTopic);
-        return new Object();
+    StreamDefinition streamEventForwardTopology(PrefabStreams streams,
+                                                @Value("${topics.streams.output}") String outputTopic) {
+        return streams.from(StreamEvent.class).to(outputTopic);
     }
 }
 ```
+
+`StreamDefinition` beans are auto-discovered by Prefab Streams at startup. Their DSL wiring is bootstrapped into one
+Kafka Streams topology automatically, so no extra manual topology startup code is required.
 
 

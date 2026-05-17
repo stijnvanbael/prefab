@@ -4,12 +4,15 @@ import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
 import be.appify.prefab.streams.PrefabStreams;
+import be.appify.prefab.streams.StreamDefinition;
 import java.util.HashMap;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.StreamsBuilder;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.kafka.autoconfigure.KafkaConnectionDetails;
+import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafkaStreams;
@@ -52,6 +55,11 @@ public class StreamsConfiguration {
             DynamicDeserializer deserializer
     ) {
         return new KafkaPrefabStreams(streamsBuilder, topicResolver, serializer, deserializer);
+    }
+
+    @Bean
+    SmartInitializingSingleton streamTopologyBootstrap(ObjectProvider<StreamDefinition> streamDefinitions) {
+        return () -> streamDefinitions.orderedStream().forEach(StreamDefinition::buildTopology);
     }
 }
 

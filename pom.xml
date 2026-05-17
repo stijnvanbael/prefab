@@ -25,6 +25,7 @@
         <module>mongodb</module>
         <module>examples/avro</module>
         <module>examples/kafka</module>
+        <module>examples/streams</module>
         <module>examples/pubsub</module>
         <module>examples/sns-sqs</module>
         <module>examples/mongodb</module>

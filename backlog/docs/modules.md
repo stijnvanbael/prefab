@@ -45,6 +45,19 @@
 
 ---
 
+## Repository Example Modules
+
+| Module Path         | Purpose                                         |
+|---------------------|-------------------------------------------------|
+| `examples/avro`     | Avro and AVSC-first event examples              |
+| `examples/kafka`    | Kafka aggregate and projection examples          |
+| `examples/streams`  | Streams DSL story foundation and runnable app    |
+| `examples/pubsub`   | Google Cloud Pub/Sub examples                    |
+| `examples/sns-sqs`  | AWS SNS/SQS examples                             |
+| `examples/mongodb`  | MongoDB aggregate examples                       |
+
+---
+
 ## Maven Dependency Snippet
 
 Replace `LATEST_VERSION` with the current release version:

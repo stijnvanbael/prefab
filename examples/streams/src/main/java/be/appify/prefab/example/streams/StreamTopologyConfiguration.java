@@ -9,15 +9,15 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Demonstrates the streams DSL with {@code filter}, {@code map}, {@code flatMap}, {@code branch},
- * and {@code merge} in one Kafka Streams topology.
+ * Demonstrates the streams DSL with {@code filter}, {@code map}, {@code flatMap},
+ * predicate/class-based {@code branch}, and typed {@code merge} in one Kafka Streams topology.
  *
  * <p>Pipeline:
  * <ol>
  *   <li>Normalise input via {@code filter}, {@code map}, and {@code flatMap}.</li>
- *   <li>{@code branch} into short and long words.</li>
+ *   <li>Classify words, then branch by subtype via {@code branch(Class)}.</li>
  *   <li>Write each branch to a dedicated output topic.</li>
- *   <li>{@code merge} both branches and write all words to a combined output topic.</li>
+ *   <li>{@code merge} both subtype branches into their common supertype and write to a combined topic.</li>
  * </ol>
  */
 @Configuration
@@ -35,20 +35,19 @@ class StreamTopologyConfiguration {
                         .map(word -> new WordEvent(UUID.randomUUID().toString(), word.strip()))
                         .toList());
 
-        var branches = words.branch(
-                word -> word.word().length() <= 4,
-                word -> true
-        );
+        var classifiedWords = words.map(word -> word.word().length() <= 4
+                ? (ClassifiedWordEvent) new ShortWordEvent(word.id(), word.word())
+                : new LongWordEvent(word.id(), word.word()));
 
-        branches.get(0)
-                .map(word -> new ShortWordEvent(word.id(), word.word()))
-                .to(ShortWordEvent.class);
-        branches.get(1)
-                .map(word -> new LongWordEvent(word.id(), word.word()))
-                .to(LongWordEvent.class);
+        var shortWords = classifiedWords.branch(ShortWordEvent.class);
+        var longWords = classifiedWords.branch(LongWordEvent.class);
 
-        return branches.get(0)
-                .merge(branches.get(1))
+        shortWords.to(ShortWordEvent.class);
+        longWords.to(LongWordEvent.class);
+
+        return shortWords
+                .<ClassifiedWordEvent>merge(longWords)
+                .map(word -> new WordEvent(word.id(), word.word()))
                 .to(WordEvent.class);
     }
 }

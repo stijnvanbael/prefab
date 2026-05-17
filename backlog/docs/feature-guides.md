@@ -852,8 +852,9 @@ Supported operations:
 - `filter(Predicate<?>)`
 - `map(Function<?, ?>)`
 - `flatMap(Function<?, Iterable<?>>)`
-- `branch(Predicate<?>...)`
-- `merge(PrefabStream<?>)`
+- `branch(Predicate<?>)`
+- `branch(Class<S>)`
+- `merge(PrefabStream<? extends S>)`
 - `breakout(StreamBreakoutAdapter<?, ?, ?, ?>)`
 - `to(Class<?>)`
 - `to(String)`
@@ -868,7 +869,7 @@ Serialization and deserialization reuse the existing Kafka dynamic serde infrast
 - Throws `IllegalArgumentException` when no topic is registered for a class
 - Throws `IllegalStateException` when multiple topics are registered for a class
 
-Example topology with branching and merging:
+Example topology with subtype branching and supertype merge:
 
 ```java
 @Configuration
@@ -876,18 +877,32 @@ class StreamTopologyConfiguration {
 
     @Bean
     StreamDefinition streamEventRoutingTopology(PrefabStreams streams) {
-        var branches = streams.from(StreamEvent.class)
+        var classified = streams.from(StreamEvent.class)
                 .flatMap(event -> List.of(event.payload().split(",")))
-                .branch(word -> word.length() <= 4, word -> true);
+                .map(word -> word.length() <= 4
+                        ? (ClassifiedWord) new ShortWord(word)
+                        : new LongWord(word));
 
-        branches.get(0).to("streams.words.short");
-        branches.get(1).to("streams.words.long");
+        var shortWords = classified.branch(ShortWord.class);
+        var longWords = classified.branch(LongWord.class);
 
-        return branches.get(0)
-                .merge(branches.get(1))
+        shortWords.to("streams.words.short");
+        longWords.to("streams.words.long");
+
+        return shortWords
+                .<ClassifiedWord>merge(longWords)
+                .map(word -> word.value())
                 .to("streams.words.all");
     }
 }
+
+sealed interface ClassifiedWord permits ShortWord, LongWord {
+    String value();
+}
+
+record ShortWord(String value) implements ClassifiedWord {}
+
+record LongWord(String value) implements ClassifiedWord {}
 ```
 
 Example breakout that injects a native Kafka Streams fragment via adapter SPI:

@@ -7,6 +7,7 @@ import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.streams.StreamBackend;
 import be.appify.prefab.streams.StreamBreakoutAdapter;
 import be.appify.prefab.core.util.SerializationRegistry;
+import be.appify.prefab.streams.PrefabStream;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -224,46 +225,7 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     @Test
-    void branch_shouldRouteRecordsToMatchingOutputStreams() {
-        var fixture = fixture();
-
-        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
-        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
-
-        var streamsBuilder = new StreamsBuilder();
-        var streams = new KafkaPrefabStreams(
-                streamsBuilder,
-                new KafkaTopicResolver(fixture.typeResolver),
-                fixture.serializer,
-                fixture.deserializer
-        );
-
-        var branches = streams.from(IncomingOrder.class)
-                .branch(
-                        order -> order.customer().startsWith("A"),
-                        order -> true
-                );
-        branches.get(0).to("orders.a-customers");
-        var topology = branches.get(1).to("orders.other-customers");
-
-        try (var driver = new TopologyTestDriver(topology.nativeTopology(), streamsConfig())) {
-            var inputTopic = driver.createInputTopic("orders.in", new StringSerializer(), fixture.serializer);
-            var aCustomersTopic = driver.createOutputTopic("orders.a-customers", new StringDeserializer(),
-                    new ByteArrayDeserializer());
-            var otherCustomersTopic = driver.createOutputTopic("orders.other-customers", new StringDeserializer(),
-                    new ByteArrayDeserializer());
-
-            inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "Alice"));
-            inputTopic.pipeInput("o-2", new IncomingOrder("o-2", "Bob"));
-            inputTopic.pipeInput("o-3", new IncomingOrder("o-3", "Anna"));
-
-            assertThat(aCustomersTopic.readValuesToList()).hasSize(2);
-            assertThat(otherCustomersTopic.readValuesToList()).hasSize(1);
-        }
-    }
-
-    @Test
-    void merge_shouldCombineRecordsFromTwoBranchesIntoSingleOutput() {
+    void branch_shouldEmitOnlyRecordsMatchingSinglePredicate() {
         var fixture = fixture();
 
         fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
@@ -279,30 +241,114 @@ class KafkaPrefabStreamsTopologyTest {
                 fixture.deserializer
         );
 
-        var branches = streams.from(IncomingOrder.class)
-                .branch(
-                        order -> order.customer().startsWith("A"),
-                        order -> true
-                );
-
-        var topology = branches.get(0)
-                .map(order -> new ProcessedOrder(order.orderId(), "A:" + order.customer()))
-                .merge(branches.get(1).map(order -> new ProcessedOrder(order.orderId(), "B:" + order.customer())))
+        var topology = streams.from(IncomingOrder.class)
+                .branch(order -> order.customer().startsWith("A"))
+                .map(order -> new ProcessedOrder(order.orderId(), order.customer()))
                 .to(ProcessedOrder.class);
 
         try (var driver = new TopologyTestDriver(topology.nativeTopology(), streamsConfig())) {
             var inputTopic = driver.createInputTopic("orders.in", new StringSerializer(), fixture.serializer);
-            var outputTopic = driver.createOutputTopic("orders.out", new StringDeserializer(), fixture.deserializer);
+            var aCustomersTopic = driver.createOutputTopic("orders.out", new StringDeserializer(),
+                    fixture.deserializer);
+
+            inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "Alice"));
+            inputTopic.pipeInput("o-2", new IncomingOrder("o-2", "Bob"));
+            inputTopic.pipeInput("o-3", new IncomingOrder("o-3", "Anna"));
+
+            var aCustomers = aCustomersTopic.readValuesToList();
+            assertThat(aCustomers)
+                    .hasSize(2)
+                    .allMatch(ProcessedOrder.class::isInstance);
+            assertThat(aCustomers.stream().map(ProcessedOrder.class::cast).map(ProcessedOrder::customer).toList())
+                    .containsExactlyInAnyOrder("Alice", "Anna");
+        }
+    }
+
+    @Test
+    void branchBySubtype_shouldFilterAndCastToSubtype() {
+        var fixture = fixture();
+
+        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
+        fixture.typeResolver.registerType("orders.priority", PriorityCustomer.class);
+        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
+        fixture.serializationRegistry.register("orders.priority", Event.Serialization.JSON);
+
+        var streamsBuilder = new StreamsBuilder();
+        var streams = new KafkaPrefabStreams(
+                streamsBuilder,
+                new KafkaTopicResolver(fixture.typeResolver),
+                fixture.serializer,
+                fixture.deserializer
+        );
+
+        var topology = streams.from(IncomingOrder.class)
+                .map(order -> order.customer().startsWith("A")
+                        ? (CustomerTieredOrder) new PriorityCustomer(order.orderId(), order.customer())
+                        : new StandardCustomer(order.orderId(), order.customer()))
+                .branch(PriorityCustomer.class)
+                .to("orders.priority");
+
+        try (var driver = new TopologyTestDriver(topology.nativeTopology(), streamsConfig())) {
+            var inputTopic = driver.createInputTopic("orders.in", new StringSerializer(), fixture.serializer);
+            var outputTopic = driver.createOutputTopic("orders.priority", new StringDeserializer(), fixture.deserializer);
+
+            inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "Alice"));
+            inputTopic.pipeInput("o-2", new IncomingOrder("o-2", "Bob"));
+            inputTopic.pipeInput("o-3", new IncomingOrder("o-3", "Anna"));
+
+            var preferredCustomers = outputTopic.readValuesToList();
+            assertThat(preferredCustomers)
+                    .hasSize(2)
+                    .allMatch(PriorityCustomer.class::isInstance);
+            assertThat(preferredCustomers.stream().map(PriorityCustomer.class::cast).map(PriorityCustomer::customer).toList())
+                    .containsExactlyInAnyOrder("Alice", "Anna");
+        }
+    }
+
+    @Test
+    void merge_shouldSupportCommonSupertypeAcrossSiblingStreams() {
+        var fixture = fixture();
+
+        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
+        fixture.typeResolver.registerType("orders.segmented", SegmentedOrder.class);
+        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
+        fixture.serializationRegistry.register("orders.segmented", Event.Serialization.JSON);
+
+        var streamsBuilder = new StreamsBuilder();
+        var streams = new KafkaPrefabStreams(
+                streamsBuilder,
+                new KafkaTopicResolver(fixture.typeResolver),
+                fixture.serializer,
+                fixture.deserializer
+        );
+
+        var classified = streams.from(IncomingOrder.class)
+                .map(order -> order.customer().startsWith("A")
+                        ? (CustomerTieredOrder) new PriorityCustomer(order.orderId(), order.customer())
+                        : new StandardCustomer(order.orderId(), order.customer()));
+
+        var priority = classified.branch(PriorityCustomer.class);
+        var standard = classified.branch(StandardCustomer.class);
+
+        PrefabStream<CustomerTieredOrder> merged = priority.merge(standard);
+
+        var topology = merged
+                .map(order -> new SegmentedOrder(order.orderId(), order.customer(), order.tier()))
+                .to("orders.segmented");
+
+        try (var driver = new TopologyTestDriver(topology.nativeTopology(), streamsConfig())) {
+            var inputTopic = driver.createInputTopic("orders.in", new StringSerializer(), fixture.serializer);
+            var outputTopic = driver.createOutputTopic("orders.segmented", new StringDeserializer(), fixture.deserializer);
 
             inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "Alice"));
             inputTopic.pipeInput("o-2", new IncomingOrder("o-2", "Bob"));
 
-            var merged = outputTopic.readValuesToList();
-            assertThat(merged)
+            var mergedOrders = outputTopic.readValuesToList();
+            assertThat(mergedOrders)
                     .hasSize(2)
-                    .allMatch(ProcessedOrder.class::isInstance);
-            assertThat(merged.stream().map(ProcessedOrder.class::cast).map(ProcessedOrder::customer).toList())
-                    .containsExactlyInAnyOrder("A:Alice", "B:Bob");
+                    .allMatch(SegmentedOrder.class::isInstance);
+            assertThat(mergedOrders.stream().map(SegmentedOrder.class::cast).map(SegmentedOrder::tier).toList())
+                    .containsExactlyInAnyOrder("PRIORITY", "STANDARD");
         }
     }
 
@@ -444,6 +490,31 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     record AuditOrder(String orderId, String status) {
+    }
+
+    sealed interface CustomerTieredOrder permits PriorityCustomer, StandardCustomer {
+        String orderId();
+
+        String customer();
+
+        String tier();
+    }
+
+    record PriorityCustomer(String orderId, String customer) implements CustomerTieredOrder {
+        @Override
+        public String tier() {
+            return "PRIORITY";
+        }
+    }
+
+    record StandardCustomer(String orderId, String customer) implements CustomerTieredOrder {
+        @Override
+        public String tier() {
+            return "STANDARD";
+        }
+    }
+
+    record SegmentedOrder(String orderId, String customer, String tier) {
     }
 
     private record Fixture(

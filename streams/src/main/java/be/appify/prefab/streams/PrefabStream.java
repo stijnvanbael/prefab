@@ -1,6 +1,5 @@
 package be.appify.prefab.streams;
 
-import java.util.List;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -41,23 +40,32 @@ public interface PrefabStream<V> {
     <R> PrefabStream<R> flatMap(Function<V, Iterable<R>> mapper);
 
     /**
-     * Splits the stream into ordered branches using first-match semantics.
+     * Routes records that match {@code predicate} to a new branch.
      *
-     * <p>Each record is routed to the first predicate that matches. Records that do not match any
-     * predicate are dropped.
+     * <p>Records that do not match are dropped from the returned stream.
      *
-     * @param predicates branch predicates in evaluation order; must not be {@code null}
-     * @return one stream per predicate, preserving predicate order
+     * @param predicate branch predicate; must not be {@code null}
+     * @return stream containing only matching records
      */
-    List<PrefabStream<V>> branch(Predicate<V>... predicates);
+    PrefabStream<V> branch(Predicate<V> predicate);
 
     /**
-     * Merges the current stream with another stream of the same value type.
+     * Routes only values assignable to {@code subtype} and casts them to that subtype.
+     *
+     * @param subtype subtype class to filter and cast to; must not be {@code null}
+     * @param <S>     subtype of {@code V}
+     * @return stream containing only values of {@code subtype}
+     */
+    <S extends V> PrefabStream<S> branch(Class<S> subtype);
+
+    /**
+     * Merges the current stream with another stream and returns a stream of a common supertype.
      *
      * @param other stream to merge with
+     * @param <S>   merged value supertype
      * @return merged stream containing records from both inputs
      */
-    PrefabStream<V> merge(PrefabStream<V> other);
+    <S> PrefabStream<S> merge(PrefabStream<? extends S> other);
 
     /**
      * Injects a backend-native stream fragment using a backend adapter SPI.

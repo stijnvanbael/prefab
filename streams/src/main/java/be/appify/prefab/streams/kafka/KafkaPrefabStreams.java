@@ -39,6 +39,6 @@ public class KafkaPrefabStreams implements PrefabStreams {
         // DynamicSerializer/Deserializer operate on Object at runtime; the cast is safe because
         // the topic is registered for exactly this type and the serde will deserialize to V.
         KStream<String, V> stream = (KStream<String, V>) streamsBuilder.stream(topic, Consumed.with(Serdes.String(), valueSerde));
-        return new KafkaPrefabStream<>(streamsBuilder, stream, topicResolver, serializer, deserializer);
+        return new KafkaPrefabStream<>(streamsBuilder, stream, topicResolver, serializer, deserializer, type);
     }
 }

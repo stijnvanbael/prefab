@@ -33,6 +33,7 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
     private final KafkaTopicResolver topicResolver;
     private final DynamicSerializer serializer;
     private final DynamicDeserializer deserializer;
+    private final Class<?> valueType;
 
     /** Constructs a new KafkaPrefabStream. */
     public KafkaPrefabStream(
@@ -40,18 +41,20 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
             KStream<String, V> stream,
             KafkaTopicResolver topicResolver,
             DynamicSerializer serializer,
-            DynamicDeserializer deserializer
+            DynamicDeserializer deserializer,
+            Class<?> valueType
     ) {
         this.streamsBuilder = streamsBuilder;
         this.stream = stream;
         this.topicResolver = topicResolver;
         this.serializer = serializer;
         this.deserializer = deserializer;
+        this.valueType = valueType;
     }
 
     @Override
     public PrefabStream<V> filter(Predicate<V> predicate) {
-        return wrap(stream.filter((key, value) -> predicate.test(value)));
+        return wrap(stream.filter((key, value) -> predicate.test(value)), valueType);
     }
 
     @Override
@@ -65,30 +68,37 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
     }
 
     @Override
-    @SafeVarargs
-    public final List<PrefabStream<V>> branch(Predicate<V>... predicates) {
+    public PrefabStream<V> branch(Predicate<V> predicate) {
+        Objects.requireNonNull(predicate, "predicate must not be null");
         var branchPrefix = "prefab-branch-";
-        var branched = stream.split(Named.as(branchPrefix));
-        for (var index = 0; index < predicates.length; index++) {
-            var predicate = predicates[index];
-            branched.branch((key, value) -> predicate.test(value), Branched.as(Integer.toString(index)));
-        }
+        var branched = stream.split(Named.as(branchPrefix))
+                .branch((key, value) -> predicate.test(value), Branched.as("matched"));
         var namedBranches = branched.noDefaultBranch();
-        return IntStream.range(0, predicates.length)
-                .mapToObj(index -> namedBranches.get(branchPrefix + index))
-                .map(this::wrap)
-                .map(branch -> (PrefabStream<V>) branch)
-                .toList();
+        return wrap(namedBranches.get(branchPrefix + "matched"), valueType);
     }
 
     @Override
-    public PrefabStream<V> merge(PrefabStream<V> other) {
+    public <S extends V> PrefabStream<S> branch(Class<S> subtype) {
+        Objects.requireNonNull(subtype, "subtype must not be null");
+        var filteredAndCasted = stream
+                .filter((key, value) -> subtype.isInstance(value))
+                .mapValues(subtype::cast);
+        return wrap(filteredAndCasted, subtype);
+    }
+
+    @Override
+    public <S> PrefabStream<S> merge(PrefabStream<? extends S> other) {
         if (!(other instanceof KafkaPrefabStream<?> otherKafkaStream)) {
             throw new IllegalArgumentException("Cannot merge non-Kafka stream implementation");
         }
+
+        validateMergeCompatibility(otherKafkaStream);
+
         @SuppressWarnings("unchecked")
-        var otherTypedStream = (KStream<String, V>) otherKafkaStream.stream;
-        return wrap(stream.merge(otherTypedStream));
+        var thisTypedStream = (KStream<String, S>) stream;
+        @SuppressWarnings("unchecked")
+        var otherTypedStream = (KStream<String, S>) otherKafkaStream.stream;
+        return wrap(thisTypedStream.merge(otherTypedStream), commonKnownType(valueType, otherKafkaStream.valueType));
     }
 
     @Override
@@ -139,6 +149,53 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
     }
 
     private <R> KafkaPrefabStream<R> wrap(KStream<String, R> transformed) {
-        return new KafkaPrefabStream<>(streamsBuilder, transformed, topicResolver, serializer, deserializer);
+        return new KafkaPrefabStream<>(streamsBuilder, transformed, topicResolver, serializer, deserializer, null);
+    }
+
+    private <R> KafkaPrefabStream<R> wrap(KStream<String, R> transformed, Class<?> runtimeType) {
+        return new KafkaPrefabStream<>(streamsBuilder, transformed, topicResolver, serializer, deserializer, runtimeType);
+    }
+
+    private void validateMergeCompatibility(KafkaPrefabStream<?> other) {
+        if (valueType == null || other.valueType == null) {
+            return;
+        }
+        if (valueType.isAssignableFrom(other.valueType) || other.valueType.isAssignableFrom(valueType)) {
+            return;
+        }
+        if (hasSharedInterface(valueType, other.valueType)) {
+            return;
+        }
+        throw new IllegalArgumentException(
+                "Cannot safely merge streams with incompatible known runtime types: %s and %s"
+                        .formatted(valueType.getName(), other.valueType.getName())
+        );
+    }
+
+    private static boolean hasSharedInterface(Class<?> left, Class<?> right) {
+        for (var interfaceType : left.getInterfaces()) {
+            if (interfaceType.isAssignableFrom(right)) {
+                return true;
+            }
+        }
+        for (var interfaceType : right.getInterfaces()) {
+            if (interfaceType.isAssignableFrom(left)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static Class<?> commonKnownType(Class<?> left, Class<?> right) {
+        if (left == null || right == null) {
+            return null;
+        }
+        if (left.isAssignableFrom(right)) {
+            return left;
+        }
+        if (right.isAssignableFrom(left)) {
+            return right;
+        }
+        return null;
     }
 }

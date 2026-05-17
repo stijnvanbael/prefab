@@ -38,9 +38,9 @@ class KafkaPrefabStreamsTopologyTest {
                 fixture.deserializer
         );
         var topology = streams.from(IncomingOrder.class).to(ProcessedOrder.class);
-        assertThat(topology.describe().toString()).contains("orders.in").contains("orders.out");
+        assertThat(topology.nativeTopology().describe().toString()).contains("orders.in").contains("orders.out");
 
-        try (var driver = new TopologyTestDriver(streamsBuilder.build(), streamsConfig())) {
+        try (var driver = new TopologyTestDriver(topology.nativeTopology(), streamsConfig())) {
             var inputTopic = driver.createInputTopic("orders.in", new StringSerializer(), fixture.serializer);
             var outputTopic = driver.createOutputTopic("orders.out", new StringDeserializer(), fixture.deserializer);
 
@@ -68,9 +68,9 @@ class KafkaPrefabStreamsTopologyTest {
                 fixture.deserializer
         );
         var topology = streams.from(IncomingOrder.class).to("orders.dead-letter");
-        assertThat(topology.describe().toString()).contains("orders.in").contains("orders.dead-letter");
+        assertThat(topology.nativeTopology().describe().toString()).contains("orders.in").contains("orders.dead-letter");
 
-        try (var driver = new TopologyTestDriver(streamsBuilder.build(), streamsConfig())) {
+        try (var driver = new TopologyTestDriver(topology.nativeTopology(), streamsConfig())) {
             var inputTopic = driver.createInputTopic("orders.in", new StringSerializer(), fixture.serializer);
             var outputTopic = driver.createOutputTopic("orders.dead-letter", new StringDeserializer(), new ByteArrayDeserializer());
 

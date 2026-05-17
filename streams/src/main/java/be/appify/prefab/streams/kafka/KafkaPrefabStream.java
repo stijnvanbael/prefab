@@ -87,18 +87,31 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
     }
 
     @Override
-    public <S> PrefabStream<S> merge(PrefabStream<? extends S> other) {
-        if (!(other instanceof KafkaPrefabStream<?> otherKafkaStream)) {
+    public PrefabStream<V> merge(PrefabStream<? extends V> other) {
+        return mergeStreams(this, other);
+    }
+
+    static <V> KafkaPrefabStream<V> mergeStreams(PrefabStream<? extends V> left, PrefabStream<? extends V> right) {
+        Objects.requireNonNull(left, "left must not be null");
+        Objects.requireNonNull(right, "right must not be null");
+
+        if (!(left instanceof KafkaPrefabStream<?> leftKafkaStream)) {
+            throw new IllegalArgumentException("Cannot merge non-Kafka stream implementation");
+        }
+        if (!(right instanceof KafkaPrefabStream<?> rightKafkaStream)) {
             throw new IllegalArgumentException("Cannot merge non-Kafka stream implementation");
         }
 
-        validateMergeCompatibility(otherKafkaStream);
+        leftKafkaStream.validateMergeContext(rightKafkaStream);
 
         @SuppressWarnings("unchecked")
-        var thisTypedStream = (KStream<String, S>) stream;
+        var leftTypedStream = (KStream<String, V>) leftKafkaStream.stream;
         @SuppressWarnings("unchecked")
-        var otherTypedStream = (KStream<String, S>) otherKafkaStream.stream;
-        return wrap(thisTypedStream.merge(otherTypedStream), commonKnownType(valueType, otherKafkaStream.valueType));
+        var rightTypedStream = (KStream<String, V>) rightKafkaStream.stream;
+        return leftKafkaStream.wrap(
+                leftTypedStream.merge(rightTypedStream),
+                commonKnownType(leftKafkaStream.valueType, rightKafkaStream.valueType)
+        );
     }
 
     @Override
@@ -156,34 +169,14 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
         return new KafkaPrefabStream<>(streamsBuilder, transformed, topicResolver, serializer, deserializer, runtimeType);
     }
 
-    private void validateMergeCompatibility(KafkaPrefabStream<?> other) {
-        if (valueType == null || other.valueType == null) {
+    private void validateMergeContext(KafkaPrefabStream<?> other) {
+        if (streamsBuilder == other.streamsBuilder
+                && topicResolver == other.topicResolver
+                && serializer == other.serializer
+                && deserializer == other.deserializer) {
             return;
         }
-        if (valueType.isAssignableFrom(other.valueType) || other.valueType.isAssignableFrom(valueType)) {
-            return;
-        }
-        if (hasSharedInterface(valueType, other.valueType)) {
-            return;
-        }
-        throw new IllegalArgumentException(
-                "Cannot safely merge streams with incompatible known runtime types: %s and %s"
-                        .formatted(valueType.getName(), other.valueType.getName())
-        );
-    }
-
-    private static boolean hasSharedInterface(Class<?> left, Class<?> right) {
-        for (var interfaceType : left.getInterfaces()) {
-            if (interfaceType.isAssignableFrom(right)) {
-                return true;
-            }
-        }
-        for (var interfaceType : right.getInterfaces()) {
-            if (interfaceType.isAssignableFrom(left)) {
-                return true;
-            }
-        }
-        return false;
+        throw new IllegalArgumentException("Cannot merge streams created by different Kafka stream contexts");
     }
 
     private static Class<?> commonKnownType(Class<?> left, Class<?> right) {

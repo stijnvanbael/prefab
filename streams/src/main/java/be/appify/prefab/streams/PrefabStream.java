@@ -59,13 +59,15 @@ public interface PrefabStream<V> {
     <S extends V> PrefabStream<S> branch(Class<S> subtype);
 
     /**
-     * Merges the current stream with another stream and returns a stream of a common supertype.
+     * Merges the current stream with another stream whose values are assignable to {@code V}.
+     *
+     * <p>For merges that should widen sibling streams into an explicit common supertype, use the
+     * {@code PrefabStreams.merge(left, right)} factory API.
      *
      * @param other stream to merge with
-     * @param <S>   merged value supertype
-     * @return merged stream containing records from both inputs
+     * @return merged stream containing records from both inputs as {@code V}
      */
-    <S> PrefabStream<S> merge(PrefabStream<? extends S> other);
+    PrefabStream<V> merge(PrefabStream<? extends V> other);
 
     /**
      * Injects a backend-native stream fragment using a backend adapter SPI.

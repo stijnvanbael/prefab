@@ -854,7 +854,8 @@ Supported operations:
 - `flatMap(Function<?, Iterable<?>>)`
 - `branch(Predicate<?>)`
 - `branch(Class<S>)`
-- `merge(PrefabStream<? extends S>)`
+- `merge(PrefabStream<? extends V>)`
+- `PrefabStreams.merge(PrefabStream<? extends M>, PrefabStream<? extends M>)`
 - `breakout(StreamBreakoutAdapter<?, ?, ?, ?>)`
 - `to(Class<?>)`
 - `to(String)`
@@ -869,7 +870,10 @@ Serialization and deserialization reuse the existing Kafka dynamic serde infrast
 - Throws `IllegalArgumentException` when no topic is registered for a class
 - Throws `IllegalStateException` when multiple topics are registered for a class
 
-Example topology with subtype branching and supertype merge:
+Use instance `merge(...)` when the current stream type already represents the target type. Use
+`PrefabStreams.merge(...)` when sibling streams should be widened into a declared common supertype.
+
+Example topology with subtype branching and factory merge:
 
 ```java
 @Configuration
@@ -889,8 +893,7 @@ class StreamTopologyConfiguration {
         shortWords.to("streams.words.short");
         longWords.to("streams.words.long");
 
-        return shortWords
-                .<ClassifiedWord>merge(longWords)
+        return streams.merge(shortWords, longWords)
                 .map(word -> word.value())
                 .to("streams.words.all");
     }

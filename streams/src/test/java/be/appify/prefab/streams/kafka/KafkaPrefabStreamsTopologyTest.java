@@ -306,6 +306,39 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     @Test
+    void merge_shouldKeepInstanceMergeForStreamsWithSameDeclaredType() {
+        var fixture = fixture();
+
+        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
+        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
+
+        var streamsBuilder = new StreamsBuilder();
+        var streams = new KafkaPrefabStreams(
+                streamsBuilder,
+                new KafkaTopicResolver(fixture.typeResolver),
+                fixture.serializer,
+                fixture.deserializer
+        );
+
+        var orders = streams.from(IncomingOrder.class);
+        var aCustomers = orders.filter(order -> order.customer().startsWith("A"));
+        var bCustomers = orders.filter(order -> order.customer().startsWith("B"));
+
+        var topology = aCustomers.merge(bCustomers).to("orders.selected");
+
+        try (var driver = new TopologyTestDriver(topology.nativeTopology(), streamsConfig())) {
+            var inputTopic = driver.createInputTopic("orders.in", new StringSerializer(), fixture.serializer);
+            var outputTopic = driver.createOutputTopic("orders.selected", new StringDeserializer(), new ByteArrayDeserializer());
+
+            inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "Alice"));
+            inputTopic.pipeInput("o-2", new IncomingOrder("o-2", "Bob"));
+            inputTopic.pipeInput("o-3", new IncomingOrder("o-3", "Chris"));
+
+            assertThat(outputTopic.readValuesToList()).hasSize(2);
+        }
+    }
+
+    @Test
     void merge_shouldSupportCommonSupertypeAcrossSiblingStreams() {
         var fixture = fixture();
 
@@ -330,7 +363,7 @@ class KafkaPrefabStreamsTopologyTest {
         var priority = classified.branch(PriorityCustomer.class);
         var standard = classified.branch(StandardCustomer.class);
 
-        PrefabStream<CustomerTieredOrder> merged = priority.merge(standard);
+        PrefabStream<CustomerTieredOrder> merged = streams.merge(priority, standard);
 
         var topology = merged
                 .map(order -> new SegmentedOrder(order.orderId(), order.customer(), order.tier()))

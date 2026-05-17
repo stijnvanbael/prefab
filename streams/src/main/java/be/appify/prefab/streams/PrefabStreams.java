@@ -10,4 +10,14 @@ public interface PrefabStreams {
      * @return source stream builder for the given event type
      */
     <V> PrefabStream<V> from(Class<V> type);
+
+    /**
+     * Merges two streams into a stream typed to their declared common supertype.
+     *
+     * @param left  left stream to merge
+     * @param right right stream to merge
+     * @param <M>   merged value type
+     * @return merged stream containing records from both inputs as {@code M}
+     */
+    <M> PrefabStream<M> merge(PrefabStream<? extends M> left, PrefabStream<? extends M> right);
 }

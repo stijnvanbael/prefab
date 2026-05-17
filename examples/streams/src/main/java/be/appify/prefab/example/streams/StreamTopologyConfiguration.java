@@ -10,14 +10,14 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * Demonstrates the streams DSL with {@code filter}, {@code map}, {@code flatMap},
- * predicate/class-based {@code branch}, and typed {@code merge} in one Kafka Streams topology.
+ * predicate/class-based {@code branch}, and factory {@code merge} in one Kafka Streams topology.
  *
  * <p>Pipeline:
  * <ol>
  *   <li>Normalise input via {@code filter}, {@code map}, and {@code flatMap}.</li>
  *   <li>Classify words, then branch by subtype via {@code branch(Class)}.</li>
  *   <li>Write each branch to a dedicated output topic.</li>
- *   <li>{@code merge} both subtype branches into their common supertype and write to a combined topic.</li>
+ *   <li>Use {@code PrefabStreams.merge(...)} to merge subtype branches into a common supertype.</li>
  * </ol>
  */
 @Configuration
@@ -45,8 +45,7 @@ class StreamTopologyConfiguration {
         shortWords.to(ShortWordEvent.class);
         longWords.to(LongWordEvent.class);
 
-        return shortWords
-                .<ClassifiedWordEvent>merge(longWords)
+        return streams.merge(shortWords, longWords)
                 .map(word -> new WordEvent(word.id(), word.word()))
                 .to(WordEvent.class);
     }

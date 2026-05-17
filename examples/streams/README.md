@@ -2,13 +2,13 @@
 
 Runnable Prefab Streams DSL example with breakout, branch-and-merge routing.
 
-This module defines one topology that normalizes input, injects a native Kafka fragment, branches by subtype, and merges back via a common supertype:
+This module defines one topology that normalizes input, injects a native Kafka fragment, branches by subtype, and merges back via the `PrefabStreams` factory API:
 
 - `from(StreamEvent.class)` reads from `${topics.streams.input}`
 - `breakout(new KafkaStreamBreakoutAdapter<>(...))` injects a native `KStream` fragment (`selectKey`)
 - `branch(ShortWordEvent.class)` emits short words (`<= 4`) to `${topics.streams.short-words}`
 - `branch(LongWordEvent.class)` emits long words (`> 4`) to `${topics.streams.long-words}`
-- `merge(...)` combines both subtype branches as `ClassifiedWordEvent` and writes to `${topics.streams.words}`
+- `streams.merge(shortWords, longWords)` combines both subtype branches as `ClassifiedWordEvent` and writes to `${topics.streams.words}`
 
 ## Commands
 

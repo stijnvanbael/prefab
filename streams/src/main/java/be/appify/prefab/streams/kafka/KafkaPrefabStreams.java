@@ -41,4 +41,9 @@ public class KafkaPrefabStreams implements PrefabStreams {
         KStream<String, V> stream = (KStream<String, V>) streamsBuilder.stream(topic, Consumed.with(Serdes.String(), valueSerde));
         return new KafkaPrefabStream<>(streamsBuilder, stream, topicResolver, serializer, deserializer, type);
     }
+
+    @Override
+    public <M> PrefabStream<M> merge(PrefabStream<? extends M> left, PrefabStream<? extends M> right) {
+        return KafkaPrefabStream.mergeStreams(left, right);
+    }
 }

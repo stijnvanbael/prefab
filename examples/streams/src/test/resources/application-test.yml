@@ -9,4 +9,4 @@ topics:
   streams:
     input: streams.input.test
     output: streams.output.test
-
+    words: streams.words.test

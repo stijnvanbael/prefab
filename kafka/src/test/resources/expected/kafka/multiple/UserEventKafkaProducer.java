@@ -1,5 +1,6 @@
 package kafka.multiple.infrastructure.kafka;
 
+import be.appify.prefab.core.kafka.EventRegistry;
 import kafka.multiple.UserEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,17 +15,20 @@ public class UserEventKafkaProducer {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
+    private final EventRegistry eventRegistry;
+
     private final String topic;
 
-    public UserEventKafkaProducer(KafkaTemplate<String, Object> kafkaTemplate,
+    public UserEventKafkaProducer(KafkaTemplate<String, Object> kafkaTemplate, EventRegistry eventRegistry,
             @Value("${topic.user.name}") String topic) {
         this.kafkaTemplate = kafkaTemplate;
+        this.eventRegistry = eventRegistry;
         this.topic = topic;
     }
 
     @EventListener
     public void publish(UserEvent event) {
         log.debug("Publishing event {} on topic {}", event, topic);
-        kafkaTemplate.send(topic, event.id(), event).join();
+        kafkaTemplate.send(topic, eventRegistry.keyFor(event).orElse(null), event).join();
     }
 }

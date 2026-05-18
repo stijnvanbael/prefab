@@ -3,7 +3,7 @@ package be.appify.prefab.streams.kafka;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
-import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
+import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.util.SerializationRegistry;
 import java.util.List;
 import java.util.Properties;
@@ -329,7 +329,7 @@ class KafkaPrefabStreamsTopologyTest {
 
     private static Fixture fixture() {
         var serializationRegistry = new SerializationRegistry();
-        var typeResolver = new KafkaJsonTypeResolver();
+        var typeResolver = new EventRegistry();
         var conversionService = new DefaultConversionService();
         var kafkaProperties = new KafkaProperties();
         var serializer = new DynamicSerializer(kafkaProperties, conversionService, serializationRegistry);
@@ -358,7 +358,7 @@ class KafkaPrefabStreamsTopologyTest {
 
     private record Fixture(
             SerializationRegistry serializationRegistry,
-            KafkaJsonTypeResolver typeResolver,
+            EventRegistry typeResolver,
             DynamicSerializer serializer,
             DynamicDeserializer deserializer
     ) {

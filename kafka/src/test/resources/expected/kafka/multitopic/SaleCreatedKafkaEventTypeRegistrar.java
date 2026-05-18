@@ -1,12 +1,12 @@
 package kafka.multitopic.infrastructure.kafka;
-import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
+import be.appify.prefab.core.kafka.EventRegistry;
 import kafka.multitopic.Sale;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 @Component
 public class SaleCreatedKafkaEventTypeRegistrar {
-    public SaleCreatedKafkaEventTypeRegistrar(KafkaJsonTypeResolver typeResolver,
+    public SaleCreatedKafkaEventTypeRegistrar(EventRegistry eventRegistry,
             @Value("${topic.sale.name}") String saleCreatedTopic) {
-        typeResolver.registerType(saleCreatedTopic, Sale.Created.class);
+        eventRegistry.registerType(saleCreatedTopic, Sale.Created.class);
     }
 }

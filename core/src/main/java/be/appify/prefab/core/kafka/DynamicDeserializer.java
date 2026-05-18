@@ -21,7 +21,7 @@ public class DynamicDeserializer implements Deserializer<Object> {
     private final GenericAvroDeserializer avroDeserializer = new GenericAvroDeserializer();
     private final ConversionService conversionService;
     private final SerializationRegistry serializationRegistry;
-    private final KafkaJsonTypeResolver jsonTypeResolver;
+    private final EventRegistry eventRegistry;
 
     /**
      * Constructs a DynamicDeserializer and configures the underlying JsonDeserializer and AvroDeserializer with the provided Kafka properties.
@@ -32,20 +32,20 @@ public class DynamicDeserializer implements Deserializer<Object> {
      *         the ConversionService to convert GenericRecord to the target event class for Avro deserialization
      * @param serializationRegistry
      *         the SerializationRegistry that contains the serialization format for each topic
-     * @param jsonTypeResolver
-     *         the KafkaJsonTypeResolver to resolve types for JSON deserialization
+     * @param eventRegistry
+     *         the EventRegistry to resolve types for deserialization
      */
     public DynamicDeserializer(
             KafkaProperties kafkaProperties,
             ConversionService conversionService,
             SerializationRegistry serializationRegistry,
-            KafkaJsonTypeResolver jsonTypeResolver
+            EventRegistry eventRegistry
     ) {
         this.conversionService = conversionService;
         this.serializationRegistry = serializationRegistry;
-        this.jsonTypeResolver = jsonTypeResolver;
+        this.eventRegistry = eventRegistry;
         var consumerProperties = kafkaProperties.buildConsumerProperties();
-        jsonDeserializer.setTypeResolver(jsonTypeResolver);
+        jsonDeserializer.setTypeResolver(eventRegistry);
         jsonDeserializer.configure(consumerProperties, false);
         if (!consumerProperties.containsKey("schema.registry.url")) {
             consumerProperties.put("schema.registry.url", "mock://schema-url");
@@ -84,7 +84,7 @@ public class DynamicDeserializer implements Deserializer<Object> {
     }
 
     private Class<?> resolveTargetClass(String topic, String schemaName, String schemaFullName) {
-        var candidates = jsonTypeResolver.registeredTypesForTopic(topic).stream()
+        var candidates = eventRegistry.registeredTypesForTopic(topic).stream()
                 .filter(type -> typeNameMatchesSchema(type, schemaName))
                 .toList();
 

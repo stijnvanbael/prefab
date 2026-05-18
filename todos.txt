@@ -1,4 +1,4 @@
 - KafkaPublisher voor alle events
-- KafkaJsonTypeResolver -> EventTypeResolver
+- ~~KafkaJsonTypeResolver -> EventTypeResolver~~ → Done: renamed to EventRegistry + keyFor(event) support
 - Mother genereren voor union van double en String
-- Generieke Kafka publisher, partitioning key extractor mee in type resolver steken
+- ~~Generieke Kafka publisher, partitioning key extractor mee in type resolver steken~~ → Done: EventRegistry.registerType(..., keyExtractor) + keyFor(event)

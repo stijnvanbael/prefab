@@ -2,7 +2,7 @@ package be.appify.prefab.streams.kafka;
 
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
-import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
+import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.StreamDefinition;
 import java.util.HashMap;
@@ -43,8 +43,8 @@ public class StreamsConfiguration {
     }
 
     @Bean
-    KafkaTopicResolver kafkaTopicResolver(KafkaJsonTypeResolver typeResolver) {
-        return new KafkaTopicResolver(typeResolver);
+    KafkaTopicResolver kafkaTopicResolver(EventRegistry eventRegistry) {
+        return new KafkaTopicResolver(eventRegistry);
     }
 
     @Bean

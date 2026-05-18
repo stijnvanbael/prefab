@@ -1,19 +1,19 @@
 package be.appify.prefab.streams.kafka;
 
-import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
+import be.appify.prefab.core.kafka.EventRegistry;
 
 /** Resolves event type to topic for streams source/sink operations. */
 public class KafkaTopicResolver {
-    private final KafkaJsonTypeResolver typeResolver;
+    private final EventRegistry eventRegistry;
 
     /**
      * Constructs a new KafkaTopicResolver.
      *
-     * @param typeResolver
-     *         resolver that tracks Kafka type registrations
+     * @param eventRegistry
+     *         registry that tracks event type registrations
      */
-    public KafkaTopicResolver(KafkaJsonTypeResolver typeResolver) {
-        this.typeResolver = typeResolver;
+    public KafkaTopicResolver(EventRegistry eventRegistry) {
+        this.eventRegistry = eventRegistry;
     }
 
     /**
@@ -24,7 +24,7 @@ public class KafkaTopicResolver {
      * @return topic name
      */
     public String topicForType(Class<?> type) {
-        return typeResolver.topicForType(type);
+        return eventRegistry.topicForType(type);
     }
 }
 

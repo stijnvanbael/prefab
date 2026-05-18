@@ -3,22 +3,22 @@ package be.appify.prefab.streams.kafka;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
-import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
+import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.util.SerializationRegistry;
-import java.util.List;
-import java.util.Properties;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.TopologyTestDriver;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.core.convert.support.DefaultConversionService;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.util.List;
+import java.util.Properties;
 
 class KafkaPrefabStreamsTopologyTest {
 
@@ -79,7 +79,8 @@ class KafkaPrefabStreamsTopologyTest {
 
         try (var driver = new TopologyTestDriver(topology.nativeTopology(), streamsConfig())) {
             var inputTopic = driver.createInputTopic("orders.in", new StringSerializer(), fixture.serializer);
-            var outputTopic = driver.createOutputTopic("orders.dead-letter", new StringDeserializer(), new ByteArrayDeserializer());
+            var outputTopic = driver.createOutputTopic("orders.dead-letter", new StringDeserializer(),
+                    new ByteArrayDeserializer());
 
             var order = new IncomingOrder("o-2", "Bob");
             inputTopic.pipeInput("o-2", order);
@@ -102,7 +103,7 @@ class KafkaPrefabStreamsTopologyTest {
 
         assertThatThrownBy(() -> streams.from(IncomingOrder.class))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("No Kafka topic registered for type");
+                .hasMessageContaining("No topic registered for type");
     }
 
     @Test
@@ -122,7 +123,7 @@ class KafkaPrefabStreamsTopologyTest {
 
         assertThatThrownBy(() -> streams.from(IncomingOrder.class))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Multiple Kafka topics registered for type");
+                .hasMessageContaining("Multiple topics registered for type");
     }
 
     @Test
@@ -145,7 +146,8 @@ class KafkaPrefabStreamsTopologyTest {
 
         try (var driver = new TopologyTestDriver(topology.nativeTopology(), streamsConfig())) {
             var inputTopic = driver.createInputTopic("orders.in", new StringSerializer(), fixture.serializer);
-            var outputTopic = driver.createOutputTopic("orders.filtered", new StringDeserializer(), new ByteArrayDeserializer());
+            var outputTopic = driver.createOutputTopic("orders.filtered", new StringDeserializer(),
+                    new ByteArrayDeserializer());
 
             inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "Alice"));
             inputTopic.pipeInput("o-2", new IncomingOrder("o-2", "Bob"));
@@ -208,7 +210,8 @@ class KafkaPrefabStreamsTopologyTest {
 
         try (var driver = new TopologyTestDriver(topology.nativeTopology(), streamsConfig())) {
             var inputTopic = driver.createInputTopic("words.in", new StringSerializer(), fixture.serializer);
-            var outputTopic = driver.createOutputTopic("words.out", new StringDeserializer(), new ByteArrayDeserializer());
+            var outputTopic = driver.createOutputTopic("words.out", new StringDeserializer(),
+                    new ByteArrayDeserializer());
 
             inputTopic.pipeInput("b-1", new WordBatch("b-1", "hello,world,foo"));
 
@@ -241,8 +244,10 @@ class KafkaPrefabStreamsTopologyTest {
 
         try (var driver = new TopologyTestDriver(topology.nativeTopology(), streamsConfig())) {
             var inputTopic = driver.createInputTopic("orders.in", new StringSerializer(), fixture.serializer);
-            var aCustomersTopic = driver.createOutputTopic("orders.a-customers", new StringDeserializer(), new ByteArrayDeserializer());
-            var otherCustomersTopic = driver.createOutputTopic("orders.other-customers", new StringDeserializer(), new ByteArrayDeserializer());
+            var aCustomersTopic = driver.createOutputTopic("orders.a-customers", new StringDeserializer(),
+                    new ByteArrayDeserializer());
+            var otherCustomersTopic = driver.createOutputTopic("orders.other-customers", new StringDeserializer(),
+                    new ByteArrayDeserializer());
 
             inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "Alice"));
             inputTopic.pipeInput("o-2", new IncomingOrder("o-2", "Bob"));
@@ -329,11 +334,12 @@ class KafkaPrefabStreamsTopologyTest {
 
     private static Fixture fixture() {
         var serializationRegistry = new SerializationRegistry();
-        var typeResolver = new KafkaJsonTypeResolver();
+        var typeResolver = new EventRegistry();
         var conversionService = new DefaultConversionService();
         var kafkaProperties = new KafkaProperties();
         var serializer = new DynamicSerializer(kafkaProperties, conversionService, serializationRegistry);
-        var deserializer = new DynamicDeserializer(kafkaProperties, conversionService, serializationRegistry, typeResolver);
+        var deserializer = new DynamicDeserializer(kafkaProperties, conversionService, serializationRegistry,
+                typeResolver);
         return new Fixture(serializationRegistry, typeResolver, serializer, deserializer);
     }
 
@@ -358,7 +364,7 @@ class KafkaPrefabStreamsTopologyTest {
 
     private record Fixture(
             SerializationRegistry serializationRegistry,
-            KafkaJsonTypeResolver typeResolver,
+            EventRegistry typeResolver,
             DynamicSerializer serializer,
             DynamicDeserializer deserializer
     ) {

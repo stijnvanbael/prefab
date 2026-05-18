@@ -52,7 +52,7 @@ import static org.apache.commons.lang3.StringUtils.isEmpty;
  */
 @Configuration
 @ConditionalOnClass(KafkaListenerContainerFactory.class)
-@ComponentScan(basePackageClasses = KafkaJsonTypeResolver.class)
+@ComponentScan(basePackageClasses = EventRegistry.class)
 public class KafkaConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaConfiguration.class);

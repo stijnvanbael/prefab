@@ -496,7 +496,7 @@ event types are declared in dependency modules.
 
 **Generated artefacts:**
 - `{Type}Producer` / `{EventInterface}Producer` — Spring `@Component` that publishes to the topic
-- `{Type}KafkaEventTypeRegistrar` — registers the event type with `KafkaJsonTypeResolver`
+- `{Type}KafkaEventTypeRegistrar` — registers the event type (and its partitioning key extractor, if any) with `EventRegistry`
 - Consumer class registered in the messaging platform subscriber
 - `SerializationRegistryConfiguration` — registers topic → serialization format mapping
 

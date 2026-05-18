@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.event.kafka;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -14,7 +15,6 @@ import org.springframework.stereotype.Component;
 
 import javax.lang.model.element.Modifier;
 
-import static be.appify.prefab.processor.event.ConsumerWriterSupport.keyField;
 import static be.appify.prefab.processor.event.kafka.KafkaPlugin.platformIsKafka;
 import static javax.lang.model.element.Modifier.PUBLIC;
 
@@ -45,6 +45,7 @@ class KafkaProducerWriter {
                                 ClassName.get(Object.class)
                         ),
                         "kafkaTemplate", Modifier.PRIVATE, Modifier.FINAL)
+                .addField(EventRegistry.class, "eventRegistry", Modifier.PRIVATE, Modifier.FINAL)
                 .addField(String.class, "topic", Modifier.PRIVATE, Modifier.FINAL)
                 .addMethod(constructor(annotation.topic()))
                 .addMethod(producer(event))
@@ -69,6 +70,7 @@ class KafkaProducerWriter {
                                 ClassName.get(Object.class)
                         ),
                         "kafkaTemplate", Modifier.PRIVATE, Modifier.FINAL)
+                .addField(EventRegistry.class, "eventRegistry", Modifier.PRIVATE, Modifier.FINAL)
                 .addField(String.class, "topic", Modifier.PRIVATE, Modifier.FINAL)
                 .addMethod(constructor(topic))
                 .addMethod(avscProducer(eventType))
@@ -86,7 +88,9 @@ class KafkaProducerWriter {
                                 ClassName.get(Object.class)
                         ),
                         "kafkaTemplate")
-                .addStatement("this.kafkaTemplate = kafkaTemplate");
+                .addParameter(EventRegistry.class, "eventRegistry")
+                .addStatement("this.kafkaTemplate = kafkaTemplate")
+                .addStatement("this.eventRegistry = eventRegistry");
         if (topic.matches("\\$\\{.+}")) {
             constructor.addParameter(ParameterSpec.builder(String.class, "topic")
                             .addAnnotation(AnnotationSpec.builder(Value.class)
@@ -100,17 +104,15 @@ class KafkaProducerWriter {
         return constructor.build();
     }
 
-    private MethodSpec producer(TypeManifest event) {
-        var method = MethodSpec.methodBuilder("publish")
+    private static MethodSpec producer(TypeManifest event) {
+        return MethodSpec.methodBuilder("publish")
                 .addModifiers(PUBLIC)
                 .returns(void.class)
                 .addParameter(event.asTypeName(), "event")
                 .addAnnotation(EventListener.class)
-                .addStatement("log.debug($S, event, topic)", "Publishing event {} on topic {}");
-        keyField(event, context).ifPresentOrElse(
-                keyField -> method.addStatement("kafkaTemplate.send(topic, $L, event).join()", keyField),
-                () -> method.addStatement("kafkaTemplate.send(topic, event).join()"));
-        return method.build();
+                .addStatement("log.debug($S, event, topic)", "Publishing event {} on topic {}")
+                .addStatement("kafkaTemplate.send(topic, eventRegistry.keyFor(event).orElse(null), event).join()")
+                .build();
     }
 
     private static MethodSpec avscProducer(ClassName eventType) {
@@ -120,7 +122,7 @@ class KafkaProducerWriter {
                 .addParameter(eventType, "event")
                 .addAnnotation(EventListener.class)
                 .addStatement("log.debug($S, event, topic)", "Publishing event {} on topic {}")
-                .addStatement("kafkaTemplate.send(topic, event).join()")
+                .addStatement("kafkaTemplate.send(topic, eventRegistry.keyFor(event).orElse(null), event).join()")
                 .build();
     }
 }

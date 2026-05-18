@@ -54,7 +54,7 @@ class KafkaConfigurationTest {
                 kafkaProperties,
                 new DefaultConversionService(),
                 new SerializationRegistry(),
-                new KafkaJsonTypeResolver());
+                new EventRegistry());
     }
 
     private KafkaConnectionDetails kafkaConnectionDetails() {

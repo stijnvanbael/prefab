@@ -1,5 +1,6 @@
 package kafka.avscaggregate.infrastructure.kafka;
 
+import be.appify.prefab.core.kafka.EventRegistry;
 import kafka.avscaggregate.OrderCreatedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,16 +14,19 @@ public class OrderCreatedEventKafkaProducer {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
+    private final EventRegistry eventRegistry;
+
     private final String topic;
 
-    public OrderCreatedEventKafkaProducer(KafkaTemplate<String, Object> kafkaTemplate) {
+    public OrderCreatedEventKafkaProducer(KafkaTemplate<String, Object> kafkaTemplate, EventRegistry eventRegistry) {
         this.kafkaTemplate = kafkaTemplate;
+        this.eventRegistry = eventRegistry;
         this.topic = "prefab.order";
     }
 
     @EventListener
     public void publish(OrderCreatedEvent event) {
         log.debug("Publishing event {} on topic {}", event, topic);
-        kafkaTemplate.send(topic, event).join();
+        kafkaTemplate.send(topic, eventRegistry.keyFor(event).orElse(null), event).join();
     }
 }

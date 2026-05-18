@@ -1,26 +1,29 @@
 package be.appify.prefab.processor.event.kafka;
 
 import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.core.kafka.KafkaJsonTypeResolver;
+import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import static be.appify.prefab.processor.event.ConsumerWriterSupport.keyField;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 /**
  * Generates a {@code *KafkaEventTypeRegistrar} Spring component for each Kafka event type.
  *
- * <p>Registrars ensure that event types are registered with {@link KafkaJsonTypeResolver} once,
+ * <p>Registrars ensure that event types are registered with {@link EventRegistry} once,
  * independently of whether a production consumer exists. This makes event types available for
  * deserialization in test consumers as well as production consumers.
  */
@@ -48,7 +51,7 @@ class KafkaEventTypeRegistrarWriter {
         var type = TypeSpec.classBuilder(name)
                 .addModifiers(PUBLIC)
                 .addAnnotation(Component.class)
-                .addMethod(constructor(annotation.topic(), simpleName, event.asTypeName()))
+                .addMethod(constructor(annotation.topic(), simpleName, event.asTypeName(), keyField(event, context)))
                 .build();
         fileWriter.writeFile(event.packageName(), name, type);
     }
@@ -66,15 +69,16 @@ class KafkaEventTypeRegistrarWriter {
         var type = TypeSpec.classBuilder(name)
                 .addModifiers(PUBLIC)
                 .addAnnotation(Component.class)
-                .addMethod(constructor(topic, eventType.simpleName(), eventType))
+                .addMethod(constructor(topic, eventType.simpleName(), eventType, Optional.empty()))
                 .build();
         fileWriter.writeFile(packageName, name, type);
     }
 
-    private MethodSpec constructor(String topic, String simpleName, TypeName eventTypeName) {
+    private MethodSpec constructor(String topic, String simpleName, TypeName eventTypeName,
+                                   Optional<CodeBlock> keyExtractor) {
         var constructor = MethodSpec.constructorBuilder()
                 .addModifiers(PUBLIC)
-                .addParameter(KafkaJsonTypeResolver.class, "typeResolver");
+                .addParameter(EventRegistry.class, "eventRegistry");
         if (topic.matches("\\$\\{.+}")) {
             var topicFieldName = topicVariableName(simpleName);
             constructor.addParameter(ParameterSpec.builder(String.class, topicFieldName)
@@ -82,9 +86,19 @@ class KafkaEventTypeRegistrarWriter {
                             .addMember("value", "$S", topic)
                             .build())
                     .build());
-            constructor.addStatement("typeResolver.registerType($L, $T.class)", topicFieldName, eventTypeName);
+            if (keyExtractor.isPresent()) {
+                constructor.addStatement("eventRegistry.registerType($L, $T.class, event -> $L)",
+                        topicFieldName, eventTypeName, keyExtractor.get());
+            } else {
+                constructor.addStatement("eventRegistry.registerType($L, $T.class)", topicFieldName, eventTypeName);
+            }
         } else {
-            constructor.addStatement("typeResolver.registerType($S, $T.class)", topic, eventTypeName);
+            if (keyExtractor.isPresent()) {
+                constructor.addStatement("eventRegistry.registerType($S, $T.class, event -> $L)",
+                        topic, eventTypeName, keyExtractor.get());
+            } else {
+                constructor.addStatement("eventRegistry.registerType($S, $T.class)", topic, eventTypeName);
+            }
         }
         return constructor.build();
     }

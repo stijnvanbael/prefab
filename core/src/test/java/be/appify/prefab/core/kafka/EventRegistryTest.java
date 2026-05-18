@@ -2,7 +2,6 @@ package be.appify.prefab.core.kafka;
 
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -19,46 +18,40 @@ class EventRegistryTest {
     }
 
     @Test
-    @DisplayName("registerType without extractor: keyFor returns empty")
-    void registerTypeWithoutExtractor_keyForReturnsEmpty() {
+    void keyForReturnsEmptyWhenNoExtractorRegistered() {
         registry.registerType("my-topic", MyEvent.class);
 
         assertEquals(Optional.empty(), registry.keyFor(new MyEvent("123")));
     }
 
     @Test
-    @DisplayName("registerType with extractor: keyFor returns extracted key")
-    void registerTypeWithExtractor_keyForReturnsKey() {
+    void keyForReturnsExtractedKey() {
         registry.registerType("my-topic", MyEvent.class, MyEvent::id);
 
         assertEquals(Optional.of("abc"), registry.keyFor(new MyEvent("abc")));
     }
 
     @Test
-    @DisplayName("keyFor resolves key extractor via supertype")
-    void keyFor_resolvesBySupertype() {
+    void keyForResolvesBySupertype() {
         registry.registerType("my-topic", MySealedEvent.class, MySealedEvent::id);
 
         assertEquals(Optional.of("xyz"), registry.keyFor(new MySealedEvent.Concrete("xyz")));
     }
 
     @Test
-    @DisplayName("topicForType returns registered topic")
-    void topicForType_returnsRegisteredTopic() {
+    void topicForTypeReturnsRegisteredTopic() {
         registry.registerType("my-topic", MyEvent.class);
 
         assertEquals("my-topic", registry.topicForType(MyEvent.class));
     }
 
     @Test
-    @DisplayName("topicForType throws when no topic registered")
-    void topicForType_throwsWhenNotRegistered() {
+    void topicForTypeThrowsWhenNotRegistered() {
         assertThrows(IllegalArgumentException.class, () -> registry.topicForType(MyEvent.class));
     }
 
     @Test
-    @DisplayName("resolveType returns registered type for topic")
-    void resolveType_returnsTypeForTopic() {
+    void resolveTypeReturnsTypeForTopic() {
         registry.registerType("my-topic", MyEvent.class);
 
         var resolved = registry.resolveType("my-topic", new byte[0], null);
@@ -67,15 +60,13 @@ class EventRegistryTest {
     }
 
     @Test
-    @DisplayName("resolveType throws when topic not registered")
-    void resolveType_throwsWhenTopicNotRegistered() {
+    void resolveTypeThrowsWhenTopicNotRegistered() {
         assertThrows(IllegalArgumentException.class,
                 () -> registry.resolveType("unknown-topic", new byte[0], null));
     }
 
     @Test
-    @DisplayName("registeredTypesForTopic includes subtypes of sealed interface")
-    void registeredTypesForTopic_includesSubtypes() {
+    void registeredTypesForTopicIncludesSubtypes() {
         registry.registerType("my-topic", MySealedEvent.class);
 
         var types = registry.registeredTypesForTopic("my-topic");
@@ -85,8 +76,7 @@ class EventRegistryTest {
     }
 
     @Test
-    @DisplayName("allowedClassNames includes subtypes of sealed interface")
-    void allowedClassNames_includesSubtypes() {
+    void allowedClassNamesIncludesSubtypes() {
         registry.registerType("my-topic", MySealedEvent.class);
 
         var names = registry.allowedClassNames();

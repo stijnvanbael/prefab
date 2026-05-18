@@ -188,21 +188,54 @@ class AssertionWriter {
 
     private List<MethodSpec> fieldAssertMethods(TypeVariableName selfType, List<VariableManifest> fields) {
         return fields.stream()
-                .map(field -> fieldAssertMethod(selfType, field))
+                .flatMap(field -> fieldAssertMethods(selfType, field).stream())
                 .toList();
     }
 
-    private MethodSpec fieldAssertMethod(TypeVariableName selfType, VariableManifest field) {
+    private List<MethodSpec> fieldAssertMethods(TypeVariableName selfType, VariableManifest field) {
         if (field.type().is(List.class)) {
-            return listFieldAssertMethod(selfType, field);
+            return listFieldAssertMethods(selfType, field);
         }
         if (isNestedRecordType(field.type())) {
-            return recordFieldAssertMethod(selfType, field);
+            return List.of(recordFieldAssertMethod(selfType, field));
         }
         if (isSingleValueRecordField(field)) {
-            return singleValueRecordFieldAssertMethod(selfType, field);
+            return List.of(singleValueRecordFieldAssertMethod(selfType, field));
         }
-        return equalsFieldAssertMethod(selfType, field);
+        return List.of(equalsFieldAssertMethod(selfType, field));
+    }
+
+    private List<MethodSpec> listFieldAssertMethods(ClassName assertType, VariableManifest field) {
+        var methods = new java.util.ArrayList<MethodSpec>();
+        methods.add(listFieldAssertMethod(assertType, field));
+        if (isListWithNestedRecordElement(field)) {
+            methods.add(listElementAssertMethod(assertType, field));
+        }
+        return List.copyOf(methods);
+    }
+
+    private boolean isListWithNestedRecordElement(VariableManifest field) {
+        return field.name().endsWith("List")
+                && !field.type().parameters().isEmpty()
+                && isNestedRecordType(field.type().parameters().getFirst());
+    }
+
+    private MethodSpec listElementAssertMethod(ClassName assertType, VariableManifest field) {
+        var elementType = field.type().parameters().getFirst();
+        var flatName = elementType.simpleName().replace(".", "");
+        var packageName = elementType.packageName();
+        var elementAssertType = ClassName.get(packageName, flatName + "Assert");
+        var consumerType = ParameterizedTypeName.get(CONSUMER, elementAssertType);
+        return MethodSpec.methodBuilder("has" + flatName + "Satisfying")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(assertType)
+                .addParameter(consumerType, "requirements")
+                .addStatement("isNotNull()")
+                .addStatement("$T.requireNonNull(requirements, $S)", Objects.class, "requirements must not be null")
+                .addStatement("actual.$N().forEach(element -> requirements.accept($T.assertThat(element)))",
+                        field.name(), elementAssertType)
+                .addStatement("return this")
+                .build();
     }
 
     private MethodSpec recordFieldAssertMethod(TypeVariableName selfType, VariableManifest field) {

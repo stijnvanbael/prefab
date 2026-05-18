@@ -180,6 +180,36 @@ class AssertionPluginTest {
         }
     }
 
+    @Test
+    void listFieldNameEndingWithListGeneratesListSatisfyingMethod() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("assertion/source/SampleRecord.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "",
+                        "assertion/infrastructure/http/SampleRecordResponseAssert.java")
+                .contentsAsUtf8String()
+                .contains("hasSampleElementListSatisfying(");
+    }
+
+    @Test
+    void listFieldNameEndingWithListGeneratesElementSatisfyingMethod() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("assertion/source/SampleRecord.java"));
+
+        assertThat(compilation).succeeded();
+        var contents = assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "",
+                        "assertion/infrastructure/http/SampleRecordResponseAssert.java")
+                .contentsAsUtf8String();
+        contents.contains("hasSampleRecordSampleElementSatisfying(");
+        contents.contains("SampleRecordSampleElementAssert.assertThat(element)");
+    }
+
+
     private static void deleteRecursively(Path root) {
         if (root == null || !Files.exists(root)) {
             return;

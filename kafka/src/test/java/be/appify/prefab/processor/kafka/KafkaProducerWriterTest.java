@@ -20,6 +20,20 @@ import static com.google.testing.compile.Compiler.javac;
 
 class KafkaProducerWriterTest {
     @Test
+    void eventWithoutHandlerGeneratesProducer() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/single/User.java"),
+                        sourceOf("kafka/single/UserCreated.java"));
+        assertThat(compilation).succeeded();
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.single.infrastructure.kafka.UserCreatedKafkaProducer",
+                "expected/kafka/single/UserCreatedKafkaProducer.java");
+    }
+
+    @Test
     void singleEventType() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

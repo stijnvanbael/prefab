@@ -1,6 +1,5 @@
 package be.appify.prefab.core.kafka;
 
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
@@ -21,7 +20,7 @@ import tools.jackson.databind.type.TypeFactory;
  */
 @Component
 public class EventRegistry implements JacksonJsonTypeResolver {
-    private final Map<String, Class<?>> types = new HashMap<>();
+    private final Map<String, Class<?>> types = new ConcurrentHashMap<>();
     private final Map<String, Set<Class<?>>> topicTypes = new ConcurrentHashMap<>();
     private final Map<Class<?>, Set<String>> typeTopics = new ConcurrentHashMap<>();
     private final Set<String> allowedClassNames = ConcurrentHashMap.newKeySet();

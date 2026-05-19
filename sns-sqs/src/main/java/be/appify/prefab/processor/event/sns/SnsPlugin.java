@@ -23,7 +23,7 @@ import static java.util.Objects.requireNonNull;
  * Prefab plugin to generate SNS publishers and SQS subscribers based on event annotations.
  */
 public class SnsPlugin implements PrefabPlugin {
-    private SnsPublisherWriter snsPublisherWriter;
+    private SqsEventTypeRegistrarWriter sqsEventTypeRegistrarWriter;
     private SqsSubscriberWriter sqsSubscriberWriter;
     private PrefabContext context;
 
@@ -34,7 +34,7 @@ public class SnsPlugin implements PrefabPlugin {
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> aggregates) {
-        writePublishers();
+        writeRegistrars();
         writeConsumers();
     }
 
@@ -46,7 +46,7 @@ public class SnsPlugin implements PrefabPlugin {
     @Override
     public void initContext(PrefabContext context) {
         this.context = context;
-        snsPublisherWriter = new SnsPublisherWriter(context);
+        sqsEventTypeRegistrarWriter = new SqsEventTypeRegistrarWriter(context);
         sqsSubscriberWriter = new SqsSubscriberWriter(context);
     }
 
@@ -65,15 +65,14 @@ public class SnsPlugin implements PrefabPlugin {
                                 .anyMatch(event -> platformIsSnsSqs(event, method, context)));
     }
 
-    private void writePublishers() {
-        var events = context.eventElementsIncludingConsumedDependencies()
+    private void writeRegistrars() {
+        context.eventElementsIncludingConsumedDependencies()
                 .filter(e -> !isAvscGeneratedRecord(e))
                 .filter(e -> platformIsSnsSqs(requireNonNull(e.getAnnotation(Event.class)), e, context))
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .map(EventPlatformPluginSupport::publisherEventType)
                 .distinct()
-                .toList();
-        events.forEach(event -> snsPublisherWriter.writeSnsPublisher(event));
+                .forEach(event -> sqsEventTypeRegistrarWriter.writeRegistrar(event));
     }
 
     static boolean platformIsSnsSqs(Event event, Element element, PrefabContext context) {

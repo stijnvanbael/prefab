@@ -29,7 +29,6 @@ import static java.util.Objects.requireNonNull;
  * Prefab plugin to generate Kafka producers and consumers based on event annotations.
  */
 public class KafkaPlugin implements PrefabPlugin {
-    private KafkaProducerWriter kafkaProducerWriter;
     private KafkaConsumerWriter kafkaConsumerWriter;
     private KafkaEventTypeRegistrarWriter kafkaEventTypeRegistrarWriter;
     private PrefabContext context;
@@ -42,7 +41,6 @@ public class KafkaPlugin implements PrefabPlugin {
     @Override
     public void initContext(PrefabContext context) {
         this.context = context;
-        kafkaProducerWriter = new KafkaProducerWriter(context);
         kafkaConsumerWriter = new KafkaConsumerWriter(context);
         kafkaEventTypeRegistrarWriter = new KafkaEventTypeRegistrarWriter(context);
     }
@@ -96,11 +94,12 @@ public class KafkaPlugin implements PrefabPlugin {
     }
 
     private void writePublishers() {
-        writeRegularPublishers();
-        writeAvscPublishers();
+        writeRegularRegistrars();
+        writeAvscRegistrars();
     }
 
-    private void writeRegularPublishers() {
+
+    private void writeRegularRegistrars() {
         var events = context.eventElementsIncludingConsumedDependencies()
                 .filter(e -> e.getAnnotation(Avsc.class) == null)
                 .filter(e -> platformIsKafka(requireNonNull(e.getAnnotation(Event.class)), e, context))
@@ -108,17 +107,16 @@ public class KafkaPlugin implements PrefabPlugin {
                 .map(EventPlatformPluginSupport::publisherEventType)
                 .distinct()
                 .toList();
-        events.forEach(event -> kafkaProducerWriter.writeKafkaProducer(event));
         events.forEach(event -> kafkaEventTypeRegistrarWriter.writeRegistrar(event));
     }
 
-    private void writeAvscPublishers() {
+    private void writeAvscRegistrars() {
         context.avscElementsFromCurrentCompilation()
                 .filter(e -> platformIsKafka(requireNonNull(e.getAnnotation(Event.class)), e, context))
-                .forEach(this::writeAvscProducersForElement);
+                .forEach(this::writeAvscRegistrarsForElement);
     }
 
-    private void writeAvscProducersForElement(TypeElement element) {
+    private void writeAvscRegistrarsForElement(TypeElement element) {
         var avsc = element.getAnnotation(Avsc.class);
         var event = requireNonNull(element.getAnnotation(Event.class));
         var packageName = context.processingEnvironment().getElementUtils()
@@ -128,7 +126,6 @@ public class KafkaPlugin implements PrefabPlugin {
             if (schema == null) continue;
             var schemaPackage = schema.getNamespace() != null ? schema.getNamespace() : packageName;
             var eventType = ClassName.get(schemaPackage, schema.getName());
-            kafkaProducerWriter.writeAvscKafkaProducer(schemaPackage, eventType, event.topic());
             kafkaEventTypeRegistrarWriter.writeAvscRegistrar(schemaPackage, eventType, event.topic());
         }
     }

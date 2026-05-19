@@ -11,9 +11,11 @@ import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.RetryPolicy;
 import com.google.pubsub.v1.Subscription;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,6 +41,8 @@ public class PubSubUtil {
     private final PubSubSubscriberTemplate subscriberTemplate;
     private final PubSubDeserializer deserializer;
     private final ConcurrentMap<String, Class<?>> allowedTypes = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Class<?>, String> typeToTopic = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Class<?>, Function<Object, String>> keyExtractors = new ConcurrentHashMap<>();
     private final String deadLetterTopicName;
     private final RetryTemplate retryTemplate;
 
@@ -140,6 +144,76 @@ public class PubSubUtil {
                 registerType(subType.value().getName(), subType.value());
             }
         }
+    }
+
+    /**
+     * Registers a topic and optional ordering-key extractor for an event type so the generic publisher can resolve
+     * them at runtime. Permitted subtypes of sealed interfaces are registered recursively.
+     *
+     * @param topic        the simple Pub/Sub topic name
+     * @param type         the Java class of the event
+     * @param keyExtractor a function that returns the ordering key for a given event instance, or {@code null} if none
+     */
+    @SuppressWarnings("unchecked")
+    public <E> void registerEventTopic(String topic, Class<E> type, Function<E, String> keyExtractor) {
+        typeToTopic.put(type, topic);
+        if (keyExtractor != null) {
+            keyExtractors.put(type, (Function<Object, String>) (Function<?, String>) keyExtractor);
+        }
+        if (type.isSealed()) {
+            for (var subtype : type.getPermittedSubclasses()) {
+                registerEventTopic(topic, (Class<Object>) subtype, null);
+            }
+        }
+    }
+
+    /**
+     * Registers a topic for an event type without an ordering-key extractor.
+     *
+     * @param topic the simple Pub/Sub topic name
+     * @param type  the Java class of the event
+     */
+    public void registerEventTopic(String topic, Class<?> type) {
+        registerEventTopic(topic, type, null);
+    }
+
+    /**
+     * Resolves the simple Pub/Sub topic for a given event type.
+     *
+     * @param type the event class
+     * @return the registered topic name
+     * @throws IllegalArgumentException if no topic is registered for the type
+     */
+    public String topicForType(Class<?> type) {
+        var topic = typeToTopic.get(type);
+        if (topic != null) {
+            return topic;
+        }
+        for (var entry : typeToTopic.entrySet()) {
+            if (entry.getKey().isAssignableFrom(type)) {
+                return entry.getValue();
+            }
+        }
+        throw new IllegalArgumentException("No topic registered for type: " + type.getName());
+    }
+
+    /**
+     * Returns the ordering key for an event, if a key extractor has been registered for its type.
+     *
+     * @param event the event instance
+     * @return an {@link Optional} containing the ordering key, or empty if none is registered
+     */
+    public Optional<String> keyFor(Object event) {
+        var extractor = keyExtractors.get(event.getClass());
+        if (extractor != null) {
+            return Optional.of(extractor.apply(event));
+        }
+        for (var entry : keyExtractors.entrySet()) {
+            if (entry.getKey().isAssignableFrom(event.getClass())) {
+                return Optional.of(entry.getValue().apply(event));
+            }
+        }
+        return Optional.empty();
     }
 
     /**

@@ -1,10 +1,6 @@
 package be.appify.prefab.core.sns;
 
 import io.awspring.cloud.sns.core.SnsTemplate;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
@@ -25,10 +21,14 @@ import software.amazon.awssdk.services.sqs.model.Message;
 import software.amazon.awssdk.services.sqs.model.QueueAttributeName;
 import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest;
 import software.amazon.awssdk.services.sqs.model.SetQueueAttributesRequest;
-
-import java.util.Map;
-
 import static org.apache.commons.lang3.StringUtils.isEmpty;
+
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Utility class for managing SNS topics, SQS queues, and for subscribing to messages with optional dead-letter
@@ -47,6 +47,7 @@ public class SqsUtil implements DisposableBean {
     private final SqsDeserializer sqsDeserializer;
     private final RetryTemplate retryTemplate;
     private final List<ExecutorService> pollingExecutors = new CopyOnWriteArrayList<>();
+    private final Map<Class<?>, String> typeToTopic = new ConcurrentHashMap<>();
 
     /**
      * Constructs a new SqsUtil.
@@ -150,10 +151,47 @@ public class SqsUtil implements DisposableBean {
         sqsDeserializer.registerType(typeName, type);
     }
 
+    /**
+     * Registers a topic for an event type so the generic publisher can resolve it at runtime.
+     * Permitted subtypes of sealed interfaces are registered recursively.
+     *
+     * @param topic the SNS topic name
+     * @param type  the Java class of the event
+     */
+    public void registerEventTopic(String topic, Class<?> type) {
+        typeToTopic.put(type, topic);
+        if (type.isSealed()) {
+            for (var subtype : type.getPermittedSubclasses()) {
+                registerEventTopic(topic, subtype);
+            }
+        }
+    }
+
+    /**
+     * Resolves the SNS topic for a given event type.
+     *
+     * @param type the event class
+     * @return the registered topic name
+     * @throws IllegalArgumentException if no topic is registered for the type
+     */
+    public String topicForType(Class<?> type) {
+        var topic = typeToTopic.get(type);
+        if (topic != null) {
+            return topic;
+        }
+        for (var entry : typeToTopic.entrySet()) {
+            if (entry.getKey().isAssignableFrom(type)) {
+                return entry.getValue();
+            }
+        }
+        throw new IllegalArgumentException("No topic registered for type: " + type.getName());
+    }
+
     private String ensureQueueExists(String queueName) {
         var sanitizedName = queueName.replaceAll("[^a-zA-Z0-9_-]", "-");
         if (!sanitizedName.equals(queueName)) {
-            log.warn("SQS queue name [{}] contains invalid characters and was sanitized to [{}]", queueName, sanitizedName);
+            log.warn("SQS queue name [{}] contains invalid characters and was sanitized to [{}]", queueName,
+                    sanitizedName);
         }
         try {
             return sqsClient.createQueue(
@@ -287,7 +325,9 @@ public class SqsUtil implements DisposableBean {
         try {
             var queueUrls = sqsClient.listQueues().get().queueUrls();
             for (var url : queueUrls) {
-                sqsClient.deleteQueue(software.amazon.awssdk.services.sqs.model.DeleteQueueRequest.builder().queueUrl(url).build()).get();
+                sqsClient.deleteQueue(
+                                software.amazon.awssdk.services.sqs.model.DeleteQueueRequest.builder().queueUrl(url).build())
+                        .get();
             }
         } catch (Exception e) {
             log.warn("Failed to delete all SQS queues", e);
@@ -301,7 +341,8 @@ public class SqsUtil implements DisposableBean {
         try {
             var topics = snsClient.listTopics().topics();
             for (var topic : topics) {
-                snsClient.deleteTopic(software.amazon.awssdk.services.sns.model.DeleteTopicRequest.builder().topicArn(topic.topicArn()).build());
+                snsClient.deleteTopic(software.amazon.awssdk.services.sns.model.DeleteTopicRequest.builder()
+                        .topicArn(topic.topicArn()).build());
             }
         } catch (Exception e) {
             log.warn("Failed to delete all SNS topics", e);
@@ -329,6 +370,8 @@ public class SqsUtil implements DisposableBean {
         if (body == null) {
             return "<null>";
         }
-        return body.length() <= maxLength ? body : body.substring(0, maxLength) + "...[truncated " + (body.length() - maxLength) + " chars]";
+        return body.length() <= maxLength
+                ? body
+                : body.substring(0, maxLength) + "...[truncated " + (body.length() - maxLength) + " chars]";
     }
 }

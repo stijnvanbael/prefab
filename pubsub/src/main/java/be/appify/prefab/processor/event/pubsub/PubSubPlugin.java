@@ -24,7 +24,7 @@ import static java.util.Objects.requireNonNull;
  * Prefab plugin to generate Pub/Sub publishers and subscribers based on event annotations.
  */
 public class PubSubPlugin implements PrefabPlugin {
-    private PubSubPublisherWriter pubSubPublisherWriter;
+    private PubSubEventTypeRegistrarWriter pubSubEventTypeRegistrarWriter;
     private PubSubSubscriberWriter pubSubSubscriberWriter;
     private PrefabContext context;
 
@@ -35,7 +35,7 @@ public class PubSubPlugin implements PrefabPlugin {
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> aggregates) {
-        writePublishers();
+        writeRegistrars();
         writeConsumers();
     }
 
@@ -47,7 +47,7 @@ public class PubSubPlugin implements PrefabPlugin {
     @Override
     public void initContext(PrefabContext context) {
         this.context = context;
-        pubSubPublisherWriter = new PubSubPublisherWriter(context);
+        pubSubEventTypeRegistrarWriter = new PubSubEventTypeRegistrarWriter(context);
         pubSubSubscriberWriter = new PubSubSubscriberWriter(context);
     }
 
@@ -72,15 +72,14 @@ public class PubSubPlugin implements PrefabPlugin {
                 .anyMatch(event -> platformIsPubSub(event, method, context));
     }
 
-    private void writePublishers() {
-        var events = context.eventElementsIncludingConsumedDependencies()
+    private void writeRegistrars() {
+        context.eventElementsIncludingConsumedDependencies()
                 .filter(e -> !isAvscGeneratedRecord(e))
                 .filter(e -> platformIsPubSub(requireNonNull(e.getAnnotation(Event.class)), e, context))
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .map(EventPlatformPluginSupport::publisherEventType)
                 .distinct()
-                .toList();
-        events.forEach(event -> pubSubPublisherWriter.writePubSubPublisher(event));
+                .forEach(event -> pubSubEventTypeRegistrarWriter.writeRegistrar(event));
     }
 
     static boolean platformIsPubSub(Event event, Element element, PrefabContext context) {

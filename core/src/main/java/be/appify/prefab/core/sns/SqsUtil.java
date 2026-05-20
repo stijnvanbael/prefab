@@ -39,7 +39,6 @@ import java.util.concurrent.Executors;
 public class SqsUtil implements DisposableBean {
     private static final Logger log = LoggerFactory.getLogger(SqsUtil.class);
 
-    private final String applicationName;
     private final String deadLetterQueueName;
     private final Integer maxRetries;
     private final SnsClient snsClient;
@@ -82,7 +81,6 @@ public class SqsUtil implements DisposableBean {
             SqsAsyncClient sqsClient,
             SqsDeserializer sqsDeserializer
     ) {
-        this.applicationName = applicationName;
         this.deadLetterQueueName = !isEmpty(deadLetterQueueName) ? deadLetterQueueName : applicationName + ".dlt";
         this.maxRetries = maxRetries;
         this.snsClient = snsClient;
@@ -152,11 +150,13 @@ public class SqsUtil implements DisposableBean {
     }
 
     /**
-     * Registers a topic for an event type so the generic publisher can resolve it at runtime.
-     * Permitted subtypes of sealed interfaces are registered recursively.
+     * Registers a topic for an event type so the generic publisher can resolve it at runtime. Permitted subtypes of
+     * sealed interfaces are registered recursively.
      *
-     * @param topic the SNS topic name
-     * @param type  the Java class of the event
+     * @param topic
+     *         the SNS topic name
+     * @param type
+     *         the Java class of the event
      */
     public void registerEventTopic(String topic, Class<?> type) {
         typeToTopic.put(type, topic);
@@ -170,9 +170,11 @@ public class SqsUtil implements DisposableBean {
     /**
      * Resolves the SNS topic for a given event type.
      *
-     * @param type the event class
+     * @param type
+     *         the event class
      * @return the registered topic name
-     * @throws IllegalArgumentException if no topic is registered for the type
+     * @throws IllegalArgumentException
+     *         if no topic is registered for the type
      */
     public String topicForType(Class<?> type) {
         var topic = typeToTopic.get(type);
@@ -355,15 +357,6 @@ public class SqsUtil implements DisposableBean {
     @Override
     public void destroy() {
         pollingExecutors.forEach(ExecutorService::shutdownNow);
-    }
-
-    /**
-     * Gets the application name.
-     *
-     * @return the application name
-     */
-    public String applicationName() {
-        return applicationName;
     }
 
     private static String truncate(String body, int maxLength) {

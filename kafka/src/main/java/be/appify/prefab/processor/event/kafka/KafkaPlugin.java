@@ -10,20 +10,22 @@ import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.event.EventPlatformPluginSupport;
 import com.palantir.javapoet.ClassName;
 import org.apache.avro.Schema;
+import static be.appify.prefab.processor.event.EventPlatformPluginSupport.derivedPlatform;
+import static be.appify.prefab.processor.event.EventPlatformPluginSupport.filteredEventHandlersByOwner;
+import static be.appify.prefab.processor.event.EventPlatformPluginSupport.isMultiplePlatformsDetected;
+import static be.appify.prefab.processor.event.EventPlatformPluginSupport.setDerivedPlatform;
+import static java.util.Objects.requireNonNull;
 
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
-
-import static be.appify.prefab.processor.event.EventPlatformPluginSupport.*;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Prefab plugin to generate Kafka producers and consumers based on event annotations.
@@ -98,7 +100,6 @@ public class KafkaPlugin implements PrefabPlugin {
         writeAvscRegistrars();
     }
 
-
     private void writeRegularRegistrars() {
         var events = context.eventElementsIncludingConsumedDependencies()
                 .filter(e -> e.getAnnotation(Avsc.class) == null)
@@ -121,9 +122,10 @@ public class KafkaPlugin implements PrefabPlugin {
         var event = requireNonNull(element.getAnnotation(Event.class));
         var packageName = context.processingEnvironment().getElementUtils()
                 .getPackageOf(element).getQualifiedName().toString();
-        for (var path : avsc.value()) {
+        for (var path : requireNonNull(avsc).value()) {
             var schema = parseAvscSchema(path, element);
-            if (schema == null) continue;
+            if (schema == null)
+                continue;
             var schemaPackage = schema.getNamespace() != null ? schema.getNamespace() : packageName;
             var eventType = ClassName.get(schemaPackage, schema.getName());
             kafkaEventTypeRegistrarWriter.writeAvscRegistrar(schemaPackage, eventType, event.topic());
@@ -145,7 +147,8 @@ public class KafkaPlugin implements PrefabPlugin {
 
     private InputStream openResource(String path) throws IOException {
         var stream = getClass().getClassLoader().getResourceAsStream(path);
-        if (stream != null) return stream;
+        if (stream != null)
+            return stream;
         var file = Path.of("src/main/resources", path);
         return Files.exists(file) ? Files.newInputStream(file) : null;
     }
@@ -157,6 +160,6 @@ public class KafkaPlugin implements PrefabPlugin {
                             .formatted(element.getSimpleName()), element);
         }
         return event.platform() == Event.Platform.KAFKA ||
-                event.platform() == Event.Platform.DERIVED && derivedPlatform() == Event.Platform.KAFKA;
+               event.platform() == Event.Platform.DERIVED && derivedPlatform() == Event.Platform.KAFKA;
     }
 }

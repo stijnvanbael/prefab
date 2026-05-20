@@ -6,19 +6,17 @@ import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.event.EventPlatformPluginSupport;
-
-import java.util.List;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.VariableElement;
-
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.derivedPlatform;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.filteredEventHandlersByOwner;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.isAvscGeneratedRecord;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.isMultiplePlatformsDetected;
-import static be.appify.prefab.processor.event.EventPlatformPluginSupport.publisherEventType;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.setDerivedPlatform;
 import static java.util.Objects.requireNonNull;
+
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.VariableElement;
+import java.util.List;
 
 /**
  * Prefab plugin to generate Pub/Sub publishers and subscribers based on event annotations.
@@ -89,6 +87,6 @@ public class PubSubPlugin implements PrefabPlugin {
                             .formatted(element.getSimpleName()), element);
         }
         return event.platform() == Event.Platform.PUB_SUB ||
-                event.platform() == Event.Platform.DERIVED && derivedPlatform() == Event.Platform.PUB_SUB;
+               event.platform() == Event.Platform.DERIVED && derivedPlatform() == Event.Platform.PUB_SUB;
     }
 }

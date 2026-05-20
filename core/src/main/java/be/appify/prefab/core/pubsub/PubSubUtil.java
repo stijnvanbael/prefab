@@ -11,9 +11,11 @@ import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.RetryPolicy;
 import com.google.pubsub.v1.Subscription;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,6 +41,8 @@ public class PubSubUtil {
     private final PubSubSubscriberTemplate subscriberTemplate;
     private final PubSubDeserializer deserializer;
     private final ConcurrentMap<String, Class<?>> allowedTypes = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Class<?>, String> typeToTopic = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Class<?>, Function<Object, String>> keyExtractors = new ConcurrentHashMap<>();
     private final String deadLetterTopicName;
     private final RetryTemplate retryTemplate;
 
@@ -140,6 +144,152 @@ public class PubSubUtil {
                 registerType(subType.value().getName(), subType.value());
             }
         }
+    }
+
+    /**
+     * Registers a topic and optional ordering-key extractor for an event type so the generic publisher can resolve
+     * them at runtime. Permitted subtypes of sealed interfaces are registered recursively.
+     *
+     * @param topic        the simple Pub/Sub topic name
+     * @param type         the Java class of the event
+     * @param keyExtractor a function that returns the ordering key for a given event instance, or {@code null} if none
+     */
+    @SuppressWarnings("unchecked")
+    public <E> void registerEventTopic(String topic, Class<E> type, Function<E, String> keyExtractor) {
+        typeToTopic.put(type, topic);
+        if (keyExtractor != null) {
+            keyExtractors.put(type, (Function<Object, String>) (Function<?, String>) keyExtractor);
+        }
+        if (type.isSealed()) {
+            for (var subtype : type.getPermittedSubclasses()) {
+                registerEventTopic(topic, (Class<Object>) subtype, null);
+            }
+        }
+    }
+
+    /**
+     * Registers a topic for an event type without an ordering-key extractor.
+     *
+     * @param topic the simple Pub/Sub topic name
+     * @param type  the Java class of the event
+     */
+    public void registerEventTopic(String topic, Class<?> type) {
+        registerEventTopic(topic, type, null);
+    }
+
+    /**
+     * Resolves the simple Pub/Sub topic for a given event type.
+     *
+     * @param type the event class
+     * @return the registered topic name
+     * @throws IllegalArgumentException if no topic is registered for the type
+     */
+    public String topicForType(Class<?> type) {
+        return tryTopicForType(type)
+                .orElseThrow(() -> new IllegalArgumentException("No topic registered for type: " + type.getName()));
+    }
+
+    /**
+     * Resolves the simple Pub/Sub topic for a given event type if one is registered.
+     *
+     * @param type the event class
+     * @return the registered topic name if found
+     * @throws IllegalStateException if multiple equally specific topics match the type
+     */
+    public Optional<String> tryTopicForType(Class<?> type) {
+        var topic = typeToTopic.get(type);
+        if (topic != null) {
+            return Optional.of(topic);
+        }
+        String selectedTopic = null;
+        Integer selectedDistance = null;
+        for (var entry : typeToTopic.entrySet()) {
+            if (!entry.getKey().isAssignableFrom(type)) {
+                continue;
+            }
+            var distance = hierarchyDistance(type, entry.getKey());
+            if (distance.isEmpty()) {
+                continue;
+            }
+            if (selectedDistance == null || distance.get() < selectedDistance) {
+                selectedDistance = distance.get();
+                selectedTopic = entry.getValue();
+            } else if (distance.get().equals(selectedDistance) && !entry.getValue().equals(selectedTopic)) {
+                throw new IllegalStateException(
+                        "Ambiguous topics registered for type %s: %s and %s"
+                                .formatted(type.getName(), selectedTopic, entry.getValue())
+                );
+            }
+        }
+        return Optional.ofNullable(selectedTopic);
+    }
+
+    private static Optional<Function<Object, String>> tryExtractorForType(
+            Class<?> type,
+            ConcurrentMap<Class<?>, Function<Object, String>> extractors
+    ) {
+        var extractor = extractors.get(type);
+        if (extractor != null) {
+            return Optional.of(extractor);
+        }
+        Function<Object, String> selectedExtractor = null;
+        Integer selectedDistance = null;
+        for (var entry : extractors.entrySet()) {
+            if (!entry.getKey().isAssignableFrom(type)) {
+                continue;
+            }
+            var distance = hierarchyDistance(type, entry.getKey());
+            if (distance.isEmpty()) {
+                continue;
+            }
+            if (selectedDistance == null || distance.get() < selectedDistance) {
+                selectedDistance = distance.get();
+                selectedExtractor = entry.getValue();
+            } else if (distance.get().equals(selectedDistance) && !entry.getValue().equals(selectedExtractor)) {
+                throw new IllegalStateException("Ambiguous key extractors registered for type: " + type.getName());
+            }
+        }
+        return Optional.ofNullable(selectedExtractor);
+    }
+
+    private static Optional<Integer> hierarchyDistance(Class<?> source, Class<?> target) {
+        if (source.equals(target)) {
+            return Optional.of(0);
+        }
+        if (!target.isAssignableFrom(source)) {
+            return Optional.empty();
+        }
+        var queue = new java.util.ArrayDeque<Class<?>>();
+        var distances = new java.util.HashMap<Class<?>, Integer>();
+        queue.add(source);
+        distances.put(source, 0);
+        while (!queue.isEmpty()) {
+            var current = queue.remove();
+            var distance = distances.get(current);
+            if (current.equals(target)) {
+                return Optional.of(distance);
+            }
+            var superclass = current.getSuperclass();
+            if (superclass != null && distances.putIfAbsent(superclass, distance + 1) == null) {
+                queue.add(superclass);
+            }
+            for (var iface : current.getInterfaces()) {
+                if (distances.putIfAbsent(iface, distance + 1) == null) {
+                    queue.add(iface);
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Returns the ordering key for an event, if a key extractor has been registered for its type.
+     *
+     * @param event the event instance
+     * @return an {@link Optional} containing the ordering key, or empty if none is registered
+     */
+    public Optional<String> keyFor(Object event) {
+        return tryExtractorForType(event.getClass(), keyExtractors).map(extractor -> extractor.apply(event));
     }
 
     /**

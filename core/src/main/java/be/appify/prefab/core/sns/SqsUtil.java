@@ -1,10 +1,6 @@
 package be.appify.prefab.core.sns;
 
 import io.awspring.cloud.sns.core.SnsTemplate;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
@@ -25,10 +21,15 @@ import software.amazon.awssdk.services.sqs.model.Message;
 import software.amazon.awssdk.services.sqs.model.QueueAttributeName;
 import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest;
 import software.amazon.awssdk.services.sqs.model.SetQueueAttributesRequest;
-
-import java.util.Map;
-
 import static org.apache.commons.lang3.StringUtils.isEmpty;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Utility class for managing SNS topics, SQS queues, and for subscribing to messages with optional dead-letter
@@ -39,7 +40,6 @@ import static org.apache.commons.lang3.StringUtils.isEmpty;
 public class SqsUtil implements DisposableBean {
     private static final Logger log = LoggerFactory.getLogger(SqsUtil.class);
 
-    private final String applicationName;
     private final String deadLetterQueueName;
     private final Integer maxRetries;
     private final SnsClient snsClient;
@@ -47,6 +47,7 @@ public class SqsUtil implements DisposableBean {
     private final SqsDeserializer sqsDeserializer;
     private final RetryTemplate retryTemplate;
     private final List<ExecutorService> pollingExecutors = new CopyOnWriteArrayList<>();
+    private final Map<Class<?>, String> typeToTopic = new ConcurrentHashMap<>();
 
     /**
      * Constructs a new SqsUtil.
@@ -81,7 +82,6 @@ public class SqsUtil implements DisposableBean {
             SqsAsyncClient sqsClient,
             SqsDeserializer sqsDeserializer
     ) {
-        this.applicationName = applicationName;
         this.deadLetterQueueName = !isEmpty(deadLetterQueueName) ? deadLetterQueueName : applicationName + ".dlt";
         this.maxRetries = maxRetries;
         this.snsClient = snsClient;
@@ -150,10 +150,110 @@ public class SqsUtil implements DisposableBean {
         sqsDeserializer.registerType(typeName, type);
     }
 
+    /**
+     * Registers a topic for an event type so the generic publisher can resolve it at runtime. Permitted subtypes of
+     * sealed interfaces are registered recursively.
+     *
+     * @param topic
+     *         the SNS topic name
+     * @param type
+     *         the Java class of the event
+     */
+    public void registerEventTopic(String topic, Class<?> type) {
+        typeToTopic.put(type, topic);
+        if (type.isSealed()) {
+            for (var subtype : type.getPermittedSubclasses()) {
+                registerEventTopic(topic, subtype);
+            }
+        }
+    }
+
+    /**
+     * Resolves the SNS topic for a given event type.
+     *
+     * @param type
+     *         the event class
+     * @return the registered topic name
+     * @throws IllegalArgumentException
+     *         if no topic is registered for the type
+     */
+    public String topicForType(Class<?> type) {
+        return tryTopicForType(type)
+                .orElseThrow(() -> new IllegalArgumentException("No topic registered for type: " + type.getName()));
+    }
+
+    /**
+     * Resolves the SNS topic for a given event type if one is registered.
+     *
+     * @param type
+     *         the event class
+     * @return the registered topic name if found
+     * @throws IllegalStateException
+     *         if multiple equally specific topics match the type
+     */
+    public Optional<String> tryTopicForType(Class<?> type) {
+        var topic = typeToTopic.get(type);
+        if (topic != null) {
+            return Optional.of(topic);
+        }
+        String selectedTopic = null;
+        Integer selectedDistance = null;
+        for (var entry : typeToTopic.entrySet()) {
+            if (!entry.getKey().isAssignableFrom(type)) {
+                continue;
+            }
+            var distance = hierarchyDistance(type, entry.getKey());
+            if (distance.isEmpty()) {
+                continue;
+            }
+            if (selectedDistance == null || distance.get() < selectedDistance) {
+                selectedDistance = distance.get();
+                selectedTopic = entry.getValue();
+            } else if (distance.get().equals(selectedDistance) && !entry.getValue().equals(selectedTopic)) {
+                throw new IllegalStateException(
+                        "Ambiguous topics registered for type %s: %s and %s"
+                                .formatted(type.getName(), selectedTopic, entry.getValue())
+                );
+            }
+        }
+        return Optional.ofNullable(selectedTopic);
+    }
+
+    private static Optional<Integer> hierarchyDistance(Class<?> source, Class<?> target) {
+        if (source.equals(target)) {
+            return Optional.of(0);
+        }
+        if (!target.isAssignableFrom(source)) {
+            return Optional.empty();
+        }
+        var queue = new java.util.ArrayDeque<Class<?>>();
+        var distances = new java.util.HashMap<Class<?>, Integer>();
+        queue.add(source);
+        distances.put(source, 0);
+        while (!queue.isEmpty()) {
+            var current = queue.remove();
+            var distance = distances.get(current);
+            if (current.equals(target)) {
+                return Optional.of(distance);
+            }
+            var superclass = current.getSuperclass();
+            if (superclass != null && distances.putIfAbsent(superclass, distance + 1) == null) {
+                queue.add(superclass);
+            }
+            for (var iface : current.getInterfaces()) {
+                if (distances.putIfAbsent(iface, distance + 1) == null) {
+                    queue.add(iface);
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
     private String ensureQueueExists(String queueName) {
         var sanitizedName = queueName.replaceAll("[^a-zA-Z0-9_-]", "-");
         if (!sanitizedName.equals(queueName)) {
-            log.warn("SQS queue name [{}] contains invalid characters and was sanitized to [{}]", queueName, sanitizedName);
+            log.warn("SQS queue name [{}] contains invalid characters and was sanitized to [{}]", queueName,
+                    sanitizedName);
         }
         try {
             return sqsClient.createQueue(
@@ -287,7 +387,9 @@ public class SqsUtil implements DisposableBean {
         try {
             var queueUrls = sqsClient.listQueues().get().queueUrls();
             for (var url : queueUrls) {
-                sqsClient.deleteQueue(software.amazon.awssdk.services.sqs.model.DeleteQueueRequest.builder().queueUrl(url).build()).get();
+                sqsClient.deleteQueue(
+                                software.amazon.awssdk.services.sqs.model.DeleteQueueRequest.builder().queueUrl(url).build())
+                        .get();
             }
         } catch (Exception e) {
             log.warn("Failed to delete all SQS queues", e);
@@ -301,7 +403,8 @@ public class SqsUtil implements DisposableBean {
         try {
             var topics = snsClient.listTopics().topics();
             for (var topic : topics) {
-                snsClient.deleteTopic(software.amazon.awssdk.services.sns.model.DeleteTopicRequest.builder().topicArn(topic.topicArn()).build());
+                snsClient.deleteTopic(software.amazon.awssdk.services.sns.model.DeleteTopicRequest.builder()
+                        .topicArn(topic.topicArn()).build());
             }
         } catch (Exception e) {
             log.warn("Failed to delete all SNS topics", e);
@@ -316,19 +419,12 @@ public class SqsUtil implements DisposableBean {
         pollingExecutors.forEach(ExecutorService::shutdownNow);
     }
 
-    /**
-     * Gets the application name.
-     *
-     * @return the application name
-     */
-    public String applicationName() {
-        return applicationName;
-    }
-
     private static String truncate(String body, int maxLength) {
         if (body == null) {
             return "<null>";
         }
-        return body.length() <= maxLength ? body : body.substring(0, maxLength) + "...[truncated " + (body.length() - maxLength) + " chars]";
+        return body.length() <= maxLength
+                ? body
+                : body.substring(0, maxLength) + "...[truncated " + (body.length() - maxLength) + " chars]";
     }
 }

@@ -1,10 +1,10 @@
 ---
 id: TASK-222
 title: Implement Kafka Streams breakout operator via backend adapter interface
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-05-20 00:00'
-updated_date: '2026-05-20 00:00'
+updated_date: '2026-05-20 13:16'
 labels:
   - feature
   - streams
@@ -32,27 +32,33 @@ Initial delivery targets Kafka Streams only. The API shape must isolate backend-
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Streams DSL exposes a breakout operator on `PrefabStream` that accepts a backend adapter abstraction rather than directly exposing Kafka classes in the core API
-- [ ] #2 Kafka backend provides an adapter implementation that maps breakout logic to native Kafka Streams operations (`KStream` fragment in, `KStream` fragment out)
-- [ ] #3 Typed contracts preserve value-type safety across breakout boundaries and fail fast with actionable errors for unsupported backend usage
-- [ ] #4 `examples/streams` includes a runnable breakout example showing insertion of a native Kafka Streams fragment inside an otherwise Prefab DSL pipeline
-- [ ] #5 Topology-level tests in `streams` verify breakout behavior for happy path and invalid adapter/backend combinations
-- [ ] #6 Developer guide docs are updated to describe breakout semantics, backend adapter extension points, and portability trade-offs
+- [x] #1 Streams DSL exposes a breakout operator on `PrefabStream` that accepts a backend adapter abstraction rather than directly exposing Kafka classes in the core API
+- [x] #2 Kafka backend provides an adapter implementation that maps breakout logic to native Kafka Streams operations (`KStream` fragment in, `KStream` fragment out)
+- [x] #3 Typed contracts preserve value-type safety across breakout boundaries and fail fast with actionable errors for unsupported backend usage
+- [x] #4 `examples/streams` includes a runnable breakout example showing insertion of a native Kafka Streams fragment inside an otherwise Prefab DSL pipeline
+- [x] #5 Topology-level tests in `streams` verify breakout behavior for happy path and invalid adapter/backend combinations
+- [x] #6 Developer guide docs are updated to describe breakout semantics, backend adapter extension points, and portability trade-offs
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Scope decision captured on 2026-05-20: ship Kafka Streams breakout first, but anchor the API on a backend adapter interface to avoid Kafka type leakage in `PrefabStream`.
+Implemented backend-neutral breakout SPI in core streams API:
+- Added `StreamBreakoutAdapter<V, R, NATIVE_IN, NATIVE_OUT>` and `StreamBackend`.
+- Extended `PrefabStream` with `breakout(...)` accepting only adapter abstraction in core API.
 
-Suggested implementation sequence:
-1. Define backend-neutral breakout adapter SPI in `streams` core API.
-2. Implement Kafka adapter in `streams/kafka` and wire `KafkaPrefabStream`.
-3. Add example + tests.
-4. Update `backlog/docs/feature-guides.md` and any relevant reference docs.
+Implemented Kafka-first adapter path:
+- Added `KafkaStreamBreakoutAdapter<V, R>` for `KStream<String, V> -> KStream<String, R>` fragments.
+- Wired `KafkaPrefabStream#breakout(...)` with fail-fast backend/type validation and actionable error messages.
 
-Out of scope for this task:
-- Non-Kafka breakout implementations (Pub/Sub, SNS/SQS)
-- Multi-native-type breakout support beyond `KStream -> KStream`
+Added validation coverage:
+- `KafkaPrefabStreamsTopologyTest` now verifies breakout happy path, unsupported backend rejection, and invalid return type rejection.
+
+Added runnable example + docs:
+- Updated `examples/streams` topology to inject a native `selectKey` fragment via breakout adapter.
+- Updated `examples/streams/README.md` and `backlog/docs/feature-guides.md` with breakout semantics and portability guidance.
+
+Verification:
+- `mvn -pl streams,examples/streams -am test` (BUILD SUCCESS)
 <!-- SECTION:NOTES:END -->
 

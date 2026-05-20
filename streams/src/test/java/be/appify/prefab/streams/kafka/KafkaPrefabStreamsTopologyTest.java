@@ -4,6 +4,8 @@ import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.streams.StreamBackend;
+import be.appify.prefab.streams.StreamBreakoutAdapter;
 import be.appify.prefab.core.util.SerializationRegistry;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -11,6 +13,8 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.TopologyTestDriver;
+import org.apache.kafka.streams.kstream.KStream;
+import org.apache.kafka.streams.kstream.Named;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.core.convert.support.DefaultConversionService;
@@ -182,7 +186,7 @@ class KafkaPrefabStreamsTopologyTest {
             var inputTopic = driver.createInputTopic("orders.in", new StringSerializer(), fixture.serializer);
             var outputTopic = driver.createOutputTopic("orders.out", new StringDeserializer(), fixture.deserializer);
 
-            inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "alice"));
+            inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "Alice"));
 
             var forwarded = outputTopic.readValue();
             assertThat(forwarded).isInstanceOf(ProcessedOrder.class);
@@ -303,6 +307,86 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     @Test
+    void breakout_shouldApplyKafkaNativeFragmentWithinPrefabPipeline() {
+        var fixture = fixture();
+
+        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
+        fixture.typeResolver.registerType("orders.out", ProcessedOrder.class);
+        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
+        fixture.serializationRegistry.register("orders.out", Event.Serialization.JSON);
+
+        var streamsBuilder = new StreamsBuilder();
+        var streams = new KafkaPrefabStreams(
+                streamsBuilder,
+                new KafkaTopicResolver(fixture.typeResolver),
+                fixture.serializer,
+                fixture.deserializer
+        );
+
+        var topology = streams.from(IncomingOrder.class)
+                .breakout(new KafkaStreamBreakoutAdapter<>(
+                        nativeStream -> nativeStream.selectKey((key, value) -> "native-" + value.orderId(), Named.as("native-key"))
+                ))
+                .map(order -> new ProcessedOrder(order.orderId(), order.customer().toUpperCase()))
+                .to(ProcessedOrder.class);
+
+        try (var driver = new TopologyTestDriver(topology.nativeTopology(), streamsConfig())) {
+            var inputTopic = driver.createInputTopic("orders.in", new StringSerializer(), fixture.serializer);
+            var outputTopic = driver.createOutputTopic("orders.out", new StringDeserializer(), fixture.deserializer);
+
+            inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "alice"));
+            inputTopic.pipeInput("o-2", new IncomingOrder("o-2", "bob"));
+
+            var output = outputTopic.readValuesToList();
+            assertThat(output)
+                    .containsExactlyInAnyOrder(
+                            new ProcessedOrder("o-1", "ALICE"),
+                            new ProcessedOrder("o-2", "BOB")
+                    );
+        }
+    }
+
+    @Test
+    void breakout_shouldFailFastWhenAdapterTargetsDifferentBackend() {
+        var fixture = fixture();
+
+        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
+        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
+
+        var streams = new KafkaPrefabStreams(
+                new StreamsBuilder(),
+                new KafkaTopicResolver(fixture.typeResolver),
+                fixture.serializer,
+                fixture.deserializer
+        );
+
+        assertThatThrownBy(() -> streams.from(IncomingOrder.class)
+                .breakout(new NonKafkaBreakoutAdapter()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unsupported breakout backend");
+    }
+
+    @Test
+    void breakout_shouldFailFastWhenAdapterReturnsNonKStream() {
+        var fixture = fixture();
+
+        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
+        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
+
+        var streams = new KafkaPrefabStreams(
+                new StreamsBuilder(),
+                new KafkaTopicResolver(fixture.typeResolver),
+                fixture.serializer,
+                fixture.deserializer
+        );
+
+        assertThatThrownBy(() -> streams.from(IncomingOrder.class)
+                .breakout(new InvalidKafkaReturnTypeAdapter()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must return a KStream");
+    }
+
+    @Test
     void multipleDefinitions_shouldShareCombinedTopology() {
         var fixture = fixture();
 
@@ -381,6 +465,46 @@ class KafkaPrefabStreamsTopologyTest {
 
         int buildInvocations() {
             return buildInvocations;
+        }
+    }
+
+    private static final class NonKafkaBreakoutAdapter
+            implements StreamBreakoutAdapter<IncomingOrder, IncomingOrder, KStream<String, IncomingOrder>, KStream<String, IncomingOrder>> {
+
+        @Override
+        public StreamBackend backend() {
+            return StreamBackend.CUSTOM;
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public Class<KStream<String, IncomingOrder>> nativeInputType() {
+            return (Class<KStream<String, IncomingOrder>>) (Class<?>) KStream.class;
+        }
+
+        @Override
+        public KStream<String, IncomingOrder> apply(KStream<String, IncomingOrder> nativeStream) {
+            return nativeStream;
+        }
+    }
+
+    private static final class InvalidKafkaReturnTypeAdapter
+            implements StreamBreakoutAdapter<IncomingOrder, IncomingOrder, KStream<String, IncomingOrder>, Object> {
+
+        @Override
+        public StreamBackend backend() {
+            return StreamBackend.KAFKA;
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public Class<KStream<String, IncomingOrder>> nativeInputType() {
+            return (Class<KStream<String, IncomingOrder>>) (Class<?>) KStream.class;
+        }
+
+        @Override
+        public Object apply(KStream<String, IncomingOrder> nativeStream) {
+            return "not-a-stream";
         }
     }
 }

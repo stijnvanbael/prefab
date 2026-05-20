@@ -60,6 +60,19 @@ public interface PrefabStream<V> {
     PrefabStream<V> merge(PrefabStream<V> other);
 
     /**
+     * Injects a backend-native stream fragment using a backend adapter SPI.
+     *
+     * @param adapter breakout adapter bound to a concrete backend
+     * @param <R> resulting value type after breakout
+     * @param <NATIVE_IN> backend-native input stream type
+     * @param <NATIVE_OUT> backend-native output stream type
+     * @return stream wrapping the adapted native fragment
+     */
+    <R, NATIVE_IN, NATIVE_OUT> PrefabStream<R> breakout(
+            StreamBreakoutAdapter<V, R, NATIVE_IN, NATIVE_OUT> adapter
+    );
+
+    /**
      * Writes stream values to the topic registered for the provided event type.
      *
      * @param type event class registered for exactly one Kafka topic

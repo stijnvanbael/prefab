@@ -854,6 +854,7 @@ Supported operations:
 - `flatMap(Function<?, Iterable<?>>)`
 - `branch(Predicate<?>...)`
 - `merge(PrefabStream<?>)`
+- `breakout(StreamBreakoutAdapter<?, ?, ?, ?>)`
 - `to(Class<?>)`
 - `to(String)`
 
@@ -888,6 +889,29 @@ class StreamTopologyConfiguration {
     }
 }
 ```
+
+Example breakout that injects a native Kafka Streams fragment via adapter SPI:
+
+```java
+@Configuration
+class StreamTopologyConfiguration {
+
+    @Bean
+    StreamDefinition streamEventRoutingTopology(PrefabStreams streams) {
+        return streams.from(StreamEvent.class)
+                .breakout(new KafkaStreamBreakoutAdapter<>(
+                        nativeStream -> nativeStream.selectKey((key, value) -> value.id())
+                ))
+                .to("streams.words.all");
+    }
+}
+```
+
+Portability note:
+
+- `breakout(...)` accepts a backend adapter abstraction in core DSL API.
+- `KafkaStreamBreakoutAdapter` is Kafka-specific and should be treated as an escape hatch.
+- Pipelines using breakout are no longer backend-portable unless equivalent adapters exist for other backends.
 
 `StreamDefinition` beans are auto-discovered by Prefab Streams at startup. Their DSL wiring is bootstrapped into one
 Kafka Streams topology automatically, so no extra manual topology startup code is required.

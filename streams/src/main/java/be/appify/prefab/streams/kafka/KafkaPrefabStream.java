@@ -3,8 +3,11 @@ package be.appify.prefab.streams.kafka;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.streams.PrefabStream;
+import be.appify.prefab.streams.StreamBackend;
+import be.appify.prefab.streams.StreamBreakoutAdapter;
 import be.appify.prefab.streams.StreamDefinition;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.IntStream;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -86,6 +89,38 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
         @SuppressWarnings("unchecked")
         var otherTypedStream = (KStream<String, V>) otherKafkaStream.stream;
         return wrap(stream.merge(otherTypedStream));
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <R, NATIVE_IN, NATIVE_OUT> PrefabStream<R> breakout(
+            StreamBreakoutAdapter<V, R, NATIVE_IN, NATIVE_OUT> adapter
+    ) {
+        var breakoutAdapter = Objects.requireNonNull(adapter, "adapter must not be null");
+        if (breakoutAdapter.backend() != StreamBackend.KAFKA) {
+            throw new IllegalArgumentException(
+                    "Unsupported breakout backend '%s' for Kafka stream; use a Kafka adapter"
+                            .formatted(breakoutAdapter.backend())
+            );
+        }
+        if (!breakoutAdapter.nativeInputType().isInstance(stream)) {
+            throw new IllegalArgumentException(
+                    "Kafka breakout adapter input type mismatch: expected %s but received %s"
+                            .formatted(
+                                    breakoutAdapter.nativeInputType().getName(),
+                                    stream.getClass().getName()
+                            )
+            );
+        }
+
+        var adapted = breakoutAdapter.apply(breakoutAdapter.nativeInputType().cast(stream));
+        if (!(adapted instanceof KStream<?, ?> adaptedKStream)) {
+            var actualType = adapted == null ? "null" : adapted.getClass().getName();
+            throw new IllegalArgumentException(
+                    "Kafka breakout adapter must return a KStream but returned %s".formatted(actualType)
+            );
+        }
+        return wrap((KStream<String, R>) adaptedKStream);
     }
 
     @Override

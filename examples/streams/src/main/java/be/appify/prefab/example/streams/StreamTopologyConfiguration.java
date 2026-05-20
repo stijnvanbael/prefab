@@ -2,6 +2,7 @@ package be.appify.prefab.example.streams;
 
 import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.StreamDefinition;
+import be.appify.prefab.streams.kafka.KafkaStreamBreakoutAdapter;
 import java.util.Arrays;
 import java.util.UUID;
 import org.springframework.context.annotation.Bean;
@@ -27,6 +28,9 @@ class StreamTopologyConfiguration {
         var words = streams.from(StreamEvent.class)
                 .filter(event -> !event.payload().isBlank())
                 .map(event -> new StreamEvent(event.id(), event.payload().toUpperCase()))
+                .breakout(new KafkaStreamBreakoutAdapter<>(
+                        nativeStream -> nativeStream.selectKey((key, value) -> value.id())
+                ))
                 .flatMap(event -> Arrays.stream(event.payload().split(","))
                         .map(word -> new WordEvent(UUID.randomUUID().toString(), word.strip()))
                         .toList());

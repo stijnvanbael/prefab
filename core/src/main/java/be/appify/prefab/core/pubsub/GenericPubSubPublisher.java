@@ -39,7 +39,7 @@ public class GenericPubSubPublisher {
             log.trace("Event type {} not registered in PubSubUtil, skipping", event.getClass().getName());
             return;
         }
-        var resolvedTopic = topic.orElseThrow();
+        var resolvedTopic = topic.get();
         var qualifiedTopic = fullyQualifiedTopicCache.computeIfAbsent(resolvedTopic, pubSubUtil::ensureTopicExists);
         log.debug("Publishing event {} on topic {}", event, qualifiedTopic);
         var data = ByteString.copyFrom(serializer.serialize(PubSubUtil.simpleTopicName(qualifiedTopic), event));

@@ -37,7 +37,7 @@ public class GenericSnsPublisher {
             log.trace("Event type {} not registered in SqsUtil, skipping", event.getClass().getName());
             return;
         }
-        var resolvedTopic = topic.orElseThrow();
+        var resolvedTopic = topic.get();
         var topicArn = topicArnCache.computeIfAbsent(resolvedTopic, sqsUtil::ensureTopicExists);
         log.debug("Publishing event {} on topic {}", event, topicArn);
         CompletableFuture.runAsync(() ->

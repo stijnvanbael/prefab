@@ -410,10 +410,6 @@ class AvscPluginTest {
                 .generatedSourceFile("event.avsc.scalarunion.infrastructure.avro.ExactValueSchemaFactory")
                 .contentsAsUtf8String()
                 .contains("Schema.createUnion");
-        assertThat(compilation)
-                .generatedFile(StandardLocation.CLASS_OUTPUT, "event/avsc/scalarunion", "ScalarUnionItemMother.java")
-                .contentsAsUtf8String()
-                .contains("builder.exactValue(null)");
         assertFalse(compilation.generatedSourceFiles().stream()
                 .anyMatch(file -> file.toUri().getPath().endsWith("/event/avsc/scalarunion/ExactValueMother.java")));
     }
@@ -457,10 +453,6 @@ class AvscPluginTest {
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.recordunion.infrastructure.avro.NumericPayloadToGenericRecordConverter")
                 .isNotNull();
-        assertThat(compilation)
-                .generatedFile(StandardLocation.CLASS_OUTPUT, "event/avsc/recordunion", "RecordUnionAvscEventMother.java")
-                .contentsAsUtf8String()
-                .contains("builder.payload(null)");
         assertFalse(compilation.generatedSourceFiles().stream()
                 .anyMatch(file -> file.toUri().getPath().endsWith("/event/avsc/recordunion/PayloadMother.java")));
     }

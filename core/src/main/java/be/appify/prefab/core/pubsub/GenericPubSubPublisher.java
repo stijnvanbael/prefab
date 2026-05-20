@@ -34,19 +34,19 @@ public class GenericPubSubPublisher {
 
     @EventListener
     public void publish(Object event) {
-        try {
-            var topic = pubSubUtil.topicForType(event.getClass());
-            var qualifiedTopic = fullyQualifiedTopicCache.computeIfAbsent(topic, pubSubUtil::ensureTopicExists);
-            log.debug("Publishing event {} on topic {}", event, qualifiedTopic);
-            var data = ByteString.copyFrom(serializer.serialize(PubSubUtil.simpleTopicName(qualifiedTopic), event));
-            var messageBuilder = PubsubMessage.newBuilder()
-                    .setData(data)
-                    .putAttributes("type", event.getClass().getName());
-            pubSubUtil.keyFor(event).ifPresent(messageBuilder::setOrderingKey);
-            pubSubTemplate.publish(qualifiedTopic, messageBuilder.build()).join();
-        } catch (IllegalArgumentException e) {
+        var topic = pubSubUtil.tryTopicForType(event.getClass());
+        if (topic.isEmpty()) {
             log.trace("Event type {} not registered in PubSubUtil, skipping", event.getClass().getName());
+            return;
         }
+        var resolvedTopic = topic.orElseThrow();
+        var qualifiedTopic = fullyQualifiedTopicCache.computeIfAbsent(resolvedTopic, pubSubUtil::ensureTopicExists);
+        log.debug("Publishing event {} on topic {}", event, qualifiedTopic);
+        var data = ByteString.copyFrom(serializer.serialize(PubSubUtil.simpleTopicName(qualifiedTopic), event));
+        var messageBuilder = PubsubMessage.newBuilder()
+                .setData(data)
+                .putAttributes("type", event.getClass().getName());
+        pubSubUtil.keyFor(event).ifPresent(messageBuilder::setOrderingKey);
+        pubSubTemplate.publish(qualifiedTopic, messageBuilder.build()).join();
     }
 }
-

@@ -1,7 +1,5 @@
 package be.appify.prefab.core.kafka;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -37,4 +35,3 @@ public class GenericKafkaProducer {
         }
     }
 }
-

@@ -25,6 +25,7 @@ import static org.apache.commons.lang3.StringUtils.isEmpty;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
@@ -177,16 +178,75 @@ public class SqsUtil implements DisposableBean {
      *         if no topic is registered for the type
      */
     public String topicForType(Class<?> type) {
+        return tryTopicForType(type)
+                .orElseThrow(() -> new IllegalArgumentException("No topic registered for type: " + type.getName()));
+    }
+
+    /**
+     * Resolves the SNS topic for a given event type if one is registered.
+     *
+     * @param type
+     *         the event class
+     * @return the registered topic name if found
+     * @throws IllegalStateException
+     *         if multiple equally specific topics match the type
+     */
+    public Optional<String> tryTopicForType(Class<?> type) {
         var topic = typeToTopic.get(type);
         if (topic != null) {
-            return topic;
+            return Optional.of(topic);
         }
+        String selectedTopic = null;
+        Integer selectedDistance = null;
         for (var entry : typeToTopic.entrySet()) {
-            if (entry.getKey().isAssignableFrom(type)) {
-                return entry.getValue();
+            if (!entry.getKey().isAssignableFrom(type)) {
+                continue;
+            }
+            var distance = hierarchyDistance(type, entry.getKey());
+            if (distance.isEmpty()) {
+                continue;
+            }
+            if (selectedDistance == null || distance.get() < selectedDistance) {
+                selectedDistance = distance.get();
+                selectedTopic = entry.getValue();
+            } else if (distance.get().equals(selectedDistance) && !entry.getValue().equals(selectedTopic)) {
+                throw new IllegalStateException(
+                        "Ambiguous topics registered for type %s: %s and %s"
+                                .formatted(type.getName(), selectedTopic, entry.getValue())
+                );
             }
         }
-        throw new IllegalArgumentException("No topic registered for type: " + type.getName());
+        return Optional.ofNullable(selectedTopic);
+    }
+
+    private static Optional<Integer> hierarchyDistance(Class<?> source, Class<?> target) {
+        if (source.equals(target)) {
+            return Optional.of(0);
+        }
+        if (!target.isAssignableFrom(source)) {
+            return Optional.empty();
+        }
+        var queue = new java.util.ArrayDeque<Class<?>>();
+        var distances = new java.util.HashMap<Class<?>, Integer>();
+        queue.add(source);
+        distances.put(source, 0);
+        while (!queue.isEmpty()) {
+            var current = queue.remove();
+            var distance = distances.get(current);
+            if (current.equals(target)) {
+                return Optional.of(distance);
+            }
+            var superclass = current.getSuperclass();
+            if (superclass != null && distances.putIfAbsent(superclass, distance + 1) == null) {
+                queue.add(superclass);
+            }
+            for (var iface : current.getInterfaces()) {
+                if (distances.putIfAbsent(iface, distance + 1) == null) {
+                    queue.add(iface);
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     private String ensureQueueExists(String queueName) {

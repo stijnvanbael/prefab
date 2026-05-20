@@ -32,16 +32,17 @@ public class GenericSnsPublisher {
 
     @EventListener
     public void publish(Object event) {
-        try {
-            var topic = sqsUtil.topicForType(event.getClass());
-            var topicArn = topicArnCache.computeIfAbsent(topic, sqsUtil::ensureTopicExists);
-            log.debug("Publishing event {} on topic {}", event, topicArn);
-            CompletableFuture.runAsync(() ->
-                    snsTemplate.sendNotification(topicArn, snsSerializer.serialize(topic, event), event.getClass().getName())
-            ).join();
-        } catch (IllegalArgumentException e) {
+        var topic = sqsUtil.tryTopicForType(event.getClass());
+        if (topic.isEmpty()) {
             log.trace("Event type {} not registered in SqsUtil, skipping", event.getClass().getName());
+            return;
         }
+        var resolvedTopic = topic.orElseThrow();
+        var topicArn = topicArnCache.computeIfAbsent(resolvedTopic, sqsUtil::ensureTopicExists);
+        log.debug("Publishing event {} on topic {}", event, topicArn);
+        CompletableFuture.runAsync(() ->
+                snsTemplate.sendNotification(topicArn, snsSerializer.serialize(resolvedTopic, event),
+                        event.getClass().getName())
+        ).join();
     }
 }
-

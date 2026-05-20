@@ -2,11 +2,16 @@ package be.appify.prefab.core.sns;
 
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.services.sqs.SqsAsyncClient;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class SqsUtilTest {
+    private static final SnsClient UNUSED_SNS_CLIENT = null;
+    private static final SqsAsyncClient UNUSED_SQS_CLIENT = null;
+    private static final SqsDeserializer UNUSED_SQS_DESERIALIZER = null;
 
     @Test
     void tryTopicForTypeReturnsEmptyWhenNoTopicMatches() {
@@ -41,9 +46,9 @@ class SqsUtilTest {
                 1000,
                 30000,
                 1.5,
-                null,
-                null,
-                null
+                UNUSED_SNS_CLIENT,
+                UNUSED_SQS_CLIENT,
+                UNUSED_SQS_DESERIALIZER
         );
     }
 

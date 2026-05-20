@@ -1,5 +1,7 @@
 package be.appify.prefab.core.pubsub;
 
+import com.google.cloud.spring.pubsub.PubSubAdmin;
+import com.google.cloud.spring.pubsub.core.subscriber.PubSubSubscriberTemplate;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -7,6 +9,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PubSubUtilTest {
+    private static final PubSubAdmin UNUSED_PUB_SUB_ADMIN = null;
+    private static final PubSubSubscriberTemplate UNUSED_SUBSCRIBER_TEMPLATE = null;
+    private static final PubSubDeserializer UNUSED_DESERIALIZER = null;
 
     @Test
     void tryTopicForTypeReturnsEmptyWhenNoTopicMatches() {
@@ -51,9 +56,9 @@ class PubSubUtilTest {
                 1000,
                 30000,
                 1.5f,
-                null,
-                null,
-                null
+                UNUSED_PUB_SUB_ADMIN,
+                UNUSED_SUBSCRIBER_TEMPLATE,
+                UNUSED_DESERIALIZER
         );
     }
 

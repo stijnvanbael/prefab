@@ -410,6 +410,24 @@ class AvscPluginTest {
                 .generatedSourceFile("event.avsc.scalarunion.infrastructure.avro.ExactValueSchemaFactory")
                 .contentsAsUtf8String()
                 .contains("Schema.createUnion");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "event/avsc/scalarunion", "ScalarUnionItemMother.java")
+                .contentsAsUtf8String()
+                .contains("builder.exactValue(null)");
+        assertFalse(compilation.generatedSourceFiles().stream()
+                .anyMatch(file -> file.toUri().getPath().endsWith("/event/avsc/scalarunion/ExactValueMother.java")));
+    }
+
+    @Test
+    void scalarUnionFieldWithSampleMatchesPermittedStringBranchInMotherDefaults() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/scalarunionsample/source/ScalarUnionSampleAvsc.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "event/avsc/scalarunionsample", "ScalarUnionSampleAvscEventMother.java")
+                .contentsAsUtf8String()
+                .contains("builder.exactValue(new ExactValueString(\"known-value\"))");
     }
 
         @Test
@@ -439,6 +457,12 @@ class AvscPluginTest {
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.recordunion.infrastructure.avro.NumericPayloadToGenericRecordConverter")
                 .isNotNull();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "event/avsc/recordunion", "RecordUnionAvscEventMother.java")
+                .contentsAsUtf8String()
+                .contains("builder.payload(null)");
+        assertFalse(compilation.generatedSourceFiles().stream()
+                .anyMatch(file -> file.toUri().getPath().endsWith("/event/avsc/recordunion/PayloadMother.java")));
     }
     @Test
     void enumUnionFieldGeneratesSealedInterfaceWithEnumAndStringBranches() {

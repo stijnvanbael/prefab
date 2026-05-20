@@ -286,3 +286,18 @@ Prefab: Skipping generation of be.appify.example.ProductClient — manual overri
 > **Note:** The manual override file is never auto-updated by Prefab. If the aggregate's API
 > changes (new `@Create`, `@Update`, etc.) you must update the manual file yourself.
 
+---
+
+## 6.10 Generated Object Mothers (Test Sources)
+
+Prefab generates `*Mother` classes in `target/prefab-test-sources/` for generated request records,
+event records, and nested reachable record types.
+
+For AVSC union fields generated as sealed interfaces, Prefab generates mothers only for the
+**permitted branch wrapper records**, not for the sealed interface itself.
+
+- Example: union field `ExactValue` with permitted wrappers `ExactValueDouble` and
+  `ExactValueString` produces `ExactValueDoubleMother` and `ExactValueStringMother`.
+- For `@Example` values on union-typed fields, mother defaults select the matching permitted branch
+  wrapper value type.
+

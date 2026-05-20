@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "ScalarUnionSampleAvscEvent",
+  "namespace": "event.avsc.scalarunionsample",
+  "fields": [
+    {
+      "name": "exactValue",
+      "type": ["double", "string"],
+      "sample": "known-value"
+    }
+  ]
+}
+

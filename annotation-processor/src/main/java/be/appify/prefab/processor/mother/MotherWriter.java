@@ -167,6 +167,8 @@ class MotherWriter {
     private void writeNestedMothersFor(TypeManifest type, TypeElement preferredElement, boolean hasEmbeddedBuilder) {
         if (isNestedObjectType(type)) {
             writeNestedMother(type, preferredElement, hasEmbeddedBuilder);
+        } else if (isUnionInterfaceType(type)) {
+            type.permittedSubtypes().forEach(subtype -> writeNestedMother(subtype, preferredElement, hasEmbeddedBuilder));
         } else if (type.is(List.class) && isNestedObjectType(type.parameters().getFirst())) {
             writeNestedMother(type.parameters().getFirst(), preferredElement, hasEmbeddedBuilder);
         } else if (type.isSingleValueType()) {
@@ -416,6 +418,9 @@ class MotherWriter {
             var innerDefault = typeDefaultValue(innerField.type().asBoxed(), innerField.name());
             return CodeBlock.of("new $T($L)", type.asTypeName(), innerDefault);
         }
+        if (isUnionInterfaceType(type)) {
+            return defaultValueForSealedType(type, fieldName);
+        }
         if (isNestedObjectType(type)) {
             var simpleName = type.simpleName().replace(".", "");
             var motherType = ClassName.get(type.packageName(), simpleName + MOTHER_SUFFIX);
@@ -461,17 +466,48 @@ class MotherWriter {
                 return CodeBlock.of("new $T($L)", type.asTypeName(), innerLiteral);
             }
         }
-        if (type.isSealed()) {
-            for (var subtype : type.permittedSubtypes()) {
-                if (!subtype.isSingleValueType()) continue;
-                var innerField = subtype.fields().getFirst();
-                var innerLiteral = tryExampleLiteralFor(value, innerField.type().asBoxed());
-                if (innerLiteral != null) {
-                    return CodeBlock.of("new $T($L)", subtype.asTypeName(), innerLiteral);
-                }
-            }
+        if (isUnionInterfaceType(type)) {
+            return exampleLiteralForSealedType(value, type, param);
         }
         return CodeBlock.of("$S", value);
+    }
+
+    private boolean isUnionInterfaceType(TypeManifest type) {
+        return type.isSealed() || !type.permittedSubtypes().isEmpty();
+    }
+
+    private CodeBlock defaultValueForSealedType(TypeManifest sealedType, String fieldName) {
+        var firstPermittedSubtype = sealedType.permittedSubtypes().stream().findFirst();
+        if (firstPermittedSubtype.isEmpty()) {
+            return CodeBlock.of("null");
+        }
+        return defaultValueForPermittedSubtype(firstPermittedSubtype.get(), fieldName);
+    }
+
+    private CodeBlock defaultValueForPermittedSubtype(TypeManifest subtype, String fieldName) {
+        if (!subtype.isSingleValueType()) {
+            return CodeBlock.of("null");
+        }
+        var valueField = subtype.fields().getFirst();
+        var innerDefault = typeDefaultValue(valueField.type().asBoxed(), fieldName);
+        return CodeBlock.of("new $T($L)", subtype.asTypeName(), innerDefault);
+    }
+
+    private CodeBlock exampleLiteralForSealedType(String value, TypeManifest sealedType, VariableManifest param) {
+        for (var subtype : sealedType.permittedSubtypes()) {
+            if (!subtype.isSingleValueType()) {
+                continue;
+            }
+            var valueField = subtype.fields().getFirst();
+            var innerLiteral = tryExampleLiteralFor(value, valueField.type().asBoxed());
+            if (innerLiteral != null) {
+                return CodeBlock.of("new $T($L)", subtype.asTypeName(), innerLiteral);
+            }
+        }
+        reportExampleParseError(value,
+                "one of " + sealedType.permittedSubtypes().stream().map(TypeManifest::simpleName).collect(Collectors.joining(", ")),
+                param);
+        return defaultValueForSealedType(sealedType, param.name());
     }
 
     /**

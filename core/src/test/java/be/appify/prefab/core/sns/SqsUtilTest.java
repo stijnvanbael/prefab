@@ -2,12 +2,9 @@ package be.appify.prefab.core.sns;
 
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
-import software.amazon.awssdk.services.sns.SnsClient;
-import software.amazon.awssdk.services.sqs.SqsAsyncClient;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.mock;
 
 class SqsUtilTest {
 
@@ -44,9 +41,9 @@ class SqsUtilTest {
                 1000,
                 30000,
                 1.5,
-                mock(SnsClient.class),
-                mock(SqsAsyncClient.class),
-                mock(SqsDeserializer.class)
+                null,
+                null,
+                null
         );
     }
 

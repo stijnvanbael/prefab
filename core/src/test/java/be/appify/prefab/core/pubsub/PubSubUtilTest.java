@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.mock;
 
 class PubSubUtilTest {
 
@@ -52,9 +51,9 @@ class PubSubUtilTest {
                 1000,
                 30000,
                 1.5f,
-                mock(com.google.cloud.spring.pubsub.PubSubAdmin.class),
-                mock(com.google.cloud.spring.pubsub.core.subscriber.PubSubSubscriberTemplate.class),
-                mock(PubSubDeserializer.class)
+                null,
+                null,
+                null
         );
     }
 

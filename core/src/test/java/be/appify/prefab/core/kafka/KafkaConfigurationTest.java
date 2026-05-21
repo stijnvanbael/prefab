@@ -1,6 +1,6 @@
 package be.appify.prefab.core.kafka;
 
-import be.appify.prefab.core.util.SerializationRegistry;
+import be.appify.prefab.core.annotations.Event;
 import java.util.List;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.junit.jupiter.api.Test;
@@ -50,11 +50,12 @@ class KafkaConfigurationTest {
     }
 
     private DynamicDeserializer dynamicDeserializer(KafkaProperties kafkaProperties) {
+        var eventRegistry = new EventRegistry();
+        eventRegistry.register("test-topic", Event.Serialization.JSON);
         return new DynamicDeserializer(
                 kafkaProperties,
                 new DefaultConversionService(),
-                new SerializationRegistry(),
-                new EventRegistry());
+                eventRegistry);
     }
 
     private KafkaConnectionDetails kafkaConnectionDetails() {

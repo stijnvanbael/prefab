@@ -1,6 +1,5 @@
 package be.appify.prefab.core.kafka;
 
-import be.appify.prefab.core.util.SerializationRegistry;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroDeserializer;
 import java.util.NoSuchElementException;
 import org.apache.avro.generic.GenericRecord;
@@ -12,7 +11,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * A deserializer that dynamically chooses deserialization based on the topic's serialization format.
- * It uses a {@link SerializationRegistry} to determine the serialization format for each topic and delegates to the appropriate deserializer.
+ * It uses an {@link EventRegistry} to determine the serialization format for each topic and delegates to the appropriate deserializer.
  * For Avro deserialization, it converts the resulting {@link GenericRecord} to the target event class using a {@link ConversionService}.
  */
 @Component
@@ -20,29 +19,21 @@ public class DynamicDeserializer implements Deserializer<Object> {
     private final JacksonJsonDeserializer<Object> jsonDeserializer = new JacksonJsonDeserializer<>();
     private final GenericAvroDeserializer avroDeserializer = new GenericAvroDeserializer();
     private final ConversionService conversionService;
-    private final SerializationRegistry serializationRegistry;
     private final EventRegistry eventRegistry;
 
     /**
-     * Constructs a DynamicDeserializer and configures the underlying JsonDeserializer and AvroDeserializer with the provided Kafka properties.
+     * Constructs a DynamicDeserializer and configures the underlying JsonDeserializer and AvroDeserializer.
      *
-     * @param kafkaProperties
-     *         the Kafka properties to configure the deserializers
-     * @param conversionService
-     *         the ConversionService to convert GenericRecord to the target event class for Avro deserialization
-     * @param serializationRegistry
-     *         the SerializationRegistry that contains the serialization format for each topic
-     * @param eventRegistry
-     *         the EventRegistry to resolve types for deserialization
+     * @param kafkaProperties   the Kafka properties to configure the deserializers
+     * @param conversionService the ConversionService to convert GenericRecord to the target event class
+     * @param eventRegistry     the EventRegistry for type resolution and serialization-format lookup
      */
     public DynamicDeserializer(
             KafkaProperties kafkaProperties,
             ConversionService conversionService,
-            SerializationRegistry serializationRegistry,
             EventRegistry eventRegistry
     ) {
         this.conversionService = conversionService;
-        this.serializationRegistry = serializationRegistry;
         this.eventRegistry = eventRegistry;
         var consumerProperties = kafkaProperties.buildConsumerProperties();
         jsonDeserializer.setTypeResolver(eventRegistry);
@@ -67,7 +58,7 @@ public class DynamicDeserializer implements Deserializer<Object> {
         if (data == null) {
             return null;
         } else {
-            return switch (serializationRegistry.get(topic)) {
+            return switch (eventRegistry.serialization(topic)) {
                 case AVRO -> toEvent(topic, avroDeserializer.deserialize(topic, data));
                 case JSON -> jsonDeserializer.deserialize(topic, data);
             };

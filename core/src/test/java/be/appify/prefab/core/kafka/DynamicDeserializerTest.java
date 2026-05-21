@@ -1,7 +1,6 @@
 package be.appify.prefab.core.kafka;
 
 import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.core.util.SerializationRegistry;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
@@ -25,9 +24,9 @@ class DynamicDeserializerTest {
         conversionService.addConverter(GenericRecord.class, AvroEvent.class,
                 source -> new AvroEvent(source.get("value").toString()));
 
-        var typeResolver = new EventRegistry();
-        typeResolver.registerType("avro-topic", AvroEvent.class);
-        var deserializer = createDeserializer(conversionService, typeResolver);
+        var eventRegistry = new EventRegistry();
+        eventRegistry.register("avro-topic", AvroEvent.class, Event.Serialization.AVRO);
+        var deserializer = createDeserializer(conversionService, eventRegistry);
         var genericRecord = recordWithSchema("different.namespace", "DynamicDeserializerTest_AvroEvent", "allowed");
 
         var event = invokeToEvent(deserializer, genericRecord);
@@ -38,9 +37,9 @@ class DynamicDeserializerTest {
 
     @Test
     void avroToEventFailsWhenTargetClassCannotBeResolved() {
-        var typeResolver = new EventRegistry();
-        typeResolver.registerType("avro-topic", AvroEvent.class);
-        var deserializer = createDeserializer(new GenericConversionService(), typeResolver);
+        var eventRegistry = new EventRegistry();
+        eventRegistry.register("avro-topic", AvroEvent.class, Event.Serialization.AVRO);
+        var deserializer = createDeserializer(new GenericConversionService(), eventRegistry);
         var genericRecord = recordWithSchema("be.appify.prefab.core.kafka", "UnknownAvroEvent", "value");
 
         var exception = assertThrows(NoSuchElementException.class, () -> invokeToEvent(deserializer, genericRecord));
@@ -50,9 +49,9 @@ class DynamicDeserializerTest {
 
     @Test
     void avroToEventFailsWhenConverterIsMissing() {
-        var typeResolver = new EventRegistry();
-        typeResolver.registerType("avro-topic", AvroEvent.class);
-        var deserializer = createDeserializer(new GenericConversionService(), typeResolver);
+        var eventRegistry = new EventRegistry();
+        eventRegistry.register("avro-topic", AvroEvent.class, Event.Serialization.AVRO);
+        var deserializer = createDeserializer(new GenericConversionService(), eventRegistry);
         var genericRecord = recordWithSchema("be.appify.prefab.core.kafka", "DynamicDeserializerTest_AvroEvent", "value");
 
         var exception = assertThrows(IllegalArgumentException.class, () -> invokeToEvent(deserializer, genericRecord));
@@ -69,9 +68,9 @@ class DynamicDeserializerTest {
         conversionService.addConverter(GenericRecord.class, ConcreteAvroEvent.class,
                 source -> new ConcreteAvroEvent(source.get("value").toString()));
 
-        var typeResolver = new EventRegistry();
-        typeResolver.registerType("avro-topic", SealedAvroEvents.class);
-        var deserializer = createDeserializer(conversionService, typeResolver);
+        var eventRegistry = new EventRegistry();
+        eventRegistry.register("avro-topic", SealedAvroEvents.class, Event.Serialization.AVRO);
+        var deserializer = createDeserializer(conversionService, eventRegistry);
         var genericRecord = recordWithSchema(
                 "be.appify.prefab.core.kafka",
                 "DynamicDeserializerTest_ConcreteAvroEvent",
@@ -85,14 +84,13 @@ class DynamicDeserializerTest {
 
     @Test
     void jsonDeserializationFailsForUnregisteredTopicType() {
-        var registry = new SerializationRegistry();
-        registry.register("json-topic", Event.Serialization.JSON);
+        var eventRegistry = new EventRegistry();
+        eventRegistry.register("json-topic", Event.Serialization.JSON);
 
         var deserializer = new DynamicDeserializer(
                 new KafkaProperties(),
                 new GenericConversionService(),
-                registry,
-                new EventRegistry()
+                eventRegistry
         );
 
         var payload = "{}".getBytes(StandardCharsets.UTF_8);
@@ -105,11 +103,9 @@ class DynamicDeserializerTest {
 
     private static DynamicDeserializer createDeserializer(
             GenericConversionService conversionService,
-            EventRegistry typeResolver
+            EventRegistry eventRegistry
     ) {
-        var registry = new SerializationRegistry();
-        registry.register("avro-topic", Event.Serialization.AVRO);
-        return new DynamicDeserializer(new KafkaProperties(), conversionService, registry, typeResolver);
+        return new DynamicDeserializer(new KafkaProperties(), conversionService, eventRegistry);
     }
 
     private static GenericRecord recordWithSchema(String namespace, String name, String value) {

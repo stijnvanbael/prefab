@@ -1,84 +1,63 @@
 package be.appify.prefab.core.util;
 
 import be.appify.prefab.core.annotations.Event;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
+import be.appify.prefab.core.kafka.EventRegistry;
 
 /**
- * A registry that holds the serialization format for each topic. It allows registering and retrieving the serialization format for a given
- * topic. The serialization format is represented by the {@link Event.Serialization} enum.
+ * @deprecated Use {@link EventRegistry} directly. {@code SerializationRegistry} is a thin backwards-compatibility
+ * wrapper that delegates all calls to an {@link EventRegistry}. Inject {@link EventRegistry} instead.
  */
-@Component
-public class SerializationRegistry implements InitializingBean {
-    private final Map<String, Event.Serialization> registry = new HashMap<>();
+@Deprecated(since = "0.9", forRemoval = true)
+public class SerializationRegistry {
 
-    @Autowired(required = false)
-    private List<SerializationRegistryCustomizer> customizers;
+    private final EventRegistry delegate;
 
     /**
-     * Constructs a new SerializationRegistry.
+     * Constructs a standalone SerializationRegistry backed by a new EventRegistry.
+     * Prefer injecting {@link EventRegistry} directly in new code.
      */
     public SerializationRegistry() {
-    }
-
-    @Override
-    public void afterPropertiesSet() {
-        if (customizers != null) {
-            customizers.forEach(c -> c.customize(this));
-        }
+        this.delegate = new EventRegistry();
     }
 
     /**
-     * Registers the serialization format for a given topic.
+     * Constructs a SerializationRegistry that delegates to the given EventRegistry.
      *
-     * @param topic
-     *         the topic for which to register the serialization format
-     * @param serialization
-     *         the serialization format to register for the topic
+     * @param delegate the EventRegistry to delegate to
      */
+    public SerializationRegistry(EventRegistry delegate) {
+        this.delegate = delegate;
+    }
+
+    /**
+     * @deprecated Use {@link EventRegistry#register(String, Event.Serialization)} instead.
+     */
+    @Deprecated(since = "0.9", forRemoval = true)
     public void register(String topic, Event.Serialization serialization) {
-        registry.put(topic, serialization);
+        delegate.register(topic, serialization);
     }
 
     /**
-     * Retrieves the serialization format for a given topic.
-     *
-     * @param topic
-     *         the topic for which to retrieve the serialization format
-     * @return the serialization format registered for the topic
-     * @throws IllegalStateException
-     *         if no serialization format is registered for the topic
+     * @deprecated Use {@link EventRegistry#serialization(String)} instead.
      */
+    @Deprecated(since = "0.9", forRemoval = true)
     public Event.Serialization get(String topic) {
-        if (!registry.containsKey(topic)) {
-            throw new IllegalStateException("No serialization format registered for topic [%s]".formatted(topic));
-        }
-        return registry.get(topic);
+        return delegate.serialization(topic);
     }
 
     /**
-     * Checks if a serialization format is registered for a given topic.
-     *
-     * @param topic
-     *         the topic to check for
-     * @return true if a serialization format is registered for the topic, false otherwise
+     * @deprecated Use {@link EventRegistry#contains(String)} instead.
      */
+    @Deprecated(since = "0.9", forRemoval = true)
     public boolean contains(String topic) {
-        return registry.containsKey(topic);
+        return delegate.contains(topic);
     }
 
     /**
-     * Checks if a serialization format is registered for any topic.
-     *
-     * @param serialization
-     *         the serialization format to check for
-     * @return true if the serialization format is registered for any topic, false otherwise
+     * @deprecated Use {@link EventRegistry#hasSerialization(Event.Serialization)} instead.
      */
+    @Deprecated(since = "0.9", forRemoval = true)
     public boolean hasSerialization(Event.Serialization serialization) {
-        return registry.values().stream().anyMatch(s -> s == serialization);
+        return delegate.hasSerialization(serialization);
     }
 }

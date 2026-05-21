@@ -2,30 +2,32 @@ package be.appify.prefab.processor.event.kafka;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.core.kafka.EventRegistryCustomizer;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
+import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.util.Optional;
+import javax.lang.model.element.Modifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import static be.appify.prefab.processor.event.ConsumerWriterSupport.keyField;
-import static javax.lang.model.element.Modifier.PUBLIC;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 /**
  * Generates a {@code *KafkaEventTypeRegistrar} Spring component for each Kafka event type.
  *
- * <p>Registrars ensure that event types are registered with {@link EventRegistry} once,
- * independently of whether a production consumer exists. This makes event types available for
- * deserialization in test consumers as well as production consumers.
+ * <p>The generated class implements {@link EventRegistryCustomizer} and is picked up by
+ * {@code PrefabRegistryConfiguration}, which applies all customizers atomically before the
+ * {@link EventRegistry} is exposed to any consumer bean.
  */
 class KafkaEventTypeRegistrarWriter {
 
@@ -48,11 +50,8 @@ class KafkaEventTypeRegistrarWriter {
                 .orElseThrow();
         var simpleName = event.simpleName().replace(".", "");
         var name = registrarName(simpleName);
-        var type = TypeSpec.classBuilder(name)
-                .addModifiers(PUBLIC)
-                .addAnnotation(Component.class)
-                .addMethod(constructor(annotation.topic(), simpleName, event.asTypeName(), keyField(event, context)))
-                .build();
+        var type = buildRegistrarType(name, annotation.topic(), annotation.serialization(),
+                simpleName, event.asTypeName(), keyField(event, context));
         fileWriter.writeFile(event.packageName(), name, type);
     }
 
@@ -66,41 +65,61 @@ class KafkaEventTypeRegistrarWriter {
     void writeAvscRegistrar(String packageName, ClassName eventType, String topic) {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.kafka");
         var name = registrarName(eventType.simpleName());
-        var type = TypeSpec.classBuilder(name)
-                .addModifiers(PUBLIC)
-                .addAnnotation(Component.class)
-                .addMethod(constructor(topic, eventType.simpleName(), eventType, Optional.empty()))
-                .build();
+        var type = buildRegistrarType(name, topic, Event.Serialization.AVRO,
+                eventType.simpleName(), eventType, Optional.empty());
         fileWriter.writeFile(packageName, name, type);
     }
 
-    private MethodSpec constructor(String topic, String simpleName, TypeName eventTypeName,
-                                   Optional<CodeBlock> keyExtractor) {
-        var constructor = MethodSpec.constructorBuilder()
-                .addModifiers(PUBLIC)
-                .addParameter(EventRegistry.class, "eventRegistry");
-        if (topic.matches("\\$\\{.+}")) {
+    private TypeSpec buildRegistrarType(String name, String topic, Event.Serialization serialization,
+                                        String simpleName, TypeName eventTypeName,
+                                        Optional<CodeBlock> keyExtractor) {
+        var typeBuilder = TypeSpec.classBuilder(name)
+                .addModifiers(Modifier.PUBLIC)
+                .addAnnotation(Component.class)
+                .addSuperinterface(EventRegistryCustomizer.class);
+
+        boolean hasPlaceholderTopic = topic.matches("\\$\\{.+}");
+
+        if (hasPlaceholderTopic) {
             var topicFieldName = topicVariableName(simpleName);
-            constructor.addParameter(ParameterSpec.builder(String.class, topicFieldName)
-                    .addAnnotation(AnnotationSpec.builder(Value.class)
-                            .addMember("value", "$S", topic)
+            typeBuilder.addField(FieldSpec.builder(String.class, topicFieldName, Modifier.PRIVATE, Modifier.FINAL).build());
+            var constructor = MethodSpec.constructorBuilder()
+                    .addModifiers(Modifier.PUBLIC)
+                    .addParameter(ParameterSpec.builder(String.class, topicFieldName)
+                            .addAnnotation(AnnotationSpec.builder(Value.class)
+                                    .addMember("value", "$S", topic)
+                                    .build())
                             .build())
-                    .build());
-            if (keyExtractor.isPresent()) {
-                constructor.addStatement("eventRegistry.registerType($L, $T.class, event -> $L)",
-                        topicFieldName, eventTypeName, keyExtractor.get());
-            } else {
-                constructor.addStatement("eventRegistry.registerType($L, $T.class)", topicFieldName, eventTypeName);
-            }
-        } else {
-            if (keyExtractor.isPresent()) {
-                constructor.addStatement("eventRegistry.registerType($S, $T.class, event -> $L)",
-                        topic, eventTypeName, keyExtractor.get());
-            } else {
-                constructor.addStatement("eventRegistry.registerType($S, $T.class)", topic, eventTypeName);
-            }
+                    .addStatement("this.$L = $L", topicFieldName, topicFieldName);
+            typeBuilder.addMethod(constructor.build());
         }
-        return constructor.build();
+
+        typeBuilder.addMethod(buildCustomizeMethod(topic, serialization, simpleName, eventTypeName, keyExtractor, hasPlaceholderTopic));
+
+        return typeBuilder.build();
+    }
+
+    private static MethodSpec buildCustomizeMethod(String topic, Event.Serialization serialization,
+                                                    String simpleName, TypeName eventTypeName,
+                                                    Optional<CodeBlock> keyExtractor,
+                                                    boolean hasPlaceholderTopic) {
+        var method = MethodSpec.methodBuilder("customize")
+                .addModifiers(Modifier.PUBLIC)
+                .addAnnotation(Override.class)
+                .addParameter(EventRegistry.class, "registry");
+
+        var topicArg = hasPlaceholderTopic ? topicVariableName(simpleName) : "\"" + topic + "\"";
+
+        if (keyExtractor.isPresent()) {
+            method.addStatement("registry.register($L, $T.class, $T.$L, event -> $L)",
+                    topicArg, eventTypeName, Event.Serialization.class, serialization.toString(),
+                    keyExtractor.get());
+        } else {
+            method.addStatement("registry.register($L, $T.class, $T.$L)",
+                    topicArg, eventTypeName, Event.Serialization.class, serialization.toString());
+        }
+
+        return method.build();
     }
 
     private static String registrarName(String simpleName) {

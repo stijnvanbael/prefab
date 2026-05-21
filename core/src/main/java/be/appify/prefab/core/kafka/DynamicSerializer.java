@@ -1,6 +1,5 @@
 package be.appify.prefab.core.kafka;
 
-import be.appify.prefab.core.util.SerializationRegistry;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroSerializer;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.common.serialization.Serializer;
@@ -11,8 +10,8 @@ import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 import org.springframework.stereotype.Component;
 
 /**
- * A Kafka serializer that dynamically chooses serialization based on the topic's serialization format. It uses a
- * {@link SerializationRegistry} to determine the serialization format for each topic and delegates to the appropriate serializer. For Avro
+ * A Kafka serializer that dynamically chooses serialization based on the topic's serialization format. It uses an
+ * {@link EventRegistry} to determine the serialization format for each topic and delegates to the appropriate serializer. For Avro
  * serialization, it converts the input object to a {@link GenericRecord} using a {@link ConversionService} before serialization.
  */
 @Component
@@ -21,25 +20,22 @@ public class DynamicSerializer implements Serializer<Object> {
     private final JacksonJsonSerializer<Object> jsonSerializer = new JacksonJsonSerializer<>();
     private final GenericAvroSerializer avroSerializer = new GenericAvroSerializer();
     private final ConversionService conversionService;
-    private final SerializationRegistry serializationRegistry;
+    private final EventRegistry eventRegistry;
 
     /**
      * Constructs a DynamicSerializer and configures the underlying JsonSerializer with the provided Kafka properties.
      *
-     * @param kafkaProperties
-     *         the Kafka properties to configure the JsonSerializer
-     * @param conversionService
-     *         the ConversionService to convert objects to GenericRecord for Avro serialization
-     * @param serializationRegistry
-     *         the SerializationRegistry that contains the serialization format for each topic
+     * @param kafkaProperties the Kafka properties to configure the JsonSerializer
+     * @param conversionService the ConversionService to convert objects to GenericRecord for Avro serialization
+     * @param eventRegistry the EventRegistry that contains the serialization format for each topic
      */
     public DynamicSerializer(
             KafkaProperties kafkaProperties,
             ConversionService conversionService,
-            SerializationRegistry serializationRegistry
+            EventRegistry eventRegistry
     ) {
         this.conversionService = conversionService;
-        this.serializationRegistry = serializationRegistry;
+        this.eventRegistry = eventRegistry;
         var producerProperties = kafkaProperties.buildProducerProperties();
         jsonSerializer.configure(producerProperties, false);
         if (!producerProperties.containsKey("schema.registry.url")) {
@@ -70,10 +66,10 @@ public class DynamicSerializer implements Serializer<Object> {
                 return bytes;
             }
             default -> {
-                if (!serializationRegistry.contains(topic)) {
+                if (!eventRegistry.contains(topic)) {
                     return jsonSerializer.serialize(topic, data);
                 }
-                return switch (serializationRegistry.get(topic)) {
+                return switch (eventRegistry.serialization(topic)) {
                     case AVRO -> avroSerializer.serialize(topic, toGenericRecord(data));
                     case JSON -> jsonSerializer.serialize(topic, data);
                 };
@@ -82,9 +78,6 @@ public class DynamicSerializer implements Serializer<Object> {
     }
 
     private GenericRecord toGenericRecord(Object data) {
-        if (!conversionService.canConvert(data.getClass(), GenericRecord.class)) {
-            throw new IllegalArgumentException("No converter registered for type " + data.getClass() + " to GenericRecord");
-        }
         return conversionService.convert(data, GenericRecord.class);
     }
 }

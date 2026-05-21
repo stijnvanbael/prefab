@@ -1,7 +1,7 @@
 package be.appify.prefab.core.pubsub;
 
+import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.spring.JsonUtil;
-import be.appify.prefab.core.util.SerializationRegistry;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import org.apache.avro.generic.GenericDatumReader;
@@ -17,22 +17,19 @@ import org.springframework.stereotype.Component;
 @Component
 public class PubSubDeserializer {
     private final JsonUtil jsonUtil;
-    private final SerializationRegistry serializationRegistry;
+    private final EventRegistry eventRegistry;
     private final ConversionService conversionService;
 
     /**
-     * Constructs a PubSubDeserializer with the given JsonUtil, SerializationRegistry, and ConversionService.
+     * Constructs a PubSubDeserializer with the given JsonUtil, EventRegistry, and ConversionService.
      *
-     * @param jsonUtil
-     *         the JsonUtil to use for JSON deserialization
-     * @param serializationRegistry
-     *         the SerializationRegistry that contains the serialization format for each topic
-     * @param conversionService
-     *         the ConversionService to convert GenericRecord to the target event class for Avro deserialization
+     * @param jsonUtil       the JsonUtil to use for JSON deserialization
+     * @param eventRegistry  the EventRegistry that contains the serialization format for each topic
+     * @param conversionService the ConversionService to convert GenericRecord to the target event class
      */
-    public PubSubDeserializer(JsonUtil jsonUtil, SerializationRegistry serializationRegistry, ConversionService conversionService) {
+    public PubSubDeserializer(JsonUtil jsonUtil, EventRegistry eventRegistry, ConversionService conversionService) {
         this.jsonUtil = jsonUtil;
-        this.serializationRegistry = serializationRegistry;
+        this.eventRegistry = eventRegistry;
         this.conversionService = conversionService;
     }
 
@@ -50,7 +47,7 @@ public class PubSubDeserializer {
      * @return the deserialized object
      */
     public <T> T deserialize(String topic, ByteString data, Class<T> type) {
-        var serialization = serializationRegistry.get(topic);
+        var serialization = eventRegistry.serialization(topic);
         return switch (serialization) {
             case AVRO -> deserializeAvro(data.toByteArray(), type);
             case JSON -> jsonUtil.parseJson(data.toStringUtf8(), type);

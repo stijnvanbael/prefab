@@ -1,7 +1,7 @@
 package be.appify.prefab.core.sns;
 
+import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.spring.JsonUtil;
-import be.appify.prefab.core.util.SerializationRegistry;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -16,39 +16,34 @@ import org.springframework.stereotype.Component;
 
 /**
  * A serializer for SNS messages that dynamically chooses the serialization method based on the topic's serialization
- * format. It uses a {@link SerializationRegistry} to determine the serialization format for each topic and delegates to
+ * format. It uses an {@link EventRegistry} to determine the serialization format for each topic and delegates to
  * the appropriate serialization method. If the topic is not registered, JSON serialization is used by default.
  */
 @Component
 @ConditionalOnClass(SnsTemplate.class)
 public class SnsSerializer {
     private final JsonUtil jsonUtil;
-    private final SerializationRegistry serializationRegistry;
+    private final EventRegistry eventRegistry;
     private final ConversionService conversionService;
 
     /**
-     * Constructs a SnsSerializer with the given JsonUtil, SerializationRegistry, and ConversionService.
+     * Constructs a SnsSerializer with the given JsonUtil, EventRegistry, and ConversionService.
      *
-     * @param jsonUtil
-     *         the JsonUtil to use for JSON serialization
-     * @param serializationRegistry
-     *         the SerializationRegistry that contains the serialization format for each topic
-     * @param conversionService
-     *         the ConversionService to convert objects to GenericRecord for Avro serialization
+     * @param jsonUtil       the JsonUtil to use for JSON serialization
+     * @param eventRegistry  the EventRegistry that contains the serialization format for each topic
+     * @param conversionService the ConversionService to convert objects to GenericRecord for Avro serialization
      */
-    public SnsSerializer(JsonUtil jsonUtil, SerializationRegistry serializationRegistry, ConversionService conversionService) {
+    public SnsSerializer(JsonUtil jsonUtil, EventRegistry eventRegistry, ConversionService conversionService) {
         this.jsonUtil = jsonUtil;
-        this.serializationRegistry = serializationRegistry;
+        this.eventRegistry = eventRegistry;
         this.conversionService = conversionService;
     }
 
     /**
      * Serialize the given data to a String based on the topic's serialization format.
      *
-     * @param topic
-     *         the topic to which the data is being serialized
-     * @param data
-     *         the data to serialize
+     * @param topic the topic to which the data is being serialized
+     * @param data  the data to serialize
      * @return the serialized String, or null if data is null
      */
     public String serialize(String topic, Object data) {
@@ -58,10 +53,10 @@ public class SnsSerializer {
         if (data instanceof String string) {
             return string;
         }
-        if (!serializationRegistry.contains(topic)) {
+        if (!eventRegistry.contains(topic)) {
             return jsonUtil.toJson(data);
         }
-        return switch (serializationRegistry.get(topic)) {
+        return switch (eventRegistry.serialization(topic)) {
             case AVRO -> serializeAvro(data);
             case JSON -> jsonUtil.toJson(data);
         };

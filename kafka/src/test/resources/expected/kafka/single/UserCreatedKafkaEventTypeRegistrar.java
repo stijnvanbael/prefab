@@ -1,10 +1,13 @@
 package kafka.single.infrastructure.kafka;
+import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.core.kafka.EventRegistryCustomizer;
 import kafka.single.UserCreated;
 import org.springframework.stereotype.Component;
 @Component
-public class UserCreatedKafkaEventTypeRegistrar {
-    public UserCreatedKafkaEventTypeRegistrar(EventRegistry eventRegistry) {
-        eventRegistry.registerType("prefab.user", UserCreated.class, event -> event.user().id());
+public class UserCreatedKafkaEventTypeRegistrar implements EventRegistryCustomizer {
+    @Override
+    public void customize(EventRegistry registry) {
+        registry.register("prefab.user", UserCreated.class, Event.Serialization.JSON, event -> event.user().id());
     }
 }

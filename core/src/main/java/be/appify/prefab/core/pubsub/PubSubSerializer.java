@@ -1,7 +1,7 @@
 package be.appify.prefab.core.pubsub;
 
+import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.spring.JsonUtil;
-import be.appify.prefab.core.util.SerializationRegistry;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Objects;
@@ -18,22 +18,19 @@ import org.springframework.stereotype.Component;
 @Component
 public class PubSubSerializer {
     private final JsonUtil jsonUtil;
-    private final SerializationRegistry serializationRegistry;
+    private final EventRegistry eventRegistry;
     private final ConversionService conversionService;
 
     /**
-     * Constructs a PubSubSerializer with the given JsonUtil, SerializationRegistry, and ConversionService.
+     * Constructs a PubSubSerializer with the given JsonUtil, EventRegistry, and ConversionService.
      *
-     * @param jsonUtil
-     *         the JsonUtil to use for JSON serialization
-     * @param serializationRegistry
-     *         the SerializationRegistry that contains the serialization format for each topic
-     * @param conversionService
-     *         the ConversionService to convert objects to GenericRecord for Avro serialization
+     * @param jsonUtil       the JsonUtil to use for JSON serialization
+     * @param eventRegistry  the EventRegistry that contains the serialization format for each topic
+     * @param conversionService the ConversionService to convert objects to GenericRecord for Avro serialization
      */
-    public PubSubSerializer(JsonUtil jsonUtil, SerializationRegistry serializationRegistry, ConversionService conversionService) {
+    public PubSubSerializer(JsonUtil jsonUtil, EventRegistry eventRegistry, ConversionService conversionService) {
         this.jsonUtil = jsonUtil;
-        this.serializationRegistry = serializationRegistry;
+        this.eventRegistry = eventRegistry;
         this.conversionService = conversionService;
     }
 
@@ -58,7 +55,7 @@ public class PubSubSerializer {
                 return bytes;
             }
             default -> {
-                return switch (serializationRegistry.get(topic)) {
+                return switch (eventRegistry.serialization(topic)) {
                     case AVRO -> serializeAvro(data);
                     case JSON -> jsonUtil.toJson(data).getBytes();
                 };

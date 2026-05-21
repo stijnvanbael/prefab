@@ -1,5 +1,6 @@
 package be.appify.prefab.core.kafka;
 
+import be.appify.prefab.core.annotations.Event;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
@@ -8,23 +9,28 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.kafka.common.header.Headers;
 import org.springframework.kafka.support.serializer.JacksonJsonTypeResolver;
-import org.springframework.stereotype.Component;
 import tools.jackson.databind.JavaType;
 import tools.jackson.databind.type.TypeFactory;
 
 /**
- * Registry for event types, their associated topics/channels, and partitioning key extractors.
+ * Central registry for event types, their associated topics/channels, partitioning key extractors,
+ * and serialization formats.
  *
- * <p>Acts as a central catalogue used at both publish time (topic and key resolution)
- * and consume time (JSON type resolution and class-name allowlisting).
+ * <p>Acts as the single source of truth used at both publish time (topic, key and serialization
+ * format resolution) and consume time (JSON type resolution and class-name allowlisting).
+ *
+ * <p>Instances are populated during application startup via {@link EventRegistryCustomizer} beans
+ * collected by {@code PrefabRegistryConfiguration}. Once the bean is returned by that
+ * configuration class all customizers have been applied atomically, so any bean that receives an
+ * {@code EventRegistry} via constructor injection is guaranteed to see a fully-populated registry.
  */
-@Component
 public class EventRegistry implements JacksonJsonTypeResolver {
     private final Map<String, Class<?>> types = new ConcurrentHashMap<>();
     private final Map<String, Set<Class<?>>> topicTypes = new ConcurrentHashMap<>();
     private final Map<Class<?>, Set<String>> typeTopics = new ConcurrentHashMap<>();
     private final Set<String> allowedClassNames = ConcurrentHashMap.newKeySet();
     private final Map<Class<?>, Function<Object, String>> keyExtractors = new ConcurrentHashMap<>();
+    private final Map<String, Event.Serialization> serializations = new ConcurrentHashMap<>();
 
     /** Constructs a new EventRegistry. */
     public EventRegistry() {
@@ -37,6 +43,80 @@ public class EventRegistry implements JacksonJsonTypeResolver {
         } else {
             throw new IllegalArgumentException("No type registered for topic: " + topic);
         }
+    }
+
+    /**
+     * Registers a Java type and its serialization format for a specific topic.
+     *
+     * @param <E>           the event type
+     * @param topic         the topic or channel name
+     * @param type          the Java class type to register
+     * @param serialization the serialization format used for this topic
+     */
+    public <E> void register(String topic, Class<E> type, Event.Serialization serialization) {
+        registerType(topic, type);
+        serializations.put(topic, serialization);
+    }
+
+    /**
+     * Registers a Java type, serialization format, and key extractor for a specific topic.
+     *
+     * @param <E>           the event type
+     * @param topic         the topic or channel name
+     * @param type          the Java class type to register
+     * @param serialization the serialization format used for this topic
+     * @param keyExtractor  a function that returns the partitioning key for a given event instance
+     */
+    public <E> void register(String topic, Class<E> type, Event.Serialization serialization,
+                             Function<E, String> keyExtractor) {
+        registerType(topic, type, keyExtractor);
+        serializations.put(topic, serialization);
+    }
+
+    /**
+     * Registers the serialization format for a topic without an associated Java type.
+     * Useful for transports where type resolution is handled externally (e.g. PubSub, SNS/SQS).
+     *
+     * @param topic         the topic or channel name
+     * @param serialization the serialization format used for this topic
+     */
+    public void register(String topic, Event.Serialization serialization) {
+        serializations.put(topic, serialization);
+    }
+
+    /**
+     * Returns whether a serialization format is registered for the given topic.
+     *
+     * @param topic the topic or channel name
+     * @return {@code true} if a serialization format has been registered for the topic
+     */
+    public boolean contains(String topic) {
+        return serializations.containsKey(topic);
+    }
+
+    /**
+     * Returns the serialization format registered for the given topic.
+     *
+     * @param topic the topic or channel name
+     * @return the registered serialization format
+     * @throws IllegalStateException if no serialization format is registered for the topic
+     */
+    public Event.Serialization serialization(String topic) {
+        var result = serializations.get(topic);
+        if (result == null) {
+            throw new IllegalStateException("No serialization format registered for topic [%s]".formatted(topic));
+        }
+        return result;
+    }
+
+    /**
+     * Returns whether any topic is registered with the given serialization format.
+     *
+     * @param serialization the serialization format to check
+     * @return {@code true} if at least one topic uses this serialization format
+     */
+    public boolean hasSerialization(Event.Serialization serialization) {
+        return serializations.values().stream().anyMatch(s -> s == serialization);
     }
 
     /**

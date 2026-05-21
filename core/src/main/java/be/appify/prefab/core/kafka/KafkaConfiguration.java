@@ -24,7 +24,6 @@ import org.springframework.boot.kafka.autoconfigure.DefaultKafkaProducerFactoryC
 import org.springframework.boot.kafka.autoconfigure.KafkaConnectionDetails;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -52,7 +51,6 @@ import static org.apache.commons.lang3.StringUtils.isEmpty;
  */
 @Configuration
 @ConditionalOnClass(KafkaListenerContainerFactory.class)
-@ComponentScan(basePackageClasses = EventRegistry.class)
 public class KafkaConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaConfiguration.class);

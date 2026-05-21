@@ -2,7 +2,6 @@ package be.appify.prefab.test.kafka;
 
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.EventRegistry;
-import be.appify.prefab.core.util.SerializationRegistry;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -118,8 +117,7 @@ public class KafkaTestAutoConfiguration {
             ObjectProvider<DefaultKafkaConsumerFactoryCustomizer> customizers,
             KafkaProperties kafkaProperties,
             ConversionService conversionService,
-            SerializationRegistry serializationRegistry,
-            EventRegistry jsonTypeResolver
+            EventRegistry eventRegistry
     ) {
         var consumerProperties = (properties != null ? properties : kafkaProperties).buildConsumerProperties();
         consumerProperties.putIfAbsent(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
@@ -129,8 +127,7 @@ public class KafkaTestAutoConfiguration {
         try (var dynamicDeserializer = new DynamicDeserializer(
                 kafkaProperties,
                 conversionService,
-                serializationRegistry,
-                jsonTypeResolver
+                eventRegistry
         )) {
             factory.setValueDeserializer(dynamicDeserializer);
         }

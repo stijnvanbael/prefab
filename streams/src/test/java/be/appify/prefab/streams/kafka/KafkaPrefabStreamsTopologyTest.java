@@ -6,7 +6,6 @@ import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.streams.StreamBackend;
 import be.appify.prefab.streams.StreamBreakoutAdapter;
-import be.appify.prefab.core.util.SerializationRegistry;
 import be.appify.prefab.streams.PrefabStream;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -31,15 +30,15 @@ class KafkaPrefabStreamsTopologyTest {
     void fromClassToClass_shouldForwardRecordUsingDynamicSerde() {
         var fixture = fixture();
 
-        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
-        fixture.typeResolver.registerType("orders.out", ProcessedOrder.class);
-        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
-        fixture.serializationRegistry.register("orders.out", Event.Serialization.JSON);
+        fixture.eventRegistry.registerType("orders.in", IncomingOrder.class);
+        fixture.eventRegistry.registerType("orders.out", ProcessedOrder.class);
+        fixture.eventRegistry.register("orders.in", Event.Serialization.JSON);
+        fixture.eventRegistry.register("orders.out", Event.Serialization.JSON);
 
         var streamsBuilder = new TrackingStreamsBuilder();
         var streams = new KafkaPrefabStreams(
                 streamsBuilder,
-                new KafkaTopicResolver(fixture.typeResolver),
+                new KafkaTopicResolver(fixture.eventRegistry),
                 fixture.serializer,
                 fixture.deserializer
         );
@@ -66,13 +65,13 @@ class KafkaPrefabStreamsTopologyTest {
     void fromClassToTopic_shouldForwardRecordUsingExplicitTopic() {
         var fixture = fixture();
 
-        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
-        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
+        fixture.eventRegistry.registerType("orders.in", IncomingOrder.class);
+        fixture.eventRegistry.register("orders.in", Event.Serialization.JSON);
 
         var streamsBuilder = new TrackingStreamsBuilder();
         var streams = new KafkaPrefabStreams(
                 streamsBuilder,
-                new KafkaTopicResolver(fixture.typeResolver),
+                new KafkaTopicResolver(fixture.eventRegistry),
                 fixture.serializer,
                 fixture.deserializer
         );
@@ -101,7 +100,7 @@ class KafkaPrefabStreamsTopologyTest {
         var streamsBuilder = new StreamsBuilder();
         var streams = new KafkaPrefabStreams(
                 streamsBuilder,
-                new KafkaTopicResolver(fixture.typeResolver),
+                new KafkaTopicResolver(fixture.eventRegistry),
                 fixture.serializer,
                 fixture.deserializer
         );
@@ -115,13 +114,13 @@ class KafkaPrefabStreamsTopologyTest {
     void fromClass_shouldFailFastWhenMultipleTopicsRegistered() {
         var fixture = fixture();
 
-        fixture.typeResolver.registerType("orders.in.a", IncomingOrder.class);
-        fixture.typeResolver.registerType("orders.in.b", IncomingOrder.class);
+        fixture.eventRegistry.registerType("orders.in.a", IncomingOrder.class);
+        fixture.eventRegistry.registerType("orders.in.b", IncomingOrder.class);
 
         var streamsBuilder = new StreamsBuilder();
         var streams = new KafkaPrefabStreams(
                 streamsBuilder,
-                new KafkaTopicResolver(fixture.typeResolver),
+                new KafkaTopicResolver(fixture.eventRegistry),
                 fixture.serializer,
                 fixture.deserializer
         );
@@ -135,13 +134,13 @@ class KafkaPrefabStreamsTopologyTest {
     void filter_shouldDropRecordsNotMatchingPredicate() {
         var fixture = fixture();
 
-        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
-        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
+        fixture.eventRegistry.registerType("orders.in", IncomingOrder.class);
+        fixture.eventRegistry.register("orders.in", Event.Serialization.JSON);
 
         var streamsBuilder = new StreamsBuilder();
         var streams = new KafkaPrefabStreams(
                 streamsBuilder,
-                new KafkaTopicResolver(fixture.typeResolver),
+                new KafkaTopicResolver(fixture.eventRegistry),
                 fixture.serializer,
                 fixture.deserializer
         );
@@ -167,15 +166,15 @@ class KafkaPrefabStreamsTopologyTest {
     void map_shouldTransformValues() {
         var fixture = fixture();
 
-        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
-        fixture.typeResolver.registerType("orders.out", ProcessedOrder.class);
-        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
-        fixture.serializationRegistry.register("orders.out", Event.Serialization.JSON);
+        fixture.eventRegistry.registerType("orders.in", IncomingOrder.class);
+        fixture.eventRegistry.registerType("orders.out", ProcessedOrder.class);
+        fixture.eventRegistry.register("orders.in", Event.Serialization.JSON);
+        fixture.eventRegistry.register("orders.out", Event.Serialization.JSON);
 
         var streamsBuilder = new StreamsBuilder();
         var streams = new KafkaPrefabStreams(
                 streamsBuilder,
-                new KafkaTopicResolver(fixture.typeResolver),
+                new KafkaTopicResolver(fixture.eventRegistry),
                 fixture.serializer,
                 fixture.deserializer
         );
@@ -199,13 +198,13 @@ class KafkaPrefabStreamsTopologyTest {
     void flatMap_shouldExpandOneRecordToMany() {
         var fixture = fixture();
 
-        fixture.typeResolver.registerType("words.in", WordBatch.class);
-        fixture.serializationRegistry.register("words.in", Event.Serialization.JSON);
+        fixture.eventRegistry.registerType("words.in", WordBatch.class);
+        fixture.eventRegistry.register("words.in", Event.Serialization.JSON);
 
         var streamsBuilder = new StreamsBuilder();
         var streams = new KafkaPrefabStreams(
                 streamsBuilder,
-                new KafkaTopicResolver(fixture.typeResolver),
+                new KafkaTopicResolver(fixture.eventRegistry),
                 fixture.serializer,
                 fixture.deserializer
         );
@@ -228,15 +227,15 @@ class KafkaPrefabStreamsTopologyTest {
     void branch_shouldEmitOnlyRecordsMatchingSinglePredicate() {
         var fixture = fixture();
 
-        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
-        fixture.typeResolver.registerType("orders.out", ProcessedOrder.class);
-        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
-        fixture.serializationRegistry.register("orders.out", Event.Serialization.JSON);
+        fixture.eventRegistry.registerType("orders.in", IncomingOrder.class);
+        fixture.eventRegistry.registerType("orders.out", ProcessedOrder.class);
+        fixture.eventRegistry.register("orders.in", Event.Serialization.JSON);
+        fixture.eventRegistry.register("orders.out", Event.Serialization.JSON);
 
         var streamsBuilder = new StreamsBuilder();
         var streams = new KafkaPrefabStreams(
                 streamsBuilder,
-                new KafkaTopicResolver(fixture.typeResolver),
+                new KafkaTopicResolver(fixture.eventRegistry),
                 fixture.serializer,
                 fixture.deserializer
         );
@@ -268,15 +267,15 @@ class KafkaPrefabStreamsTopologyTest {
     void branchBySubtype_shouldFilterAndCastToSubtype() {
         var fixture = fixture();
 
-        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
-        fixture.typeResolver.registerType("orders.priority", PriorityCustomer.class);
-        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
-        fixture.serializationRegistry.register("orders.priority", Event.Serialization.JSON);
+        fixture.eventRegistry.registerType("orders.in", IncomingOrder.class);
+        fixture.eventRegistry.registerType("orders.priority", PriorityCustomer.class);
+        fixture.eventRegistry.register("orders.in", Event.Serialization.JSON);
+        fixture.eventRegistry.register("orders.priority", Event.Serialization.JSON);
 
         var streamsBuilder = new StreamsBuilder();
         var streams = new KafkaPrefabStreams(
                 streamsBuilder,
-                new KafkaTopicResolver(fixture.typeResolver),
+                new KafkaTopicResolver(fixture.eventRegistry),
                 fixture.serializer,
                 fixture.deserializer
         );
@@ -309,13 +308,13 @@ class KafkaPrefabStreamsTopologyTest {
     void merge_shouldKeepInstanceMergeForStreamsWithSameDeclaredType() {
         var fixture = fixture();
 
-        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
-        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
+        fixture.eventRegistry.registerType("orders.in", IncomingOrder.class);
+        fixture.eventRegistry.register("orders.in", Event.Serialization.JSON);
 
         var streamsBuilder = new StreamsBuilder();
         var streams = new KafkaPrefabStreams(
                 streamsBuilder,
-                new KafkaTopicResolver(fixture.typeResolver),
+                new KafkaTopicResolver(fixture.eventRegistry),
                 fixture.serializer,
                 fixture.deserializer
         );
@@ -342,15 +341,15 @@ class KafkaPrefabStreamsTopologyTest {
     void merge_shouldSupportCommonSupertypeAcrossSiblingStreams() {
         var fixture = fixture();
 
-        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
-        fixture.typeResolver.registerType("orders.segmented", SegmentedOrder.class);
-        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
-        fixture.serializationRegistry.register("orders.segmented", Event.Serialization.JSON);
+        fixture.eventRegistry.registerType("orders.in", IncomingOrder.class);
+        fixture.eventRegistry.registerType("orders.segmented", SegmentedOrder.class);
+        fixture.eventRegistry.register("orders.in", Event.Serialization.JSON);
+        fixture.eventRegistry.register("orders.segmented", Event.Serialization.JSON);
 
         var streamsBuilder = new StreamsBuilder();
         var streams = new KafkaPrefabStreams(
                 streamsBuilder,
-                new KafkaTopicResolver(fixture.typeResolver),
+                new KafkaTopicResolver(fixture.eventRegistry),
                 fixture.serializer,
                 fixture.deserializer
         );
@@ -389,15 +388,15 @@ class KafkaPrefabStreamsTopologyTest {
     void breakout_shouldApplyKafkaNativeFragmentWithinPrefabPipeline() {
         var fixture = fixture();
 
-        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
-        fixture.typeResolver.registerType("orders.out", ProcessedOrder.class);
-        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
-        fixture.serializationRegistry.register("orders.out", Event.Serialization.JSON);
+        fixture.eventRegistry.registerType("orders.in", IncomingOrder.class);
+        fixture.eventRegistry.registerType("orders.out", ProcessedOrder.class);
+        fixture.eventRegistry.register("orders.in", Event.Serialization.JSON);
+        fixture.eventRegistry.register("orders.out", Event.Serialization.JSON);
 
         var streamsBuilder = new StreamsBuilder();
         var streams = new KafkaPrefabStreams(
                 streamsBuilder,
-                new KafkaTopicResolver(fixture.typeResolver),
+                new KafkaTopicResolver(fixture.eventRegistry),
                 fixture.serializer,
                 fixture.deserializer
         );
@@ -429,12 +428,12 @@ class KafkaPrefabStreamsTopologyTest {
     void breakout_shouldFailFastWhenAdapterTargetsDifferentBackend() {
         var fixture = fixture();
 
-        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
-        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
+        fixture.eventRegistry.registerType("orders.in", IncomingOrder.class);
+        fixture.eventRegistry.register("orders.in", Event.Serialization.JSON);
 
         var streams = new KafkaPrefabStreams(
                 new StreamsBuilder(),
-                new KafkaTopicResolver(fixture.typeResolver),
+                new KafkaTopicResolver(fixture.eventRegistry),
                 fixture.serializer,
                 fixture.deserializer
         );
@@ -449,12 +448,12 @@ class KafkaPrefabStreamsTopologyTest {
     void breakout_shouldFailFastWhenAdapterReturnsNonKStream() {
         var fixture = fixture();
 
-        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
-        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
+        fixture.eventRegistry.registerType("orders.in", IncomingOrder.class);
+        fixture.eventRegistry.register("orders.in", Event.Serialization.JSON);
 
         var streams = new KafkaPrefabStreams(
                 new StreamsBuilder(),
-                new KafkaTopicResolver(fixture.typeResolver),
+                new KafkaTopicResolver(fixture.eventRegistry),
                 fixture.serializer,
                 fixture.deserializer
         );
@@ -469,15 +468,15 @@ class KafkaPrefabStreamsTopologyTest {
     void multipleDefinitions_shouldShareCombinedTopology() {
         var fixture = fixture();
 
-        fixture.typeResolver.registerType("orders.in", IncomingOrder.class);
-        fixture.typeResolver.registerType("orders.audit.in", AuditOrder.class);
-        fixture.serializationRegistry.register("orders.in", Event.Serialization.JSON);
-        fixture.serializationRegistry.register("orders.audit.in", Event.Serialization.JSON);
+        fixture.eventRegistry.registerType("orders.in", IncomingOrder.class);
+        fixture.eventRegistry.registerType("orders.audit.in", AuditOrder.class);
+        fixture.eventRegistry.register("orders.in", Event.Serialization.JSON);
+        fixture.eventRegistry.register("orders.audit.in", Event.Serialization.JSON);
 
         var streamsBuilder = new StreamsBuilder();
         var streams = new KafkaPrefabStreams(
                 streamsBuilder,
-                new KafkaTopicResolver(fixture.typeResolver),
+                new KafkaTopicResolver(fixture.eventRegistry),
                 fixture.serializer,
                 fixture.deserializer
         );
@@ -496,14 +495,12 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     private static Fixture fixture() {
-        var serializationRegistry = new SerializationRegistry();
-        var typeResolver = new EventRegistry();
+        var eventRegistry = new EventRegistry();
         var conversionService = new DefaultConversionService();
         var kafkaProperties = new KafkaProperties();
-        var serializer = new DynamicSerializer(kafkaProperties, conversionService, serializationRegistry);
-        var deserializer = new DynamicDeserializer(kafkaProperties, conversionService, serializationRegistry,
-                typeResolver);
-        return new Fixture(serializationRegistry, typeResolver, serializer, deserializer);
+        var serializer = new DynamicSerializer(kafkaProperties, conversionService, eventRegistry);
+        var deserializer = new DynamicDeserializer(kafkaProperties, conversionService, eventRegistry);
+        return new Fixture(eventRegistry, serializer, deserializer);
     }
 
     private static Properties streamsConfig() {
@@ -551,8 +548,7 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     private record Fixture(
-            SerializationRegistry serializationRegistry,
-            EventRegistry typeResolver,
+            EventRegistry eventRegistry,
             DynamicSerializer serializer,
             DynamicDeserializer deserializer
     ) {

@@ -29,7 +29,7 @@ class SerializationPluginTest {
                 .generatedSourceFile(
                         "event.serialization.multipackage.order.infrastructure.event.EventSerializationMultipackageOrderSerializationRegistryConfiguration")
                 .contentsAsUtf8String()
-                .contains("eventSerializationMultipackageOrderSerializationRegistryCustomizer");
+                .contains("implements EventRegistryCustomizer");
     }
 
     @Test
@@ -68,12 +68,12 @@ class SerializationPluginTest {
                 .generatedSourceFile(
                         "event.serialization.multipackage.order.infrastructure.event.EventSerializationMultipackageOrderSerializationRegistryConfiguration")
                 .contentsAsUtf8String()
-                .contains("eventSerializationMultipackageOrderSerializationRegistryCustomizer");
+                .contains("EventSerializationMultipackageOrderSerializationRegistryConfiguration");
         assertThat(compilation)
                 .generatedSourceFile(
                         "event.serialization.multipackage.payment.infrastructure.event.EventSerializationMultipackagePaymentSerializationRegistryConfiguration")
                 .contentsAsUtf8String()
-                .contains("eventSerializationMultipackagePaymentSerializationRegistryCustomizer");
+                .contains("EventSerializationMultipackagePaymentSerializationRegistryConfiguration");
     }
 
     @Test

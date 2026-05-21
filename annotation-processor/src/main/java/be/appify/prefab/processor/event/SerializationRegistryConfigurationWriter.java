@@ -1,20 +1,20 @@
 package be.appify.prefab.processor.event;
 
 import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.core.util.SerializationRegistryCustomizer;
+import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.core.kafka.EventRegistryCustomizer;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import com.palantir.javapoet.AnnotationSpec;
+import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeSpec;
 import java.util.List;
 import javax.lang.model.element.Modifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 import static be.appify.prefab.processor.CaseUtil.toCamelCase;
 import static be.appify.prefab.processor.CaseUtil.toPascalCase;
@@ -29,26 +29,6 @@ class SerializationRegistryConfigurationWriter {
     void writeConfigurationForPackage(String eventPackage, List<TypeManifest> events) {
         var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.event");
         var className = configurationClassName(eventPackage);
-        var type = TypeSpec.classBuilder(className)
-                .addModifiers(Modifier.PUBLIC)
-                .addAnnotation(Configuration.class)
-                .addAnnotation(AnnotationSpec.builder(Order.class)
-                        .addMember("value", "0")
-                        .build())
-                .addMethod(beanMethod(events, eventPackage));
-        fileWriter.writeFile(eventPackage, className, type.build());
-    }
-
-    private static String configurationClassName(String eventPackage) {
-        return toPascalCase(eventPackage) + "SerializationRegistryConfiguration";
-    }
-
-    private static MethodSpec beanMethod(List<TypeManifest> events, String eventPackage) {
-        var beanMethodName = toCamelCase(eventPackage) + "SerializationRegistryCustomizer";
-        var method = MethodSpec.methodBuilder(beanMethodName)
-                .addModifiers(Modifier.PUBLIC)
-                .addAnnotation(Bean.class)
-                .returns(SerializationRegistryCustomizer.class);
 
         var eventConfigs = events.stream()
                 .map(event -> event.inheritedAnnotationsOfType(Event.class).stream().findFirst().orElseThrow())
@@ -56,23 +36,55 @@ class SerializationRegistryConfigurationWriter {
                 .distinct()
                 .toList();
 
-        eventConfigs.forEach(event -> {
-            if (event.topic().matches("\\$\\{.+}")) {
-                var topicName = toCamelCase(event.topic().replaceAll("[^\\w._]", ""));
-                method.addParameter(ParameterSpec.builder(String.class, topicName)
+        var placeholderConfigs = eventConfigs.stream()
+                .filter(e -> e.topic().matches("\\$\\{.+}"))
+                .toList();
+
+        var typeBuilder = TypeSpec.classBuilder(className)
+                .addModifiers(Modifier.PUBLIC)
+                .addAnnotation(Component.class)
+                .addSuperinterface(EventRegistryCustomizer.class);
+
+        // Add fields and constructor for placeholder topics
+        if (!placeholderConfigs.isEmpty()) {
+            var constructor = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC);
+            for (var config : placeholderConfigs) {
+                var fieldName = topicFieldName(config.topic());
+                typeBuilder.addField(FieldSpec.builder(String.class, fieldName, Modifier.PRIVATE, Modifier.FINAL).build());
+                constructor.addParameter(ParameterSpec.builder(String.class, fieldName)
                         .addAnnotation(AnnotationSpec.builder(Value.class)
-                                .addMember("value", "$S", event.topic())
+                                .addMember("value", "$S", config.topic())
                                 .build())
                         .build());
+                constructor.addStatement("this.$L = $L", fieldName, fieldName);
             }
-        });
+            typeBuilder.addMethod(constructor.build());
+        }
 
-        method.addCode("return registry -> {\n$>");
+        typeBuilder.addMethod(customizeMethod(eventConfigs));
+
+        fileWriter.writeFile(eventPackage, className, typeBuilder.build());
+    }
+
+    private static String configurationClassName(String eventPackage) {
+        return toPascalCase(eventPackage) + "SerializationRegistryConfiguration";
+    }
+
+    private static String topicFieldName(String topicPlaceholder) {
+        return toCamelCase(topicPlaceholder.replaceAll("[^\\w._]", ""));
+    }
+
+    private static MethodSpec customizeMethod(List<EventConfig> eventConfigs) {
+        var method = MethodSpec.methodBuilder("customize")
+                .addModifiers(Modifier.PUBLIC)
+                .addAnnotation(Override.class)
+                .addParameter(EventRegistry.class, "registry");
+
         eventConfigs.forEach(event -> {
             if (event.topic().matches("\\$\\{.+}")) {
-                var topicName = toCamelCase(event.topic().replaceAll("[^\\w._]", ""));
+                var fieldName = topicFieldName(event.topic());
                 method.addStatement("registry.register($L, $T.$L)",
-                        topicName,
+                        fieldName,
                         Event.Serialization.class,
                         event.serialization.toString());
             } else {
@@ -82,7 +94,6 @@ class SerializationRegistryConfigurationWriter {
                         event.serialization.toString());
             }
         });
-        method.addCode("$<};\n");
 
         return method.build();
     }

@@ -1,7 +1,7 @@
 package be.appify.prefab.core.sns;
 
+import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.spring.JsonUtil;
-import be.appify.prefab.core.util.SerializationRegistry;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import java.io.IOException;
 import java.util.Base64;
@@ -25,23 +25,20 @@ import org.springframework.stereotype.Component;
 @ConditionalOnClass(SnsTemplate.class)
 public class SqsDeserializer {
     private final JsonUtil jsonUtil;
-    private final SerializationRegistry serializationRegistry;
+    private final EventRegistry eventRegistry;
     private final ConversionService conversionService;
     private final Map<String, Class<?>> allowedTypes = new ConcurrentHashMap<>();
 
     /**
-     * Constructs a SqsDeserializer with the given JsonUtil, SerializationRegistry, and ConversionService.
+     * Constructs a SqsDeserializer with the given JsonUtil, EventRegistry, and ConversionService.
      *
-     * @param jsonUtil
-     *         the JsonUtil to use for JSON deserialization
-     * @param serializationRegistry
-     *         the SerializationRegistry that contains the serialization format for each topic
-     * @param conversionService
-     *         the ConversionService to convert GenericRecord to the target event class for Avro deserialization
+     * @param jsonUtil       the JsonUtil to use for JSON deserialization
+     * @param eventRegistry  the EventRegistry that contains the serialization format for each topic
+     * @param conversionService the ConversionService to convert GenericRecord to the target event class
      */
-    public SqsDeserializer(JsonUtil jsonUtil, SerializationRegistry serializationRegistry, ConversionService conversionService) {
+    public SqsDeserializer(JsonUtil jsonUtil, EventRegistry eventRegistry, ConversionService conversionService) {
         this.jsonUtil = jsonUtil;
-        this.serializationRegistry = serializationRegistry;
+        this.eventRegistry = eventRegistry;
         this.conversionService = conversionService;
     }
 
@@ -61,10 +58,10 @@ public class SqsDeserializer {
      */
     public <T> T deserialize(String topic, String body, Class<T> type) {
         var envelope = extractEnvelope(body);
-        if (!serializationRegistry.contains(topic)) {
+        if (!eventRegistry.contains(topic)) {
             return deserializeJson(envelope.payload(), envelope.typeName(), type);
         }
-        return switch (serializationRegistry.get(topic)) {
+        return switch (eventRegistry.serialization(topic)) {
             case AVRO -> deserializeAvro(envelope.payload(), type);
             case JSON -> deserializeJson(envelope.payload(), envelope.typeName(), type);
         };

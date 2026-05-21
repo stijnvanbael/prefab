@@ -1,5 +1,5 @@
 ---
-id: TASK-TBD
+id: TASK-225
 title: Add prefab-vector module with @Embedding annotation for pgvector support
 status: To Do
 assignee: []

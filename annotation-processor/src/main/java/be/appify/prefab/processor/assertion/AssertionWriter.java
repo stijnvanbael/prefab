@@ -10,6 +10,7 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
+import com.palantir.javapoet.TypeVariableName;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -144,12 +145,15 @@ class AssertionWriter {
             return false;
         }
         var assertType = ClassName.get(packageName, assertName);
+        var selfTypePlaceholder = TypeVariableName.get("SELF");
+        var selfType = TypeVariableName.get("SELF", ParameterizedTypeName.get(assertType, selfTypePlaceholder));
         var typeSpec = TypeSpec.classBuilder(assertName)
                 .addModifiers(Modifier.PUBLIC)
-                .superclass(ParameterizedTypeName.get(ABSTRACT_ASSERT, assertType, subjectType))
+                .addTypeVariable(selfType)
+                .superclass(ParameterizedTypeName.get(ABSTRACT_ASSERT, selfType, subjectType))
                 .addMethod(staticAssertThatFactory(assertType, subjectType))
-                .addMethod(privateConstructorFor(assertType, subjectType))
-                .addMethods(fieldAssertMethods(assertType, fields))
+                .addMethod(protectedConstructorFor(assertType, subjectType))
+                .addMethods(fieldAssertMethods(selfType, fields))
                 .build();
         fileWriter.setPreferredElement(preferredElement);
         fileWriter.writeFile(packageName, assertName, typeSpec);
@@ -171,34 +175,34 @@ class AssertionWriter {
                 .build();
     }
 
-    private MethodSpec privateConstructorFor(ClassName assertType, ClassName subjectType) {
+    private MethodSpec protectedConstructorFor(ClassName assertType, ClassName subjectType) {
         return MethodSpec.constructorBuilder()
-                .addModifiers(Modifier.PRIVATE)
+                .addModifiers(Modifier.PROTECTED)
                 .addParameter(subjectType, "actual")
                 .addStatement("super(actual, $T.class)", assertType)
                 .build();
     }
 
-    private List<MethodSpec> fieldAssertMethods(ClassName assertType, List<VariableManifest> fields) {
+    private List<MethodSpec> fieldAssertMethods(TypeVariableName selfType, List<VariableManifest> fields) {
         return fields.stream()
-                .map(field -> fieldAssertMethod(assertType, field))
+                .map(field -> fieldAssertMethod(selfType, field))
                 .toList();
     }
 
-    private MethodSpec fieldAssertMethod(ClassName assertType, VariableManifest field) {
+    private MethodSpec fieldAssertMethod(TypeVariableName selfType, VariableManifest field) {
         if (field.type().is(List.class)) {
-            return listFieldAssertMethod(assertType, field);
+            return listFieldAssertMethod(selfType, field);
         }
         if (isNestedRecordType(field.type())) {
-            return recordFieldAssertMethod(assertType, field);
+            return recordFieldAssertMethod(selfType, field);
         }
         if (isSingleValueRecordField(field)) {
-            return singleValueRecordFieldAssertMethod(assertType, field);
+            return singleValueRecordFieldAssertMethod(selfType, field);
         }
-        return equalsFieldAssertMethod(assertType, field);
+        return equalsFieldAssertMethod(selfType, field);
     }
 
-    private MethodSpec recordFieldAssertMethod(ClassName assertType, VariableManifest field) {
+    private MethodSpec recordFieldAssertMethod(TypeVariableName selfType, VariableManifest field) {
         var fieldName = field.name();
         var fieldType = field.type();
         var flatName = fieldType.simpleName().replace(".", "");
@@ -207,30 +211,30 @@ class AssertionWriter {
         var consumerType = ParameterizedTypeName.get(CONSUMER, fieldAssertType);
         return MethodSpec.methodBuilder("has" + capitalize(fieldName) + "Satisfying")
                 .addModifiers(Modifier.PUBLIC)
-                .returns(assertType)
+                .returns(selfType)
                 .addParameter(consumerType, "requirements")
                 .addStatement("isNotNull()")
                 .addStatement("$T.requireNonNull(requirements, $S)", Objects.class, "requirements must not be null")
                 .addStatement("requirements.accept($T.assertThat(actual.$N()))", fieldAssertType, fieldName)
-                .addStatement("return this")
+                .addStatement("return myself")
                 .build();
     }
 
-    private MethodSpec singleValueRecordFieldAssertMethod(ClassName assertType, VariableManifest field) {
+    private MethodSpec singleValueRecordFieldAssertMethod(TypeVariableName selfType, VariableManifest field) {
         var fieldName = field.name();
         var innerField = field.type().fields().getFirst();
         var innerType = innerField.type().asBoxed().asTypeName();
         var innerAccessor = innerField.name();
         return MethodSpec.methodBuilder("has" + capitalize(fieldName))
                 .addModifiers(Modifier.PUBLIC)
-                .returns(assertType)
+                .returns(selfType)
                 .addParameter(innerType, "expected")
                 .addStatement("isNotNull()")
                 .beginControlFlow("if (!$T.equals(actual.$N().$N(), expected))", Objects.class, fieldName, innerAccessor)
                 .addStatement("failWithMessage($S, expected, actual.$N().$N())",
                         "Expected " + fieldName + " to be <%s> but was <%s>", fieldName, innerAccessor)
                 .endControlFlow()
-                .addStatement("return this")
+                .addStatement("return myself")
                 .build();
     }
 
@@ -238,36 +242,36 @@ class AssertionWriter {
         return field.type().isRecord() && field.type().isSingleValueType();
     }
 
-    private MethodSpec equalsFieldAssertMethod(ClassName assertType, VariableManifest field) {
+    private MethodSpec equalsFieldAssertMethod(TypeVariableName selfType, VariableManifest field) {
         var fieldName = field.name();
         var paramType = field.type().asBoxed().asTypeName();
         return MethodSpec.methodBuilder("has" + capitalize(fieldName))
                 .addModifiers(Modifier.PUBLIC)
-                .returns(assertType)
+                .returns(selfType)
                 .addParameter(paramType, "expected")
                 .addStatement("isNotNull()")
                 .beginControlFlow("if (!$T.equals(actual.$N(), expected))", Objects.class, fieldName)
                 .addStatement("failWithMessage($S, expected, actual.$N())",
                         "Expected " + fieldName + " to be <%s> but was <%s>", fieldName)
                 .endControlFlow()
-                .addStatement("return this")
+                .addStatement("return myself")
                 .build();
     }
 
-    private MethodSpec listFieldAssertMethod(ClassName assertType, VariableManifest field) {
+    private MethodSpec listFieldAssertMethod(TypeVariableName selfType, VariableManifest field) {
         var fieldName = field.name();
         var listElementType = listElementTypeOf(field);
         var listAssertType = ParameterizedTypeName.get(LIST_ASSERT, listElementType);
         var requirementsType = ParameterizedTypeName.get(CONSUMER, listAssertType);
         return MethodSpec.methodBuilder("has" + capitalize(fieldName) + "Satisfying")
                 .addModifiers(Modifier.PUBLIC)
-                .returns(assertType)
+                .returns(selfType)
                 .addParameter(requirementsType, "requirements")
                 .addStatement("isNotNull()")
                 .addStatement("$T.requireNonNull(requirements, $S)", Objects.class, "requirements must not be null")
                 .addStatement("$T actualListAssert = $T.assertThat(actual.$N())", listAssertType, ASSERTIONS, fieldName)
                 .addStatement("requirements.accept(actualListAssert)")
-                .addStatement("return this")
+                .addStatement("return myself")
                 .build();
     }
 

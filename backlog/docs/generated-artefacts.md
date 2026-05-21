@@ -182,40 +182,77 @@ artifacts.
 
 ### `{Type}ResponseAssert`
 
-Generated for every aggregate. Extends `AbstractAssert<{Type}ResponseAssert, {Type}Response>` and exposes one
-assertion method per record component, plus a static `assertThat()` factory method.
+Generated for every aggregate. Extends `AbstractAssert<SELF, {Type}Response>` with a self-referential
+`SELF` type parameter that enables subclassing. Exposes one assertion method per record component,
+plus a static `assertThat()` factory method.
 
-- Non-list fields generate `has{FieldName}(FieldType expected)`.
-- List fields generate `has{FieldName}Satisfying(Consumer<ListAssert<ElementType>> requirements)`.
+- Non-list fields generate `has{FieldName}(FieldType expected)` returning `SELF`.
+- List fields generate `has{FieldName}Satisfying(Consumer<ListAssert<ElementType>> requirements)` returning `SELF`.
+- The constructor is `protected` to allow subclasses to call `super(actual, MyAssert.class)`.
 
 ```java
 // Generated: assertion.infrastructure.http.ProductResponseAssert
-public class ProductResponseAssert
-        extends AbstractAssert<ProductResponseAssert, ProductResponse> {
+public class ProductResponseAssert<SELF extends ProductResponseAssert<SELF>>
+        extends AbstractAssert<SELF, ProductResponse> {
 
     public static ProductResponseAssert assertThat(ProductResponse actual) { ... }
 
-    public ProductResponseAssert hasId(String expected) { ... }
-    public ProductResponseAssert hasName(String expected) { ... }
-    public ProductResponseAssert hasPrice(Double expected) { ... }
-    public ProductResponseAssert hasTagsSatisfying(Consumer<ListAssert<String>> requirements) { ... }
+    protected ProductResponseAssert(ProductResponse actual) { super(actual, ProductResponseAssert.class); }
+
+    public SELF hasId(String expected) { ... }
+    public SELF hasName(String expected) { ... }
+    public SELF hasPrice(Double expected) { ... }
+    public SELF hasTagsSatisfying(Consumer<ListAssert<String>> requirements) { ... }
 }
+```
+
+#### Extending a generated assert class
+
+Because every generated assert class is parameterised with `SELF`, you can add domain-specific
+assertion methods that return the correct subtype without casting:
+
+```java
+public class MyProductResponseAssert
+        extends ProductResponseAssert<MyProductResponseAssert> {
+
+    public MyProductResponseAssert(ProductResponse actual) {
+        super(actual, MyProductResponseAssert.class);
+    }
+
+    /** Custom domain assertion — returns MyProductResponseAssert for fluent chaining. */
+    public MyProductResponseAssert isPremium() {
+        isNotNull();
+        if (actual.price() < 100.0) {
+            failWithMessage("Expected product to be premium (price ≥ 100) but price was <%s>", actual.price());
+        }
+        return myself;
+    }
+}
+
+// Usage in a test
+new MyProductResponseAssert(product)
+    .hasName("Luxury Widget")
+    .isPremium(); // returns MyProductResponseAssert, no cast needed
+```
 ```
 
 ### `{EventName}Assert`
 
-Generated for every `@Event`-annotated record in the current module.
+Generated for every `@Event`-annotated record in the current module. Follows the same `SELF`-parameterised
+pattern as response assert classes, supporting subclassing and custom assertion methods.
 
 ```java
 // Generated: com.example.event.OrderCreatedAssert
-public class OrderCreatedAssert
-        extends AbstractAssert<OrderCreatedAssert, OrderCreated> {
+public class OrderCreatedAssert<SELF extends OrderCreatedAssert<SELF>>
+        extends AbstractAssert<SELF, OrderCreated> {
 
     public static OrderCreatedAssert assertThat(OrderCreated actual) { ... }
 
-    public OrderCreatedAssert hasOrderId(String expected) { ... }
-    public OrderCreatedAssert hasCustomerName(String expected) { ... }
-    public OrderCreatedAssert hasItemsSatisfying(Consumer<ListAssert<String>> requirements) { ... }
+    protected OrderCreatedAssert(OrderCreated actual) { ... }
+
+    public SELF hasOrderId(String expected) { ... }
+    public SELF hasCustomerName(String expected) { ... }
+    public SELF hasItemsSatisfying(Consumer<ListAssert<String>> requirements) { ... }
 }
 ```
 

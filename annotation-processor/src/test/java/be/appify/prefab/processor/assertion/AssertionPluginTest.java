@@ -39,11 +39,12 @@ class AssertionPluginTest {
                 .compile(sourceOf("assertion/source/Product.java"));
 
         assertThat(compilation).succeeded();
-        assertThat(compilation)
+        var contents = assertThat(compilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "",
                         "assertion/infrastructure/http/ProductResponseAssert.java")
-                .contentsAsUtf8String()
-                .contains("extends AbstractAssert<ProductResponseAssert, ProductResponse>");
+                .contentsAsUtf8String();
+        contents.contains("ProductResponseAssert<SELF extends ProductResponseAssert<SELF>>");
+        contents.contains("extends AbstractAssert<SELF, ProductResponse>");
     }
 
     @Test

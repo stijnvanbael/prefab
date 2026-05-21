@@ -1,10 +1,10 @@
 ---
 id: TASK-224
 title: Consolidate SerializationRegistry and EventRegistry into a single component
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-05-21 08:52'
-updated_date: '2026-05-21 13:49'
+updated_date: '2026-05-21 14:24'
 labels:
   - refactor
   - core
@@ -46,14 +46,14 @@ Merge the two registries into one cohesive component (e.g. `PrefabEventRegistry`
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A single registry component owns both topic→serialization-format and topic→type mappings, key extractors, and the Jackson type-resolver allowlist
-- [ ] #2 SerializationRegistryCustomizer (or its successor) still allows third-party modules to register entries at startup
-- [ ] #3 No consumer class needs to inject more than one registry bean
-- [ ] #4 All existing unit and integration tests pass without modification (or are updated to reflect the new API)
-- [ ] #5 The annotation processor generates registrars that target the consolidated component
-- [ ] #6 EnablePrefab and auto-configuration wiring is updated to register only the new bean
-- [ ] #7 Javadoc on the new component explains its full responsibility
-- [ ] #8 Developer guide docs updated to reflect the consolidated component
+- [x] #1 A single registry component owns both topic→serialization-format and topic→type mappings, key extractors, and the Jackson type-resolver allowlist
+- [x] #2 SerializationRegistryCustomizer (or its successor) still allows third-party modules to register entries at startup
+- [x] #3 No consumer class needs to inject more than one registry bean
+- [x] #4 All existing unit and integration tests pass without modification (or are updated to reflect the new API)
+- [x] #5 The annotation processor generates registrars that target the consolidated component
+- [x] #6 EnablePrefab and auto-configuration wiring is updated to register only the new bean
+- [x] #7 Javadoc on the new component explains its full responsibility
+- [x] #8 Developer guide docs updated to reflect the consolidated component
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -154,3 +154,33 @@ Key points:
 - The topic is injected via `@Value` so property-placeholder topics still work.
 - `EventRegistryCustomizer` takes `EventRegistry` (the consolidated type); Spring collects all implementations and passes them to `PrefabRegistryConfiguration.prefabEventRegistry(List<EventRegistryCustomizer>)` before the bean is exposed to any consumer.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+## Implementation Summary
+
+### Core changes (`core` module)
+- **`EventRegistry`** extended with serialization-format support: new `register(topic, type, serialization)` and `register(topic, type, serialization, keyExtractor)` overloads, plus `register(topic, serialization)` for non-Kafka transports, `contains(topic)`, `serialization(topic)`, and `hasSerialization(serialization)` methods.
+- **`EventRegistryCustomizer`** new `@FunctionalInterface` in `be.appify.prefab.core.kafka`.
+- **`PrefabRegistryConfiguration`** new `@Configuration` class that creates the `EventRegistry` bean by collecting all `EventRegistryCustomizer` beans atomically via `ObjectProvider` before exposing it.
+- Removed `@Component` from `EventRegistry` (now managed by `PrefabRegistryConfiguration`).
+- Removed `@ComponentScan(basePackageClasses = EventRegistry.class)` from `KafkaConfiguration`.
+- Updated `EnablePrefab` to import `PrefabRegistryConfiguration` instead of `SerializationRegistry`.
+- `SerializationRegistry` deprecated with delegation bridge to `EventRegistry`; `SerializationRegistryCustomizer` also deprecated.
+- Updated `DynamicSerializer`, `DynamicDeserializer`, `SnsSerializer`, `SqsDeserializer`, `PubSubSerializer`, `PubSubDeserializer` to inject `EventRegistry` only.
+
+### Test module changes
+- `KafkaTestAutoConfiguration`: removed `SerializationRegistry` injection; uses single `EventRegistry`.
+- `KafkaPrefabStreamsTopologyTest`: unified `Fixture` record uses `EventRegistry` only.
+- `DynamicDeserializerTest`, `KafkaConfigurationTest`: updated to use `EventRegistry`.
+
+### Annotation processor changes (`annotation-processor`, `kafka` modules)
+- `SerializationRegistryConfigurationWriter` now generates `@Component EventRegistryCustomizer` with constructor-injected `@Value` fields for placeholder topics.
+- `KafkaEventTypeRegistrarWriter` now generates pull-based `EventRegistryCustomizer` that calls `registry.register(topic, type, serialization, keyExtractor)` in the `customize()` method.
+- All expected test resource files updated.
+- `SerializationPluginTest` assertions updated to check new generated structure.
+
+### Documentation
+- `backlog/docs/built-in-types.md` updated with `EventRegistry`, `EventRegistryCustomizer`, and deprecation note for `SerializationRegistry`.
+<!-- SECTION:FINAL_SUMMARY:END -->

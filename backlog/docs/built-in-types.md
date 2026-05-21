@@ -179,13 +179,50 @@ does nothing — unless you explicitly install a `CapturingDomainEventPublisher`
 
 ---
 
-## `SerializationRegistry`
+## `EventRegistry`
 
-**Package:** `be.appify.prefab.core.util`
+**Package:** `be.appify.prefab.core.kafka`
 
-Spring `@Component` that maps topic names to their serialization format. Prefab generates a
-`SerializationRegistryConfiguration` bean for each `@Event`-annotated type; you do not normally
-interact with this directly.
+Central registry that maps topic names to Java types, serialization formats, and partitioning
+key extractors. It also implements `JacksonJsonTypeResolver` for the Kafka JSON deserializer.
+
+| Method | Description |
+|--------|-------------|
+| `register(topic, type, serialization)` | Register a type with its serialization format |
+| `register(topic, type, serialization, keyExtractor)` | Register with a partitioning key extractor |
+| `register(topic, serialization)` | Register serialization format only (non-Kafka transports) |
+| `contains(topic)` | Check if a serialization format is registered |
+| `serialization(topic)` | Look up the serialization format for a topic |
+| `topicForType(type)` | Resolve the single registered topic for a Java type |
+| `keyFor(event)` | Extract the partitioning key for an event instance |
+
+Prefab generates one `*KafkaEventTypeRegistrar` (implementing `EventRegistryCustomizer`) per
+`@Event`-annotated type for Kafka and one `*SerializationRegistryConfiguration`
+(also implementing `EventRegistryCustomizer`) per event package for other transports. You do not
+normally interact with this directly.
+
+### `EventRegistryCustomizer`
+
+**Package:** `be.appify.prefab.core.kafka`
+
+Callback interface for populating an `EventRegistry` at startup. All `@Component` beans
+implementing this interface are collected by `PrefabRegistryConfiguration` and applied
+atomically before the `EventRegistry` bean is exposed to any consumer.
+
+```java
+@Component
+public class MyCustomizer implements EventRegistryCustomizer {
+    @Override
+    public void customize(EventRegistry registry) {
+        registry.register("my-topic", MyEvent.class, Event.Serialization.JSON);
+    }
+}
+```
+
+### `SerializationRegistry` _(deprecated)_
+
+`SerializationRegistry` (`be.appify.prefab.core.util`) is a deprecated backwards-compatibility
+wrapper that delegates to `EventRegistry`. Inject `EventRegistry` directly in new code.
 
 ---
 

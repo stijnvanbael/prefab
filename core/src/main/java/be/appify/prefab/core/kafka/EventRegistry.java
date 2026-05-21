@@ -7,10 +7,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
-import org.apache.kafka.common.header.Headers;
-import org.springframework.kafka.support.serializer.JacksonJsonTypeResolver;
-import tools.jackson.databind.JavaType;
-import tools.jackson.databind.type.TypeFactory;
 
 /**
  * Central registry for event types, their associated topics/channels, partitioning key extractors,
@@ -24,7 +20,7 @@ import tools.jackson.databind.type.TypeFactory;
  * configuration class all customizers have been applied atomically, so any bean that receives an
  * {@code EventRegistry} via constructor injection is guaranteed to see a fully-populated registry.
  */
-public class EventRegistry implements JacksonJsonTypeResolver {
+public class EventRegistry {
     private final Map<String, Class<?>> types = new ConcurrentHashMap<>();
     private final Map<String, Set<Class<?>>> topicTypes = new ConcurrentHashMap<>();
     private final Map<Class<?>, Set<String>> typeTopics = new ConcurrentHashMap<>();
@@ -36,13 +32,29 @@ public class EventRegistry implements JacksonJsonTypeResolver {
     public EventRegistry() {
     }
 
-    @Override
-    public JavaType resolveType(String topic, byte[] data, Headers headers) {
-        if (types.containsKey(topic)) {
-            return TypeFactory.unsafeSimpleType(types.get(topic));
-        } else {
+    /**
+     * Returns the Java class registered for the given topic.
+     *
+     * @param topic the topic or channel name
+     * @return the registered Java class
+     * @throws IllegalArgumentException if no type is registered for the topic
+     */
+    public Class<?> typeFor(String topic) {
+        var type = types.get(topic);
+        if (type == null) {
             throw new IllegalArgumentException("No type registered for topic: " + topic);
         }
+        return type;
+    }
+
+    /**
+     * Returns whether a Java type is registered for the given topic.
+     *
+     * @param topic the topic or channel name
+     * @return {@code true} if a type has been registered for the topic
+     */
+    public boolean hasTypeForTopic(String topic) {
+        return types.containsKey(topic);
     }
 
     /**

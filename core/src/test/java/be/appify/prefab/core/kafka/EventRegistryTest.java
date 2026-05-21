@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -51,18 +52,28 @@ class EventRegistryTest {
     }
 
     @Test
-    void resolveTypeReturnsTypeForTopic() {
+    void typeForReturnsRegisteredClass() {
         registry.registerType("my-topic", MyEvent.class);
 
-        var resolved = registry.resolveType("my-topic", new byte[0], null);
-
-        assertEquals(MyEvent.class, resolved.getRawClass());
+        assertEquals(MyEvent.class, registry.typeFor("my-topic"));
     }
 
     @Test
-    void resolveTypeThrowsWhenTopicNotRegistered() {
+    void typeForThrowsWhenTopicNotRegistered() {
         assertThrows(IllegalArgumentException.class,
-                () -> registry.resolveType("unknown-topic", new byte[0], null));
+                () -> registry.typeFor("unknown-topic"));
+    }
+
+    @Test
+    void hasTypeForTopicReturnsTrueWhenRegistered() {
+        registry.registerType("my-topic", MyEvent.class);
+
+        assertTrue(registry.hasTypeForTopic("my-topic"));
+    }
+
+    @Test
+    void hasTypeForTopicReturnsFalseWhenNotRegistered() {
+        assertFalse(registry.hasTypeForTopic("unknown-topic"));
     }
 
     @Test

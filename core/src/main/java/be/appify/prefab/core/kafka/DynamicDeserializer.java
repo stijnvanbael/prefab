@@ -8,6 +8,7 @@ import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.type.TypeFactory;
 
 /**
  * A deserializer that dynamically chooses deserialization based on the topic's serialization format.
@@ -36,7 +37,8 @@ public class DynamicDeserializer implements Deserializer<Object> {
         this.conversionService = conversionService;
         this.eventRegistry = eventRegistry;
         var consumerProperties = kafkaProperties.buildConsumerProperties();
-        jsonDeserializer.setTypeResolver(eventRegistry);
+        jsonDeserializer.setTypeResolver(
+                (topic, data, headers) -> TypeFactory.unsafeSimpleType(eventRegistry.typeFor(topic)));
         jsonDeserializer.configure(consumerProperties, false);
         if (!consumerProperties.containsKey("schema.registry.url")) {
             consumerProperties.put("schema.registry.url", "mock://schema-url");

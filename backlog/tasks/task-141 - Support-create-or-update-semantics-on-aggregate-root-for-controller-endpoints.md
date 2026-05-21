@@ -2,15 +2,16 @@
 id: TASK-141
 title: Support create-or-update semantics on aggregate root for controller endpoints
 status: To Do
-assignee: [ ]
+assignee: []
 created_date: '2026-04-27 13:13'
-updated_date: '2026-04-27 13:14'
+updated_date: '2026-05-21 06:22'
 labels:
   - annotation-processor
   - rest
 dependencies:
   - TASK-121
 priority: high
+ordinal: 145000
 ---
 
 ## Description

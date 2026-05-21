@@ -4,7 +4,7 @@ title: Implement groupBy and aggregate operators in streams DSL
 status: To Do
 assignee: []
 created_date: '2026-05-17 09:15'
-updated_date: '2026-05-17 09:39'
+updated_date: '2026-05-21 06:39'
 labels:
   - feature
   - streams
@@ -17,7 +17,7 @@ references:
   - backlog/tasks/task-099 - Prefab-Streams-DSL.md
   - examples/streams
 priority: high
-ordinal: 20700
+ordinal: 7.2479248046875
 ---
 
 ## Description

@@ -1,12 +1,14 @@
 ---
-id: task-176
+id: TASK-176
 title: Deprecate @Update void mutable pattern in favour of immutable return
 status: To Do
 assignee: []
 created_date: '2026-05-08 16:38'
+updated_date: '2026-05-21 06:22'
 labels: []
 dependencies: []
 priority: medium
+ordinal: 157000
 ---
 
 ## Description

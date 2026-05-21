@@ -1,12 +1,14 @@
 ---
-id: task-184
+id: TASK-184
 title: Eject command to materialise generated code into src
 status: To Do
 assignee: []
 created_date: '2026-05-08'
+updated_date: '2026-05-21 06:22'
 labels: []
 dependencies: []
 priority: medium
+ordinal: 148000
 ---
 
 ## Description
@@ -44,4 +46,3 @@ without a painful rewrite.
 - [ ] #2 The build is green
 - [ ] #3 Code is clean (refactored)
 <!-- DOD:END -->
-

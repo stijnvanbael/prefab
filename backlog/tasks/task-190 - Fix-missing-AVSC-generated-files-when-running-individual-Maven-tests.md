@@ -4,7 +4,7 @@ title: Fix missing AVSC generated files when running individual Maven tests
 status: Done
 assignee: []
 created_date: '2026-05-11 08:33'
-updated_date: '2026-05-11 08:39'
+updated_date: '2026-05-21 06:21'
 labels:
   - avro
   - tests
@@ -13,6 +13,7 @@ dependencies: []
 references:
   - /Users/stijnvanbael/IdeaProjects/appify/prefab
 priority: high
+ordinal: 35200
 ---
 
 ## Description

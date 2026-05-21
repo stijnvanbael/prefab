@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-05-13 18:33'
-updated_date: '2026-05-14 08:45'
+updated_date: '2026-05-21 06:21'
 labels:
   - pubsub
   - reliability
@@ -20,6 +20,7 @@ references:
   - >-
     examples/pubsub/src/main/java/be/appify/prefab/example/pubsub/user/UserEvent.java
 priority: high
+ordinal: 27200
 ---
 
 ## Description

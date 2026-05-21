@@ -1,12 +1,13 @@
 ---
 id: TASK-166
 title: 'AVSC-first: support Avro union fields (sealed one-of, broad types)'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-05-08 08:16'
-updated_date: '2026-05-08 08:59'
+updated_date: '2026-05-21 06:21'
 labels: []
 dependencies: []
+ordinal: 46200
 ---
 
 ## Description

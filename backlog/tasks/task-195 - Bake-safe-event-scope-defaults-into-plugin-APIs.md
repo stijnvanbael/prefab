@@ -4,7 +4,7 @@ title: Bake safe event-scope defaults into plugin APIs
 status: Done
 assignee: []
 created_date: '2026-05-11 17:27'
-updated_date: '2026-05-11 17:33'
+updated_date: '2026-05-21 06:21'
 labels:
   - prefab
   - plugins
@@ -31,6 +31,7 @@ documentation:
   - >-
     /Users/stijnvanbael/IdeaProjects/appify/prefab/backlog/docs/developer-guide.md
 priority: high
+ordinal: 31200
 ---
 
 ## Description

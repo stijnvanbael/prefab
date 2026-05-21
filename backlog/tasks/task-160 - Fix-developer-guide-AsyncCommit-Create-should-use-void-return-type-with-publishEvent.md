@@ -1,9 +1,19 @@
 ---
-id: task-160
-title: "Fix developer guide: @AsyncCommit @Create should use void return type with publishEvent()"
-status: "Done"
-priority: "High"
-labels: ["documentation", "async-commit", "reported-by:maestro"]
+id: TASK-160
+title: >-
+  Fix developer guide: @AsyncCommit @Create should use void return type with
+  publishEvent()
+status: Done
+assignee: []
+created_date: ''
+updated_date: '2026-05-21 06:21'
+labels:
+  - documentation
+  - async-commit
+  - 'reported-by:maestro'
+dependencies: []
+priority: high
+ordinal: 43200
 ---
 
 ## Problem Statement
@@ -105,9 +115,9 @@ is used (the return value is silently discarded by the generated service).
 Update the `@AsyncCommit` row to clarify that `@Create` methods must be `void`.
 
 ## Acceptance Criteria
-
-- [x] Section 4.1 `@AsyncCommit` corrected to describe void-return + `publishEvent()` pattern
-- [x] Section 7.8 code example updated with `void` return and `publishEvent()` call
-- [x] Annotation processor emits a **compile-time warning** (or error) when `@AsyncCommit @Create` has a non-void return type
-- [x] Example projects / quick-start guide updated if they use the old pattern
-
+<!-- AC:BEGIN -->
+- [x] #1 Section 4.1 `@AsyncCommit` corrected to describe void-return + `publishEvent()` pattern
+- [x] #2 Section 7.8 code example updated with `void` return and `publishEvent()` call
+- [x] #3 Annotation processor emits a **compile-time warning** (or error) when `@AsyncCommit @Create` has a non-void return type
+- [x] #4 Example projects / quick-start guide updated if they use the old pattern
+<!-- AC:END -->

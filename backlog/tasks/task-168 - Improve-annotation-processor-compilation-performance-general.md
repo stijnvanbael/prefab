@@ -5,12 +5,13 @@ status: Done
 assignee:
   - '@copilot'
 created_date: '2026-05-08 11:20'
-updated_date: '2026-05-08 11:27'
+updated_date: '2026-05-21 06:21'
 labels:
   - performance
   - annotation-processor
 dependencies: []
 priority: high
+ordinal: 38200
 ---
 
 ## Description

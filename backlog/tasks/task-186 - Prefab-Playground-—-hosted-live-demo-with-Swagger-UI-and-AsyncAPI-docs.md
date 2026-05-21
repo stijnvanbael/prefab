@@ -1,12 +1,14 @@
 ---
-id: task-186
+id: TASK-186
 title: Prefab Playground — hosted live demo with Swagger UI and AsyncAPI docs
 status: To Do
 assignee: []
 created_date: '2026-05-08'
+updated_date: '2026-05-21 06:22'
 labels: []
 dependencies: []
 priority: medium
+ordinal: 150000
 ---
 
 ## Description
@@ -48,4 +50,3 @@ existing `examples/` directory and doubles as a comprehensive reference implemen
 - [ ] #2 The build is green
 - [ ] #3 Code is clean (refactored)
 <!-- DOD:END -->
-

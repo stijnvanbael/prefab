@@ -2,15 +2,16 @@
 id: TASK-148
 title: Generate extensive developer guide for users and LLMs
 status: To Do
-assignee: [ ]
+assignee: []
 created_date: '2026-04-30 06:41'
-updated_date: '2026-04-30 06:42'
+updated_date: '2026-05-21 06:22'
 labels:
   - documentation
   - agents
   - dx
-dependencies: [ ]
+dependencies: []
 priority: high
+ordinal: 146000
 ---
 
 ## Description
@@ -25,9 +26,7 @@ as part of the same task.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
-
 <!-- AC:BEGIN -->
-
 - [ ] #1 Create backlog/docs/developer-guide.md as the single entry point, structured by module and feature
 - [ ] #2 Document every public annotation with: purpose, all attributes with types and defaults, generated artefacts,
   and a minimal code example
@@ -47,5 +46,4 @@ as part of the same task.
   add any Prefab feature
 - [ ] #11 Evaluate whether a Maven plugin can auto-generate the annotation reference section during the build and embed
   it into the guide (e.g. via maven-resources-plugin filtering or a custom plugin)
-
 <!-- AC:END -->

@@ -1,12 +1,14 @@
 ---
-id: task-177
+id: TASK-177
 title: Add built-in Money and Quantity value types
 status: To Do
 assignee: []
 created_date: '2026-05-08 16:38'
+updated_date: '2026-05-21 06:22'
 labels: []
 dependencies: []
 priority: medium
+ordinal: 158000
 ---
 
 ## Description

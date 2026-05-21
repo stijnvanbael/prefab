@@ -1,12 +1,15 @@
 ---
 id: TASK-169
-title: Capitalise AVSC-generated Java type names and replace @Namespace with @AvroSchema
+title: >-
+  Capitalise AVSC-generated Java type names and replace @Namespace with
+  @AvroSchema
 status: Done
 assignee: []
 created_date: '2026-05-08'
-updated_date: '2026-05-08'
+updated_date: '2026-05-21 06:21'
 labels: []
 dependencies: []
+ordinal: 42200
 ---
 
 ## Description
@@ -30,7 +33,6 @@ The fix has two parts:
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
-
 <!-- AC:BEGIN -->
 - [x] #1 New `@AvroSchema(name, namespace)` annotation created in `core` module with empty-string defaults
 - [x] #2 `@Namespace` marked `@Deprecated`; Javadoc points to `@AvroSchema`
@@ -49,6 +51,7 @@ The fix has two parts:
 
 ## Implementation Notes
 
+<!-- SECTION:NOTES:BEGIN -->
 ### Completed
 
 | File                                               | Change                                                                                                                                                        |
@@ -67,3 +70,4 @@ The fix has two parts:
     - `avro-processor/src/test/resources/event/avsc/lowercase/source/lowercaseAvscEvent.avsc` (record + nested enum, both lowercase names)
 - **AC #12** — Run `mvn -pl core,avro-processor test` and resolve any remaining failures.
 - **AC #13** — Update `backlog/docs/developer-guide.md`: document `@AvroSchema`, the automatic capitalisation of AVSC-derived Java names, and the deprecation of `@Namespace`.
+<!-- SECTION:NOTES:END -->

@@ -1,12 +1,14 @@
 ---
-id: task-170
+id: TASK-170
 title: Add @ReadModel stereotype annotation
 status: To Do
 assignee: []
 created_date: '2026-05-08 16:37'
+updated_date: '2026-05-21 06:22'
 labels: []
 dependencies: []
 priority: low
+ordinal: 151000
 ---
 
 ## Description

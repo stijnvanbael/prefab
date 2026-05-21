@@ -1,12 +1,14 @@
 ---
-id: task-181
+id: TASK-181
 title: Add CONTRIBUTING.md and document customization escape hatches
 status: To Do
 assignee: []
 created_date: '2026-05-08 16:38'
+updated_date: '2026-05-21 06:36'
 labels: []
 dependencies: []
 priority: medium
+ordinal: 86.97509765625
 ---
 
 ## Description

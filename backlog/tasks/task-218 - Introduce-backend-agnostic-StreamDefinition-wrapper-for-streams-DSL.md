@@ -4,7 +4,7 @@ title: Introduce backend-agnostic StreamDefinition wrapper for streams DSL
 status: Done
 assignee: []
 created_date: '2026-05-17 12:02'
-updated_date: '2026-05-17 12:04'
+updated_date: '2026-05-21 06:21'
 labels:
   - feature
   - streams
@@ -19,6 +19,7 @@ references:
   - >-
     examples/streams/src/main/java/be/appify/prefab/example/streams/StreamTopologyConfiguration.java
 priority: high
+ordinal: 24200
 ---
 
 ## Description

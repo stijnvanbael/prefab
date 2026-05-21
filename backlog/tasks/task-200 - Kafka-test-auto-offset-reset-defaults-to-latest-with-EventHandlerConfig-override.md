@@ -7,13 +7,14 @@ status: Done
 assignee:
   - '@copilot'
 created_date: '2026-05-14 09:14'
-updated_date: '2026-05-14 10:41'
+updated_date: '2026-05-21 06:21'
 labels:
   - kafka
   - annotations
   - testing
 dependencies: []
 priority: high
+ordinal: 26200
 ---
 
 ## Description

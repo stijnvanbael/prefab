@@ -1,12 +1,14 @@
 ---
-id: task-182
+id: TASK-182
 title: Move Terraform generation to a standalone Maven plugin goal
 status: To Do
 assignee: []
 created_date: '2026-05-08 16:38'
+updated_date: '2026-05-21 06:22'
 labels: []
 dependencies: []
 priority: low
+ordinal: 163000
 ---
 
 ## Description

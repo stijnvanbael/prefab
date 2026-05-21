@@ -1,12 +1,14 @@
 ---
-id: task-175
+id: TASK-175
 title: Add in-memory persistence and messaging backend for tests
 status: To Do
 assignee: []
 created_date: '2026-05-08 16:37'
+updated_date: '2026-05-21 06:22'
 labels: []
 dependencies: []
 priority: high
+ordinal: 156000
 ---
 
 ## Description

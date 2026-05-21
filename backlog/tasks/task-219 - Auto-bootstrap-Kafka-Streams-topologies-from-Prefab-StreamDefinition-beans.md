@@ -4,7 +4,7 @@ title: Auto-bootstrap Kafka Streams topologies from Prefab StreamDefinition bean
 status: Done
 assignee: []
 created_date: '2026-05-17 13:04'
-updated_date: '2026-05-17 14:07'
+updated_date: '2026-05-21 06:21'
 labels:
   - feature
   - streams
@@ -21,6 +21,7 @@ references:
   - >-
     examples/streams/src/main/java/be/appify/prefab/example/streams/StreamTopologyConfiguration.java
 priority: high
+ordinal: 23200
 ---
 
 ## Description

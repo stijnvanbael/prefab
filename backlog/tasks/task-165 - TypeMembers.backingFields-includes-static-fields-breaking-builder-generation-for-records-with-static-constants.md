@@ -1,9 +1,20 @@
 ---
-id: task-165
-title: "TypeMembers.backingFields() includes static fields, breaking builder generation for records with static constants"
-status: "Done"
-priority: "Medium"
-labels: ["bug", "annotation-processor", "type-members", "reported-by:maestro"]
+id: TASK-165
+title: >-
+  TypeMembers.backingFields() includes static fields, breaking builder
+  generation for records with static constants
+status: Done
+assignee: []
+created_date: ''
+updated_date: '2026-05-21 06:21'
+labels:
+  - bug
+  - annotation-processor
+  - type-members
+  - 'reported-by:maestro'
+dependencies: []
+priority: medium
+ordinal: 44200
 ---
 
 ## Problem Statement
@@ -106,16 +117,16 @@ Add the static-modifier guard to both branches in `TypeMembers`:
 ```
 
 ## Acceptance Criteria
-
-- [x] `TypeMembers.backingFields()` ignores `static` fields on non-record types
-- [x] `TypeMembers.recordFieldsWithComponentAnnotations()` ignores `static` fields on record types
-- [x] A record with static constant fields of its own type generates a correct `Builder`
+<!-- AC:BEGIN -->
+- [x] #1 `TypeMembers.backingFields()` ignores `static` fields on non-record types
+- [x] #2 `TypeMembers.recordFieldsWithComponentAnnotations()` ignores `static` fields on record types
+- [x] #3 A record with static constant fields of its own type generates a correct `Builder`
       (only instance components appear as builder parameters)
-- [x] Existing test suite passes
-- [x] New unit test in `TypeMembersTest` (or equivalent) covers a record with static constants
+- [x] #4 Existing test suite passes
+- [x] #5 New unit test in `TypeMembersTest` (or equivalent) covers a record with static constants
 
 ## Current Workaround (Maestro)
 
 Static constants moved out of `AgentRole` into a companion `AgentRoles` constants class
 to avoid triggering the broken code path. See Maestro `AgentRoles.java`.
-
+<!-- AC:END -->

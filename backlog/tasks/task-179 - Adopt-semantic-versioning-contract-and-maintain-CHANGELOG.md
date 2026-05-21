@@ -1,12 +1,14 @@
 ---
-id: task-179
+id: TASK-179
 title: Adopt semantic versioning contract and maintain CHANGELOG
 status: To Do
 assignee: []
 created_date: '2026-05-08 16:38'
+updated_date: '2026-05-21 06:22'
 labels: []
 dependencies: []
 priority: medium
+ordinal: 160000
 ---
 
 ## Description

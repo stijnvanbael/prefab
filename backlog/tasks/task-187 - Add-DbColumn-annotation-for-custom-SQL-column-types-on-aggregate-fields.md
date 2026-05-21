@@ -4,7 +4,7 @@ title: Add @DbColumn annotation for custom SQL column types on aggregate fields
 status: Done
 assignee: []
 created_date: '2026-05-10 09:24'
-updated_date: '2026-05-10 11:17'
+updated_date: '2026-05-21 06:21'
 labels:
   - feature
   - annotation-processor
@@ -13,6 +13,7 @@ references:
   - >-
     /Users/stijnvanbael/IdeaProjects/appify/prefab/backlog/completed/support-custom-db-column-type.md
 priority: high
+ordinal: 37200
 ---
 
 ## Description

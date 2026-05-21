@@ -4,7 +4,7 @@ title: Implement KStream-KStream inner join in streams DSL
 status: To Do
 assignee: []
 created_date: '2026-05-17 09:15'
-updated_date: '2026-05-17 09:18'
+updated_date: '2026-05-21 06:38'
 labels:
   - feature
   - streams
@@ -17,7 +17,7 @@ references:
   - backlog/tasks/task-099 - Prefab-Streams-DSL.md
   - examples/streams
 priority: high
-ordinal: 20500
+ordinal: 28.99169921875
 ---
 
 ## Description

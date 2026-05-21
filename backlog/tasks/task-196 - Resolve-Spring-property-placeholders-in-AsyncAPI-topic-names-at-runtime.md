@@ -4,12 +4,13 @@ title: Resolve Spring property placeholders in AsyncAPI topic names at runtime
 status: Done
 assignee: []
 created_date: '2026-05-11 17:40'
-updated_date: '2026-05-11 17:43'
+updated_date: '2026-05-21 06:21'
 labels:
   - async-api
   - bug
 dependencies: []
 priority: medium
+ordinal: 30200
 ---
 
 ## Description

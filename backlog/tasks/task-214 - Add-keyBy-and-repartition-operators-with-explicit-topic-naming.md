@@ -4,7 +4,7 @@ title: Add keyBy and repartition operators with explicit topic naming
 status: To Do
 assignee: []
 created_date: '2026-05-17 09:37'
-updated_date: '2026-05-17 09:39'
+updated_date: '2026-05-21 06:38'
 labels:
   - feature
   - streams
@@ -18,6 +18,7 @@ references:
   - backlog/tasks/task-099 - Prefab-Streams-DSL.md
   - examples/streams
 priority: high
+ordinal: 72.479248046875
 ---
 
 ## Description

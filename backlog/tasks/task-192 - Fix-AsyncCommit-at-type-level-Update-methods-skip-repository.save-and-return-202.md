@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-05-11 09:16'
-updated_date: '2026-05-11 09:20'
+updated_date: '2026-05-21 06:21'
 labels:
   - bug
   - annotation-processor
@@ -14,6 +14,7 @@ labels:
   - 'reported-by:maestro'
 dependencies: []
 priority: high
+ordinal: 34200
 ---
 
 ## Description

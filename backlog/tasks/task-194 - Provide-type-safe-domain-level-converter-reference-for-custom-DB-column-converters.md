@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-05-11 17:01'
+updated_date: '2026-05-21 06:22'
 labels:
   - feature-request
   - architecture
@@ -17,6 +18,7 @@ references:
   - >-
     /Users/stijnvanbael/IdeaProjects/appify/maestro/src/test/java/be/appify/maestro/ArchitectureTest.java
 priority: medium
+ordinal: 164000
 ---
 
 ## Description

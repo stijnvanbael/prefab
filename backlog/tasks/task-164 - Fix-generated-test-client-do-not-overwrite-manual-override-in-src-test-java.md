@@ -4,7 +4,7 @@ title: 'Fix generated test client: do not overwrite manual override in src/test/
 status: Done
 assignee: []
 created_date: ''
-updated_date: '2026-05-08 05:55'
+updated_date: '2026-05-21 06:21'
 labels:
   - bug
   - annotation-processor
@@ -12,6 +12,7 @@ labels:
   - 'reported-by:maestro'
 dependencies: []
 priority: medium
+ordinal: 40200
 ---
 
 ## Problem Statement

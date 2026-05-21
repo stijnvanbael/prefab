@@ -1,12 +1,14 @@
 ---
-id: task-183
+id: TASK-183
 title: Integrated source mapping for debugging generated code (JSR-45 SMAP)
 status: To Do
 assignee: []
 created_date: '2026-05-08'
+updated_date: '2026-05-21 06:22'
 labels: []
 dependencies: []
 priority: low
+ordinal: 147000
 ---
 
 ## Description
@@ -35,4 +37,3 @@ during a debug session.
 - [ ] #2 The build is green
 - [ ] #3 Code is clean (refactored)
 <!-- DOD:END -->
-

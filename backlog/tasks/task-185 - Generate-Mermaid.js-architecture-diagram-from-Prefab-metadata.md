@@ -1,12 +1,14 @@
 ---
-id: task-185
+id: TASK-185
 title: Generate Mermaid.js architecture diagram from Prefab metadata
 status: To Do
 assignee: []
 created_date: '2026-05-08'
+updated_date: '2026-05-21 06:22'
 labels: []
 dependencies: []
 priority: low
+ordinal: 149000
 ---
 
 ## Description
@@ -50,4 +52,3 @@ artifact for existing teams.
 - [ ] #2 The build is green
 - [ ] #3 Code is clean (refactored)
 <!-- DOD:END -->
-

@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-05-14 08:11'
-updated_date: '2026-05-14 08:45'
+updated_date: '2026-05-21 06:21'
 labels:
   - kafka
   - sns-sqs
@@ -16,6 +16,7 @@ references:
   - examples/kafka/src/main/java
   - examples/sns-sqs/src/main/java
 priority: high
+ordinal: 28200
 ---
 
 ## Description

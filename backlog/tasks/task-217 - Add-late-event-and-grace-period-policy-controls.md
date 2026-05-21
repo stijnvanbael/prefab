@@ -4,6 +4,7 @@ title: Add late-event and grace-period policy controls
 status: To Do
 assignee: []
 created_date: '2026-05-17 09:38'
+updated_date: '2026-05-21 06:22'
 labels:
   - feature
   - streams
@@ -17,6 +18,7 @@ references:
   - backlog/tasks/task-099 - Prefab-Streams-DSL.md
   - examples/streams
 priority: high
+ordinal: 168000
 ---
 
 ## Description

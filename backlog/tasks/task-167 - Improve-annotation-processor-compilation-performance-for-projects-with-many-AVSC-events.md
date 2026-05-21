@@ -7,13 +7,14 @@ status: Done
 assignee:
   - '@copilot'
 created_date: '2026-05-08 07:40'
-updated_date: '2026-05-08 08:04'
+updated_date: '2026-05-21 06:21'
 labels:
   - performance
   - annotation-processor
   - avro
 dependencies: []
 priority: high
+ordinal: 39200
 ---
 
 ## Description

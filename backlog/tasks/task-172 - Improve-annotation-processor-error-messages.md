@@ -1,12 +1,14 @@
 ---
-id: task-172
+id: TASK-172
 title: Improve annotation processor error messages
 status: To Do
 assignee: []
 created_date: '2026-05-08 16:37'
+updated_date: '2026-05-21 06:22'
 labels: []
 dependencies: []
 priority: medium
+ordinal: 153000
 ---
 
 ## Description

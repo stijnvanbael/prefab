@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-05-11 16:58'
-updated_date: '2026-05-11 17:23'
+updated_date: '2026-05-21 06:21'
 labels:
   - prefab
   - codegen
@@ -25,6 +25,7 @@ documentation:
   - >-
     /Users/stijnvanbael/IdeaProjects/appify/prefab/backlog/docs/generated-artefacts.md
 priority: high
+ordinal: 32200
 ---
 
 ## Description

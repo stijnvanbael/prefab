@@ -1,12 +1,14 @@
 ---
-id: task-174
+id: TASK-174
 title: Add @PrefabSlice test slice for generated controller/service
 status: To Do
 assignee: []
 created_date: '2026-05-08 16:37'
+updated_date: '2026-05-21 06:22'
 labels: []
 dependencies: []
 priority: high
+ordinal: 155000
 ---
 
 ## Description

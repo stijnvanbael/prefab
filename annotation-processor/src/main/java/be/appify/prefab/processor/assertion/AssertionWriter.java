@@ -11,6 +11,7 @@ import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import com.palantir.javapoet.TypeVariableName;
+import com.palantir.javapoet.WildcardTypeName;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -208,7 +209,8 @@ class AssertionWriter {
         var flatName = fieldType.simpleName().replace(".", "");
         var packageName = fieldType.packageName();
         var fieldAssertType = ClassName.get(packageName, flatName + "Assert");
-        var consumerType = ParameterizedTypeName.get(CONSUMER, fieldAssertType);
+        var wildcardedFieldAssertType = ParameterizedTypeName.get(fieldAssertType, WildcardTypeName.subtypeOf(Object.class));
+        var consumerType = ParameterizedTypeName.get(CONSUMER, wildcardedFieldAssertType);
         return MethodSpec.methodBuilder("has" + capitalize(fieldName) + "Satisfying")
                 .addModifiers(Modifier.PUBLIC)
                 .returns(selfType)

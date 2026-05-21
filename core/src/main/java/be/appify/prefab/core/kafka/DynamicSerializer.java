@@ -7,14 +7,11 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
-import org.springframework.stereotype.Component;
-
 /**
  * A Kafka serializer that dynamically chooses serialization based on the topic's serialization format. It uses an
  * {@link EventRegistry} to determine the serialization format for each topic and delegates to the appropriate serializer. For Avro
  * serialization, it converts the input object to a {@link GenericRecord} using a {@link ConversionService} before serialization.
  */
-@Component
 public class DynamicSerializer implements Serializer<Object> {
     private final StringSerializer stringSerializer = new StringSerializer();
     private final JacksonJsonSerializer<Object> jsonSerializer = new JacksonJsonSerializer<>();

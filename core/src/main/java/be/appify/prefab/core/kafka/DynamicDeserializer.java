@@ -7,15 +7,12 @@ import org.apache.kafka.common.serialization.Deserializer;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
-import org.springframework.stereotype.Component;
 import tools.jackson.databind.type.TypeFactory;
-
 /**
  * A deserializer that dynamically chooses deserialization based on the topic's serialization format.
  * It uses an {@link EventRegistry} to determine the serialization format for each topic and delegates to the appropriate deserializer.
  * For Avro deserialization, it converts the resulting {@link GenericRecord} to the target event class using a {@link ConversionService}.
  */
-@Component
 public class DynamicDeserializer implements Deserializer<Object> {
     private final JacksonJsonDeserializer<Object> jsonDeserializer = new JacksonJsonDeserializer<>();
     private final GenericAvroDeserializer avroDeserializer = new GenericAvroDeserializer();

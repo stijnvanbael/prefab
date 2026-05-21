@@ -40,6 +40,7 @@ import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
+import org.springframework.core.convert.ConversionService;
 import org.springframework.kafka.transaction.KafkaTransactionManager;
 
 import static be.appify.prefab.core.kafka.KafkaUtil.DEFAULT_NOT_RETRYABLE;
@@ -57,6 +58,26 @@ public class KafkaConfiguration {
 
     /** Constructs a new KafkaConfiguration. */
     public KafkaConfiguration() {
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(DynamicSerializer.class)
+    DynamicSerializer dynamicSerializer(
+            KafkaProperties kafkaProperties,
+            ConversionService conversionService,
+            EventRegistry eventRegistry
+    ) {
+        return new DynamicSerializer(kafkaProperties, conversionService, eventRegistry);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(DynamicDeserializer.class)
+    DynamicDeserializer dynamicDeserializer(
+            KafkaProperties kafkaProperties,
+            ConversionService conversionService,
+            EventRegistry eventRegistry
+    ) {
+        return new DynamicDeserializer(kafkaProperties, conversionService, eventRegistry);
     }
 
     @Bean

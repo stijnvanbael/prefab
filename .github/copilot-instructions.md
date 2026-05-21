@@ -4,7 +4,7 @@
 
 ## BACKLOG WORKFLOW INSTRUCTIONS
 
-This project uses **Backlog.md**, you can access it with the following MCP toolset **`mcp_backlog-prefa_*`**.
+This project uses **Backlog.md**, you can access it with the following MCP toolset **`backlog-prefab`**.
 
 Only edit backlog markdown files directly when the MCP tools are unavailable — otherwise use the tools to keep metadata and history consistent.
 

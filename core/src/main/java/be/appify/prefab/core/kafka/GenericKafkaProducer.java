@@ -28,6 +28,9 @@ public class GenericKafkaProducer {
     public void publish(Object event) {
         try {
             var topic = eventRegistry.topicForType(event.getClass());
+            if(topic == null) {
+                return;
+            }
             log.debug("Publishing event {} on topic {}", event, topic);
             kafkaTemplate.send(topic, eventRegistry.keyFor(event).orElse(null), event).join();
         } catch (IllegalArgumentException e) {

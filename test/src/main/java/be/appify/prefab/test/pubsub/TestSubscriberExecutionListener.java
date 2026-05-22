@@ -63,7 +63,7 @@ public class TestSubscriberExecutionListener extends AbstractTestExecutionListen
         var consumer = new EventConsumer<T>();
         pubSubUtil.subscribe(topic, subscriptionName,
                 (Class<T>) ((ParameterizedType) field.getGenericType()).getActualTypeArguments()[0],
-                consumer.messages()::add);
+                consumer::addMessage);
         return consumer;
     }
 }

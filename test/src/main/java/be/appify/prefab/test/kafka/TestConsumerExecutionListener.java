@@ -87,7 +87,7 @@ public class TestConsumerExecutionListener extends AbstractTestExecutionListener
                 while (!Thread.currentThread().isInterrupted()) {
                     try {
                         var records = kafkaConsumer.poll(Duration.ofMillis(100));
-                        records.forEach(record -> eventConsumer.messages().add(record.value()));
+                        records.forEach(record -> eventConsumer.addMessage(record.value()));
                     } catch (Exception e) {
                         if (Thread.currentThread().isInterrupted()) {
                             break;

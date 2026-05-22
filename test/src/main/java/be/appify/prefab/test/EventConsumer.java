@@ -29,15 +29,20 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * </pre>
  *
  * @param <T>      the type of events
- * @param messages the list of collected events (thread-safe)
  */
-public record EventConsumer<T>(List<T> messages) {
+public class EventConsumer<T> {
+    private final List<T> messages = new CopyOnWriteArrayList<>();
 
-    /**
-     * Creates a new {@link EventConsumer} backed by a thread-safe list.
-     */
-    public EventConsumer() {
-        this(new CopyOnWriteArrayList<>());
+    public EventConsumer(List<T> initialMessages) {
+        messages.addAll(initialMessages);
+    }
+
+    public void addMessage(T message) {
+        messages.add(message);
+    }
+
+    public List<T> messages() {
+        return messages;
     }
 
     /**

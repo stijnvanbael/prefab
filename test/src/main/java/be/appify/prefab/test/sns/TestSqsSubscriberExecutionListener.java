@@ -63,7 +63,7 @@ public class TestSqsSubscriberExecutionListener extends AbstractTestExecutionLis
     private <T> EventConsumer<T> createEventConsumer(String queueName, String topic, Field field) {
         var consumer = new EventConsumer<T>();
         var type = (Class<T>) ((ParameterizedType) field.getGenericType()).getActualTypeArguments()[0];
-        sqsUtil.subscribe(new SqsSubscriptionRequest<>(topic, queueName, type, consumer.messages()::add)
+        sqsUtil.subscribe(new SqsSubscriptionRequest<>(topic, queueName, type, consumer::addMessage)
                 .withDeadLetterQueueName(null));
         return consumer;
     }

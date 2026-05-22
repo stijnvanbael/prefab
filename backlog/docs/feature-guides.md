@@ -934,4 +934,28 @@ Portability note:
 `StreamDefinition` beans are auto-discovered by Prefab Streams at startup. Their DSL wiring is bootstrapped into one
 Kafka Streams topology automatically, so no extra manual topology startup code is required.
 
+Topology tests can use the lightweight `KafkaTopologyTestBootstrap` helper to avoid repetitive
+`TopologyTestDriver` and serde setup code.
+
+Example:
+
+```java
+@Test
+void shouldForwardOrder() {
+    var test = KafkaTopologyTestBootstrap.bootstrap();
+    test.registerJson("orders.in", IncomingOrder.class);
+    test.registerJson("orders.out", ProcessedOrder.class);
+
+    var topology = test.streams(new StreamsBuilder())
+            .from(IncomingOrder.class)
+            .to(ProcessedOrder.class);
+
+    try (var topologyTest = test.run(topology)) {
+        topologyTest.input("orders.in").pipeInput("o-1", new IncomingOrder("o-1", "Alice"));
+        assertThat(topologyTest.output("orders.out").readValue())
+                .isEqualTo(new ProcessedOrder("o-1", "Alice"));
+    }
+}
+```
+
 

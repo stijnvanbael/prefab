@@ -4,7 +4,7 @@ title: Add CONTRIBUTING.md and document customization escape hatches
 status: In Progress
 assignee: []
 created_date: '2026-05-08 16:38'
-updated_date: '2026-05-22 17:44'
+updated_date: '2026-05-22 18:00'
 labels: []
 dependencies: []
 priority: medium
@@ -20,9 +20,15 @@ Add a `CONTRIBUTING.md`, document the escape-hatch pattern (copy generated file 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 CONTRIBUTING.md exists at the repository root covering project structure, how to run tests, and how to write a plugin
-- [ ] #2 The escape-hatch pattern (copy generated file to src/ to prevent regeneration) is documented in the Developer Guide
-- [ ] #3 Each @RepositoryMixin usage is documented as a first-class extension point with examples alongside @Filter usage
+- [x] #2 The escape-hatch pattern (copy generated file to src/ to prevent regeneration) is documented in the Developer Guide
+- [x] #3 Each @RepositoryMixin usage is documented as a first-class extension point with examples alongside @Filter usage
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Documented escape-hatch pattern (source-file override) in generated-artefacts.md §6.11 with the exact compiler NOTE message, a decision table, and a revert instruction. Cross-referenced from extension-points.md §8.6. @RepositoryMixin in §8.2 expanded into a self-contained section with derived-query and @Query examples, plus a @RepositoryMixin-vs-@Filter decision table.
+<!-- SECTION:NOTES:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->

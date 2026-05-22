@@ -109,8 +109,51 @@ The following plugins are included in `prefab-annotation-processor`:
 
 ## 8.2 Repository Mixins
 
-See [Feature Guides — Repository Mixins](feature-guides.md#710-repository-mixins). This is the simplest
-extension point for adding custom queries without writing a plugin.
+`@RepositoryMixin` is the **simplest extension point** for adding custom query methods to a generated
+repository — no plugin authoring required.
+
+Annotate an interface with `@RepositoryMixin(YourAggregate.class)` and Prefab adds it as a
+super-interface of the generated `YourAggregateRepository`:
+
+```java
+// Simple Spring Data derived query
+@RepositoryMixin(ChannelSummary.class)
+public interface ChannelSummaryRepositoryMixin {
+    List<ChannelSummary> findByChannel(Reference<Channel> channel);
+}
+```
+
+For queries that cannot be expressed as derived method names, use `@Query`:
+
+```java
+@RepositoryMixin(UserStatus.class)
+public interface UserStatusRepositoryMixin {
+    @Query("""
+            SELECT *
+            FROM user_status
+            WHERE "user" IN (
+                SELECT id FROM "user"
+                WHERE EXISTS (
+                    SELECT 1 FROM UNNEST(channel_subscriptions) AS cs
+                    WHERE cs = :channel
+                )
+            )
+            """)
+    List<UserStatus> findUserStatusesInChannel(Reference<Channel> channel);
+}
+```
+
+The mixin is picked up automatically at compile time — no additional wiring or `@Component`
+annotation is needed. Spring Data resolves derived queries and `@Query` methods through the
+generated repository interface at startup.
+
+> **When to use `@RepositoryMixin` vs. `@Filter`**
+>
+> | Need                                              | Use              |
+> |---------------------------------------------------|------------------|
+> | Standard equality / range filter on a REST `GET /list` endpoint | `@Filter` on the aggregate field |
+> | Custom SQL, multi-table joins, or aggregations    | `@RepositoryMixin` + `@Query` |
+> | Custom method used by an `@EventHandler @Multicast` | `@RepositoryMixin` (required) |
 
 ---
 
@@ -138,4 +181,28 @@ public SerializationRegistryCustomizer myCustomizer() {
     return registry -> registry.register("my-topic", Event.Serialization.AVRO);
 }
 ```
+
+---
+
+## 8.6 Source-File Override (Escape Hatch)
+
+When `@RepositoryMixin`, `PrefabPlugin`, and the provider extension points are not sufficient,
+you can take full ownership of any generated main-source class by placing a hand-crafted file
+with the same qualified name under `src/main/java/`.
+
+The annotation processor detects the existing source file, emits a compiler `NOTE`, and skips
+generation — your file is compiled instead:
+
+```
+Note: Skipping generation of com.example.order.OrderService: a source file with this name already
+      exists and will be used as-is. Remove it to let the annotation processor regenerate it.
+```
+
+To revert, delete the file from `src/main/java/` and the processor regenerates it on the next build.
+
+> **Keep overrides in sync manually.** Prefab never updates an override file. If the aggregate's API
+> changes (new `@Create`, `@Update`, etc.) you must update the override yourself.
+
+For full details, worked examples, and a decision matrix on when to use this approach, see
+[Generated Artefacts — §6.11 Overriding a Generated Class](generated-artefacts.md#611-overriding-a-generated-class-escape-hatch).
 

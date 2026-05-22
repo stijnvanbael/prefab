@@ -325,6 +325,42 @@ Prefab: Skipping generation of be.appify.example.ProductClient — manual overri
 
 ---
 
+## 6.11 Overriding a Generated Class (Escape Hatch)
+
+Every class Prefab writes through the annotation-processing `Filer` (controller, service, repository,
+request/response records, event consumers, etc.) is **skippable**: place a hand-crafted source file
+with the same qualified name under `src/main/java/` and the processor will detect it, emit a compiler
+`NOTE`, and leave your file untouched.
+
+### How it works
+
+1. Copy the generated file from `target/generated-sources/annotations/` to the matching path under
+   `src/main/java/` — keeping the original package declaration.
+2. Modify it as needed (add business logic, change return types, wire extra beans, etc.).
+3. Rebuild. The annotation processor now emits:
+
+```
+Note: Skipping generation of com.example.order.OrderService: a source file with this name already
+      exists and will be used as-is. Remove it to let the annotation processor regenerate it.
+```
+
+The manually maintained file is compiled instead of the generated one.
+
+### What to keep in mind
+
+| Concern                 | Guidance                                                                                            |
+|-------------------------|-----------------------------------------------------------------------------------------------------|
+| **Staying in sync**     | Your file is **never** auto-updated. If the aggregate gains a new `@Create` or `@Update` method you must update the override yourself. |
+| **Reverting**           | Delete the override from `src/main/java/` and the processor regenerates the class on the next build. |
+| **Partial customisation** | Prefer lighter-weight extension points first: `@RepositoryMixin` for extra queries, `PrefabPlugin` for structural generation changes. Reserve the escape hatch for one-off tweaks the framework does not yet model. |
+| **Applies to all Filer-written files** | Controller, `*Service`, `*Repository`, `*Request`, `*Response`, `*EventConsumer`, and any other class generated via `JavaFileWriter`. |
+
+> **Tip:** The source-file override works for both `src/main/java/` files and — for test-support classes written
+> to `target/prefab-test-sources/` — overrides placed under `src/test/java/`. See [§6.9](#69-generated-test-client)
+> for the test-client variant.
+
+---
+
 ## 6.10 Generated Object Mothers (Test Sources)
 
 Prefab generates `*Mother` classes in `target/prefab-test-sources/` for generated request records,

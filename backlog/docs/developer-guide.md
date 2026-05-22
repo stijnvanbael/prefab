@@ -32,9 +32,9 @@ request/response DTOs, event consumer, and database migration scripts at compile
 | [Module Dependency Matrix](modules.md)                | All modules, feature-to-module mapping, Maven snippets             |
 | [Annotation Reference](annotation-reference.md)       | Every annotation with attributes, rules, and examples              |
 | [Built-in Types](built-in-types.md)                   | `Reference<T>`, `Binary`, `AuditInfo`, `Page<T>`, provider interfaces, exceptions |
-| [Generated Artefacts](generated-artefacts.md)         | Controller, service, repository, DTOs, consumers, migrations, test helpers |
+| [Generated Artefacts](generated-artefacts.md)         | Controller, service, repository, DTOs, consumers, migrations, test helpers, escape hatch |
 | [Feature Guides](feature-guides.md)                   | REST CRUD, events, Avro, audit, multi-tenancy, SSE, testing        |
-| [Extension Point Guide](extension-points.md)          | `PrefabPlugin` API, repository mixins, provider overrides          |
+| [Extension Point Guide](extension-points.md)          | `PrefabPlugin` API, `@RepositoryMixin`, provider overrides, source-file escape hatch |
 | [Configuration Reference](configuration.md)           | Application properties, Kafka/Pub/Sub/SNS configuration            |
 | [Troubleshooting](troubleshooting.md)                 | Common errors and fixes                                            |
 

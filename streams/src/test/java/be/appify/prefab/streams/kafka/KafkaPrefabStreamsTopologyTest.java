@@ -66,8 +66,7 @@ class KafkaPrefabStreamsTopologyTest {
 
     @Test
     void fromClass_shouldFailFastWhenNoTopicRegistered() {
-        var test = KafkaTopologyTestBootstrap.bootstrap();
-        var streams = test.streams(new StreamsBuilder());
+        var streams = KafkaTopologyTestBootstrap.bootstrap().streams(new StreamsBuilder());
 
         assertThatThrownBy(() -> streams.from(IncomingOrder.class))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -77,8 +76,8 @@ class KafkaPrefabStreamsTopologyTest {
     @Test
     void fromClass_shouldFailFastWhenMultipleTopicsRegistered() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
-        test.registerType("orders.in.a", IncomingOrder.class);
-        test.registerType("orders.in.b", IncomingOrder.class);
+        test.registerJson("orders.in.a", IncomingOrder.class);
+        test.registerJson("orders.in.b", IncomingOrder.class);
 
         var streams = test.streams(new StreamsBuilder());
 
@@ -153,52 +152,44 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     @Test
-    void branch_shouldRouteRecordsToMatchingOutputStreams() {
+    void branch_shouldKeepOnlyMatchingRecords() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
         test.registerJson("orders.in", IncomingOrder.class);
 
         var streams = test.streams(new StreamsBuilder());
-
-        var branches = streams.from(IncomingOrder.class)
-                .branch(
-                        order -> order.customer().startsWith("A"),
-                        order -> true
-                );
-        branches.get(0).to("orders.a-customers");
-        var topology = branches.get(1).to("orders.other-customers");
+        var topology = streams.from(IncomingOrder.class)
+                .branch(order -> order.customer().startsWith("A"))
+                .to("orders.a-customers");
 
         try (var topologyTest = test.run(topology)) {
             var inputTopic = topologyTest.input("orders.in");
             var aCustomersTopic = topologyTest.rawOutput("orders.a-customers");
-            var otherCustomersTopic = topologyTest.rawOutput("orders.other-customers");
 
             inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "Alice"));
             inputTopic.pipeInput("o-2", new IncomingOrder("o-2", "Bob"));
             inputTopic.pipeInput("o-3", new IncomingOrder("o-3", "Anna"));
 
             assertThat(aCustomersTopic.readValuesToList()).hasSize(2);
-            assertThat(otherCustomersTopic.readValuesToList()).hasSize(1);
         }
     }
 
     @Test
-    void merge_shouldCombineRecordsFromTwoBranchesIntoSingleOutput() {
+    void merge_shouldCombineRecordsFromTwoStreamsIntoSingleOutput() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
         test.registerJson("orders.in", IncomingOrder.class);
         test.registerJson("orders.out", ProcessedOrder.class);
 
         var streams = test.streams(new StreamsBuilder());
 
-        var branches = streams.from(IncomingOrder.class)
-                .branch(
-                        order -> order.customer().startsWith("A"),
-                        order -> true
-                );
+        var aCustomers = streams.from(IncomingOrder.class)
+                .branch(order -> order.customer().startsWith("A"))
+                .map(order -> new ProcessedOrder(order.orderId(), "A:" + order.customer()));
 
-        var topology = branches.get(0)
-                .map(order -> new ProcessedOrder(order.orderId(), "A:" + order.customer()))
-                .merge(branches.get(1).map(order -> new ProcessedOrder(order.orderId(), "B:" + order.customer())))
-                .to(ProcessedOrder.class);
+        var otherCustomers = streams.from(IncomingOrder.class)
+                .filter(order -> !order.customer().startsWith("A"))
+                .map(order -> new ProcessedOrder(order.orderId(), "B:" + order.customer()));
+
+        var topology = streams.merge(aCustomers, otherCustomers).to(ProcessedOrder.class);
 
         try (var topologyTest = test.run(topology)) {
             var inputTopic = topologyTest.input("orders.in");
@@ -226,8 +217,7 @@ class KafkaPrefabStreamsTopologyTest {
 
         var topology = streams.from(IncomingOrder.class)
                 .breakout(new KafkaStreamBreakoutAdapter<>(
-                        nativeStream -> nativeStream.selectKey((key, value) -> "native-" + value.orderId(),
-                                Named.as("native-key"))
+                        nativeStream -> nativeStream.selectKey((key, value) -> "native-" + value.orderId(), Named.as("native-key"))
                 ))
                 .map(order -> new ProcessedOrder(order.orderId(), order.customer().toUpperCase()))
                 .to(ProcessedOrder.class);
@@ -361,6 +351,3 @@ class KafkaPrefabStreamsTopologyTest {
         }
     }
 }
-
-
-

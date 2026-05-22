@@ -4,10 +4,7 @@ import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.core.kafka.EventRegistry;
-import be.appify.prefab.core.util.SerializationRegistry;
 import be.appify.prefab.streams.StreamDefinition;
-import java.util.Properties;
-import java.util.UUID;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -19,8 +16,10 @@ import org.apache.kafka.streams.TopologyTestDriver;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.core.convert.support.DefaultConversionService;
 
+import java.util.Properties;
+import java.util.UUID;
+
 final class KafkaTopologyTestBootstrap {
-    private final SerializationRegistry serializationRegistry = new SerializationRegistry();
     private final EventRegistry typeRegistry = new EventRegistry();
     private final DynamicSerializer serializer;
     private final DynamicDeserializer deserializer;
@@ -28,25 +27,16 @@ final class KafkaTopologyTestBootstrap {
     private KafkaTopologyTestBootstrap() {
         var conversionService = new DefaultConversionService();
         var kafkaProperties = new KafkaProperties();
-        serializer = new DynamicSerializer(kafkaProperties, conversionService, serializationRegistry);
-        deserializer = new DynamicDeserializer(kafkaProperties, conversionService, serializationRegistry, typeRegistry);
+        serializer = new DynamicSerializer(kafkaProperties, conversionService, typeRegistry);
+        deserializer = new DynamicDeserializer(kafkaProperties, conversionService, typeRegistry);
     }
 
     static KafkaTopologyTestBootstrap bootstrap() {
         return new KafkaTopologyTestBootstrap();
     }
 
-    void registerType(String topic, Class<?> type) {
-        typeRegistry.registerType(topic, type);
-    }
-
     void registerJson(String topic, Class<?> type) {
-        registerType(topic, type);
-        serializationRegistry.register(topic, Event.Serialization.JSON);
-    }
-
-    KafkaPrefabStreams streams() {
-        return streams(new StreamsBuilder());
+        typeRegistry.register(topic, type, Event.Serialization.JSON);
     }
 
     KafkaPrefabStreams streams(StreamsBuilder streamsBuilder) {
@@ -57,7 +47,8 @@ final class KafkaTopologyTestBootstrap {
         var properties = new Properties();
         properties.put(StreamsConfig.APPLICATION_ID_CONFIG, "prefab-streams-topology-test-" + UUID.randomUUID());
         properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "dummy:9092");
-        return new TopologyTestSession(new TopologyTestDriver(streamDefinition.nativeTopology(), properties), serializer,
+        return new TopologyTestSession(new TopologyTestDriver(streamDefinition.nativeTopology(), properties),
+                serializer,
                 deserializer);
     }
 

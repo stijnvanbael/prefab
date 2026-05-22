@@ -6,18 +6,17 @@ import be.appify.prefab.streams.PrefabStream;
 import be.appify.prefab.streams.StreamBackend;
 import be.appify.prefab.streams.StreamBreakoutAdapter;
 import be.appify.prefab.streams.StreamDefinition;
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.IntStream;
-import java.util.function.Function;
-import java.util.function.Predicate;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.StreamsBuilder;
+import org.apache.kafka.streams.kstream.Branched;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Named;
 import org.apache.kafka.streams.kstream.Produced;
-import org.apache.kafka.streams.kstream.Branched;
+
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * Kafka-backed implementation of {@link PrefabStream}.
@@ -25,7 +24,8 @@ import org.apache.kafka.streams.kstream.Branched;
  * <p>Each operator delegates to the corresponding native {@link KStream} method, preserving
  * Prefab's serialization infrastructure for the terminal {@code to} operations.
  *
- * @param <V> current record value type
+ * @param <V>
+ *         current record value type
  */
 public class KafkaPrefabStream<V> implements PrefabStream<V> {
     private final StreamsBuilder streamsBuilder;
@@ -147,7 +147,7 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
     }
 
     @Override
-    public StreamDefinition to(Class<?> type) {
+    public StreamDefinition to(Class<? super V> type) {
         return to(topicResolver.topicForType(type));
     }
 
@@ -166,14 +166,15 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
     }
 
     private <R> KafkaPrefabStream<R> wrap(KStream<String, R> transformed, Class<?> runtimeType) {
-        return new KafkaPrefabStream<>(streamsBuilder, transformed, topicResolver, serializer, deserializer, runtimeType);
+        return new KafkaPrefabStream<>(streamsBuilder, transformed, topicResolver, serializer, deserializer,
+                runtimeType);
     }
 
     private void validateMergeContext(KafkaPrefabStream<?> other) {
         if (streamsBuilder == other.streamsBuilder
-                && topicResolver == other.topicResolver
-                && serializer == other.serializer
-                && deserializer == other.deserializer) {
+            && topicResolver == other.topicResolver
+            && serializer == other.serializer
+            && deserializer == other.deserializer) {
             return;
         }
         throw new IllegalArgumentException("Cannot merge streams created by different Kafka stream contexts");

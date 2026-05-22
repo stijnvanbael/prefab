@@ -11,7 +11,7 @@
     {"name": "active",  "type": "boolean", "default": true},
     {"name": "tags",    "type": {"type": "array", "items": "string"}, "default": []},
     {"name": "nickname","type": ["null", "string"], "default": null},
+    {"name": "status",  "type": {"type": "enum", "name": "DefaultStatus", "symbols": ["PENDING", "ACTIVE", "CLOSED"]}, "default": "PENDING"},
     {"name": "required","type": "string"}
   ]
 }
-

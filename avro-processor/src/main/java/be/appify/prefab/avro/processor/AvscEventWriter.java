@@ -113,7 +113,7 @@ class AvscEventWriter {
                     docOf(schema).ifPresent(doc -> builder.addAnnotation(docAnnotation(doc)));
                     avroSchemaAnnotation(schema).ifPresent(builder::addAnnotation);
                     new BuilderWriter(builderSetterPrefix()).enrichWithBuilder(builder, recordType,
-                            strippedParams(fields), defaultsFor(schema));
+                            strippedParams(fields), defaultsFor(schema, schemaPackage));
                     return builder.build();
                 })
                 .orElse(null);
@@ -129,19 +129,19 @@ class AvscEventWriter {
                     docOf(schema).ifPresent(doc -> builder.addAnnotation(docAnnotation(doc)));
                     avroSchemaAnnotation(schema).ifPresent(builder::addAnnotation);
                     new BuilderWriter(builderSetterPrefix()).enrichWithBuilder(builder, recordType,
-                            strippedParams(fields), defaultsFor(schema));
+                            strippedParams(fields), defaultsFor(schema, defaultPackage));
                     return builder.build();
                 })
                 .orElse(null);
     }
-    private Map<String, String> defaultsFor(Schema schema) {
+    private Map<String, String> defaultsFor(Schema schema, String defaultPackage) {
         var result = new LinkedHashMap<String, String>();
         for (var field : schema.getFields()) {
-            defaultInitialiserFor(field).ifPresent(literal -> result.put(field.name(), literal));
+            defaultInitialiserFor(field, defaultPackage).ifPresent(literal -> result.put(field.name(), literal));
         }
         return result;
     }
-    private Optional<String> defaultInitialiserFor(Schema.Field field) {
+    private Optional<String> defaultInitialiserFor(Schema.Field field, String defaultPackage) {
         var defaultValue = field.defaultVal();
         if (defaultValue == null) {
             return Optional.empty();
@@ -149,8 +149,13 @@ class AvscEventWriter {
         if (defaultValue == JsonProperties.NULL_VALUE) {
             return Optional.of("null");
         }
-        if (defaultValue instanceof String s) {
-            return Optional.of("\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"");
+        if (defaultValue instanceof String symbol) {
+            var resolvedSchema = resolvedNonNullSchema(field.schema());
+            if (resolvedSchema != null && resolvedSchema.getType() == Schema.Type.ENUM) {
+                var enumTypeName = capitalize(resolvedSchema.getName());
+                return Optional.of(defaultPackage + "." + enumTypeName + "." + symbol);
+            }
+            return Optional.of("\"" + symbol.replace("\\", "\\\\").replace("\"", "\\\"") + "\"");
         }
         if (defaultValue instanceof Integer i) {
             return Optional.of(i.toString());
@@ -215,6 +220,17 @@ class AvscEventWriter {
             return new FieldResolution(fieldSchema, false, null);
         }
         return resolveUnionSchema(field, fieldSchema, defaultPackage, pendingUnions);
+    }
+    /** Returns the effective non-null schema for a field, unwrapping single-branch nullable unions. */
+    @Nullable
+    private Schema resolvedNonNullSchema(Schema schema) {
+        if (schema.getType() != Schema.Type.UNION) {
+            return schema;
+        }
+        var nonNullTypes = schema.getTypes().stream()
+                .filter(t -> t.getType() != Schema.Type.NULL)
+                .toList();
+        return nonNullTypes.size() == 1 ? nonNullTypes.getFirst() : null;
     }
     private FieldResolution resolveUnionSchema(Schema.Field field, Schema unionSchema, String defaultPackage,
             List<UnionTypeGroup> pendingUnions) {

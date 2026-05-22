@@ -633,6 +633,8 @@ class AvscPluginTest {
         generated.contains("tags = java.util.List.of()");
         // null default on nullable field
         generated.contains("nickname = null");
+        // enum default
+        generated.contains("status = event.avsc.defaults.DefaultStatus.PENDING");
         // field with no default must not have an initialiser in the Builder
         generated.contains("String required");
     }

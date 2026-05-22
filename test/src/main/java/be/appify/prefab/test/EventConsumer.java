@@ -1,7 +1,7 @@
 package be.appify.prefab.test;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * A unified consumer that collects events from any messaging system (Kafka, Pub/Sub, SNS/SQS).
@@ -31,10 +31,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * @param <T>      the type of events
  */
 public class EventConsumer<T> {
-    private final List<T> messages;
+    private List<T> messages;
 
     public EventConsumer() {
-        this(new CopyOnWriteArrayList<>());
+        this(new ArrayList<>());
     }
 
     public EventConsumer(List<T> messages) {
@@ -42,17 +42,18 @@ public class EventConsumer<T> {
     }
 
     public void addMessage(T message) {
+        messages = new ArrayList<>(messages);
         messages.add(message);
     }
 
     public List<T> messages() {
-        return messages;
+        return List.copyOf(messages);
     }
 
     /**
      * Resets the consumer by clearing all collected events.
      */
     public void reset() {
-        messages.clear();
+        messages = new ArrayList<>();
     }
 }

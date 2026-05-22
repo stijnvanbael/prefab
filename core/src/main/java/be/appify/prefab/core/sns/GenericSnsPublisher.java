@@ -1,5 +1,6 @@
 package be.appify.prefab.core.sns;
 
+import be.appify.prefab.core.domain.DomainEventDispatcher;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -7,16 +8,19 @@ import java.util.concurrent.ConcurrentMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 /**
- * Generic SNS publisher that publishes any Spring application event whose type is registered
- * in {@link SqsUtil} to the corresponding SNS topic.
+ * Generic SNS publisher that dispatches domain events whose type is registered
+ * in {@link SqsUtil} directly to the corresponding SNS topic.
+ *
+ * <p>Implements {@link DomainEventDispatcher} so that {@code SpringDomainEventPublisher}
+ * can route {@code @Event}-annotated records here without going through the Spring
+ * application-event bus.
  */
 @Component
 @ConditionalOnClass(SnsTemplate.class)
-public class GenericSnsPublisher {
+public class GenericSnsPublisher implements DomainEventDispatcher {
     private static final Logger log = LoggerFactory.getLogger(GenericSnsPublisher.class);
 
     private final SnsTemplate snsTemplate;
@@ -30,14 +34,16 @@ public class GenericSnsPublisher {
         this.snsSerializer = snsSerializer;
     }
 
-    @EventListener
-    public void publish(Object event) {
-        var topic = sqsUtil.tryTopicForType(event.getClass());
-        if (topic.isEmpty()) {
-            log.trace("Event type {} not registered in SqsUtil, skipping", event.getClass().getName());
-            return;
-        }
-        var resolvedTopic = topic.get();
+    @Override
+    public boolean canDispatch(Class<?> eventType) {
+        return sqsUtil.tryTopicForType(eventType).isPresent();
+    }
+
+    @Override
+    public void dispatch(Object event) {
+        var resolvedTopic = sqsUtil.tryTopicForType(event.getClass())
+                .orElseThrow(() -> new IllegalStateException(
+                        "No SNS topic registered for type: " + event.getClass().getName()));
         var topicArn = topicArnCache.computeIfAbsent(resolvedTopic, sqsUtil::ensureTopicExists);
         log.debug("Publishing event {} on topic {}", event, topicArn);
         CompletableFuture.runAsync(() ->

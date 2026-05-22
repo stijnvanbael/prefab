@@ -1,19 +1,23 @@
 package be.appify.prefab.core.kafka;
 
+import be.appify.prefab.core.domain.DomainEventDispatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
-import org.springframework.context.event.EventListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * Generic Kafka producer that publishes any Spring application event whose type is registered
- * in the {@link EventRegistry} to the corresponding Kafka topic.
+ * Generic Kafka producer that dispatches domain events whose type is registered
+ * in the {@link EventRegistry} directly to the corresponding Kafka topic.
+ *
+ * <p>Implements {@link DomainEventDispatcher} so that {@code SpringDomainEventPublisher}
+ * can route {@code @Event}-annotated records here without going through the Spring
+ * application-event bus.
  */
 @Component
 @ConditionalOnClass(KafkaTemplate.class)
-public class GenericKafkaProducer {
+public class GenericKafkaProducer implements DomainEventDispatcher {
     private static final Logger log = LoggerFactory.getLogger(GenericKafkaProducer.class);
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
@@ -24,17 +28,15 @@ public class GenericKafkaProducer {
         this.eventRegistry = eventRegistry;
     }
 
-    @EventListener
-    public void publish(Object event) {
-        try {
-            var topic = eventRegistry.topicForType(event.getClass());
-            if(topic == null) {
-                return;
-            }
-            log.debug("Publishing event {} on topic {}", event, topic);
-            kafkaTemplate.send(topic, eventRegistry.keyFor(event).orElse(null), event).join();
-        } catch (IllegalArgumentException e) {
-            log.trace("Event type {} not registered in EventRegistry, skipping", event.getClass().getName());
-        }
+    @Override
+    public boolean canDispatch(Class<?> eventType) {
+        return eventRegistry.hasTopicForType(eventType);
+    }
+
+    @Override
+    public void dispatch(Object event) {
+        var topic = eventRegistry.topicForType(event.getClass());
+        log.debug("Publishing event {} on topic {}", event, topic);
+        kafkaTemplate.send(topic, eventRegistry.keyFor(event).orElse(null), event).join();
     }
 }

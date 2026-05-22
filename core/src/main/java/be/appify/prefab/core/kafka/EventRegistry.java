@@ -204,6 +204,16 @@ public class EventRegistry {
     }
 
     /**
+     * Returns whether at least one topic is registered for the given Java type.
+     *
+     * @param type the event type
+     * @return {@code true} if a topic has been registered for the type
+     */
+    public boolean hasTopicForType(Class<?> type) {
+        return !typeTopics.getOrDefault(type, Set.of()).isEmpty();
+    }
+
+    /**
      * Resolves the single registered topic for a Java type.
      *
      * @param type the event type

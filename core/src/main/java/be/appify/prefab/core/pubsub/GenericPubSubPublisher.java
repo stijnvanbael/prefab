@@ -1,5 +1,6 @@
 package be.appify.prefab.core.pubsub;
 
+import be.appify.prefab.core.domain.DomainEventDispatcher;
 import com.google.cloud.spring.pubsub.PubSubAdmin;
 import com.google.cloud.spring.pubsub.core.PubSubTemplate;
 import com.google.protobuf.ByteString;
@@ -9,16 +10,19 @@ import java.util.concurrent.ConcurrentMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 /**
- * Generic Pub/Sub publisher that publishes any Spring application event whose type is registered
- * in {@link PubSubUtil} to the corresponding Pub/Sub topic.
+ * Generic Pub/Sub publisher that dispatches domain events whose type is registered
+ * in {@link PubSubUtil} directly to the corresponding Pub/Sub topic.
+ *
+ * <p>Implements {@link DomainEventDispatcher} so that {@code SpringDomainEventPublisher}
+ * can route {@code @Event}-annotated records here without going through the Spring
+ * application-event bus.
  */
 @Component
 @ConditionalOnClass(PubSubAdmin.class)
-public class GenericPubSubPublisher {
+public class GenericPubSubPublisher implements DomainEventDispatcher {
     private static final Logger log = LoggerFactory.getLogger(GenericPubSubPublisher.class);
 
     private final PubSubTemplate pubSubTemplate;
@@ -32,14 +36,16 @@ public class GenericPubSubPublisher {
         this.serializer = serializer;
     }
 
-    @EventListener
-    public void publish(Object event) {
-        var topic = pubSubUtil.tryTopicForType(event.getClass());
-        if (topic.isEmpty()) {
-            log.trace("Event type {} not registered in PubSubUtil, skipping", event.getClass().getName());
-            return;
-        }
-        var resolvedTopic = topic.get();
+    @Override
+    public boolean canDispatch(Class<?> eventType) {
+        return pubSubUtil.tryTopicForType(eventType).isPresent();
+    }
+
+    @Override
+    public void dispatch(Object event) {
+        var resolvedTopic = pubSubUtil.tryTopicForType(event.getClass())
+                .orElseThrow(() -> new IllegalStateException(
+                        "No Pub/Sub topic registered for type: " + event.getClass().getName()));
         var qualifiedTopic = fullyQualifiedTopicCache.computeIfAbsent(resolvedTopic, pubSubUtil::ensureTopicExists);
         log.debug("Publishing event {} on topic {}", event, qualifiedTopic);
         var data = ByteString.copyFrom(serializer.serialize(PubSubUtil.simpleTopicName(qualifiedTopic), event));

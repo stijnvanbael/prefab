@@ -1,14 +1,14 @@
 ---
 id: TASK-150
 title: Return 404 when aggregate not found in async update
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-04-30 11:23'
-updated_date: '2026-04-30 11:23'
+updated_date: '2026-05-22 16:53'
 labels:
   - bug
 dependencies: []
-priority: P2
+ordinal: 2000
 ---
 
 ## Description
@@ -20,7 +20,6 @@ service returns an empty `Optional` (i.e. `findById` found no aggregate).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
-
 <!-- AC:BEGIN -->
 - [ ] #1 The generated controller for an async update returns 404 when the aggregate is not found
 - [ ] #2 The generated controller for an async update returns 202 when the aggregate is found

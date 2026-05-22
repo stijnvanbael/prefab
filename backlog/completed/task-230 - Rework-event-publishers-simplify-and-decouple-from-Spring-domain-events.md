@@ -4,7 +4,7 @@ title: 'Rework event publishers: simplify and decouple from Spring domain events
 status: Done
 assignee: []
 created_date: '2026-05-22 12:16'
-updated_date: '2026-05-22 12:36'
+updated_date: '2026-05-22 16:53'
 labels:
   - architecture
   - events
@@ -13,6 +13,7 @@ labels:
   - sns-sqs
 dependencies: []
 priority: medium
+ordinal: 1000
 ---
 
 ## Description

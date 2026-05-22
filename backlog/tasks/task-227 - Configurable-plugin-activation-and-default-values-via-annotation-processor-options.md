@@ -6,11 +6,13 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-05-21 12:13'
+updated_date: '2026-05-22 17:44'
 labels:
   - ✨feature
   - annotation-processor
 dependencies: []
 priority: medium
+ordinal: 170000
 ---
 
 ## Description

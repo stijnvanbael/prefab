@@ -31,10 +31,14 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * @param <T>      the type of events
  */
 public class EventConsumer<T> {
-    private final List<T> messages = new CopyOnWriteArrayList<>();
+    private final List<T> messages;
 
-    public EventConsumer(List<T> initialMessages) {
-        messages.addAll(initialMessages);
+    public EventConsumer() {
+        this(new CopyOnWriteArrayList<>());
+    }
+
+    public EventConsumer(List<T> messages) {
+        this.messages = messages;
     }
 
     public void addMessage(T message) {

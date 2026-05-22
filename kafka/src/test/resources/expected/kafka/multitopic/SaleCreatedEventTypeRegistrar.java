@@ -1,4 +1,4 @@
-package kafka.multitopic.infrastructure.kafka;
+package kafka.multitopic.infrastructure.event;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.kafka.EventRegistryCustomizer;
@@ -6,9 +6,9 @@ import kafka.multitopic.Sale;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 @Component
-public class SaleCreatedKafkaEventTypeRegistrar implements EventRegistryCustomizer {
+public class SaleCreatedEventTypeRegistrar implements EventRegistryCustomizer {
     private final String saleCreatedTopic;
-    public SaleCreatedKafkaEventTypeRegistrar(
+    public SaleCreatedEventTypeRegistrar(
             @Value("${topic.sale.name}") String saleCreatedTopic) {
         this.saleCreatedTopic = saleCreatedTopic;
     }
@@ -17,3 +17,4 @@ public class SaleCreatedKafkaEventTypeRegistrar implements EventRegistryCustomiz
         registry.register(saleCreatedTopic, Sale.Created.class, Event.Serialization.JSON);
     }
 }
+

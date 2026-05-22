@@ -19,7 +19,7 @@ import static com.google.testing.compile.Compiler.javac;
 class SerializationPluginTest {
 
     @Test
-    void singlePackageEventGeneratesOneConfiguration() {
+    void singlePackageEventGeneratesOneRegistrar() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/serialization/multipackage/source/order/OrderCreated.java"));
@@ -27,13 +27,13 @@ class SerializationPluginTest {
         assertThat(compilation).succeeded();
         assertThat(compilation)
                 .generatedSourceFile(
-                        "event.serialization.multipackage.order.infrastructure.event.EventSerializationMultipackageOrderSerializationRegistryConfiguration")
+                        "event.serialization.multipackage.order.infrastructure.event.OrderCreatedEventTypeRegistrar")
                 .contentsAsUtf8String()
                 .contains("implements EventRegistryCustomizer");
     }
 
     @Test
-    void multiPackageEventsGenerateOneConfigurationPerPackage() {
+    void multiPackageEventsGenerateOneRegistrarPerType() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -44,18 +44,18 @@ class SerializationPluginTest {
         assertThat(compilation).succeeded();
         assertThat(compilation)
                 .generatedSourceFile(
-                        "event.serialization.multipackage.order.infrastructure.event.EventSerializationMultipackageOrderSerializationRegistryConfiguration")
+                        "event.serialization.multipackage.order.infrastructure.event.OrderCreatedEventTypeRegistrar")
                 .contentsAsUtf8String()
                 .contains("order-created");
         assertThat(compilation)
                 .generatedSourceFile(
-                        "event.serialization.multipackage.payment.infrastructure.event.EventSerializationMultipackagePaymentSerializationRegistryConfiguration")
+                        "event.serialization.multipackage.payment.infrastructure.event.PaymentProcessedEventTypeRegistrar")
                 .contentsAsUtf8String()
                 .contains("payment-processed");
     }
 
     @Test
-    void multiPackageEventsUseBeanNameDerivedFromOwnPackage() {
+    void multiPackageEventsUseClassNameDerivedFromType() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -66,18 +66,18 @@ class SerializationPluginTest {
         assertThat(compilation).succeeded();
         assertThat(compilation)
                 .generatedSourceFile(
-                        "event.serialization.multipackage.order.infrastructure.event.EventSerializationMultipackageOrderSerializationRegistryConfiguration")
+                        "event.serialization.multipackage.order.infrastructure.event.OrderCreatedEventTypeRegistrar")
                 .contentsAsUtf8String()
-                .contains("EventSerializationMultipackageOrderSerializationRegistryConfiguration");
+                .contains("OrderCreatedEventTypeRegistrar");
         assertThat(compilation)
                 .generatedSourceFile(
-                        "event.serialization.multipackage.payment.infrastructure.event.EventSerializationMultipackagePaymentSerializationRegistryConfiguration")
+                        "event.serialization.multipackage.payment.infrastructure.event.PaymentProcessedEventTypeRegistrar")
                 .contentsAsUtf8String()
-                .contains("EventSerializationMultipackagePaymentSerializationRegistryConfiguration");
+                .contains("PaymentProcessedEventTypeRegistrar");
     }
 
     @Test
-    void nestedEventInterfaceGeneratesSerializationRegistryConfiguration() {
+    void nestedEventInterfaceGeneratesRegistrar() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/serialization/nested/source/sale/Sale.java"));
@@ -85,13 +85,13 @@ class SerializationPluginTest {
         assertThat(compilation).succeeded();
         assertThat(compilation)
                 .generatedSourceFile(
-                        "event.serialization.nested.sale.infrastructure.event.EventSerializationNestedSaleSerializationRegistryConfiguration")
+                        "event.serialization.nested.sale.infrastructure.event.SaleEventsEventTypeRegistrar")
                 .contentsAsUtf8String()
                 .contains("sale");
     }
 
     @Test
-    void dependencyEventDoesNotGenerateSerializationRegistryConfiguration() {
+    void dependencyEventDoesNotGenerateRegistrar() {
         var dependencyClasspath = compileDependencyClasspath(
                 sourceOf("event/serialization/dependency/source/DependencyEvent.java"));
         try {
@@ -103,7 +103,7 @@ class SerializationPluginTest {
             assertThat(compilation).succeeded();
             assertFalse(compilation.generatedSourceFiles().stream().anyMatch(file -> file.toUri().getPath().endsWith(
                     "/event/serialization/dependency/infrastructure/event/"
-                            + "EventSerializationDependencySerializationRegistryConfiguration.java")));
+                            + "DependencyEventEventTypeRegistrar.java")));
         } finally {
             deleteRecursively(dependencyClasspath);
         }

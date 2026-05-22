@@ -1,4 +1,4 @@
-package kafka.createorupdate.infrastructure.kafka;
+package kafka.createorupdate.infrastructure.event;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.kafka.EventRegistryCustomizer;
@@ -6,9 +6,9 @@ import kafka.createorupdate.MessageEvent;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 @Component
-public class MessageEventKafkaEventTypeRegistrar implements EventRegistryCustomizer {
+public class MessageEventEventTypeRegistrar implements EventRegistryCustomizer {
     private final String messageEventTopic;
-    public MessageEventKafkaEventTypeRegistrar(
+    public MessageEventEventTypeRegistrar(
             @Value("${topic.message.name}") String messageEventTopic) {
         this.messageEventTopic = messageEventTopic;
     }
@@ -17,3 +17,4 @@ public class MessageEventKafkaEventTypeRegistrar implements EventRegistryCustomi
         registry.register(messageEventTopic, MessageEvent.class, Event.Serialization.JSON);
     }
 }
+

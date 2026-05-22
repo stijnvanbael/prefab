@@ -7,7 +7,7 @@ import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
-import be.appify.prefab.processor.event.EventPlatformPluginSupport;
+import be.appify.prefab.processor.event.EventTypeRegistrarWriter;
 import com.palantir.javapoet.ClassName;
 import org.apache.avro.Schema;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.derivedPlatform;
@@ -32,7 +32,7 @@ import java.util.Map;
  */
 public class KafkaPlugin implements PrefabPlugin {
     private KafkaConsumerWriter kafkaConsumerWriter;
-    private KafkaEventTypeRegistrarWriter kafkaEventTypeRegistrarWriter;
+    private EventTypeRegistrarWriter eventTypeRegistrarWriter;
     private PrefabContext context;
 
     /** Constructs a new KafkaPlugin. */
@@ -44,7 +44,7 @@ public class KafkaPlugin implements PrefabPlugin {
     public void initContext(PrefabContext context) {
         this.context = context;
         kafkaConsumerWriter = new KafkaConsumerWriter(context);
-        kafkaEventTypeRegistrarWriter = new KafkaEventTypeRegistrarWriter(context);
+        eventTypeRegistrarWriter = new EventTypeRegistrarWriter(context);
     }
 
     @Override
@@ -96,19 +96,7 @@ public class KafkaPlugin implements PrefabPlugin {
     }
 
     private void writePublishers() {
-        writeRegularRegistrars();
         writeAvscRegistrars();
-    }
-
-    private void writeRegularRegistrars() {
-        var events = context.eventElementsIncludingConsumedDependencies()
-                .filter(e -> e.getAnnotation(Avsc.class) == null)
-                .filter(e -> platformIsKafka(requireNonNull(e.getAnnotation(Event.class)), e, context))
-                .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
-                .map(EventPlatformPluginSupport::publisherEventType)
-                .distinct()
-                .toList();
-        events.forEach(event -> kafkaEventTypeRegistrarWriter.writeRegistrar(event));
     }
 
     private void writeAvscRegistrars() {
@@ -128,7 +116,7 @@ public class KafkaPlugin implements PrefabPlugin {
                 continue;
             var schemaPackage = schema.getNamespace() != null ? schema.getNamespace() : packageName;
             var eventType = ClassName.get(schemaPackage, schema.getName());
-            kafkaEventTypeRegistrarWriter.writeAvscRegistrar(schemaPackage, eventType, event.topic());
+            eventTypeRegistrarWriter.writeAvscRegistrar(schemaPackage, eventType, event.topic());
         }
     }
 

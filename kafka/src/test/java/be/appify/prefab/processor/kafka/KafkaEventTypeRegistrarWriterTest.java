@@ -29,8 +29,8 @@ class KafkaEventTypeRegistrarWriterTest {
         assertThat(compilation).succeeded();
         assertGeneratedSourceEqualsIgnoringWhitespace(
                 compilation,
-                "kafka.single.infrastructure.kafka.UserCreatedKafkaEventTypeRegistrar",
-                "expected/kafka/single/UserCreatedKafkaEventTypeRegistrar.java");
+                "kafka.single.infrastructure.event.UserCreatedEventTypeRegistrar",
+                "expected/kafka/single/UserCreatedEventTypeRegistrar.java");
     }
 
     @Test
@@ -44,8 +44,8 @@ class KafkaEventTypeRegistrarWriterTest {
         assertThat(compilation).succeeded();
         assertGeneratedSourceEqualsIgnoringWhitespace(
                 compilation,
-                "kafka.multiple.infrastructure.kafka.UserEventKafkaEventTypeRegistrar",
-                "expected/kafka/multiple/UserEventKafkaEventTypeRegistrar.java");
+                "kafka.multiple.infrastructure.event.UserEventEventTypeRegistrar",
+                "expected/kafka/multiple/UserEventEventTypeRegistrar.java");
     }
 
     @Test
@@ -60,12 +60,12 @@ class KafkaEventTypeRegistrarWriterTest {
         assertThat(compilation).succeeded();
         assertGeneratedSourceEqualsIgnoringWhitespace(
                 compilation,
-                "kafka.multitopic.infrastructure.kafka.SaleCreatedKafkaEventTypeRegistrar",
-                "expected/kafka/multitopic/SaleCreatedKafkaEventTypeRegistrar.java");
+                "kafka.multitopic.infrastructure.event.SaleCreatedEventTypeRegistrar",
+                "expected/kafka/multitopic/SaleCreatedEventTypeRegistrar.java");
         assertGeneratedSourceEqualsIgnoringWhitespace(
                 compilation,
-                "kafka.multitopic.infrastructure.kafka.RefundCreatedKafkaEventTypeRegistrar",
-                "expected/kafka/multitopic/RefundCreatedKafkaEventTypeRegistrar.java");
+                "kafka.multitopic.infrastructure.event.RefundCreatedEventTypeRegistrar",
+                "expected/kafka/multitopic/RefundCreatedEventTypeRegistrar.java");
     }
 
     @Test
@@ -78,8 +78,8 @@ class KafkaEventTypeRegistrarWriterTest {
         assertThat(compilation).succeeded();
         assertGeneratedSourceEqualsIgnoringWhitespace(
                 compilation,
-                "kafka.createorupdate.infrastructure.kafka.MessageEventKafkaEventTypeRegistrar",
-                "expected/kafka/createorupdate/MessageEventKafkaEventTypeRegistrar.java");
+                "kafka.createorupdate.infrastructure.event.MessageEventEventTypeRegistrar",
+                "expected/kafka/createorupdate/MessageEventEventTypeRegistrar.java");
     }
 
     @Test
@@ -92,12 +92,12 @@ class KafkaEventTypeRegistrarWriterTest {
         assertThat(compilation).succeeded();
         assertGeneratedSourceEqualsIgnoringWhitespace(
                 compilation,
-                "kafka.avsc.infrastructure.kafka.OrderCreatedEventKafkaEventTypeRegistrar",
-                "expected/kafka/avsc/OrderCreatedEventKafkaEventTypeRegistrar.java");
+                "kafka.avsc.infrastructure.event.OrderCreatedEventEventTypeRegistrar",
+                "expected/kafka/avsc/OrderCreatedEventEventTypeRegistrar.java");
     }
 
     @Test
-    void eventTypeFromDependencyModule() {
+    void dependencyEventDoesNotGenerateRegistrarInConsumer() {
         var dependencyClasspath = compileDependencyClasspath(
                 sourceOf("kafka/dependencyevents/ExternalUserCreated.java"));
         try {
@@ -106,9 +106,11 @@ class KafkaEventTypeRegistrarWriterTest {
                     .withProcessors(new PrefabProcessor())
                     .compile(sourceOf("kafka/externaldependency/UserImporter.java"));
             assertThat(compilation).succeeded();
-            assertThat(compilation)
-                    .generatedSourceFile("kafka.dependencyevents.infrastructure.kafka.ExternalUserCreatedKafkaEventTypeRegistrar")
-                    .isNotNull();
+            // The registrar for ExternalUserCreated is generated when the dependency module is compiled,
+            // not in the consumer module — so no registrar should appear in this compilation.
+            var noRegistrar = compilation.generatedSourceFiles().stream()
+                    .noneMatch(f -> f.toUri().getPath().contains("ExternalUserCreatedEventTypeRegistrar"));
+            org.junit.jupiter.api.Assertions.assertTrue(noRegistrar);
         } finally {
             deleteRecursively(dependencyClasspath);
         }

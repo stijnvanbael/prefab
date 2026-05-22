@@ -4,34 +4,33 @@ import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
- * A plugin that generates a configuration file for the serialization registry, containing all events.
+ * Generates one {@code *EventTypeRegistrar} component per {@code @Event}-annotated type found in
+ * the current compilation, regardless of broker platform. Dependency events are skipped — their
+ * registrar was already written when that module was compiled.
  */
 public class SerializationPlugin implements PrefabPlugin {
-    private SerializationRegistryConfigurationWriter serializationRegistryConfigurationWriter;
+    private EventTypeRegistrarWriter eventTypeRegistrarWriter;
     private PrefabContext context;
-    private final Set<String> writtenPackages = new LinkedHashSet<>();
+    private final Set<String> writtenTypes = new HashSet<>();
 
     @Override
     public void initContext(PrefabContext context) {
         this.context = context;
-        serializationRegistryConfigurationWriter = new SerializationRegistryConfigurationWriter(context);
+        eventTypeRegistrarWriter = new EventTypeRegistrarWriter(context);
     }
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
-        var eventsByPackage = context.eventElementsFromCurrentCompilation()
+        context.eventElementsFromCurrentCompilation()
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
-                .collect(Collectors.groupingBy(TypeManifest::packageName));
-
-        eventsByPackage.entrySet().stream()
-                .filter(entry -> writtenPackages.add(entry.getKey()))
-                .forEach(entry -> serializationRegistryConfigurationWriter
-                        .writeConfigurationForPackage(entry.getKey(), entry.getValue()));
+                .map(EventPlatformPluginSupport::publisherEventType)
+                .distinct()
+                .filter(event -> writtenTypes.add(event.packageName() + "." + event.simpleName()))
+                .forEach(eventTypeRegistrarWriter::writeRegistrar);
     }
 }

@@ -1,4 +1,4 @@
-package kafka.multiple.infrastructure.kafka;
+package kafka.multiple.infrastructure.event;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.kafka.EventRegistryCustomizer;
@@ -6,9 +6,9 @@ import kafka.multiple.UserEvent;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 @Component
-public class UserEventKafkaEventTypeRegistrar implements EventRegistryCustomizer {
+public class UserEventEventTypeRegistrar implements EventRegistryCustomizer {
     private final String userEventTopic;
-    public UserEventKafkaEventTypeRegistrar(
+    public UserEventEventTypeRegistrar(
             @Value("${topic.user.name}") String userEventTopic) {
         this.userEventTopic = userEventTopic;
     }
@@ -17,3 +17,4 @@ public class UserEventKafkaEventTypeRegistrar implements EventRegistryCustomizer
         registry.register(userEventTopic, UserEvent.class, Event.Serialization.JSON, event -> event.id());
     }
 }
+

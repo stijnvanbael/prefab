@@ -1,10 +1,10 @@
 ---
 id: TASK-228
 title: Set defaults from AVSC file in generated builders
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-05-22 08:04'
-updated_date: '2026-05-22 08:08'
+updated_date: '2026-05-22 08:31'
 labels:
   - avro
   - codegen
@@ -23,12 +23,12 @@ Currently, `AvscEventWriter` generates builders via `BuilderWriter.enrichWithBui
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 When an AVSC field declares a `"default"` value, the generated builder initialises the corresponding field with that default.
-- [ ] #2 Supported default types: null, String, int, long, double, float, boolean, and enum symbols.
-- [ ] #3 Array fields with a default of `[]` initialise the builder field to an empty list.
-- [ ] #4 Fields without a declared default retain the current behaviour (no initialisation).
-- [ ] #5 Existing tests continue to pass after the change.
-- [ ] #6 New unit/integration tests cover the default-value propagation for each supported type.
+- [x] #1 When an AVSC field declares a `"default"` value, the generated builder initialises the corresponding field with that default.
+- [x] #2 Supported default types: null, String, int, long, double, float, boolean, and enum symbols.
+- [x] #3 Array fields with a default of `[]` initialise the builder field to an empty list.
+- [x] #4 Fields without a declared default retain the current behaviour (no initialisation).
+- [x] #5 Existing tests continue to pass after the change.
+- [x] #6 New unit/integration tests cover the default-value propagation for each supported type.
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -100,3 +100,13 @@ The existing `enrichWithBuilder(TypeSpec.Builder, ClassName, List<ParameterSpec>
 - `avro-processor/src/test/resources/event/avsc/defaults/` — new AVSC + Java source for the test case.
 - `avro-processor/src/test/java/…/AvscPluginTest.java` — new test method.
 <!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Implemented Option A. Added a 4-arg overload to `BuilderWriter.enrichWithBuilder` accepting `Map<String,String> fieldDefaults`; the existing 3-arg method delegates to it with an empty map for full backwards compatibility. `BuilderWriter.buildField` now emits `private T field = <literal>` when the map contains an entry for that field name.
+
+In `AvscEventWriter`, a new `defaultInitialiserFor(Schema.Field)` method reads `Schema.Field.defaultVal()` and converts it to a JavaPoet literal covering String, int, long, double, float, boolean, JSON null, and empty arrays. A new `defaultsFor(Schema)` helper collects these into a `Map<String,String>` that is passed to the new `enrichWithBuilder` overload for both top-level and nested record builders.
+
+New test fixture `event/avsc/defaults/` exercises every supported default type plus a field with no default. New test `AvscPluginTest.defaultsAvscEvent_builderFieldsAreInitialisedFromAvscDefaults` asserts each generated initialiser. All 61 avro-processor tests pass; all 306 annotation-processor tests pass.
+<!-- SECTION:FINAL_SUMMARY:END -->

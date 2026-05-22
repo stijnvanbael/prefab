@@ -31,5 +31,17 @@ public interface DomainEventDispatcher {
      * @param event the domain event to dispatch
      */
     void dispatch(Object event);
+
+    /**
+     * Convenience method that checks for {@code null} and calls {@link #dispatch} only when the event
+     * is non-null and {@link #canDispatch} returns {@code true}.
+     *
+     * @param event the domain event to publish
+     */
+    default void publish(Object event) {
+        if (event != null && canDispatch(event.getClass())) {
+            dispatch(event);
+        }
+    }
 }
 

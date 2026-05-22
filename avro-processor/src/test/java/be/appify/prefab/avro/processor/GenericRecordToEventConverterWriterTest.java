@@ -52,6 +52,20 @@ class GenericRecordToEventConverterWriterTest {
     }
 
     @Test
+    void interfaceSupertypeWithAvroSchemaNameOverride() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/avro/schemanameoverride/source/OverriddenUserEvent.java"),
+                        sourceOf("event/avro/schemanameoverride/source/UserCreatedWithCustomSchema.java"));
+        assertThat(compilation).succeeded();
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "event.avro.infrastructure.avro.GenericRecordToOverriddenUserEventConverter",
+                "event/avro/schemanameoverride/expected/GenericRecordToOverriddenUserEventConverter.java");
+    }
+
+    @Test
     void nonPrimitiveFields() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

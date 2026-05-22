@@ -21,8 +21,8 @@ public class GenericRecordToHierarchyEventConverter implements Converter<Generic
     @Override
     public HierarchyEvent convert(GenericRecord genericRecord) {
         return switch(genericRecord.getSchema().getName()) {
-                    case "HierarchyEvent.Created" -> genericRecordToHierarchyEventCreatedConverter.convert(genericRecord);
-                    case "HierarchyEvent.Updated" -> genericRecordToHierarchyEventUpdatedConverter.convert(genericRecord);
+                    case "HierarchyEvent_Created" -> genericRecordToHierarchyEventCreatedConverter.convert(genericRecord);
+                    case "HierarchyEvent_Updated" -> genericRecordToHierarchyEventUpdatedConverter.convert(genericRecord);
                     default -> throw new IllegalArgumentException("Unknown subtype: " + genericRecord.getSchema().getName());
                 };
     }

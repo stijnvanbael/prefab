@@ -186,7 +186,7 @@ class EventSchemaFactoryWriter {
      * Returns the Avro schema name for the type, honouring any {@link AvroSchema#name()} override.
      * Falls back to the Java simple class name when no override is present.
      */
-    private static String avroSchemaNameOf(TypeManifest type) {
+    static String avroSchemaNameOf(TypeManifest type) {
         return type.annotationsOfType(AvroSchema.class).stream()
                 .map(AvroSchema::name)
                 .filter(name -> !name.isBlank())

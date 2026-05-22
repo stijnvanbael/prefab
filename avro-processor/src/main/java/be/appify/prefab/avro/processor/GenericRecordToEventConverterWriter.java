@@ -30,6 +30,7 @@ import static be.appify.prefab.avro.processor.AvroPlugin.isNestedRecord;
 import static be.appify.prefab.avro.processor.AvroPlugin.nestedTypes;
 import static be.appify.prefab.avro.processor.AvroPlugin.sealedSubtypes;
 import static be.appify.prefab.avro.processor.AvroSupport.componentAnnotation;
+import static be.appify.prefab.avro.processor.EventSchemaFactoryWriter.avroSchemaNameOf;
 
 class GenericRecordToEventConverterWriter {
     private final PrefabContext context;
@@ -108,7 +109,7 @@ class GenericRecordToEventConverterWriter {
         return subtypes.stream()
                 .map(subtype -> {
                     var converterName = "genericRecordTo%sConverter".formatted(subtype.simpleName().replace(".", ""));
-                    return CodeBlock.of("case $S -> $L.convert(genericRecord);", subtype.simpleName(), converterName);
+                    return CodeBlock.of("case $S -> $L.convert(genericRecord);", avroSchemaNameOf(subtype), converterName);
                 })
                 .collect(CodeBlock.joining("\n    "));
     }
@@ -185,7 +186,7 @@ class GenericRecordToEventConverterWriter {
                                     var converterName = "genericRecordTo%sConverter".formatted(
                                             impl.simpleName().replace(".", ""));
                                     return CodeBlock.of("case $S -> $L.convert(genericRecord);",
-                                            impl.simpleName(), converterName);
+                                            avroSchemaNameOf(impl), converterName);
                                 })
                                 .collect(CodeBlock.joining("\n    ")),
                         IllegalArgumentException.class));
@@ -242,7 +243,7 @@ class GenericRecordToEventConverterWriter {
                 type.permittedSubtypes().stream()
                 .map(subtype -> {
                    var converterName = "genericRecordTo%sConverter".formatted(subtype.simpleName().replace(".", ""));
-                   return CodeBlock.of("case $S -> $L.convert($L);", subtype.simpleName(), converterName, value);
+                   return CodeBlock.of("case $S -> $L.convert($L);", avroSchemaNameOf(subtype), converterName, value);
                 }).collect(CodeBlock.joining("\n    ")),
                 value
         );
@@ -388,7 +389,7 @@ class GenericRecordToEventConverterWriter {
         if (isNestedRecord(componentType)) {
             // Use a when-guard so multiple record branches can be distinguished by schema name.
             return CodeBlock.of("case $T v when $S.equals(v.getSchema().getName()) -> $L;",
-                    runtimeType, componentType.simpleName(), construct);
+                    runtimeType, avroSchemaNameOf(componentType), construct);
         }
         return CodeBlock.of("case $T v -> $L;", runtimeType, construct);
     }

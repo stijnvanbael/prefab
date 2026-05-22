@@ -113,6 +113,13 @@ public class KafkaConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(GenericKafkaProducer.class)
+    @SuppressWarnings("unchecked")
+    GenericKafkaProducer genericKafkaProducer(KafkaTemplate<?, ?> kafkaTemplate, EventRegistry eventRegistry) {
+        return new GenericKafkaProducer((KafkaTemplate<String, Object>) kafkaTemplate, eventRegistry);
+    }
+
+    @Bean
     @ConditionalOnMissingBean(KafkaListenerContainerFactory.class)
     ConcurrentKafkaListenerContainerFactory<Object, Object> kafkaListenerContainerFactory(
             ConcurrentKafkaListenerContainerFactoryConfigurer configurer,

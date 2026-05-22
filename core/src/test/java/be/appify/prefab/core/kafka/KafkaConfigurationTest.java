@@ -13,6 +13,7 @@ import org.springframework.core.convert.support.DefaultConversionService;
 import org.springframework.kafka.transaction.KafkaTransactionManager;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class KafkaConfigurationTest {
 
@@ -47,6 +48,13 @@ class KafkaConfigurationTest {
                 "test-app");
 
         assertEquals("latest", consumerFactory.getConfigurationProperties().get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
+    }
+
+    @Test
+    void genericKafkaProducerBeanIsCreated() {
+        var producer = configuration.genericKafkaProducer(null, new EventRegistry());
+
+        assertNotNull(producer);
     }
 
     private DynamicDeserializer dynamicDeserializer(KafkaProperties kafkaProperties) {

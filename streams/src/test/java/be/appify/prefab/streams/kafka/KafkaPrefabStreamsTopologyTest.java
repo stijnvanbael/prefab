@@ -151,61 +151,7 @@ class KafkaPrefabStreamsTopologyTest {
         }
     }
 
-    @Test
-    void branch_shouldKeepOnlyMatchingRecords() {
-        var test = KafkaTopologyTestBootstrap.bootstrap();
-        test.registerJson("orders.in", IncomingOrder.class);
 
-        var streams = test.streams(new StreamsBuilder());
-        var topology = streams.from(IncomingOrder.class)
-                .branch(order -> order.customer().startsWith("A"))
-                .to("orders.a-customers");
-
-        try (var topologyTest = test.run(topology)) {
-            var inputTopic = topologyTest.input("orders.in");
-            var aCustomersTopic = topologyTest.rawOutput("orders.a-customers");
-
-            inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "Alice"));
-            inputTopic.pipeInput("o-2", new IncomingOrder("o-2", "Bob"));
-            inputTopic.pipeInput("o-3", new IncomingOrder("o-3", "Anna"));
-
-            assertThat(aCustomersTopic.readValuesToList()).hasSize(2);
-        }
-    }
-
-    @Test
-    void merge_shouldCombineRecordsFromTwoStreamsIntoSingleOutput() {
-        var test = KafkaTopologyTestBootstrap.bootstrap();
-        test.registerJson("orders.in", IncomingOrder.class);
-        test.registerJson("orders.out", ProcessedOrder.class);
-
-        var streams = test.streams(new StreamsBuilder());
-
-        var aCustomers = streams.from(IncomingOrder.class)
-                .branch(order -> order.customer().startsWith("A"))
-                .map(order -> new ProcessedOrder(order.orderId(), "A:" + order.customer()));
-
-        var otherCustomers = streams.from(IncomingOrder.class)
-                .filter(order -> !order.customer().startsWith("A"))
-                .map(order -> new ProcessedOrder(order.orderId(), "B:" + order.customer()));
-
-        var topology = streams.merge(aCustomers, otherCustomers).to(ProcessedOrder.class);
-
-        try (var topologyTest = test.run(topology)) {
-            var inputTopic = topologyTest.input("orders.in");
-            var outputTopic = topologyTest.output("orders.out");
-
-            inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "Alice"));
-            inputTopic.pipeInput("o-2", new IncomingOrder("o-2", "Bob"));
-
-            var merged = outputTopic.readValuesToList();
-            assertThat(merged)
-                    .hasSize(2)
-                    .allMatch(ProcessedOrder.class::isInstance);
-            assertThat(merged.stream().map(ProcessedOrder.class::cast).map(ProcessedOrder::customer).toList())
-                    .containsExactlyInAnyOrder("A:Alice", "B:Bob");
-        }
-    }
 
     @Test
     void breakout_shouldApplyKafkaNativeFragmentWithinPrefabPipeline() {

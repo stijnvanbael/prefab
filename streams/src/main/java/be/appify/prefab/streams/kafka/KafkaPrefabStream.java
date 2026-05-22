@@ -15,6 +15,7 @@ import org.apache.kafka.streams.kstream.Named;
 import org.apache.kafka.streams.kstream.Produced;
 
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -70,11 +71,11 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
     @Override
     public PrefabStream<V> branch(Predicate<V> predicate) {
         Objects.requireNonNull(predicate, "predicate must not be null");
-        var branchPrefix = "prefab-branch-";
-        var branched = stream.split(Named.as(branchPrefix))
+        var branchId = "branch-" + UUID.randomUUID();
+        var branched = stream.split(Named.as(branchId))
                 .branch((key, value) -> predicate.test(value), Branched.as("matched"));
         var namedBranches = branched.noDefaultBranch();
-        return wrap(namedBranches.get(branchPrefix + "matched"), valueType);
+        return wrap(namedBranches.get(branchId + "-matched"), valueType);
     }
 
     @Override

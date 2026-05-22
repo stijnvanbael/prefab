@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "DefaultsAvscEvent",
+  "namespace": "event.avsc.defaults",
+  "fields": [
+    {"name": "label",   "type": "string",  "default": "unknown"},
+    {"name": "count",   "type": "int",     "default": 0},
+    {"name": "total",   "type": "long",    "default": 0},
+    {"name": "ratio",   "type": "double",  "default": 0.0},
+    {"name": "factor",  "type": "float",   "default": 1.0},
+    {"name": "active",  "type": "boolean", "default": true},
+    {"name": "tags",    "type": {"type": "array", "items": "string"}, "default": []},
+    {"name": "nickname","type": ["null", "string"], "default": null},
+    {"name": "required","type": "string"}
+  ]
+}
+

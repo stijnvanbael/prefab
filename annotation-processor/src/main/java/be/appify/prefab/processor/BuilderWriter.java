@@ -1,10 +1,12 @@
 package be.appify.prefab.processor;
 
 import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeSpec;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Modifier;
 
@@ -42,8 +44,22 @@ public class BuilderWriter {
      * @param fields        the record components (name and type used; annotations are ignored)
      */
     public void enrichWithBuilder(TypeSpec.Builder recordBuilder, ClassName recordType, List<ParameterSpec> fields) {
+        enrichWithBuilder(recordBuilder, recordType, fields, Map.of());
+    }
+
+    /**
+     * Adds a nested {@code Builder} class and a static {@code builder()} factory method to the given record builder,
+     * pre-initialising builder fields with the supplied default literals.
+     *
+     * @param recordBuilder the record {@link TypeSpec.Builder} to enrich
+     * @param recordType    the {@link ClassName} of the record being built
+     * @param fields        the record components (name and type used; annotations are ignored)
+     * @param fieldDefaults map of field name to JavaPoet initialiser literal (e.g. {@code "\"hello\""}, {@code "42"})
+     */
+    public void enrichWithBuilder(TypeSpec.Builder recordBuilder, ClassName recordType,
+            List<ParameterSpec> fields, Map<String, String> fieldDefaults) {
         recordBuilder.addMethod(builderFactoryMethod());
-        recordBuilder.addType(buildNestedBuilderClass(recordType, fields));
+        recordBuilder.addType(buildNestedBuilderClass(recordType, fields, fieldDefaults));
     }
 
     private MethodSpec builderFactoryMethod() {
@@ -54,18 +70,29 @@ public class BuilderWriter {
                 .build();
     }
 
-    private TypeSpec buildNestedBuilderClass(ClassName recordType, List<ParameterSpec> fields) {
+    private TypeSpec buildNestedBuilderClass(ClassName recordType, List<ParameterSpec> fields,
+            Map<String, String> fieldDefaults) {
         var builder = TypeSpec.classBuilder(BUILDER)
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC);
 
         fields.forEach(field -> {
-            builder.addField(field.type(), field.name(), Modifier.PRIVATE);
+            builder.addField(buildField(field, fieldDefaults));
             builder.addMethod(withMethod(field));
         });
 
         builder.addMethod(buildMethod(recordType, fields));
 
         return builder.build();
+    }
+
+    private FieldSpec buildField(ParameterSpec field, Map<String, String> fieldDefaults) {
+        var defaultLiteral = fieldDefaults.get(field.name());
+        if (defaultLiteral != null) {
+            return FieldSpec.builder(field.type(), field.name(), Modifier.PRIVATE)
+                    .initializer(defaultLiteral)
+                    .build();
+        }
+        return FieldSpec.builder(field.type(), field.name(), Modifier.PRIVATE).build();
     }
 
     private MethodSpec withMethod(ParameterSpec field) {
@@ -92,4 +119,3 @@ public class BuilderWriter {
                 .build();
     }
 }
-

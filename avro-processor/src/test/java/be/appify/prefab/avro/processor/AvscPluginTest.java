@@ -607,4 +607,33 @@ class AvscPluginTest {
             throw new RuntimeException(e);
         }
     }
+
+    @Test
+    void defaultsAvscEvent_builderFieldsAreInitialisedFromAvscDefaults() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/defaults/source/DefaultsAvsc.java"));
+        assertThat(compilation).succeeded();
+        var generated = assertThat(compilation).generatedSourceFile("event.avsc.defaults.DefaultsAvscEvent")
+                .contentsAsUtf8String();
+
+        // String default
+        generated.contains("label = \"unknown\"");
+        // int default
+        generated.contains("count = 0");
+        // long default
+        generated.contains("total = 0L");
+        // double default
+        generated.contains("ratio = 0.0");
+        // float default
+        generated.contains("factor = (float) 1.0");
+        // boolean default
+        generated.contains("active = true");
+        // array default (empty list)
+        generated.contains("tags = java.util.List.of()");
+        // null default on nullable field
+        generated.contains("nickname = null");
+        // field with no default must not have an initialiser in the Builder
+        generated.contains("String required");
+    }
 }

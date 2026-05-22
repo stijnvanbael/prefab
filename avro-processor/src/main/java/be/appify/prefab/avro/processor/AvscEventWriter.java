@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.apache.avro.JsonProperties;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Modifier;
 import javax.tools.Diagnostic;
@@ -111,7 +112,8 @@ class AvscEventWriter {
                             .addSuperinterface(contractInterface);
                     docOf(schema).ifPresent(doc -> builder.addAnnotation(docAnnotation(doc)));
                     avroSchemaAnnotation(schema).ifPresent(builder::addAnnotation);
-                    new BuilderWriter(builderSetterPrefix()).enrichWithBuilder(builder, recordType, strippedParams(fields));
+                    new BuilderWriter(builderSetterPrefix()).enrichWithBuilder(builder, recordType,
+                            strippedParams(fields), defaultsFor(schema));
                     return builder.build();
                 })
                 .orElse(null);
@@ -126,10 +128,51 @@ class AvscEventWriter {
                             .recordConstructor(MethodSpec.compactConstructorBuilder().addParameters(fields).build());
                     docOf(schema).ifPresent(doc -> builder.addAnnotation(docAnnotation(doc)));
                     avroSchemaAnnotation(schema).ifPresent(builder::addAnnotation);
-                    new BuilderWriter(builderSetterPrefix()).enrichWithBuilder(builder, recordType, strippedParams(fields));
+                    new BuilderWriter(builderSetterPrefix()).enrichWithBuilder(builder, recordType,
+                            strippedParams(fields), defaultsFor(schema));
                     return builder.build();
                 })
                 .orElse(null);
+    }
+    private Map<String, String> defaultsFor(Schema schema) {
+        var result = new LinkedHashMap<String, String>();
+        for (var field : schema.getFields()) {
+            defaultInitialiserFor(field).ifPresent(literal -> result.put(field.name(), literal));
+        }
+        return result;
+    }
+    private Optional<String> defaultInitialiserFor(Schema.Field field) {
+        var defaultValue = field.defaultVal();
+        if (defaultValue == null) {
+            return Optional.empty();
+        }
+        if (defaultValue == JsonProperties.NULL_VALUE) {
+            return Optional.of("null");
+        }
+        if (defaultValue instanceof String s) {
+            return Optional.of("\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"");
+        }
+        if (defaultValue instanceof Integer i) {
+            return Optional.of(i.toString());
+        }
+        if (defaultValue instanceof Long l) {
+            return Optional.of(l + "L");
+        }
+        if (defaultValue instanceof Double d) {
+            return Optional.of(d.toString());
+        }
+        if (defaultValue instanceof Float f) {
+            return Optional.of("(float) " + f);
+        }
+        if (defaultValue instanceof Boolean b) {
+            return Optional.of(b.toString());
+        }
+        if (defaultValue instanceof List<?> list) {
+            if (list.isEmpty()) {
+                return Optional.of("java.util.List.of()");
+            }
+        }
+        return Optional.empty();
     }
     private List<ParameterSpec> strippedParams(List<ParameterSpec> fields) {
         return fields.stream()

@@ -1,5 +1,6 @@
 package be.appify.prefab.streams;
 
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -75,6 +76,27 @@ public interface PrefabStream<V> {
      * @return merged stream containing records from both inputs as {@code V}
      */
     PrefabStream<V> merge(PrefabStream<? extends V> other);
+
+    /**
+     * Joins the current stream with another stream on matching record keys within {@code window}.
+     *
+     * @param other
+     *         stream to join with
+     * @param window
+     *         join window configuration
+     * @param joiner
+     *         function combining matching left and right values into the output value
+     * @param <VO>
+     *         value type of the other stream
+     * @param <VR>
+     *         resulting joined value type
+     * @return stream containing joined values
+     */
+    <VO, VR> PrefabStream<VR> join(
+            PrefabStream<VO> other,
+            JoinWindow window,
+            BiFunction<? super V, ? super VO, ? extends VR> joiner
+    );
 
     /**
      * Injects a backend-native stream fragment using a backend adapter SPI.

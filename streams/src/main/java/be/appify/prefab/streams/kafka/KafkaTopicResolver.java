@@ -26,5 +26,16 @@ public class KafkaTopicResolver {
     public String topicForType(Class<?> type) {
         return eventRegistry.topicForType(type);
     }
+
+    /**
+     * Returns whether a serialization format is registered for the given topic.
+     *
+     * @param topic
+     *         topic name
+     * @return {@code true} when the topic has a configured serialization format
+     */
+    public boolean hasSerializationForTopic(String topic) {
+        return eventRegistry.contains(topic);
+    }
 }
 

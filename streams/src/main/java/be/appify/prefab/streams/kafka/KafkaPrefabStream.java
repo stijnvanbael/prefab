@@ -2,22 +2,28 @@ package be.appify.prefab.streams.kafka;
 
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
+import be.appify.prefab.streams.JoinWindow;
 import be.appify.prefab.streams.PrefabStream;
 import be.appify.prefab.streams.StreamBackend;
 import be.appify.prefab.streams.StreamBreakoutAdapter;
 import be.appify.prefab.streams.StreamDefinition;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import org.apache.kafka.common.serialization.Serde;
+import org.apache.kafka.common.serialization.Deserializer;
+import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.Branched;
+import org.apache.kafka.streams.kstream.JoinWindows;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Named;
 import org.apache.kafka.streams.kstream.Produced;
-
-import java.util.Objects;
-import java.util.UUID;
-import java.util.function.Function;
-import java.util.function.Predicate;
+import org.apache.kafka.streams.kstream.StreamJoined;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Kafka-backed implementation of {@link PrefabStream}.
@@ -35,6 +41,7 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
     private final DynamicSerializer serializer;
     private final DynamicDeserializer deserializer;
     private final Class<?> valueType;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /** Constructs a new KafkaPrefabStream. */
     public KafkaPrefabStream(
@@ -92,6 +99,39 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
         return mergeStreams(this, other);
     }
 
+    @Override
+    public <VO, VR> PrefabStream<VR> join(
+            PrefabStream<VO> other,
+            JoinWindow window,
+            BiFunction<? super V, ? super VO, ? extends VR> joiner
+    ) {
+        Objects.requireNonNull(other, "other must not be null");
+        Objects.requireNonNull(window, "window must not be null");
+        Objects.requireNonNull(joiner, "joiner must not be null");
+
+        if (!(other instanceof KafkaPrefabStream<?> otherKafkaStream)) {
+            throw new IllegalArgumentException("Cannot join non-Kafka stream implementation");
+        }
+
+        validateSameContext(otherKafkaStream);
+
+        @SuppressWarnings("unchecked")
+        var rightStream = (KStream<String, VO>) otherKafkaStream.stream;
+        @SuppressWarnings("unchecked")
+        var leftSerde = (Serde<V>) joinSerde(valueType);
+        @SuppressWarnings("unchecked")
+        var rightSerde = (Serde<VO>) joinSerde(otherKafkaStream.valueType);
+
+        return wrap(
+                stream.join(
+                        rightStream,
+                        (leftValue, rightValue) -> joiner.apply(leftValue, rightValue),
+                        JoinWindows.ofTimeDifferenceAndGrace(window.timeDifference(), window.grace()),
+                        StreamJoined.<String, V, VO>with(Serdes.String(), leftSerde, rightSerde)
+                )
+        );
+    }
+
     static <V> KafkaPrefabStream<V> mergeStreams(PrefabStream<? extends V> left, PrefabStream<? extends V> right) {
         Objects.requireNonNull(left, "left must not be null");
         Objects.requireNonNull(right, "right must not be null");
@@ -103,7 +143,7 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
             throw new IllegalArgumentException("Cannot merge non-Kafka stream implementation");
         }
 
-        leftKafkaStream.validateMergeContext(rightKafkaStream);
+        leftKafkaStream.validateSameContext(rightKafkaStream);
 
         @SuppressWarnings("unchecked")
         var leftTypedStream = (KStream<String, V>) leftKafkaStream.stream;
@@ -171,14 +211,32 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
                 runtimeType);
     }
 
-    private void validateMergeContext(KafkaPrefabStream<?> other) {
+    @SuppressWarnings("unchecked")
+    private <T> Serde<T> joinSerde(Class<?> runtimeType) {
+        var fallbackType = runtimeType;
+        Deserializer<T> joinDeserializer = (topic, data) -> deserializeForJoin(topic, data, fallbackType);
+        return new SerdeAdapter<>((Serializer<T>) serializer, joinDeserializer);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T deserializeForJoin(String topic, byte[] data, Class<?> runtimeType) {
+        if (data == null) {
+            return null;
+        }
+        if (topicResolver.hasSerializationForTopic(topic) || runtimeType == null) {
+            return (T) deserializer.deserialize(topic, data);
+        }
+        return (T) OBJECT_MAPPER.readValue(data, runtimeType);
+    }
+
+    private void validateSameContext(KafkaPrefabStream<?> other) {
         if (streamsBuilder == other.streamsBuilder
             && topicResolver == other.topicResolver
             && serializer == other.serializer
             && deserializer == other.deserializer) {
             return;
         }
-        throw new IllegalArgumentException("Cannot merge streams created by different Kafka stream contexts");
+        throw new IllegalArgumentException("Cannot combine streams created by different Kafka stream contexts");
     }
 
     private static Class<?> commonKnownType(Class<?> left, Class<?> right) {

@@ -1,7 +1,10 @@
 package be.appify.prefab.streams.kafka;
 
+import be.appify.prefab.streams.JoinWindow;
 import be.appify.prefab.streams.StreamBackend;
 import be.appify.prefab.streams.StreamBreakoutAdapter;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.KStream;
@@ -151,6 +154,115 @@ class KafkaPrefabStreamsTopologyTest {
         }
     }
 
+    @Test
+    void join_shouldEmitResultWhenKeysMatchWithinWindow() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        test.registerJson("orders.in", IncomingOrder.class);
+        test.registerJson("shipments.in", ShippingUpdate.class);
+        test.registerJson("orders.joined", JoinedOrder.class);
+
+        var streams = test.streams(new StreamsBuilder());
+        var topology = streams.from(IncomingOrder.class)
+                .join(
+                        streams.from(ShippingUpdate.class),
+                        JoinWindow.of(Duration.ofSeconds(10), Duration.ofSeconds(1)),
+                        (order, shipping) -> new JoinedOrder(order.orderId(), order.customer(), shipping.status())
+                )
+                .to(JoinedOrder.class);
+
+        try (var topologyTest = test.run(topology)) {
+            var ordersInputTopic = topologyTest.input("orders.in");
+            var shipmentsInputTopic = topologyTest.input("shipments.in");
+            var outputTopic = topologyTest.output("orders.joined");
+
+            ordersInputTopic.pipeInput(
+                    "o-1",
+                    new IncomingOrder("o-1", "Alice"),
+                    Instant.ofEpochMilli(1_000L)
+            );
+            shipmentsInputTopic.pipeInput(
+                    "o-1",
+                    new ShippingUpdate("o-1", "SHIPPED"),
+                    Instant.ofEpochMilli(5_000L)
+            );
+
+            assertThat(outputTopic.readValue())
+                    .isEqualTo(new JoinedOrder("o-1", "Alice", "SHIPPED"));
+        }
+    }
+
+    @Test
+    void join_shouldNotEmitResultWhenKeysDoNotMatch() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        test.registerJson("orders.in", IncomingOrder.class);
+        test.registerJson("shipments.in", ShippingUpdate.class);
+        test.registerJson("orders.joined", JoinedOrder.class);
+
+        var streams = test.streams(new StreamsBuilder());
+        var topology = streams.from(IncomingOrder.class)
+                .join(
+                        streams.from(ShippingUpdate.class),
+                        JoinWindow.of(Duration.ofSeconds(10), Duration.ofSeconds(1)),
+                        (order, shipping) -> new JoinedOrder(order.orderId(), order.customer(), shipping.status())
+                )
+                .to(JoinedOrder.class);
+
+        try (var topologyTest = test.run(topology)) {
+            var ordersInputTopic = topologyTest.input("orders.in");
+            var shipmentsInputTopic = topologyTest.input("shipments.in");
+            var outputTopic = topologyTest.output("orders.joined");
+
+            ordersInputTopic.pipeInput(
+                    "o-1",
+                    new IncomingOrder("o-1", "Alice"),
+                    Instant.ofEpochMilli(1_000L)
+            );
+            shipmentsInputTopic.pipeInput(
+                    "o-2",
+                    new ShippingUpdate("o-2", "SHIPPED"),
+                    Instant.ofEpochMilli(5_000L)
+            );
+
+            assertThat(outputTopic.readValuesToList()).isEmpty();
+        }
+    }
+
+    @Test
+    void join_shouldNotEmitResultWhenRecordsAreOutsideWindow() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        test.registerJson("orders.in", IncomingOrder.class);
+        test.registerJson("shipments.in", ShippingUpdate.class);
+        test.registerJson("orders.joined", JoinedOrder.class);
+
+        var streams = test.streams(new StreamsBuilder());
+        var topology = streams.from(IncomingOrder.class)
+                .join(
+                        streams.from(ShippingUpdate.class),
+                        JoinWindow.of(Duration.ofSeconds(2), Duration.ZERO),
+                        (order, shipping) -> new JoinedOrder(order.orderId(), order.customer(), shipping.status())
+                )
+                .to(JoinedOrder.class);
+
+        try (var topologyTest = test.run(topology)) {
+            var ordersInputTopic = topologyTest.input("orders.in");
+            var shipmentsInputTopic = topologyTest.input("shipments.in");
+            var outputTopic = topologyTest.output("orders.joined");
+
+            ordersInputTopic.pipeInput(
+                    "o-1",
+                    new IncomingOrder("o-1", "Alice"),
+                    Instant.ofEpochMilli(1_000L)
+            );
+            shipmentsInputTopic.pipeInput(
+                    "o-1",
+                    new ShippingUpdate("o-1", "SHIPPED"),
+                    Instant.ofEpochMilli(5_000L)
+            );
+
+            assertThat(outputTopic.readValuesToList()).isEmpty();
+        }
+    }
+
 
 
     @Test
@@ -241,6 +353,12 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     record AuditOrder(String orderId, String status) {
+    }
+
+    record ShippingUpdate(String orderId, String status) {
+    }
+
+    record JoinedOrder(String orderId, String customer, String shippingStatus) {
     }
 
     private static final class TrackingStreamsBuilder extends StreamsBuilder {

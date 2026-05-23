@@ -28,6 +28,9 @@ class StreamsExampleApplicationTest {
     @TestEventConsumer(topic = "${topics.streams.long-words}")
     EventConsumer<LongWordEvent> longWordsConsumer;
 
+    @TestEventConsumer(topic = "${topics.streams.joined}")
+    EventConsumer<JoinedStreamEvent> joinedStreamConsumer;
+
     @Test
     void branchAndMerge_shouldRouteWordsAndEmitMergedOutput() {
         kafkaProducer.publish(new StreamEvent("s-1", "hello,world,foo"));
@@ -54,6 +57,18 @@ class StreamsExampleApplicationTest {
                 .where(events -> events.extracting(LongWordEvent::word).contains("HELLO", "WORLD", "TOOLONG"));
     }
 
+    @Test
+    void join_shouldEmitJoinedOutputForMatchingKeyWithinWindow() {
+        kafkaProducer.publish(new JoinLeftEvent("j-1", "payload-a"));
+        kafkaProducer.publish(new JoinRightEvent("j-1", "tag-a"));
+
+        EventAssertions.assertThat(joinedStreamConsumer)
+                .hasReceivedMessages(1)
+                .within(30, TimeUnit.SECONDS)
+                .where(events -> events
+                        .containsExactly(new JoinedStreamEvent("j-1", "payload-a", "tag-a")));
+    }
+
     @TestConfiguration(proxyBeanMethods = false)
     static class TopicConfiguration {
         @Bean
@@ -73,6 +88,21 @@ class StreamsExampleApplicationTest {
 
         @Bean
         NewTopic longWordsTopic(@Value("${topics.streams.long-words}") String topicName) {
+            return new NewTopic(topicName, 1, (short) 1);
+        }
+
+        @Bean
+        NewTopic joinLeftTopic(@Value("${topics.streams.join-left}") String topicName) {
+            return new NewTopic(topicName, 1, (short) 1);
+        }
+
+        @Bean
+        NewTopic joinRightTopic(@Value("${topics.streams.join-right}") String topicName) {
+            return new NewTopic(topicName, 1, (short) 1);
+        }
+
+        @Bean
+        NewTopic joinedTopic(@Value("${topics.streams.joined}") String topicName) {
             return new NewTopic(topicName, 1, (short) 1);
         }
     }

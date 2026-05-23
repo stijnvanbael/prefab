@@ -11,3 +11,6 @@ topics:
     words: streams.words.test
     short-words: streams.words.short.test
     long-words: streams.words.long.test
+    join-left: streams.join.left.test
+    join-right: streams.join.right.test
+    joined: streams.joined.test

@@ -13,4 +13,7 @@ topics:
     words: streams.words
     short-words: streams.words.short
     long-words: streams.words.long
+    join-left: streams.join.left
+    join-right: streams.join.right
+    joined: streams.joined
 

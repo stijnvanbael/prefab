@@ -854,6 +854,7 @@ Supported operations:
 - `flatMap(Function<?, Iterable<?>>)`
 - `branch(Predicate<?>)`
 - `branch(Class<S>)`
+- `join(PrefabStream<VO>, JoinWindow, BiFunction<V, VO, VR>)`
 - `merge(PrefabStream<? extends V>)`
 - `PrefabStreams.merge(PrefabStream<? extends M>, PrefabStream<? extends M>)`
 - `breakout(StreamBreakoutAdapter<?, ?, ?, ?>)`
@@ -872,6 +873,8 @@ Serialization and deserialization reuse the existing Kafka dynamic serde infrast
 
 Use instance `merge(...)` when the current stream type already represents the target type. Use
 `PrefabStreams.merge(...)` when sibling streams should be widened into a declared common supertype.
+
+Use `join(...)` for KStream-KStream **inner join** composition with explicit windowing via `JoinWindow`.
 
 Example topology with subtype branching and factory merge:
 
@@ -907,6 +910,21 @@ record ShortWord(String value) implements ClassifiedWord {}
 
 record LongWord(String value) implements ClassifiedWord {}
 ```
+
+Example join with deterministic keys and explicit window:
+
+```java
+var joined = streams.from(OrderPlaced.class)
+        .join(
+                streams.from(ShipmentUpdated.class),
+                JoinWindow.of(Duration.ofSeconds(10), Duration.ofSeconds(1)),
+                (order, shipment) -> new FulfillmentJoined(order.orderId(), order.customer(), shipment.status())
+        )
+        .to(FulfillmentJoined.class);
+```
+
+In this setup, `OrderPlaced.orderId` and `ShipmentUpdated.orderId` are emitted as deterministic Kafka keys
+(for example by annotating those fields with `@PartitioningKey`).
 
 Example breakout that injects a native Kafka Streams fragment via adapter SPI:
 

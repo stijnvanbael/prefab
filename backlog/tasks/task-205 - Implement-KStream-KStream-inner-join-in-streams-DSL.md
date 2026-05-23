@@ -1,10 +1,10 @@
 ---
 id: TASK-205
 title: Implement KStream-KStream inner join in streams DSL
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-05-17 09:15'
-updated_date: '2026-05-23 08:58'
+updated_date: '2026-05-23 11:26'
 labels:
   - feature
   - streams
@@ -28,10 +28,10 @@ Add Kafka-backed KStream-KStream inner join support with explicit window configu
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Streams DSL supports KStream-KStream inner join composition
-- [ ] #2 Kafka backend maps join semantics to native Kafka Streams windowed inner join operations
-- [ ] #3 `examples/streams` includes a runnable KStream-KStream inner join example
-- [ ] #4 Tests cover matching keys, non-matching keys, and out-of-window events for the join
+- [x] #1 Streams DSL supports KStream-KStream inner join composition
+- [x] #2 Kafka backend maps join semantics to native Kafka Streams windowed inner join operations
+- [x] #3 `examples/streams` includes a runnable KStream-KStream inner join example
+- [x] #4 Tests cover matching keys, non-matching keys, and out-of-window events for the join
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -82,5 +82,15 @@ Add Kafka-backed KStream-KStream inner join support with explicit window configu
 <!-- SECTION:NOTES:BEGIN -->
 Implemented initial code changes in `streams` module: added DSL `join(...)`, introduced `JoinWindow`, Kafka backend join mapping, and topology tests for matching/non-matching/out-of-window scenarios.
 
-Verified module tests with `mvn -pl streams test` (pass). Remaining work includes runnable `examples/streams` join scenario, integration test coverage, and docs updates.
+Completed remaining scope in `examples/streams`:
+- Added runnable second topology bean (`streamJoinTopology`) demonstrating KStream-KStream inner join with `JoinWindow`.
+- Added join-specific event types: `JoinLeftEvent`, `JoinRightEvent`, and `JoinedStreamEvent`.
+- Applied deterministic keying on both join inputs via `@PartitioningKey` on `id`.
+- Updated module topic configuration (`application.yml`, `application-test.yml`) for join input/output topics.
+- Extended integration coverage in `StreamsExampleApplicationTest` with in-window matching-key join assertion while preserving existing branch/merge test.
+- Updated docs in `examples/streams/README.md` and `backlog/docs/feature-guides.md` to include join usage.
+
+Verification:
+- `mvn -pl streams test` (pass, previous run during DSL/backend implementation)
+- `mvn -pl examples/streams -am test` (pass)
 <!-- SECTION:NOTES:END -->

@@ -2,7 +2,9 @@ package be.appify.prefab.example.streams;
 
 import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.StreamDefinition;
+import be.appify.prefab.streams.JoinWindow;
 import be.appify.prefab.streams.kafka.KafkaStreamBreakoutAdapter;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.UUID;
 import org.springframework.context.annotation.Bean;
@@ -48,5 +50,25 @@ class StreamTopologyConfiguration {
         return streams.merge(shortWords, longWords)
                 .map(word -> new WordEvent(word.id(), word.word()))
                 .to(WordEvent.class);
+    }
+
+    @Bean
+    StreamDefinition streamJoinTopology(PrefabStreams streams) {
+        var left = streams.from(JoinLeftEvent.class);
+
+        var right = streams.from(JoinRightEvent.class);
+
+        left.join(
+                        right,
+                        JoinWindow.of(Duration.ofSeconds(10), Duration.ofSeconds(1)),
+                        (leftEvent, rightEvent) -> new JoinedStreamEvent(
+                                leftEvent.id(),
+                                leftEvent.payload(),
+                                rightEvent.tag()
+                        )
+                )
+                .to(JoinedStreamEvent.class);
+
+        return wordBranchAndMergeTopology(streams);
     }
 }

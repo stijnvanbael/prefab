@@ -1,10 +1,10 @@
 ---
 id: TASK-216
 title: Implement process(...) with pluggable StateStore support
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-05-17 09:38'
-updated_date: '2026-05-22 17:44'
+updated_date: '2026-05-22 18:17'
 labels:
   - feature
   - streams
@@ -19,7 +19,7 @@ references:
   - backlog/tasks/task-099 - Prefab-Streams-DSL.md
   - examples/streams
 priority: high
-ordinal: 171000
+ordinal: 1000
 ---
 
 ## Description

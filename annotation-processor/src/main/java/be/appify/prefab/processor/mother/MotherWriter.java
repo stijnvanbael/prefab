@@ -20,6 +20,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -390,7 +391,21 @@ class MotherWriter {
     private CodeBlock defaultValueFor(VariableManifest param, TypeManifest type) {
         return param.getAnnotation(Example.class)
                 .map(example -> exampleLiteralFor(example.value().value(), type, param))
+                .or(() -> innerExampleOf(param, type))
                 .orElseGet(() -> typeDefaultValue(type, param.name()));
+    }
+
+    /**
+     * When the param's declared type is a single-value wrapper and the outer param carries no
+     * {@code @Example}, fall back to the example on the wrapper's inner field (if present).
+     */
+    private Optional<CodeBlock> innerExampleOf(VariableManifest param, TypeManifest effectiveType) {
+        if (!param.type().isSingleValueType()) {
+            return Optional.empty();
+        }
+        var innerField = param.type().fields().getFirst();
+        return innerField.getAnnotation(Example.class)
+                .map(example -> exampleLiteralFor(example.value().value(), effectiveType, param));
     }
 
     private CodeBlock typeDefaultValue(TypeManifest type, String fieldName) {
@@ -415,7 +430,7 @@ class MotherWriter {
         if (type.isEnum()) return CodeBlock.of("$T.values()[0]", type.asTypeName());
         if (type.isSingleValueType()) {
             var innerField = type.fields().getFirst();
-            var innerDefault = typeDefaultValue(innerField.type().asBoxed(), innerField.name());
+            var innerDefault = defaultValueFor(innerField, innerField.type().asBoxed());
             return CodeBlock.of("new $T($L)", type.asTypeName(), innerDefault);
         }
         if (isUnionInterfaceType(type)) {

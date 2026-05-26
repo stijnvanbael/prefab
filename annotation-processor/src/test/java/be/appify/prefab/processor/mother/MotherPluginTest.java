@@ -172,6 +172,19 @@ class MotherPluginTest {
     }
 
     @Test
+    void motherUsesExampleValueFromInnerFieldOfSingleValueType() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/singlewithexample/source/Invoice.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/singlewithexample/source", "CreateInvoiceRequestMother.java")
+                .contentsAsUtf8String()
+                .contains("\"INV-001\"");
+    }
+
+    @Test
     void motherGeneratedForMultiFieldRecordNestedInsideSingleValueType() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

@@ -1,10 +1,13 @@
 package be.appify.prefab.processor;
 
+import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
+import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeSpec;
+import com.palantir.javapoet.TypeVariableName;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -72,17 +75,34 @@ public class BuilderWriter {
 
     private TypeSpec buildNestedBuilderClass(ClassName recordType, List<ParameterSpec> fields,
             Map<String, String> fieldDefaults) {
+        var selfTypeName = TypeVariableName.get("SELF");
+        var selfBound = ParameterizedTypeName.get(ClassName.get("", BUILDER), selfTypeName);
+        var selfTypeVar = TypeVariableName.get("SELF", selfBound);
+
         var builder = TypeSpec.classBuilder(BUILDER)
-                .addModifiers(Modifier.PUBLIC, Modifier.STATIC);
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .addTypeVariable(selfTypeVar);
 
         fields.forEach(field -> {
             builder.addField(buildField(field, fieldDefaults));
             builder.addMethod(withMethod(field));
         });
 
+        builder.addMethod(selfMethod());
         builder.addMethod(buildMethod(recordType, fields));
 
         return builder.build();
+    }
+
+    private MethodSpec selfMethod() {
+        return MethodSpec.methodBuilder("self")
+                .addModifiers(Modifier.PROTECTED)
+                .addAnnotation(AnnotationSpec.builder(SuppressWarnings.class)
+                        .addMember("value", "$S", "unchecked")
+                        .build())
+                .returns(TypeVariableName.get("SELF"))
+                .addStatement("return (SELF) this")
+                .build();
     }
 
     private FieldSpec buildField(ParameterSpec field, Map<String, String> fieldDefaults) {
@@ -99,10 +119,10 @@ public class BuilderWriter {
         var plainParam = ParameterSpec.builder(field.type(), field.name()).build();
         return MethodSpec.methodBuilder(setterMethodName(field.name()))
                 .addModifiers(Modifier.PUBLIC)
-                .returns(ClassName.get("", BUILDER))
+                .returns(TypeVariableName.get("SELF"))
                 .addParameter(plainParam)
                 .addStatement("this.$1N = $1N", field.name())
-                .addStatement("return this")
+                .addStatement("return self()")
                 .build();
     }
 

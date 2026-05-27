@@ -30,7 +30,7 @@ class BuilderWriterTest {
         var code = generateCode("NameRecord", fields);
 
         assertTrue(code.contains("public static class Builder"), "Expected nested Builder class");
-        assertTrue(code.contains("public Builder withName("), "Expected withName setter");
+        assertTrue(code.contains("public SELF withName("), "Expected withName setter");
         assertTrue(code.contains("public NameRecord build()"), "Expected build() returning record type");
     }
 
@@ -43,9 +43,9 @@ class BuilderWriterTest {
         );
         var code = generateCode("PersonRecord", fields);
 
-        assertTrue(code.contains("public Builder withName("), "Expected withName setter");
-        assertTrue(code.contains("public Builder withAge("), "Expected withAge setter");
-        assertTrue(code.contains("public Builder withActive("), "Expected withActive setter");
+        assertTrue(code.contains("public SELF withName("), "Expected withName setter");
+        assertTrue(code.contains("public SELF withAge("), "Expected withAge setter");
+        assertTrue(code.contains("public SELF withActive("), "Expected withActive setter");
     }
 
     @Test
@@ -54,7 +54,7 @@ class BuilderWriterTest {
         var code = generateCode("SimpleRecord", fields);
 
         assertTrue(code.contains("this.value = value"), "Expected field assignment in setter");
-        assertTrue(code.contains("return this"), "Expected return this in setter");
+        assertTrue(code.contains("return self()"), "Expected return self() in setter");
     }
 
     @Test
@@ -76,8 +76,8 @@ class BuilderWriterTest {
         );
         var code = generateCodeWithPrefix("PersonRecord", fields, "");
 
-        assertTrue(code.contains("public Builder name("), "Expected prefix-less name() setter");
-        assertTrue(code.contains("public Builder age("), "Expected prefix-less age() setter");
+        assertTrue(code.contains("public SELF name("), "Expected prefix-less name() setter");
+        assertTrue(code.contains("public SELF age("), "Expected prefix-less age() setter");
         assertFalse(code.contains("withName"), "Expected no withName setter when prefix is empty");
     }
 
@@ -86,7 +86,7 @@ class BuilderWriterTest {
         var fields = List.of(ParameterSpec.builder(ClassName.get(String.class), "name").build());
         var code = generateCodeWithPrefix("NameRecord", fields, "set");
 
-        assertTrue(code.contains("public Builder setName("), "Expected setName setter for 'set' prefix");
+        assertTrue(code.contains("public SELF setName("), "Expected setName setter for 'set' prefix");
         assertFalse(code.contains("withName"), "Expected no withName setter when prefix is 'set'");
     }
 

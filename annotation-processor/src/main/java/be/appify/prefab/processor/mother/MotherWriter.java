@@ -6,6 +6,7 @@ import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TestJavaFileWriter;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
+import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.FieldSpec;
@@ -13,6 +14,7 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
+import com.palantir.javapoet.TypeVariableName;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -205,9 +207,11 @@ class MotherWriter {
             List<VariableManifest> fields,
             boolean hasEmbeddedBuilder
     ) {
+        var motherBuilderRef = ClassName.get("", "MotherBuilder");
+        var parameterizedParent = ParameterizedTypeName.get(parentBuilderType, motherBuilderRef);
         var inner = TypeSpec.classBuilder("MotherBuilder")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .superclass(parentBuilderType);
+                .superclass(parameterizedParent);
         fields.stream()
                 .filter(f -> isNestedObjectType(f.type()))
                 .forEach(f -> inner.addMethod(nestedConsumerSetterForEventMotherBuilder(f, hasEmbeddedBuilder)));
@@ -223,9 +227,11 @@ class MotherWriter {
             ClassName parentBuilderType,
             List<EffectiveParam> params
     ) {
+        var motherBuilderRef = ClassName.get("", "MotherBuilder");
+        var parameterizedParent = ParameterizedTypeName.get(parentBuilderType, motherBuilderRef);
         var inner = TypeSpec.classBuilder("MotherBuilder")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .superclass(parentBuilderType);
+                .superclass(parameterizedParent);
         params.stream()
                 .filter(ep -> isNestedObjectType(ep.effectiveType()))
                 .forEach(ep -> inner.addMethod(nestedConsumerSetterForRequestMotherBuilder(ep)));
@@ -328,28 +334,45 @@ class MotherWriter {
     // -- Event / nested types: standalone Builder class in production source --
 
     private TypeSpec buildStandaloneBuilderClass(ClassName builderType, TypeName targetType, List<VariableManifest> fields) {
+        var selfTypeName = TypeVariableName.get("SELF");
+        var selfBound = ParameterizedTypeName.get(builderType, selfTypeName);
+        var selfTypeVar = TypeVariableName.get("SELF", selfBound);
+
         var builder = TypeSpec.classBuilder(builderType.simpleName())
-                .addModifiers(Modifier.PUBLIC);
+                .addModifiers(Modifier.PUBLIC)
+                .addTypeVariable(selfTypeVar);
 
         fields.forEach(field -> builder.addField(
                 FieldSpec.builder(field.type().asTypeName(), field.name(), Modifier.PRIVATE).build()
         ));
 
-        fields.forEach(field -> builder.addMethod(withMethod(field.name(), field.type().asTypeName(), builderType)));
+        fields.forEach(field -> builder.addMethod(standaloneWithMethod(field.name(), field.type().asTypeName())));
 
+        builder.addMethod(standaloneSelfMethod());
         builder.addMethod(buildMethod(targetType,
                 fields.stream().map(VariableManifest::name).collect(Collectors.joining(", "))));
 
         return builder.build();
     }
 
-    private MethodSpec withMethod(String fieldName, TypeName fieldType, ClassName builderType) {
+    private MethodSpec standaloneWithMethod(String fieldName, TypeName fieldType) {
         return MethodSpec.methodBuilder(setterMethodName(fieldName))
                 .addModifiers(Modifier.PUBLIC)
-                .returns(builderType)
+                .returns(TypeVariableName.get("SELF"))
                 .addParameter(fieldType, fieldName)
                 .addStatement("this.$1N = $1N", fieldName)
-                .addStatement("return this")
+                .addStatement("return self()")
+                .build();
+    }
+
+    private MethodSpec standaloneSelfMethod() {
+        return MethodSpec.methodBuilder("self")
+                .addModifiers(Modifier.PROTECTED)
+                .addAnnotation(AnnotationSpec.builder(SuppressWarnings.class)
+                        .addMember("value", "$S", "unchecked")
+                        .build())
+                .returns(TypeVariableName.get("SELF"))
+                .addStatement("return (SELF) this")
                 .build();
     }
 
@@ -597,3 +620,4 @@ class MotherWriter {
         );
     }
 }
+

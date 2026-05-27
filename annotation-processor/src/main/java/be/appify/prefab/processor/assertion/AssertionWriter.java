@@ -170,9 +170,9 @@ class AssertionWriter {
     private MethodSpec staticAssertThatFactory(ClassName assertType, ClassName subjectType) {
         return MethodSpec.methodBuilder("assertThat")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .returns(assertType)
+                .returns(ParameterizedTypeName.get(assertType, WildcardTypeName.subtypeOf(Object.class)))
                 .addParameter(subjectType, "actual")
-                .addStatement("return new $T(actual)", assertType)
+                .addStatement("return new $T<>(actual)", assertType)
                 .build();
     }
 
@@ -287,7 +287,7 @@ class AssertionWriter {
     private MethodSpec assertThatDelegateMethod(ClassName subjectType, ClassName assertType) {
         return MethodSpec.methodBuilder("assertThat")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .returns(assertType)
+                .returns(ParameterizedTypeName.get(assertType, WildcardTypeName.subtypeOf(Object.class)))
                 .addParameter(subjectType, "actual")
                 .addStatement("return $T.assertThat(actual)", assertType)
                 .build();

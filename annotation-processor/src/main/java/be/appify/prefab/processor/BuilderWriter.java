@@ -1,13 +1,7 @@
 package be.appify.prefab.processor;
 
-import com.palantir.javapoet.AnnotationSpec;
-import com.palantir.javapoet.ClassName;
-import com.palantir.javapoet.FieldSpec;
-import com.palantir.javapoet.MethodSpec;
-import com.palantir.javapoet.ParameterSpec;
-import com.palantir.javapoet.ParameterizedTypeName;
-import com.palantir.javapoet.TypeSpec;
-import com.palantir.javapoet.TypeVariableName;
+import com.palantir.javapoet.*;
+
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -61,15 +55,16 @@ public class BuilderWriter {
      */
     public void enrichWithBuilder(TypeSpec.Builder recordBuilder, ClassName recordType,
             List<ParameterSpec> fields, Map<String, String> fieldDefaults) {
-        recordBuilder.addMethod(builderFactoryMethod());
+        recordBuilder.addMethod(builderFactoryMethod(recordType));
         recordBuilder.addType(buildNestedBuilderClass(recordType, fields, fieldDefaults));
     }
 
-    private MethodSpec builderFactoryMethod() {
+    private MethodSpec builderFactoryMethod(ClassName recordType) {
+        var builderType = ClassName.get(recordType.packageName(), recordType.simpleName() + ".Builder");
         return MethodSpec.methodBuilder("builder")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .returns(ClassName.get("", BUILDER))
-                .addStatement("return new $L()", BUILDER)
+                .returns(ParameterizedTypeName.get(builderType, WildcardTypeName.subtypeOf(Object.class)))
+                .addStatement("return new $T<>()", builderType)
                 .build();
     }
 

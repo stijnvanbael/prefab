@@ -4,7 +4,7 @@ title: Add @Autocomplete annotation for field-level autocomplete REST endpoints
 status: In Progress
 assignee: []
 created_date: '2026-05-27 13:15'
-updated_date: '2026-05-28 08:14'
+updated_date: '2026-05-28 08:15'
 labels:
   - ✨feature
   - rest
@@ -26,7 +26,7 @@ Introduce an `@Autocomplete` field-level annotation that generates a dedicated R
 - [x] #4 Service generates autocomplete method using Spring Data Example API
 - [x] #5 Repository generates dedicated method per autocomplete field fetching only the field value (SELECT DISTINCT column) to avoid fetching full entities
 - [ ] #6 TestClient generates corresponding autocomplete method
-- [ ] #7 Unit tests verify generated controller, service, and repository code
+- [x] #7 Unit tests verify generated controller, service, and repository code
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -184,4 +184,6 @@ Registered `be.appify.prefab.processor.rest.autocomplete.AutocompletePlugin` in 
 Implemented AC3 by adding `AutocompleteControllerWriter` and wiring it in `AutocompletePlugin`. The controller now generates one GET endpoint per `@Autocomplete` field, returns `ResponseEntity<List<String>>`, accepts `@RequestParam String query`, applies field-level security, and supports default (`/{kebab-field}/autocomplete`) plus custom `path()` values.
 
 Implemented AC4 by adding `AutocompleteServiceWriter` and wiring it in `AutocompletePlugin`. The service now generates one method per annotated field, logs autocomplete usage, and delegates to repository autocomplete methods with `PageRequest.of(0, 10)`.
+
+Expanded `AutocompletePluginTest` to assert generated controller endpoints, service methods, and repository methods for an aggregate with multiple `@Autocomplete` fields, covering AC7 for generation verification.
 <!-- SECTION:NOTES:END -->

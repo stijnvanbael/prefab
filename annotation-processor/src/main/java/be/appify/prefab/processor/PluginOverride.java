@@ -1,8 +1,6 @@
 package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.OutputTarget;
-import java.util.Optional;
-
 /**
  * Represents a single plugin override configuration.
  * Immutable record holding the override settings for a plugin on a specific aggregate.

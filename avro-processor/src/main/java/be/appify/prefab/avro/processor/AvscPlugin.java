@@ -2,15 +2,22 @@ package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.annotations.Generate;
+import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
+import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.TypeName;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Stream;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.MirroredTypeException;
 import javax.tools.Diagnostic;
 import org.apache.avro.Schema;
 
@@ -48,6 +55,7 @@ public class AvscPlugin implements PrefabPlugin {
                 .getQualifiedName()
                 .toString();
         var contractInterface = ClassName.get(contractPackage, typeElement.getSimpleName().toString());
+        var generateAnnotationSpecs = buildGenerateAnnotationSpecs(typeElement);
         var writer = new AvscEventWriter(context);
         for (var path : annotation.value()) {
             var schema = parseSchema(path, element);
@@ -61,8 +69,32 @@ public class AvscPlugin implements PrefabPlugin {
                         element);
                 continue;
             }
-            writer.writeAll(schema, eventAnnotation.topic(), eventAnnotation.platform(), contractPackage, contractInterface);
+            writer.writeAll(schema, eventAnnotation.topic(), eventAnnotation.platform(), contractPackage, contractInterface, generateAnnotationSpecs);
         }
+    }
+
+    private List<AnnotationSpec> buildGenerateAnnotationSpecs(TypeElement element) {
+        return Stream.of(element.getAnnotationsByType(Generate.class))
+                .map(this::toAnnotationSpec)
+                .toList();
+    }
+
+    private AnnotationSpec toAnnotationSpec(Generate generate) {
+        TypeName pluginTypeName;
+        try {
+            pluginTypeName = ClassName.get(generate.plugin());
+        } catch (MirroredTypeException e) {
+            pluginTypeName = TypeName.get(e.getTypeMirror());
+        }
+        var builder = AnnotationSpec.builder(Generate.class)
+                .addMember("plugin", "$T.class", pluginTypeName);
+        if (!generate.enabled()) {
+            builder.addMember("enabled", "$L", false);
+        }
+        if (generate.target() != OutputTarget.DEFAULT) {
+            builder.addMember("target", "$T.$L", ClassName.get(OutputTarget.class), generate.target().name());
+        }
+        return builder.build();
     }
 
     private Schema parseSchema(String path, Element originatingElement) {

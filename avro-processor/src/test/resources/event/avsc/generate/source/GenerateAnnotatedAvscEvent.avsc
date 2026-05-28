@@ -1,0 +1,9 @@
+{
+  "type": "record",
+  "name": "GenerateAnnotatedAvscEvent",
+  "namespace": "event.avsc.generate",
+  "fields": [
+    {"name": "id", "type": "string"}
+  ]
+}
+

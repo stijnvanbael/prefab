@@ -1,6 +1,7 @@
 package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.Generate;
 import be.appify.prefab.core.annotations.GenerateOverrides;
 import be.appify.prefab.core.annotations.OutputTarget;
@@ -17,14 +18,14 @@ import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
 /**
- * Validates {@code @Generate} annotations on aggregate classes.
+ * Validates {@code @Generate} annotations on aggregate and event contract classes.
  *
  * <p>Performs compile-time validation to ensure:
  * <ul>
  *   <li>The referenced plugin class is a {@code PrefabPlugin}
  *   <li>The plugin class exists on the annotation-processor classpath
  *   <li>The target {@code OutputTarget} is supported by the plugin
- *   <li>The annotation is placed on an aggregate class (warning only)
+ *   <li>The annotation is placed on an aggregate or event contract class (warning only)
  * </ul>
  *
  * <p>Validation is fail-fast: compilation errors are emitted via the Messager on the first
@@ -57,13 +58,15 @@ public class GenerateAnnotationValidator {
     public PluginOverrideRegistry validateAndBuildRegistry(TypeElement typeElement) {
         Map<Class<?>, PluginOverride> overrides = new HashMap<>();
 
-        // Check if this is actually an aggregate
-        if (typeElement.getAnnotation(Aggregate.class) == null) {
+        // Check if this is an aggregate or event contract
+        var hasAggregate = typeElement.getAnnotation(Aggregate.class) != null;
+        var hasEvent = typeElement.getAnnotation(Event.class) != null;
+        if (!hasAggregate && !hasEvent) {
             if (typeElement.getAnnotation(Generate.class) != null || typeElement.getAnnotation(GenerateOverrides.class) != null) {
                 warn(
                         typeElement,
                         "@Generate on class " + typeElement.getQualifiedName()
-                                + " is ignored because it is not annotated with @Aggregate"
+                                + " is ignored because it is not annotated with @Aggregate or @Event"
                 );
             }
             return new PluginOverrideRegistry();

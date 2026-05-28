@@ -48,17 +48,18 @@ class AvscEventWriter {
         this.processingEnvironment = context.processingEnvironment();
         this.fileWriter = new OutputTargetFileOutput(context, "", OutputTarget.MAIN);
     }
-    void writeAll(Schema schema, String[] topics, Event.Platform platform, String defaultPackage, ClassName contractInterface) {
+    void writeAll(Schema schema, String[] topics, Event.Platform platform, String defaultPackage,
+            ClassName contractInterface, List<AnnotationSpec> generateAnnotations) {
         var namedTypes = collectNamedTypes(schema);
         var pendingUnions = new ArrayList<UnionTypeGroup>();
-        writeTopLevelRecord(schema, topics, platform, defaultPackage, contractInterface, fileWriter, pendingUnions);
+        writeTopLevelRecord(schema, topics, platform, defaultPackage, contractInterface, generateAnnotations, fileWriter, pendingUnions);
         writeNestedTypes(schema, namedTypes, defaultPackage, fileWriter, pendingUnions);
         writeUnionTypes(pendingUnions, defaultPackage, fileWriter);
     }
     private void writeTopLevelRecord(Schema schema, String[] topics, Event.Platform platform,
-            String defaultPackage, ClassName contractInterface,
+            String defaultPackage, ClassName contractInterface, List<AnnotationSpec> generateAnnotations,
             FileOutput fileWriter, List<UnionTypeGroup> pendingUnions) {
-        var topLevelSpec = buildTopLevelRecord(schema, topics, platform, defaultPackage, contractInterface, pendingUnions);
+        var topLevelSpec = buildTopLevelRecord(schema, topics, platform, defaultPackage, contractInterface, generateAnnotations, pendingUnions);
         if (topLevelSpec != null) {
             fileWriter.writeFile(defaultPackage, javaTypeName(schema), topLevelSpec);
         }
@@ -110,7 +111,8 @@ class AvscEventWriter {
         }
     }
     private TypeSpec buildTopLevelRecord(Schema schema, String[] topics, Event.Platform platform,
-            String schemaPackage, ClassName contractInterface, List<UnionTypeGroup> pendingUnions) {
+            String schemaPackage, ClassName contractInterface, List<AnnotationSpec> generateAnnotations,
+            List<UnionTypeGroup> pendingUnions) {
         return buildFields(schema, schemaPackage, pendingUnions)
                 .map(fields -> {
                     var typeName = javaTypeName(schema);
@@ -120,6 +122,7 @@ class AvscEventWriter {
                             .recordConstructor(MethodSpec.compactConstructorBuilder().addParameters(fields).build())
                             .addAnnotation(buildEventAnnotation(topics, platform))
                             .addSuperinterface(contractInterface);
+                    generateAnnotations.forEach(builder::addAnnotation);
                     docOf(schema).ifPresent(doc -> builder.addAnnotation(docAnnotation(doc)));
                     avroSchemaAnnotation(schema).ifPresent(builder::addAnnotation);
                     new BuilderWriter(builderSetterPrefix()).enrichWithBuilder(builder, recordType,

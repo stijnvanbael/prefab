@@ -638,4 +638,21 @@ class AvscPluginTest {
         // field with no default must not have an initialiser in the Builder
         generated.contains("String required");
     }
+
+    @Test
+    void generateAnnotationOnEventContractIsPropagatedToGeneratedRecord() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/generate/source/GenerateAnnotatedAvsc.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("event.avsc.generate.GenerateAnnotatedAvscEvent")
+                .contentsAsUtf8String()
+                .contains("@Generate(");
+        assertThat(compilation).generatedSourceFile("event.avsc.generate.GenerateAnnotatedAvscEvent")
+                .contentsAsUtf8String()
+                .contains("plugin = AvscPlugin.class");
+        assertThat(compilation).generatedSourceFile("event.avsc.generate.GenerateAnnotatedAvscEvent")
+                .contentsAsUtf8String()
+                .contains("enabled = false");
+    }
 }

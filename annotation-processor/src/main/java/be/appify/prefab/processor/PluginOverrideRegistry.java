@@ -5,8 +5,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import javax.lang.model.element.TypeElement;
-
 /**
  * Registry for per-aggregate plugin overrides read from {@code @Generate} annotations.
  *

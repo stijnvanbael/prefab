@@ -52,9 +52,9 @@ The annotation processor that generates Kafka listener / Pub-Sub subscriber / SQ
 - [x] #5 GenericPubSubPublisher.dispatch() honours the publishTo strategy and publishes to the correct topic(s)
 - [x] #6 GenericSnsPublisher.dispatch() honours the publishTo strategy and publishes to the correct topic(s)
 - [ ] #7 All three dispatchers expose a runtime topic-override mechanism (varargs)
-- [ ] #8 Generated Kafka/Pub-Sub/SQS consumers subscribe to ALL topics listed in the event by default
+- [x] #8 Generated Kafka/Pub-Sub/SQS consumers subscribe to ALL topics listed in the event by default
 - [ ] #9 @EventHandlerConfig gains a consumeFromTopics attribute to restrict which topics a handler listens on
-- [ ] #10 Annotation processor updated to generate correct multi-topic listener/subscriber beans
+- [x] #10 Annotation processor updated to generate correct multi-topic listener/subscriber beans
 - [ ] #11 Existing single-topic events continue to work without any source changes (backward compatible)
 - [ ] #12 Unit and integration tests cover FIRST, ALL, and override scenarios for at least one platform
 - [ ] #13 Developer guide updated to document the new multi-topic feature
@@ -63,6 +63,21 @@ The annotation processor that generates Kafka listener / Pub-Sub subscriber / SQ
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
+### AC 8 & AC 10 (2026-05-28)
+
+Updated the annotation processor to support multi-topic events across all three platforms:
+
+**Kafka** (`KafkaConsumerWriter`): `@KafkaListener` now includes all topics from `Event.topic[]` — javapoet emits `topics = {"topic1", "topic2"}` when multiple `addMember("topics", ...)` calls are made.
+
+**EventTypeRegistrarWriter**: Registers the event type for every topic in the array. Backward-compatible: single-topic events still generate `myEventTopic` (no index suffix); multi-topic events generate `myEventTopic0`, `myEventTopic1` etc.
+
+**PubSubSubscriberWriter / SqsSubscriberWriter**: Flat-maps `String[]` topics to individual subscription calls. When the same event type maps to multiple topics, a `buildUniqueNames()` helper generates collision-safe variable names (`userEvent0Executor` / `userEvent1Executor`).
+
+**ConsumerWriterSupport**: Fixed `eventTypeOf()` to use `List.of(event.topic()).contains(topic)` instead of `event.topic().equals(topic)` (was always false for `String[]`).
+
+**Supporting fixes**: `AvscPlugin`, `KafkaPlugin`, `GcpTerraformWriter`, `EventSchemaDocumentationWriter`, `PubSubEventTypeRegistrarWriter`, `SqsEventTypeRegistrarWriter` all updated to handle `String[] topic()`.
+
+Tests added for `multipleTopicsPerEvent` in `KafkaConsumerWriterTest`, `KafkaEventTypeRegistrarWriterTest`, `PubSubSubscriberWriterTest`, and `SqsSubscriberWriterTest`.
 ## AC 1-6 Implementation (2026-05-28)
 
 ### Design decisions

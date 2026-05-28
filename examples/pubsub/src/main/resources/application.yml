@@ -18,5 +18,6 @@ spring:
           enable-message-ordering: true
 
 topics:
+  message.name: message
   channel.name: channel
   user.name: user

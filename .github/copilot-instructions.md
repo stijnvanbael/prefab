@@ -57,10 +57,12 @@ Avoid: raw types, `StringBuffer`, old `Date`/`Calendar`, `synchronized` (prefer 
 - **SOLID** principles — single responsibility, depend on abstractions, prefer composition.
 - Small, focused methods; ≤3 parameters (use parameter objects when more are needed).
 - Immutable by default — records, `final` fields, `List.copyOf()` / `Map.copyOf()`.
-- `Optional` for absent values from public APIs; never return or pass `null`.
+- `Optional` in return types for absent values from public APIs; never return `null`.
 - Declarative streams over imperative loops where clarity is maintained; no side effects in pipelines.
 - Checked exceptions for recoverable conditions; domain-specific unchecked for programming errors.
 - Never swallow exceptions silently. Include meaningful messages and causes.
+- Use `var` for local variables when the type is obvious from the right-hand side; otherwise, be explicit.
+- Use imports whenever possible for readability; avoid fully qualified names in code.
 
 ---
 

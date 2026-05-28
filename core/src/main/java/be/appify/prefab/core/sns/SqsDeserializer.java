@@ -6,8 +6,6 @@ import io.awspring.cloud.sns.core.SnsTemplate;
 import java.io.IOException;
 import java.util.Base64;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DecoderFactory;
@@ -17,9 +15,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * A deserializer for SQS messages that dynamically chooses the deserialization method based on the topic's
- * serialization format. It uses a {@link SerializationRegistry} to determine the serialization format for each topic
- * and delegates to the appropriate deserialization method. If the topic is not registered, JSON deserialization is used
- * by default.
+ * serialization format registered in the {@link EventRegistry}. If the topic is not registered, JSON deserialization
+ * is used by default. Type-name allowlist validation is also delegated to the {@link EventRegistry}.
  */
 @Component
 @ConditionalOnClass(SnsTemplate.class)
@@ -27,14 +24,13 @@ public class SqsDeserializer {
     private final JsonUtil jsonUtil;
     private final EventRegistry eventRegistry;
     private final ConversionService conversionService;
-    private final Map<String, Class<?>> allowedTypes = new ConcurrentHashMap<>();
 
     /**
      * Constructs a SqsDeserializer with the given JsonUtil, EventRegistry, and ConversionService.
      *
-     * @param jsonUtil       the JsonUtil to use for JSON deserialization
-     * @param eventRegistry  the EventRegistry that contains the serialization format for each topic
-     * @param conversionService the ConversionService to convert GenericRecord to the target event class
+     * @param jsonUtil           the JsonUtil to use for JSON deserialization
+     * @param eventRegistry      the EventRegistry that contains the serialization format for each topic
+     * @param conversionService  the ConversionService to convert GenericRecord to the target event class
      */
     public SqsDeserializer(JsonUtil jsonUtil, EventRegistry eventRegistry, ConversionService conversionService) {
         this.jsonUtil = jsonUtil;
@@ -85,10 +81,8 @@ public class SqsDeserializer {
     @SuppressWarnings("unchecked")
     private <T> T deserializeJson(String payload, String typeName, Class<T> type) {
         if (typeName != null) {
-            var resolvedType = allowedTypes.get(typeName);
-            if (resolvedType == null) {
-                throw new IllegalArgumentException("Type not registered in allowlist: " + typeName);
-            }
+            var resolvedType = eventRegistry.typeByClassName(typeName)
+                    .orElseThrow(() -> new IllegalArgumentException("Type not registered in allowlist: " + typeName));
             if (type.isAssignableFrom(resolvedType)) {
                 return (T) jsonUtil.parseJson(payload, resolvedType);
             }
@@ -96,24 +90,6 @@ public class SqsDeserializer {
         return jsonUtil.parseJson(payload, type);
     }
 
-    /**
-     * Registers an event type in the allowlist for safe deserialization from the SNS Subject header.
-     * Permitted subtypes of sealed interfaces are registered recursively.
-     *
-     * @param typeName
-     *         the fully-qualified class name that may appear as the SNS message Subject
-     * @param type
-     *         the corresponding Java class
-     */
-    public void registerType(String typeName, Class<?> type) {
-        allowedTypes.put(typeName, type);
-        var permittedSubclasses = type.getPermittedSubclasses();
-        if (permittedSubclasses != null) {
-            for (var subclass : permittedSubclasses) {
-                registerType(subclass.getName(), subclass);
-            }
-        }
-    }
 
     private <T> T deserializeAvro(String payload, Class<T> type) {
         var bytes = Base64.getDecoder().decode(payload);

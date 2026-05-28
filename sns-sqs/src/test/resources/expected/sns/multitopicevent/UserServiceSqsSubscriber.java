@@ -23,10 +23,8 @@ public class UserServiceSqsSubscriber {
             @Value("${topic.user.primary}") String userEvent0Topic,
             @Value("${topic.user.secondary}") String userEvent1Topic) {
         executor = Executors.newFixedThreadPool(1);
-        sqsUtil.registerType(UserEvent.class.getName(), UserEvent.class);
         sqsUtil.subscribe(new SqsSubscriptionRequest<UserEvent>(userEvent0Topic, "user-service-on-user-event", UserEvent.class, this::onUserEvent)
                 .withExecutor(executor));
-        sqsUtil.registerType(UserEvent.class.getName(), UserEvent.class);
         sqsUtil.subscribe(new SqsSubscriptionRequest<UserEvent>(userEvent1Topic, "user-service-on-user-event", UserEvent.class, this::onUserEvent)
                 .withExecutor(executor));
         this.userService = userService;

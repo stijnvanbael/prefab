@@ -6,6 +6,7 @@ import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.event.EventPlatformPluginSupport;
+import be.appify.prefab.processor.event.EventTypeRegistrarWriter;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.derivedPlatform;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.filteredEventHandlersByOwner;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.isAvscGeneratedRecord;
@@ -21,7 +22,7 @@ import java.util.List;
  * Prefab plugin to generate SNS publishers and SQS subscribers based on event annotations.
  */
 public class SnsPlugin implements PrefabPlugin {
-    private SqsEventTypeRegistrarWriter sqsEventTypeRegistrarWriter;
+    private EventTypeRegistrarWriter eventTypeRegistrarWriter;
     private SqsSubscriberWriter sqsSubscriberWriter;
     private PrefabContext context;
 
@@ -44,7 +45,7 @@ public class SnsPlugin implements PrefabPlugin {
     @Override
     public void initContext(PrefabContext context) {
         this.context = context;
-        sqsEventTypeRegistrarWriter = new SqsEventTypeRegistrarWriter(context);
+        eventTypeRegistrarWriter = new EventTypeRegistrarWriter(context);
         sqsSubscriberWriter = new SqsSubscriberWriter(context);
     }
 
@@ -70,7 +71,7 @@ public class SnsPlugin implements PrefabPlugin {
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .map(EventPlatformPluginSupport::publisherEventType)
                 .distinct()
-                .forEach(event -> sqsEventTypeRegistrarWriter.writeRegistrar(event));
+                .forEach(event -> eventTypeRegistrarWriter.writeRegistrar(event));
     }
 
     static boolean platformIsSnsSqs(Event event, Element element, PrefabContext context) {

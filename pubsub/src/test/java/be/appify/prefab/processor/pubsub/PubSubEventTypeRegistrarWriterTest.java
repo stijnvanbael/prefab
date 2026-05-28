@@ -13,6 +13,21 @@ import static com.google.testing.compile.Compiler.javac;
 class PubSubEventTypeRegistrarWriterTest {
 
     @Test
+    void singleEventType() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("pubsub/single/User.java"),
+                        sourceOf("pubsub/single/UserCreated.java"),
+                        sourceOf("pubsub/single/UserExporter.java"));
+        assertThat(compilation).succeeded();
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "pubsub.single.infrastructure.event.UserCreatedEventTypeRegistrar",
+                "expected/pubsub/single/UserCreatedEventTypeRegistrar.java");
+    }
+
+    @Test
     void publishToAll() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
@@ -21,8 +36,7 @@ class PubSubEventTypeRegistrarWriterTest {
         assertThat(compilation).succeeded();
         assertGeneratedSourceEqualsIgnoringWhitespace(
                 compilation,
-                "pubsub.publishtoall.infrastructure.pubsub.UserEventPubSubEventTypeRegistrar",
-                "expected/pubsub/publishtoall/UserEventPubSubEventTypeRegistrar.java");
+                "pubsub.publishtoall.infrastructure.event.UserEventEventTypeRegistrar",
+                "expected/pubsub/publishtoall/UserEventEventTypeRegistrar.java");
     }
 }
-

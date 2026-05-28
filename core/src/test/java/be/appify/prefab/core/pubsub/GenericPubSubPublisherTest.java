@@ -15,11 +15,9 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -56,7 +54,8 @@ class GenericPubSubPublisherTest {
 
         publisher.dispatch(event);
 
-        verify(pubSubTemplate).publish(org.mockito.ArgumentMatchers.eq("projects/test/registered-topic"),
+        verify(pubSubTemplate).publish(
+                eq("projects/test/registered-topic"),
                 any(PubsubMessage.class));
     }
 
@@ -67,7 +66,8 @@ class GenericPubSubPublisherTest {
 
         publisher.dispatch(event, "override-topic");
 
-        verify(pubSubTemplate).publish(org.mockito.ArgumentMatchers.eq("projects/test/override-topic"),
+        verify(pubSubTemplate).publish(
+                eq("projects/test/override-topic"),
                 any(PubsubMessage.class));
         // topicsForDispatch must NOT be consulted when overrides are given
         verify(pubSubUtil, org.mockito.Mockito.never()).topicsForDispatch(any());
@@ -80,9 +80,11 @@ class GenericPubSubPublisherTest {
 
         publisher.dispatch(event, "topic-a", "topic-b");
 
-        verify(pubSubTemplate).publish(org.mockito.ArgumentMatchers.eq("projects/test/topic-a"),
+        verify(pubSubTemplate).publish(
+                eq("projects/test/topic-a"),
                 any(PubsubMessage.class));
-        verify(pubSubTemplate).publish(org.mockito.ArgumentMatchers.eq("projects/test/topic-b"),
+        verify(pubSubTemplate).publish(
+                eq("projects/test/topic-b"),
                 any(PubsubMessage.class));
         verify(pubSubUtil, org.mockito.Mockito.never()).topicsForDispatch(any());
     }

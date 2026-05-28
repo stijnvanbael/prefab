@@ -51,7 +51,7 @@ The annotation processor that generates Kafka listener / Pub-Sub subscriber / SQ
 - [x] #4 GenericKafkaProducer.dispatch() honours the publishTo strategy and publishes to the correct topic(s)
 - [x] #5 GenericPubSubPublisher.dispatch() honours the publishTo strategy and publishes to the correct topic(s)
 - [x] #6 GenericSnsPublisher.dispatch() honours the publishTo strategy and publishes to the correct topic(s)
-- [ ] #7 All three dispatchers expose a runtime topic-override mechanism (varargs)
+- [x] #7 All three dispatchers expose a runtime topic-override mechanism (varargs)
 - [x] #8 Generated Kafka/Pub-Sub/SQS consumers subscribe to ALL topics listed in the event by default
 - [ ] #9 @EventHandlerConfig gains a consumeFromTopics attribute to restrict which topics a handler listens on
 - [x] #10 Annotation processor updated to generate correct multi-topic listener/subscriber beans
@@ -105,4 +105,16 @@ Tests added for `multipleTopicsPerEvent` in `KafkaConsumerWriterTest`, `KafkaEve
 All 61 core module tests pass after the change.
 
 Replaced additionalTopics() with String[] topic()
+
+### AC 7 — Runtime topic-override dispatch (2026-05-28)
+
+Added `dispatch(Object event, String... topicOverrides)` as a `default` method to `DomainEventDispatcher` and overridden it in all three dispatchers:
+
+- `DomainEventDispatcher.dispatch(Object, String...)` — default method; falls back to `dispatch(event)` when no overrides are given; concrete implementations override to honour the supplied topics.
+- `GenericKafkaProducer` — when overrides are non-empty, publishes directly to each override topic via `KafkaTemplate.send`; otherwise delegates to `eventRegistry.topicsForDispatch`.
+- `GenericPubSubPublisher` — same pattern with `pubSubUtil.topicsForDispatch` / `pubSubTemplate.publish`.
+- `GenericSnsPublisher` — same pattern with `sqsUtil.topicsForDispatch` / `snsTemplate.sendNotification`.
+- Each dispatcher refactored to extract a private `publishToTopics(event, List<String>)` helper eliminating duplication between the two `dispatch` overloads.
+- `mockito-junit-jupiter` and `assertj-core` added as test-scope dependencies to `core` module (versions managed by Spring Boot BOM).
+- New test classes: `GenericKafkaProducerTest`, `GenericPubSubPublisherTest`, `GenericSnsPublisherTest` — 13 tests total, all passing.
 <!-- SECTION:NOTES:END -->

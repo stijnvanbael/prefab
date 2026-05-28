@@ -6,9 +6,11 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
+import be.appify.prefab.core.annotations.OutputTarget;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.Modifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,7 +58,7 @@ class ApplicationWriter {
         dependencies.forEach(
                 dependency -> constructor.addStatement("this.$N = $N", nameOf(dependency), nameOf(dependency)));
         type.addMethod(constructor.build());
-        context.plugins().forEach(plugin -> plugin.writeService(manifest, type));
+        applyPlugins(manifest.type().asElement(), plugin -> plugin.writeService(manifest, type));
         fileWriter.writeFile(manifest.packageName(), serviceName, type.build());
     }
 
@@ -83,12 +85,15 @@ class ApplicationWriter {
         extraDependencies.forEach(dep -> constructor.addStatement("this.$N = $N", nameOf(dep), nameOf(dep)));
         type.addMethod(constructor.build());
 
-        context.plugins().forEach(plugin -> plugin.writePolymorphicService(manifest, type));
+        applyPlugins(manifest.type().asElement(), plugin -> plugin.writePolymorphicService(manifest, type));
         fileWriter.writeFile(manifest.packageName(), serviceName, type.build());
     }
 
     private Set<TypeName> collectPolymorphicExtraDependencies(PolymorphicAggregateManifest manifest) {
+        var aggregateType = manifest.type().asElement();
         return context.plugins().stream()
+                .filter(plugin -> context.isPluginEnabledFor(aggregateType, plugin.getClass()))
+                .filter(plugin -> context.getOutputTargetFor(aggregateType, plugin.getClass()) != OutputTarget.TEST)
                 .flatMap(plugin -> plugin.getPolymorphicServiceDependencies(manifest).stream())
                 .collect(Collectors.toSet());
     }
@@ -107,10 +112,20 @@ class ApplicationWriter {
     }
 
     private Set<TypeName> collectDependencies(ClassManifest manifest) {
-        return Stream.concat(context.plugins().stream().flatMap(plugin ->
-                                plugin.getServiceDependencies(manifest).stream()),
+        var aggregateType = manifest.type().asElement();
+        return Stream.concat(context.plugins().stream()
+                                .filter(plugin -> context.isPluginEnabledFor(aggregateType, plugin.getClass()))
+                                .filter(plugin -> context.getOutputTargetFor(aggregateType, plugin.getClass()) != OutputTarget.TEST)
+                                .flatMap(plugin -> plugin.getServiceDependencies(manifest).stream()),
                         Stream.of(ClassName.get("%s.application".formatted(manifest.type().packageName()),
                                 "%sRepository".formatted(manifest.type().simpleName()))))
                 .collect(Collectors.toSet());
+    }
+
+    private void applyPlugins(TypeElement aggregateType, java.util.function.Consumer<PrefabPlugin> action) {
+        context.plugins().stream()
+                .filter(plugin -> context.isPluginEnabledFor(aggregateType, plugin.getClass()))
+                .filter(plugin -> context.getOutputTargetFor(aggregateType, plugin.getClass()) != OutputTarget.TEST)
+                .forEach(plugin -> context.withPluginOutputTarget(aggregateType, plugin.getClass(), () -> action.accept(plugin)));
     }
 }

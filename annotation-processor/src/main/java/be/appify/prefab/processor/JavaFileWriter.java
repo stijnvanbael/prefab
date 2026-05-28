@@ -1,5 +1,6 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.core.annotations.OutputTarget;
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.TypeSpec;
 
@@ -47,6 +48,12 @@ public class JavaFileWriter {
      * @param type          the type specification
      */
     public void writeFile(String packagePrefix, String typeName, TypeSpec type) {
+        var scopedOutput = PluginOutputScope.current();
+        if (scopedOutput.isPresent() && scopedOutput.get().target() == OutputTarget.TEST) {
+            new TestJavaFileWriter(scopedOutput.get().context(), packageSuffix)
+                    .writeFile(packagePrefix, typeName, type);
+            return;
+        }
         try {
             var packageName = !isBlank(packageSuffix) ? "%s.%s".formatted(packagePrefix, packageSuffix) : packagePrefix;
             var qualifiedName = "%s.%s".formatted(packageName, typeName);

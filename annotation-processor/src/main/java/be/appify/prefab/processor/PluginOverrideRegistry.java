@@ -41,7 +41,7 @@ public class PluginOverrideRegistry {
      * @return true if the plugin should be enabled
      */
     public boolean isPluginEnabled(Class<?> pluginClass) {
-        PluginOverride override = overridesByPlugin.get(pluginClass);
+        PluginOverride override = findOverride(pluginClass);
         return override == null || override.isEnabled();
     }
 
@@ -54,7 +54,7 @@ public class PluginOverrideRegistry {
      * @return the output target (never null)
      */
     public OutputTarget getOutputTarget(Class<?> pluginClass) {
-        PluginOverride override = overridesByPlugin.get(pluginClass);
+        PluginOverride override = findOverride(pluginClass);
         return override == null ? OutputTarget.DEFAULT : override.outputTarget();
     }
 
@@ -65,7 +65,7 @@ public class PluginOverrideRegistry {
      * @return an Optional containing the override, or empty if no override exists
      */
     public Optional<PluginOverride> getOverride(Class<?> pluginClass) {
-        return Optional.ofNullable(overridesByPlugin.get(pluginClass));
+        return Optional.ofNullable(findOverride(pluginClass));
     }
 
     /**
@@ -84,6 +84,18 @@ public class PluginOverrideRegistry {
      */
     public boolean hasNonDefaultTargets() {
         return overridesByPlugin.values().stream().anyMatch(o -> !o.isDefaultTarget());
+    }
+
+    private PluginOverride findOverride(Class<?> pluginClass) {
+        var direct = overridesByPlugin.get(pluginClass);
+        if (direct != null) {
+            return direct;
+        }
+        var pluginClassName = pluginClass.getName();
+        return overridesByPlugin.values().stream()
+                .filter(override -> override.pluginClass().getName().equals(pluginClassName))
+                .findFirst()
+                .orElse(null);
     }
 }
 

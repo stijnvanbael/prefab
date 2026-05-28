@@ -178,6 +178,46 @@ To include a `@CustomType` field in migrations or Avro schemas, implement a `Pre
 
 ---
 
+### `@Generate`
+
+**Package:** `be.appify.prefab.core.annotations`
+**Target:** `TYPE`
+**Retention:** `SOURCE`
+**Repeatable:** Yes (container: `@GenerateOverrides`)
+
+Per-aggregate plugin override for Prefab code generation.
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `plugin` | `Class<?>` | — **(required)** | Plugin class to configure. Must implement `PrefabPlugin`. |
+| `enabled` | `boolean` | `true` | Enables/disables that plugin for this aggregate only. |
+| `target` | `OutputTarget` | `OutputTarget.DEFAULT` | Output location for generated artefacts of that plugin (`DEFAULT`, `MAIN`, `TEST`). |
+
+**Precedence:**
+1. `@Generate` override on the aggregate (highest)
+2. project-wide compiler option `-Aprefab.plugin.<id>.enabled=...`
+3. plugin default behavior (enabled)
+
+**Examples:**
+
+```java
+@Generate(plugin = AsyncApiDocumentationPlugin.class, enabled = false)
+@Generate(plugin = CreatePlugin.class, target = OutputTarget.TEST)
+@Aggregate
+public record Order(
+        @Id Reference<Order> id,
+        @Version long version,
+        String customerName
+) { }
+```
+
+**Validation:**
+- Compile error if `plugin` is not a `PrefabPlugin` subtype
+- Compile error if plugin type is not resolvable on the annotation-processor classpath
+- Warning if `@Generate` is placed on a non-`@Aggregate` type
+
+---
+
 ## 4.2 REST Annotations
 
 All REST annotations are in package `be.appify.prefab.core.annotations.rest` with `@Retention(SOURCE)`.
@@ -1061,6 +1101,7 @@ See [Feature Guides — Repository Mixins](feature-guides.md#710-repository-mixi
 | `@Aggregate`          | Type                      | RUNTIME   | Marks an aggregate root                                                                                                                                                                                                                                               |
 | `@AsyncCommit`        | Type, Constructor, Method | SOURCE    | Async-commit (listen-to-self) pattern. At **type level**: all `@Create` and `@Update` methods become async (202, no `repository.save()`). At **method level**: only that method is async. `@Create` methods must be `void` and call `PublishesEvents.publishEvent()`. |
 | `@CustomType`         | Type                      | RUNTIME   | Opt out of automatic field mapping                                                                                                                                                                                                                                    |
+| `@Generate`           | Type                      | SOURCE    | Per-aggregate plugin override (`enabled` and output `target`)                                                                                                                                                                                                         |
 | `@Create`             | Constructor, Method       | SOURCE    | HTTP create endpoint                                                                                                                                                                                                                                                  |
 | `@Update`             | Method                    | SOURCE    | HTTP update endpoint                                                                                                                                                                                                                                                  |
 | `@Delete`             | Type, Method              | SOURCE    | HTTP delete endpoint                                                                                                                                                                                                                                                  |

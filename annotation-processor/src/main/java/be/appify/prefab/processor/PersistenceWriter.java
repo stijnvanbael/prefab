@@ -1,6 +1,7 @@
 package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.RepositoryMixin;
+import be.appify.prefab.core.annotations.OutputTarget;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
@@ -8,6 +9,7 @@ import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.util.function.Supplier;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.MirroredTypeException;
 import org.springframework.data.domain.Page;
@@ -52,7 +54,7 @@ class PersistenceWriter {
                 .addSuperinterface(ParameterizedTypeName.get(ClassName.get(PagingAndSortingRepository.class),
                         manifest.type().asTypeName(), ClassName.get(String.class)));
         mixins.forEach(mixinType -> type.addSuperinterface(mixinType.asType()));
-        context.plugins().forEach(plugin -> plugin.writeRepository(manifest, type));
+        applyPlugins(manifest.type().asElement(), plugin -> plugin.writeRepository(manifest, type));
         findByParentMethod(manifest, type);
         fileWriter.writeFile(manifest.packageName(), repositoryName, type.build());
     }
@@ -101,5 +103,12 @@ class PersistenceWriter {
                         .addParameter(ParameterSpec.builder(Pageable.class, "pageable").build())
                         .returns(pageOf(manifest.type().asTypeName()))
                         .build()));
+    }
+
+    private void applyPlugins(TypeElement aggregateType, java.util.function.Consumer<PrefabPlugin> action) {
+        context.plugins().stream()
+                .filter(plugin -> context.isPluginEnabledFor(aggregateType, plugin.getClass()))
+                .filter(plugin -> context.getOutputTargetFor(aggregateType, plugin.getClass()) != OutputTarget.TEST)
+                .forEach(plugin -> context.withPluginOutputTarget(aggregateType, plugin.getClass(), () -> action.accept(plugin)));
     }
 }

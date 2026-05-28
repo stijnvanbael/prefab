@@ -8,7 +8,9 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
@@ -41,6 +43,7 @@ public class PrefabContext {
     private final Set<ExecutableElement> newlyDeferredEventHandlers = new LinkedHashSet<>();
     private final Set<String> currentCompilationTypeNames;
     private final GenerateAnnotationValidator generateAnnotationValidator;
+    private final PrefabConfiguration configuration;
 
     // Memoized per-round event views; each computed at most once per PrefabContext instance.
     private List<TypeElement> memoizedCurrentCompilationEventElements;
@@ -116,6 +119,7 @@ public class PrefabContext {
         this.inheritedDeferredEventHandlers = Set.copyOf(inheritedDeferredEventHandlers);
         this.currentCompilationTypeNames = Set.copyOf(currentCompilationTypeNames);
         this.generateAnnotationValidator = new GenerateAnnotationValidator(processingEnvironment);
+        this.configuration = new PrefabConfiguration(processingEnvironment.getOptions());
         requestParameterBuilder = new RequestParameterBuilder(plugins);
         requestParameterMapper = new RequestParameterMapper(plugins);
     }
@@ -359,7 +363,8 @@ public class PrefabContext {
      * @return true if the plugin should be enabled
      */
     public boolean isPluginEnabledFor(TypeElement aggregateType, Class<?> pluginClass) {
-        return pluginOverridesFor(aggregateType).isPluginEnabled(pluginClass);
+        Optional<PluginOverride> override = pluginOverridesFor(aggregateType).getOverride(pluginClass);
+        return override.map(PluginOverride::isEnabled).orElseGet(() -> configuration.isPluginEnabled(pluginClass));
     }
 
     /**
@@ -375,6 +380,41 @@ public class PrefabContext {
      */
     public OutputTarget getOutputTargetFor(TypeElement aggregateType, Class<?> pluginClass) {
         return pluginOverridesFor(aggregateType).getOutputTarget(pluginClass);
+    }
+
+    /**
+     * Returns processor-wide plugin configuration resolved from compiler options.
+     */
+    public PrefabConfiguration configuration() {
+        return configuration;
+    }
+
+    /**
+     * Runs plugin generation code in a scope that exposes the plugin's resolved output target.
+     */
+    public void withPluginOutputTarget(TypeElement aggregateType, Class<?> pluginClass, Runnable action) {
+        withOutputTarget(getOutputTargetFor(aggregateType, pluginClass), action);
+    }
+
+    /**
+     * Runs plugin generation code in a scope that exposes the plugin's resolved output target.
+     */
+    public <T> T withPluginOutputTarget(TypeElement aggregateType, Class<?> pluginClass, Supplier<T> action) {
+        return withOutputTarget(getOutputTargetFor(aggregateType, pluginClass), action);
+    }
+
+    /**
+     * Runs generation code in an explicit output-target scope.
+     */
+    public void withOutputTarget(OutputTarget target, Runnable action) {
+        PluginOutputScope.run(this, target, action);
+    }
+
+    /**
+     * Runs generation code in an explicit output-target scope.
+     */
+    public <T> T withOutputTarget(OutputTarget target, Supplier<T> action) {
+        return PluginOutputScope.call(this, target, action);
     }
 
     /**

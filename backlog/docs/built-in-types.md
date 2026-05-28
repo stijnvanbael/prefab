@@ -50,6 +50,28 @@ parameter and a `StorageService` call to persist the file.
 
 ---
 
+## `OutputTarget`
+
+**Package:** `be.appify.prefab.core.annotations`
+
+Enum used by `@Generate(target = ...)` to control where plugin-generated artefacts are written.
+
+| Value | Meaning |
+|-------|---------|
+| `DEFAULT` | Use the plugin's default output location |
+| `MAIN` | Force generation to main sources (`src/main/java`) |
+| `TEST` | Force generation to test sources (`src/test/java` or generated test output) |
+
+Example:
+
+```java
+@Generate(plugin = CreatePlugin.class, target = OutputTarget.TEST)
+@Aggregate
+public record Order(...) { }
+```
+
+---
+
 ## `AuditInfo`
 
 **Package:** `be.appify.prefab.core.audit`

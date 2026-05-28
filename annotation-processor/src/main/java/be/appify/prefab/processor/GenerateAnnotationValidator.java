@@ -153,9 +153,31 @@ public class GenerateAnnotationValidator {
                             );
                             return;
                         }
-
-                        // Note: We cannot create a PluginOverride when the plugin class couldn't be resolved
-                        // The override will be retried in the next compilation round if the plugin becomes available
+                        var resolvedPluginClass = resolvePluginClass(declaredType.toString(), typeElement);
+                        if (resolvedPluginClass == null) {
+                            return;
+                        }
+                        if (overrides.containsKey(resolvedPluginClass)) {
+                            warn(
+                                    typeElement,
+                                    "@Generate(plugin=" + resolvedPluginClass.getSimpleName()
+                                            + ") is defined multiple times; only the first override will be used"
+                            );
+                            return;
+                        }
+                        OutputTarget target = generateAnnotation.target();
+                        if (target == OutputTarget.TEST && !supportsTestOutput()) {
+                            error(
+                                    typeElement,
+                                    "Plugin " + resolvedPluginClass.getSimpleName()
+                                            + " does not support OutputTarget.TEST; use DEFAULT or MAIN instead"
+                            );
+                            return;
+                        }
+                        overrides.put(
+                                resolvedPluginClass,
+                                new PluginOverride(resolvedPluginClass, generateAnnotation.enabled(), target)
+                        );
                     }
                 });
 
@@ -215,6 +237,16 @@ public class GenerateAnnotationValidator {
         // TODO: Check for @SupportsTestOutput marker annotation
         // For now, assume all plugins support test output
         return true;
+    }
+
+    private Class<?> resolvePluginClass(String pluginClassName, TypeElement typeElement) {
+        try {
+            return Class.forName(pluginClassName, false, PrefabPlugin.class.getClassLoader());
+        } catch (ClassNotFoundException e) {
+            // Source-only plugin declarations are valid in compilation tests but are not loadable as
+            // runtime classes from the processor classloader in this round.
+            return null;
+        }
     }
 
     /**

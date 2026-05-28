@@ -2,6 +2,7 @@ package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Doc;
 import be.appify.prefab.core.annotations.Example;
+import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.processor.rest.ControllerUtil;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
@@ -13,6 +14,7 @@ import com.palantir.javapoet.TypeSpec;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import javax.lang.model.element.TypeElement;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -67,7 +69,7 @@ class HttpWriter {
                         .addStatement("this.service = service")
                         .build())
                 .addMethod(toResponseMethod(manifest));
-        context.plugins().forEach(plugin -> plugin.writeController(manifest, type));
+        applyPlugins(manifest.type().asElement(), plugin -> plugin.writeController(manifest, type));
         fileWriter.writeFile(manifest.packageName(), "%sController".formatted(manifest.simpleName()), type.build());
     }
 
@@ -89,7 +91,7 @@ class HttpWriter {
                         .build())
                 .addMethod(polymorphicToResponseMethod(manifest, polymorphicResponseType));
 
-        context.plugins().forEach(plugin -> plugin.writePolymorphicController(manifest, type));
+        applyPlugins(manifest.type().asElement(), plugin -> plugin.writePolymorphicController(manifest, type));
 
         fileWriter.writeFile(manifest.packageName(), "%sController".formatted(manifest.simpleName()), type.build());
     }
@@ -284,5 +286,12 @@ class HttpWriter {
     private static String lastSimpleName(String simpleName) {
         int dot = simpleName.lastIndexOf('.');
         return dot < 0 ? simpleName : simpleName.substring(dot + 1);
+    }
+
+    private void applyPlugins(TypeElement aggregateType, java.util.function.Consumer<PrefabPlugin> action) {
+        context.plugins().stream()
+                .filter(plugin -> context.isPluginEnabledFor(aggregateType, plugin.getClass()))
+                .filter(plugin -> context.getOutputTargetFor(aggregateType, plugin.getClass()) != OutputTarget.TEST)
+                .forEach(plugin -> context.withPluginOutputTarget(aggregateType, plugin.getClass(), () -> action.accept(plugin)));
     }
 }

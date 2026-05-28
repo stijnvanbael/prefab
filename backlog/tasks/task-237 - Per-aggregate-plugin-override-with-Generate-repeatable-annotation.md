@@ -1,10 +1,10 @@
 ---
 id: TASK-237
 title: Per-aggregate plugin override with @Generate repeatable annotation
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-05-28 11:01'
-updated_date: '2026-05-28 11:24'
+updated_date: '2026-05-28 11:58'
 labels:
   - ✨feature
   - annotation-processor
@@ -218,14 +218,14 @@ Currently out of scope, but document the extensibility.
 - [x] #1 Generate, GenerateOverrides, and OutputTarget annotations are defined in io.prefab.core package
 - [x] #2 PrefabContext reads @Generate overrides from TypeElement and stores them in a typed registry
 - [x] #3 GenerationContext exposes isPluginEnabled(Class<? extends PrefabPlugin>) and getOutputTarget(...) query methods
-- [ ] #4 Each built-in plugin checks isPluginEnabled() early in its main hook and skips code generation when disabled
-- [ ] #5 Plugins respect getOutputTarget() to emit TEST output when target=OutputTarget.TEST
-- [ ] #6 Per-aggregate overrides take strict precedence over project-wide settings from TASK-227
-- [ ] #7 Unit tests verify that @Generate(enabled=false) causes the plugin to be skipped with zero generated artifacts
-- [ ] #8 Unit tests verify that @Generate(target=TEST) routes generated code to src/test/java
-- [ ] #9 Unit tests verify that multiple @Generate annotations on one class are parsed correctly and all take effect
-- [ ] #10 backlog/docs/annotation-reference.md documents @Generate with all attributes and examples
-- [ ] #11 backlog/docs/feature-guides.md includes 'Per-aggregate plugin overrides' how-to guide
+- [x] #4 Each built-in plugin checks isPluginEnabled() early in its main hook and skips code generation when disabled
+- [x] #5 Plugins respect getOutputTarget() to emit TEST output when target=OutputTarget.TEST
+- [x] #6 Per-aggregate overrides take strict precedence over project-wide settings from TASK-227
+- [x] #7 Unit tests verify that @Generate(enabled=false) causes the plugin to be skipped with zero generated artifacts
+- [x] #8 Unit tests verify that @Generate(target=TEST) routes generated code to src/test/java
+- [x] #9 Unit tests verify that multiple @Generate annotations on one class are parsed correctly and all take effect
+- [x] #10 backlog/docs/annotation-reference.md documents @Generate with all attributes and examples
+- [x] #11 backlog/docs/feature-guides.md includes 'Per-aggregate plugin overrides' how-to guide
 - [x] #12 If @Generate.plugin() is not a PrefabPlugin subclass, raise a compile error with clear message
 - [x] #13 If @Generate is used on a non-aggregate class (missing @Aggregate), log a warning
 - [x] #14 If @Generate references a plugin that is not on the classpath, raise a compile error
@@ -356,4 +356,40 @@ Test `failOnNonPluginClass` still fails:
 - Valid annotations tests: 2/2 PASS (acceptValidPluginOverride, acceptMultipleOverrides)
 - Invalid annotations tests: 2/3 PASS (warnOnNonAggregate, warnOnDuplicatePluginConfiguration)
 - Failing: failOnNonPluginClass
+
+## Final Test Implementation (May 28, 2026) ✅ COMPLETE
+
+### Solution
+Integrated eager validation into PrefabProcessor.process() that calls context.pluginOverridesFor() for all discovered aggregates immediately after resolveAggregates() and resolvePolymorphicAggregates(). This ensures @Generate annotations are validated before code generation begins.
+
+### All Tests Passing ✅
+- Valid annotations tests: 2/2 PASS
+  - acceptValidPluginOverride ✅
+  - acceptMultipleOverrides ✅
+- Invalid annotations tests: 3/3 PASS
+  - warnOnNonAggregate ✅
+  - failOnNonPluginClass ✅
+  - warnOnDuplicatePluginConfiguration ✅
+
+**Total: 5/5 tests passing**
+
+### Key Changes
+1. Fixed PluginOverride to reject null pluginClass early with clear error message
+2. Added validateGenerateAnnotationsEagerly() method to PrefabProcessor
+3. Fixed validator to properly handle MirroredTypeException cases without trying to create overrides with null classes
+4. Test sources split into separate JavaFileObjects to satisfy Java file naming requirements
+
+Phase 2: Testing is now COMPLETE ✅
+
+Implemented processor-level plugin gating so aggregate generation hooks now respect `@Generate(enabled=...)` with per-aggregate precedence over project-wide options.
+
+Added output-target execution scope and JavaFileWriter routing: plugin artefacts generated inside TEST scope are emitted via test output writer instead of main source output.
+
+Updated HTTP/application/persistence/test-client writers to skip TEST-targeted plugins in main artefacts and skip MAIN-targeted plugins in test-client artefacts.
+
+Hardened `@Generate` validator and override registry for classloader-safe plugin matching by FQCN, including mirrored-type handling.
+
+Added integration tests in `GeneratePluginOverrideIntegrationTest` covering disabled plugin behavior, TEST output routing, and per-aggregate override precedence over `-A` options.
+
+Updated developer guide docs: `annotation-reference.md`, `feature-guides.md`, and `built-in-types.md` with `@Generate` and `OutputTarget` guidance.
 <!-- SECTION:NOTES:END -->

@@ -2,9 +2,9 @@ package be.appify.prefab.processor.rest.create;
 
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.processor.ClassManifest;
-import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
+import be.appify.prefab.processor.TestFileOutput;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.rest.PathVariables;
 import com.palantir.javapoet.AnnotationSpec;
@@ -23,7 +23,7 @@ import static org.apache.commons.text.WordUtils.capitalize;
 
 public class CreateRequestRecordWriter {
     public void writeRequestRecord(
-            JavaFileWriter fileWriter,
+            TestFileOutput fileWriter,
             ClassManifest manifest,
             ExecutableElement constructor,
             PrefabContext context
@@ -36,7 +36,7 @@ public class CreateRequestRecordWriter {
     }
 
     private void buildRequestRecord(
-            JavaFileWriter fileWriter,
+            TestFileOutput fileWriter,
             ClassManifest manifest,
             ExecutableElement constructor,
             PrefabContext context,
@@ -60,7 +60,7 @@ public class CreateRequestRecordWriter {
     }
 
     void writeUnionRequestInterface(
-            JavaFileWriter fileWriter,
+            TestFileOutput fileWriter,
             PolymorphicAggregateManifest polymorphic,
             List<Map.Entry<ClassManifest, ExecutableElement>> group,
             PrefabContext context
@@ -122,7 +122,7 @@ public class CreateRequestRecordWriter {
     }
 
     void writeRequestRecordForPolymorphic(
-            JavaFileWriter fileWriter,
+            TestFileOutput fileWriter,
             PolymorphicAggregateManifest polymorphic,
             ClassManifest subtype,
             ExecutableElement constructor,
@@ -148,7 +148,7 @@ public class CreateRequestRecordWriter {
     }
 
     void writeRequestRecordForFactory(
-            JavaFileWriter fileWriter,
+            TestFileOutput fileWriter,
             ClassManifest manifest,
             ExecutableElement factoryMethod,
             PrefabContext context

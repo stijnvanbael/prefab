@@ -20,12 +20,12 @@ import org.springframework.data.repository.PagingAndSortingRepository;
 import static org.apache.commons.text.WordUtils.capitalize;
 
 class PersistenceWriter {
-    private final JavaFileWriter fileWriter;
+    private final TestFileOutput fileWriter;
     private final PrefabContext context;
 
     PersistenceWriter(PrefabContext context) {
         this.context = context;
-        fileWriter = new JavaFileWriter(context.processingEnvironment(), "application");
+        fileWriter = new OutputTargetFileOutput(context, "application", OutputTarget.MAIN);
     }
 
     void writePersistenceLayer(ClassManifest manifest) {

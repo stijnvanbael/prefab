@@ -4,7 +4,7 @@ title: Per-aggregate plugin override with @Generate repeatable annotation
 status: Done
 assignee: []
 created_date: '2026-05-28 11:01'
-updated_date: '2026-05-28 11:58'
+updated_date: '2026-05-28 12:34'
 labels:
   - ✨feature
   - annotation-processor
@@ -392,4 +392,8 @@ Hardened `@Generate` validator and override registry for classloader-safe plugin
 Added integration tests in `GeneratePluginOverrideIntegrationTest` covering disabled plugin behavior, TEST output routing, and per-aggregate override precedence over `-A` options.
 
 Updated developer guide docs: `annotation-reference.md`, `feature-guides.md`, and `built-in-types.md` with `@Generate` and `OutputTarget` guidance.
+
+Refactored file-output routing with a new `OutputTargetFileOutput` abstraction that delegates to main/test writers based on effective target, including explicit TEST->MAIN switching.
+
+Updated annotation-processor writers/plugins that previously instantiated `TestJavaFileWriter`/`JavaFileWriter` directly (test client, assertion, mother, create/update request record emitters) to use the target-aware abstraction.
 <!-- SECTION:NOTES:END -->

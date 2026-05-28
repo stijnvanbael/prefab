@@ -25,7 +25,7 @@ public class TestClientWriter {
     private final PrefabContext context;
 
     TestClientWriter(PrefabContext context) {
-        this(context, new TestJavaFileWriter(context, null));
+        this(context, new OutputTargetFileOutput(context, null, OutputTarget.TEST));
     }
 
     public TestClientWriter(PrefabContext context, TestFileOutput fileWriter) {

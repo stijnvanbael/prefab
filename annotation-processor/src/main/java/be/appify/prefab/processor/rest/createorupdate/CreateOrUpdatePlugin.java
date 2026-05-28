@@ -1,9 +1,10 @@
 package be.appify.prefab.processor.rest.createorupdate;
 
+import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.processor.ClassManifest;
-import be.appify.prefab.processor.JavaFileWriter;
+import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.VariableManifest;
@@ -63,7 +64,7 @@ public class CreateOrUpdatePlugin implements PrefabPlugin {
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
         if (!manifests.isEmpty()) {
-            var fileWriter = new JavaFileWriter(context.processingEnvironment(), "application");
+            var fileWriter = new OutputTargetFileOutput(context, "application", OutputTarget.MAIN);
             manifests.forEach(manifest ->
                     createOrUpdatePairsOf(manifest).forEach(pair -> {
                         var create = pair.createConstructor().getAnnotation(Create.class);

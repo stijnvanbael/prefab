@@ -2,13 +2,15 @@ package be.appify.prefab.processor.rest.update;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.AsyncCommit;
+import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.processor.ClassManifest;
-import be.appify.prefab.processor.JavaFileWriter;
+import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
+import be.appify.prefab.processor.TestFileOutput;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.rest.PathVariables;
 import com.palantir.javapoet.TypeSpec;
@@ -57,7 +59,7 @@ public class UpdatePlugin implements PrefabPlugin {
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
         if (!manifests.isEmpty()) {
-            var fileWriter = new JavaFileWriter(context.processingEnvironment(), "application");
+            var fileWriter = new OutputTargetFileOutput(context, "application", OutputTarget.MAIN);
             manifests.forEach(manifest -> updateMethodsOf(manifest).forEach(update -> {
                 if (!update.requestParameters().isEmpty()) {
                     updateRequestRecordWriter.writeUpdateRequestRecord(fileWriter, manifest, update,
@@ -71,12 +73,12 @@ public class UpdatePlugin implements PrefabPlugin {
     public void writeAdditionalFiles(List<ClassManifest> manifests, List<PolymorphicAggregateManifest> polymorphicManifests) {
         writeAdditionalFiles(manifests);
         if (!polymorphicManifests.isEmpty()) {
-            var fileWriter = new JavaFileWriter(context.processingEnvironment(), "application");
+            var fileWriter = new OutputTargetFileOutput(context, "application", OutputTarget.MAIN);
             polymorphicManifests.forEach(polymorphic -> writePolymorphicUpdateAdditionalFiles(fileWriter, polymorphic));
         }
     }
 
-    private void writePolymorphicUpdateAdditionalFiles(JavaFileWriter fileWriter, PolymorphicAggregateManifest polymorphic) {
+    private void writePolymorphicUpdateAdditionalFiles(TestFileOutput fileWriter, PolymorphicAggregateManifest polymorphic) {
         var grouped = groupSubtypesByPath(polymorphic);
         grouped.forEach((pathKey, entries) -> {
             if (isUnionGroup(entries)) {
@@ -98,7 +100,7 @@ public class UpdatePlugin implements PrefabPlugin {
     }
 
     private void writePolymorphicUpdateRequestRecord(
-            JavaFileWriter fileWriter,
+            TestFileOutput fileWriter,
             PolymorphicAggregateManifest polymorphic,
             ClassManifest subtype,
             UpdateManifest update

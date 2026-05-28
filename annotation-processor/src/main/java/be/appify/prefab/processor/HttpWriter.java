@@ -35,12 +35,12 @@ class HttpWriter {
     private static final ClassName JSON_SUB_TYPE =
             ClassName.get("com.fasterxml.jackson.annotation", "JsonSubTypes", "Type");
 
-    private final JavaFileWriter fileWriter;
+    private final TestFileOutput fileWriter;
     private final PrefabContext context;
 
     HttpWriter(PrefabContext context) {
         this.context = context;
-        fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.http");
+        fileWriter = new OutputTargetFileOutput(context, "infrastructure.http", OutputTarget.MAIN);
     }
 
     void writeHttpLayer(ClassManifest manifest) {

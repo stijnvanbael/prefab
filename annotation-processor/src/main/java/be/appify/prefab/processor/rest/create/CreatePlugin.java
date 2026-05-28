@@ -1,14 +1,16 @@
 package be.appify.prefab.processor.rest.create;
 
 import be.appify.prefab.core.annotations.AsyncCommit;
+import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.Update;
 import javax.lang.model.type.TypeKind;
 import be.appify.prefab.processor.ClassManifest;
-import be.appify.prefab.processor.JavaFileWriter;
+import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
+import be.appify.prefab.processor.TestFileOutput;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
@@ -83,7 +85,7 @@ public class CreatePlugin implements PrefabPlugin {
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
         if (!manifests.isEmpty()) {
-            var fileWriter = new JavaFileWriter(context.processingEnvironment(), "application");
+            var fileWriter = new OutputTargetFileOutput(context, "application", OutputTarget.MAIN);
             manifests.forEach(manifest -> {
                 var asyncFactories = asyncCreateFactoriesOf(manifest);
                 asyncFactories.forEach(factory -> {
@@ -106,12 +108,12 @@ public class CreatePlugin implements PrefabPlugin {
     public void writeAdditionalFiles(List<ClassManifest> manifests, List<PolymorphicAggregateManifest> polymorphicManifests) {
         writeAdditionalFiles(manifests);
         if (!polymorphicManifests.isEmpty()) {
-            var fileWriter = new JavaFileWriter(context.processingEnvironment(), "application");
+            var fileWriter = new OutputTargetFileOutput(context, "application", OutputTarget.MAIN);
             polymorphicManifests.forEach(polymorphic -> writePolymorphicAdditionalFiles(fileWriter, polymorphic));
         }
     }
 
-    private void writePolymorphicAdditionalFiles(JavaFileWriter fileWriter, PolymorphicAggregateManifest polymorphic) {
+    private void writePolymorphicAdditionalFiles(TestFileOutput fileWriter, PolymorphicAggregateManifest polymorphic) {
         var grouped = groupSubtypesByPath(polymorphic);
         grouped.forEach((pathKey, entries) -> {
             if (isUnionGroup(entries)) {

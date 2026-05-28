@@ -479,11 +479,12 @@ Marks a record or interface as a domain event.
 `@Event` metadata is retained in bytecode so consuming modules can generate subscribers for handlers whose
 event types are declared in dependency modules.
 
-| Attribute       | Type                  | Default          | Description                                                    |
-|-----------------|-----------------------|------------------|----------------------------------------------------------------|
-| `topic`         | `String`              | — **(required)** | Messaging topic name. Supports Spring property placeholders.   |
-| `platform`      | `Event.Platform`      | `DERIVED`        | Messaging platform. Auto-detected when only one is configured. |
-| `serialization` | `Event.Serialization` | `JSON`           | Serialization format (`JSON` or `AVRO`).                       |
+| Attribute       | Type                  | Default          | Description                                                                                                                     |
+|-----------------|-----------------------|------------------|---------------------------------------------------------------------------------------------------------------------------------|
+| `topic`         | `String[]`            | — **(required)** | One or more messaging topic names. Supports Spring property placeholders. When multiple topics are listed, handlers subscribe to all of them by default. |
+| `publishTo`     | `PublishTo`           | `FIRST`          | Controls which topics the producer publishes to. `FIRST` = primary topic only (backward-compatible). `ALL` = every listed topic. |
+| `platform`      | `Event.Platform`      | `DERIVED`        | Messaging platform. Auto-detected when only one is configured.                                                                  |
+| `serialization` | `Event.Serialization` | `JSON`           | Serialization format (`JSON` or `AVRO`).                                                                                        |
 
 **Platforms:**
 
@@ -501,13 +502,14 @@ event types are declared in dependency modules.
 - `SerializationRegistryConfiguration` — registers topic → serialization format mapping
 
 ```java
+// Single topic (backward-compatible):
 @Event(topic = "${topics.order.name}")
 public record OrderCreated(
         @PartitioningKey Reference<Order> id,
         String customerName
 ) { }
 
-// Sealed interface with multiple sub-events:
+// Sealed interface with multiple sub-events on a single topic:
 @Event(topic = "${topics.user.name}")
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
 public sealed interface UserEvent permits UserEvent.Created, UserEvent.Updated {
@@ -517,6 +519,11 @@ public sealed interface UserEvent permits UserEvent.Created, UserEvent.Updated {
     record Created(Reference<User> reference, String name) implements UserEvent { }
     record Updated(Reference<User> reference, String name) implements UserEvent { }
 }
+
+// Multiple topics — publish to both, consumers subscribe to both by default:
+@Event(topic = {"${topics.user.primary}", "${topics.user.secondary}"}, publishTo = PublishTo.ALL)
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
+public sealed interface UserEvent permits UserEvent.Created, UserEvent.Updated { ... }
 ```
 
 ---
@@ -636,7 +643,8 @@ Configures dead-lettering and retry behaviour for all `@EventHandler` methods on
 | `minimumBackoffMs`     | `String`  | `"${prefab.dlt.retries.minimum-backoff-ms:1000}"`  | Min retry delay (ms).                                                       |
 | `maximumBackoffMs`     | `String`  | `"${prefab.dlt.retries.maximum-backoff-ms:30000}"` | Max retry delay (ms).                                                       |
 | `backoffMultiplier`    | `String`  | `"${prefab.dlt.retries.backoff-multiplier:1.5}"`   | Exponential backoff multiplier.                                             |
-| `autoOffsetReset`      | `String`  | `""`                                                 | Kafka-only listener override for `auto.offset.reset`; supports literals and placeholders. |
+| `autoOffsetReset`      | `String`   | `""`                                               | Kafka-only listener override for `auto.offset.reset`; supports literals and placeholders. |
+| `consumeFromTopics`    | `String[]` | `{}`                                               | Restricts which topics this handler subscribes to. When non-empty, must be a subset of the topics declared on the `@Event`. When empty (default), the handler subscribes to **all** topics declared on the event. |
 
 ```java
 @Aggregate
@@ -645,6 +653,18 @@ public record Channel(...) {
     @EventHandler
     @ByReference(property = "channel")
     public void onMessageSent(MessageSent event) { ... }
+}
+```
+
+To subscribe to only a subset of the event's topics, use `consumeFromTopics`:
+
+```java
+// UserEvent is declared with topic = {"${topics.user.primary}", "${topics.user.secondary}"}
+@Component
+@EventHandlerConfig(consumeFromTopics = "${topics.user.primary}")
+public class UserPrimaryHandler {
+    @EventHandler
+    public void onUserCreated(UserEvent.Created event) { ... }
 }
 ```
 

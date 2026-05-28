@@ -33,6 +33,9 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import static be.appify.prefab.core.annotations.EventHandlerConfig.Util.hasCustomAutoOffsetReset;
+import static be.appify.prefab.core.annotations.EventHandlerConfig.Util.hasCustomConfig;
+import static be.appify.prefab.core.annotations.EventHandlerConfig.Util.hasConsumeFromTopicsFilter;
 import static be.appify.prefab.processor.event.ConsumerWriterSupport.concurrencyExpression;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.isAvscGeneratedRecord;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -144,14 +147,15 @@ class KafkaConsumerWriter {
 
     private static AnnotationSpec kafkaListener(TypeManifest owner, Event event, String eventName) {
         var kafkaListener = AnnotationSpec.builder(KafkaListener.class);
-        for (var topic : event.topic()) {
+        var eventHandlerConfig = owner.inheritedAnnotationsOfType(EventHandlerConfig.class).stream().findFirst();
+        var topicsToSubscribe = effectiveTopics(event, eventHandlerConfig.orElse(null));
+        for (var topic : topicsToSubscribe) {
             kafkaListener.addMember("topics", "$S", topic);
         }
         kafkaListener.addMember("groupId", "$S",
                         "${spring.application.name}." + CaseUtil.toKebabCase(owner.simpleName())
                                 + "-on-" + CaseUtil.toKebabCase(eventName))
                 .addMember("concurrency", "$S", concurrencyExpression(owner));
-        var eventHandlerConfig = owner.inheritedAnnotationsOfType(EventHandlerConfig.class).stream().findFirst();
         var customConfig = eventHandlerConfig
                 .map(EventHandlerConfig.Util::hasCustomConfig)
                 .orElse(false);
@@ -165,6 +169,13 @@ class KafkaConsumerWriter {
                         "$S",
                         "auto.offset.reset=" + config.autoOffsetReset()));
         return kafkaListener.build();
+    }
+
+    private static List<String> effectiveTopics(Event event, EventHandlerConfig config) {
+        if (hasConsumeFromTopicsFilter(config)) {
+            return List.of(config.consumeFromTopics());
+        }
+        return List.of(event.topic());
     }
 
     private MethodSpec constructor(Set<FieldSpec> fields) {

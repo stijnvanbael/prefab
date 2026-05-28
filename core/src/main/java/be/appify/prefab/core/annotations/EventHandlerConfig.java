@@ -90,6 +90,16 @@ public @interface EventHandlerConfig {
     String autoOffsetReset() default DEFAULT_AUTO_OFFSET_RESET;
 
     /**
+     * Restricts which topics this handler subscribes to. When non-empty, the generated listener
+     * will only subscribe to the topics listed here; they must be a subset of the topics declared
+     * on the corresponding {@link Event}. When empty (the default), the handler subscribes to
+     * <em>all</em> topics declared on the event.
+     *
+     * @return the topics this handler should consume from, or an empty array to consume from all event topics.
+     */
+    String[] consumeFromTopics() default {};
+
+    /**
      * Utility interface providing helper methods to evaluate configuration properties
      * defined in the {@link EventHandlerConfig}.
      */
@@ -144,6 +154,17 @@ public @interface EventHandlerConfig {
          */
         static boolean hasCustomAutoOffsetReset(EventHandlerConfig config) {
             return config != null && !config.autoOffsetReset().isBlank();
+        }
+
+        /**
+         * Determines whether the provided {@link EventHandlerConfig} restricts which topics are consumed.
+         * Returns {@code true} when the {@code consumeFromTopics} array is non-empty.
+         *
+         * @param config The {@link EventHandlerConfig} instance to evaluate.
+         * @return {@code true} if a topic filter is specified, {@code false} otherwise.
+         */
+        static boolean hasConsumeFromTopicsFilter(EventHandlerConfig config) {
+            return config != null && config.consumeFromTopics().length > 0;
         }
     }
 }

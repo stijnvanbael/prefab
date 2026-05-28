@@ -3,8 +3,11 @@ package be.appify.prefab.processor;
 import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandler;
+import be.appify.prefab.core.annotations.OutputTarget;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -37,10 +40,14 @@ public class PrefabContext {
     private final Set<ExecutableElement> inheritedDeferredEventHandlers;
     private final Set<ExecutableElement> newlyDeferredEventHandlers = new LinkedHashSet<>();
     private final Set<String> currentCompilationTypeNames;
+    private final GenerateAnnotationValidator generateAnnotationValidator;
 
     // Memoized per-round event views; each computed at most once per PrefabContext instance.
     private List<TypeElement> memoizedCurrentCompilationEventElements;
     private List<TypeElement> memoizedCurrentAndConsumedEventElements;
+
+    // Cached plugin override registries per TypeElement
+    private final Map<String, PluginOverrideRegistry> pluginOverridesByType = new HashMap<>();
 
     /**
      * Constructs a PrefabContext.
@@ -108,6 +115,7 @@ public class PrefabContext {
         this.roundEnvironment = roundEnvironment;
         this.inheritedDeferredEventHandlers = Set.copyOf(inheritedDeferredEventHandlers);
         this.currentCompilationTypeNames = Set.copyOf(currentCompilationTypeNames);
+        this.generateAnnotationValidator = new GenerateAnnotationValidator(processingEnvironment);
         requestParameterBuilder = new RequestParameterBuilder(plugins);
         requestParameterMapper = new RequestParameterMapper(plugins);
     }
@@ -319,6 +327,54 @@ public class PrefabContext {
                 .filter(type -> type.getKind().name().equals("DECLARED"))
                 .map(type -> (TypeElement) ((DeclaredType) type).asElement())
                 .filter(type -> type.getAnnotation(Event.class) != null);
+    }
+
+    /**
+     * Returns the plugin override registry for an aggregate class.
+     *
+     * <p>Reads and validates any {@code @Generate} annotations on the class, building a registry
+     * of overrides. Results are cached for the lifetime of this context.
+     *
+     * @param aggregateType
+     *         the aggregate type element
+     * @return a registry of plugin overrides (empty if none are defined)
+     */
+    public PluginOverrideRegistry pluginOverridesFor(TypeElement aggregateType) {
+        String typeName = aggregateType.getQualifiedName().toString();
+        return pluginOverridesByType.computeIfAbsent(
+                typeName,
+                k -> generateAnnotationValidator.validateAndBuildRegistry(aggregateType)
+        );
+    }
+
+    /**
+     * Check whether a plugin is enabled for an aggregate.
+     *
+     * <p>Queries the plugin override registry for the given type element.
+     *
+     * @param aggregateType
+     *         the aggregate type element
+     * @param pluginClass
+     *         the plugin class to check
+     * @return true if the plugin should be enabled
+     */
+    public boolean isPluginEnabledFor(TypeElement aggregateType, Class<?> pluginClass) {
+        return pluginOverridesFor(aggregateType).isPluginEnabled(pluginClass);
+    }
+
+    /**
+     * Get the output target for a plugin on an aggregate.
+     *
+     * <p>Queries the plugin override registry for the given type element.
+     *
+     * @param aggregateType
+     *         the aggregate type element
+     * @param pluginClass
+     *         the plugin class to check
+     * @return the output target (never null)
+     */
+    public OutputTarget getOutputTargetFor(TypeElement aggregateType, Class<?> pluginClass) {
+        return pluginOverridesFor(aggregateType).getOutputTarget(pluginClass);
     }
 
     /**

@@ -41,18 +41,6 @@ public class GenericSnsPublisher implements DomainEventDispatcher {
     }
 
     @Override
-    public void dispatch(Object event) {
-        publishToTopics(event, sqsUtil.topicsForDispatch(event));
-    }
-
-    /**
-     * Dispatches {@code event} to the explicitly specified topics instead of the registered ones.
-     * When no overrides are provided the call delegates to {@link #dispatch(Object)}.
-     *
-     * @param event          the domain event to dispatch
-     * @param topicOverrides explicit target topics; empty means "use registry"
-     */
-    @Override
     public void dispatch(Object event, String... topicOverrides) {
         var topics = topicOverrides.length > 0 ? List.of(topicOverrides) : sqsUtil.topicsForDispatch(event);
         publishToTopics(event, topics);

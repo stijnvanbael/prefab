@@ -19,10 +19,7 @@ import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.time.Duration;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
@@ -62,14 +59,12 @@ class PubSubSubscriberWriter {
         var packageName = TypeManifest.of(eventHandlers.getFirst().getEnclosingElement().asType(),
                 context.processingEnvironment()).packageName();
 
-        var topics = eventHandlers.stream()
+        var topicList = eventHandlers.stream()
                 .map(e -> support.rootEventType(e, context).annotationsOfType(Event.class).stream().findFirst()
                         .orElseThrow()
                         .topic())
-                .flatMap(java.util.Arrays::stream)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-
-        var topicList = new java.util.ArrayList<>(topics);
+                .flatMap(java.util.Arrays::stream).distinct()
+                .toList();
         // Precompute unique base names to avoid collisions when the same event type maps to multiple topics
         var uniqueNames = buildUniqueNames(topicList, eventHandlers);
 
@@ -96,8 +91,8 @@ class PubSubSubscriberWriter {
      * the event type's simple name. If multiple topics map to the same event type, an index suffix
      * is appended to each to ensure uniqueness.
      */
-    private java.util.List<String> buildUniqueNames(
-            java.util.List<String> topics,
+    private List<String> buildUniqueNames(
+            List<String> topics,
             List<ExecutableElement> eventHandlers
     ) {
         var bases = topics.stream()
@@ -105,8 +100,8 @@ class PubSubSubscriberWriter {
                 .toList();
         // Count occurrences of each base name
         Map<String, Long> counts = bases.stream().collect(Collectors.groupingBy(b -> b, Collectors.counting()));
-        Map<String, Integer> seenIndex = new java.util.HashMap<>();
-        var result = new java.util.ArrayList<String>(topics.size());
+        Map<String, Integer> seenIndex = new HashMap<>();
+        var result = new ArrayList<String>(topics.size());
         for (var base : bases) {
             if (counts.get(base) > 1) {
                 int idx = seenIndex.merge(base, 0, Integer::sum);
@@ -137,7 +132,7 @@ class PubSubSubscriberWriter {
 
     private MethodSpec constructor(
             List<String> topics,
-            java.util.List<String> uniqueNames,
+            List<String> uniqueNames,
             TypeManifest owner,
             Set<FieldSpec> fields,
             List<ExecutableElement> eventHandlers
@@ -204,8 +199,6 @@ class PubSubSubscriberWriter {
         }
         constructor.addStatement("$L = $T.newFixedThreadPool($L)", executorName, ClassName.get(Executors.class),
                 concurrency.matches("\\$\\{.+}") ? "Integer.parseInt(concurrency)" : concurrency);
-        constructor.addStatement("pubSub.registerType($T.class.getName(), $T.class)",
-                eventType.asTypeName(), eventType.asTypeName());
         constructor.addStatement("""
                         pubSub.subscribe(new $T($L, $S, $T.class, this::on$L)
                         .withExecutor($L)$L)""",

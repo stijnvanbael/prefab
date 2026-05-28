@@ -25,11 +25,9 @@ public class UserServicePubSubSubscriber {
             @Value("${topic.user.primary}") String userEvent0Topic,
             @Value("${topic.user.secondary}") String userEvent1Topic) {
         userEvent0Executor = Executors.newFixedThreadPool(1);
-        pubSub.registerType(UserEvent.class.getName(), UserEvent.class);
         pubSub.subscribe(new SubscriptionRequest<UserEvent>(userEvent0Topic, "user-service-on-user-event", UserEvent.class, this::onUserEvent)
                 .withExecutor(userEvent0Executor));
         userEvent1Executor = Executors.newFixedThreadPool(1);
-        pubSub.registerType(UserEvent.class.getName(), UserEvent.class);
         pubSub.subscribe(new SubscriptionRequest<UserEvent>(userEvent1Topic, "user-service-on-user-event", UserEvent.class, this::onUserEvent)
                 .withExecutor(userEvent1Executor));
         this.userService = userService;

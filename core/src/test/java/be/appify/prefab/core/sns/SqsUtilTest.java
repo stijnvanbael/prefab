@@ -1,5 +1,7 @@
 package be.appify.prefab.core.sns;
 
+import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.kafka.EventRegistry;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.sns.SnsClient;
@@ -15,30 +17,32 @@ class SqsUtilTest {
 
     @Test
     void tryTopicForTypeReturnsEmptyWhenNoTopicMatches() {
-        var sqsUtil = sqsUtil();
+        var sqsUtil = sqsUtil(new EventRegistry());
 
         assertEquals(Optional.empty(), sqsUtil.tryTopicForType(UnmappedEvent.class));
     }
 
     @Test
-    void topicForTypePrefersMostSpecificAssignableType() {
-        var sqsUtil = sqsUtil();
-        sqsUtil.registerEventTopic("parent-topic", ParentEvent.class);
-        sqsUtil.registerEventTopic("base-topic", BaseEvent.class);
+    void topicForTypeResolvesPermittedSealedSubtype() {
+        var eventRegistry = new EventRegistry();
+        var sqsUtil = sqsUtil(eventRegistry);
+        eventRegistry.register("parent-topic", ParentEvent.class, Event.Serialization.JSON);
 
+        // ChildEvent is a permitted subtype of sealed ParentEvent — registered automatically
         assertEquals("parent-topic", sqsUtil.topicForType(ChildEvent.class));
     }
 
     @Test
-    void topicForTypeThrowsOnAmbiguousAssignableTypes() {
-        var sqsUtil = sqsUtil();
-        sqsUtil.registerEventTopic("left-topic", LeftEvent.class);
-        sqsUtil.registerEventTopic("right-topic", RightEvent.class);
+    void topicForTypeThrowsWhenMultipleTopicsRegistered() {
+        var eventRegistry = new EventRegistry();
+        var sqsUtil = sqsUtil(eventRegistry);
+        eventRegistry.register("topic1", AmbiguousEvent.class, Event.Serialization.JSON);
+        eventRegistry.register("topic2", AmbiguousEvent.class, Event.Serialization.JSON);
 
         assertThrows(IllegalStateException.class, () -> sqsUtil.topicForType(AmbiguousEvent.class));
     }
 
-    private static SqsUtil sqsUtil() {
+    private static SqsUtil sqsUtil(EventRegistry eventRegistry) {
         return new SqsUtil(
                 "app",
                 "",
@@ -48,21 +52,16 @@ class SqsUtilTest {
                 1.5,
                 UNUSED_SNS_CLIENT,
                 UNUSED_SQS_CLIENT,
-                UNUSED_SQS_DESERIALIZER
+                UNUSED_SQS_DESERIALIZER,
+                eventRegistry
         );
     }
 
-    private interface BaseEvent {}
-
-    private interface ParentEvent extends BaseEvent {}
+    private sealed interface ParentEvent permits ChildEvent {}
 
     private static final class ChildEvent implements ParentEvent {}
 
-    private interface LeftEvent {}
-
-    private interface RightEvent {}
-
-    private static final class AmbiguousEvent implements LeftEvent, RightEvent {}
+    private static final class AmbiguousEvent {}
 
     private static final class UnmappedEvent {}
 }

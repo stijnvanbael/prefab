@@ -10,9 +10,9 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.CLASS)
 public @interface Event {
     /**
-     * The primary topic the event is published to or should be consumed from.
+     * The topic(s) the event is published to or should be consumed from.
      *
-     * @return The primary topic the event is published to or should be consumed from.
+     * @return The topic(s) the event is published to or should be consumed from.
      */
     String[] topic();
 

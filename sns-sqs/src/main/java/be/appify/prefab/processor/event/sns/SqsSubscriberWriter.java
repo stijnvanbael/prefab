@@ -18,9 +18,7 @@ import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.time.Duration;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
@@ -71,13 +69,13 @@ class SqsSubscriberWriter {
 
         var fields = support.addFields(eventHandlers, context, type);
         addEventHandlers(eventHandlers, type);
-        var topics = eventHandlers.stream()
+        var topicList = eventHandlers.stream()
                 .map(e -> support.rootEventType(e, context).annotationsOfType(Event.class).stream().findFirst()
                         .orElseThrow()
                         .topic())
-                .flatMap(java.util.Arrays::stream)
-                .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
-        var topicList = new java.util.ArrayList<>(topics);
+                .flatMap(Arrays::stream)
+                .distinct()
+                .toList();
         var uniqueNames = buildUniqueNames(topicList, eventHandlers);
         type.addMethod(constructor(topicList, uniqueNames, owner, fields, eventHandlers));
         fileWriter.writeFile(packageName, name, type.build());
@@ -99,16 +97,16 @@ class SqsSubscriberWriter {
         }
     }
 
-    private java.util.List<String> buildUniqueNames(
-            java.util.List<String> topics,
+    private List<String> buildUniqueNames(
+            List<String> topics,
             List<ExecutableElement> eventHandlers
     ) {
         var bases = topics.stream()
                 .map(t -> uncapitalize(support.eventTypeOf(eventHandlers, context, t).simpleName().replace(".", "")))
                 .toList();
         Map<String, Long> counts = bases.stream().collect(Collectors.groupingBy(b -> b, Collectors.counting()));
-        Map<String, Integer> seenIndex = new java.util.HashMap<>();
-        var result = new java.util.ArrayList<String>(topics.size());
+        Map<String, Integer> seenIndex = new HashMap<>();
+        var result = new ArrayList<String>(topics.size());
         for (var base : bases) {
             if (counts.get(base) > 1) {
                 int idx = seenIndex.merge(base, 0, Integer::sum);
@@ -122,8 +120,8 @@ class SqsSubscriberWriter {
     }
 
     private MethodSpec constructor(
-            java.util.List<String> topics,
-            java.util.List<String> uniqueNames,
+            List<String> topics,
+            List<String> uniqueNames,
             TypeManifest owner,
             Set<FieldSpec> fields,
             List<ExecutableElement> eventHandlers
@@ -188,8 +186,6 @@ class SqsSubscriberWriter {
                             .build())
                     .build());
         }
-        constructor.addStatement("sqsUtil.registerType($T.class.getName(), $T.class)",
-                eventType.asTypeName(), eventType.asTypeName());
         constructor.addStatement("""
                         sqsUtil.subscribe(new $T($L, $S, $T.class, this::on$L)
                         .withExecutor(executor)$L)""",

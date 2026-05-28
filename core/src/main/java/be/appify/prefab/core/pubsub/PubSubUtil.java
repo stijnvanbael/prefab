@@ -1,7 +1,6 @@
 package be.appify.prefab.core.pubsub;
 
-import be.appify.prefab.core.annotations.PublishTo;
-import com.fasterxml.jackson.annotation.JsonSubTypes;
+import be.appify.prefab.core.kafka.EventRegistry;
 import com.google.cloud.spring.pubsub.PubSubAdmin;
 import com.google.cloud.spring.pubsub.core.subscriber.PubSubSubscriberTemplate;
 import com.google.cloud.spring.pubsub.support.BasicAcknowledgeablePubsubMessage;
@@ -12,14 +11,9 @@ import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.RetryPolicy;
 import com.google.pubsub.v1.Subscription;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,7 +25,12 @@ import org.springframework.stereotype.Component;
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 
 /**
- * Utility class for managing Pub/Sub topics, subscriptions, and for subscribing to messages with optional dead-letter handling.
+ * Utility class for managing Pub/Sub topics, subscriptions, and for subscribing to messages.
+ *
+ * <p>Topic-to-type mappings, publish-to strategies, and partitioning-key extractors are stored in the
+ * shared {@link EventRegistry} so that a single source of truth is maintained across all messaging platforms.
+ * Event-type registrars implement {@link be.appify.prefab.core.kafka.EventRegistryCustomizer} and populate
+ * the registry directly — there is no separate Pub/Sub-specific registration step.
  */
 @Component
 @ConditionalOnClass(PubSubAdmin.class)
@@ -44,37 +43,24 @@ public class PubSubUtil {
     private final PubSubAdmin pubSubAdmin;
     private final PubSubSubscriberTemplate subscriberTemplate;
     private final PubSubDeserializer deserializer;
-    private final ConcurrentMap<String, Class<?>> allowedTypes = new ConcurrentHashMap<>();
-    private final ConcurrentMap<Class<?>, String> typeToTopic = new ConcurrentHashMap<>();
-    private final ConcurrentMap<Class<?>, Set<String>> typeToTopics = new ConcurrentHashMap<>();
-    private final ConcurrentMap<Class<?>, PublishTo> publishToStrategies = new ConcurrentHashMap<>();
-    private final ConcurrentMap<Class<?>, Function<Object, String>> keyExtractors = new ConcurrentHashMap<>();
+    private final EventRegistry eventRegistry;
     private final String deadLetterTopicName;
     private final RetryTemplate retryTemplate;
 
     /**
-     * Constructs a new PubSubUtil with the given configuration and dependencies.
+     * Constructs a new PubSubUtil.
      *
-     * @param projectId
-     *         the GCP project ID
-     * @param applicationName
-     *         the application name
-     * @param deadLetterTopicName
-     *         the dead-letter topic name
-     * @param maxRetries
-     *         the maximum number of retries for dead-letter handling
-     * @param minimumBackoff
-     *         the minimum backoff time in milliseconds
-     * @param maximumBackoff
-     *         the maximum backoff time in milliseconds
-     * @param backoffMultiplier
-     *         the backoff multiplier
-     * @param pubSubAdmin
-     *         the Pub/Sub admin client
-     * @param subscriberTemplate
-     *         the Pub/Sub subscriber template
-     * @param deserializer
-     *         the Pub/Sub deserializer
+     * @param projectId           the GCP project ID
+     * @param applicationName     the application name
+     * @param deadLetterTopicName the dead-letter topic name
+     * @param maxRetries          the maximum number of retries for dead-letter handling
+     * @param minimumBackoff      the minimum backoff time in milliseconds
+     * @param maximumBackoff      the maximum backoff time in milliseconds
+     * @param backoffMultiplier   the backoff multiplier
+     * @param pubSubAdmin         the Pub/Sub admin client
+     * @param subscriberTemplate  the Pub/Sub subscriber template
+     * @param deserializer        the Pub/Sub deserializer
+     * @param eventRegistry       the shared event registry
      */
     public PubSubUtil(
             @Value("${spring.cloud.gcp.project-id}") String projectId,
@@ -86,7 +72,8 @@ public class PubSubUtil {
             @Value("${prefab.dlt.retries.multiplier:1.5}") Float backoffMultiplier,
             PubSubAdmin pubSubAdmin,
             PubSubSubscriberTemplate subscriberTemplate,
-            PubSubDeserializer deserializer
+            PubSubDeserializer deserializer,
+            EventRegistry eventRegistry
     ) {
         this.projectId = projectId;
         this.maxRetries = maxRetries;
@@ -95,6 +82,7 @@ public class PubSubUtil {
         this.pubSubAdmin = pubSubAdmin;
         this.subscriberTemplate = subscriberTemplate;
         this.deserializer = deserializer;
+        this.eventRegistry = eventRegistry;
         this.deadLetterTopicName = !isEmpty(deadLetterTopicName) ? deadLetterTopicName : applicationName + ".dlt";
         this.retryTemplate = new RetryTemplate(org.springframework.core.retry.RetryPolicy.builder()
                 .maxRetries(maxRetries)
@@ -105,242 +93,23 @@ public class PubSubUtil {
     }
 
     /**
-     * Subscribes to a Pub/Sub topic with the given subscription name and message type, using the provided consumer to process messages.
+     * Subscribes to a Pub/Sub topic with the given subscription name and message type.
      *
-     * @param topic
-     *         the Pub/Sub topic name
-     * @param subscription
-     *         the subscription name
-     * @param type
-     *         the class type of the messages
-     * @param consumer
-     *         the consumer to process messages
-     * @param <T>
-     *         the type of the messages
+     * @param topic        the Pub/Sub topic name
+     * @param subscription the subscription name
+     * @param type         the class type of the messages
+     * @param consumer     the consumer to process messages
+     * @param <T>          the type of the messages
      */
-    public <T> void subscribe(
-            String topic,
-            String subscription,
-            Class<T> type,
-            Consumer<T> consumer
-    ) {
+    public <T> void subscribe(String topic, String subscription, Class<T> type, Consumer<T> consumer) {
         subscribe(new SubscriptionRequest<>(topic, subscription, type, consumer));
-    }
-
-    /**
-     * Registers an event type in the allowlist for safe deserialization from the Pub/Sub message {@code type} attribute.
-     * Permitted subtypes of sealed interfaces and {@code @JsonSubTypes}-annotated subtypes are registered recursively.
-     *
-     * @param typeName
-     *         the fully-qualified class name that may appear as the Pub/Sub message {@code type} attribute
-     * @param type
-     *         the corresponding Java class
-     */
-    public void registerType(String typeName, Class<?> type) {
-        allowedTypes.put(typeName, type);
-        var permittedSubclasses = type.getPermittedSubclasses();
-        if (permittedSubclasses != null) {
-            for (var subclass : permittedSubclasses) {
-                registerType(subclass.getName(), subclass);
-            }
-        }
-        var jsonSubTypes = type.getAnnotation(JsonSubTypes.class);
-        if (jsonSubTypes != null) {
-            for (var subType : jsonSubTypes.value()) {
-                registerType(subType.value().getName(), subType.value());
-            }
-        }
-    }
-
-    /**
-     * Registers a topic and optional ordering-key extractor for an event type so the generic publisher can resolve
-     * them at runtime. Permitted subtypes of sealed interfaces are registered recursively.
-     *
-     * @param topic        the simple Pub/Sub topic name
-     * @param type         the Java class of the event
-     * @param keyExtractor a function that returns the ordering key for a given event instance, or {@code null} if none
-     */
-    @SuppressWarnings("unchecked")
-    public <E> void registerEventTopic(String topic, Class<E> type, Function<E, String> keyExtractor) {
-        typeToTopic.put(type, topic);
-        typeToTopics.computeIfAbsent(type, ignored -> new LinkedHashSet<>()).add(topic);
-        if (keyExtractor != null) {
-            keyExtractors.put(type, (Function<Object, String>) (Function<?, String>) keyExtractor);
-        }
-        if (type.isSealed()) {
-            for (var subtype : type.getPermittedSubclasses()) {
-                registerEventTopic(topic, (Class<Object>) subtype, null);
-            }
-        }
-    }
-
-    /**
-     * Registers a topic for an event type without an ordering-key extractor.
-     *
-     * @param topic the simple Pub/Sub topic name
-     * @param type  the Java class of the event
-     */
-    public void registerEventTopic(String topic, Class<?> type) {
-        registerEventTopic(topic, type, null);
-    }
-
-    /**
-     * Stores the publish-to strategy for an event type.
-     * Called by generated registrar beans during application startup.
-     *
-     * @param type      the event type
-     * @param publishTo the strategy that governs which topics are targeted at dispatch time
-     */
-    public void registerPublishTo(Class<?> type, PublishTo publishTo) {
-        publishToStrategies.put(type, publishTo);
-    }
-
-    /**
-     * Resolves the topics to which the given event should be dispatched, applying the registered
-     * {@link PublishTo} strategy. Defaults to {@link PublishTo#FIRST} when no strategy is registered.
-     *
-     * @param event the event instance
-     * @return the ordered list of target topic names
-     * @throws IllegalArgumentException if no topics are registered for the event type
-     */
-    public List<String> topicsForDispatch(Object event) {
-        var type = event.getClass();
-        var topics = typeToTopics.getOrDefault(type, Set.of());
-        if (topics.isEmpty()) {
-            var primary = tryTopicForType(type)
-                    .orElseThrow(() -> new IllegalArgumentException("No topics registered for type: " + type.getName()));
-            topics = Set.of(primary);
-        }
-        var strategy = publishToStrategies.getOrDefault(type, PublishTo.FIRST);
-        return switch (strategy) {
-            case ALL -> List.copyOf(topics);
-            case FIRST -> List.of(topics.iterator().next());
-        };
-    }
-
-    /**
-     * Resolves the simple Pub/Sub topic for a given event type.
-     *
-     * @param type the event class
-     * @return the registered topic name
-     * @throws IllegalArgumentException if no topic is registered for the type
-     */
-    public String topicForType(Class<?> type) {
-        return tryTopicForType(type)
-                .orElseThrow(() -> new IllegalArgumentException("No topic registered for type: " + type.getName()));
-    }
-
-
-    /**
-     * Resolves the simple Pub/Sub topic for a given event type if one is registered.
-     *
-     * @param type the event class
-     * @return the registered topic name if found
-     * @throws IllegalStateException if multiple equally specific topics match the type
-     */
-    public Optional<String> tryTopicForType(Class<?> type) {
-        var topic = typeToTopic.get(type);
-        if (topic != null) {
-            return Optional.of(topic);
-        }
-        String selectedTopic = null;
-        Integer selectedDistance = null;
-        for (var entry : typeToTopic.entrySet()) {
-            if (!entry.getKey().isAssignableFrom(type)) {
-                continue;
-            }
-            var distance = hierarchyDistance(type, entry.getKey());
-            if (distance.isEmpty()) {
-                continue;
-            }
-            if (selectedDistance == null || distance.get() < selectedDistance) {
-                selectedDistance = distance.get();
-                selectedTopic = entry.getValue();
-            } else if (distance.get().equals(selectedDistance) && !entry.getValue().equals(selectedTopic)) {
-                throw new IllegalStateException(
-                        "Ambiguous topics registered for type %s: %s and %s"
-                                .formatted(type.getName(), selectedTopic, entry.getValue())
-                );
-            }
-        }
-        return Optional.ofNullable(selectedTopic);
-    }
-
-    private static Optional<Function<Object, String>> tryExtractorForType(
-            Class<?> type,
-            ConcurrentMap<Class<?>, Function<Object, String>> extractors
-    ) {
-        var extractor = extractors.get(type);
-        if (extractor != null) {
-            return Optional.of(extractor);
-        }
-        Function<Object, String> selectedExtractor = null;
-        Integer selectedDistance = null;
-        for (var entry : extractors.entrySet()) {
-            if (!entry.getKey().isAssignableFrom(type)) {
-                continue;
-            }
-            var distance = hierarchyDistance(type, entry.getKey());
-            if (distance.isEmpty()) {
-                continue;
-            }
-            if (selectedDistance == null || distance.get() < selectedDistance) {
-                selectedDistance = distance.get();
-                selectedExtractor = entry.getValue();
-            } else if (distance.get().equals(selectedDistance) && !entry.getValue().equals(selectedExtractor)) {
-                throw new IllegalStateException("Ambiguous key extractors registered for type: " + type.getName());
-            }
-        }
-        return Optional.ofNullable(selectedExtractor);
-    }
-
-    private static Optional<Integer> hierarchyDistance(Class<?> source, Class<?> target) {
-        if (source.equals(target)) {
-            return Optional.of(0);
-        }
-        if (!target.isAssignableFrom(source)) {
-            return Optional.empty();
-        }
-        var queue = new java.util.ArrayDeque<Class<?>>();
-        var distances = new java.util.HashMap<Class<?>, Integer>();
-        queue.add(source);
-        distances.put(source, 0);
-        while (!queue.isEmpty()) {
-            var current = queue.remove();
-            var distance = distances.get(current);
-            if (current.equals(target)) {
-                return Optional.of(distance);
-            }
-            var superclass = current.getSuperclass();
-            if (superclass != null && distances.putIfAbsent(superclass, distance + 1) == null) {
-                queue.add(superclass);
-            }
-            for (var iface : current.getInterfaces()) {
-                if (distances.putIfAbsent(iface, distance + 1) == null) {
-                    queue.add(iface);
-                }
-            }
-        }
-        return Optional.empty();
-    }
-
-    /**
-     * Returns the ordering key for an event, if a key extractor has been registered for its type.
-     *
-     * @param event the event instance
-     * @return an {@link Optional} containing the ordering key, or empty if none is registered
-     */
-    public Optional<String> keyFor(Object event) {
-        return tryExtractorForType(event.getClass(), keyExtractors).map(extractor -> extractor.apply(event));
     }
 
     /**
      * Subscribes to a Pub/Sub topic using the provided subscription request.
      *
-     * @param request
-     *         the subscribe request containing subscription details
-     * @param <T>
-     *         the type of the messages
+     * @param request the subscribe request containing subscription details
+     * @param <T>     the type of the messages
      */
     public <T> void subscribe(SubscriptionRequest<T> request) {
         var topicName = ensureTopicExists(request.topic());
@@ -350,8 +119,101 @@ public class PubSubUtil {
                 request.isUsingDefaultDeadLetterPolicy() ? deadLetterPolicy(deadLetterTopicName) : request.deadLetterPolicy()
         );
         subscriberTemplate.subscribe(subscriptionName, message ->
-                request.executor().execute(
-                        () -> consume(request, message)));
+                request.executor().execute(() -> consume(request, message)));
+    }
+
+    /**
+     * Resolves the topics to which the given event should be dispatched, applying the registered
+     * {@link be.appify.prefab.core.annotations.PublishTo} strategy.
+     *
+     * @param event the event instance
+     * @return the ordered list of target topic names
+     */
+    public List<String> topicsForDispatch(Object event) {
+        return eventRegistry.topicsForDispatch(event);
+    }
+
+    /**
+     * Resolves the simple Pub/Sub topic for a given event type.
+     *
+     * @param type the event class
+     * @return the registered topic name
+     */
+    public String topicForType(Class<?> type) {
+        return eventRegistry.topicForType(type);
+    }
+
+    /**
+     * Resolves the simple Pub/Sub topic for a given event type if exactly one is registered.
+     *
+     * @param type the event class
+     * @return the registered topic name if found
+     */
+    public Optional<String> tryTopicForType(Class<?> type) {
+        return eventRegistry.tryTopicForType(type);
+    }
+
+    /**
+     * Returns the ordering key for an event, if a key extractor has been registered for its type.
+     *
+     * @param event the event instance
+     * @return an {@link Optional} containing the ordering key, or empty if none is registered
+     */
+    public Optional<String> keyFor(Object event) {
+        return eventRegistry.keyFor(event);
+    }
+
+    /**
+     * Ensures that the specified Pub/Sub topic exists, creating it if necessary.
+     *
+     * @param topic the topic name
+     * @return the fully qualified topic name
+     */
+    public String ensureTopicExists(String topic) {
+        var topicName = ProjectTopicName.of(projectId, topic).toString();
+        try {
+            if (pubSubAdmin.getTopic(topicName) == null) {
+                pubSubAdmin.createTopic(topicName);
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Failed to create topic [%s], make sure Pub/Sub is available at the specified endpoint".formatted(topicName), e);
+        }
+        return topicName;
+    }
+
+    /**
+     * Extracts the simple topic name from a fully qualified topic name.
+     *
+     * @param fullyQualifiedTopic the fully qualified topic name
+     * @return the simple topic name
+     */
+    public static String simpleTopicName(String fullyQualifiedTopic) {
+        return fullyQualifiedTopic.substring(fullyQualifiedTopic.lastIndexOf("/") + 1);
+    }
+
+    /** Deletes all Pub/Sub subscriptions in the project. */
+    public void deleteAllSubscriptions() {
+        pubSubAdmin.listSubscriptions().forEach(subscription ->
+                pubSubAdmin.deleteSubscription(subscription.getName()));
+    }
+
+    /** Deletes all Pub/Sub topics in the project. */
+    public void deleteAllTopics() {
+        pubSubAdmin.listTopics().forEach(topic ->
+                pubSubAdmin.deleteTopic(topic.getName()));
+    }
+
+    /**
+     * Deletes the specified Pub/Sub subscription if it exists.
+     *
+     * @param subscription the subscription name to delete
+     */
+    public void deleteSubscription(String subscription) {
+        var subscriptionName = ProjectSubscriptionName.of(projectId, subscription).toString();
+        if (pubSubAdmin.getSubscription(subscriptionName) != null) {
+            pubSubAdmin.deleteSubscription(subscriptionName);
+        }
     }
 
     private <T> void consume(SubscriptionRequest<T> request, BasicAcknowledgeablePubsubMessage message) {
@@ -381,72 +243,14 @@ public class PubSubUtil {
 
     private <T> void consumeTyped(SubscriptionRequest<T> request, PubsubMessage pubsubMessage) {
         var typeName = pubsubMessage.getAttributesOrThrow("type");
-        var consumedType = allowedTypes.get(typeName);
-        if (consumedType == null) {
-            throw new IllegalArgumentException("Type not registered in allowlist: " + typeName);
-        }
+        var consumedType = eventRegistry.typeByClassName(typeName)
+                .orElseThrow(() -> new IllegalArgumentException("Type not registered in allowlist: " + typeName));
         if (request.type().isAssignableFrom(consumedType)) {
             request.consumer().accept(deserializer.deserialize(request.topic(), pubsubMessage.getData(), request.type()));
         }
     }
 
-    /**
-     * Ensures that the specified Pub/Sub topic exists, creating it if necessary.
-     *
-     * @param topic
-     *         the topic name
-     * @return the fully qualified topic name
-     */
-    public String ensureTopicExists(String topic) {
-        var topicName = ProjectTopicName.of(projectId, topic).toString();
-        try {
-            if (pubSubAdmin.getTopic(topicName) == null) {
-                pubSubAdmin.createTopic(topicName);
-            }
-        } catch (Exception e) {
-            throw new IllegalStateException(
-                    "Failed to create topic [%s], make sure Pub/Sub is available at the specified endpoint".formatted(
-                            topicName), e);
-        }
-        return topicName;
-    }
-
-    /**
-     * Extracts the simple topic name from a fully qualified topic name.
-     *
-     * @param fullyQualifiedTopic
-     *         the fully qualified topic name (e.g., "projects/my-project/topics/my-topic")
-     * @return the simple topic name (e.g., "my-topic")
-     */
-    public static String simpleTopicName(String fullyQualifiedTopic) {
-        return fullyQualifiedTopic.substring(fullyQualifiedTopic.lastIndexOf("/") + 1);
-    }
-
-    /**
-     * Deletes all Pub/Sub subscriptions in the project.
-     */
-    public void deleteAllSubscriptions() {
-        pubSubAdmin.listSubscriptions().forEach(subscription -> {
-            var subscriptionName = subscription.getName();
-            pubSubAdmin.deleteSubscription(subscriptionName);
-        });
-    }
-
-    /**
-     * Deletes all Pub/Sub topics in the project.
-     */
-    public void deleteAllTopics() {
-        pubSubAdmin.listTopics().forEach(topic -> {
-            var topicName = topic.getName();
-            pubSubAdmin.deleteTopic(topicName);
-        });
-    }
-
-    private String ensureSubscriptionExists(
-            String subscription,
-            String fullyQualifiedTopic,
-            DeadLetterPolicy deadLetterPolicy
-    ) {
+    private String ensureSubscriptionExists(String subscription, String fullyQualifiedTopic, DeadLetterPolicy deadLetterPolicy) {
         var subscriptionName = ProjectSubscriptionName.of(projectId, subscription).toString();
         if (pubSubAdmin.getSubscription(subscriptionName) == null) {
             var subscriptionBuilder = Subscription.newBuilder()
@@ -458,7 +262,6 @@ public class PubSubUtil {
                 subscriptionBuilder.setRetryPolicy(RetryPolicy.newBuilder()
                         .setMinimumBackoff(toDuration(minimumBackoff))
                         .setMaximumBackoff(toDuration(maximumBackoff)));
-
             }
             pubSubAdmin.createSubscription(subscriptionBuilder);
         }
@@ -481,23 +284,8 @@ public class PubSubUtil {
                 .build();
     }
 
-    /**
-     * Deletes the specified Pub/Sub subscription if it exists.
-     *
-     * @param subscription
-     *         the subscription name to delete
-     */
-    public void deleteSubscription(String subscription) {
-        var subscriptionName = ProjectSubscriptionName.of(projectId, subscription).toString();
-        if (pubSubAdmin.getSubscription(subscriptionName) != null) {
-            pubSubAdmin.deleteSubscription(subscriptionName);
-        }
-    }
-
     private static String truncate(String body, int maxLength) {
-        if (body == null) {
-            return "<null>";
-        }
+        if (body == null) return "<null>";
         return body.length() <= maxLength ? body : body.substring(0, maxLength) + "...[truncated " + (body.length() - maxLength) + " chars]";
     }
 }

@@ -23,8 +23,8 @@ class SqsEventTypeRegistrarWriterTest {
         assertThat(compilation).succeeded();
         assertGeneratedSourceEqualsIgnoringWhitespace(
                 compilation,
-                "sns.single.infrastructure.sns.UserCreatedSqsEventTypeRegistrar",
-                "expected/sns/single/UserCreatedSqsEventTypeRegistrar.java");
+                "sns.single.infrastructure.event.UserCreatedEventTypeRegistrar",
+                "expected/sns/single/UserCreatedEventTypeRegistrar.java");
     }
 
     @Test
@@ -39,8 +39,8 @@ class SqsEventTypeRegistrarWriterTest {
         assertThat(compilation).succeeded();
         assertGeneratedSourceEqualsIgnoringWhitespace(
                 compilation,
-                "sns.supertype.infrastructure.sns.UserEventSqsEventTypeRegistrar",
-                "expected/sns/supertype/UserEventSqsEventTypeRegistrar.java");
+                "sns.supertype.infrastructure.event.UserEventEventTypeRegistrar",
+                "expected/sns/supertype/UserEventEventTypeRegistrar.java");
     }
 
     @Test
@@ -52,8 +52,7 @@ class SqsEventTypeRegistrarWriterTest {
         assertThat(compilation).succeeded();
         assertGeneratedSourceEqualsIgnoringWhitespace(
                 compilation,
-                "sns.publishtoall.infrastructure.sns.UserEventSqsEventTypeRegistrar",
-                "expected/sns/publishtoall/UserEventSqsEventTypeRegistrar.java");
+                "sns.publishtoall.infrastructure.event.UserEventEventTypeRegistrar",
+                "expected/sns/publishtoall/UserEventEventTypeRegistrar.java");
     }
 }
-

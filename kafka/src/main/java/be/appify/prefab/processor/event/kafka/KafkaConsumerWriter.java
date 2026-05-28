@@ -16,11 +16,7 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeSpec;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
@@ -33,8 +29,6 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import static be.appify.prefab.core.annotations.EventHandlerConfig.Util.hasCustomAutoOffsetReset;
-import static be.appify.prefab.core.annotations.EventHandlerConfig.Util.hasCustomConfig;
 import static be.appify.prefab.core.annotations.EventHandlerConfig.Util.hasConsumeFromTopicsFilter;
 import static be.appify.prefab.processor.event.ConsumerWriterSupport.concurrencyExpression;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.isAvscGeneratedRecord;
@@ -145,10 +139,10 @@ class KafkaConsumerWriter {
                 .map(iface -> TypeManifest.of(iface.asType(), context.processingEnvironment()));
     }
 
-    private static AnnotationSpec kafkaListener(TypeManifest owner, Event event, String eventName) {
+    private AnnotationSpec kafkaListener(TypeManifest owner, Event event, String eventName) {
         var kafkaListener = AnnotationSpec.builder(KafkaListener.class);
         var eventHandlerConfig = owner.inheritedAnnotationsOfType(EventHandlerConfig.class).stream().findFirst();
-        var topicsToSubscribe = effectiveTopics(event, eventHandlerConfig.orElse(null));
+        var topicsToSubscribe = effectiveTopics(owner, event, eventHandlerConfig.orElse(null));
         for (var topic : topicsToSubscribe) {
             kafkaListener.addMember("topics", "$S", topic);
         }
@@ -171,11 +165,18 @@ class KafkaConsumerWriter {
         return kafkaListener.build();
     }
 
-    private static List<String> effectiveTopics(Event event, EventHandlerConfig config) {
+    private List<String> effectiveTopics(TypeManifest owner, Event event, EventHandlerConfig config) {
+        var topics = List.of(event.topic());
         if (hasConsumeFromTopicsFilter(config)) {
-            return List.of(config.consumeFromTopics());
+            var consumeFromTopics = List.of(config.consumeFromTopics());
+            if (!new HashSet<>(topics).containsAll(consumeFromTopics)) {
+                context.logError("Event %s specifies topics %s but EventHandlerConfig specifies consumeFromTopics %s. All consumeFromTopics must be included in the event's topics."
+                        .formatted(owner, topics, consumeFromTopics), owner.asElement());
+                return topics;
+            }
+            return consumeFromTopics;
         }
-        return List.of(event.topic());
+        return topics;
     }
 
     private MethodSpec constructor(Set<FieldSpec> fields) {

@@ -1,5 +1,6 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.core.util.IdentifierShortener;
 import com.palantir.javapoet.ClassName;
@@ -27,10 +28,10 @@ import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
  */
 class PolymorphicJdbcConverterWriter {
 
-    private final JavaFileWriter fileWriter;
+    private final TestFileOutput fileWriter;
 
     PolymorphicJdbcConverterWriter(PrefabContext context) {
-        this.fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.persistence");
+        this.fileWriter = new OutputTargetFileOutput(context, "infrastructure.persistence", OutputTarget.MAIN);
     }
 
     /**

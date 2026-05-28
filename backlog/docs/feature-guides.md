@@ -21,6 +21,7 @@
 - [7.13 Custom PostgreSQL Types with @DbColumn](#713-custom-postgresql-types-with-dbcolumn)
 - [7.14 Event Consumer Ordering and Hot-Key Stability](#714-event-consumer-ordering-and-hot-key-stability)
 - [7.15 Streams DSL Baseline (Kafka Source/Sink)](#715-streams-dsl-baseline-kafka-sourcesink)
+- [7.16 Per-aggregate Plugin Overrides](#716-per-aggregate-plugin-overrides)
 
 ---
 
@@ -975,5 +976,59 @@ void shouldForwardOrder() {
     }
 }
 ```
+
+---
+
+## 7.16 Per-aggregate Plugin Overrides
+
+Use `@Generate` on a specific aggregate when plugin behavior must differ from project defaults.
+
+```java
+@Aggregate
+@Generate(plugin = AsyncApiDocumentationPlugin.class, enabled = false)
+@Generate(plugin = CreatePlugin.class, target = OutputTarget.TEST)
+public record Order(
+        @Id Reference<Order> id,
+        @Version long version,
+        String customerName
+) {
+    @Create
+    public Order(String customerName) {
+        this(Reference.create(), 0L, customerName);
+    }
+}
+```
+
+What this does:
+
+- Disables AsyncAPI generation only for `Order`
+- Routes `CreatePlugin` artefacts for `Order` to test output when supported
+- Leaves all other aggregates on their normal project-wide/default behavior
+
+Precedence order:
+
+1. `@Generate` on the aggregate
+2. compiler option `-Aprefab.plugin.<id>.enabled=...`
+3. plugin default (enabled)
+
+Project-wide option example (Maven):
+
+```xml
+<compilerArg>-Aprefab.plugin.create.enabled=false</compilerArg>
+```
+
+Then re-enable for one aggregate:
+
+```java
+@Generate(plugin = CreatePlugin.class, enabled = true)
+@Aggregate
+public record CriticalOrder(...) { }
+```
+
+Tips:
+
+- Use repeatable `@Generate` to configure multiple plugins on one type
+- Prefer `OutputTarget.DEFAULT` unless you explicitly need generated test artefacts
+- If a plugin class is invalid or missing from processor classpath, compilation fails fast with a clear message
 
 

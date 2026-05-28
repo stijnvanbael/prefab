@@ -2,10 +2,11 @@ package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.avro.SchemaSupport;
 import be.appify.prefab.core.annotations.Avsc;
+import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.annotations.Doc;
 import be.appify.prefab.core.annotations.Example;
 import be.appify.prefab.core.annotations.AvroSchema;
-import be.appify.prefab.processor.JavaFileWriter;
+import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
@@ -670,8 +671,8 @@ class EventSchemaFactoryWriter {
     }
 
 
-    private JavaFileWriter newFileWriter() {
-        return new JavaFileWriter(context.processingEnvironment(), AVRO_PACKAGE_SUFFIX);
+    private OutputTargetFileOutput newFileWriter() {
+        return new OutputTargetFileOutput(context, AVRO_PACKAGE_SUFFIX, OutputTarget.MAIN);
     }
 
     private boolean isAvscContractInterface(TypeManifest event) {

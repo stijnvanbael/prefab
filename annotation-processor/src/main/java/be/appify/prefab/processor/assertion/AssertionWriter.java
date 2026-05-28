@@ -1,8 +1,10 @@
 package be.appify.prefab.processor.assertion;
 
+import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
-import be.appify.prefab.processor.TestJavaFileWriter;
+import be.appify.prefab.processor.TestFileOutput;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.ClassName;
@@ -42,13 +44,13 @@ class AssertionWriter {
     private final PrefabContext context;
     private final Set<String> writtenTypes;
     private final Map<String, List<AssertionEntry>> entriesByPackage;
-    private final TestJavaFileWriter fileWriter;
+    private final TestFileOutput fileWriter;
 
     AssertionWriter(PrefabContext context, Set<String> writtenTypes, Map<String, List<AssertionEntry>> entriesByPackage) {
         this.context = context;
         this.writtenTypes = writtenTypes;
         this.entriesByPackage = entriesByPackage;
-        this.fileWriter = new TestJavaFileWriter(context, null);
+        this.fileWriter = new OutputTargetFileOutput(context, null, OutputTarget.TEST);
     }
 
     void writeResponseAssert(ClassManifest manifest) {

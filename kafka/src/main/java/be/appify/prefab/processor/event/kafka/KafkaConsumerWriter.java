@@ -4,8 +4,9 @@ import be.appify.prefab.core.annotations.AsyncCommit;
 import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
+import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.processor.CaseUtil;
-import be.appify.prefab.processor.JavaFileWriter;
+import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.event.ConsumerWriterSupport;
@@ -65,7 +66,7 @@ class KafkaConsumerWriter {
 
         validateTopicAncestors(resolvedHandlers);
 
-        var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.kafka");
+        var fileWriter = new OutputTargetFileOutput(context, "infrastructure.kafka", OutputTarget.MAIN);
 
         var name = "%sKafkaConsumer".formatted(owner.simpleName());
         var packageName = TypeManifest.of(resolvedHandlers.getFirst().getEnclosingElement().asType(),

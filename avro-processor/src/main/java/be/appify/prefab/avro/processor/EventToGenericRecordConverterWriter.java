@@ -3,7 +3,8 @@ package be.appify.prefab.avro.processor;
 import be.appify.prefab.avro.SchemaSupport;
 import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.processor.JavaFileWriter;
+import be.appify.prefab.core.annotations.OutputTarget;
+import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import com.palantir.javapoet.*;
@@ -46,7 +47,7 @@ class EventToGenericRecordConverterWriter {
             return writeAvscInterfaceConverter(event);
         }
 
-        var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
+        var fileWriter = new OutputTargetFileOutput(context, "infrastructure.avro", OutputTarget.MAIN);
 
         var name = "%sToGenericRecordConverter".formatted(event.simpleName().replace(".", ""));
         var type = TypeSpec.classBuilder(name)
@@ -81,7 +82,7 @@ class EventToGenericRecordConverterWriter {
             return false;
         }
 
-        var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
+        var fileWriter = new OutputTargetFileOutput(context, "infrastructure.avro", OutputTarget.MAIN);
         var name = "%sToGenericRecordConverter".formatted(contractInterface.simpleName().replace(".", ""));
 
         var type = TypeSpec.classBuilder(name)

@@ -1,6 +1,7 @@
 package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.OutputTarget;
 import com.google.auto.service.AutoService;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -76,10 +77,14 @@ public class PrefabProcessor extends AbstractProcessor {
         plugins.forEach(plugin -> plugin.initContext(context));
         if (hasAvscAnnotations(context) && !eventFilesWritten) {
             eventFilesWritten = true;
-            plugins.forEach(PrefabPlugin::writeEventFiles);
+            plugins.stream()
+                    .filter(plugin -> context.configuration().isPluginEnabled(plugin.getClass()))
+                    .forEach(PrefabPlugin::writeEventFiles);
         }
         var aggregates = resolveAggregates(environment);
         var polymorphicAggregates = resolvePolymorphicAggregates(environment);
+        // Validate @Generate annotations eagerly to emit compile errors early
+        validateGenerateAnnotationsEagerly(context, environment);
         writeAggregates(context, aggregates);
         writePolymorphicAggregates(context, polymorphicAggregates);
         writeAdditionalFilesIfNeeded(context, plugins, aggregates, polymorphicAggregates);
@@ -87,7 +92,7 @@ public class PrefabProcessor extends AbstractProcessor {
         allResolvedPolymorphicAggregates.addAll(polymorphicAggregates);
         if (!globalFilesWritten && deferredAggregates.isEmpty() && deferredPolymorphicAggregates.isEmpty()) {
             globalFilesWritten = true;
-            plugins.forEach(plugin -> plugin.writeGlobalFiles(allResolvedAggregates, allResolvedPolymorphicAggregates));
+            writeGlobalFiles(context, plugins);
         }
         deferredEventHandlers.clear();
         deferredEventHandlers.addAll(context.newlyDeferredEventHandlers());
@@ -106,6 +111,17 @@ public class PrefabProcessor extends AbstractProcessor {
                 .map(TypeElement.class::cast)
                 .map(type -> type.getQualifiedName().toString())
                 .forEach(currentCompilationTypeNames::add);
+    }
+
+    /**
+     * Validate all @Generate annotations on discovered aggregates. This ensures compilation
+     * errors are emitted early, before any code generation happens.
+     */
+    private void validateGenerateAnnotationsEagerly(PrefabContext context, RoundEnvironment environment) {
+        environment.getElementsAnnotatedWith(Aggregate.class).stream()
+                .filter(e -> e.getKind().isClass())
+                .map(TypeElement.class::cast)
+                .forEach(aggregateType -> context.pluginOverridesFor(aggregateType));
     }
 
     private boolean hasAvscAnnotations(PrefabContext context) {
@@ -211,12 +227,90 @@ public class PrefabProcessor extends AbstractProcessor {
         if (newAggregates.isEmpty() && newPolymorphicAggregates.isEmpty() && !hasNewEventElements) {
             return;
         }
-        plugins.forEach(plugin -> plugin.writeAdditionalFiles(newAggregates, newPolymorphicAggregates));
+        plugins.forEach(plugin -> writeAdditionalFilesForPlugin(context, plugin, newAggregates, newPolymorphicAggregates));
         newAggregates.stream().map(ClassManifest::qualifiedName).forEach(processedAdditionalFilesAggregates::add);
         newPolymorphicAggregates.stream()
                 .map(m -> m.packageName() + "." + m.simpleName())
                 .forEach(processedAdditionalFilesPolymorphicAggregates::add);
         seenEventElementNames.addAll(currentEventElementNames);
+    }
+
+    private void writeGlobalFiles(PrefabContext context, List<PrefabPlugin> plugins) {
+        plugins.forEach(plugin -> {
+                    var globallyEnabled = context.configuration().isPluginEnabled(plugin.getClass());
+                    var mainAggregates = allResolvedAggregates.stream()
+                            .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
+                            .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) != OutputTarget.TEST)
+                            .toList();
+                    var testAggregates = allResolvedAggregates.stream()
+                            .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
+                            .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) == OutputTarget.TEST)
+                            .toList();
+                    var mainPolymorphic = allResolvedPolymorphicAggregates.stream()
+                            .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
+                            .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) != OutputTarget.TEST)
+                            .toList();
+                    var testPolymorphic = allResolvedPolymorphicAggregates.stream()
+                            .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
+                            .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) == OutputTarget.TEST)
+                            .toList();
+                    if (!globallyEnabled && mainAggregates.isEmpty() && testAggregates.isEmpty()
+                            && mainPolymorphic.isEmpty() && testPolymorphic.isEmpty()) {
+                        return;
+                    }
+                    if (mainAggregates.isEmpty() && testAggregates.isEmpty()
+                            && mainPolymorphic.isEmpty() && testPolymorphic.isEmpty()) {
+                        plugin.writeGlobalFiles(List.of(), List.of());
+                        return;
+                    }
+                    if (!mainAggregates.isEmpty() || !mainPolymorphic.isEmpty()) {
+                        plugin.writeGlobalFiles(mainAggregates, mainPolymorphic);
+                    }
+                    if (!testAggregates.isEmpty() || !testPolymorphic.isEmpty()) {
+                        context.withOutputTarget(OutputTarget.TEST,
+                                () -> plugin.writeGlobalFiles(testAggregates, testPolymorphic));
+                    }
+                });
+    }
+
+    private void writeAdditionalFilesForPlugin(
+            PrefabContext context,
+            PrefabPlugin plugin,
+            List<ClassManifest> aggregates,
+            List<PolymorphicAggregateManifest> polymorphicAggregates) {
+        var globallyEnabled = context.configuration().isPluginEnabled(plugin.getClass());
+        var mainAggregates = aggregates.stream()
+                .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
+                .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) != OutputTarget.TEST)
+                .toList();
+        var testAggregates = aggregates.stream()
+                .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
+                .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) == OutputTarget.TEST)
+                .toList();
+        var mainPolymorphic = polymorphicAggregates.stream()
+                .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
+                .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) != OutputTarget.TEST)
+                .toList();
+        var testPolymorphic = polymorphicAggregates.stream()
+                .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
+                .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) == OutputTarget.TEST)
+                .toList();
+        if (!globallyEnabled && mainAggregates.isEmpty() && testAggregates.isEmpty()
+                && mainPolymorphic.isEmpty() && testPolymorphic.isEmpty()) {
+            return;
+        }
+        if (mainAggregates.isEmpty() && testAggregates.isEmpty()
+                && mainPolymorphic.isEmpty() && testPolymorphic.isEmpty()) {
+            plugin.writeAdditionalFiles(List.of(), List.of());
+            return;
+        }
+        if (!mainAggregates.isEmpty() || !mainPolymorphic.isEmpty()) {
+            plugin.writeAdditionalFiles(mainAggregates, mainPolymorphic);
+        }
+        if (!testAggregates.isEmpty() || !testPolymorphic.isEmpty()) {
+            context.withOutputTarget(OutputTarget.TEST,
+                    () -> plugin.writeAdditionalFiles(testAggregates, testPolymorphic));
+        }
     }
 
     private List<PrefabPlugin> detectPlugins() {

@@ -1,9 +1,10 @@
 package be.appify.prefab.processor.mother;
 
 import be.appify.prefab.core.annotations.Example;
-import be.appify.prefab.processor.JavaFileWriter;
+import be.appify.prefab.core.annotations.OutputTarget;
+import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
-import be.appify.prefab.processor.TestJavaFileWriter;
+import be.appify.prefab.processor.TestFileOutput;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.AnnotationSpec;
@@ -45,14 +46,14 @@ class MotherWriter {
 
     private final PrefabContext context;
     private final Set<String> writtenTypes;
-    private final TestJavaFileWriter fileWriter;
-    private final JavaFileWriter productionFileWriter;
+    private final TestFileOutput fileWriter;
+    private final TestFileOutput productionFileWriter;
 
     MotherWriter(PrefabContext context, Set<String> writtenTypes) {
         this.context = context;
         this.writtenTypes = writtenTypes;
-        this.fileWriter = new TestJavaFileWriter(context, null);
-        this.productionFileWriter = new JavaFileWriter(context.processingEnvironment(), null);
+        this.fileWriter = new OutputTargetFileOutput(context, null, OutputTarget.TEST);
+        this.productionFileWriter = new OutputTargetFileOutput(context, null, OutputTarget.MAIN);
     }
 
     /**

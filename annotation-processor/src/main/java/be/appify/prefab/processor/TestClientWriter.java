@@ -1,5 +1,6 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.processor.rest.ControllerUtil;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.FieldSpec;
@@ -7,6 +8,7 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.util.List;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.Modifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.WebApplicationContext;
@@ -23,7 +25,7 @@ public class TestClientWriter {
     private final PrefabContext context;
 
     TestClientWriter(PrefabContext context) {
-        this(context, new TestJavaFileWriter(context, null));
+        this(context, new OutputTargetFileOutput(context, null, OutputTarget.TEST));
     }
 
     public TestClientWriter(PrefabContext context, TestFileOutput fileWriter) {
@@ -42,7 +44,7 @@ public class TestClientWriter {
     private void writeTestClient(ClassManifest manifest) {
         var className = "%sClient".formatted(manifest.simpleName());
         var type = buildClientType(className);
-        context.plugins().forEach(plugin -> plugin.writeTestClient(manifest, type));
+        applyPlugins(manifest.type().asElement(), plugin -> plugin.writeTestClient(manifest, type));
         fileWriter.setPreferredElement(manifest.type().asElement());
         fileWriter.writeFile(manifest.packageName(), className, type.build());
     }
@@ -50,7 +52,7 @@ public class TestClientWriter {
     private void writePolymorphicTestClient(PolymorphicAggregateManifest manifest) {
         var className = "%sClient".formatted(manifest.simpleName());
         var type = buildClientType(className);
-        context.plugins().forEach(plugin -> plugin.writePolymorphicTestClient(manifest, type));
+        applyPlugins(manifest.type().asElement(), plugin -> plugin.writePolymorphicTestClient(manifest, type));
         fileWriter.setPreferredElement(manifest.type().asElement());
         fileWriter.writeFile(manifest.packageName(), className, type.build());
     }
@@ -97,5 +99,12 @@ public class TestClientWriter {
                     .addStatement("$T.sort(configurers)", ANNOTATION_AWARE_ORDER_COMPARATOR)
                     .addStatement("configurers.forEach(builder::apply)");
         }
+    }
+
+    private void applyPlugins(TypeElement aggregateType, java.util.function.Consumer<PrefabPlugin> action) {
+        context.plugins().stream()
+                .filter(plugin -> context.isPluginEnabledFor(aggregateType, plugin.getClass()))
+                .filter(plugin -> context.getOutputTargetFor(aggregateType, plugin.getClass()) != OutputTarget.MAIN)
+                .forEach(plugin -> context.withPluginOutputTarget(aggregateType, plugin.getClass(), () -> action.accept(plugin)));
     }
 }

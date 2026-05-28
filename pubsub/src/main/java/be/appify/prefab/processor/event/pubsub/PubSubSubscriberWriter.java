@@ -2,10 +2,11 @@ package be.appify.prefab.processor.event.pubsub;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
+import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.pubsub.PubSubUtil;
 import be.appify.prefab.core.pubsub.SubscriptionRequest;
 import be.appify.prefab.processor.CaseUtil;
-import be.appify.prefab.processor.JavaFileWriter;
+import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.event.ConsumerWriterSupport;
@@ -53,7 +54,7 @@ class PubSubSubscriberWriter {
             TypeManifest owner,
             List<ExecutableElement> eventHandlers
     ) {
-        var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.pubsub");
+        var fileWriter = new OutputTargetFileOutput(context, "infrastructure.pubsub", OutputTarget.MAIN);
 
         var name = "%sPubSubSubscriber".formatted(owner.simpleName());
         var packageName = TypeManifest.of(eventHandlers.getFirst().getEnclosingElement().asType(),

@@ -3,7 +3,8 @@ package be.appify.prefab.avro.processor;
 import be.appify.prefab.core.util.Streams;
 import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.processor.JavaFileWriter;
+import be.appify.prefab.core.annotations.OutputTarget;
+import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
@@ -52,7 +53,7 @@ class GenericRecordToEventConverterWriter {
             return true;
         }
 
-        var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
+        var fileWriter = new OutputTargetFileOutput(context, "infrastructure.avro", OutputTarget.MAIN);
 
         var name = "GenericRecordTo%sConverter".formatted(event.simpleName().replace(".", ""));
         var type = TypeSpec.classBuilder(name)
@@ -68,7 +69,7 @@ class GenericRecordToEventConverterWriter {
     }
 
     private void writeEventSupertypeConverter(TypeManifest supertype, List<TypeManifest> subtypes) {
-        var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
+        var fileWriter = new OutputTargetFileOutput(context, "infrastructure.avro", OutputTarget.MAIN);
         var name = "GenericRecordTo%sConverter".formatted(supertype.simpleName().replace(".", ""));
 
         var type = TypeSpec.classBuilder(name)
@@ -139,7 +140,7 @@ class GenericRecordToEventConverterWriter {
      * to the appropriate concrete record converter instead of trying to instantiate the interface.
      */
     private boolean writeAvscInterfaceConverter(TypeManifest contractInterface) {
-        var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.avro");
+        var fileWriter = new OutputTargetFileOutput(context, "infrastructure.avro", OutputTarget.MAIN);
         var name = "GenericRecordTo%sConverter".formatted(contractInterface.simpleName().replace(".", ""));
 
         // Find all generated records that implement this contract interface

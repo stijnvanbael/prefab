@@ -1,8 +1,10 @@
 package be.appify.prefab.processor.rest.stream;
 
 import be.appify.prefab.processor.ClassManifest;
-import be.appify.prefab.processor.JavaFileWriter;
+import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
+import be.appify.prefab.processor.TestFileOutput;
+import be.appify.prefab.core.annotations.OutputTarget;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
@@ -17,10 +19,10 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 /** Generates the {@code {Aggregate}SseRegistry} component for the push model. */
 class SseRegistryWriter {
 
-    private final JavaFileWriter fileWriter;
+    private final TestFileOutput fileWriter;
 
     SseRegistryWriter(PrefabContext context) {
-        this.fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.http");
+        this.fileWriter = new OutputTargetFileOutput(context, "infrastructure.http", OutputTarget.MAIN);
     }
 
     /**

@@ -125,6 +125,81 @@ class GeneratePluginOverrideIntegrationTest {
                 .contains("record CreatePaymentRequest");
     }
 
+    @Test
+    void motherPluginTargetMainRoutesMothersToSourceOutput() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("""
+                        package test.mothermain;
+
+                        import be.appify.prefab.core.annotations.Aggregate;
+                        import be.appify.prefab.core.annotations.Generate;
+                        import be.appify.prefab.core.annotations.OutputTarget;
+                        import be.appify.prefab.core.annotations.rest.Create;
+                        import be.appify.prefab.core.service.Reference;
+                        import be.appify.prefab.processor.mother.MotherPlugin;
+                        import org.springframework.data.annotation.Id;
+                        import org.springframework.data.annotation.Version;
+
+                        @Aggregate
+                        @Generate(plugin = MotherPlugin.class, target = OutputTarget.MAIN)
+                        public record Account(
+                                @Id Reference<Account> id,
+                                @Version long version,
+                                String owner
+                        ) {
+                            @Create
+                            public Account(String owner) {
+                                this(Reference.create(), 0L, owner);
+                            }
+                        }
+                        """, "test.mothermain.Account"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("test.mothermain.CreateAccountRequestMother")
+                .contentsAsUtf8String()
+                .contains("class CreateAccountRequestMother");
+        org.junit.jupiter.api.Assertions.assertTrue(
+                compilation.generatedFiles().stream()
+                        .noneMatch(file -> file.getName().contains("CLASS_OUTPUT")
+                                && file.getName().endsWith("/test/mothermain/CreateAccountRequestMother.java"))
+        );
+    }
+
+    @Test
+    void motherPluginDefaultTargetKeepsMothersInClassOutput() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("""
+                        package test.motherdefault;
+
+                        import be.appify.prefab.core.annotations.Aggregate;
+                        import be.appify.prefab.core.annotations.rest.Create;
+                        import be.appify.prefab.core.service.Reference;
+                        import org.springframework.data.annotation.Id;
+                        import org.springframework.data.annotation.Version;
+
+                        @Aggregate
+                        public record Invoice(
+                                @Id Reference<Invoice> id,
+                                @Version long version,
+                                String number
+                        ) {
+                            @Create
+                            public Invoice(String number) {
+                                this(Reference.create(), 0L, number);
+                            }
+                        }
+                        """, "test.motherdefault.Invoice"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "test/motherdefault/CreateInvoiceRequestMother.java")
+                .contentsAsUtf8String()
+                .contains("class CreateInvoiceRequestMother");
+    }
+
     private static JavaFileObject sourceOf(String sourceCode, String fileName) {
         return JavaFileObjects.forSourceString(fileName, sourceCode);
     }

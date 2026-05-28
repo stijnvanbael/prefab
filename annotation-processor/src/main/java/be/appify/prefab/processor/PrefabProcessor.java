@@ -264,7 +264,8 @@ public class PrefabProcessor extends AbstractProcessor {
                         return;
                     }
                     if (!mainAggregates.isEmpty() || !mainPolymorphic.isEmpty()) {
-                        plugin.writeGlobalFiles(mainAggregates, mainPolymorphic);
+                        context.withOutputTarget(OutputTarget.MAIN,
+                                () -> plugin.writeGlobalFiles(mainAggregates, mainPolymorphic));
                     }
                     if (!testAggregates.isEmpty() || !testPolymorphic.isEmpty()) {
                         context.withOutputTarget(OutputTarget.TEST,
@@ -305,7 +306,8 @@ public class PrefabProcessor extends AbstractProcessor {
             return;
         }
         if (!mainAggregates.isEmpty() || !mainPolymorphic.isEmpty()) {
-            plugin.writeAdditionalFiles(mainAggregates, mainPolymorphic);
+            context.withOutputTarget(OutputTarget.MAIN,
+                    () -> plugin.writeAdditionalFiles(mainAggregates, mainPolymorphic));
         }
         if (!testAggregates.isEmpty() || !testPolymorphic.isEmpty()) {
             context.withOutputTarget(OutputTarget.TEST,

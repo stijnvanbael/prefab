@@ -1,10 +1,11 @@
 package be.appify.prefab.processor.mongodb;
 
 import be.appify.prefab.core.annotations.Indexed;
+import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.Filters;
 import be.appify.prefab.processor.ClassManifest;
-import be.appify.prefab.processor.JavaFileWriter;
+import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.ClassName;
@@ -34,7 +35,7 @@ class MongoIndexWriter {
     }
 
     void write(List<ClassManifest> manifests) {
-        var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.mongodb");
+        var fileWriter = new OutputTargetFileOutput(context, "infrastructure.mongodb", OutputTarget.MAIN);
         var rootPackage = findCommonRootPackage(manifests);
 
         var constructor = MethodSpec.constructorBuilder()

@@ -3,8 +3,11 @@ import be.appify.prefab.core.annotations.Doc;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.Example;
 import be.appify.prefab.core.annotations.AvroSchema;
+import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.processor.BuilderWriter;
-import be.appify.prefab.processor.JavaFileWriter;
+import be.appify.prefab.processor.OutputTargetFileOutput;
+import be.appify.prefab.processor.PrefabContext;
+import be.appify.prefab.processor.TestFileOutput;
 import com.palantir.javapoet.*;
 import jakarta.annotation.Nullable;
 import java.time.Duration;
@@ -32,27 +35,28 @@ class AvscEventWriter {
     private static final String LOGICAL_TYPE_DURATION_MILLIS = "duration-millis";
     private static final String OPTION_SETTER_PREFIX = "prefab.builder.setterPrefix";
     private final ProcessingEnvironment processingEnvironment;
-    AvscEventWriter(ProcessingEnvironment processingEnvironment) {
-        this.processingEnvironment = processingEnvironment;
+    private final TestFileOutput fileWriter;
+    AvscEventWriter(PrefabContext context) {
+        this.processingEnvironment = context.processingEnvironment();
+        this.fileWriter = new OutputTargetFileOutput(context, "", OutputTarget.MAIN);
     }
     void writeAll(Schema schema, String[] topics, Event.Platform platform, String defaultPackage, ClassName contractInterface) {
         var namedTypes = collectNamedTypes(schema);
         var pendingUnions = new ArrayList<UnionTypeGroup>();
-        var fileWriter = new JavaFileWriter(processingEnvironment, "");
         writeTopLevelRecord(schema, topics, platform, defaultPackage, contractInterface, fileWriter, pendingUnions);
         writeNestedTypes(schema, namedTypes, defaultPackage, fileWriter, pendingUnions);
         writeUnionTypes(pendingUnions, defaultPackage, fileWriter);
     }
     private void writeTopLevelRecord(Schema schema, String[] topics, Event.Platform platform,
             String defaultPackage, ClassName contractInterface,
-            JavaFileWriter fileWriter, List<UnionTypeGroup> pendingUnions) {
+            TestFileOutput fileWriter, List<UnionTypeGroup> pendingUnions) {
         var topLevelSpec = buildTopLevelRecord(schema, topics, platform, defaultPackage, contractInterface, pendingUnions);
         if (topLevelSpec != null) {
             fileWriter.writeFile(defaultPackage, javaTypeName(schema), topLevelSpec);
         }
     }
     private void writeNestedTypes(Schema topLevelSchema, Map<String, Schema> namedTypes,
-            String defaultPackage, JavaFileWriter fileWriter, List<UnionTypeGroup> pendingUnions) {
+            String defaultPackage, TestFileOutput fileWriter, List<UnionTypeGroup> pendingUnions) {
         for (var entry : namedTypes.entrySet()) {
             var namedSchema = entry.getValue();
             if (namedSchema.equals(topLevelSchema)) continue;
@@ -60,7 +64,7 @@ class AvscEventWriter {
         }
     }
     private void writeNestedType(Schema schema, String defaultPackage,
-            JavaFileWriter fileWriter, List<UnionTypeGroup> pendingUnions) {
+            TestFileOutput fileWriter, List<UnionTypeGroup> pendingUnions) {
         if (schema.getType() == Schema.Type.RECORD) {
             var spec = buildNestedRecord(schema, defaultPackage, pendingUnions);
             if (spec != null) {
@@ -70,7 +74,7 @@ class AvscEventWriter {
             fileWriter.writeFile(defaultPackage, javaTypeName(schema), buildEnum(schema));
         }
     }
-    private void writeUnionTypes(List<UnionTypeGroup> pendingUnions, String defaultPackage, JavaFileWriter fileWriter) {
+    private void writeUnionTypes(List<UnionTypeGroup> pendingUnions, String defaultPackage, TestFileOutput fileWriter) {
         for (var group : pendingUnions) {
             fileWriter.writeFile(defaultPackage, group.interfaceName(), group.interfaceSpec());
             for (var branch : group.branches()) {

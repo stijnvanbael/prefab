@@ -2,10 +2,11 @@ package be.appify.prefab.processor.event.sns;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
+import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.sns.SqsSubscriptionRequest;
 import be.appify.prefab.core.sns.SqsUtil;
 import be.appify.prefab.processor.CaseUtil;
-import be.appify.prefab.processor.JavaFileWriter;
+import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.event.ConsumerWriterSupport;
@@ -52,7 +53,7 @@ class SqsSubscriberWriter {
             TypeManifest owner,
             List<ExecutableElement> eventHandlers
     ) {
-        var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.sns");
+        var fileWriter = new OutputTargetFileOutput(context, "infrastructure.sns", OutputTarget.MAIN);
 
         var name = "%sSqsSubscriber".formatted(owner.simpleName());
         var packageName = TypeManifest.of(eventHandlers.getFirst().getEnclosingElement().asType(),

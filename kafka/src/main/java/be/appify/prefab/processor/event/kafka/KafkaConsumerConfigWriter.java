@@ -1,9 +1,10 @@
 package be.appify.prefab.processor.event.kafka;
 
 import be.appify.prefab.core.annotations.EventHandlerConfig;
+import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.kafka.KafkaUtil;
 import be.appify.prefab.core.util.Classes;
-import be.appify.prefab.processor.JavaFileWriter;
+import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import java.util.stream.Stream;
@@ -38,7 +39,7 @@ class KafkaConsumerConfigWriter {
             List<ExecutableElement> eventHandlers,
             PrefabContext context
     ) {
-        var fileWriter = new JavaFileWriter(context.processingEnvironment(), "infrastructure.kafka");
+        var fileWriter = new OutputTargetFileOutput(context, "infrastructure.kafka", OutputTarget.MAIN);
 
         var name = "%sKafkaConsumerConfig".formatted(owner.simpleName());
         var packageName = TypeManifest.of(eventHandlers.getFirst().getEnclosingElement().asType(),

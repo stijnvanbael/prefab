@@ -2,9 +2,10 @@ package be.appify.prefab.processor.event;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.PublishTo;
+import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.kafka.EventRegistryCustomizer;
-import be.appify.prefab.processor.JavaFileWriter;
+import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import com.palantir.javapoet.AnnotationSpec;
@@ -36,9 +37,11 @@ import static org.apache.commons.lang3.StringUtils.uncapitalize;
 public class EventTypeRegistrarWriter {
 
     private final PrefabContext context;
+    private final OutputTargetFileOutput fileOutput;
 
     public EventTypeRegistrarWriter(PrefabContext context) {
         this.context = context;
+        this.fileOutput = new OutputTargetFileOutput(context, "infrastructure.event", OutputTarget.MAIN);
     }
 
     /**
@@ -54,8 +57,7 @@ public class EventTypeRegistrarWriter {
         var name = registrarName(simpleName);
         var type = buildRegistrarType(name, annotation.topic(), annotation.serialization(),
                 annotation.publishTo(), simpleName, event.asTypeName(), keyField(event, context));
-        new JavaFileWriter(context.processingEnvironment(), "infrastructure.event")
-                .writeFile(event.packageName(), name, type);
+        fileOutput.writeFile(event.packageName(), name, type);
     }
 
     /**
@@ -70,8 +72,7 @@ public class EventTypeRegistrarWriter {
         var name = registrarName(eventType.simpleName());
         var type = buildRegistrarType(name, topics, Event.Serialization.AVRO,
                 publishTo, eventType.simpleName(), eventType, Optional.empty());
-        new JavaFileWriter(context.processingEnvironment(), "infrastructure.event")
-                .writeFile(packageName, name, type);
+        fileOutput.writeFile(packageName, name, type);
     }
 
     private TypeSpec buildRegistrarType(String name, String[] topics, Event.Serialization serialization,

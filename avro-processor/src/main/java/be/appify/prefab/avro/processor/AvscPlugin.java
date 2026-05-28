@@ -48,7 +48,7 @@ public class AvscPlugin implements PrefabPlugin {
                 .getQualifiedName()
                 .toString();
         var contractInterface = ClassName.get(contractPackage, typeElement.getSimpleName().toString());
-        var writer = new AvscEventWriter(context.processingEnvironment());
+        var writer = new AvscEventWriter(context);
         for (var path : annotation.value()) {
             var schema = parseSchema(path, element);
             if (schema == null) continue;

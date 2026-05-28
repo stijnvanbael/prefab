@@ -259,7 +259,7 @@ class AvscPluginTest {
                 .contains("public static class Builder");
         assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
-                .contains("public static Builder builder()");
+                .contains("public static SimpleAvscEvent.Builder<?> builder()");
     }
     @Test
     void avscEventMotherDelegatesToNestedBuilderNotStandaloneClass() {

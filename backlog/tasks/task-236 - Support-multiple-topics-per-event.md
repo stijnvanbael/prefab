@@ -81,7 +81,7 @@ Tests added for `multipleTopicsPerEvent` in `KafkaConsumerWriterTest`, `KafkaEve
 ## AC 1-6 Implementation (2026-05-28)
 
 ### Design decisions
-`@Event` keeps `topic()` as primary (required, no default) for full backward compatibility. Added `additionalTopics() default {}` for extra topics. This avoids any source-level breakage of existing `@Event(topic = \"...\")` usages.
+`@Event` keeps `topic()` as required primary for backward compatibility, but now accepts a `String[]` so a single event type can be associated with multiple topics. Existing usages such as `@Event(topic = "...")` remain source-compatible because Java allows a single-element value for array-typed annotation members.
 - `PublishTo` enum introduced as a standalone top-level class in `be.appify.prefab.core.annotations` (not nested in `@Event`). Being a regular class it is available at runtime even though `@Event` has `RetentionPolicy.CLASS`.
 - Each platform registry (`EventRegistry`, `PubSubUtil`, `SqsUtil`) gained:
 - A `typeToTopics` / `typeTopics` multi-map that accumulates all topics registered for a type.
@@ -94,8 +94,7 @@ Tests added for `multipleTopicsPerEvent` in `KafkaConsumerWriterTest`, `KafkaEve
 | File | Change |
 |---|---|
 | `core/…/annotations/PublishTo.java` | New enum with `FIRST` and `ALL` |
-| `core/…/annotations/Event.java` | Added `additionalTopics()` and `publishTo()` |
-| `core/…/kafka/EventRegistry.java` | Added `publishToStrategies`, `topicsForType`, `registerPublishTo`, `topicsForDispatch` |
+| `core/…/annotations/Event.java` | Changed `topic()` to `String[]` and added `publishTo()` |
 | `core/…/kafka/GenericKafkaProducer.java` | `dispatch()` iterates `topicsForDispatch` |
 | `core/…/pubsub/PubSubUtil.java` | Added `typeToTopics`, `publishToStrategies`, `registerPublishTo`, `topicsForDispatch` |
 | `core/…/pubsub/GenericPubSubPublisher.java` | `dispatch()` iterates `topicsForDispatch` |

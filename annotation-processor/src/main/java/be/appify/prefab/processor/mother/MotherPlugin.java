@@ -42,24 +42,29 @@ public class MotherPlugin implements PrefabPlugin {
         var writer = new MotherWriter(context, writtenTypes);
 
         manifests.forEach(manifest -> writeRequestMothers(manifest, writer));
+        writeEventMothers(writer);
+    }
 
+    private void writeEventMothers(MotherWriter writer) {
         context.eventElements().forEach(element -> {
-            var type = TypeManifest.of(element.asType(), context.processingEnvironment());
-            // AVSC-generated records are compiled in round 2 from generated sources, so
-            // TestJavaFileWriter cannot resolve the source root path from them directly.
-            // Use the @Avsc contract interface (which is always a source file) instead.
             var isAvscGenerated = EventPlatformPluginSupport.isAvscGeneratedRecord(element);
             var preferredElement = isAvscGenerated ? avscContractInterface(element) : element;
-            if (type.isSealed()) {
-                type.permittedSubtypes().forEach(subtype -> {
-                    if (subtype.isRecord()) {
-                        writer.writeEventMother(subtype, preferredElement, isAvscGenerated);
-                    }
-                });
-            } else if (type.isRecord()) {
-                writer.writeEventMother(type, preferredElement, isAvscGenerated);
-            }
+            var outputTarget = context.getOutputTargetFor(preferredElement, MotherPlugin.class);
+            context.withOutputTarget(outputTarget, () -> writeEventMother(element, preferredElement, isAvscGenerated, writer));
         });
+    }
+
+    private void writeEventMother(TypeElement element, TypeElement preferredElement, boolean isAvscGenerated, MotherWriter writer) {
+        var type = TypeManifest.of(element.asType(), context.processingEnvironment());
+        if (type.isSealed()) {
+            type.permittedSubtypes().forEach(subtype -> {
+                if (subtype.isRecord()) {
+                    writer.writeEventMother(subtype, preferredElement, isAvscGenerated);
+                }
+            });
+        } else if (type.isRecord()) {
+            writer.writeEventMother(type, preferredElement, isAvscGenerated);
+        }
     }
 
     private void writeRequestMothers(ClassManifest manifest, MotherWriter writer) {

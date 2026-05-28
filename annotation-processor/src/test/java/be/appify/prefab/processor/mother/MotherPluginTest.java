@@ -327,6 +327,23 @@ class MotherPluginTest {
         }
     }
 
+    @Test
+    void eventMotherWithMainOutputTargetIsWrittenToMainSource() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/mainoutput/source/OrderShipped.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("mother.mainoutput.source.OrderShippedMother")
+                .contentsAsUtf8String()
+                .contains("class OrderShippedMother");
+        assertTrue(compilation.generatedFiles().stream()
+                .noneMatch(file -> file.getName().contains("CLASS_OUTPUT")
+                        && file.getName().endsWith("/mother/mainoutput/source/OrderShippedMother.java")),
+                "Event mother must not be written to test (CLASS_OUTPUT) when target = MAIN");
+    }
+
     private static void deleteRecursively(Path root) {
         if (root == null || !Files.exists(root)) {
             return;

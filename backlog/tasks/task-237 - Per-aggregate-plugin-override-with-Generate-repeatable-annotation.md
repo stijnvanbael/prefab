@@ -130,7 +130,7 @@ public class AccountAggregate {
 
 ## Design Requirements
 
-1. **Annotation Definition**: Add `@Generate`, `@GenerateOverrides`, and `OutputTarget` to the `core` module (`io.prefab.core` package).
+1. **Annotation Definition**: Add `@Generate`, `@GenerateOverrides`, and `OutputTarget` to the `core` module (`be.appify.prefab.core.annotations` package).
 
 2. **Processing in PrefabContext**: 
    - Read `@Generate` overrides from `TypeElement` at aggregate discovery time

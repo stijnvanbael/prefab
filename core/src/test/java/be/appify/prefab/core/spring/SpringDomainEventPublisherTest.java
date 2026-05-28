@@ -124,7 +124,7 @@ class SpringDomainEventPublisherTest {
         }
 
         @Override
-        public void dispatch(Object event) {
+        public void dispatch(Object event, String... topicOverrides) {
             received.add(event);
         }
     }

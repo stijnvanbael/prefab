@@ -82,7 +82,7 @@ class GcpTerraformWriter {
     private List<String> pubsubTopics() {
         return context.roundEnvironment().getElementsAnnotatedWith(Event.class)
                 .stream()
-                .map(e -> e.getAnnotation(Event.class).topic())
+                .flatMap(e -> java.util.Arrays.stream(e.getAnnotation(Event.class).topic()))
                 .distinct()
                 .sorted()
                 .toList();

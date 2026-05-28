@@ -10,11 +10,19 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.CLASS)
 public @interface Event {
     /**
-     * The topic the event is published to or should be consumed from.
+     * The topic(s) the event is published to or should be consumed from.
      *
-     * @return The topic the event is published to or should be consumed from.
+     * @return The topic(s) the event is published to or should be consumed from.
      */
-    String topic();
+    String[] topic();
+
+    /**
+     * Controls which of the registered topics this event is published to.
+     * Defaults to {@link PublishTo#FIRST} for backward compatibility.
+     *
+     * @return the publish-to strategy
+     */
+    PublishTo publishTo() default PublishTo.FIRST;
 
     /**
      * The messaging platform used for the event. The default is to derive the platform from the application

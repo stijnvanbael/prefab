@@ -1,9 +1,10 @@
 ---
 id: TASK-236
 title: Support multiple topics per event
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-05-27 14:18'
+updated_date: '2026-05-28 05:31'
 labels:
   - feature
   - messaging
@@ -44,17 +45,94 @@ The annotation processor that generates Kafka listener / Pub-Sub subscriber / SQ
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 @Event accepts an array of topics (e.g. topics() or topic() + additionalTopics())
-- [ ] #2 PublishTo enum with FIRST and ALL values is added to @Event
-- [ ] #3 @Event.publishTo() defaults to FIRST for backward compatibility
-- [ ] #4 GenericKafkaProducer.dispatch() honours the publishTo strategy and publishes to the correct topic(s)
-- [ ] #5 GenericPubSubPublisher.dispatch() honours the publishTo strategy and publishes to the correct topic(s)
-- [ ] #6 GenericSnsPublisher.dispatch() honours the publishTo strategy and publishes to the correct topic(s)
-- [ ] #7 All three dispatchers expose a runtime topic-override mechanism (varargs or equivalent)
-- [ ] #8 Generated Kafka/Pub-Sub/SQS consumers subscribe to ALL topics listed in the event by default
-- [ ] #9 @EventHandlerConfig gains a consumeFromTopics attribute to restrict which topics a handler listens on
-- [ ] #10 Annotation processor updated to generate correct multi-topic listener/subscriber beans
-- [ ] #11 Existing single-topic events continue to work without any source changes (backward compatible)
-- [ ] #12 Unit and integration tests cover FIRST, ALL, and override scenarios for at least one platform
-- [ ] #13 Developer guide updated to document the new multi-topic feature
+- [x] #1 @Event accepts an array of topics (topic() becomes String[])
+- [x] #2 PublishTo enum with FIRST and ALL values is added to @Event
+- [x] #3 @Event.publishTo() defaults to FIRST for backward compatibility
+- [x] #4 GenericKafkaProducer.dispatch() honours the publishTo strategy and publishes to the correct topic(s)
+- [x] #5 GenericPubSubPublisher.dispatch() honours the publishTo strategy and publishes to the correct topic(s)
+- [x] #6 GenericSnsPublisher.dispatch() honours the publishTo strategy and publishes to the correct topic(s)
+- [x] #7 All three dispatchers expose a runtime topic-override mechanism (varargs)
+- [x] #8 Generated Kafka/Pub-Sub/SQS consumers subscribe to ALL topics listed in the event by default
+- [x] #9 @EventHandlerConfig gains a consumeFromTopics attribute to restrict which topics a handler listens on
+- [x] #10 Annotation processor updated to generate correct multi-topic listener/subscriber beans
+- [x] #11 Existing single-topic events continue to work without any source changes (backward compatible)
+- [x] #12 Unit and integration tests cover FIRST, ALL, and override scenarios for at least one platform
+- [x] #13 Developer guide updated to document the new multi-topic feature
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+### AC 8 & AC 10 (2026-05-28)
+
+Updated the annotation processor to support multi-topic events across all three platforms:
+
+**Kafka** (`KafkaConsumerWriter`): `@KafkaListener` now includes all topics from `Event.topic[]` — javapoet emits `topics = {"topic1", "topic2"}` when multiple `addMember("topics", ...)` calls are made.
+
+**EventTypeRegistrarWriter**: Registers the event type for every topic in the array. Backward-compatible: single-topic events still generate `myEventTopic` (no index suffix); multi-topic events generate `myEventTopic0`, `myEventTopic1` etc.
+
+**PubSubSubscriberWriter / SqsSubscriberWriter**: Flat-maps `String[]` topics to individual subscription calls. When the same event type maps to multiple topics, a `buildUniqueNames()` helper generates collision-safe variable names (`userEvent0Executor` / `userEvent1Executor`).
+
+**ConsumerWriterSupport**: Fixed `eventTypeOf()` to use `List.of(event.topic()).contains(topic)` instead of `event.topic().equals(topic)` (was always false for `String[]`).
+
+**Supporting fixes**: `AvscPlugin`, `KafkaPlugin`, `GcpTerraformWriter`, `EventSchemaDocumentationWriter`, `PubSubEventTypeRegistrarWriter`, `SqsEventTypeRegistrarWriter` all updated to handle `String[] topic()`.
+
+Tests added for `multipleTopicsPerEvent` in `KafkaConsumerWriterTest`, `KafkaEventTypeRegistrarWriterTest`, `PubSubSubscriberWriterTest`, and `SqsSubscriberWriterTest`.
+## AC 1-6 Implementation (2026-05-28)
+
+### Design decisions
+`@Event` keeps `topic()` as required primary for backward compatibility, but now accepts a `String[]` so a single event type can be associated with multiple topics. Existing usages such as `@Event(topic = "...")` remain source-compatible because Java allows a single-element value for array-typed annotation members.
+- `PublishTo` enum introduced as a standalone top-level class in `be.appify.prefab.core.annotations` (not nested in `@Event`). Being a regular class it is available at runtime even though `@Event` has `RetentionPolicy.CLASS`.
+- Each platform registry (`EventRegistry`, `PubSubUtil`, `SqsUtil`) gained:
+- A `typeToTopics` / `typeTopics` multi-map that accumulates all topics registered for a type.
+- A `publishToStrategies` map (`Class<?> → PublishTo`) populated via new `registerPublishTo()` methods.
+- A `topicsForDispatch(Object event)` method that applies the strategy and returns the applicable topic list.
+- `registerEventTopic()` in `PubSubUtil` and `SqsUtil` now populates both `typeToTopic` (single — for backward-compat `tryTopicForType`) and `typeToTopics` (multi).
+- All three generic dispatchers (`GenericKafkaProducer`, `GenericPubSubPublisher`, `GenericSnsPublisher`) now iterate over `topicsForDispatch(event)` and publish to each target topic sequentially.
+
+### Files changed
+| File | Change |
+|---|---|
+| `core/…/annotations/PublishTo.java` | New enum with `FIRST` and `ALL` |
+| `core/…/annotations/Event.java` | Changed `topic()` to `String[]` and added `publishTo()` |
+| `core/…/kafka/GenericKafkaProducer.java` | `dispatch()` iterates `topicsForDispatch` |
+| `core/…/pubsub/PubSubUtil.java` | Added `typeToTopics`, `publishToStrategies`, `registerPublishTo`, `topicsForDispatch` |
+| `core/…/pubsub/GenericPubSubPublisher.java` | `dispatch()` iterates `topicsForDispatch` |
+| `core/…/sns/SqsUtil.java` | Added `typeToTopics`, `publishToStrategies`, `registerPublishTo`, `topicsForDispatch` |
+| `core/…/sns/GenericSnsPublisher.java` | `dispatch()` iterates `topicsForDispatch` |
+
+All 61 core module tests pass after the change.
+
+Replaced additionalTopics() with String[] topic()
+
+### AC 7 — Runtime topic-override dispatch (2026-05-28)
+
+Added `dispatch(Object event, String... topicOverrides)` as a `default` method to `DomainEventDispatcher` and overridden it in all three dispatchers:
+
+- `DomainEventDispatcher.dispatch(Object, String...)` — default method; falls back to `dispatch(event)` when no overrides are given; concrete implementations override to honour the supplied topics.
+- `GenericKafkaProducer` — when overrides are non-empty, publishes directly to each override topic via `KafkaTemplate.send`; otherwise delegates to `eventRegistry.topicsForDispatch`.
+- `GenericPubSubPublisher` — same pattern with `pubSubUtil.topicsForDispatch` / `pubSubTemplate.publish`.
+- `GenericSnsPublisher` — same pattern with `sqsUtil.topicsForDispatch` / `snsTemplate.sendNotification`.
+- Each dispatcher refactored to extract a private `publishToTopics(event, List<String>)` helper eliminating duplication between the two `dispatch` overloads.
+- `mockito-junit-jupiter` and `assertj-core` added as test-scope dependencies to `core` module (versions managed by Spring Boot BOM).
+- New test classes: `GenericKafkaProducerTest`, `GenericPubSubPublisherTest`, `GenericSnsPublisherTest` — 13 tests total, all passing.
+
+## AC #9, #11, #12, #13 Implementation (2026-05-28)
+
+### consumeFromTopics (@EventHandlerConfig)
+- Added `String[] consumeFromTopics() default {}` attribute to `@EventHandlerConfig`.
+- Added `Util.hasConsumeFromTopicsFilter(EventHandlerConfig)` static helper (returns `true` when the array is non-empty).
+- Updated `KafkaConsumerWriter.kafkaListener()` to extract `effectiveTopics(event, config)`: when `consumeFromTopics` is non-empty it uses those topics; otherwise falls back to all topics from `@Event.topic()`.
+
+### Backward compatibility (AC #11)
+- Existing single-topic usages (`@Event(topic = "prefab.user")`) are unchanged; the existing `kafka/single` fixture and test confirm zero source changes needed.
+
+### Tests (AC #12)
+- Added `consumeFromTopicsRestrictsSubscribedTopics` test in `KafkaConsumerWriterTest` using new `kafka/consumefromtopics/` fixtures and expected output. Confirms `@EventHandlerConfig(consumeFromTopics = "${topic.user.primary}")` on a two-topic event generates a `@KafkaListener` with only the primary topic.
+
+### Developer guide (AC #13)
+- Updated `backlog/docs/annotation-reference.md`:
+  - `@Event.topic` documented as `String[]`; added `publishTo` attribute row.
+  - Added multi-topic code example.
+  - Added `consumeFromTopics` row to `@EventHandlerConfig` attribute table with usage example.
+<!-- SECTION:NOTES:END -->

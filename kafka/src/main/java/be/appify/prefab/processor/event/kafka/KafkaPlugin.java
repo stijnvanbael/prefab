@@ -116,7 +116,7 @@ public class KafkaPlugin implements PrefabPlugin {
                 continue;
             var schemaPackage = schema.getNamespace() != null ? schema.getNamespace() : packageName;
             var eventType = ClassName.get(schemaPackage, schema.getName());
-            eventTypeRegistrarWriter.writeAvscRegistrar(schemaPackage, eventType, event.topic());
+            eventTypeRegistrarWriter.writeAvscRegistrar(schemaPackage, eventType, event.topic(), event.publishTo());
         }
     }
 

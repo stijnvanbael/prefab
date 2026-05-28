@@ -6,6 +6,7 @@ import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.event.EventPlatformPluginSupport;
+import be.appify.prefab.processor.event.EventTypeRegistrarWriter;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.derivedPlatform;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.filteredEventHandlersByOwner;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.isAvscGeneratedRecord;
@@ -22,7 +23,7 @@ import java.util.List;
  * Prefab plugin to generate Pub/Sub publishers and subscribers based on event annotations.
  */
 public class PubSubPlugin implements PrefabPlugin {
-    private PubSubEventTypeRegistrarWriter pubSubEventTypeRegistrarWriter;
+    private EventTypeRegistrarWriter eventTypeRegistrarWriter;
     private PubSubSubscriberWriter pubSubSubscriberWriter;
     private PrefabContext context;
 
@@ -45,7 +46,7 @@ public class PubSubPlugin implements PrefabPlugin {
     @Override
     public void initContext(PrefabContext context) {
         this.context = context;
-        pubSubEventTypeRegistrarWriter = new PubSubEventTypeRegistrarWriter(context);
+        eventTypeRegistrarWriter = new EventTypeRegistrarWriter(context);
         pubSubSubscriberWriter = new PubSubSubscriberWriter(context);
     }
 
@@ -77,7 +78,7 @@ public class PubSubPlugin implements PrefabPlugin {
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .map(EventPlatformPluginSupport::publisherEventType)
                 .distinct()
-                .forEach(event -> pubSubEventTypeRegistrarWriter.writeRegistrar(event));
+                .forEach(event -> eventTypeRegistrarWriter.writeRegistrar(event));
     }
 
     static boolean platformIsPubSub(Event event, Element element, PrefabContext context) {

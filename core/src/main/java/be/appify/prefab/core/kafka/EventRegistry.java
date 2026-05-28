@@ -1,7 +1,11 @@
 package be.appify.prefab.core.kafka;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.annotations.PublishTo;
+import java.util.ArrayDeque;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -25,8 +29,10 @@ public class EventRegistry {
     private final Map<String, Set<Class<?>>> topicTypes = new ConcurrentHashMap<>();
     private final Map<Class<?>, Set<String>> typeTopics = new ConcurrentHashMap<>();
     private final Set<String> allowedClassNames = ConcurrentHashMap.newKeySet();
+    private final Map<String, Class<?>> classNameToType = new ConcurrentHashMap<>();
     private final Map<Class<?>, Function<Object, String>> keyExtractors = new ConcurrentHashMap<>();
     private final Map<String, Event.Serialization> serializations = new ConcurrentHashMap<>();
+    private final Map<Class<?>, PublishTo> publishToStrategies = new ConcurrentHashMap<>();
 
     /** Constructs a new EventRegistry. */
     public EventRegistry() {
@@ -174,12 +180,72 @@ public class EventRegistry {
         if (extractor != null) {
             return Optional.of(extractor);
         }
+        Function<Object, String> selected = null;
+        Integer selectedDistance = null;
         for (var entry : keyExtractors.entrySet()) {
-            if (entry.getKey().isAssignableFrom(type)) {
-                return Optional.of(entry.getValue());
+            if (!entry.getKey().isAssignableFrom(type)) {
+                continue;
+            }
+            var distance = hierarchyDistance(type, entry.getKey());
+            if (distance.isEmpty()) {
+                continue;
+            }
+            if (selectedDistance == null || distance.get() < selectedDistance) {
+                selectedDistance = distance.get();
+                selected = entry.getValue();
+            } else if (distance.get().equals(selectedDistance) && !entry.getValue().equals(selected)) {
+                throw new IllegalStateException("Ambiguous key extractors registered for type: " + type.getName());
+            }
+        }
+        return Optional.ofNullable(selected);
+    }
+
+    private static Optional<Integer> hierarchyDistance(Class<?> source, Class<?> target) {
+        if (source.equals(target)) {
+            return Optional.of(0);
+        }
+        if (!target.isAssignableFrom(source)) {
+            return Optional.empty();
+        }
+        var queue = new ArrayDeque<Class<?>>();
+        var distances = new HashMap<Class<?>, Integer>();
+        queue.add(source);
+        distances.put(source, 0);
+        while (!queue.isEmpty()) {
+            var current = queue.remove();
+            var distance = distances.get(current);
+            if (current.equals(target)) {
+                return Optional.of(distance);
+            }
+            var superclass = current.getSuperclass();
+            if (superclass != null && distances.putIfAbsent(superclass, distance + 1) == null) {
+                queue.add(superclass);
+            }
+            for (var iface : current.getInterfaces()) {
+                if (distances.putIfAbsent(iface, distance + 1) == null) {
+                    queue.add(iface);
+                }
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * Resolves the single registered topic for a Java type, if one is registered.
+     *
+     * @param type the event type
+     * @return an {@link Optional} containing the topic, or empty if none are registered
+     * @throws IllegalStateException if multiple topics are registered for the type
+     */
+    public Optional<String> tryTopicForType(Class<?> type) {
+        var topics = Set.copyOf(typeTopics.getOrDefault(type, Set.of()));
+        if (topics.isEmpty()) {
+            return Optional.empty();
+        }
+        if (topics.size() > 1) {
+            throw new IllegalStateException("Multiple topics registered for type " + type.getName() + ": " + topics);
+        }
+        return Optional.of(topics.iterator().next());
     }
 
     private void addToTopicTypes(String topic, Class<?> type) {
@@ -214,6 +280,70 @@ public class EventRegistry {
     }
 
     /**
+     * Returns all topics registered for the given Java type.
+     *
+     * @param type the event type
+     * @return an immutable set of registered topic names; empty if none are registered
+     */
+    public Set<String> topicsForType(Class<?> type) {
+        return Set.copyOf(typeTopics.getOrDefault(type, Set.of()));
+    }
+
+    /**
+     * Stores the publish-to strategy for an event type.
+     * Called by generated registrar beans during application startup.
+     *
+     * @param type      the event type
+     * @param publishTo the strategy that governs which topics are targeted at dispatch time
+     */
+    public void registerPublishTo(Class<?> type, PublishTo publishTo) {
+        publishToStrategies.put(type, publishTo);
+    }
+
+    /**
+     * Resolves the topics to which the given event should be dispatched, applying the registered
+     * {@link PublishTo} strategy. Defaults to {@link PublishTo#FIRST} when no strategy is registered.
+     *
+     * @param event the event instance
+     * @return the ordered list of target topic names
+     * @throws IllegalArgumentException if no topics are registered for the event type
+     */
+    public List<String> topicsForDispatch(Object event) {
+        var type = event.getClass();
+        var topics = typeTopics.getOrDefault(type, Set.of());
+        if (topics.isEmpty()) {
+            throw new IllegalArgumentException("No topics registered for type: " + type.getName());
+        }
+
+        var strategy = publishToStrategies.get(type);
+        if (strategy == null) {
+            PublishTo selected = null;
+            Integer selectedDistance = null;
+            for (var entry : publishToStrategies.entrySet()) {
+                if (!entry.getKey().isAssignableFrom(type)) {
+                    continue;
+                }
+                var distance = hierarchyDistance(type, entry.getKey());
+                if (distance.isEmpty()) {
+                    continue;
+                }
+                if (selectedDistance == null || distance.get() < selectedDistance) {
+                    selectedDistance = distance.get();
+                    selected = entry.getValue();
+                } else if (distance.get().equals(selectedDistance) && entry.getValue() != selected) {
+                    throw new IllegalStateException("Ambiguous publishTo strategies registered for type: " + type.getName());
+                }
+            }
+            strategy = selected != null ? selected : PublishTo.FIRST;
+        }
+
+        return switch (strategy) {
+            case ALL -> List.copyOf(topics);
+            case FIRST -> List.of(topics.iterator().next());
+        };
+    }
+
+    /**
      * Resolves the single registered topic for a Java type.
      *
      * @param type the event type
@@ -234,11 +364,29 @@ public class EventRegistry {
 
     private void addToAllowedClassNames(Class<?> type) {
         allowedClassNames.add(type.getName());
-        if (type.isSealed()) {
-            for (Class<?> subtype : type.getPermittedSubclasses()) {
-                addToAllowedClassNames(subtype);
+        classNameToType.put(type.getName(), type);
+        if(type.isInterface()) {
+            if (type.isSealed()) {
+                for (Class<?> subtype : type.getPermittedSubclasses()) {
+                    addToAllowedClassNames(subtype);
+                }
+            } else {
+                throw new IllegalArgumentException("Only sealed interfaces are supported for event types: " + type.getName());
             }
         }
+    }
+
+    /**
+     * Looks up the registered Java class for the given fully-qualified class name.
+     *
+     * <p>Only classes that have been registered via {@link #registerType} are resolvable.
+     * This method is the safe alternative to reflection-based class loading for deserialization allowlist checks.
+     *
+     * @param className the fully-qualified class name
+     * @return an {@link Optional} containing the class, or empty if not registered
+     */
+    public Optional<Class<?>> typeByClassName(String className) {
+        return Optional.ofNullable(classNameToType.get(className));
     }
 
     /**

@@ -213,7 +213,7 @@ public class ConsumerWriterSupport {
         var eventTypes = eventHandlers.stream()
                 .map(e -> rootEventType(e, context))
                 .filter(type -> type.annotationsOfType(Event.class).stream()
-                        .anyMatch(event -> event.topic().equals(topic)))
+                        .anyMatch(event -> List.of(event.topic()).contains(topic)))
                 .collect(Collectors.toSet());
         if (eventTypes.size() > 1) {
             var sharedAncestor = findSharedEventAncestor(new ArrayList<>(eventTypes), topic, context);
@@ -241,7 +241,7 @@ public class ConsumerWriterSupport {
             }
         }
         return commonInterfaces.stream()
-                .filter(iface -> iface.getAnnotation(Event.class) != null && iface.getAnnotation(Event.class).topic().equals(topic))
+                .filter(iface -> iface.getAnnotation(Event.class) != null && List.of(iface.getAnnotation(Event.class).topic()).contains(topic))
                 .findFirst()
                 .map(iface -> TypeManifest.of(iface.asType(), context.processingEnvironment()));
     }

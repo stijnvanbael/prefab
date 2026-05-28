@@ -69,6 +69,34 @@ class KafkaEventTypeRegistrarWriterTest {
     }
 
     @Test
+    void multipleTopicsPerEvent() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/multitopicevent/UserEvent.java"),
+                        sourceOf("kafka/multitopicevent/UserService.java"));
+        assertThat(compilation).succeeded();
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.multitopicevent.infrastructure.event.UserEventEventTypeRegistrar",
+                "expected/kafka/multitopicevent/UserEventEventTypeRegistrar.java");
+    }
+
+    @Test
+    void publishToAll() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/publishtoall/UserEvent.java"),
+                        sourceOf("kafka/publishtoall/UserService.java"));
+        assertThat(compilation).succeeded();
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.publishtoall.infrastructure.event.UserEventEventTypeRegistrar",
+                "expected/kafka/publishtoall/UserEventEventTypeRegistrar.java");
+    }
+
+    @Test
     void createOrUpdateHandler() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

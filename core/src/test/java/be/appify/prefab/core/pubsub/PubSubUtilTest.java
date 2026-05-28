@@ -1,5 +1,6 @@
 package be.appify.prefab.core.pubsub;
 
+import be.appify.prefab.core.kafka.EventRegistry;
 import com.google.cloud.spring.pubsub.PubSubAdmin;
 import com.google.cloud.spring.pubsub.core.subscriber.PubSubSubscriberTemplate;
 import java.util.Optional;
@@ -15,39 +16,30 @@ class PubSubUtilTest {
 
     @Test
     void tryTopicForTypeReturnsEmptyWhenNoTopicMatches() {
-        var pubSubUtil = pubSubUtil();
+        var eventRegistry = new EventRegistry();
 
-        assertEquals(Optional.empty(), pubSubUtil.tryTopicForType(UnmappedEvent.class));
+        assertEquals(Optional.empty(), pubSubUtil(eventRegistry).tryTopicForType(UnmappedEvent.class));
     }
 
     @Test
-    void topicForTypePrefersMostSpecificAssignableType() {
-        var pubSubUtil = pubSubUtil();
-        pubSubUtil.registerEventTopic("parent-topic", ParentEvent.class);
-        pubSubUtil.registerEventTopic("base-topic", BaseEvent.class);
+    void topicForTypeResolvesPermittedSealedSubtype() {
+        var eventRegistry = new EventRegistry();
+        eventRegistry.registerType("parent-topic", ParentEvent.class);
 
-        assertEquals("parent-topic", pubSubUtil.topicForType(ChildEvent.class));
+        // ChildEvent is a permitted subtype of sealed ParentEvent — registered automatically
+        assertEquals("parent-topic", pubSubUtil(eventRegistry).topicForType(ChildEvent.class));
     }
 
     @Test
-    void topicForTypeThrowsOnAmbiguousAssignableTypes() {
-        var pubSubUtil = pubSubUtil();
-        pubSubUtil.registerEventTopic("left-topic", LeftEvent.class);
-        pubSubUtil.registerEventTopic("right-topic", RightEvent.class);
+    void topicForTypeThrowsWhenMultipleTopicsRegistered() {
+        var eventRegistry = new EventRegistry();
+        eventRegistry.registerType("topic1", AmbiguousEvent.class);
+        eventRegistry.registerType("topic2", AmbiguousEvent.class);
 
-        assertThrows(IllegalStateException.class, () -> pubSubUtil.topicForType(AmbiguousEvent.class));
+        assertThrows(IllegalStateException.class, () -> pubSubUtil(eventRegistry).topicForType(AmbiguousEvent.class));
     }
 
-    @Test
-    void keyForThrowsOnAmbiguousAssignableExtractors() {
-        var pubSubUtil = pubSubUtil();
-        pubSubUtil.registerEventTopic("left-topic", LeftEvent.class, ignored -> "left");
-        pubSubUtil.registerEventTopic("right-topic", RightEvent.class, ignored -> "right");
-
-        assertThrows(IllegalStateException.class, () -> pubSubUtil.keyFor(new AmbiguousEvent()));
-    }
-
-    private static PubSubUtil pubSubUtil() {
+    private static PubSubUtil pubSubUtil(EventRegistry eventRegistry) {
         return new PubSubUtil(
                 "project-id",
                 "app",
@@ -58,21 +50,16 @@ class PubSubUtilTest {
                 1.5f,
                 UNUSED_PUB_SUB_ADMIN,
                 UNUSED_SUBSCRIBER_TEMPLATE,
-                UNUSED_DESERIALIZER
+                UNUSED_DESERIALIZER,
+                eventRegistry
         );
     }
 
-    private interface BaseEvent {}
-
-    private interface ParentEvent extends BaseEvent {}
+    private sealed interface ParentEvent permits ChildEvent {}
 
     private static final class ChildEvent implements ParentEvent {}
 
-    private interface LeftEvent {}
-
-    private interface RightEvent {}
-
-    private static final class AmbiguousEvent implements LeftEvent, RightEvent {}
+    private static final class AmbiguousEvent {}
 
     private static final class UnmappedEvent {}
 }

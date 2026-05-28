@@ -2,6 +2,7 @@ package be.appify.prefab.core.sns;
 
 import be.appify.prefab.core.domain.DomainEventDispatcher;
 import io.awspring.cloud.sns.core.SnsTemplate;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -40,15 +41,19 @@ public class GenericSnsPublisher implements DomainEventDispatcher {
     }
 
     @Override
-    public void dispatch(Object event) {
-        var resolvedTopic = sqsUtil.tryTopicForType(event.getClass())
-                .orElseThrow(() -> new IllegalStateException(
-                        "No SNS topic registered for type: " + event.getClass().getName()));
-        var topicArn = topicArnCache.computeIfAbsent(resolvedTopic, sqsUtil::ensureTopicExists);
-        log.debug("Publishing event {} on topic {}", event, topicArn);
-        CompletableFuture.runAsync(() ->
-                snsTemplate.sendNotification(topicArn, snsSerializer.serialize(resolvedTopic, event),
-                        event.getClass().getName())
-        ).join();
+    public void dispatch(Object event, String... topicOverrides) {
+        var topics = topicOverrides.length > 0 ? List.of(topicOverrides) : sqsUtil.topicsForDispatch(event);
+        publishToTopics(event, topics);
+    }
+
+    private void publishToTopics(Object event, List<String> topics) {
+        for (var resolvedTopic : topics) {
+            var topicArn = topicArnCache.computeIfAbsent(resolvedTopic, sqsUtil::ensureTopicExists);
+            log.debug("Publishing event {} on topic {}", event, topicArn);
+            CompletableFuture.runAsync(() ->
+                    snsTemplate.sendNotification(topicArn, snsSerializer.serialize(resolvedTopic, event),
+                            event.getClass().getName())
+            ).join();
+        }
     }
 }

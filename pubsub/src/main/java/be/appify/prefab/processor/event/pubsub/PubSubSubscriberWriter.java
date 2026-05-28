@@ -19,10 +19,7 @@ import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.time.Duration;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
@@ -62,11 +59,14 @@ class PubSubSubscriberWriter {
         var packageName = TypeManifest.of(eventHandlers.getFirst().getEnclosingElement().asType(),
                 context.processingEnvironment()).packageName();
 
-        var topics = eventHandlers.stream()
+        var topicList = eventHandlers.stream()
                 .map(e -> support.rootEventType(e, context).annotationsOfType(Event.class).stream().findFirst()
                         .orElseThrow()
                         .topic())
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+                .flatMap(java.util.Arrays::stream).distinct()
+                .toList();
+        // Precompute unique base names to avoid collisions when the same event type maps to multiple topics
+        var uniqueNames = buildUniqueNames(topicList, eventHandlers);
 
         var type = TypeSpec.classBuilder(name)
                 .addAnnotation(Component.class)
@@ -76,16 +76,42 @@ class PubSubSubscriberWriter {
                                 ClassName.get(packageName + ".infrastructure.pubsub", name))
                         .build());
 
-        topics.forEach(topic -> {
-            var eventType = support.eventTypeOf(eventHandlers, context, topic);
-            var executorName = uncapitalize(eventType.simpleName().replace(".", "")) + "Executor";
-            type.addField(FieldSpec.builder(Executor.class, executorName, PRIVATE, FINAL).build());
-        });
+        for (int i = 0; i < topicList.size(); i++) {
+            type.addField(FieldSpec.builder(Executor.class, uniqueNames.get(i) + "Executor", PRIVATE, FINAL).build());
+        }
 
         var fields = support.addFields(eventHandlers, context, type);
         addEventHandlers(eventHandlers, type);
-        type.addMethod(constructor(topics, owner, fields, eventHandlers));
+        type.addMethod(constructor(topicList, uniqueNames, owner, fields, eventHandlers));
         fileWriter.writeFile(packageName, name, type.build());
+    }
+
+    /**
+     * Computes a unique base name for each topic index. For each topic, the base is derived from
+     * the event type's simple name. If multiple topics map to the same event type, an index suffix
+     * is appended to each to ensure uniqueness.
+     */
+    private List<String> buildUniqueNames(
+            List<String> topics,
+            List<ExecutableElement> eventHandlers
+    ) {
+        var bases = topics.stream()
+                .map(t -> uncapitalize(support.eventTypeOf(eventHandlers, context, t).simpleName().replace(".", "")))
+                .toList();
+        // Count occurrences of each base name
+        Map<String, Long> counts = bases.stream().collect(Collectors.groupingBy(b -> b, Collectors.counting()));
+        Map<String, Integer> seenIndex = new HashMap<>();
+        var result = new ArrayList<String>(topics.size());
+        for (var base : bases) {
+            if (counts.get(base) > 1) {
+                int idx = seenIndex.merge(base, 0, Integer::sum);
+                seenIndex.put(base, idx + 1);
+                result.add(base + idx);
+            } else {
+                result.add(base);
+            }
+        }
+        return result;
     }
 
     private void addEventHandlers(
@@ -105,7 +131,8 @@ class PubSubSubscriberWriter {
     }
 
     private MethodSpec constructor(
-            Set<String> topics,
+            List<String> topics,
+            List<String> uniqueNames,
             TypeManifest owner,
             Set<FieldSpec> fields,
             List<ExecutableElement> eventHandlers
@@ -136,7 +163,9 @@ class PubSubSubscriberWriter {
                 constructor.addParameter(configParameter(Double.class, "backoffMultiplier", config.backoffMultiplier()));
             }
         }
-        topics.forEach(topic -> addTopic(owner, eventHandlers, topic, constructor, concurrency));
+        for (int i = 0; i < topics.size(); i++) {
+            addTopic(owner, eventHandlers, topics.get(i), uniqueNames.get(i), constructor, concurrency);
+        }
         fields.forEach(field -> constructor.addStatement("this.$L = $L", field.name(), field.name()));
         return constructor.build();
     }
@@ -145,13 +174,14 @@ class PubSubSubscriberWriter {
             TypeManifest owner,
             List<ExecutableElement> eventHandlers,
             String topic,
+            String uniqueBaseName,
             MethodSpec.Builder constructor,
             String concurrency
     ) {
         var eventType = support.eventTypeOf(eventHandlers, context, topic);
-        var topicVariableName = uncapitalize(eventType.simpleName().replace(".", "")) + "Topic";
+        var topicVariableName = uniqueBaseName + "Topic";
         var eventName = eventType.simpleName().replace(".", "");
-        var executorName = uncapitalize(eventName) + "Executor";
+        var executorName = uniqueBaseName + "Executor";
         if (topic.matches("\\$\\{.+}")) {
             constructor.addParameter(ParameterSpec.builder(String.class, topicVariableName)
                     .addAnnotation(AnnotationSpec.builder(Value.class)
@@ -169,16 +199,13 @@ class PubSubSubscriberWriter {
         }
         constructor.addStatement("$L = $T.newFixedThreadPool($L)", executorName, ClassName.get(Executors.class),
                 concurrency.matches("\\$\\{.+}") ? "Integer.parseInt(concurrency)" : concurrency);
-        constructor.addStatement("pubSub.registerType($T.class.getName(), $T.class)",
-                eventType.asTypeName(), eventType.asTypeName());
         constructor.addStatement("""
                         pubSub.subscribe(new $T($L, $S, $T.class, this::on$L)
                         .withExecutor($L)$L)""",
                 ParameterizedTypeName.get(ClassName.get(SubscriptionRequest.class),
                         eventType.asTypeName()),
                 topic.matches("\\$\\{.+}") ? topicVariableName : CodeBlock.of("$S", topic),
-                CaseUtil.toKebabCase(owner.simpleName()) + "-on-" + CaseUtil.toKebabCase(
-                        eventName),
+                CaseUtil.toKebabCase(owner.simpleName()) + "-on-" + CaseUtil.toKebabCase(eventName),
                 eventType.asTypeName(),
                 eventName,
                 executorName,

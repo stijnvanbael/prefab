@@ -16,11 +16,7 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeSpec;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
@@ -33,6 +29,7 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import static be.appify.prefab.core.annotations.EventHandlerConfig.Util.hasConsumeFromTopicsFilter;
 import static be.appify.prefab.processor.event.ConsumerWriterSupport.concurrencyExpression;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.isAvscGeneratedRecord;
 import static javax.lang.model.element.Modifier.FINAL;
@@ -92,6 +89,7 @@ class KafkaConsumerWriter {
         var topics = eventHandlers.stream()
                 .map(e -> listenerEventTypeFor(support.rootEventType(e, context))
                         .annotationsOfType(Event.class).stream().findFirst().orElseThrow().topic())
+                .flatMap(java.util.Arrays::stream)
                 .collect(Collectors.toSet());
         topics.forEach(topic -> support.eventTypeOf(eventHandlers, context, topic));
     }
@@ -141,14 +139,17 @@ class KafkaConsumerWriter {
                 .map(iface -> TypeManifest.of(iface.asType(), context.processingEnvironment()));
     }
 
-    private static AnnotationSpec kafkaListener(TypeManifest owner, Event event, String eventName) {
-        var kafkaListener = AnnotationSpec.builder(KafkaListener.class)
-                .addMember("topics", "$S", event.topic())
-                .addMember("groupId", "$S",
+    private AnnotationSpec kafkaListener(TypeManifest owner, Event event, String eventName) {
+        var kafkaListener = AnnotationSpec.builder(KafkaListener.class);
+        var eventHandlerConfig = owner.inheritedAnnotationsOfType(EventHandlerConfig.class).stream().findFirst();
+        var topicsToSubscribe = effectiveTopics(owner, event, eventHandlerConfig.orElse(null));
+        for (var topic : topicsToSubscribe) {
+            kafkaListener.addMember("topics", "$S", topic);
+        }
+        kafkaListener.addMember("groupId", "$S",
                         "${spring.application.name}." + CaseUtil.toKebabCase(owner.simpleName())
                                 + "-on-" + CaseUtil.toKebabCase(eventName))
                 .addMember("concurrency", "$S", concurrencyExpression(owner));
-        var eventHandlerConfig = owner.inheritedAnnotationsOfType(EventHandlerConfig.class).stream().findFirst();
         var customConfig = eventHandlerConfig
                 .map(EventHandlerConfig.Util::hasCustomConfig)
                 .orElse(false);
@@ -162,6 +163,20 @@ class KafkaConsumerWriter {
                         "$S",
                         "auto.offset.reset=" + config.autoOffsetReset()));
         return kafkaListener.build();
+    }
+
+    private List<String> effectiveTopics(TypeManifest owner, Event event, EventHandlerConfig config) {
+        var topics = List.of(event.topic());
+        if (hasConsumeFromTopicsFilter(config)) {
+            var consumeFromTopics = List.of(config.consumeFromTopics());
+            if (!new HashSet<>(topics).containsAll(consumeFromTopics)) {
+                context.logError("Event %s specifies topics %s but EventHandlerConfig specifies consumeFromTopics %s. All consumeFromTopics must be included in the event's topics."
+                        .formatted(owner, topics, consumeFromTopics), owner.asElement());
+                return topics;
+            }
+            return consumeFromTopics;
+        }
+        return topics;
     }
 
     private MethodSpec constructor(Set<FieldSpec> fields) {

@@ -5,6 +5,7 @@ import com.google.cloud.spring.pubsub.PubSubAdmin;
 import com.google.cloud.spring.pubsub.core.PubSubTemplate;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.PubsubMessage;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.slf4j.Logger;
@@ -42,17 +43,21 @@ public class GenericPubSubPublisher implements DomainEventDispatcher {
     }
 
     @Override
-    public void dispatch(Object event) {
-        var resolvedTopic = pubSubUtil.tryTopicForType(event.getClass())
-                .orElseThrow(() -> new IllegalStateException(
-                        "No Pub/Sub topic registered for type: " + event.getClass().getName()));
-        var qualifiedTopic = fullyQualifiedTopicCache.computeIfAbsent(resolvedTopic, pubSubUtil::ensureTopicExists);
-        log.debug("Publishing event {} on topic {}", event, qualifiedTopic);
-        var data = ByteString.copyFrom(serializer.serialize(PubSubUtil.simpleTopicName(qualifiedTopic), event));
-        var messageBuilder = PubsubMessage.newBuilder()
-                .setData(data)
-                .putAttributes("type", event.getClass().getName());
-        pubSubUtil.keyFor(event).ifPresent(messageBuilder::setOrderingKey);
-        pubSubTemplate.publish(qualifiedTopic, messageBuilder.build()).join();
+    public void dispatch(Object event, String... topicOverrides) {
+        var topics = topicOverrides.length > 0 ? List.of(topicOverrides) : pubSubUtil.topicsForDispatch(event);
+        publishToTopics(event, topics);
+    }
+
+    private void publishToTopics(Object event, List<String> topics) {
+        for (var resolvedTopic : topics) {
+            var qualifiedTopic = fullyQualifiedTopicCache.computeIfAbsent(resolvedTopic, pubSubUtil::ensureTopicExists);
+            log.debug("Publishing event {} on topic {}", event, qualifiedTopic);
+            var data = ByteString.copyFrom(serializer.serialize(PubSubUtil.simpleTopicName(qualifiedTopic), event));
+            var messageBuilder = PubsubMessage.newBuilder()
+                    .setData(data)
+                    .putAttributes("type", event.getClass().getName());
+            pubSubUtil.keyFor(event).ifPresent(messageBuilder::setOrderingKey);
+            pubSubTemplate.publish(qualifiedTopic, messageBuilder.build()).join();
+        }
     }
 }

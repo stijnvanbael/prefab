@@ -1,5 +1,6 @@
 package be.appify.prefab.core.sns;
 
+import be.appify.prefab.core.kafka.EventRegistry;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,14 +27,15 @@ import static org.apache.commons.lang3.StringUtils.isEmpty;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Utility class for managing SNS topics, SQS queues, and for subscribing to messages with optional dead-letter
- * handling.
+ * Utility class for managing SNS topics, SQS queues, and for subscribing to messages with optional dead-letter handling.
+ *
+ * <p>Topic-to-type mappings and publish-to strategies are stored in the shared {@link EventRegistry}
+ * so that a single source of truth is maintained across all messaging platforms.
  */
 @Component
 @ConditionalOnClass(SnsTemplate.class)
@@ -47,29 +49,21 @@ public class SqsUtil implements DisposableBean {
     private final SqsDeserializer sqsDeserializer;
     private final RetryTemplate retryTemplate;
     private final List<ExecutorService> pollingExecutors = new CopyOnWriteArrayList<>();
-    private final Map<Class<?>, String> typeToTopic = new ConcurrentHashMap<>();
+    private final EventRegistry eventRegistry;
 
     /**
      * Constructs a new SqsUtil.
      *
-     * @param applicationName
-     *         the Spring application name
-     * @param deadLetterQueueName
-     *         the dead-letter queue name (optional)
-     * @param maxRetries
-     *         the maximum number of receive attempts before routing to the DLQ
-     * @param minimumBackoff
-     *         the minimum backoff time in milliseconds
-     * @param maximumBackoff
-     *         the maximum backoff time in milliseconds
-     * @param backoffMultiplier
-     *         the backoff multiplier
-     * @param snsClient
-     *         the SNS sync client
-     * @param sqsClient
-     *         the SQS async client
-     * @param sqsDeserializer
-     *         the SQS deserializer
+     * @param applicationName     the Spring application name
+     * @param deadLetterQueueName the dead-letter queue name (optional)
+     * @param maxRetries          the maximum number of receive attempts before routing to the DLQ
+     * @param minimumBackoff      the minimum backoff time in milliseconds
+     * @param maximumBackoff      the maximum backoff time in milliseconds
+     * @param backoffMultiplier   the backoff multiplier
+     * @param snsClient           the SNS sync client
+     * @param sqsClient           the SQS async client
+     * @param sqsDeserializer     the SQS deserializer
+     * @param eventRegistry       the shared event registry
      */
     public SqsUtil(
             @Value("${spring.application.name}") String applicationName,
@@ -80,13 +74,15 @@ public class SqsUtil implements DisposableBean {
             @Value("${prefab.dlt.retries.multiplier:1.5}") Double backoffMultiplier,
             SnsClient snsClient,
             SqsAsyncClient sqsClient,
-            SqsDeserializer sqsDeserializer
+            SqsDeserializer sqsDeserializer,
+            EventRegistry eventRegistry
     ) {
         this.deadLetterQueueName = !isEmpty(deadLetterQueueName) ? deadLetterQueueName : applicationName + ".dlt";
         this.maxRetries = maxRetries;
         this.snsClient = snsClient;
         this.sqsClient = sqsClient;
         this.sqsDeserializer = sqsDeserializer;
+        this.eventRegistry = eventRegistry;
         this.retryTemplate = new RetryTemplate(org.springframework.core.retry.RetryPolicy.builder()
                 .maxRetries(maxRetries)
                 .delay(java.time.Duration.ofMillis(minimumBackoff))
@@ -138,115 +134,38 @@ public class SqsUtil implements DisposableBean {
     }
 
     /**
-     * Registers an event type in the deserializer allowlist for safe deserialization from SNS Subject headers.
-     * Permitted subtypes of sealed interfaces are registered recursively.
+     * Resolves the topics to which the given event should be dispatched, applying the registered
+     * {@link be.appify.prefab.core.annotations.PublishTo} strategy. Delegates to the shared {@link EventRegistry}.
      *
-     * @param typeName
-     *         the fully-qualified class name that may appear as the SNS message Subject
-     * @param type
-     *         the corresponding Java class
+     * @param event the event instance
+     * @return the ordered list of target topic names
+     * @throws IllegalArgumentException if no topics are registered for the event type
      */
-    public void registerType(String typeName, Class<?> type) {
-        sqsDeserializer.registerType(typeName, type);
-    }
-
-    /**
-     * Registers a topic for an event type so the generic publisher can resolve it at runtime. Permitted subtypes of
-     * sealed interfaces are registered recursively.
-     *
-     * @param topic
-     *         the SNS topic name
-     * @param type
-     *         the Java class of the event
-     */
-    public void registerEventTopic(String topic, Class<?> type) {
-        typeToTopic.put(type, topic);
-        if (type.isSealed()) {
-            for (var subtype : type.getPermittedSubclasses()) {
-                registerEventTopic(topic, subtype);
-            }
-        }
+    public List<String> topicsForDispatch(Object event) {
+        return eventRegistry.topicsForDispatch(event);
     }
 
     /**
      * Resolves the SNS topic for a given event type.
      *
-     * @param type
-     *         the event class
+     * @param type the event class
      * @return the registered topic name
-     * @throws IllegalArgumentException
-     *         if no topic is registered for the type
+     * @throws IllegalArgumentException if no topic is registered for the type
+     * @throws IllegalStateException    if multiple topics are registered for the type
      */
     public String topicForType(Class<?> type) {
-        return tryTopicForType(type)
-                .orElseThrow(() -> new IllegalArgumentException("No topic registered for type: " + type.getName()));
+        return eventRegistry.topicForType(type);
     }
 
     /**
-     * Resolves the SNS topic for a given event type if one is registered.
+     * Resolves the SNS topic for a given event type if exactly one is registered.
      *
-     * @param type
-     *         the event class
+     * @param type the event class
      * @return the registered topic name if found
-     * @throws IllegalStateException
-     *         if multiple equally specific topics match the type
+     * @throws IllegalStateException if multiple topics are registered for the type
      */
     public Optional<String> tryTopicForType(Class<?> type) {
-        var topic = typeToTopic.get(type);
-        if (topic != null) {
-            return Optional.of(topic);
-        }
-        String selectedTopic = null;
-        Integer selectedDistance = null;
-        for (var entry : typeToTopic.entrySet()) {
-            if (!entry.getKey().isAssignableFrom(type)) {
-                continue;
-            }
-            var distance = hierarchyDistance(type, entry.getKey());
-            if (distance.isEmpty()) {
-                continue;
-            }
-            if (selectedDistance == null || distance.get() < selectedDistance) {
-                selectedDistance = distance.get();
-                selectedTopic = entry.getValue();
-            } else if (distance.get().equals(selectedDistance) && !entry.getValue().equals(selectedTopic)) {
-                throw new IllegalStateException(
-                        "Ambiguous topics registered for type %s: %s and %s"
-                                .formatted(type.getName(), selectedTopic, entry.getValue())
-                );
-            }
-        }
-        return Optional.ofNullable(selectedTopic);
-    }
-
-    private static Optional<Integer> hierarchyDistance(Class<?> source, Class<?> target) {
-        if (source.equals(target)) {
-            return Optional.of(0);
-        }
-        if (!target.isAssignableFrom(source)) {
-            return Optional.empty();
-        }
-        var queue = new java.util.ArrayDeque<Class<?>>();
-        var distances = new java.util.HashMap<Class<?>, Integer>();
-        queue.add(source);
-        distances.put(source, 0);
-        while (!queue.isEmpty()) {
-            var current = queue.remove();
-            var distance = distances.get(current);
-            if (current.equals(target)) {
-                return Optional.of(distance);
-            }
-            var superclass = current.getSuperclass();
-            if (superclass != null && distances.putIfAbsent(superclass, distance + 1) == null) {
-                queue.add(superclass);
-            }
-            for (var iface : current.getInterfaces()) {
-                if (distances.putIfAbsent(iface, distance + 1) == null) {
-                    queue.add(iface);
-                }
-            }
-        }
-        return Optional.empty();
+        return eventRegistry.tryTopicForType(type);
     }
 
     private String ensureQueueExists(String queueName) {

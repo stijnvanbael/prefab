@@ -75,6 +75,34 @@ class KafkaConsumerWriterTest {
     }
 
     @Test
+    void multipleTopicsPerEvent() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/multitopicevent/UserEvent.java"),
+                        sourceOf("kafka/multitopicevent/UserService.java"));
+        assertThat(compilation).succeeded();
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.multitopicevent.infrastructure.kafka.UserServiceKafkaConsumer",
+                "expected/kafka/multitopicevent/UserServiceKafkaConsumer.java");
+    }
+
+    @Test
+    void consumeFromTopicsRestrictsSubscribedTopics() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/consumefromtopics/UserEvent.java"),
+                        sourceOf("kafka/consumefromtopics/UserService.java"));
+        assertThat(compilation).succeeded();
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.consumefromtopics.infrastructure.kafka.UserServiceKafkaConsumer",
+                "expected/kafka/consumefromtopics/UserServiceKafkaConsumer.java");
+    }
+
+    @Test
     void customDeadLetterTopic() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

@@ -21,16 +21,21 @@ public interface DomainEventDispatcher {
      */
     boolean canDispatch(Class<?> eventType);
 
+
     /**
-     * Dispatches the event to the underlying infrastructure (Kafka topic, Pub/Sub topic, SNS topic,
-     * etc.).
+     * Dispatches the event to the specified topic overrides instead of the topics that are
+     * registered for the event type.
      *
-     * <p>This method is only called when {@link #canDispatch} previously returned {@code true} for
-     * the same event type.
+     * <p>When {@code topicOverrides} is empty this falls back to the standard dispatch configured in @Event.
      *
-     * @param event the domain event to dispatch
+     * <p>Implementations should override this method to honour the supplied topics rather than
+     * querying the registry.
+     *
+     * @param event          the domain event to dispatch
+     * @param topicOverrides zero or more topic names to use in place of the registered topics;
+     *                       passing an empty array will dispatch to the topics as configured in @Event
      */
-    void dispatch(Object event);
+    void dispatch(Object event, String... topicOverrides);
 
     /**
      * Convenience method that checks for {@code null} and calls {@link #dispatch} only when the event
@@ -38,9 +43,9 @@ public interface DomainEventDispatcher {
      *
      * @param event the domain event to publish
      */
-    default void publish(Object event) {
+    default void publish(Object event, String... topicOverrides) {
         if (event != null && canDispatch(event.getClass())) {
-            dispatch(event);
+            dispatch(event, topicOverrides);
         }
     }
 }

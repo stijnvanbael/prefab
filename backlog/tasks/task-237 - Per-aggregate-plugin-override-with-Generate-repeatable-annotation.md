@@ -4,7 +4,7 @@ title: Per-aggregate plugin override with @Generate repeatable annotation
 status: Done
 assignee: []
 created_date: '2026-05-28 11:01'
-updated_date: '2026-05-28 12:34'
+updated_date: '2026-05-28 12:42'
 labels:
   - ✨feature
   - annotation-processor
@@ -396,4 +396,6 @@ Updated developer guide docs: `annotation-reference.md`, `feature-guides.md`, an
 Refactored file-output routing with a new `OutputTargetFileOutput` abstraction that delegates to main/test writers based on effective target, including explicit TEST->MAIN switching.
 
 Updated annotation-processor writers/plugins that previously instantiated `TestJavaFileWriter`/`JavaFileWriter` directly (test client, assertion, mother, create/update request record emitters) to use the target-aware abstraction.
+
+Follow-up refactor: removed implicit PluginOutputScope routing from JavaFileWriter and moved all plugin/module generators to explicit OutputTargetFileOutput(main default) wiring, including avro/kafka/pubsub/sns-sqs writers and AvscEventWriter via PrefabContext.
 <!-- SECTION:NOTES:END -->

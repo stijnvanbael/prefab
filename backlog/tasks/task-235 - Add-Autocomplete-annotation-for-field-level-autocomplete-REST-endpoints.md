@@ -20,7 +20,7 @@ Introduce an `@Autocomplete` field-level annotation that generates a dedicated R
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 @Autocomplete annotation defined in prefab-core with path(), ignoreCase(), and security() attributes
+- [x] #1 @Autocomplete annotation defined in prefab-core with path(), ignoreCase(), and security() attributes
 - [ ] #2 AutocompletePlugin registered in META-INF/services
 - [ ] #3 Controller generates GET endpoint per field returning ResponseEntity<List<String>>
 - [ ] #4 Service generates autocomplete method using Spring Data Example API

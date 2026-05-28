@@ -80,6 +80,8 @@ public class PrefabProcessor extends AbstractProcessor {
         }
         var aggregates = resolveAggregates(environment);
         var polymorphicAggregates = resolvePolymorphicAggregates(environment);
+        // Validate @Generate annotations eagerly to emit compile errors early
+        validateGenerateAnnotationsEagerly(context, environment);
         writeAggregates(context, aggregates);
         writePolymorphicAggregates(context, polymorphicAggregates);
         writeAdditionalFilesIfNeeded(context, plugins, aggregates, polymorphicAggregates);
@@ -106,6 +108,17 @@ public class PrefabProcessor extends AbstractProcessor {
                 .map(TypeElement.class::cast)
                 .map(type -> type.getQualifiedName().toString())
                 .forEach(currentCompilationTypeNames::add);
+    }
+
+    /**
+     * Validate all @Generate annotations on discovered aggregates. This ensures compilation
+     * errors are emitted early, before any code generation happens.
+     */
+    private void validateGenerateAnnotationsEagerly(PrefabContext context, RoundEnvironment environment) {
+        environment.getElementsAnnotatedWith(Aggregate.class).stream()
+                .filter(e -> e.getKind().isClass())
+                .map(TypeElement.class::cast)
+                .forEach(aggregateType -> context.pluginOverridesFor(aggregateType));
     }
 
     private boolean hasAvscAnnotations(PrefabContext context) {

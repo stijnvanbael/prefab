@@ -4,7 +4,7 @@ title: Per-aggregate plugin override with @Generate repeatable annotation
 status: In Progress
 assignee: []
 created_date: '2026-05-28 11:01'
-updated_date: '2026-05-28 11:15'
+updated_date: '2026-05-28 11:24'
 labels:
   - ✨feature
   - annotation-processor
@@ -334,4 +334,26 @@ All validation errors should:
 ### Commits Made
 1. feat: add @Generate annotation and validator infrastructure (95a0f4a8)
 2. test: add comprehensive unit tests for plugin override infrastructure (17480951)
+
+## Test Fix Progress (May 28, 2026)
+
+### Fixed Issues
+1. Fixed test source code to use valid aggregate records with @Id and @Version fields
+2. Fixed public access visibility - aggregates need to be public for generated code in other packages
+3. Split single combined test sources into separate@files (e.g., OrderAggregate.java, TestPlugin.java) to satisfy Java's filename requirements
+4. Updated test expectations to match actual error message format (java.lang.String instead of String)
+5. Made TestPlugin interfaces public to avoid file naming conflicts
+
+### Remaining Issue
+Test `failOnNonPluginClass` still fails:
+- The test expects a compilation error when @Generate(plugin = String.class) is used
+- The validator is defined but validation only occurs when `pluginOverridesFor()` or `isPluginEnabledFor()` methods are called
+- These query methods might not be called during initial aggregate discovery, so validation errors are never emitted
+- Solution: Need to validate @Generate annotations eagerly when aggregates are discovered in PrefabProcessor
+
+### Current Test Status
+- 4/5 tests passing
+- Valid annotations tests: 2/2 PASS (acceptValidPluginOverride, acceptMultipleOverrides)
+- Invalid annotations tests: 2/3 PASS (warnOnNonAggregate, warnOnDuplicatePluginConfiguration)
+- Failing: failOnNonPluginClass
 <!-- SECTION:NOTES:END -->

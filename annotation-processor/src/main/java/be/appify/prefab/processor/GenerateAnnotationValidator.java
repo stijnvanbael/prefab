@@ -154,20 +154,8 @@ public class GenerateAnnotationValidator {
                             return;
                         }
 
-                        // For now, we can't fully validate the OutputTarget without access to the class
-                        // Store the override using the String form; will be converted later
-                        OutputTarget target = generateAnnotation.target();
-                        try {
-                            overrides.put(
-                                    pluginClass,
-                                    new PluginOverride(pluginClass, generateAnnotation.enabled(), target)
-                            );
-                        } catch (Exception e) {
-                            error(
-                                    typeElement,
-                                    "Failed to process @Generate annotation: " + e.getMessage()
-                            );
-                        }
+                        // Note: We cannot create a PluginOverride when the plugin class couldn't be resolved
+                        // The override will be retried in the next compilation round if the plugin becomes available
                     }
                 });
 

@@ -314,7 +314,29 @@ public class EventRegistry {
         if (topics.isEmpty()) {
             throw new IllegalArgumentException("No topics registered for type: " + type.getName());
         }
-        var strategy = publishToStrategies.getOrDefault(type, PublishTo.FIRST);
+
+        var strategy = publishToStrategies.get(type);
+        if (strategy == null) {
+            PublishTo selected = null;
+            Integer selectedDistance = null;
+            for (var entry : publishToStrategies.entrySet()) {
+                if (!entry.getKey().isAssignableFrom(type)) {
+                    continue;
+                }
+                var distance = hierarchyDistance(type, entry.getKey());
+                if (distance.isEmpty()) {
+                    continue;
+                }
+                if (selectedDistance == null || distance.get() < selectedDistance) {
+                    selectedDistance = distance.get();
+                    selected = entry.getValue();
+                } else if (distance.get().equals(selectedDistance) && entry.getValue() != selected) {
+                    throw new IllegalStateException("Ambiguous publishTo strategies registered for type: " + type.getName());
+                }
+            }
+            strategy = selected != null ? selected : PublishTo.FIRST;
+        }
+
         return switch (strategy) {
             case ALL -> List.copyOf(topics);
             case FIRST -> List.of(topics.iterator().next());

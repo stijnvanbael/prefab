@@ -30,7 +30,7 @@ public record StreamSession(
     }
 
     /** Streams all stored messages to the SSE client. Heartbeat every 1 s keeps proxies alive. */
-    @Streaming(path = "/stream", event = "message", heartbeatSeconds = 1)
+    @Streaming(heartbeatSeconds = 1)
     public Stream<String> streamMessages() {
         return messages.stream();
     }

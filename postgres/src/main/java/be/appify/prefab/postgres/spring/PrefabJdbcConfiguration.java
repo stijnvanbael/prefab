@@ -44,19 +44,19 @@ import tools.jackson.databind.json.JsonMapper;
 @ComponentScan("be.appify.prefab.postgres.spring.data.jdbc")
 public class PrefabJdbcConfiguration extends AbstractJdbcConfiguration {
 
-    @Autowired(required = false)
-    private List<PolymorphicReadingConverter> polymorphicReadingConverters = List.of();
+    private final List<PolymorphicReadingConverter> polymorphicReadingConverters;
 
-    @Autowired(required = false)
-    private List<DbColumnConverterContributor> dbColumnConverterContributors = List.of();
+    private final List<DbColumnConverterContributor> dbColumnConverterContributors;
 
-    @Autowired
-    private JsonMapper jsonMapper;
+    private final JsonMapper jsonMapper;
 
     /**
      * Constructs a new PrefabJdbcConfiguration.
      */
-    public PrefabJdbcConfiguration() {
+    public PrefabJdbcConfiguration(List<PolymorphicReadingConverter> polymorphicReadingConverters, List<DbColumnConverterContributor> dbColumnConverterContributors, JsonMapper jsonMapper) {
+        this.polymorphicReadingConverters = polymorphicReadingConverters;
+        this.dbColumnConverterContributors = dbColumnConverterContributors;
+        this.jsonMapper = jsonMapper;
     }
 
     @Override

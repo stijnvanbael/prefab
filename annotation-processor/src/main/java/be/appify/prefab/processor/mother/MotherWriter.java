@@ -517,10 +517,8 @@ class MotherWriter {
 
     private CodeBlock defaultValueForSealedType(TypeManifest sealedType, String fieldName) {
         var firstPermittedSubtype = sealedType.permittedSubtypes().stream().findFirst();
-        if (firstPermittedSubtype.isEmpty()) {
-            return CodeBlock.of("null");
-        }
-        return defaultValueForPermittedSubtype(firstPermittedSubtype.get(), fieldName);
+        return firstPermittedSubtype.map(typeManifest -> defaultValueForPermittedSubtype(typeManifest, fieldName))
+                .orElseGet(() -> CodeBlock.of("null"));
     }
 
     private CodeBlock defaultValueForPermittedSubtype(TypeManifest subtype, String fieldName) {

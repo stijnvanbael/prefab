@@ -189,7 +189,7 @@ public class SchemaSupport {
     public static Schema createNullableUnion(Schema schema) {
         if (schema.getType() == Schema.Type.UNION) {
             var types = new java.util.ArrayList<>(schema.getTypes());
-            if (types.stream().noneMatch(t -> t.getType() == Schema.Type.NULL)) { types.add(0, Schema.create(Schema.Type.NULL)); }
+            if (types.stream().noneMatch(t -> t.getType() == Schema.Type.NULL)) { types.addFirst(Schema.create(Schema.Type.NULL)); }
             return Schema.createUnion(types);
         }
         return Schema.createUnion(Schema.create(Schema.Type.NULL), schema);

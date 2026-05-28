@@ -74,8 +74,8 @@ class DbRenameTest {
         var changes = writer.detectChanges(currentTables, desiredTables);
 
         assertThat(changes).hasSize(1);
-        assertThat(changes.get(0)).isInstanceOf(DatabaseChange.RenameTable.class);
-        assertThat(changes.get(0).toSql())
+        assertThat(changes.getFirst()).isInstanceOf(DatabaseChange.RenameTable.class);
+        assertThat(changes.getFirst().toSql())
                 .isEqualTo("ALTER TABLE \"old_user\" RENAME TO \"user\";\n");
     }
 

@@ -52,7 +52,7 @@ class EventConsumerWhereStepTest {
                         .within(1, TimeUnit.SECONDS)
                         .where(TestEventListAssert.class, assert_ ->
                                 assertThat(assert_.actualEvents()).containsExactly("wrong-event"))
-        ).getCause().isInstanceOf(AssertionError.class);
+        ).cause().isInstanceOf(AssertionError.class);
     }
 
     @Test
@@ -64,7 +64,7 @@ class EventConsumerWhereStepTest {
                         .hasReceivedMessages(2)
                         .within(1, TimeUnit.SECONDS)
                         .where(AssertWithoutListConstructor.class, assert_ -> {})
-        ).getCause().isInstanceOf(AssertionError.class)
+        ).cause().isInstanceOf(AssertionError.class)
                 .hasMessageContaining("constructor accepting List");
     }
 

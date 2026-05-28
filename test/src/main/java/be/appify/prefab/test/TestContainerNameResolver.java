@@ -1,6 +1,8 @@
 package be.appify.prefab.test;
 
 import java.util.Arrays;
+
+import com.github.dockerjava.api.model.Container;
 import org.springframework.core.env.PropertyResolver;
 import org.testcontainers.DockerClientFactory;
 
@@ -54,9 +56,8 @@ public final class TestContainerNameResolver {
                 .withShowAll(true)
                 .exec()
                 .stream()
-                .filter(container -> Arrays.stream(container.getNames() == null ? new String[0] : container.getNames())
-                        .anyMatch(dockerName::equals))
-                .map(container -> container.getId())
+                .filter(container -> Arrays.asList(container.getNames() == null ? new String[0] : container.getNames()).contains(dockerName))
+                .map(Container::getId)
                 .findFirst();
 
         existingContainerId.ifPresent(containerId -> dockerClient.removeContainerCmd(containerId)

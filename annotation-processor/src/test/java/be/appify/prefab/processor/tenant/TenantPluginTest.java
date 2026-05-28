@@ -1,7 +1,6 @@
 package be.appify.prefab.processor.tenant;
 
 import be.appify.prefab.processor.PrefabProcessor;
-import java.io.IOException;
 import javax.tools.StandardLocation;
 import org.junit.jupiter.api.Test;
 
@@ -12,7 +11,7 @@ import static com.google.testing.compile.Compiler.javac;
 class TenantPluginTest {
 
     @Test
-    void tenantIdFieldNotInGeneratedCreateRequestRecord() throws IOException {
+    void tenantIdFieldNotInGeneratedCreateRequestRecord() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("tenant/project/source/Project.java"));
@@ -25,7 +24,7 @@ class TenantPluginTest {
     }
 
     @Test
-    void createServicePopulatesTenantIdFromProvider() throws IOException {
+    void createServicePopulatesTenantIdFromProvider() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("tenant/project/source/Project.java"));
@@ -38,7 +37,7 @@ class TenantPluginTest {
     }
 
     @Test
-    void createServiceReconstructsAggregateWithTenantId() throws IOException {
+    void createServiceReconstructsAggregateWithTenantId() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("tenant/project/source/Project.java"));
@@ -51,7 +50,7 @@ class TenantPluginTest {
     }
 
     @Test
-    void getByIdServiceFiltersByTenantId() throws IOException {
+    void getByIdServiceFiltersByTenantId() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("tenant/project/source/Project.java"));
@@ -64,7 +63,7 @@ class TenantPluginTest {
     }
 
     @Test
-    void getListServiceFiltersByTenantId() throws IOException {
+    void getListServiceFiltersByTenantId() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("tenant/project/source/Project.java"));
@@ -77,7 +76,7 @@ class TenantPluginTest {
     }
 
     @Test
-    void updateServiceFiltersByTenantId() throws IOException {
+    void updateServiceFiltersByTenantId() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("tenant/project/source/Project.java"));
@@ -90,7 +89,7 @@ class TenantPluginTest {
     }
 
     @Test
-    void deleteServiceFiltersByTenantId() throws IOException {
+    void deleteServiceFiltersByTenantId() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("tenant/project/source/Project.java"));
@@ -103,7 +102,7 @@ class TenantPluginTest {
     }
 
     @Test
-    void tenantContextProviderInjectedIntoService() throws IOException {
+    void tenantContextProviderInjectedIntoService() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("tenant/project/source/Project.java"));
@@ -116,7 +115,7 @@ class TenantPluginTest {
     }
 
     @Test
-    void repositoryHasFindByOrganisationIdMethod() throws IOException {
+    void repositoryHasFindByOrganisationIdMethod() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("tenant/project/source/Project.java"));
@@ -129,7 +128,7 @@ class TenantPluginTest {
     }
 
     @Test
-    void compilationFailsIfTenantIdIsNullable() throws IOException {
+    void compilationFailsIfTenantIdIsNullable() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("tenant/nullable/source/Product.java"));
@@ -139,7 +138,7 @@ class TenantPluginTest {
     }
 
     @Test
-    void compilationFailsIfMultipleTenantIdsDeclared() throws IOException {
+    void compilationFailsIfMultipleTenantIdsDeclared() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("tenant/multiple/source/Product.java"));
@@ -149,7 +148,7 @@ class TenantPluginTest {
     }
 
     @Test
-    void dbMigrationGeneratesNotNullForTenantIdColumn() throws IOException {
+    void dbMigrationGeneratesNotNullForTenantIdColumn() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("tenant/dbmigration/source/Project.java"));
@@ -162,7 +161,7 @@ class TenantPluginTest {
     }
 
     @Test
-    void dbMigrationGeneratesIndexForTenantIdColumn() throws IOException {
+    void dbMigrationGeneratesIndexForTenantIdColumn() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("tenant/dbmigration/source/Project.java"));

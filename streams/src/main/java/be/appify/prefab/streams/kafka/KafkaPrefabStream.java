@@ -125,7 +125,7 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
         return wrap(
                 stream.join(
                         rightStream,
-                        (leftValue, rightValue) -> joiner.apply(leftValue, rightValue),
+                        joiner::apply,
                         JoinWindows.ofTimeDifferenceAndGrace(window.timeDifference(), window.grace()),
                         StreamJoined.<String, V, VO>with(Serdes.String(), leftSerde, rightSerde)
                 )
@@ -213,8 +213,7 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
 
     @SuppressWarnings("unchecked")
     private <T> Serde<T> joinSerde(Class<?> runtimeType) {
-        var fallbackType = runtimeType;
-        Deserializer<T> joinDeserializer = (topic, data) -> deserializeForJoin(topic, data, fallbackType);
+        Deserializer<T> joinDeserializer = (topic, data) -> deserializeForJoin(topic, data, runtimeType);
         return new SerdeAdapter<>((Serializer<T>) serializer, joinDeserializer);
     }
 

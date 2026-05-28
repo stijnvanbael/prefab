@@ -19,7 +19,7 @@ import org.springframework.core.env.MapPropertySource;
  *
  * @deprecated Use {@link PostgresTestAutoConfiguration} instead for fixed container names and full reuse support.
  */
-@Deprecated(since = "0.9.0", forRemoval = false)
+@Deprecated(since = "0.9.0", forRemoval = true)
 public class PostgresTestEnvironmentPostProcessor implements EnvironmentPostProcessor {
 
     private static final String PROPERTY_SOURCE_NAME = "prefabPostgresTestDefaults";

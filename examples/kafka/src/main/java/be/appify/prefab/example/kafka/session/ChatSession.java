@@ -36,7 +36,7 @@ public record ChatSession(
      */
     @EventHandler
     @ByReference(property = "sessionId")
-    @Streaming(path = "/stream", event = "token", terminal = "done", heartbeatSeconds = 1)
+    @Streaming(event = "token", terminal = "done", heartbeatSeconds = 1)
     public ChatSession onTokenEmitted(TokenEmitted event) {
         return new ChatSession(id, version, title, event.done());
     }

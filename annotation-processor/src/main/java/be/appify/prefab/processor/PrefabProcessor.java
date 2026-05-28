@@ -121,7 +121,7 @@ public class PrefabProcessor extends AbstractProcessor {
         environment.getElementsAnnotatedWith(Aggregate.class).stream()
                 .filter(e -> e.getKind().isClass())
                 .map(TypeElement.class::cast)
-                .forEach(aggregateType -> context.pluginOverridesFor(aggregateType));
+                .forEach(context::pluginOverridesFor);
     }
 
     private boolean hasAvscAnnotations(PrefabContext context) {

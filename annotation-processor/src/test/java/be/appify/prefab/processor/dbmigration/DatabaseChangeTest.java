@@ -52,11 +52,13 @@ class DatabaseChangeTest {
         var change = new DatabaseChange.CreateTable(table);
         // Indexes are generated separately from CREATE TABLE, so the SQL should not include them
         assertEquals(
-                "CREATE TABLE \"product\" (\n" +
-                        "  \"id\" VARCHAR (255) NOT NULL,\n" +
-                        "  \"name\" VARCHAR (255) NOT NULL,\n" +
-                        "  PRIMARY KEY(\"id\")\n" +
-                        ");\n",
+                """
+                        CREATE TABLE "product" (
+                          "id" VARCHAR (255) NOT NULL,
+                          "name" VARCHAR (255) NOT NULL,
+                          PRIMARY KEY("id")
+                        );
+                        """,
                 change.toSql()
         );
     }

@@ -73,11 +73,6 @@ class RestWriterTest {
     }
 
     @Test
-    void aggregateReferencingGeneratedEventTypeCompiles() {
-        // ...existing code...
-    }
-
-    @Test
     void createRequestUsesIdFieldForAggregateTypedParameter() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
@@ -209,11 +204,6 @@ class RestWriterTest {
                 .generatedSourceFile("rest.aggregate.application.OrderAssignProductRequest")
                 .contentsAsUtf8String()
                 .contains("String productId");
-    }
-
-    @Test
-    void nestedAggregateCreateRequestExcludesParentIdFromBody() {
-        // ...existing code...
     }
 
     @Test

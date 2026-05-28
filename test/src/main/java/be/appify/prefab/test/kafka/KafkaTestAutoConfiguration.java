@@ -207,7 +207,7 @@ public class KafkaTestAutoConfiguration {
                     .withNameFilter(this.name)
                     .exec()
                     .stream()
-                    .map(network -> network.getId())
+                    .map(com.github.dockerjava.api.model.Network::getId)
                     .findFirst();
         }
 

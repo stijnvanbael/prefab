@@ -26,21 +26,20 @@ class GcpTerraformWriter {
         boolean hasPostgres = isOnClasspath("org.springframework.data.relational.core.mapping.Table");
         boolean hasMongodb = isOnClasspath("org.springframework.data.mongodb.core.MongoTemplate");
         boolean hasPubSub = isOnClasspath("com.google.cloud.spring.pubsub.core.PubSubTemplate");
-        boolean hasCloudSql = hasPostgres;
         boolean hasRestEndpoints = hasRestEndpoints(manifests);
 
         var elements = manifests.stream()
                 .map(m -> (Element) m.type().asElement())
                 .toArray(Element[]::new);
 
-        writeFile("main.tf", mainTf(hasCloudSql), elements);
+        writeFile("main.tf", mainTf(hasPostgres), elements);
         writeFile("variables.tf", variablesTf(hasRestEndpoints), elements);
         writeFile("outputs.tf", outputsTf(), elements);
         writeFile("cloud_run.tf", cloudRunTf(), elements);
         writeFile("artifact_registry.tf", artifactRegistryTf(), elements);
-        writeFile("iam.tf", iamTf(hasCloudSql, hasPubSub), elements);
+        writeFile("iam.tf", iamTf(hasPostgres, hasPubSub), elements);
 
-        if (hasCloudSql) {
+        if (hasPostgres) {
             writeFile("cloud_sql.tf", cloudSqlTf(), elements);
             writeFile("vpc.tf", vpcTf(), elements);
         }

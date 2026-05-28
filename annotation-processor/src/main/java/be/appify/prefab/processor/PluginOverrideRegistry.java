@@ -27,7 +27,7 @@ public class PluginOverrideRegistry {
      * @param overridesByPlugin map of plugin class to override configuration
      */
     public PluginOverrideRegistry(Map<Class<?>, PluginOverride> overridesByPlugin) {
-        this.overridesByPlugin = Collections.unmodifiableMap(new HashMap<>(overridesByPlugin));
+        this.overridesByPlugin = Map.copyOf(overridesByPlugin);
     }
 
     /**

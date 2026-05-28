@@ -3,6 +3,7 @@ package be.appify.prefab.processor;
 import be.appify.prefab.core.annotations.OutputTarget;
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.TypeSpec;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -12,19 +13,26 @@ import java.util.Optional;
 import java.util.stream.Stream;
 import javax.lang.model.element.TypeElement;
 import javax.tools.StandardLocation;
+
 import static org.apache.commons.lang3.StringUtils.isBlank;
+
 public class TestJavaFileWriter implements TestFileOutput {
     private final PrefabContext context;
     private final String packageSuffix;
-    /** Optional: a specific TypeElement (always from a source file) to use when resolving the root path. */
+    /**
+     * Optional: a specific TypeElement (always from a source file) to use when resolving the root path.
+     */
     private TypeElement preferredElement;
+
     public TestJavaFileWriter(PrefabContext context, String packageSuffix) {
         this.context = context;
         this.packageSuffix = packageSuffix;
     }
+
     public void setPreferredElement(TypeElement element) {
         this.preferredElement = element;
     }
+
     public void writeFile(String packagePrefix, String typeName, TypeSpec type) {
         var scopedOutput = PluginOutputScope.current();
         if (scopedOutput.isPresent()
@@ -42,6 +50,7 @@ public class TestJavaFileWriter implements TestFileOutput {
             writeToFiler(packageName, typeName, type);
         }
     }
+
     private void writeToFilesystem(String rootPath, String packagePrefix, String packageName, String typeName, TypeSpec type) {
         if (manualOverrideExistsInTestSources(rootPath, packageName, typeName)) {
             System.out.printf("Prefab: Skipping generation of %s.%s - manual override found at src/test/java/%s/%s.java%n", packageName, typeName, packageName.replace(".", "/"), typeName);
@@ -69,16 +78,19 @@ public class TestJavaFileWriter implements TestFileOutput {
             System.err.println(e.getMessage());
         }
     }
+
     private Path buildGeneratedTestSourcePath(String rootPath, String packagePrefix) {
         return Paths.get(rootPath, "target", "prefab-test-sources")
                 .resolve(packageToPath(packagePrefix));
     }
+
     private boolean manualOverrideExistsInTestSources(String rootPath, String packageName, String typeName) {
         var manualOverridePath = Paths.get(rootPath, "src", "test", "java")
                 .resolve(packageToPath(packageName))
                 .resolve(typeName + ".java");
         return Files.exists(manualOverridePath);
     }
+
     private Path packageToPath(String packageName) {
         if (isBlank(packageName)) {
             return Path.of("");
@@ -91,6 +103,7 @@ public class TestJavaFileWriter implements TestFileOutput {
         }
         return path;
     }
+
     private void writeToFiler(String packageName, String typeName, TypeSpec type) {
         try {
             var relativePath = packageName.replace(".", "/") + "/" + typeName + ".java";
@@ -103,9 +116,11 @@ public class TestJavaFileWriter implements TestFileOutput {
             System.err.println(e.getMessage());
         }
     }
+
     private static File createJavaSourceFile(Path path, String className) {
         return path.resolve(className + ".java").toFile();
     }
+
     private void writeJavaTestClass(String packageName, TypeSpec type, File javaSourceFile) throws IOException {
         try (var writer = Files.newBufferedWriter(javaSourceFile.toPath())) {
             JavaFile.builder(packageName, type)
@@ -114,23 +129,26 @@ public class TestJavaFileWriter implements TestFileOutput {
                     .writeTo(writer);
         }
     }
+
     public Optional<String> getRootPath() {
         if (context == null) {
             return Optional.empty();
         }
         var candidates = preferredElement != null
-                ? Stream.concat(Stream.of(preferredElement),
-                        context.roundEnvironment().getRootElements().stream()
-                                .filter(TypeElement.class::isInstance)
-                                .map(TypeElement.class::cast))
+                ? Stream.concat(
+                Stream.of(preferredElement),
+                context.roundEnvironment().getRootElements().stream()
+                .filter(TypeElement.class::isInstance)
+                .map(TypeElement.class::cast))
                 : context.roundEnvironment().getRootElements().stream()
-                        .filter(TypeElement.class::isInstance)
-                        .map(TypeElement.class::cast);
+                  .filter(TypeElement.class::isInstance)
+                  .map(TypeElement.class::cast);
         return candidates
                 .map(this::tryRootPath)
                 .flatMap(Optional::stream)
                 .findFirst();
     }
+
     private Optional<String> tryRootPath(TypeElement element) {
         var qualifiedName = element.getQualifiedName().toString();
         var packageName = qualifiedName.contains(".")
@@ -146,6 +164,7 @@ public class TestJavaFileWriter implements TestFileOutput {
             return Optional.empty();
         }
     }
+
     static Optional<String> rootPathFromSourcePath(String sourcePath) {
         var normalized = sourcePath.replace('\\', '/');
         if (hasWindowsUriDrivePrefix(normalized)) {
@@ -161,6 +180,7 @@ public class TestJavaFileWriter implements TestFileOutput {
         }
         return Optional.empty();
     }
+
     private static boolean hasWindowsUriDrivePrefix(String sourcePath) {
         return sourcePath.length() > 3
                 && sourcePath.charAt(0) == '/'

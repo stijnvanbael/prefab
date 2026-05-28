@@ -102,7 +102,7 @@ class StreamServiceWriter {
                         """, methodName, repositoryName);
 
         var dataField = resolveDataField(stream, eventType);
-        var dataExpression = dataField.map(f -> "event.%s()".formatted(f)).orElse("event");
+        var dataExpression = dataField.map("event.%s()"::formatted).orElse("event");
         var terminalClause = buildTerminalClause(stream);
 
         var ssePushBlock = CodeBlock.of(

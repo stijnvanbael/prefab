@@ -151,32 +151,36 @@ class AvscEventWriter {
         if (defaultValue == JsonProperties.NULL_VALUE) {
             return Optional.of("null");
         }
-        if (defaultValue instanceof String symbol) {
-            var resolvedSchema = resolvedNonNullSchema(field.schema());
-            if (resolvedSchema != null && resolvedSchema.getType() == Schema.Type.ENUM) {
-                var enumTypeName = capitalize(resolvedSchema.getName());
-                return Optional.of(defaultPackage + "." + enumTypeName + "." + symbol);
+        switch (defaultValue) {
+            case String symbol -> {
+                var resolvedSchema = resolvedNonNullSchema(field.schema());
+                if (resolvedSchema != null && resolvedSchema.getType() == Schema.Type.ENUM) {
+                    var enumTypeName = capitalize(resolvedSchema.getName());
+                    return Optional.of(defaultPackage + "." + enumTypeName + "." + symbol);
+                }
+                return Optional.of("\"" + symbol.replace("\\", "\\\\").replace("\"", "\\\"") + "\"");
             }
-            return Optional.of("\"" + symbol.replace("\\", "\\\\").replace("\"", "\\\"") + "\"");
-        }
-        if (defaultValue instanceof Integer i) {
-            return Optional.of(i.toString());
-        }
-        if (defaultValue instanceof Long l) {
-            return Optional.of(l + "L");
-        }
-        if (defaultValue instanceof Double d) {
-            return Optional.of(d.toString());
-        }
-        if (defaultValue instanceof Float f) {
-            return Optional.of("(float) " + f);
-        }
-        if (defaultValue instanceof Boolean b) {
-            return Optional.of(b.toString());
-        }
-        if (defaultValue instanceof List<?> list) {
-            if (list.isEmpty()) {
-                return Optional.of("java.util.List.of()");
+            case Integer i -> {
+                return Optional.of(i.toString());
+            }
+            case Long l -> {
+                return Optional.of(l + "L");
+            }
+            case Double d -> {
+                return Optional.of(d.toString());
+            }
+            case Float f -> {
+                return Optional.of("(float) " + f);
+            }
+            case Boolean b -> {
+                return Optional.of(b.toString());
+            }
+            case List<?> list -> {
+                if (list.isEmpty()) {
+                    return Optional.of("java.util.List.of()");
+                }
+            }
+            default -> {
             }
         }
         return Optional.empty();

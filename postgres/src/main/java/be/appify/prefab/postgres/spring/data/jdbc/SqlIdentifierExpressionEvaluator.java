@@ -21,7 +21,7 @@ public class SqlIdentifierExpressionEvaluator {
 
     private EvaluationContextProvider provider;
 
-    private SqlIdentifierSanitizer sanitizer = SqlIdentifierSanitizer.words();
+    private final SqlIdentifierSanitizer sanitizer = SqlIdentifierSanitizer.words();
     private Environment environment = new StandardEnvironment();
 
     /**

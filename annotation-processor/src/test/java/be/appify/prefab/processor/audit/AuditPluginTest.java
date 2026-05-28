@@ -1,7 +1,6 @@
 package be.appify.prefab.processor.audit;
 
 import be.appify.prefab.processor.PrefabProcessor;
-import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.test.ProcessorTestUtil.sourceOf;
@@ -11,7 +10,7 @@ import static com.google.testing.compile.Compiler.javac;
 class AuditPluginTest {
 
     @Test
-    void auditContextProviderIsInjectedIntoService() throws IOException {
+    void auditContextProviderIsInjectedIntoService() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("rest/audit/source/Contract.java"));
@@ -24,7 +23,7 @@ class AuditPluginTest {
     }
 
     @Test
-    void createdAtIsPopulatedOnCreate() throws IOException {
+    void createdAtIsPopulatedOnCreate() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("rest/audit/source/Contract.java"));
@@ -37,7 +36,7 @@ class AuditPluginTest {
     }
 
     @Test
-    void createdByIsPopulatedOnCreate() throws IOException {
+    void createdByIsPopulatedOnCreate() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("rest/audit/source/Contract.java"));
@@ -50,7 +49,7 @@ class AuditPluginTest {
     }
 
     @Test
-    void lastModifiedFieldsAreUpdatedOnUpdate() throws IOException {
+    void lastModifiedFieldsAreUpdatedOnUpdate() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("rest/audit/source/Contract.java"));
@@ -68,7 +67,7 @@ class AuditPluginTest {
     }
 
     @Test
-    void auditFieldsAreExcludedFromCreateRequest() throws IOException {
+    void auditFieldsAreExcludedFromCreateRequest() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("rest/audit/source/Contract.java"));
@@ -85,7 +84,7 @@ class AuditPluginTest {
     }
 
     @Test
-    void auditFieldsAreIncludedInResponse() throws IOException {
+    void auditFieldsAreIncludedInResponse() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("rest/audit/source/Contract.java"));
@@ -102,7 +101,7 @@ class AuditPluginTest {
     }
 
     @Test
-    void auditInfoValueObjectIsPopulatedOnCreate() throws IOException {
+    void auditInfoValueObjectIsPopulatedOnCreate() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("rest/audit/source/Invoice.java"));
@@ -123,7 +122,7 @@ class AuditPluginTest {
     }
 
     @Test
-    void auditInfoCreatedFieldsArePreservedOnUpdate() throws IOException {
+    void auditInfoCreatedFieldsArePreservedOnUpdate() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("rest/audit/source/Invoice.java"));

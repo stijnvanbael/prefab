@@ -13,8 +13,7 @@ interface DatabaseChange {
     record CreateTable(Table table) implements DatabaseChange {
         @Override
         public String toSql() {
-            var definitions = new ArrayList<String>();
-            definitions.addAll(table.columns().stream().map(Column::toString).toList());
+            var definitions = new ArrayList<>(table.columns().stream().map(Column::toString).toList());
 
             if (!table.primaryKey().isEmpty()) {
                 var primaryKeyColumns = table.primaryKey().stream()

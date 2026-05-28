@@ -170,7 +170,6 @@ public class PrefabPersistentEntity<T> extends BasicPersistentEntity<T, Relation
         return null;
     }
 
-    @SuppressWarnings("unchecked")
     private PreferredConstructor<T, RelationalPersistentProperty> buildCreator(Constructor<T> constructor) {
         var parameters = IntStream.range(0, constructor.getParameterCount())
                 .mapToObj(index -> mapParameter(new MethodParameter(constructor, index)))
@@ -178,6 +177,7 @@ public class PrefabPersistentEntity<T> extends BasicPersistentEntity<T, Relation
         return new PreferredConstructor<>(constructor, parameters);
     }
 
+    @SuppressWarnings("unchecked")
     private org.springframework.data.mapping.Parameter<T, RelationalPersistentProperty> mapParameter(MethodParameter parameter) {
         return new org.springframework.data.mapping.Parameter<>(
                 parameter.getParameterName(),

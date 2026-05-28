@@ -1,7 +1,6 @@
 package be.appify.prefab.processor.event.asyncapi;
 
 import be.appify.prefab.processor.PrefabProcessor;
-import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.test.ProcessorTestUtil.sourceOf;
@@ -10,7 +9,7 @@ import static com.google.testing.compile.Compiler.javac;
 
 class EventSchemaDocumentationWriterTest {
     @Test
-    void publishedEvent() throws IOException {
+    void publishedEvent() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/asyncapi/simple/source/OrderCreated.java"));
@@ -64,7 +63,7 @@ class EventSchemaDocumentationWriterTest {
     }
 
     @Test
-    void consumedEvent() throws IOException {
+    void consumedEvent() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -87,7 +86,7 @@ class EventSchemaDocumentationWriterTest {
     }
 
     @Test
-    void docField() throws IOException {
+    void docField() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/asyncapi/docfield/source/OrderDocumented.java"));

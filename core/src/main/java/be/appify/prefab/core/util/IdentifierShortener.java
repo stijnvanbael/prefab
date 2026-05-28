@@ -93,7 +93,7 @@ public final class IdentifierShortener {
      * @return the identifier with duplicate segments removed
      */
     public static String deduplicate(String identifier) {
-        return String.join("_", new LinkedHashSet<String>(List.of(identifier.split("_", -1))));
+        return String.join("_", new LinkedHashSet<>(List.of(identifier.split("_", -1))));
     }
 
     private static String shortenWithSuffix(String base, String suffix, int maxLength) {

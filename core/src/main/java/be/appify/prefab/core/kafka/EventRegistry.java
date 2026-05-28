@@ -1,7 +1,9 @@
 package be.appify.prefab.core.kafka;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.annotations.PublishTo;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -27,6 +29,7 @@ public class EventRegistry {
     private final Set<String> allowedClassNames = ConcurrentHashMap.newKeySet();
     private final Map<Class<?>, Function<Object, String>> keyExtractors = new ConcurrentHashMap<>();
     private final Map<String, Event.Serialization> serializations = new ConcurrentHashMap<>();
+    private final Map<Class<?>, PublishTo> publishToStrategies = new ConcurrentHashMap<>();
 
     /** Constructs a new EventRegistry. */
     public EventRegistry() {
@@ -211,6 +214,48 @@ public class EventRegistry {
      */
     public boolean hasTopicForType(Class<?> type) {
         return !typeTopics.getOrDefault(type, Set.of()).isEmpty();
+    }
+
+    /**
+     * Returns all topics registered for the given Java type.
+     *
+     * @param type the event type
+     * @return an immutable set of registered topic names; empty if none are registered
+     */
+    public Set<String> topicsForType(Class<?> type) {
+        return Set.copyOf(typeTopics.getOrDefault(type, Set.of()));
+    }
+
+    /**
+     * Stores the publish-to strategy for an event type.
+     * Called by generated registrar beans during application startup.
+     *
+     * @param type      the event type
+     * @param publishTo the strategy that governs which topics are targeted at dispatch time
+     */
+    public void registerPublishTo(Class<?> type, PublishTo publishTo) {
+        publishToStrategies.put(type, publishTo);
+    }
+
+    /**
+     * Resolves the topics to which the given event should be dispatched, applying the registered
+     * {@link PublishTo} strategy. Defaults to {@link PublishTo#FIRST} when no strategy is registered.
+     *
+     * @param event the event instance
+     * @return the ordered list of target topic names
+     * @throws IllegalArgumentException if no topics are registered for the event type
+     */
+    public List<String> topicsForDispatch(Object event) {
+        var type = event.getClass();
+        var topics = typeTopics.getOrDefault(type, Set.of());
+        if (topics.isEmpty()) {
+            throw new IllegalArgumentException("No topics registered for type: " + type.getName());
+        }
+        var strategy = publishToStrategies.getOrDefault(type, PublishTo.FIRST);
+        return switch (strategy) {
+            case ALL -> List.copyOf(topics);
+            case FIRST -> List.of(topics.iterator().next());
+        };
     }
 
     /**

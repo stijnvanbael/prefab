@@ -1,5 +1,6 @@
 package be.appify.prefab.core.pubsub;
 
+import be.appify.prefab.core.annotations.PublishTo;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.google.cloud.spring.pubsub.PubSubAdmin;
 import com.google.cloud.spring.pubsub.core.subscriber.PubSubSubscriberTemplate;
@@ -11,7 +12,10 @@ import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.RetryPolicy;
 import com.google.pubsub.v1.Subscription;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
@@ -42,6 +46,8 @@ public class PubSubUtil {
     private final PubSubDeserializer deserializer;
     private final ConcurrentMap<String, Class<?>> allowedTypes = new ConcurrentHashMap<>();
     private final ConcurrentMap<Class<?>, String> typeToTopic = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Class<?>, Set<String>> typeToTopics = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Class<?>, PublishTo> publishToStrategies = new ConcurrentHashMap<>();
     private final ConcurrentMap<Class<?>, Function<Object, String>> keyExtractors = new ConcurrentHashMap<>();
     private final String deadLetterTopicName;
     private final RetryTemplate retryTemplate;
@@ -157,6 +163,7 @@ public class PubSubUtil {
     @SuppressWarnings("unchecked")
     public <E> void registerEventTopic(String topic, Class<E> type, Function<E, String> keyExtractor) {
         typeToTopic.put(type, topic);
+        typeToTopics.computeIfAbsent(type, ignored -> new LinkedHashSet<>()).add(topic);
         if (keyExtractor != null) {
             keyExtractors.put(type, (Function<Object, String>) (Function<?, String>) keyExtractor);
         }
@@ -178,6 +185,40 @@ public class PubSubUtil {
     }
 
     /**
+     * Stores the publish-to strategy for an event type.
+     * Called by generated registrar beans during application startup.
+     *
+     * @param type      the event type
+     * @param publishTo the strategy that governs which topics are targeted at dispatch time
+     */
+    public void registerPublishTo(Class<?> type, PublishTo publishTo) {
+        publishToStrategies.put(type, publishTo);
+    }
+
+    /**
+     * Resolves the topics to which the given event should be dispatched, applying the registered
+     * {@link PublishTo} strategy. Defaults to {@link PublishTo#FIRST} when no strategy is registered.
+     *
+     * @param event the event instance
+     * @return the ordered list of target topic names
+     * @throws IllegalArgumentException if no topics are registered for the event type
+     */
+    public List<String> topicsForDispatch(Object event) {
+        var type = event.getClass();
+        var topics = typeToTopics.getOrDefault(type, Set.of());
+        if (topics.isEmpty()) {
+            var primary = tryTopicForType(type)
+                    .orElseThrow(() -> new IllegalArgumentException("No topics registered for type: " + type.getName()));
+            topics = Set.of(primary);
+        }
+        var strategy = publishToStrategies.getOrDefault(type, PublishTo.FIRST);
+        return switch (strategy) {
+            case ALL -> List.copyOf(topics);
+            case FIRST -> List.of(topics.iterator().next());
+        };
+    }
+
+    /**
      * Resolves the simple Pub/Sub topic for a given event type.
      *
      * @param type the event class
@@ -188,6 +229,7 @@ public class PubSubUtil {
         return tryTopicForType(type)
                 .orElseThrow(() -> new IllegalArgumentException("No topic registered for type: " + type.getName()));
     }
+
 
     /**
      * Resolves the simple Pub/Sub topic for a given event type if one is registered.

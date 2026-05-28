@@ -43,16 +43,16 @@ public class GenericPubSubPublisher implements DomainEventDispatcher {
 
     @Override
     public void dispatch(Object event) {
-        var resolvedTopic = pubSubUtil.tryTopicForType(event.getClass())
-                .orElseThrow(() -> new IllegalStateException(
-                        "No Pub/Sub topic registered for type: " + event.getClass().getName()));
-        var qualifiedTopic = fullyQualifiedTopicCache.computeIfAbsent(resolvedTopic, pubSubUtil::ensureTopicExists);
-        log.debug("Publishing event {} on topic {}", event, qualifiedTopic);
-        var data = ByteString.copyFrom(serializer.serialize(PubSubUtil.simpleTopicName(qualifiedTopic), event));
-        var messageBuilder = PubsubMessage.newBuilder()
-                .setData(data)
-                .putAttributes("type", event.getClass().getName());
-        pubSubUtil.keyFor(event).ifPresent(messageBuilder::setOrderingKey);
-        pubSubTemplate.publish(qualifiedTopic, messageBuilder.build()).join();
+        var topics = pubSubUtil.topicsForDispatch(event);
+        for (var resolvedTopic : topics) {
+            var qualifiedTopic = fullyQualifiedTopicCache.computeIfAbsent(resolvedTopic, pubSubUtil::ensureTopicExists);
+            log.debug("Publishing event {} on topic {}", event, qualifiedTopic);
+            var data = ByteString.copyFrom(serializer.serialize(PubSubUtil.simpleTopicName(qualifiedTopic), event));
+            var messageBuilder = PubsubMessage.newBuilder()
+                    .setData(data)
+                    .putAttributes("type", event.getClass().getName());
+            pubSubUtil.keyFor(event).ifPresent(messageBuilder::setOrderingKey);
+            pubSubTemplate.publish(qualifiedTopic, messageBuilder.build()).join();
+        }
     }
 }

@@ -1,5 +1,6 @@
 package be.appify.prefab.core.sns;
 
+import be.appify.prefab.core.annotations.PublishTo;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,9 +24,11 @@ import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest;
 import software.amazon.awssdk.services.sqs.model.SetQueueAttributesRequest;
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
@@ -48,6 +51,8 @@ public class SqsUtil implements DisposableBean {
     private final RetryTemplate retryTemplate;
     private final List<ExecutorService> pollingExecutors = new CopyOnWriteArrayList<>();
     private final Map<Class<?>, String> typeToTopic = new ConcurrentHashMap<>();
+    private final Map<Class<?>, Set<String>> typeToTopics = new ConcurrentHashMap<>();
+    private final Map<Class<?>, PublishTo> publishToStrategies = new ConcurrentHashMap<>();
 
     /**
      * Constructs a new SqsUtil.
@@ -161,11 +166,46 @@ public class SqsUtil implements DisposableBean {
      */
     public void registerEventTopic(String topic, Class<?> type) {
         typeToTopic.put(type, topic);
+        typeToTopics.computeIfAbsent(type, ignored -> new LinkedHashSet<>()).add(topic);
         if (type.isSealed()) {
             for (var subtype : type.getPermittedSubclasses()) {
                 registerEventTopic(topic, subtype);
             }
         }
+    }
+
+    /**
+     * Stores the publish-to strategy for an event type.
+     * Called by generated registrar beans during application startup.
+     *
+     * @param type      the event type
+     * @param publishTo the strategy that governs which topics are targeted at dispatch time
+     */
+    public void registerPublishTo(Class<?> type, PublishTo publishTo) {
+        publishToStrategies.put(type, publishTo);
+    }
+
+    /**
+     * Resolves the topics to which the given event should be dispatched, applying the registered
+     * {@link PublishTo} strategy. Defaults to {@link PublishTo#FIRST} when no strategy is registered.
+     *
+     * @param event the event instance
+     * @return the ordered list of target topic names
+     * @throws IllegalArgumentException if no topics are registered for the event type
+     */
+    public List<String> topicsForDispatch(Object event) {
+        var type = event.getClass();
+        var topics = typeToTopics.getOrDefault(type, Set.of());
+        if (topics.isEmpty()) {
+            var primary = tryTopicForType(type)
+                    .orElseThrow(() -> new IllegalArgumentException("No topics registered for type: " + type.getName()));
+            topics = Set.of(primary);
+        }
+        var strategy = publishToStrategies.getOrDefault(type, PublishTo.FIRST);
+        return switch (strategy) {
+            case ALL -> List.copyOf(topics);
+            case FIRST -> List.of(topics.iterator().next());
+        };
     }
 
     /**

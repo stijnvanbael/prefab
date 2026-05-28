@@ -41,14 +41,14 @@ public class GenericSnsPublisher implements DomainEventDispatcher {
 
     @Override
     public void dispatch(Object event) {
-        var resolvedTopic = sqsUtil.tryTopicForType(event.getClass())
-                .orElseThrow(() -> new IllegalStateException(
-                        "No SNS topic registered for type: " + event.getClass().getName()));
-        var topicArn = topicArnCache.computeIfAbsent(resolvedTopic, sqsUtil::ensureTopicExists);
-        log.debug("Publishing event {} on topic {}", event, topicArn);
-        CompletableFuture.runAsync(() ->
-                snsTemplate.sendNotification(topicArn, snsSerializer.serialize(resolvedTopic, event),
-                        event.getClass().getName())
-        ).join();
+        var topics = sqsUtil.topicsForDispatch(event);
+        for (var resolvedTopic : topics) {
+            var topicArn = topicArnCache.computeIfAbsent(resolvedTopic, sqsUtil::ensureTopicExists);
+            log.debug("Publishing event {} on topic {}", event, topicArn);
+            CompletableFuture.runAsync(() ->
+                    snsTemplate.sendNotification(topicArn, snsSerializer.serialize(resolvedTopic, event),
+                            event.getClass().getName())
+            ).join();
+        }
     }
 }

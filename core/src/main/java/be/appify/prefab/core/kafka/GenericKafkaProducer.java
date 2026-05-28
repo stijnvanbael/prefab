@@ -35,8 +35,10 @@ public class GenericKafkaProducer implements DomainEventDispatcher {
 
     @Override
     public void dispatch(Object event) {
-        var topic = eventRegistry.topicForType(event.getClass());
-        log.debug("Publishing event {} on topic {}", event, topic);
-        kafkaTemplate.send(topic, eventRegistry.keyFor(event).orElse(null), event).join();
+        var topics = eventRegistry.topicsForDispatch(event);
+        for (var topic : topics) {
+            log.debug("Publishing event {} on topic {}", event, topic);
+            kafkaTemplate.send(topic, eventRegistry.keyFor(event).orElse(null), event).join();
+        }
     }
 }

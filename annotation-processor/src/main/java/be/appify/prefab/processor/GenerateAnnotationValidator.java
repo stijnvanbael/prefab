@@ -70,12 +70,7 @@ public class GenerateAnnotationValidator {
         }
 
         // Collect all @Generate annotations (handles both single and repeatable)
-        Stream.concat(
-                Stream.ofNullable(typeElement.getAnnotation(Generate.class)),
-                Stream.of(typeElement.getAnnotation(GenerateOverrides.class))
-                        .flatMap(overrides_ -> overrides_ == null ? Stream.empty()
-                                : Stream.of(overrides_.value()))
-        )
+        Stream.of(typeElement.getAnnotationsByType(Generate.class))
                 .forEach(generateAnnotation -> {
                     MirroredTypeException mte = null;
                     Class<?> pluginClass = null;

@@ -59,22 +59,14 @@ public class GenerateAnnotationValidator {
 
         // Check if this is actually an aggregate
         if (typeElement.getAnnotation(Aggregate.class) == null) {
-            var generateAnnotation = typeElement.getAnnotation(Generate.class);
-            if (generateAnnotation != null) {
+            if (typeElement.getAnnotation(Generate.class) != null || typeElement.getAnnotation(GenerateOverrides.class) != null) {
                 warn(
                         typeElement,
                         "@Generate on class " + typeElement.getQualifiedName()
                                 + " is ignored because it is not annotated with @Aggregate"
                 );
             }
-            var generateOverridesAnnotation = typeElement.getAnnotation(GenerateOverrides.class);
-            if (generateOverridesAnnotation != null) {
-                warn(
-                        typeElement,
-                        "@Generate on class " + typeElement.getQualifiedName()
-                                + " is ignored because it is not annotated with @Aggregate"
-                );
-            }
+            return new PluginOverrideRegistry();
         }
 
         // Collect all @Generate annotations (handles both single and repeatable)

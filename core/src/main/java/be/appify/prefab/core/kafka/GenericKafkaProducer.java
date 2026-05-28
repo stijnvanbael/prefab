@@ -1,6 +1,7 @@
 package be.appify.prefab.core.kafka;
 
 import be.appify.prefab.core.domain.DomainEventDispatcher;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -35,7 +36,23 @@ public class GenericKafkaProducer implements DomainEventDispatcher {
 
     @Override
     public void dispatch(Object event) {
-        var topics = eventRegistry.topicsForDispatch(event);
+        publishToTopics(event, eventRegistry.topicsForDispatch(event));
+    }
+
+    /**
+     * Dispatches {@code event} to the explicitly specified topics instead of the registered ones.
+     * When no overrides are provided the call delegates to {@link #dispatch(Object)}.
+     *
+     * @param event          the domain event to dispatch
+     * @param topicOverrides explicit target topics; empty means "use registry"
+     */
+    @Override
+    public void dispatch(Object event, String... topicOverrides) {
+        var topics = topicOverrides.length > 0 ? List.of(topicOverrides) : eventRegistry.topicsForDispatch(event);
+        publishToTopics(event, topics);
+    }
+
+    private void publishToTopics(Object event, List<String> topics) {
         for (var topic : topics) {
             log.debug("Publishing event {} on topic {}", event, topic);
             kafkaTemplate.send(topic, eventRegistry.keyFor(event).orElse(null), event).join();

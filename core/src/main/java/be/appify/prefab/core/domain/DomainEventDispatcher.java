@@ -33,6 +33,24 @@ public interface DomainEventDispatcher {
     void dispatch(Object event);
 
     /**
+     * Dispatches the event to the specified topic overrides instead of the topics that are
+     * registered for the event type.
+     *
+     * <p>When {@code topicOverrides} is empty this falls back to the standard
+     * {@link #dispatch(Object)} behaviour (registry-driven routing).
+     *
+     * <p>Implementations should override this method to honour the supplied topics rather than
+     * querying the registry.
+     *
+     * @param event          the domain event to dispatch
+     * @param topicOverrides zero or more topic names to use in place of the registered topics;
+     *                       passing an empty array is equivalent to calling {@link #dispatch(Object)}
+     */
+    default void dispatch(Object event, String... topicOverrides) {
+        dispatch(event);
+    }
+
+    /**
      * Convenience method that checks for {@code null} and calls {@link #dispatch} only when the event
      * is non-null and {@link #canDispatch} returns {@code true}.
      *

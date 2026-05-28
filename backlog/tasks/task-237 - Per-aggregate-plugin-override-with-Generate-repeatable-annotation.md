@@ -215,7 +215,7 @@ Currently out of scope, but document the extensibility.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 Generate, GenerateOverrides, and OutputTarget annotations are defined in io.prefab.core package
+- [x] #1 Generate, GenerateOverrides, and OutputTarget annotations are defined in be.appify.prefab.core.annotations package
 - [x] #2 PrefabContext reads @Generate overrides from TypeElement and stores them in a typed registry
 - [x] #3 GenerationContext exposes isPluginEnabled(Class<? extends PrefabPlugin>) and getOutputTarget(...) query methods
 - [x] #4 Each built-in plugin checks isPluginEnabled() early in its main hook and skips code generation when disabled

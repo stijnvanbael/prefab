@@ -41,10 +41,8 @@ public class PluginOverrideRegistry {
      * @return true if the plugin should be enabled
      */
     public boolean isPluginEnabled(Class<?> pluginClass) {
-        return overridesByPlugin
-                .get(pluginClass)
-                .map(PluginOverride::isEnabled)
-                .orElse(true); // Default: enabled
+        PluginOverride override = overridesByPlugin.get(pluginClass);
+        return override == null || override.isEnabled();
     }
 
     /**
@@ -56,10 +54,8 @@ public class PluginOverrideRegistry {
      * @return the output target (never null)
      */
     public OutputTarget getOutputTarget(Class<?> pluginClass) {
-        return overridesByPlugin
-                .get(pluginClass)
-                .map(PluginOverride::outputTarget)
-                .orElse(OutputTarget.DEFAULT);
+        PluginOverride override = overridesByPlugin.get(pluginClass);
+        return override == null ? OutputTarget.DEFAULT : override.outputTarget();
     }
 
     /**
@@ -90,4 +86,5 @@ public class PluginOverrideRegistry {
         return overridesByPlugin.values().stream().anyMatch(o -> !o.isDefaultTarget());
     }
 }
+
 

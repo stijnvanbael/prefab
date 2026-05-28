@@ -38,7 +38,19 @@ final class PluginOutputScope {
         return Optional.ofNullable(STATE.get());
     }
 
+    static OutputTarget effectiveTargetFor(PrefabContext context, OutputTarget defaultTarget) {
+        return current()
+                .filter(state -> state.matches(context))
+                .map(State::target)
+                .map(target -> target == OutputTarget.DEFAULT ? defaultTarget : target)
+                .orElse(defaultTarget);
+    }
+
     record State(PrefabContext context, OutputTarget target) {
+        boolean matches(PrefabContext otherContext) {
+            return context == otherContext
+                    || context.processingEnvironment() == otherContext.processingEnvironment();
+        }
     }
 }
 

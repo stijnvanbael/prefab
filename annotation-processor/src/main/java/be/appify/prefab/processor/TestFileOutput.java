@@ -1,10 +1,8 @@
 package be.appify.prefab.processor;
 
-import com.palantir.javapoet.TypeSpec;
-import javax.lang.model.element.TypeElement;
-
-public interface TestFileOutput {
-    void setPreferredElement(TypeElement element);
-
-    void writeFile(String packagePrefix, String typeName, TypeSpec type);
+/**
+ * @deprecated Use {@link FileOutput}. Kept as a compatibility alias.
+ */
+@Deprecated(forRemoval = false)
+public interface TestFileOutput extends FileOutput {
 }

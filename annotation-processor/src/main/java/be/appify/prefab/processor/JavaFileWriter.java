@@ -18,7 +18,7 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
 /**
  * Utility class to write Java files using the annotation processing environment.
  */
-public class JavaFileWriter {
+public class JavaFileWriter implements FileOutput {
 
     // Annotation processing is single-threaded; a plain HashMap is sufficient and avoids
     // unnecessary synchronization overhead. ProcessingEnvironment instances are long-lived
@@ -46,6 +46,7 @@ public class JavaFileWriter {
      * @param typeName      the name of the type to be written
      * @param type          the type specification
      */
+    @Override
     public void writeFile(String packagePrefix, String typeName, TypeSpec type) {
         try {
             var packageName = !isBlank(packageSuffix) ? "%s.%s".formatted(packagePrefix, packageSuffix) : packagePrefix;

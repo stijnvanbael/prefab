@@ -2,7 +2,8 @@ package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.OutputTarget;
 import com.palantir.javapoet.TypeSpec;
-import java.util.Optional;
+import java.util.EnumMap;
+import java.util.Map;
 import javax.lang.model.element.TypeElement;
 
 /**
@@ -11,14 +12,17 @@ import javax.lang.model.element.TypeElement;
 public final class OutputTargetFileOutput implements TestFileOutput {
     private final PrefabContext context;
     private final OutputTarget defaultTarget;
-    private final JavaFileWriter mainWriter;
     private final TestJavaFileWriter testWriter;
+    private final Map<OutputTarget, FileOutput> writersByTarget;
 
     public OutputTargetFileOutput(PrefabContext context, String packageSuffix, OutputTarget defaultTarget) {
         this.context = context;
         this.defaultTarget = defaultTarget;
-        this.mainWriter = new JavaFileWriter(context.processingEnvironment(), packageSuffix);
+        var mainWriter = new JavaFileWriter(context.processingEnvironment(), packageSuffix);
         this.testWriter = new TestJavaFileWriter(context, packageSuffix);
+        this.writersByTarget = new EnumMap<>(OutputTarget.class);
+        writersByTarget.put(OutputTarget.MAIN, mainWriter);
+        writersByTarget.put(OutputTarget.TEST, testWriter);
     }
 
     @Override
@@ -28,21 +32,9 @@ public final class OutputTargetFileOutput implements TestFileOutput {
 
     @Override
     public void writeFile(String packagePrefix, String typeName, TypeSpec type) {
-        var target = effectiveTarget();
-        if (target == OutputTarget.TEST) {
-            testWriter.writeFile(packagePrefix, typeName, type);
-            return;
-        }
-        mainWriter.writeFile(packagePrefix, typeName, type);
-    }
-
-    private OutputTarget effectiveTarget() {
-        Optional<PluginOutputScope.State> scopedOutput = PluginOutputScope.current();
-        if (scopedOutput.isPresent() && scopedOutput.get().context() == context) {
-            var scopedTarget = scopedOutput.get().target();
-            return scopedTarget == OutputTarget.DEFAULT ? defaultTarget : scopedTarget;
-        }
-        return defaultTarget;
+        var target = PluginOutputScope.effectiveTargetFor(context, defaultTarget);
+        writersByTarget.getOrDefault(target, writersByTarget.get(OutputTarget.MAIN))
+                .writeFile(packagePrefix, typeName, type);
     }
 }
 

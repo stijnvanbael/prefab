@@ -4,7 +4,7 @@ title: Fix MotherPlugin output target override for MAIN generation
 status: Done
 assignee: []
 created_date: '2026-05-28 13:10'
-updated_date: '2026-05-28 13:23'
+updated_date: '2026-05-28 14:24'
 labels:
   - bug
   - mother-plugin
@@ -33,19 +33,18 @@ Troubleshoot why @Generate(plugin = MotherPlugin.class, target = OutputTarget.MA
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Root cause: PrefabProcessor executed main aggregate/plugin batches without a PluginOutputScope MAIN context. Plugins relying on OutputTargetFileOutput with TEST defaults (e.g. MotherPlugin) therefore kept writing to test output.
+Implemented a second-stage output routing refactor to make target selection explicit and remove MAIN-routing fallback logic from test writer code paths.
 
-Fix: wrapped both writeAdditionalFiles and writeGlobalFiles main-batch invocations in context.withOutputTarget(OutputTarget.MAIN, ...).
+Key changes:
+- Added `FileOutput` as a neutral generation abstraction (instead of production code depending on `TestFileOutput`).
+- Kept `TestFileOutput` as a deprecated compatibility alias extending `FileOutput` to avoid broad breakage.
+- Updated `OutputTargetFileOutput` to delegate via a target->writer map and central `PluginOutputScope.effectiveTargetFor(...)` resolution.
+- Removed `TestJavaFileWriter` MAIN->`JavaFileWriter` delegation; it now only writes test/class output.
+- Added context matching hardening in `PluginOutputScope` so scope still applies when equivalent `PrefabContext` instances share the same `ProcessingEnvironment`.
+- Migrated `MotherWriter` fields to `FileOutput` to avoid test-specific semantics in generation code.
 
-Added regression tests in GeneratePluginOverrideIntegrationTest for MotherPlugin target MAIN routing to SOURCE_OUTPUT and default routing to CLASS_OUTPUT.
-
-Validation blocked by unrelated pre-existing compile failures in annotation-processor (EventTypeRegistrarWriter / EventSchemaDocumentationWriter).
-
-Follow-up fix: split plugin execution batches by exact OutputTarget (DEFAULT, MAIN, TEST). DEFAULT now runs without forced scope so plugins keep their own default routing; explicit MAIN/TEST still run in scoped output targets.
-
-Validation: `mvn -pl annotation-processor -am -Dtest=GeneratePluginOverrideIntegrationTest,TenantPluginTest,MotherPluginTest -Dsurefire.failIfNoSpecifiedTests=false test` passed (41 tests).
-
-Validation: `mvn -pl annotation-processor -am -Dsurefire.failIfNoSpecifiedTests=false test` completed without surefire failure markers in `annotation-processor/target/surefire-reports` and `core/target/surefire-reports`.
+Regression coverage:
+- Added `PluginOutputScopeTest` compile-testing regression that compiles a DEFAULT aggregate and a MAIN-overridden Mother aggregate together, verifying MAIN mother output remains in source output while default stays in class output.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
@@ -62,4 +61,12 @@ Implementation details:
 Validation:
 - `mvn -pl annotation-processor -am -Dtest=GeneratePluginOverrideIntegrationTest,TenantPluginTest,MotherPluginTest -Dsurefire.failIfNoSpecifiedTests=false test` (pass)
 - `mvn -pl annotation-processor -am -Dsurefire.failIfNoSpecifiedTests=false test` and report scan found no surefire failures in `annotation-processor/target/surefire-reports` or `core/target/surefire-reports`.
+
+Refactored output writing around a neutral `FileOutput` abstraction and moved all target resolution into `OutputTargetFileOutput` + `PluginOutputScope` to eliminate test-writer delegation hacks.
+
+`TestJavaFileWriter` now has a single responsibility (test/class output only), while `OutputTargetFileOutput` centrally dispatches MAIN/TEST writes.
+
+Added `PluginOutputScopeTest` to validate mixed DEFAULT + MAIN Mother generation routing in one compilation unit.
+
+Validation rerun: targeted routing suite (`GeneratePluginOverrideIntegrationTest`, `PluginOutputScopeTest`, `MotherPluginTest`, `TenantPluginTest`) passed; full `mvn -pl annotation-processor -am -Dsurefire.failIfNoSpecifiedTests=false test` run showed no surefire failures.
 <!-- SECTION:FINAL_SUMMARY:END -->

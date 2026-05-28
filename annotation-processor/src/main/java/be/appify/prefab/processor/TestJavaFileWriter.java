@@ -1,6 +1,5 @@
 package be.appify.prefab.processor;
 
-import be.appify.prefab.core.annotations.OutputTarget;
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.TypeSpec;
 
@@ -16,7 +15,7 @@ import javax.tools.StandardLocation;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
-public class TestJavaFileWriter implements TestFileOutput {
+public class TestJavaFileWriter implements FileOutput {
     private final PrefabContext context;
     private final String packageSuffix;
     /**
@@ -29,19 +28,13 @@ public class TestJavaFileWriter implements TestFileOutput {
         this.packageSuffix = packageSuffix;
     }
 
+    @Override
     public void setPreferredElement(TypeElement element) {
         this.preferredElement = element;
     }
 
+    @Override
     public void writeFile(String packagePrefix, String typeName, TypeSpec type) {
-        var scopedOutput = PluginOutputScope.current();
-        if (scopedOutput.isPresent()
-                && scopedOutput.get().context() == context
-                && scopedOutput.get().target() == OutputTarget.MAIN) {
-            new JavaFileWriter(context.processingEnvironment(), packageSuffix)
-                    .writeFile(packagePrefix, typeName, type);
-            return;
-        }
         var packageName = !isBlank(packageSuffix) ? "%s.%s".formatted(packagePrefix, packageSuffix) : packagePrefix;
         var rootPath = getRootPath();
         if (rootPath.isPresent()) {

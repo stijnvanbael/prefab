@@ -9,7 +9,19 @@ import com.palantir.javapoet.TypeSpec;
  */
 public class AutocompletePlugin implements PrefabPlugin {
 
+    private final AutocompleteControllerWriter controllerWriter = new AutocompleteControllerWriter();
+    private final AutocompleteServiceWriter serviceWriter = new AutocompleteServiceWriter();
     private final AutocompleteRepositoryWriter repositoryWriter = new AutocompleteRepositoryWriter();
+
+    @Override
+    public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
+        controllerWriter.autocompleteMethods(manifest).forEach(builder::addMethod);
+    }
+
+    @Override
+    public void writeService(ClassManifest manifest, TypeSpec.Builder builder) {
+        serviceWriter.autocompleteMethods(manifest).forEach(builder::addMethod);
+    }
 
     @Override
     public void writeRepository(ClassManifest manifest, TypeSpec.Builder builder) {

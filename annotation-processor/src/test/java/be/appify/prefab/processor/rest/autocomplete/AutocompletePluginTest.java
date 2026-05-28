@@ -10,12 +10,47 @@ import static com.google.testing.compile.Compiler.javac;
 class AutocompletePluginTest {
 
     @Test
-    void jdbcRepositoryMethodUsesDistinctSelectForAutocompleteFields() {
+    void autocompleteGeneratesControllerServiceAndRepositoryMethods() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("rest/autocomplete/source/Product.java"));
 
         assertThat(compilation).succeeded();
+
+        assertThat(compilation)
+                .generatedSourceFile("rest.autocomplete.infrastructure.http.ProductController")
+                .contentsAsUtf8String()
+                .contains("ResponseEntity<List<String>> autocompleteByName(@RequestParam String query)");
+        assertThat(compilation)
+                .generatedSourceFile("rest.autocomplete.infrastructure.http.ProductController")
+                .contentsAsUtf8String()
+                .contains("RequestMethod.GET");
+        assertThat(compilation)
+                .generatedSourceFile("rest.autocomplete.infrastructure.http.ProductController")
+                .contentsAsUtf8String()
+                .contains("path = \"/name/autocomplete\"");
+        assertThat(compilation)
+                .generatedSourceFile("rest.autocomplete.infrastructure.http.ProductController")
+                .contentsAsUtf8String()
+                .contains("path = \"/brands/search\"");
+        assertThat(compilation)
+                .generatedSourceFile("rest.autocomplete.infrastructure.http.ProductController")
+                .contentsAsUtf8String()
+                .contains("return ResponseEntity.ok(service.autocompleteByName(query));");
+
+        assertThat(compilation)
+                .generatedSourceFile("rest.autocomplete.application.ProductService")
+                .contentsAsUtf8String()
+                .contains("List<String> autocompleteByName(String query)");
+        assertThat(compilation)
+                .generatedSourceFile("rest.autocomplete.application.ProductService")
+                .contentsAsUtf8String()
+                .contains("productRepository.autocompleteByName(query, PageRequest.of(0, 10))");
+        assertThat(compilation)
+                .generatedSourceFile("rest.autocomplete.application.ProductService")
+                .contentsAsUtf8String()
+                .contains("productRepository.autocompleteByBrand(query, PageRequest.of(0, 10))");
+
         assertThat(compilation)
                 .generatedSourceFile("rest.autocomplete.application.ProductRepository")
                 .contentsAsUtf8String()

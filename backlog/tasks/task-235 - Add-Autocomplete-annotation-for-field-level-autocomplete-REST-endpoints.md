@@ -4,7 +4,7 @@ title: Add @Autocomplete annotation for field-level autocomplete REST endpoints
 status: In Progress
 assignee: []
 created_date: '2026-05-27 13:15'
-updated_date: '2026-05-28 08:05'
+updated_date: '2026-05-28 08:14'
 labels:
   - ✨feature
   - rest
@@ -22,8 +22,8 @@ Introduce an `@Autocomplete` field-level annotation that generates a dedicated R
 <!-- AC:BEGIN -->
 - [x] #1 @Autocomplete annotation defined in prefab-core with path(), ignoreCase(), and security() attributes
 - [x] #2 AutocompletePlugin registered in META-INF/services
-- [ ] #3 Controller generates GET endpoint per field returning ResponseEntity<List<String>>
-- [ ] #4 Service generates autocomplete method using Spring Data Example API
+- [x] #3 Controller generates GET endpoint per field returning ResponseEntity<List<String>>
+- [x] #4 Service generates autocomplete method using Spring Data Example API
 - [x] #5 Repository generates dedicated method per autocomplete field fetching only the field value (SELECT DISTINCT column) to avoid fetching full entities
 - [ ] #6 TestClient generates corresponding autocomplete method
 - [ ] #7 Unit tests verify generated controller, service, and repository code
@@ -180,4 +180,8 @@ field-specific method — there is **no clash** and no need to change `GetListRe
 Implemented AC5 by adding `AutocompleteRepositoryWriter` that generates field-specific repository methods returning `List<String>` and querying distinct values at DB level. JDBC generation emits `@Query` with `SELECT DISTINCT` + `LIKE` (case-sensitive or `LOWER(...)` when `ignoreCase=true`); Mongo generation emits `@Aggregation` with `$match`/`$group`/`$sort` pipeline.
 
 Registered `be.appify.prefab.processor.rest.autocomplete.AutocompletePlugin` in `META-INF/services/be.appify.prefab.processor.PrefabPlugin` so repository autocomplete generation is active during annotation processing.
+
+Implemented AC3 by adding `AutocompleteControllerWriter` and wiring it in `AutocompletePlugin`. The controller now generates one GET endpoint per `@Autocomplete` field, returns `ResponseEntity<List<String>>`, accepts `@RequestParam String query`, applies field-level security, and supports default (`/{kebab-field}/autocomplete`) plus custom `path()` values.
+
+Implemented AC4 by adding `AutocompleteServiceWriter` and wiring it in `AutocompletePlugin`. The service now generates one method per annotated field, logs autocomplete usage, and delegates to repository autocomplete methods with `PageRequest.of(0, 10)`.
 <!-- SECTION:NOTES:END -->

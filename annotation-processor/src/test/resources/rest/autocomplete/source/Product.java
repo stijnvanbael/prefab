@@ -10,7 +10,7 @@ public record Product(
         @Id String id,
         @Version long version,
         @Autocomplete(ignoreCase = true) String name,
-        @Autocomplete String brand
+        @Autocomplete(path = "/brands/search") String brand
 ) {
 }
 

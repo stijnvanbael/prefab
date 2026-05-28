@@ -162,9 +162,9 @@ public class AccountAggregate {
 
 - **Depends on**: TASK-227 (PrefabConfiguration and project-wide settings must exist first)
 - **Files to modify**:
-  - `core/src/main/java/io/prefab/core/Generate.java` ✨ new
-  - `core/src/main/java/io/prefab/core/GenerateOverrides.java` ✨ new
-  - `core/src/main/java/io/prefab/core/OutputTarget.java` ✨ new
+  - `core/src/main/java/be/appify/prefab/core/annotations/Generate.java` ✨ new
+  - `core/src/main/java/be/appify/prefab/core/annotations/GenerateOverrides.java` ✨ new
+  - `core/src/main/java/be/appify/prefab/core/annotations/OutputTarget.java` ✨ new
   - `annotation-processor/src/main/java/.../PrefabContext.java` — add override registry
   - `annotation-processor/src/main/java/.../GenerationContext.java` — add override query methods
   - `annotation-processor/src/main/java/.../PrefabPlugin.java` — update plugin hooks to check enabled flag

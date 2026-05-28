@@ -1,8 +1,8 @@
 package be.appify.prefab.processor.event;
 
 import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.core.annotations.PublishTo;
 import be.appify.prefab.core.annotations.OutputTarget;
+import be.appify.prefab.core.annotations.PublishTo;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.kafka.EventRegistryCustomizer;
 import be.appify.prefab.processor.OutputTargetFileOutput;
@@ -17,7 +17,6 @@ import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 import javax.lang.model.element.Modifier;
 import org.springframework.beans.factory.annotation.Value;

@@ -73,17 +73,15 @@ class EventSchemaDocumentationWriter {
             Map<String, String> messages,
             Map<String, String> schemas
     ) {
-        var sb = new StringBuilder();
-        sb.append("{\n");
-        sb.append("  \"asyncapi\": \"2.6.0\",\n");
-        sb.append("  \"info\": {\n");
-        sb.append("    \"title\": \"Application Events\",\n");
-        sb.append("    \"version\": \"1.0.0\"\n");
-        sb.append("  },\n");
-        sb.append("  \"channels\": {\n").append(buildChannelsJson(eventsByTopic)).append("  },\n");
-        sb.append("  \"components\": {\n").append(buildComponentsJson(messages, schemas)).append("  }\n");
-        sb.append("}\n");
-        return sb.toString();
+        return "{\n" +
+                "  \"asyncapi\": \"2.6.0\",\n" +
+                "  \"info\": {\n" +
+                "    \"title\": \"Application Events\",\n" +
+                "    \"version\": \"1.0.0\"\n" +
+                "  },\n" +
+                "  \"channels\": {\n" + buildChannelsJson(eventsByTopic) + "  },\n" +
+                "  \"components\": {\n" + buildComponentsJson(messages, schemas) + "  }\n" +
+                "}\n";
     }
 
     private String buildChannelsJson(Map<String, List<EventInfo>> eventsByTopic) {

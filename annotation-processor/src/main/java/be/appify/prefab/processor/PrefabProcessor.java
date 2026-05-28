@@ -238,30 +238,41 @@ public class PrefabProcessor extends AbstractProcessor {
     private void writeGlobalFiles(PrefabContext context, List<PrefabPlugin> plugins) {
         plugins.forEach(plugin -> {
                     var globallyEnabled = context.configuration().isPluginEnabled(plugin.getClass());
+                    var defaultAggregates = allResolvedAggregates.stream()
+                            .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
+                            .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) == OutputTarget.DEFAULT)
+                            .toList();
                     var mainAggregates = allResolvedAggregates.stream()
                             .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
-                            .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) != OutputTarget.TEST)
+                            .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) == OutputTarget.MAIN)
                             .toList();
                     var testAggregates = allResolvedAggregates.stream()
                             .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
                             .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) == OutputTarget.TEST)
                             .toList();
+                    var defaultPolymorphic = allResolvedPolymorphicAggregates.stream()
+                            .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
+                            .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) == OutputTarget.DEFAULT)
+                            .toList();
                     var mainPolymorphic = allResolvedPolymorphicAggregates.stream()
                             .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
-                            .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) != OutputTarget.TEST)
+                            .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) == OutputTarget.MAIN)
                             .toList();
                     var testPolymorphic = allResolvedPolymorphicAggregates.stream()
                             .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
                             .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) == OutputTarget.TEST)
                             .toList();
-                    if (!globallyEnabled && mainAggregates.isEmpty() && testAggregates.isEmpty()
-                            && mainPolymorphic.isEmpty() && testPolymorphic.isEmpty()) {
+                    if (!globallyEnabled && defaultAggregates.isEmpty() && mainAggregates.isEmpty() && testAggregates.isEmpty()
+                            && defaultPolymorphic.isEmpty() && mainPolymorphic.isEmpty() && testPolymorphic.isEmpty()) {
                         return;
                     }
-                    if (mainAggregates.isEmpty() && testAggregates.isEmpty()
-                            && mainPolymorphic.isEmpty() && testPolymorphic.isEmpty()) {
+                    if (defaultAggregates.isEmpty() && mainAggregates.isEmpty() && testAggregates.isEmpty()
+                            && defaultPolymorphic.isEmpty() && mainPolymorphic.isEmpty() && testPolymorphic.isEmpty()) {
                         plugin.writeGlobalFiles(List.of(), List.of());
                         return;
+                    }
+                    if (!defaultAggregates.isEmpty() || !defaultPolymorphic.isEmpty()) {
+                        plugin.writeGlobalFiles(defaultAggregates, defaultPolymorphic);
                     }
                     if (!mainAggregates.isEmpty() || !mainPolymorphic.isEmpty()) {
                         context.withOutputTarget(OutputTarget.MAIN,
@@ -280,30 +291,41 @@ public class PrefabProcessor extends AbstractProcessor {
             List<ClassManifest> aggregates,
             List<PolymorphicAggregateManifest> polymorphicAggregates) {
         var globallyEnabled = context.configuration().isPluginEnabled(plugin.getClass());
+        var defaultAggregates = aggregates.stream()
+                .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
+                .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) == OutputTarget.DEFAULT)
+                .toList();
         var mainAggregates = aggregates.stream()
                 .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
-                .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) != OutputTarget.TEST)
+                .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) == OutputTarget.MAIN)
                 .toList();
         var testAggregates = aggregates.stream()
                 .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
                 .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) == OutputTarget.TEST)
                 .toList();
+        var defaultPolymorphic = polymorphicAggregates.stream()
+                .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
+                .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) == OutputTarget.DEFAULT)
+                .toList();
         var mainPolymorphic = polymorphicAggregates.stream()
                 .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
-                .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) != OutputTarget.TEST)
+                .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) == OutputTarget.MAIN)
                 .toList();
         var testPolymorphic = polymorphicAggregates.stream()
                 .filter(manifest -> context.isPluginEnabledFor(manifest.type().asElement(), plugin.getClass()))
                 .filter(manifest -> context.getOutputTargetFor(manifest.type().asElement(), plugin.getClass()) == OutputTarget.TEST)
                 .toList();
-        if (!globallyEnabled && mainAggregates.isEmpty() && testAggregates.isEmpty()
-                && mainPolymorphic.isEmpty() && testPolymorphic.isEmpty()) {
+        if (!globallyEnabled && defaultAggregates.isEmpty() && mainAggregates.isEmpty() && testAggregates.isEmpty()
+                && defaultPolymorphic.isEmpty() && mainPolymorphic.isEmpty() && testPolymorphic.isEmpty()) {
             return;
         }
-        if (mainAggregates.isEmpty() && testAggregates.isEmpty()
-                && mainPolymorphic.isEmpty() && testPolymorphic.isEmpty()) {
+        if (defaultAggregates.isEmpty() && mainAggregates.isEmpty() && testAggregates.isEmpty()
+                && defaultPolymorphic.isEmpty() && mainPolymorphic.isEmpty() && testPolymorphic.isEmpty()) {
             plugin.writeAdditionalFiles(List.of(), List.of());
             return;
+        }
+        if (!defaultAggregates.isEmpty() || !defaultPolymorphic.isEmpty()) {
+            plugin.writeAdditionalFiles(defaultAggregates, defaultPolymorphic);
         }
         if (!mainAggregates.isEmpty() || !mainPolymorphic.isEmpty()) {
             context.withOutputTarget(OutputTarget.MAIN,

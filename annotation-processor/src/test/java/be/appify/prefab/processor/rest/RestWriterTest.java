@@ -230,7 +230,7 @@ class RestWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.testclient.application.CreatePersonRequest")
                 .contentsAsUtf8String()
-                .contains("public static Builder builder()");
+                .contains("public static CreatePersonRequest.Builder<?> builder()");
     }
 
     @Test
@@ -247,7 +247,7 @@ class RestWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.testclient.application.PersonUpdateRequest")
                 .contentsAsUtf8String()
-                .contains("public static Builder builder()");
+                .contains("public static PersonUpdateRequest.Builder<?> builder()");
     }
 
     @Test

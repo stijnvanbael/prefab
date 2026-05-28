@@ -58,7 +58,7 @@ class AssertionPluginTest {
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "",
                         "assertion/infrastructure/http/ProductResponseAssert.java")
                 .contentsAsUtf8String()
-                .contains("public static ProductResponseAssert assertThat(ProductResponse actual)");
+                .contains("public static ProductResponseAssert<?> assertThat(ProductResponse actual)");
     }
 
     @Test

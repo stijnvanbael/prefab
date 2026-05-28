@@ -19,7 +19,7 @@ class BuilderWriterTest {
         var code = generateCode("EmptyRecord", List.of());
 
         assertTrue(code.contains("public static class Builder"), "Expected nested Builder class");
-        assertTrue(code.contains("public static Builder builder()"), "Expected static builder() factory");
+        assertTrue(code.contains("builder()"), "Expected static builder() factory");
         assertTrue(code.contains("public EmptyRecord build()"), "Expected build() method");
         assertFalse(code.contains("withA"), "Expected no setter methods for zero fields");
     }

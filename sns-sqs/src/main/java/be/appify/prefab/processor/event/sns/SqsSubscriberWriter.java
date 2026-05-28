@@ -75,8 +75,11 @@ class SqsSubscriberWriter {
                 .map(e -> support.rootEventType(e, context).annotationsOfType(Event.class).stream().findFirst()
                         .orElseThrow()
                         .topic())
-                .collect(Collectors.toSet());
-        type.addMethod(constructor(topics, owner, fields, eventHandlers));
+                .flatMap(java.util.Arrays::stream)
+                .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+        var topicList = new java.util.ArrayList<>(topics);
+        var uniqueNames = buildUniqueNames(topicList, eventHandlers);
+        type.addMethod(constructor(topicList, uniqueNames, owner, fields, eventHandlers));
         fileWriter.writeFile(packageName, name, type.build());
     }
 
@@ -96,8 +99,31 @@ class SqsSubscriberWriter {
         }
     }
 
+    private java.util.List<String> buildUniqueNames(
+            java.util.List<String> topics,
+            List<ExecutableElement> eventHandlers
+    ) {
+        var bases = topics.stream()
+                .map(t -> uncapitalize(support.eventTypeOf(eventHandlers, context, t).simpleName().replace(".", "")))
+                .toList();
+        Map<String, Long> counts = bases.stream().collect(Collectors.groupingBy(b -> b, Collectors.counting()));
+        Map<String, Integer> seenIndex = new java.util.HashMap<>();
+        var result = new java.util.ArrayList<String>(topics.size());
+        for (var base : bases) {
+            if (counts.get(base) > 1) {
+                int idx = seenIndex.merge(base, 0, Integer::sum);
+                seenIndex.put(base, idx + 1);
+                result.add(base + idx);
+            } else {
+                result.add(base);
+            }
+        }
+        return result;
+    }
+
     private MethodSpec constructor(
-            Set<String> topics,
+            java.util.List<String> topics,
+            java.util.List<String> uniqueNames,
             TypeManifest owner,
             Set<FieldSpec> fields,
             List<ExecutableElement> eventHandlers
@@ -130,7 +156,9 @@ class SqsSubscriberWriter {
                 constructor.addParameter(configParameter(Double.class, "backoffMultiplier", config.backoffMultiplier()));
             }
         }
-        topics.forEach(topic -> addTopic(owner, eventHandlers, topic, constructor));
+        for (int i = 0; i < topics.size(); i++) {
+            addTopic(owner, eventHandlers, topics.get(i), uniqueNames.get(i), constructor);
+        }
         fields.forEach(field -> constructor.addStatement("this.$L = $L", field.name(), field.name()));
         return constructor.build();
     }
@@ -139,10 +167,11 @@ class SqsSubscriberWriter {
             TypeManifest owner,
             List<ExecutableElement> eventHandlers,
             String topic,
+            String uniqueBaseName,
             MethodSpec.Builder constructor
     ) {
         var eventType = support.eventTypeOf(eventHandlers, context, topic);
-        var topicVariableName = uncapitalize(eventType.simpleName().replace(".", "")) + "Topic";
+        var topicVariableName = uniqueBaseName + "Topic";
         var eventName = eventType.simpleName().replace(".", "");
         if (topic.matches("\\$\\{.+}")) {
             constructor.addParameter(ParameterSpec.builder(String.class, topicVariableName)

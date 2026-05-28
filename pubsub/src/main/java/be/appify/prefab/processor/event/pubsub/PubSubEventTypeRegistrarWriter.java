@@ -42,34 +42,41 @@ class PubSubEventTypeRegistrarWriter {
         fileWriter.writeFile(event.packageName(), name, type);
     }
 
-    private MethodSpec constructor(String topic, String simpleName, TypeManifest event, Optional<CodeBlock> keyExtractor) {
+    private MethodSpec constructor(String[] topics, String simpleName, TypeManifest event, Optional<CodeBlock> keyExtractor) {
+        boolean useIndexedNames = topics.length > 1;
         var constructor = MethodSpec.constructorBuilder()
                 .addModifiers(PUBLIC)
                 .addParameter(PubSubUtil.class, "pubSubUtil");
-        if (topic.matches("\\$\\{.+}")) {
-            var topicFieldName = uncapitalize(simpleName) + "Topic";
-            constructor.addParameter(ParameterSpec.builder(String.class, topicFieldName)
-                    .addAnnotation(AnnotationSpec.builder(Value.class)
-                            .addMember("value", "$S", topic)
-                            .build())
-                    .build());
-            constructor.addStatement("pubSubUtil.registerType($T.class.getName(), $T.class)", event.asTypeName(), event.asTypeName());
-            if (keyExtractor.isPresent()) {
-                constructor.addStatement("pubSubUtil.registerEventTopic($L, $T.class, event -> $L)",
-                        topicFieldName, event.asTypeName(), keyExtractor.get());
+        constructor.addStatement("pubSubUtil.registerType($T.class.getName(), $T.class)", event.asTypeName(), event.asTypeName());
+        for (int i = 0; i < topics.length; i++) {
+            var topic = topics[i];
+            if (topic.matches("\\$\\{.+}")) {
+                var topicFieldName = topicFieldName(simpleName, i, useIndexedNames);
+                constructor.addParameter(ParameterSpec.builder(String.class, topicFieldName)
+                        .addAnnotation(AnnotationSpec.builder(Value.class)
+                                .addMember("value", "$S", topic)
+                                .build())
+                        .build());
+                if (keyExtractor.isPresent()) {
+                    constructor.addStatement("pubSubUtil.registerEventTopic($L, $T.class, event -> $L)",
+                            topicFieldName, event.asTypeName(), keyExtractor.get());
+                } else {
+                    constructor.addStatement("pubSubUtil.registerEventTopic($L, $T.class)", topicFieldName, event.asTypeName());
+                }
             } else {
-                constructor.addStatement("pubSubUtil.registerEventTopic($L, $T.class)", topicFieldName, event.asTypeName());
-            }
-        } else {
-            constructor.addStatement("pubSubUtil.registerType($T.class.getName(), $T.class)", event.asTypeName(), event.asTypeName());
-            if (keyExtractor.isPresent()) {
-                constructor.addStatement("pubSubUtil.registerEventTopic($S, $T.class, event -> $L)",
-                        topic, event.asTypeName(), keyExtractor.get());
-            } else {
-                constructor.addStatement("pubSubUtil.registerEventTopic($S, $T.class)", topic, event.asTypeName());
+                if (keyExtractor.isPresent()) {
+                    constructor.addStatement("pubSubUtil.registerEventTopic($S, $T.class, event -> $L)",
+                            topic, event.asTypeName(), keyExtractor.get());
+                } else {
+                    constructor.addStatement("pubSubUtil.registerEventTopic($S, $T.class)", topic, event.asTypeName());
+                }
             }
         }
         return constructor.build();
     }
-}
 
+    private static String topicFieldName(String simpleName, int index, boolean useIndexedNames) {
+        var base = uncapitalize(simpleName) + "Topic";
+        return useIndexedNames ? base + index : base;
+    }
+}

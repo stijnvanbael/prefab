@@ -68,6 +68,20 @@ class SqsSubscriberWriterTest {
     }
 
     @Test
+    void multipleTopicsPerEvent() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("sns/multitopicevent/UserEvent.java"),
+                        sourceOf("sns/multitopicevent/UserService.java"));
+        assertThat(compilation).succeeded();
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "sns.multitopicevent.infrastructure.sns.UserServiceSqsSubscriber",
+                "expected/sns/multitopicevent/UserServiceSqsSubscriber.java");
+    }
+
+    @Test
     void customDlt() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

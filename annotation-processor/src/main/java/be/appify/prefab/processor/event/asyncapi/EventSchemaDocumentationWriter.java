@@ -60,9 +60,10 @@ class EventSchemaDocumentationWriter {
         Map<String, List<EventInfo>> result = new LinkedHashMap<>();
         for (var event : events) {
             var annotation = event.inheritedAnnotationsOfType(Event.class).stream().findFirst().orElseThrow();
-            var topic = annotation.topic();
             var isConsumed = consumed.contains(event);
-            result.computeIfAbsent(topic, k -> new ArrayList<>()).add(new EventInfo(event, isConsumed));
+            for (var topic : annotation.topic()) {
+                result.computeIfAbsent(topic, k -> new ArrayList<>()).add(new EventInfo(event, isConsumed));
+            }
         }
         return result;
     }

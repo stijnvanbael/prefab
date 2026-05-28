@@ -39,24 +39,31 @@ class SqsEventTypeRegistrarWriter {
         fileWriter.writeFile(event.packageName(), name, type);
     }
 
-    private MethodSpec constructor(String topic, String simpleName, TypeManifest event) {
+    private MethodSpec constructor(String[] topics, String simpleName, TypeManifest event) {
+        boolean useIndexedNames = topics.length > 1;
         var constructor = MethodSpec.constructorBuilder()
                 .addModifiers(PUBLIC)
                 .addParameter(SqsUtil.class, "sqsUtil");
-        if (topic.matches("\\$\\{.+}")) {
-            var topicFieldName = uncapitalize(simpleName) + "Topic";
-            constructor.addParameter(ParameterSpec.builder(String.class, topicFieldName)
-                    .addAnnotation(AnnotationSpec.builder(Value.class)
-                            .addMember("value", "$S", topic)
-                            .build())
-                    .build());
-            constructor.addStatement("sqsUtil.registerType($T.class.getName(), $T.class)", event.asTypeName(), event.asTypeName());
-            constructor.addStatement("sqsUtil.registerEventTopic($L, $T.class)", topicFieldName, event.asTypeName());
-        } else {
-            constructor.addStatement("sqsUtil.registerType($T.class.getName(), $T.class)", event.asTypeName(), event.asTypeName());
-            constructor.addStatement("sqsUtil.registerEventTopic($S, $T.class)", topic, event.asTypeName());
+        constructor.addStatement("sqsUtil.registerType($T.class.getName(), $T.class)", event.asTypeName(), event.asTypeName());
+        for (int i = 0; i < topics.length; i++) {
+            var topic = topics[i];
+            if (topic.matches("\\$\\{.+}")) {
+                var topicFieldName = topicFieldName(simpleName, i, useIndexedNames);
+                constructor.addParameter(ParameterSpec.builder(String.class, topicFieldName)
+                        .addAnnotation(AnnotationSpec.builder(Value.class)
+                                .addMember("value", "$S", topic)
+                                .build())
+                        .build());
+                constructor.addStatement("sqsUtil.registerEventTopic($L, $T.class)", topicFieldName, event.asTypeName());
+            } else {
+                constructor.addStatement("sqsUtil.registerEventTopic($S, $T.class)", topic, event.asTypeName());
+            }
         }
         return constructor.build();
     }
-}
 
+    private static String topicFieldName(String simpleName, int index, boolean useIndexedNames) {
+        var base = uncapitalize(simpleName) + "Topic";
+        return useIndexedNames ? base + index : base;
+    }
+}

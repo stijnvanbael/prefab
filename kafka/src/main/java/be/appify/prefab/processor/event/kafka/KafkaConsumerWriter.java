@@ -92,6 +92,7 @@ class KafkaConsumerWriter {
         var topics = eventHandlers.stream()
                 .map(e -> listenerEventTypeFor(support.rootEventType(e, context))
                         .annotationsOfType(Event.class).stream().findFirst().orElseThrow().topic())
+                .flatMap(java.util.Arrays::stream)
                 .collect(Collectors.toSet());
         topics.forEach(topic -> support.eventTypeOf(eventHandlers, context, topic));
     }
@@ -142,9 +143,11 @@ class KafkaConsumerWriter {
     }
 
     private static AnnotationSpec kafkaListener(TypeManifest owner, Event event, String eventName) {
-        var kafkaListener = AnnotationSpec.builder(KafkaListener.class)
-                .addMember("topics", "$S", event.topic())
-                .addMember("groupId", "$S",
+        var kafkaListener = AnnotationSpec.builder(KafkaListener.class);
+        for (var topic : event.topic()) {
+            kafkaListener.addMember("topics", "$S", topic);
+        }
+        kafkaListener.addMember("groupId", "$S",
                         "${spring.application.name}." + CaseUtil.toKebabCase(owner.simpleName())
                                 + "-on-" + CaseUtil.toKebabCase(eventName))
                 .addMember("concurrency", "$S", concurrencyExpression(owner));

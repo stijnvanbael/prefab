@@ -14,15 +14,7 @@ public @interface Event {
      *
      * @return The primary topic the event is published to or should be consumed from.
      */
-    String topic();
-
-    /**
-     * Additional topics the event should also be published to or consumed from.
-     * Together with {@link #topic()}, these form the complete set of topics for this event.
-     *
-     * @return additional topic names; empty by default
-     */
-    String[] additionalTopics() default {};
+    String[] topic();
 
     /**
      * Controls which of the registered topics this event is published to.

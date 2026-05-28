@@ -68,6 +68,20 @@ class PubSubSubscriberWriterTest {
     }
 
     @Test
+    void multipleTopicsPerEvent() throws IOException {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("pubsub/multitopicevent/UserEvent.java"),
+                        sourceOf("pubsub/multitopicevent/UserService.java"));
+        assertThat(compilation).succeeded();
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "pubsub.multitopicevent.infrastructure.pubsub.UserServicePubSubSubscriber",
+                "expected/pubsub/multitopicevent/UserServicePubSubSubscriber.java");
+    }
+
+    @Test
     void customDlt() throws IOException {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

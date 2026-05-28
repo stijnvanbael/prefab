@@ -14,6 +14,8 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import javax.lang.model.element.Modifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -64,13 +66,13 @@ public class EventTypeRegistrarWriter {
      */
     public void writeAvscRegistrar(String packageName, ClassName eventType, String topic) {
         var name = registrarName(eventType.simpleName());
-        var type = buildRegistrarType(name, topic, Event.Serialization.AVRO,
+        var type = buildRegistrarType(name, new String[]{topic}, Event.Serialization.AVRO,
                 eventType.simpleName(), eventType, Optional.empty());
         new JavaFileWriter(context.processingEnvironment(), "infrastructure.event")
                 .writeFile(packageName, name, type);
     }
 
-    private TypeSpec buildRegistrarType(String name, String topic, Event.Serialization serialization,
+    private TypeSpec buildRegistrarType(String name, String[] topics, Event.Serialization serialization,
                                         String simpleName, TypeName eventTypeName,
                                         Optional<CodeBlock> keyExtractor) {
         var typeBuilder = TypeSpec.classBuilder(name)
@@ -78,55 +80,78 @@ public class EventTypeRegistrarWriter {
                 .addAnnotation(Component.class)
                 .addSuperinterface(EventRegistryCustomizer.class);
 
-        boolean hasPlaceholderTopic = topic.matches("\\$\\{.+}");
+        var placeholderTopics = Arrays.stream(topics)
+                .filter(t -> t.matches("\\$\\{.+}"))
+                .toList();
 
-        if (hasPlaceholderTopic) {
-            var topicField = topicFieldName(simpleName);
-            typeBuilder.addField(FieldSpec.builder(String.class, topicField, Modifier.PRIVATE, Modifier.FINAL).build());
-            typeBuilder.addMethod(MethodSpec.constructorBuilder()
-                    .addModifiers(Modifier.PUBLIC)
-                    .addParameter(ParameterSpec.builder(String.class, topicField)
+        // Use indexed field names (e.g. myEventTopic0, myEventTopic1) when there are multiple topics;
+        // preserve the non-indexed name (myEventTopic) for the common single-topic case.
+        boolean useIndexedNames = topics.length > 1;
+
+        if (!placeholderTopics.isEmpty()) {
+            var constructor = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC);
+            for (int i = 0; i < topics.length; i++) {
+                var topic = topics[i];
+                if (topic.matches("\\$\\{.+}")) {
+                    var fieldName = topicFieldName(simpleName, i, useIndexedNames);
+                    typeBuilder.addField(FieldSpec.builder(String.class, fieldName, Modifier.PRIVATE, Modifier.FINAL).build());
+                    constructor.addParameter(ParameterSpec.builder(String.class, fieldName)
                             .addAnnotation(AnnotationSpec.builder(Value.class)
                                     .addMember("value", "$S", topic)
                                     .build())
-                            .build())
-                    .addStatement("this.$L = $L", topicField, topicField)
-                    .build());
+                            .build());
+                    constructor.addStatement("this.$L = $L", fieldName, fieldName);
+                }
+            }
+            typeBuilder.addMethod(constructor.build());
         }
 
-        typeBuilder.addMethod(customizeMethod(topic, serialization, simpleName, eventTypeName, keyExtractor, hasPlaceholderTopic));
+        typeBuilder.addMethod(customizeMethod(topics, serialization, simpleName, eventTypeName, keyExtractor, useIndexedNames));
         return typeBuilder.build();
     }
 
-    private static MethodSpec customizeMethod(String topic, Event.Serialization serialization,
+    private static MethodSpec customizeMethod(String[] topics, Event.Serialization serialization,
                                                String simpleName, TypeName eventTypeName,
                                                Optional<CodeBlock> keyExtractor,
-                                               boolean hasPlaceholderTopic) {
+                                               boolean useIndexedNames) {
         var method = MethodSpec.methodBuilder("customize")
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(Override.class)
                 .addParameter(EventRegistry.class, "registry");
 
-        var topicArg = hasPlaceholderTopic ? topicFieldName(simpleName) : "\"" + topic + "\"";
+        for (int i = 0; i < topics.length; i++) {
+            var topic = topics[i];
+            boolean isPlaceholder = topic.matches("\\$\\{.+}");
+            String topicArg = isPlaceholder
+                    ? topicFieldName(simpleName, i, useIndexedNames)
+                    : "\"" + topic + "\"";
 
-        if (keyExtractor.isPresent()) {
-            method.addStatement("registry.register($L, $T.class, $T.$L, event -> $L)",
-                    topicArg, eventTypeName, Event.Serialization.class, serialization,
-                    keyExtractor.get());
-        } else {
-            method.addStatement("registry.register($L, $T.class, $T.$L)",
-                    topicArg, eventTypeName, Event.Serialization.class, serialization);
+            if (keyExtractor.isPresent()) {
+                method.addStatement("registry.register($L, $T.class, $T.$L, event -> $L)",
+                        topicArg, eventTypeName, Event.Serialization.class, serialization,
+                        keyExtractor.get());
+            } else {
+                method.addStatement("registry.register($L, $T.class, $T.$L)",
+                        topicArg, eventTypeName, Event.Serialization.class, serialization);
+            }
         }
 
         return method.build();
     }
 
-    private static String registrarName(String simpleName) {
-        return "%sEventTypeRegistrar".formatted(simpleName);
+    /**
+     * Derives the field name for a topic parameter.
+     *
+     * <p>Single topic → {@code {simpleName}Topic} (backward-compatible).
+     * Multiple topics → {@code {simpleName}Topic{index}}.
+     */
+    private static String topicFieldName(String simpleName, int index, boolean useIndexedNames) {
+        var base = uncapitalize(simpleName) + "Topic";
+        return useIndexedNames ? base + index : base;
     }
 
-    private static String topicFieldName(String simpleName) {
-        return uncapitalize(simpleName) + "Topic";
+    private static String registrarName(String simpleName) {
+        return "%sEventTypeRegistrar".formatted(simpleName);
     }
 }
 

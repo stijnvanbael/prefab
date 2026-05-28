@@ -83,6 +83,20 @@ class KafkaEventTypeRegistrarWriterTest {
     }
 
     @Test
+    void publishToAll() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/publishtoall/UserEvent.java"),
+                        sourceOf("kafka/publishtoall/UserService.java"));
+        assertThat(compilation).succeeded();
+        assertGeneratedSourceEqualsIgnoringWhitespace(
+                compilation,
+                "kafka.publishtoall.infrastructure.event.UserEventEventTypeRegistrar",
+                "expected/kafka/publishtoall/UserEventEventTypeRegistrar.java");
+    }
+
+    @Test
     void createOrUpdateHandler() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

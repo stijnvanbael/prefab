@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.event.pubsub;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.annotations.PublishTo;
 import be.appify.prefab.core.pubsub.PubSubUtil;
 import be.appify.prefab.processor.JavaFileWriter;
 import be.appify.prefab.processor.PrefabContext;
@@ -37,12 +38,12 @@ class PubSubEventTypeRegistrarWriter {
         var type = TypeSpec.classBuilder(name)
                 .addModifiers(PUBLIC)
                 .addAnnotation(Component.class)
-                .addMethod(constructor(annotation.topic(), simpleName, event, keyField(event, context)))
+                .addMethod(constructor(annotation.topic(), annotation.publishTo(), simpleName, event, keyField(event, context)))
                 .build();
         fileWriter.writeFile(event.packageName(), name, type);
     }
 
-    private MethodSpec constructor(String[] topics, String simpleName, TypeManifest event, Optional<CodeBlock> keyExtractor) {
+    private MethodSpec constructor(String[] topics, PublishTo publishTo, String simpleName, TypeManifest event, Optional<CodeBlock> keyExtractor) {
         boolean useIndexedNames = topics.length > 1;
         var constructor = MethodSpec.constructorBuilder()
                 .addModifiers(PUBLIC)
@@ -71,6 +72,10 @@ class PubSubEventTypeRegistrarWriter {
                     constructor.addStatement("pubSubUtil.registerEventTopic($S, $T.class)", topic, event.asTypeName());
                 }
             }
+        }
+        if (publishTo != PublishTo.FIRST) {
+            constructor.addStatement("pubSubUtil.registerPublishTo($T.class, $T.$L)",
+                    event.asTypeName(), PublishTo.class, publishTo.name());
         }
         return constructor.build();
     }

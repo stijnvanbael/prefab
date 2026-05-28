@@ -5,13 +5,7 @@ import be.appify.prefab.core.annotations.Example;
 import be.appify.prefab.core.annotations.AvroSchema;
 import be.appify.prefab.processor.BuilderWriter;
 import be.appify.prefab.processor.JavaFileWriter;
-import com.palantir.javapoet.AnnotationSpec;
-import com.palantir.javapoet.ClassName;
-import com.palantir.javapoet.MethodSpec;
-import com.palantir.javapoet.ParameterSpec;
-import com.palantir.javapoet.ParameterizedTypeName;
-import com.palantir.javapoet.TypeName;
-import com.palantir.javapoet.TypeSpec;
+import com.palantir.javapoet.*;
 import jakarta.annotation.Nullable;
 import java.time.Duration;
 import java.time.Instant;
@@ -26,6 +20,10 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Modifier;
 import javax.tools.Diagnostic;
 import org.apache.avro.Schema;
+
+import static com.palantir.javapoet.CodeBlock.joining;
+import static java.util.Arrays.*;
+
 class AvscEventWriter {
     private static final String PROP_SAMPLE = "sample";
     private static final String PROP_LOGICAL_TYPE = "logicalType";
@@ -37,18 +35,18 @@ class AvscEventWriter {
     AvscEventWriter(ProcessingEnvironment processingEnvironment) {
         this.processingEnvironment = processingEnvironment;
     }
-    void writeAll(Schema schema, String topic, Event.Platform platform, String defaultPackage, ClassName contractInterface) {
+    void writeAll(Schema schema, String[] topics, Event.Platform platform, String defaultPackage, ClassName contractInterface) {
         var namedTypes = collectNamedTypes(schema);
         var pendingUnions = new ArrayList<UnionTypeGroup>();
         var fileWriter = new JavaFileWriter(processingEnvironment, "");
-        writeTopLevelRecord(schema, topic, platform, defaultPackage, contractInterface, fileWriter, pendingUnions);
+        writeTopLevelRecord(schema, topics, platform, defaultPackage, contractInterface, fileWriter, pendingUnions);
         writeNestedTypes(schema, namedTypes, defaultPackage, fileWriter, pendingUnions);
         writeUnionTypes(pendingUnions, defaultPackage, fileWriter);
     }
-    private void writeTopLevelRecord(Schema schema, String topic, Event.Platform platform,
+    private void writeTopLevelRecord(Schema schema, String[] topics, Event.Platform platform,
             String defaultPackage, ClassName contractInterface,
             JavaFileWriter fileWriter, List<UnionTypeGroup> pendingUnions) {
-        var topLevelSpec = buildTopLevelRecord(schema, topic, platform, defaultPackage, contractInterface, pendingUnions);
+        var topLevelSpec = buildTopLevelRecord(schema, topics, platform, defaultPackage, contractInterface, pendingUnions);
         if (topLevelSpec != null) {
             fileWriter.writeFile(defaultPackage, javaTypeName(schema), topLevelSpec);
         }
@@ -99,7 +97,7 @@ class AvscEventWriter {
             default -> { /* primitives and logical types need no traversal */ }
         }
     }
-    private TypeSpec buildTopLevelRecord(Schema schema, String topic, Event.Platform platform,
+    private TypeSpec buildTopLevelRecord(Schema schema, String[] topics, Event.Platform platform,
             String schemaPackage, ClassName contractInterface, List<UnionTypeGroup> pendingUnions) {
         return buildFields(schema, schemaPackage, pendingUnions)
                 .map(fields -> {
@@ -108,7 +106,7 @@ class AvscEventWriter {
                     var builder = TypeSpec.recordBuilder(typeName)
                             .addModifiers(Modifier.PUBLIC)
                             .recordConstructor(MethodSpec.compactConstructorBuilder().addParameters(fields).build())
-                            .addAnnotation(buildEventAnnotation(topic, platform))
+                            .addAnnotation(buildEventAnnotation(topics, platform))
                             .addSuperinterface(contractInterface);
                     docOf(schema).ifPresent(doc -> builder.addAnnotation(docAnnotation(doc)));
                     avroSchemaAnnotation(schema).ifPresent(builder::addAnnotation);
@@ -328,29 +326,29 @@ class AvscEventWriter {
             }
         };
     }
-    private java.util.Optional<String> sampleOf(Schema.Field field) {
+    private Optional<String> sampleOf(Schema.Field field) {
         var fieldLevelSample = field.getProp(PROP_SAMPLE);
-        if (fieldLevelSample != null) return java.util.Optional.of(fieldLevelSample);
+        if (fieldLevelSample != null) return Optional.of(fieldLevelSample);
         var schemaLevelSample = field.schema().getProp(PROP_SAMPLE);
-        if (schemaLevelSample != null) return java.util.Optional.of(schemaLevelSample);
+        if (schemaLevelSample != null) return Optional.of(schemaLevelSample);
         if (field.schema().getType() == Schema.Type.UNION) {
             var nonNull = field.schema().getTypes().stream()
                     .filter(t -> t.getType() != Schema.Type.NULL)
                     .findFirst();
             return nonNull.map(s -> s.getProp(PROP_SAMPLE));
         }
-        return java.util.Optional.empty();
+        return Optional.empty();
     }
     private AnnotationSpec exampleAnnotation(String sample) {
         return AnnotationSpec.builder(Example.class)
                 .addMember("value", "$S", sample)
                 .build();
     }
-    private java.util.Optional<String> docOf(Schema.Field field) {
-        return java.util.Optional.ofNullable(field.doc());
+    private Optional<String> docOf(Schema.Field field) {
+        return Optional.ofNullable(field.doc());
     }
-    private java.util.Optional<String> docOf(Schema schema) {
-        return java.util.Optional.ofNullable(schema.getDoc());
+    private Optional<String> docOf(Schema schema) {
+        return Optional.ofNullable(schema.getDoc());
     }
     private AnnotationSpec docAnnotation(String doc) {
         return AnnotationSpec.builder(Doc.class)
@@ -375,10 +373,17 @@ class AvscEventWriter {
         }
         return Optional.of(builder.build());
     }
-    private AnnotationSpec buildEventAnnotation(String topic, Event.Platform platform) {
-        var builder = AnnotationSpec.builder(Event.class)
-                .addMember("topic", "$S", topic)
-                .addMember("serialization", "$T.$L", ClassName.get(Event.Serialization.class), "AVRO");
+    private AnnotationSpec buildEventAnnotation(String[] topics, Event.Platform platform) {
+        var builder = AnnotationSpec.builder(Event.class);
+        if (topics.length == 1) {
+            builder.addMember("topic", "$S", topics[0]);
+        } else {
+            var topicsBlock = stream(topics)
+                    .map(t -> CodeBlock.of("$S", t))
+                    .collect(joining(", "));
+            builder.addMember("topic", "{$L}", topicsBlock);
+        }
+        builder.addMember("serialization", "$T.$L", ClassName.get(Event.Serialization.class), "AVRO");
         if (platform != null && platform != Event.Platform.DERIVED) {
             builder.addMember("platform", "$T.$L", ClassName.get(Event.Platform.class), platform.name());
         }

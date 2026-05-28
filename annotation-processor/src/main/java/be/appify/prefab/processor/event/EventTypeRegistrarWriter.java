@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.event;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.annotations.PublishTo;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.kafka.EventRegistryCustomizer;
 import be.appify.prefab.processor.JavaFileWriter;
@@ -52,7 +53,7 @@ public class EventTypeRegistrarWriter {
         var simpleName = event.simpleName().replace(".", "");
         var name = registrarName(simpleName);
         var type = buildRegistrarType(name, annotation.topic(), annotation.serialization(),
-                simpleName, event.asTypeName(), keyField(event, context));
+                annotation.publishTo(), simpleName, event.asTypeName(), keyField(event, context));
         new JavaFileWriter(context.processingEnvironment(), "infrastructure.event")
                 .writeFile(event.packageName(), name, type);
     }
@@ -62,18 +63,19 @@ public class EventTypeRegistrarWriter {
      *
      * @param packageName the base package for the generated registrar
      * @param eventType   the generated event class name
-     * @param topic       the topic string (may be a {@code ${...}} placeholder)
+     * @param topics      the topic strings (may contain {@code ${...}} placeholders)
+     * @param publishTo   the publish-to strategy
      */
-    public void writeAvscRegistrar(String packageName, ClassName eventType, String topic) {
+    public void writeAvscRegistrar(String packageName, ClassName eventType, String[] topics, PublishTo publishTo) {
         var name = registrarName(eventType.simpleName());
-        var type = buildRegistrarType(name, new String[]{topic}, Event.Serialization.AVRO,
-                eventType.simpleName(), eventType, Optional.empty());
+        var type = buildRegistrarType(name, topics, Event.Serialization.AVRO,
+                publishTo, eventType.simpleName(), eventType, Optional.empty());
         new JavaFileWriter(context.processingEnvironment(), "infrastructure.event")
                 .writeFile(packageName, name, type);
     }
 
     private TypeSpec buildRegistrarType(String name, String[] topics, Event.Serialization serialization,
-                                        String simpleName, TypeName eventTypeName,
+                                        PublishTo publishTo, String simpleName, TypeName eventTypeName,
                                         Optional<CodeBlock> keyExtractor) {
         var typeBuilder = TypeSpec.classBuilder(name)
                 .addModifiers(Modifier.PUBLIC)
@@ -106,14 +108,14 @@ public class EventTypeRegistrarWriter {
             typeBuilder.addMethod(constructor.build());
         }
 
-        typeBuilder.addMethod(customizeMethod(topics, serialization, simpleName, eventTypeName, keyExtractor, useIndexedNames));
+        typeBuilder.addMethod(customizeMethod(topics, serialization, simpleName, eventTypeName, keyExtractor, useIndexedNames, publishTo));
         return typeBuilder.build();
     }
 
     private static MethodSpec customizeMethod(String[] topics, Event.Serialization serialization,
                                                String simpleName, TypeName eventTypeName,
                                                Optional<CodeBlock> keyExtractor,
-                                               boolean useIndexedNames) {
+                                               boolean useIndexedNames, PublishTo publishTo) {
         var method = MethodSpec.methodBuilder("customize")
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(Override.class)
@@ -134,6 +136,11 @@ public class EventTypeRegistrarWriter {
                 method.addStatement("registry.register($L, $T.class, $T.$L)",
                         topicArg, eventTypeName, Event.Serialization.class, serialization);
             }
+        }
+
+        if (publishTo != PublishTo.FIRST) {
+            method.addStatement("registry.registerPublishTo($T.class, $T.$L)",
+                    eventTypeName, PublishTo.class, publishTo.name());
         }
 
         return method.build();

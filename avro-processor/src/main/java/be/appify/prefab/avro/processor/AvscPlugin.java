@@ -61,7 +61,7 @@ public class AvscPlugin implements PrefabPlugin {
                         element);
                 continue;
             }
-            writer.writeAll(schema, eventAnnotation.topic()[0], eventAnnotation.platform(), contractPackage, contractInterface);
+            writer.writeAll(schema, eventAnnotation.topic(), eventAnnotation.platform(), contractPackage, contractInterface);
         }
     }
 

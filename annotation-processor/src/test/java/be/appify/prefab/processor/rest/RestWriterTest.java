@@ -3,7 +3,7 @@ package be.appify.prefab.processor.rest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabProcessor;
 import be.appify.prefab.processor.TestClientWriter;
-import be.appify.prefab.processor.TestFileOutput;
+import be.appify.prefab.processor.FileOutput;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.test.ProcessorTestUtil.sourceOf;
@@ -541,14 +541,14 @@ class RestWriterTest {
 
         @Override
         protected TestClientWriter createTestClientWriter(PrefabContext context) {
-            return new TestClientWriter(context, new CapturingTestFileOutput(capturedSources));
+            return new TestClientWriter(context, new CapturingFileOutput(capturedSources));
         }
     }
 
-    static class CapturingTestFileOutput implements TestFileOutput {
+    static class CapturingFileOutput implements FileOutput {
         private final java.util.List<String> capturedSources;
 
-        CapturingTestFileOutput(java.util.List<String> capturedSources) {
+        CapturingFileOutput(java.util.List<String> capturedSources) {
             this.capturedSources = capturedSources;
         }
 

@@ -9,7 +9,7 @@ import javax.lang.model.element.TypeElement;
 /**
  * Delegates file writes to main or test output based on the effective output target.
  */
-public final class OutputTargetFileOutput implements TestFileOutput {
+public final class OutputTargetFileOutput implements FileOutput {
     private final PrefabContext context;
     private final OutputTarget defaultTarget;
     private final TestJavaFileWriter testWriter;

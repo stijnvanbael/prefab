@@ -3,7 +3,7 @@ package be.appify.prefab.processor.rest.autocomplete;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabProcessor;
 import be.appify.prefab.processor.TestClientWriter;
-import be.appify.prefab.processor.TestFileOutput;
+import be.appify.prefab.processor.FileOutput;
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.TypeSpec;
 import org.junit.jupiter.api.Assertions;
@@ -106,14 +106,14 @@ class AutocompletePluginTest {
 
         @Override
         protected TestClientWriter createTestClientWriter(PrefabContext context) {
-            return new TestClientWriter(context, new CapturingTestFileOutput(capturedSources));
+            return new TestClientWriter(context, new CapturingFileOutput(capturedSources));
         }
     }
 
-    static class CapturingTestFileOutput implements TestFileOutput {
+    static class CapturingFileOutput implements FileOutput {
         private final List<String> capturedSources;
 
-        CapturingTestFileOutput(List<String> capturedSources) {
+        CapturingFileOutput(List<String> capturedSources) {
             this.capturedSources = capturedSources;
         }
 

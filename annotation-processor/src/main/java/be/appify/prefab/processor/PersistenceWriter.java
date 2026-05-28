@@ -20,7 +20,7 @@ import org.springframework.data.repository.PagingAndSortingRepository;
 import static org.apache.commons.text.WordUtils.capitalize;
 
 class PersistenceWriter {
-    private final TestFileOutput fileWriter;
+    private final FileOutput fileWriter;
     private final PrefabContext context;
 
     PersistenceWriter(PrefabContext context) {

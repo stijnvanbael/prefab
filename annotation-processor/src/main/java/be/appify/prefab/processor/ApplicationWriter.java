@@ -20,7 +20,7 @@ import static org.apache.commons.text.WordUtils.uncapitalize;
 
 class ApplicationWriter {
     private static final ClassName TRANSACTIONAL = ClassName.get("org.springframework.transaction.annotation", "Transactional");
-    private final TestFileOutput fileWriter;
+    private final FileOutput fileWriter;
     private final PrefabContext context;
 
     ApplicationWriter(PrefabContext context) {

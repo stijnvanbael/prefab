@@ -35,7 +35,7 @@ class HttpWriter {
     private static final ClassName JSON_SUB_TYPE =
             ClassName.get("com.fasterxml.jackson.annotation", "JsonSubTypes", "Type");
 
-    private final TestFileOutput fileWriter;
+    private final FileOutput fileWriter;
     private final PrefabContext context;
 
     HttpWriter(PrefabContext context) {

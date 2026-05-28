@@ -5,7 +5,7 @@ import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
-import be.appify.prefab.processor.TestFileOutput;
+import be.appify.prefab.processor.FileOutput;
 import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
@@ -34,7 +34,7 @@ class DbColumnConverterContributorWriter {
     private static final String CONTRIBUTOR_INTERFACE =
             "be.appify.prefab.core.spring.data.jdbc.DbColumnConverterContributor";
 
-    private final TestFileOutput fileWriter;
+    private final FileOutput fileWriter;
 
     DbColumnConverterContributorWriter(PrefabContext context) {
         this.fileWriter = new OutputTargetFileOutput(context, "infrastructure.persistence", OutputTarget.MAIN);

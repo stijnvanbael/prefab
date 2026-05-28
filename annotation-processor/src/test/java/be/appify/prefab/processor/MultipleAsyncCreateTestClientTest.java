@@ -51,7 +51,7 @@ class MultipleAsyncCreateTestClientTest {
         }
     }
 
-    static class CapturingFileWriter implements TestFileOutput {
+    static class CapturingFileWriter implements FileOutput {
         private final List<String> capturedSources;
 
         CapturingFileWriter(List<String> capturedSources) {

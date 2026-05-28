@@ -3,7 +3,7 @@ package be.appify.prefab.processor.rest.update;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.RequestParameterBuilder;
-import be.appify.prefab.processor.TestFileOutput;
+import be.appify.prefab.processor.FileOutput;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
@@ -17,7 +17,7 @@ import static org.apache.commons.text.WordUtils.capitalize;
 
 class UpdateRequestRecordWriter {
     void writeUpdateRequestRecord(
-            TestFileOutput fileWriter,
+            FileOutput fileWriter,
             ClassManifest manifest,
             UpdateManifest update,
             RequestParameterBuilder parameterBuilder,
@@ -30,7 +30,7 @@ class UpdateRequestRecordWriter {
     }
 
     void writeUnionUpdateRequestInterface(
-            TestFileOutput fileWriter,
+            FileOutput fileWriter,
             PolymorphicAggregateManifest polymorphic,
             List<Map.Entry<ClassManifest, UpdateManifest>> group,
             RequestParameterBuilder parameterBuilder

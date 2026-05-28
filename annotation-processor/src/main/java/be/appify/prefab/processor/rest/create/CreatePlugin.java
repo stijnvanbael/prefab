@@ -10,7 +10,7 @@ import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
-import be.appify.prefab.processor.TestFileOutput;
+import be.appify.prefab.processor.FileOutput;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
@@ -113,7 +113,7 @@ public class CreatePlugin implements PrefabPlugin {
         }
     }
 
-    private void writePolymorphicAdditionalFiles(TestFileOutput fileWriter, PolymorphicAggregateManifest polymorphic) {
+    private void writePolymorphicAdditionalFiles(FileOutput fileWriter, PolymorphicAggregateManifest polymorphic) {
         var grouped = groupSubtypesByPath(polymorphic);
         grouped.forEach((pathKey, entries) -> {
             if (isUnionGroup(entries)) {

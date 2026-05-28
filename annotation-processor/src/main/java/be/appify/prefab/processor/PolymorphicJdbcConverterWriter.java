@@ -28,7 +28,7 @@ import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
  */
 class PolymorphicJdbcConverterWriter {
 
-    private final TestFileOutput fileWriter;
+    private final FileOutput fileWriter;
 
     PolymorphicJdbcConverterWriter(PrefabContext context) {
         this.fileWriter = new OutputTargetFileOutput(context, "infrastructure.persistence", OutputTarget.MAIN);

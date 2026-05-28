@@ -12,6 +12,7 @@ public class AutocompletePlugin implements PrefabPlugin {
     private final AutocompleteControllerWriter controllerWriter = new AutocompleteControllerWriter();
     private final AutocompleteServiceWriter serviceWriter = new AutocompleteServiceWriter();
     private final AutocompleteRepositoryWriter repositoryWriter = new AutocompleteRepositoryWriter();
+    private final AutocompleteTestClientWriter testClientWriter = new AutocompleteTestClientWriter();
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
@@ -26,6 +27,11 @@ public class AutocompletePlugin implements PrefabPlugin {
     @Override
     public void writeRepository(ClassManifest manifest, TypeSpec.Builder builder) {
         repositoryWriter.autocompleteMethods(manifest).forEach(builder::addMethod);
+    }
+
+    @Override
+    public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
+        testClientWriter.autocompleteMethods(manifest).forEach(builder::addMethod);
     }
 }
 

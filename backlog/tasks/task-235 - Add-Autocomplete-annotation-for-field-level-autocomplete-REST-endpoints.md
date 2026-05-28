@@ -1,10 +1,10 @@
 ---
 id: TASK-235
 title: Add @Autocomplete annotation for field-level autocomplete REST endpoints
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-05-27 13:15'
-updated_date: '2026-05-28 08:15'
+updated_date: '2026-05-28 08:26'
 labels:
   - ✨feature
   - rest
@@ -25,7 +25,7 @@ Introduce an `@Autocomplete` field-level annotation that generates a dedicated R
 - [x] #3 Controller generates GET endpoint per field returning ResponseEntity<List<String>>
 - [x] #4 Service generates autocomplete method using Spring Data Example API
 - [x] #5 Repository generates dedicated method per autocomplete field fetching only the field value (SELECT DISTINCT column) to avoid fetching full entities
-- [ ] #6 TestClient generates corresponding autocomplete method
+- [x] #6 TestClient generates corresponding autocomplete method
 - [x] #7 Unit tests verify generated controller, service, and repository code
 <!-- AC:END -->
 
@@ -186,4 +186,6 @@ Implemented AC3 by adding `AutocompleteControllerWriter` and wiring it in `Autoc
 Implemented AC4 by adding `AutocompleteServiceWriter` and wiring it in `AutocompletePlugin`. The service now generates one method per annotated field, logs autocomplete usage, and delegates to repository autocomplete methods with `PageRequest.of(0, 10)`.
 
 Expanded `AutocompletePluginTest` to assert generated controller endpoints, service methods, and repository methods for an aggregate with multiple `@Autocomplete` fields, covering AC7 for generation verification.
+
+Implemented AC6 by adding `AutocompleteTestClientWriter` and wiring it in `AutocompletePlugin`. Generated test clients now include one autocomplete helper per annotated field, pass `query` as request param, call the correct generated endpoint path (default and custom), and deserialize `List<String>` responses from MockMvc JSON output.
 <!-- SECTION:NOTES:END -->

@@ -32,14 +32,14 @@ import static be.appify.prefab.processor.rest.ControllerUtil.requestMapping;
 import static be.appify.prefab.processor.rest.ControllerUtil.securedAnnotation;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static org.apache.commons.text.WordUtils.capitalize;
-import static org.atteo.evo.inflector.English.plural;
+import org.javalite.common.Inflector;
 
 class CreateControllerWriter {
     MethodSpec createMethod(ClassManifest manifest, ExecutableElement constructor, PrefabContext context) {
         var create = constructor.getAnnotation(Create.class);
         var subtypeName = manifest.simpleName();
         return buildCreateMethod("create", manifest, subtypeName, manifest.packageName(), manifest.simpleName(),
-                toKebabCase("/" + plural(manifest.simpleName()) + "/"), constructor, create, context);
+                toKebabCase("/" + Inflector.pluralize(manifest.simpleName()) + "/"), constructor, create, context);
     }
 
     MethodSpec createDispatchMethodForPolymorphic(
@@ -49,7 +49,7 @@ class CreateControllerWriter {
         var create = group.getFirst().getValue().getAnnotation(Create.class);
         var unionName = "Create%sRequest".formatted(polymorphic.simpleName());
         var unionClass = ClassName.get(polymorphic.packageName() + ".application", unionName);
-        var redirectPath = toKebabCase("/" + plural(polymorphic.simpleName()) + "/");
+        var redirectPath = toKebabCase("/" + Inflector.pluralize(polymorphic.simpleName()) + "/");
         var parentName = polymorphic.parent()
                 .filter(p -> !p.type().parameters().isEmpty())
                 .map(VariableManifest::name);
@@ -107,7 +107,7 @@ class CreateControllerWriter {
         var create = constructor.getAnnotation(Create.class);
         var leafName = leafName(subtype.simpleName());
         var methodName = "create" + leafName;
-        var redirectPath = toKebabCase("/" + plural(polymorphic.simpleName()) + "/");
+        var redirectPath = toKebabCase("/" + Inflector.pluralize(polymorphic.simpleName()) + "/");
         return buildCreateMethod(methodName, subtype, leafName, subtype.packageName(), leafName,
                 redirectPath, constructor, create, context);
     }

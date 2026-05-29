@@ -18,7 +18,7 @@ import tools.jackson.core.type.TypeReference;
 
 import static be.appify.prefab.processor.TestClasses.MOCK_MVC_REQUEST_BUILDERS;
 import static be.appify.prefab.processor.TestClasses.MOCK_MVC_RESULT_MATCHERS;
-import static org.atteo.evo.inflector.English.plural;
+import org.javalite.common.Inflector;
 
 class GetListTestClientWriter {
     MethodSpec getListMethod(ClassManifest manifest) {
@@ -41,7 +41,7 @@ class GetListTestClientWriter {
     MethodSpec getListMethodForPolymorphic(PolymorphicAggregateManifest manifest) {
         var search = manifest.annotationsOfType(GetList.class).stream().findFirst().orElseThrow();
         var returnType = polymorphicReturnType(manifest);
-        var method = MethodSpec.methodBuilder("find" + plural(manifest.simpleName()))
+        var method = MethodSpec.methodBuilder("find" + Inflector.pluralize(manifest.simpleName()))
                 .addModifiers(Modifier.PUBLIC)
                 .returns(returnType)
                 .addParameter(Pageable.class, "pageable");
@@ -80,7 +80,7 @@ class GetListTestClientWriter {
             ParameterizedTypeName returnType,
             List<VariableManifest> filterProperties
     ) {
-        var method = MethodSpec.methodBuilder("find" + plural(manifest.simpleName()))
+        var method = MethodSpec.methodBuilder("find" + Inflector.pluralize(manifest.simpleName()))
                 .addModifiers(Modifier.PUBLIC)
                 .returns(returnType)
                 .addParameter(Pageable.class, "pageable");

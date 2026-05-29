@@ -115,7 +115,7 @@ public class TestConsumerExecutionListener extends AbstractTestExecutionListener
             throw new IllegalArgumentException("Test consumer factory not available, please add a " +
                     "ConsumerFactory bean to your context named `testConsumerFactory`");
         }
-        String id = testInstance.getClass().getSimpleName() + "-%s-json".formatted(index++);
+        String id = testInstance.getClass().getSimpleName() + "-%s".formatted(index++);
         return consumerFactory.createConsumer(id, id);
     }
 

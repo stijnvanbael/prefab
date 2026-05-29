@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import static be.appify.prefab.processor.CaseUtil.toKebabCase;
 import static org.apache.commons.text.WordUtils.capitalize;
 import static org.apache.commons.text.WordUtils.uncapitalize;
-import static org.atteo.evo.inflector.English.plural;
+import org.javalite.common.Inflector;
 import static org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE;
 
 /** Utility class for controller-related operations. */
@@ -72,10 +72,10 @@ public class ControllerUtil {
     public static String pathOf(ClassManifest manifest) {
         var parentPath = manifest.parent()
                 .map(parent -> "%s/{%sId}/" .formatted(
-                        toKebabCase(plural(parent.type().parameters().getFirst().simpleName())),
+                        toKebabCase(Inflector.pluralize(parent.type().parameters().getFirst().simpleName())),
                         uncapitalize(parent.name())))
                 .orElse("");
-        return parentPath + toKebabCase(plural(manifest.simpleName()));
+        return parentPath + toKebabCase(Inflector.pluralize(manifest.simpleName()));
     }
 
     /**
@@ -88,10 +88,10 @@ public class ControllerUtil {
     public static String pathOf(PolymorphicAggregateManifest manifest) {
         var parentPath = manifest.parent()
                 .map(parent -> "%s/{%sId}/" .formatted(
-                        toKebabCase(plural(parent.type().parameters().getFirst().simpleName())),
+                        toKebabCase(Inflector.pluralize(parent.type().parameters().getFirst().simpleName())),
                         uncapitalize(parent.name())))
                 .orElse("");
-        return parentPath + toKebabCase(plural(manifest.simpleName()));
+        return parentPath + toKebabCase(Inflector.pluralize(manifest.simpleName()));
     }
 
     /**

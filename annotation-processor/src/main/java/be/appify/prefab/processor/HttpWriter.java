@@ -25,7 +25,7 @@ import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
-import static org.atteo.evo.inflector.English.plural;
+import org.javalite.common.Inflector;
 
 class HttpWriter {
     private static final ClassName JSON_TYPE_INFO =
@@ -280,7 +280,7 @@ class HttpWriter {
     }
 
     static String polymorphicPathOf(PolymorphicAggregateManifest manifest) {
-        return toKebabCase(plural(manifest.simpleName()));
+        return toKebabCase(Inflector.pluralize(manifest.simpleName()));
     }
 
     private static String lastSimpleName(String simpleName) {

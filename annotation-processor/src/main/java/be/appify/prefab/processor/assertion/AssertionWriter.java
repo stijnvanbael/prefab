@@ -14,11 +14,14 @@ import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import com.palantir.javapoet.TypeVariableName;
 import com.palantir.javapoet.WildcardTypeName;
+import org.javalite.common.Inflector;
+
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -205,37 +208,72 @@ class AssertionWriter {
         return List.of(equalsFieldAssertMethod(selfType, field));
     }
 
-    private List<MethodSpec> listFieldAssertMethods(ClassName assertType, VariableManifest field) {
-        var methods = new java.util.ArrayList<MethodSpec>();
-        methods.add(listFieldAssertMethod(assertType, field));
+    private List<MethodSpec> listFieldAssertMethods(TypeVariableName selfType, VariableManifest field) {
+        var methods = new ArrayList<MethodSpec>();
+        methods.add(listFieldAssertMethod(selfType, field));
         if (isListWithNestedRecordElement(field)) {
-            methods.add(listElementAssertMethod(assertType, field));
+            methods.add(listElementAssertMethod(selfType, field));
+            methods.add(listElementsWithAssertMethod(selfType, field));
         }
         return List.copyOf(methods);
     }
 
     private boolean isListWithNestedRecordElement(VariableManifest field) {
-        return field.name().endsWith("List")
-                && !field.type().parameters().isEmpty()
+        return !field.type().parameters().isEmpty()
                 && isNestedRecordType(field.type().parameters().getFirst());
     }
 
-    private MethodSpec listElementAssertMethod(ClassName assertType, VariableManifest field) {
+    private MethodSpec listElementsWithAssertMethod(TypeVariableName selfType, VariableManifest field) {
         var elementType = field.type().parameters().getFirst();
         var flatName = elementType.simpleName().replace(".", "");
         var packageName = elementType.packageName();
         var elementAssertType = ClassName.get(packageName, flatName + "Assert");
-        var consumerType = ParameterizedTypeName.get(CONSUMER, elementAssertType);
-        return MethodSpec.methodBuilder("has" + flatName + "Satisfying")
+        var wildcardedElementAssertType = ParameterizedTypeName.get(elementAssertType, WildcardTypeName.subtypeOf(Object.class));
+        var consumerType = ParameterizedTypeName.get(CONSUMER, wildcardedElementAssertType);
+        var fieldName = field.name();
+        return MethodSpec.methodBuilder("has" + capitalize(fieldName) + "With")
+                .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
+                .addAnnotation(SafeVarargs.class)
+                .returns(selfType)
+                .addParameter(com.palantir.javapoet.ArrayTypeName.of(consumerType), "requirements")
+                .varargs(true)
+                .addStatement("isNotNull()")
+                .addStatement("$T.requireNonNull(requirements, $S)", Objects.class, "requirements must not be null")
+                .addStatement("$T.assertThat(actual.$N()).hasSize(requirements.length)", ASSERTIONS, fieldName)
+                .beginControlFlow("for (int i = 0; i < requirements.length; i++)")
+                .addStatement("requirements[i].accept($T.assertThat(actual.$N().get(i)))", elementAssertType, fieldName)
+                .endControlFlow()
+                .addStatement("return myself")
+                .build();
+    }
+
+    private MethodSpec listElementAssertMethod(TypeVariableName selfType, VariableManifest field) {
+        var elementType = field.type().parameters().getFirst();
+        var flatName = elementType.simpleName().replace(".", "");
+        var packageName = elementType.packageName();
+        var elementAssertType = ClassName.get(packageName, flatName + "Assert");
+        var wildcardedElementAssertType = ParameterizedTypeName.get(elementAssertType, WildcardTypeName.subtypeOf(Object.class));
+        var consumerType = ParameterizedTypeName.get(CONSUMER, wildcardedElementAssertType);
+        return MethodSpec.methodBuilder("has" + capitalize(flatName) + "Satisfying")
                 .addModifiers(Modifier.PUBLIC)
-                .returns(assertType)
+                .returns(selfType)
                 .addParameter(consumerType, "requirements")
                 .addStatement("isNotNull()")
                 .addStatement("$T.requireNonNull(requirements, $S)", Objects.class, "requirements must not be null")
                 .addStatement("actual.$N().forEach(element -> requirements.accept($T.assertThat(element)))",
                         field.name(), elementAssertType)
-                .addStatement("return this")
+                .addStatement("return myself")
                 .build();
+    }
+    private String singularize(String fieldName) {
+        if (fieldName.endsWith("List")) {
+            return fieldName.substring(0, fieldName.length() - 4);
+        }
+        var singular = Inflector.singularize(fieldName);
+        if(fieldName.equals(singular)) {
+            return fieldName + "Item";
+        }
+        return singular;
     }
 
     private MethodSpec recordFieldAssertMethod(TypeVariableName selfType, VariableManifest field) {

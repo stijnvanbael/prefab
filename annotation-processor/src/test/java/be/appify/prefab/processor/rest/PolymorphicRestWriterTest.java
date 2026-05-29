@@ -141,7 +141,7 @@ class PolymorphicRestWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.polymorphicwithparent.infrastructure.http.DrawingController")
                 .contentsAsUtf8String()
-                .contains("canvases/{canvasId}/drawings");
+                .contains("canvas/{canvasId}/drawings");
     }
 
     @Test

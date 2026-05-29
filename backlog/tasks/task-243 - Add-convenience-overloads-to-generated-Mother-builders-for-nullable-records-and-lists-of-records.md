@@ -3,7 +3,7 @@ id: TASK-243
 title: >-
   Add convenience overloads to generated Mother builders for nullable records
   and lists of records
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-05-29'
 labels: []
@@ -49,4 +49,19 @@ customise child objects inline. Two gaps exist that cause ambiguity or missing e
    - For nullable `List<Record>` fields → also emit `withoutX()`.
 3. Update `MotherWriterTest` (and/or integration tests) to assert all new overload signatures.
 4. Update `backlog/docs/generated-artefacts.md` to document the new overloads.
+
+## Implementation Notes
+
+- `MotherWriter.buildEventMotherBuilderInnerClass` and `buildRequestMotherBuilderInnerClass` updated
+  to iterate list-of-record fields separately from plain nested-record fields.
+- Added helpers: `isListOfNestedObjectType`, `withoutNullableFieldMethod`, `listVarargsMethod`,
+  `listVarargsOverloadForEventMotherBuilder`, `listVarargsOverloadForRequestMotherBuilder`,
+  `emptyListMethod`.
+- Varargs parameter declared with `ArrayTypeName.of(consumerType)` as required by palantir javapoet's
+  `.varargs(true)` contract.
+- `withoutX()` casts `null` to the field's concrete type to resolve the compiler ambiguity with the
+  `Consumer` overload.
+- Test fixture: `mother/nullablerecord/source/{ShipmentEvent,Order}.java`; 7 new tests in
+  `MotherPluginTest` covering all AC items.
+- Committed: `feat: add withoutX, varargs, and emptyX overloads to generated Mother builders`
 

@@ -1,6 +1,8 @@
 package be.appify.prefab.test.kafka;
 
 import be.appify.prefab.test.TestContainerNameResolver;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -18,12 +20,19 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.kafka.KafkaContainer;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.Optional;
 
 @TestConfiguration(proxyBeanMethods = false)
 @AutoConfiguration(before = KafkaTestAutoConfiguration.class)
 @ConditionalOnClass(KafkaTemplate.class)
 public class KafkaTestcontainerAutoConfiguration {
+
+    private static final Logger log = LoggerFactory.getLogger(KafkaTestcontainerAutoConfiguration.class);
+
     @Bean
     @ConditionalOnMissingBean(name = "kafkaNetwork")
     Network kafkaNetwork(PropertyResolver propertyResolver) {
@@ -79,7 +88,23 @@ public class KafkaTestcontainerAutoConfiguration {
             registry.add("spring.kafka.consumer.properties.schema.registry.url", () -> schemaRegistryUrl);
             registry.add("spring.kafka.producer.properties.schema.registry.url", () -> schemaRegistryUrl);
             registry.add("spring.kafka.streams.properties.schema.registry.url", () -> schemaRegistryUrl);
+            resetSchemaRegistryCompatibility(schemaRegistryUrl);
         };
+    }
+
+    private void resetSchemaRegistryCompatibility(String schemaRegistryUrl) {
+        try {
+            var client = HttpClient.newHttpClient();
+            var request = HttpRequest.newBuilder()
+                    .uri(URI.create(schemaRegistryUrl + "/config"))
+                    .header("Content-Type", "application/vnd.schemaregistry.v1+json")
+                    .PUT(HttpRequest.BodyPublishers.ofString("{\"compatibility\": \"NONE\"}"))
+                    .build();
+            var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            log.info("Schema Registry global compatibility reset to NONE (status={})", response.statusCode());
+        } catch (Exception e) {
+            log.warn("Could not reset Schema Registry compatibility — schema incompatibilities may cause test failures", e);
+        }
     }
 
     private static final class ReusableNetwork implements Network {

@@ -4,6 +4,8 @@ import io.confluent.kafka.streams.serdes.avro.GenericAvroDeserializer;
 import java.util.NoSuchElementException;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.common.serialization.Deserializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
@@ -14,6 +16,8 @@ import tools.jackson.databind.type.TypeFactory;
  * For Avro deserialization, it converts the resulting {@link GenericRecord} to the target event class using a {@link ConversionService}.
  */
 public class DynamicDeserializer implements Deserializer<Object> {
+    private static final Logger log = LoggerFactory.getLogger(DynamicDeserializer.class);
+
     private final JacksonJsonDeserializer<Object> jsonDeserializer = new JacksonJsonDeserializer<>();
     private final GenericAvroDeserializer avroDeserializer = new GenericAvroDeserializer();
     private final ConversionService conversionService;
@@ -57,10 +61,15 @@ public class DynamicDeserializer implements Deserializer<Object> {
         if (data == null) {
             return null;
         } else {
-            return switch (eventRegistry.serialization(topic)) {
-                case AVRO -> toEvent(topic, avroDeserializer.deserialize(topic, data));
-                case JSON -> jsonDeserializer.deserialize(topic, data);
-            };
+            try {
+                return switch (eventRegistry.serialization(topic)) {
+                    case AVRO -> toEvent(topic, avroDeserializer.deserialize(topic, data));
+                    case JSON -> jsonDeserializer.deserialize(topic, data);
+                };
+            } catch (RuntimeException e) {
+                log.error("Failed to deserialize message from topic [{}]", topic, e);
+                throw e;
+            }
         }
     }
 

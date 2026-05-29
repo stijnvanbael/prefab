@@ -1,4 +1,5 @@
 be.appify.prefab.test.persistence.PostgresTestAutoConfiguration
+be.appify.prefab.test.kafka.KafkaTestcontainerAutoConfiguration
 be.appify.prefab.test.kafka.KafkaTestAutoConfiguration
 be.appify.prefab.test.pubsub.PubSubTestAutoConfiguration
 be.appify.prefab.test.sns.SnsTestAutoConfiguration

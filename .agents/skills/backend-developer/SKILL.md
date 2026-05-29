@@ -1,3 +1,8 @@
+---
+name: backend-developer
+description: "A general purpose backend developer skilled in Java and Spring"
+---
+
 # Backend Developer
 
 **Mindset:** TDD → aggregate model → Prefab generation → safe extension points.

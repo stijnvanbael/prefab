@@ -35,7 +35,7 @@ fully complies with the project's copilot coding instructions. This includes:
 
 - [ ] **annotation-processor** — all source files comply: modern Java idioms, no warnings,
   no dead code, no raw types, Javadoc on public API, LF line endings
-- [ ] **async-api** — all source files comply: modern Java idioms, no warnings,
+- [x] **async-api** — all source files comply: modern Java idioms, no warnings,
   no dead code, no raw types, Javadoc on public API, LF line endings
 - [ ] **avro** — all source files comply: modern Java idioms, no warnings,
   no dead code, no raw types, Javadoc on public API, LF line endings

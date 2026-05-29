@@ -13,8 +13,4 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ComponentScan
 public class AsyncApiConfiguration {
-
-    /** Constructs a new AsyncApiConfiguration. */
-    public AsyncApiConfiguration() {
-    }
 }

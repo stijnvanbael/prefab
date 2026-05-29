@@ -1,6 +1,6 @@
 <CRITICAL_INSTRUCTION>
 
-**IMPORTANT: Make sure these critical instructions are visible to you at all times during this session. Re-read them after any interruption.**
+**IMPORTANT: Make sure the USER PROMPT and THESE CRITICAL INSTRUCTIONS are visible to you at all times during this session. Re-read them after any interruption.**
 
 ## BACKLOG WORKFLOW INSTRUCTIONS
 

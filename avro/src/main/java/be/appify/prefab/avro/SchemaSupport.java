@@ -1,12 +1,13 @@
 package be.appify.prefab.avro;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
 import org.apache.avro.LogicalType;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
-
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * Utility class for creating Avro schemas with logical types.
@@ -19,20 +20,20 @@ public class SchemaSupport {
      * Logical type for representing an instant in time, stored as a long representing milliseconds since the epoch.
      */
     public static final LogicalType DURATION_MILLIS = new LogicalType("duration-millis");
+
     /**
-     * Logical type for representing a reference to another aggregate root, stored as a string containing the ID of the referenced aggregate
-     * root.
+     * Logical type for representing a reference to another aggregate root,
+     * stored as a string containing the ID of the referenced aggregate root.
      */
     public static final LogicalType REFERENCE = new LogicalType("reference");
 
     /**
-     * Creates an Avro schema for a logical type by adding the logical type information to a primitive schema.
+     * Creates an Avro schema for a logical type by wrapping a primitive schema with logical type metadata.
      *
-     * @param type
-     *         the primitive type to use for the schema (e.g., Schema.Type.LONG for DURATION_MILLIS)
-     * @param logicalType
-     *         the logical type to add to the schema
-     * @return a Schema instance representing the logical type
+     * @param type        the primitive Avro type (e.g., {@code Schema.Type.STRING}, {@code Schema.Type.LONG})
+     * @param logicalType the logical type annotation to attach (e.g., {@code "uuid"}, {@code "decimal"})
+     * @return a new schema representing the logical type
+     * @see LogicalType#addToSchema(Schema)
      */
     public static Schema createLogicalSchema(Schema.Type type, LogicalType logicalType) {
         var schema = Schema.create(type);
@@ -48,6 +49,11 @@ public class SchemaSupport {
      * @return a Schema instance representing the nullable schema
      */
     public static Schema createNullableSchema(Schema schema) {
+        if (schema.getType() == Schema.Type.UNION) {
+            var types = new HashSet<>(schema.getTypes());
+            types.add(Schema.create(Schema.Type.NULL));
+            return Schema.createUnion(new ArrayList<>(types));
+        }
         return Schema.createUnion(Schema.create(Schema.Type.NULL), schema);
     }
 
@@ -105,53 +111,66 @@ public class SchemaSupport {
         return field;
     }
 
+    /**
+     * Finds the first schema with the given simple name within the given schema tree.
+     *
+     * @param schema    the root schema to search
+     * @param simpleName the simple name of the schema to find (e.g. {@code "User"})
+     * @return the matching schema
+     * @throws IllegalArgumentException if no matching schema is found
+     */
     public static Schema namedTypeOf(Schema schema, String simpleName) {
         return namedTypeOf(schema, simpleName, new HashSet<>())
                 .orElseThrow(() -> new IllegalArgumentException(
                         "No named type '%s' found in schema: %s".formatted(simpleName, schema)));
     }
 
-    private static java.util.Optional<Schema> namedTypeOf(Schema schema, String simpleName, Set<String> visited) {
+    private static Optional<Schema> namedTypeOf(Schema schema, String simpleName, Set<String> visited) {
         if (schema == null) {
-            return java.util.Optional.empty();
+            return Optional.empty();
         }
+        return switch (schema.getType()) {
+            case RECORD -> findNamedInRecord(schema, simpleName, visited);
+            case ENUM -> findNamedInEnum(schema, simpleName);
+            case ARRAY -> findNamedInArray(schema, simpleName, visited);
+            case UNION -> findNamedInUnion(schema, simpleName, visited);
+            default -> Optional.empty();
+        };
+    }
 
-        switch (schema.getType()) {
-            case RECORD -> {
-                var fullName = schema.getFullName();
-                if (fullName != null && !visited.add(fullName)) {
-                    return java.util.Optional.empty();
-                }
-                if (schema.getName().equals(simpleName)) {
-                    return java.util.Optional.of(schema);
-                }
-                for (var field : schema.getFields()) {
-                    var match = namedTypeOf(field.schema(), simpleName, visited);
-                    if (match.isPresent()) {
-                        return match;
-                    }
-                }
-                return java.util.Optional.empty();
-            }
-            case ENUM -> {
-                return schema.getName().equals(simpleName) ? java.util.Optional.of(schema) : java.util.Optional.empty();
-            }
-            case ARRAY -> {
-                return namedTypeOf(schema.getElementType(), simpleName, visited);
-            }
-            case UNION -> {
-                for (var member : schema.getTypes()) {
-                    var match = namedTypeOf(member, simpleName, visited);
-                    if (match.isPresent()) {
-                        return match;
-                    }
-                }
-                return java.util.Optional.empty();
-            }
-            default -> {
-                return java.util.Optional.empty();
+    private static Optional<Schema> findNamedInRecord(Schema schema, String simpleName, Set<String> visited) {
+        var fullName = schema.getFullName();
+        if (fullName != null && !visited.add(fullName)) {
+            return Optional.empty();
+        }
+        if (schema.getName().equals(simpleName)) {
+            return Optional.of(schema);
+        }
+        for (var field : schema.getFields()) {
+            var match = namedTypeOf(field.schema(), simpleName, visited);
+            if (match.isPresent()) {
+                return match;
             }
         }
+        return Optional.empty();
+    }
+
+    private static Optional<Schema> findNamedInEnum(Schema schema, String simpleName) {
+        return schema.getName().equals(simpleName) ? Optional.of(schema) : Optional.empty();
+    }
+
+    private static Optional<Schema> findNamedInArray(Schema schema, String simpleName, Set<String> visited) {
+        return namedTypeOf(schema.getElementType(), simpleName, visited);
+    }
+
+    private static Optional<Schema> findNamedInUnion(Schema schema, String simpleName, Set<String> visited) {
+        for (var member : schema.getTypes()) {
+            var match = namedTypeOf(member, simpleName, visited);
+            if (match.isPresent()) {
+                return match;
+            }
+        }
+        return Optional.empty();
     }
 
     private static Schema unwrapUnion(Schema schema, Schema.Type targetType) {
@@ -165,10 +184,23 @@ public class SchemaSupport {
                         "No %s schema found in union: %s".formatted(targetType, schema)));
     }
 
+    /**
+     * Extracts a plain record schema from a field schema, unwrapping it from a union if necessary.
+     *
+     * @param schema the field schema, either a record or a union containing one
+     * @return the record schema
+     * @throws IllegalArgumentException if no record type exists in a union
+     */
     public static Schema recordSchemaOf(Schema schema) {
         return unwrapUnion(schema, Schema.Type.RECORD);
     }
 
+    /**
+     * Determines whether a schema is a record, either directly or wrapped in a union.
+     *
+     * @param schema the schema to check
+     * @return {@code true} if the schema or any union member is a record
+     */
     public static boolean isRecordSchema(Schema schema) {
         if (schema.getType() == Schema.Type.RECORD) {
             return true;
@@ -179,6 +211,14 @@ public class SchemaSupport {
         return schema.getTypes().stream().anyMatch(s -> s.getType() == Schema.Type.RECORD);
     }
 
+    /**
+     * Builds a {@link GenericRecord} containing a single field with the given value.
+     *
+     * @param schema    the record schema (unwrapped from a union if necessary)
+     * @param fieldName the name of the field to set
+     * @param fieldValue the value to assign to the field
+     * @return a new {@code GenericRecord} with the field populated
+     */
     public static GenericRecord singleValueRecord(Schema schema, String fieldName, Object fieldValue) {
         var recordSchema = recordSchemaOf(schema);
         var record = new GenericData.Record(recordSchema);
@@ -186,20 +226,43 @@ public class SchemaSupport {
         return record;
     }
 
+    /**
+     * Ensures the given schema is nullable, adding a null branch if absent.
+     *
+     * @param schema the schema to make nullable
+     * @return a schema whose type union includes {@code null}
+     */
     public static Schema createNullableUnion(Schema schema) {
         if (schema.getType() == Schema.Type.UNION) {
-            var types = new java.util.ArrayList<>(schema.getTypes());
-            if (types.stream().noneMatch(t -> t.getType() == Schema.Type.NULL)) { types.addFirst(Schema.create(Schema.Type.NULL)); }
+            var types = new ArrayList<>(schema.getTypes());
+            if (types.stream().noneMatch(t -> t.getType() == Schema.Type.NULL)) {
+                types.addFirst(Schema.create(Schema.Type.NULL));
+            }
             return Schema.createUnion(types);
         }
         return Schema.createUnion(Schema.create(Schema.Type.NULL), schema);
     }
 
+    /**
+     * Resolves a named branch from a union schema.
+     *
+     * @param unionSchema the union schema to inspect
+     * @param branchName  the simple name of the branch to find
+     * @return the matching branch schema
+     * @throws IllegalArgumentException if no such branch exists
+     */
     public static Schema namedBranchOf(Schema unionSchema, String branchName) {
         if (unionSchema.getType() == Schema.Type.UNION) {
-            return unionSchema.getTypes().stream().filter(t -> branchName.equals(t.getName())).findFirst().orElseThrow(() -> new IllegalArgumentException("No branch named " + branchName + " in union: " + unionSchema));
+            return unionSchema.getTypes().stream()
+                    .filter(t -> branchName.equals(t.getName()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "No branch named '%s' in union: %s".formatted(branchName, unionSchema)));
         }
-        if (branchName.equals(unionSchema.getName())) return unionSchema;
-        throw new IllegalArgumentException("Not a union: " + branchName);
+        if (branchName.equals(unionSchema.getName())) {
+            return unionSchema;
+        }
+        throw new IllegalArgumentException(
+                "Schema is not a union and does not have branch '%s': %s".formatted(branchName, unionSchema));
     }
 }

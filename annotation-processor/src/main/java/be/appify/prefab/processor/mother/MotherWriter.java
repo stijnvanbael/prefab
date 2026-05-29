@@ -8,6 +8,7 @@ import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.AnnotationSpec;
+import com.palantir.javapoet.ArrayTypeName;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.FieldSpec;
@@ -21,6 +22,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -215,7 +217,21 @@ class MotherWriter {
                 .superclass(parameterizedParent);
         fields.stream()
                 .filter(f -> isNestedObjectType(f.type()))
-                .forEach(f -> inner.addMethod(nestedConsumerSetterForEventMotherBuilder(f, hasEmbeddedBuilder)));
+                .forEach(f -> {
+                    inner.addMethod(nestedConsumerSetterForEventMotherBuilder(f, hasEmbeddedBuilder));
+                    if (f.nullable()) {
+                        inner.addMethod(withoutNullableFieldMethod(f.name(), f.type().asTypeName()));
+                    }
+                });
+        fields.stream()
+                .filter(f -> isListOfNestedObjectType(f.type()))
+                .forEach(f -> {
+                    inner.addMethod(listVarargsOverloadForEventMotherBuilder(f));
+                    inner.addMethod(emptyListMethod(f.name()));
+                    if (f.nullable()) {
+                        inner.addMethod(withoutNullableFieldMethod(f.name(), f.type().asTypeName()));
+                    }
+                });
         return inner.build();
     }
 
@@ -235,7 +251,21 @@ class MotherWriter {
                 .superclass(parameterizedParent);
         params.stream()
                 .filter(ep -> isNestedObjectType(ep.effectiveType()))
-                .forEach(ep -> inner.addMethod(nestedConsumerSetterForRequestMotherBuilder(ep)));
+                .forEach(ep -> {
+                    inner.addMethod(nestedConsumerSetterForRequestMotherBuilder(ep));
+                    if (ep.param().nullable()) {
+                        inner.addMethod(withoutNullableFieldMethod(ep.param().name(), ep.effectiveType().asTypeName()));
+                    }
+                });
+        params.stream()
+                .filter(ep -> isListOfNestedObjectType(ep.effectiveType()))
+                .forEach(ep -> {
+                    inner.addMethod(listVarargsOverloadForRequestMotherBuilder(ep));
+                    inner.addMethod(emptyListMethod(ep.param().name()));
+                    if (ep.param().nullable()) {
+                        inner.addMethod(withoutNullableFieldMethod(ep.param().name(), ep.effectiveType().asTypeName()));
+                    }
+                });
         return inner.build();
     }
 
@@ -253,6 +283,106 @@ class MotherWriter {
         var motherType = ClassName.get(nestedType.packageName(), simpleName + MOTHER_SUFFIX);
         var nestedMotherBuilderType = motherType.nestedClass("MotherBuilder");
         return consumerSetterMethod(setterMethodName(ep.param().name()), motherType, capitalize(simpleName), nestedMotherBuilderType);
+    }
+
+    private boolean isListOfNestedObjectType(TypeManifest type) {
+        return type.is(List.class)
+                && !type.parameters().isEmpty()
+                && isNestedObjectType(type.parameters().getFirst());
+    }
+
+    /**
+     * Generates a {@code withoutX()} method that sets a nullable field to {@code null}, disambiguating
+     * against the {@code Consumer} overload.
+     *
+     * <pre>
+     *   public MotherBuilder withoutAddress() {
+     *       address((Address) null);
+     *       return this;
+     *   }
+     * </pre>
+     */
+    private MethodSpec withoutNullableFieldMethod(String fieldName, TypeName fieldTypeName) {
+        var setterName = setterMethodName(fieldName);
+        return MethodSpec.methodBuilder("without" + capitalize(fieldName))
+                .addModifiers(Modifier.PUBLIC)
+                .returns(ClassName.get("", "MotherBuilder"))
+                .addStatement("$L(($T) null)", setterName, fieldTypeName)
+                .addStatement("return this")
+                .build();
+    }
+
+    /**
+     * Generates a varargs {@code Consumer} overload for list-of-record fields on event mothers.
+     *
+     * <pre>
+     *   public MotherBuilder items(Consumer&lt;ItemMother.MotherBuilder&gt;... itemsCustomisers) {
+     *       items(Arrays.stream(itemsCustomisers).map(ItemMother::createItem).toList());
+     *       return this;
+     *   }
+     * </pre>
+     */
+    private MethodSpec listVarargsOverloadForEventMotherBuilder(VariableManifest field) {
+        var elementType = field.type().parameters().getFirst();
+        var simpleName = elementType.simpleName().replace(".", "");
+        var motherType = ClassName.get(elementType.packageName(), simpleName + MOTHER_SUFFIX);
+        var nestedBuilderType = motherType.nestedClass("MotherBuilder");
+        return listVarargsMethod(setterMethodName(field.name()), field.name(), motherType, capitalize(simpleName), nestedBuilderType);
+    }
+
+    private MethodSpec listVarargsOverloadForRequestMotherBuilder(EffectiveParam ep) {
+        var elementType = ep.effectiveType().parameters().getFirst();
+        var simpleName = elementType.simpleName().replace(".", "");
+        var motherType = ClassName.get(elementType.packageName(), simpleName + MOTHER_SUFFIX);
+        var nestedBuilderType = motherType.nestedClass("MotherBuilder");
+        return listVarargsMethod(setterMethodName(ep.param().name()), ep.param().name(), motherType, capitalize(simpleName), nestedBuilderType);
+    }
+
+    /**
+     * Builds the shared varargs {@code Consumer} overload for a list-of-record setter.
+     */
+    private MethodSpec listVarargsMethod(
+            String setterName,
+            String fieldName,
+            ClassName motherType,
+            String capitalizedSimpleName,
+            ClassName nestedBuilderType
+    ) {
+        var consumerType = ParameterizedTypeName.get(ClassName.get(Consumer.class), nestedBuilderType);
+        var arrayOfConsumers = ArrayTypeName.of(consumerType);
+        var paramName = fieldName + "Customisers";
+        return MethodSpec.methodBuilder(setterName)
+                .addModifiers(Modifier.PUBLIC)
+                .addAnnotation(AnnotationSpec.builder(SuppressWarnings.class)
+                        .addMember("value", "$S", "varargs")
+                        .build())
+                .varargs(true)
+                .returns(ClassName.get("", "MotherBuilder"))
+                .addParameter(arrayOfConsumers, paramName)
+                .addStatement("$L($T.stream($L).map($T::create$L).toList())",
+                        setterName, Arrays.class, paramName, motherType, capitalizedSimpleName)
+                .addStatement("return this")
+                .build();
+    }
+
+    /**
+     * Generates an {@code emptyX()} method that sets a list field to an empty list.
+     *
+     * <pre>
+     *   public MotherBuilder emptyItems() {
+     *       items(List.of());
+     *       return this;
+     *   }
+     * </pre>
+     */
+    private MethodSpec emptyListMethod(String fieldName) {
+        var setterName = setterMethodName(fieldName);
+        return MethodSpec.methodBuilder("empty" + capitalize(fieldName))
+                .addModifiers(Modifier.PUBLIC)
+                .returns(ClassName.get("", "MotherBuilder"))
+                .addStatement("$L($T.of())", setterName, List.class)
+                .addStatement("return this")
+                .build();
     }
 
     /**

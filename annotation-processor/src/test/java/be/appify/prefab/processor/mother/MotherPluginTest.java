@@ -344,6 +344,106 @@ class MotherPluginTest {
                 "Event mother must not be written to test (CLASS_OUTPUT) when target = MAIN");
     }
 
+    @Test
+    void eventMotherWithNullableRecordFieldGeneratesWithoutOverload() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/nullablerecord/source/ShipmentEvent.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/nullablerecord/source", "ShipmentEventMother.java")
+                .contentsAsUtf8String()
+                .contains("withoutAddress");
+    }
+
+    @Test
+    void eventMotherWithListOfRecordFieldGeneratesVarargsOverload() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/nullablerecord/source/ShipmentEvent.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/nullablerecord/source", "ShipmentEventMother.java")
+                .contentsAsUtf8String()
+                .contains("itemsCustomisers");
+    }
+
+    @Test
+    void eventMotherWithListOfRecordFieldGeneratesEmptyOverload() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/nullablerecord/source/ShipmentEvent.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/nullablerecord/source", "ShipmentEventMother.java")
+                .contentsAsUtf8String()
+                .contains("emptyItems");
+    }
+
+    @Test
+    void eventMotherWithNullableListOfRecordFieldGeneratesWithoutOverload() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/nullablerecord/source/ShipmentEvent.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/nullablerecord/source", "ShipmentEventMother.java")
+                .contentsAsUtf8String()
+                .contains("withoutOptionalItems");
+    }
+
+    @Test
+    void nonNullableRecordFieldDoesNotGenerateWithoutOverload() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/nullablerecord/source/ShipmentEvent.java"));
+
+        assertThat(compilation).succeeded();
+        // items is non-nullable, so only withoutOptionalItems should appear, not withoutItems
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/nullablerecord/source", "ShipmentEventMother.java")
+                .contentsAsUtf8String()
+                .doesNotContain("withoutItems(");
+    }
+
+    @Test
+    void requestMotherWithNullableRecordFieldGeneratesWithoutOverload() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("mother/nullablerecord/source/ShipmentEvent.java"),
+                        sourceOf("mother/nullablerecord/source/Order.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/nullablerecord/source", "CreateOrderRequestMother.java")
+                .contentsAsUtf8String()
+                .contains("withoutShippingAddress");
+    }
+
+    @Test
+    void requestMotherWithListOfRecordFieldGeneratesVarargsAndEmptyOverloads() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("mother/nullablerecord/source/ShipmentEvent.java"),
+                        sourceOf("mother/nullablerecord/source/Order.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/nullablerecord/source", "CreateOrderRequestMother.java")
+                .contentsAsUtf8String()
+                .contains("itemsCustomisers");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/nullablerecord/source", "CreateOrderRequestMother.java")
+                .contentsAsUtf8String()
+                .contains("emptyItems");
+    }
+
     private static void deleteRecursively(Path root) {
         if (root == null || !Files.exists(root)) {
             return;

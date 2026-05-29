@@ -3,7 +3,7 @@ id: TASK-242
 title: >-
   Fix MotherPlugin event output target: @Generate override on events not
   respected
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-05-28 15:35'
 labels: []
@@ -19,8 +19,8 @@ MotherPlugin.writeAdditionalFiles() processes event elements in every aggregate 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Event mothers are written to main output when @Generate(plugin=MotherPlugin.class, target=OutputTarget.MAIN) is present on the event element
-- [ ] #2 Nested record mothers for an event with OutputTarget.MAIN override are also written to main output
-- [ ] #3 Events without @Generate override continue to be written to test output
-- [ ] #4 Integration test validates the MAIN output routing for an @Event-annotated type
+- [X] #1 Event mothers are written to main output when @Generate(plugin=MotherPlugin.class, target=OutputTarget.MAIN) is present on the event element
+- [X] #2 Nested record mothers for an event with OutputTarget.MAIN override are also written to main output
+- [X] #3 Events without @Generate override continue to be written to test output
+- [X] #4 Integration test validates the MAIN output routing for an @Event-annotated type
 <!-- AC:END -->

@@ -13,7 +13,7 @@ import com.palantir.javapoet.TypeName;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Modifier;
-import org.atteo.evo.inflector.English;
+import org.javalite.common.Inflector;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.ExampleMatcher;
 import org.springframework.data.domain.Page;
@@ -267,7 +267,7 @@ class GetListServiceWriter {
                 .toList();
         method.addStatement("log.debug($S, $T.class.getSimpleName(), $L)",
                 "Getting %s by %s".formatted(
-                        English.plural(manifest.simpleName()),
+                        Inflector.pluralize(manifest.simpleName()),
                         filterFieldNames.stream()
                                 .map("%s: {}"::formatted)
                                 .collect(Collectors.joining(", "))),
@@ -295,7 +295,7 @@ class GetListServiceWriter {
         manifest.parent().ifPresent(parent ->
                 method.addParameter(String.class, uncapitalize(parent.name()) + "Id"));
         method.addParameter(Pageable.class, "pageable");
-        method.addStatement("log.debug($S)", "Getting " + English.plural(manifest.simpleName()));
+        method.addStatement("log.debug($S)", "Getting " + Inflector.pluralize(manifest.simpleName()));
         manifest.parent().ifPresentOrElse(
                 parent -> method.addStatement("return $N.findBy$N($NId, pageable)",
                         repositoryName, capitalize(parent.name()), uncapitalize(parent.name())),

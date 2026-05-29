@@ -352,10 +352,11 @@ class MotherWriter {
         var arrayOfConsumers = ArrayTypeName.of(consumerType);
         var paramName = fieldName + "Customisers";
         return MethodSpec.methodBuilder(setterName)
-                .addModifiers(Modifier.PUBLIC)
+                .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
                 .addAnnotation(AnnotationSpec.builder(SuppressWarnings.class)
                         .addMember("value", "$S", "varargs")
                         .build())
+                .addAnnotation(SafeVarargs.class)
                 .varargs(true)
                 .returns(ClassName.get("", "MotherBuilder"))
                 .addParameter(arrayOfConsumers, paramName)

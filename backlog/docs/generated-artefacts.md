@@ -374,3 +374,105 @@ For AVSC union fields generated as sealed interfaces, Prefab generates mothers o
 - For `@Example` values on union-typed fields, mother defaults select the matching permitted branch
   wrapper value type.
 
+### Mother API
+
+Each generated `XxxMother` class exposes:
+
+| Method                              | Description                                              |
+|-------------------------------------|----------------------------------------------------------|
+| `static MotherBuilder builder()`    | Returns a pre-populated builder with sensible defaults.  |
+| `static Xxx createXxx()`            | Shorthand for `builder().build()`.                       |
+| `static Xxx createXxx(Consumer<MotherBuilder> customiser)` | Creates an instance after applying the customiser. |
+
+### MotherBuilder inner class
+
+`MotherBuilder` extends the record's own `Builder` (or the standalone generated `XxxBuilder` for
+hand-written event records) and adds higher-level convenience methods for nested types.
+
+#### Nested record fields
+
+For every field whose type is itself a record, `MotherBuilder` generates a `Consumer` overload so
+callers can customise the nested object inline:
+
+```java
+// Instead of:
+OrderMother.builder().address(AddressMother.createAddress(b -> b.city("Brussels"))).build();
+
+// You can write:
+OrderMother.builder().address(b -> b.city("Brussels")).build();
+```
+
+#### Nullable record fields — `withoutX()`
+
+When a record field is annotated `@Nullable`, calling the raw setter with `null` would be ambiguous
+with the `Consumer` overload above. A dedicated `withoutX()` method is generated to avoid this:
+
+```java
+// Unambiguously set a nullable nested record to null:
+OrderMother.builder().withoutAddress().build();
+```
+
+The method casts `null` to the concrete field type before delegating to the setter, eliminating the
+compiler ambiguity.
+
+#### List-of-record fields — varargs `Consumer` overload
+
+When a field is typed `List<SomeRecord>` and `SomeRecord` is itself a record, a varargs overload is
+generated so multiple entries can be built inline with individual customisers:
+
+```java
+// Build a list with two customised items:
+CartMother.builder()
+    .items(b -> b.name("Widget").quantity(2),
+           b -> b.name("Gadget").quantity(1))
+    .build();
+```
+
+Each varargs element is streamed through `SomeRecordMother::createSomeRecord` and collected into a
+`List`.
+
+#### List-of-record fields — `emptyX()`
+
+To set a list field to an empty list without triggering the varargs overload, use `emptyX()`:
+
+```java
+CartMother.builder().emptyItems().build();
+```
+
+#### Nullable list-of-record fields — `withoutX()`
+
+When a `List<SomeRecord>` field is additionally annotated `@Nullable`, a `withoutX()` method is
+also generated to set the list to `null` unambiguously:
+
+```java
+ShipmentMother.builder().withoutOptionalItems().build();
+```
+
+### Default value strategy
+
+| Field type          | Generated default                                        |
+|---------------------|----------------------------------------------------------|
+| `String`            | Field name as string literal                             |
+| `int` / `Integer`   | `1`                                                      |
+| `long` / `Long`     | `1L`                                                     |
+| `double` / `Double` | `1.0`                                                    |
+| `boolean`           | `false`                                                  |
+| `Instant`           | `Instant.now()`                                          |
+| `LocalDate`         | `LocalDate.now()`                                        |
+| `LocalDateTime`     | `LocalDateTime.now()`                                    |
+| `Duration`          | `Duration.ofSeconds(1)`                                  |
+| `BigDecimal`        | `BigDecimal.ONE`                                         |
+| `List<T>`           | `List.of(defaultT)` (one element for plain types); varargs overload for record elements |
+| `Map<K,V>`          | `Map.of()`                                               |
+| Nested record       | `NestedMother.createNested()`                            |
+| Enum                | `EnumType.values()[0]`                                   |
+| `@Nullable` field   | Same as non-nullable default (use `withoutX()` for null) |
+| `MultipartFile`     | `new MockMultipartFile(...)` (zero-byte)                 |
+
+`@Example` annotations on constructor parameters override these defaults.
+
+### Output target
+
+By default, all mother classes are written to `TARGET/prefab-test-sources` (test scope).
+Use `@Generate(plugin = MotherPlugin.class, target = OutputTarget.MAIN)` on an event type to write
+the mother to main sources instead.

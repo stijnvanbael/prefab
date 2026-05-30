@@ -9,6 +9,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -77,14 +78,14 @@ class SchemaSupportTest {
         }
 
         @Test
-        @DisplayName("should wrap existing union with additional null")
-        void shouldWrapExistingUnion() {
+        @DisplayName("should not add duplicate null to existing union")
+        void shouldNotAddDuplicateNull() {
             Schema innerSchema = Schema.create(Schema.Type.STRING);
             Schema existingUnion = Schema.createUnion(Schema.create(Schema.Type.NULL), innerSchema);
             Schema nullable = SchemaSupport.createNullableSchema(existingUnion);
 
             assertThat(nullable.getType()).isEqualTo(Schema.Type.UNION);
-            assertThat(nullable.getTypes()).hasSize(3);
+            assertThat(nullable.getTypes()).hasSize(2);
         }
     }
 
@@ -178,30 +179,6 @@ class SchemaSupportTest {
     }
 
     @Nested
-    @DisplayName("withDoc")
-    class WithDocTest {
-
-        @Test
-        @DisplayName("should add doc property to field")
-        void shouldAddDocProperty() {
-            Schema stringSchema = Schema.create(Schema.Type.STRING);
-            Schema.Field field = new Schema.Field("name", stringSchema, "", null);
-
-            Schema.Field result = SchemaSupport.withDoc(field, "The person's name");
-
-            assertThat(result).isSameAs(field);
-            assertThat(result.getProp("doc")).isEqualTo("The person's name");
-        }
-
-        @Test
-        @DisplayName("should return same field instance")
-        void shouldReturnSameField() {
-            Schema.Field field = new Schema.Field("name", Schema.create(Schema.Type.STRING), "", null);
-            assertThat(SchemaSupport.withDoc(field, "doc")).isSameAs(field);
-        }
-    }
-
-    @Nested
     @DisplayName("namedTypeOf")
     class NamedTypeOfTest {
 
@@ -257,8 +234,8 @@ class SchemaSupportTest {
         @Test
         @DisplayName("should find named type inside union")
         void shouldFindInUnion() {
-            Schema firstRecord = Schema.createRecord("First", null, "com.example", false);
-            Schema secondRecord = Schema.createRecord("Second", null, "com.example", false);
+            Schema firstRecord = Schema.createRecord("First", null, "com.example", false, emptyList());
+            Schema secondRecord = Schema.createRecord("Second", null, "com.example", false, emptyList());
             Schema union = Schema.createUnion(firstRecord, secondRecord);
 
             Schema result = SchemaSupport.namedTypeOf(union, "Second");
@@ -268,7 +245,7 @@ class SchemaSupportTest {
         @Test
         @DisplayName("should throw when named type not found")
         void shouldThrowWhenNotFound() {
-            Schema schema = Schema.createRecord("User", null, "com.example", false);
+            Schema schema = Schema.createRecord("User", null, "com.example", false, emptyList());
 
             assertThatThrownBy(() -> SchemaSupport.namedTypeOf(schema, "NotFound"))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -278,14 +255,12 @@ class SchemaSupportTest {
         @Test
         @DisplayName("should not infinite loop on circular references")
         void shouldHandleCircularReference() {
-            Schema parentRecord = Schema.createRecord("Parent", null, "com.example", false);
-            var childField = new Schema.Field("child", Schema.createRecord("Child", null, "com.example", false), null, null);
-            parentRecord.setFields(List.of(childField));
+            var parentRecord = Schema.createRecord("Parent", null, "com.example", false);
+            var childSchema = Schema.createRecord("Child", null, "com.example", false);
+            parentRecord.setFields(List.of(new Schema.Field("child", childSchema, null, null)));
 
-            Schema grandchildRecord = Schema.createRecord("GrandChild", null, "com.example", false);
-            Schema childSchema = Schema.createRecord("Child", null, "com.example", false);
-            var grandchildField = new Schema.Field("grandchild", grandchildRecord, null, null);
-            childSchema.setFields(List.of(grandchildField));
+            var grandchildRecord = Schema.createRecord("GrandChild", null, "com.example", false, emptyList());
+            childSchema.setFields(List.of(new Schema.Field("grandchild", grandchildRecord, null, null)));
 
             // This should not throw
             assertThatCode(() -> SchemaSupport.namedTypeOf(parentRecord, "GrandChild"))

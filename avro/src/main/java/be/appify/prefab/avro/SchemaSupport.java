@@ -49,12 +49,7 @@ public class SchemaSupport {
      * @return a Schema instance representing the nullable schema
      */
     public static Schema createNullableSchema(Schema schema) {
-        if (schema.getType() == Schema.Type.UNION) {
-            var types = new HashSet<>(schema.getTypes());
-            types.add(Schema.create(Schema.Type.NULL));
-            return Schema.createUnion(new ArrayList<>(types));
-        }
-        return Schema.createUnion(Schema.create(Schema.Type.NULL), schema);
+        return createNullableUnion(schema);
     }
 
     /**
@@ -94,20 +89,6 @@ public class SchemaSupport {
      */
     public static Schema.Field withSample(Schema.Field field, String sample) {
         field.addProp("sample", sample);
-        return field;
-    }
-
-    /**
-     * Sets the {@code doc} property on the given Avro field and returns it.
-     *
-     * @param field
-     *         the Avro field to document
-     * @param doc
-     *         the human-readable description to attach
-     * @return the same field instance with the {@code doc} property set
-     */
-    public static Schema.Field withDoc(Schema.Field field, String doc) {
-        field.addProp("doc", doc);
         return field;
     }
 

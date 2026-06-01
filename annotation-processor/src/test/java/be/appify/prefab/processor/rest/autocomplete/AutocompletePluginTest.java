@@ -69,7 +69,7 @@ class AutocompletePluginTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.autocomplete.application.ProductRepository")
                 .contentsAsUtf8String()
-                .contains("@Query(\"SELECT DISTINCT \\\"brand\\\" FROM \\\"product\\\" WHERE \\\"brand\\\" LIKE CONCAT('%', :query, '%') ORDER BY \\\"brand\\\"\")");
+                .contains("@Query(\"SELECT DISTINCT \\\"brand\\\" FROM \\\"product\\\" WHERE LOWER(\\\"brand\\\") LIKE LOWER(CONCAT(:query, '%')) ORDER BY \\\"brand\\\"\")");
         assertThat(compilation)
                 .generatedSourceFile("rest.autocomplete.application.ProductRepository")
                 .contentsAsUtf8String()

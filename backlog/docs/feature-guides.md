@@ -22,6 +22,7 @@
 - [7.14 Event Consumer Ordering and Hot-Key Stability](#714-event-consumer-ordering-and-hot-key-stability)
 - [7.15 Streams DSL Baseline (Kafka Source/Sink)](#715-streams-dsl-baseline-kafka-sourcesink)
 - [7.16 Per-aggregate Plugin Overrides](#716-per-aggregate-plugin-overrides)
+- [7.17 Autocomplete Endpoints](#717-autocomplete-endpoints)
 
 ---
 
@@ -238,7 +239,7 @@ Place `.avsc` files on the classpath and use `@Avsc` + `@Event`:
 // { "type": "record", "name": "SaleCreated", "namespace": "be.example.sale", "fields": [...] }
 
 @Event(topic = "sale", serialization = Event.Serialization.AVRO)
-@Avsc({ "avro/sale-created.avsc", "avro/sale-paid.avsc" })
+@Avsc({"avro/sale-created.avsc", "avro/sale-paid.avsc"})
 public sealed interface SaleEvent permits SaleCreated, SalePaid {
 }
 ```
@@ -386,7 +387,7 @@ public record Document(
         @Version long version,
         String title,
         @Download
-        @ContentType({ "application/pdf", "application/msword" })
+        @ContentType({"application/pdf", "application/msword"})
         @FileSize(max = 10 * 1024 * 1024)
         Binary file
 ) {
@@ -880,6 +881,7 @@ Use `join(...)` for KStream-KStream **inner join** composition with explicit win
 Example topology with subtype branching and factory merge:
 
 ```java
+
 @Configuration
 class StreamTopologyConfiguration {
 
@@ -907,9 +909,11 @@ sealed interface ClassifiedWord permits ShortWord, LongWord {
     String value();
 }
 
-record ShortWord(String value) implements ClassifiedWord {}
+record ShortWord(String value) implements ClassifiedWord {
+}
 
-record LongWord(String value) implements ClassifiedWord {}
+record LongWord(String value) implements ClassifiedWord {
+}
 ```
 
 Example join with deterministic keys and explicit window:
@@ -930,6 +934,7 @@ In this setup, `OrderPlaced.orderId` and `ShipmentUpdated.orderId` are emitted a
 Example breakout that injects a native Kafka Streams fragment via adapter SPI:
 
 ```java
+
 @Configuration
 class StreamTopologyConfiguration {
 
@@ -959,6 +964,7 @@ Topology tests can use the lightweight `KafkaTopologyTestBootstrap` helper to av
 Example:
 
 ```java
+
 @Test
 void shouldForwardOrder() {
     var test = KafkaTopologyTestBootstrap.bootstrap();
@@ -984,6 +990,7 @@ void shouldForwardOrder() {
 Use `@Generate` on a specific aggregate when plugin behavior must differ from project defaults.
 
 ```java
+
 @Aggregate
 @Generate(plugin = AsyncApiDocumentationPlugin.class, enabled = false)
 @Generate(plugin = CreatePlugin.class, target = OutputTarget.TEST)
@@ -1014,15 +1021,18 @@ Precedence order:
 Project-wide option example (Maven):
 
 ```xml
+
 <compilerArg>-Aprefab.plugin.create.enabled=false</compilerArg>
 ```
 
 Then re-enable for one aggregate:
 
 ```java
+
 @Generate(plugin = CreatePlugin.class, enabled = true)
 @Aggregate
-public record CriticalOrder(...) { }
+public record CriticalOrder(...) {
+}
 ```
 
 Tips:
@@ -1030,5 +1040,129 @@ Tips:
 - Use repeatable `@Generate` to configure multiple plugins on one type
 - Prefer `OutputTarget.DEFAULT` unless you explicitly need generated test artefacts
 - If a plugin class is invalid or missing from processor classpath, compilation fails fast with a clear message
+
+---
+
+## 7.17 Autocomplete Endpoints
+
+`@Autocomplete` generates a `GET` endpoint that returns distinct field values matching a query term.
+Two orthogonal attributes control the matching behaviour:
+
+| Attribute       | Controls                 | Default                     |
+|-----------------|--------------------------|-----------------------------|
+| `scanMode`      | Where the term appears   | `ScanMode.PREFIX`           |
+| `matchStrategy` | How the term is compared | `MatchStrategy.IGNORE_CASE` |
+
+### Basic usage
+
+```java
+
+@Aggregate
+public record Product(
+        @Id String id,
+        @Version long version,
+        @Autocomplete String name          // PREFIX + IGNORE_CASE
+) {
+}
+```
+
+**Generated endpoint:** `GET /products/name/autocomplete?query=ap` → `["Apple", "Apricot"]`
+
+---
+
+### Scan mode
+
+```java
+// PREFIX — generated SQL: LOWER("name") LIKE LOWER(CONCAT(:query, '%'))
+@Autocomplete(scanMode = ScanMode.PREFIX)
+String name;
+
+// CONTAINS — generated SQL: LOWER("name") LIKE LOWER(CONCAT('%', :query, '%'))
+@Autocomplete(scanMode = ScanMode.CONTAINS)
+String name;
+```
+
+MongoDB uses an anchored regex (`^term`) for `PREFIX` and an unanchored regex (`term`) for `CONTAINS`.
+
+---
+
+### Match strategy
+
+```java
+// EXACT (case-sensitive)
+@Autocomplete(matchStrategy = MatchStrategy.EXACT)
+String sku;
+
+// IGNORE_CASE (default)
+@Autocomplete(matchStrategy = MatchStrategy.IGNORE_CASE)
+String name;
+
+// FUZZY — requires pg_trgm on PostgreSQL
+@Autocomplete(matchStrategy = MatchStrategy.FUZZY)
+String description;
+```
+
+> **FUZZY on PostgreSQL** requires the `pg_trgm` extension:
+> ```
+> CREATE EXTENSION IF NOT EXISTS pg_trgm;
+> SET pg_trgm.word_similarity_threshold = 0.3;
+> ```
+> The similarity threshold is fixed at `0.3`.
+>
+> **FUZZY on MongoDB** falls back to a case-insensitive regex — there is no native server-side
+> fuzzy matching in MongoDB.
+
+---
+
+### Full query matrix
+
+| `scanMode` | `matchStrategy` | JDBC WHERE clause                                                                                          |
+|------------|-----------------|------------------------------------------------------------------------------------------------------------|
+| `PREFIX`   | `EXACT`         | `"col" LIKE CONCAT(:query, '%')`                                                                           |
+| `PREFIX`   | `IGNORE_CASE`   | `LOWER("col") LIKE LOWER(CONCAT(:query, '%'))`                                                             |
+| `PREFIX`   | `FUZZY`         | `LOWER(:query) <% LOWER("col")` — pg_trgm word-similarity operator; matches when query is similar to a prefix/word of the value (`"foo"` matches `"foebar"`, not `"barfoo"`) |
+| `CONTAINS` | `EXACT`         | `"col" LIKE CONCAT('%', :query, '%')`                                                                      |
+| `CONTAINS` | `IGNORE_CASE`   | `LOWER("col") LIKE LOWER(CONCAT('%', :query, '%'))`                                                        |
+| `CONTAINS` | `FUZZY`         | `similarity(LOWER("col"), LOWER(:query)) > 0.3` — whole-string similarity match                            |
+
+---
+
+### Custom path and security
+
+```java
+
+@Autocomplete(
+        path = "/brands/search",
+        scanMode = ScanMode.CONTAINS,
+        matchStrategy = MatchStrategy.IGNORE_CASE,
+        security = @Security(authenticated = true, authorities = {"ROLE_USER"})
+)
+String brand;
+```
+
+---
+
+### Migrating from `ignoreCase`
+
+The old `boolean ignoreCase` attribute has been removed. Migrate as follows:
+
+```java
+// Before
+@Autocomplete(ignoreCase = true)
+String name;
+@Autocomplete(ignoreCase = false)
+String sku;
+@Autocomplete
+String code;
+
+// After
+@Autocomplete(scanMode = ScanMode.CONTAINS, matchStrategy = MatchStrategy.IGNORE_CASE)
+String name;
+@Autocomplete(matchStrategy = MatchStrategy.EXACT)
+String sku;
+@Autocomplete
+String code; // PREFIX + IGNORE_CASE
+```
+
 
 

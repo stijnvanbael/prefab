@@ -13,6 +13,11 @@
 | `prefab.dlt.retries.minimum-backoff-ms` | `1000`  | Default minimum retry backoff (ms)                             |
 | `prefab.dlt.retries.maximum-backoff-ms` | `30000` | Default maximum retry backoff (ms)                             |
 | `prefab.dlt.retries.backoff-multiplier` | `1.5`   | Default exponential backoff multiplier                         |
+| `management.endpoints.web.exposure.include` | `health,info` | Exposes baseline actuator web endpoints for generated applications |
+| `management.endpoint.health.probes.enabled` | `true` | Enables liveness/readiness health probes |
+
+Prefab includes Spring Boot Actuator by default through `prefab-core`.
+If you need to expose more or fewer endpoints, override these with your own application properties.
 
 ---
 

@@ -1,6 +1,8 @@
 package be.appify.prefab.processor.rest.autocomplete;
 
 import be.appify.prefab.core.annotations.rest.Autocomplete;
+import be.appify.prefab.core.annotations.rest.MatchStrategy;
+import be.appify.prefab.core.annotations.rest.ScanMode;
 import be.appify.prefab.processor.ClassManifest;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
@@ -27,18 +29,17 @@ class AutocompleteRepositoryWriter {
                         .map(annotation -> autocompleteMethod(
                                 field.name(),
                                 tableName,
-                                annotation.value().ignoreCase())))
+                                annotation.value().scanMode(),
+                                annotation.value().matchStrategy())))
                 .flatMap(java.util.Optional::stream)
                 .toList();
     }
 
-    static MethodSpec autocompleteJdbcMethod(String fieldName, String tableName, boolean ignoreCase) {
+    static MethodSpec autocompleteJdbcMethod(String fieldName, String tableName, ScanMode scanMode, MatchStrategy matchStrategy) {
         var methodName = methodNameFor(fieldName);
         var columnName = quoted(toSnakeCase(fieldName));
         var table = quoted(tableName);
-        var whereClause = ignoreCase
-                ? "LOWER(" + columnName + ") LIKE LOWER(CONCAT('%', :query, '%'))"
-                : columnName + " LIKE CONCAT('%', :query, '%')";
+        var whereClause = buildJdbcWhereClause(columnName, scanMode, matchStrategy);
         var sql = "SELECT DISTINCT " + columnName + " FROM " + table + " WHERE " + whereClause
                 + " ORDER BY " + columnName;
 
@@ -58,11 +59,9 @@ class AutocompleteRepositoryWriter {
                 .build();
     }
 
-    static MethodSpec autocompleteMongoMethod(String fieldName, boolean ignoreCase) {
+    static MethodSpec autocompleteMongoMethod(String fieldName, ScanMode scanMode, MatchStrategy matchStrategy) {
         var methodName = methodNameFor(fieldName);
-        var matchStage = ignoreCase
-                ? "{ '$match': { '" + fieldName + "': { '$regex': '?0', '$options': 'i' } } }"
-                : "{ '$match': { '" + fieldName + "': { '$regex': '?0' } } }";
+        var matchStage = buildMongoMatchStage(fieldName, scanMode, matchStrategy);
         var groupStage = "{ '$group': { '_id': '$" + fieldName + "' } }";
         var sortStage = "{ '$sort': { '_id': 1 } }";
 
@@ -78,12 +77,43 @@ class AutocompleteRepositoryWriter {
                 .build();
     }
 
-    private MethodSpec autocompleteMethod(String fieldName, String tableName, boolean ignoreCase) {
+    // --- query shape builders ---
+
+    private static String buildJdbcWhereClause(String columnName, ScanMode scanMode, MatchStrategy matchStrategy) {
+        return switch (matchStrategy) {
+            case EXACT -> columnName + " LIKE " + concatJdbc(scanMode);
+            case IGNORE_CASE -> "LOWER(" + columnName + ") LIKE LOWER(" + concatJdbc(scanMode) + ")";
+            // FUZZY: uses pg_trgm similarity; falls back to PREFIX/CONTAINS with case-insensitive for portability
+            case FUZZY -> "similarity(" + columnName + ", :query) > 0.3"
+                    + " OR LOWER(" + columnName + ") LIKE LOWER(" + concatJdbc(scanMode) + ")";
+        };
+    }
+
+    private static String concatJdbc(ScanMode scanMode) {
+        return switch (scanMode) {
+            case PREFIX -> "CONCAT(:query, '%')";
+            case CONTAINS -> "CONCAT('%', :query, '%')";
+        };
+    }
+
+    private static String buildMongoMatchStage(String fieldName, ScanMode scanMode, MatchStrategy matchStrategy) {
+        var pattern = switch (scanMode) {
+            case PREFIX -> "^?0";
+            case CONTAINS -> "?0";
+        };
+        // MongoDB has no native fuzzy support; FUZZY falls back to case-insensitive regex
+        var options = (matchStrategy == MatchStrategy.EXACT) ? "" : ", '$options': 'i'";
+        return "{ '$match': { '" + fieldName + "': { '$regex': '" + pattern + "'" + options + " } } }";
+    }
+
+    // --- delegation ---
+
+    private MethodSpec autocompleteMethod(String fieldName, String tableName, ScanMode scanMode, MatchStrategy matchStrategy) {
         if (JDBC_INCLUDED) {
-            return autocompleteJdbcMethod(fieldName, tableName, ignoreCase);
+            return autocompleteJdbcMethod(fieldName, tableName, scanMode, matchStrategy);
         }
         if (MONGO_INCLUDED) {
-            return autocompleteMongoMethod(fieldName, ignoreCase);
+            return autocompleteMongoMethod(fieldName, scanMode, matchStrategy);
         }
         return MethodSpec.methodBuilder(methodNameFor(fieldName))
                 .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)

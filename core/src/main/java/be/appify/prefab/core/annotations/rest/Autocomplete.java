@@ -8,6 +8,17 @@ import java.lang.annotation.Target;
 /**
  * Annotate a field on the aggregate root to expose an HTTP endpoint for field-level autocompletion.
  * Generates a dedicated endpoint returning distinct matching values for the annotated field.
+ *
+ * <p>Two orthogonal dimensions control how the query term is matched:
+ * <ul>
+ *   <li>{@link #scanMode()} — whether the term must appear at the start ({@link ScanMode#PREFIX})
+ *       or anywhere ({@link ScanMode#CONTAINS}) in the value.</li>
+ *   <li>{@link #matchStrategy()} — whether the comparison is exact, case-insensitive, or fuzzy.</li>
+ * </ul>
+ *
+ * <p><strong>Migration from {@code ignoreCase}</strong>: the old boolean attribute has been removed.
+ * Use {@code matchStrategy = MatchStrategy.IGNORE_CASE} as the equivalent, or
+ * {@code matchStrategy = MatchStrategy.EXACT} for the former {@code ignoreCase = false} default.
  */
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.SOURCE)
@@ -21,11 +32,20 @@ public @interface Autocomplete {
     String path() default "";
 
     /**
-     * Whether the autocomplete match should be case-insensitive. Default is false.
+     * Where in the field value the query term must appear.
+     * Defaults to {@link ScanMode#PREFIX} (values that start with the term).
      *
-     * @return true if the autocomplete should be case-insensitive.
+     * @return the scan mode to apply.
      */
-    boolean ignoreCase() default false;
+    ScanMode scanMode() default ScanMode.PREFIX;
+
+    /**
+     * How the query term is compared to field values.
+     * Defaults to {@link MatchStrategy#IGNORE_CASE}.
+     *
+     * @return the match strategy to apply.
+     */
+    MatchStrategy matchStrategy() default MatchStrategy.IGNORE_CASE;
 
     /**
      * Security settings for this endpoint. Default is secured with no required authorities.

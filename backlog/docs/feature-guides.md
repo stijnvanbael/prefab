@@ -22,6 +22,7 @@
 - [7.14 Event Consumer Ordering and Hot-Key Stability](#714-event-consumer-ordering-and-hot-key-stability)
 - [7.15 Streams DSL Baseline (Kafka Source/Sink)](#715-streams-dsl-baseline-kafka-sourcesink)
 - [7.16 Per-aggregate Plugin Overrides](#716-per-aggregate-plugin-overrides)
+- [7.17 Autocomplete Endpoints](#717-autocomplete-endpoints)
 
 ---
 
@@ -1030,5 +1031,117 @@ Tips:
 - Use repeatable `@Generate` to configure multiple plugins on one type
 - Prefer `OutputTarget.DEFAULT` unless you explicitly need generated test artefacts
 - If a plugin class is invalid or missing from processor classpath, compilation fails fast with a clear message
+
+---
+
+## 7.17 Autocomplete Endpoints
+
+`@Autocomplete` generates a `GET` endpoint that returns distinct field values matching a query term.
+Two orthogonal attributes control the matching behaviour:
+
+| Attribute       | Controls                        | Default                  |
+|-----------------|---------------------------------|--------------------------|
+| `scanMode`      | Where the term appears          | `ScanMode.PREFIX`        |
+| `matchStrategy` | How the term is compared        | `MatchStrategy.IGNORE_CASE` |
+
+### Basic usage
+
+```java
+@Aggregate
+public record Product(
+        @Id String id,
+        @Version long version,
+        @Autocomplete String name          // PREFIX + IGNORE_CASE
+) { }
+```
+
+**Generated endpoint:** `GET /products/name/autocomplete?query=ap` → `["Apple", "Apricot"]`
+
+---
+
+### Scan mode
+
+```java
+// PREFIX — generated SQL: LOWER("name") LIKE LOWER(CONCAT(:query, '%'))
+@Autocomplete(scanMode = ScanMode.PREFIX)
+String name;
+
+// CONTAINS — generated SQL: LOWER("name") LIKE LOWER(CONCAT('%', :query, '%'))
+@Autocomplete(scanMode = ScanMode.CONTAINS)
+String name;
+```
+
+MongoDB uses an anchored regex (`^term`) for `PREFIX` and an unanchored regex (`term`) for `CONTAINS`.
+
+---
+
+### Match strategy
+
+```java
+// EXACT (case-sensitive)
+@Autocomplete(matchStrategy = MatchStrategy.EXACT)
+String sku;
+
+// IGNORE_CASE (default)
+@Autocomplete(matchStrategy = MatchStrategy.IGNORE_CASE)
+String name;
+
+// FUZZY — requires pg_trgm on PostgreSQL
+@Autocomplete(matchStrategy = MatchStrategy.FUZZY)
+String description;
+```
+
+> **FUZZY on PostgreSQL** requires the `pg_trgm` extension:
+> `CREATE EXTENSION IF NOT EXISTS pg_trgm;`
+> The similarity threshold is fixed at `0.3`.
+>
+> **FUZZY on MongoDB** falls back to a case-insensitive regex — there is no native server-side
+> fuzzy matching in MongoDB.
+
+---
+
+### Full query matrix
+
+| `scanMode` | `matchStrategy` | JDBC WHERE clause |
+|------------|-----------------|-------------------|
+| `PREFIX`   | `EXACT`         | `"col" LIKE CONCAT(:query, '%')` |
+| `PREFIX`   | `IGNORE_CASE`   | `LOWER("col") LIKE LOWER(CONCAT(:query, '%'))` |
+| `PREFIX`   | `FUZZY`         | `similarity("col", :query) > 0.3 OR LOWER("col") LIKE LOWER(CONCAT(:query, '%'))` |
+| `CONTAINS` | `EXACT`         | `"col" LIKE CONCAT('%', :query, '%')` |
+| `CONTAINS` | `IGNORE_CASE`   | `LOWER("col") LIKE LOWER(CONCAT('%', :query, '%'))` |
+| `CONTAINS` | `FUZZY`         | `similarity("col", :query) > 0.3 OR LOWER("col") LIKE LOWER(CONCAT('%', :query, '%'))` |
+
+---
+
+### Custom path and security
+
+```java
+@Autocomplete(
+        path = "/brands/search",
+        scanMode = ScanMode.CONTAINS,
+        matchStrategy = MatchStrategy.IGNORE_CASE,
+        security = @Security(authenticated = true, authorities = {"ROLE_USER"})
+)
+String brand;
+```
+
+---
+
+### Migrating from `ignoreCase`
+
+The old `boolean ignoreCase` attribute has been removed. Migrate as follows:
+
+```java
+// Before
+@Autocomplete(ignoreCase = true)  String name;
+@Autocomplete(ignoreCase = false) String sku;
+@Autocomplete                     String code;
+
+// After
+@Autocomplete(scanMode = ScanMode.CONTAINS, matchStrategy = MatchStrategy.IGNORE_CASE) String name;
+@Autocomplete(matchStrategy = MatchStrategy.EXACT)                                     String sku;
+@Autocomplete                                                                           String code; // PREFIX + IGNORE_CASE
+```
+
 
 

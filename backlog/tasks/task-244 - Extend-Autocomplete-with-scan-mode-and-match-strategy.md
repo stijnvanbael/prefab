@@ -1,10 +1,10 @@
 ---
 id: TASK-244
 title: Extend @Autocomplete with scan mode and match strategy
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-01 09:15'
-updated_date: '2026-06-01 09:26'
+updated_date: '2026-06-01 09:43'
 labels: []
 dependencies: []
 priority: high
@@ -18,14 +18,14 @@ Extend the @Autocomplete annotation to give callers control over two orthogonal 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A new ScanMode enum with PREFIX and CONTAINS values is added to the annotation-processor module with PREFIX as the default
-- [ ] #2 A new MatchStrategy enum with EXACT, IGNORE_CASE, and FUZZY values is added
-- [ ] #3 @Autocomplete gains a matchStrategy() attribute defaulting to IGNORE_CASE (preserving current ignoreCase behaviour)
-- [ ] #4 The existing ignoreCase() attribute is removed from @Autocomplete
-- [ ] #5 The annotation processor generates queries using LIKE 'term%' for PREFIX and LIKE '%term%' for CONTAINS
-- [ ] #6 FUZZY strategy applies trigram or Levenshtein-distance-based similarity (algorithm to be decided during implementation)
-- [ ] #7 Unit tests cover all combinations of ScanMode x MatchStrategy for generated query output
-- [ ] #8 annotation-reference.md and feature-guides.md are updated to document both new attributes
+- [x] #1 A new ScanMode enum with PREFIX and CONTAINS values is added to the annotation-processor module with PREFIX as the default
+- [x] #2 A new MatchStrategy enum with EXACT, IGNORE_CASE, and FUZZY values is added
+- [x] #3 @Autocomplete gains a matchStrategy() attribute defaulting to IGNORE_CASE (preserving current ignoreCase behaviour)
+- [x] #4 The existing ignoreCase() attribute is removed from @Autocomplete
+- [x] #5 The annotation processor generates queries using LIKE 'term%' for PREFIX and LIKE '%term%' for CONTAINS
+- [x] #6 FUZZY strategy applies trigram or Levenshtein-distance-based similarity (algorithm to be decided during implementation)
+- [x] #7 Unit tests cover all combinations of ScanMode x MatchStrategy for generated query output
+- [x] #8 annotation-reference.md and feature-guides.md are updated to document both new attributes
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -193,3 +193,39 @@ The call site in `autocompleteMethods()` reads both annotation attributes and pa
 2. **FUZZY scope**: include in this task or defer? Recommendation: defer.
 3. **pg_trgm migration**: if FUZZY is in scope, who owns the Flyway migration generation?
 <!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+## Implementation
+
+### New types (core module)
+- `ScanMode` enum: `PREFIX` | `CONTAINS`
+- `MatchStrategy` enum: `EXACT` | `IGNORE_CASE` | `FUZZY`
+
+### Updated `@Autocomplete` annotation
+- Removed `boolean ignoreCase()`
+- Added `ScanMode scanMode()` defaulting to `ScanMode.PREFIX`
+- Added `MatchStrategy matchStrategy()` defaulting to `MatchStrategy.IGNORE_CASE`
+- Full Javadoc with migration guide from old `ignoreCase`
+
+### Updated `AutocompleteRepositoryWriter`
+- Both static helper methods now take `ScanMode` + `MatchStrategy` instead of `boolean ignoreCase`
+- JDBC generates 6 distinct WHERE clause shapes via switch expressions
+- MongoDB generates 6 distinct `$match` stage shapes (FUZZY falls back to IGNORE_CASE regex; documented limitation)
+- FUZZY on JDBC generates `similarity(col, :query) > 0.3 OR LOWER(col) LIKE LOWER(...)` (requires pg_trgm)
+
+### Tests
+- `AutocompleteRepositoryWriterTest`: 18 tests covering all 2 × 3 combinations for both JDBC and Mongo
+- `AutocompletePluginTest`: integration assertions updated to match new query shapes (brand defaults to PREFIX + IGNORE_CASE)
+
+### Test resource
+- `Product.java` migrated from `ignoreCase = true` to explicit `scanMode = CONTAINS, matchStrategy = IGNORE_CASE`
+
+### Docs
+- `annotation-reference.md`: new `@Autocomplete` section added with attribute table, enum reference, query matrix, and migration guide
+- `feature-guides.md`: new section 7.17 "Autocomplete Endpoints" with examples for each combination
+
+### Commit
+`feat(autocomplete): add ScanMode and MatchStrategy to @Autocomplete, remove ignoreCase` (110dfe70)
+<!-- SECTION:FINAL_SUMMARY:END -->

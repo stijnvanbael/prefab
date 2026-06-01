@@ -83,9 +83,13 @@ class AutocompleteRepositoryWriter {
         return switch (matchStrategy) {
             case EXACT -> columnName + " LIKE " + concatJdbc(scanMode);
             case IGNORE_CASE -> "LOWER(" + columnName + ") LIKE LOWER(" + concatJdbc(scanMode) + ")";
-            // FUZZY: uses pg_trgm similarity; falls back to PREFIX/CONTAINS with case-insensitive for portability
-            case FUZZY -> "similarity(" + columnName + ", :query) > 0.3"
-                    + " OR LOWER(" + columnName + ") LIKE LOWER(" + concatJdbc(scanMode) + ")";
+            // FUZZY: <% operator (word similarity) for PREFIX — true when the query is similar to a
+            // contiguous word/prefix of the column value, so "foo" matches "foebar" but not "barfoo".
+            // similarity() for CONTAINS — whole-string fuzzy match regardless of position.
+            // Both sides lowercased for case-insensitive comparison.
+            case FUZZY -> scanMode == ScanMode.PREFIX
+                    ? "LOWER(:query) <% LOWER(" + columnName + ")"
+                    : "similarity(LOWER(" + columnName + "), LOWER(:query)) > 0.3";
         };
     }
 

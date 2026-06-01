@@ -40,14 +40,15 @@ class AutocompleteRepositoryWriterTest {
     }
 
     @Test
-    @DisplayName("JDBC PREFIX FUZZY generates similarity() OR LOWER LIKE prefix")
+    @DisplayName("JDBC PREFIX FUZZY uses <% operator — only matches prefix-positioned similar words")
     void jdbcPrefixFuzzy() {
         var source = AutocompleteRepositoryWriter
                 .autocompleteJdbcMethod("brand", "product", ScanMode.PREFIX, MatchStrategy.FUZZY)
                 .toString();
 
-        assertTrue(source.contains("similarity(\\\"brand\\\", :query) > 0.3"));
-        assertTrue(source.contains("LOWER(\\\"brand\\\") LIKE LOWER(CONCAT(:query, '%'))"));
+        assertTrue(source.contains("LOWER(:query) <% LOWER(\\\"brand\\\")"));
+        assertFalse(source.contains("LIKE"));
+        assertFalse(source.replace("word_similarity", "").contains("similarity("));
     }
 
     @Test
@@ -75,14 +76,15 @@ class AutocompleteRepositoryWriterTest {
     }
 
     @Test
-    @DisplayName("JDBC CONTAINS FUZZY generates similarity() OR LOWER LIKE contains")
+    @DisplayName("JDBC CONTAINS FUZZY uses full-string similarity for whole-value fuzzy matching")
     void jdbcContainsFuzzy() {
         var source = AutocompleteRepositoryWriter
                 .autocompleteJdbcMethod("brand", "product", ScanMode.CONTAINS, MatchStrategy.FUZZY)
                 .toString();
 
-        assertTrue(source.contains("similarity(\\\"brand\\\", :query) > 0.3"));
-        assertTrue(source.contains("LOWER(\\\"brand\\\") LIKE LOWER(CONCAT('%', :query, '%'))"));
+        assertTrue(source.contains("similarity(LOWER(\\\"brand\\\"), LOWER(:query)) > 0.3"));
+        assertFalse(source.contains("word_similarity"));
+        assertFalse(source.contains("LIKE"));
     }
 
     // -------------------------------------------------------------------------

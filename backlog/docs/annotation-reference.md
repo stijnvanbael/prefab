@@ -469,7 +469,7 @@ suitable for powering autocomplete widgets.
 |---------------|----------------------------------------------------------------------------------------|------------------------------------------------------------------------|
 | `EXACT`       | No wrapping — byte-for-byte comparison.                                                | Regex without options.                                                 |
 | `IGNORE_CASE` | Wraps column in `LOWER()`.                                                             | Adds `'$options': 'i'` to regex.                                       |
-| `FUZZY`       | `similarity(col, :query) > 0.3` (requires `pg_trgm`) + case-insensitive LIKE fallback. | Falls back to `IGNORE_CASE` regex — Mongo has no native fuzzy support. |
+| `FUZZY`       | `PREFIX` → `LOWER(:query) <% LOWER(col)` — pg_trgm `<%` operator; true only when the query is similar to a prefix/word of the value (e.g. `"foo"` matches `"foebar"` but not `"barfoo"`). Requires `pg_trgm`. `CONTAINS` → `similarity(LOWER(col), LOWER(:query)) > 0.3` — whole-string similarity. | Falls back to `IGNORE_CASE` regex — Mongo has no native fuzzy support. |
 
 > **Note:** `FUZZY` on PostgreSQL requires the `pg_trgm` extension to be enabled
 > (`CREATE EXTENSION IF NOT EXISTS pg_trgm`). The similarity threshold is fixed at `0.3`.

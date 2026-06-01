@@ -37,7 +37,7 @@ fully complies with the project's copilot coding instructions. This includes:
   no dead code, no raw types, Javadoc on public API, LF line endings
 - [x] **async-api** — all source files comply: modern Java idioms, no warnings,
   no dead code, no raw types, Javadoc on public API, LF line endings
-- [ ] **avro** — all source files comply: modern Java idioms, no warnings,
+- [x] **avro** — all source files comply: modern Java idioms, no warnings,
   no dead code, no raw types, Javadoc on public API, LF line endings
 - [ ] **avro-processor** — all source files comply: modern Java idioms, no warnings,
   no dead code, no raw types, Javadoc on public API, LF line endings

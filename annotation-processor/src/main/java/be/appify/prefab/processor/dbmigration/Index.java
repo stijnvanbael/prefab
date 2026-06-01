@@ -33,6 +33,12 @@ record Index(
         return new Index(name, List.of(columnName), false, "GIN");
     }
 
+    static Index trgm(String tableName, String columnName) {
+        var name = shorten(tableName + "_" + columnName + "_trgm", POSTGRES_MAX_IDENTIFIER_LENGTH);
+        var expression = "(\"%s\" gin_trgm_ops)".formatted(columnName);
+        return new Index(name, List.of(expression), false, "GIN");
+    }
+
     static Index jsonbPath(String tableName, String jsonbColumn, String fieldName, boolean unique) {
         var name = IdentifierShortener.indexName(tableName, jsonbColumn + "_" + fieldName, unique);
         var expression = "(\"%s\"->>'%s')".formatted(jsonbColumn, fieldName);

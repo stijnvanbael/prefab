@@ -597,4 +597,70 @@ class DbMigrationWriterTest {
                 .contentsAsUtf8String()
                 .contains("\"metadata\" jsonb");
     }
+
+    @Test
+    void fuzzyAutocompleteFieldGeneratesTrigmIndex() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/autocomplete_fuzzy/source/SimpleFuzzyProduct.java"));
+        assertThat(compilation).succeeded();
+        var sql = assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String();
+        sql.contains("CREATE EXTENSION IF NOT EXISTS \"pg_trgm\"");
+        sql.contains("CREATE INDEX");
+        sql.contains("simple_fuzzy_product");
+        sql.contains("trgm");
+    }
+
+    @Test
+    void fuzzyAutocompleteFieldGeneratesCorrectIndexWithOperators() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/autocomplete_fuzzy/source/SimpleFuzzyProduct.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("gin_trgm_ops");
+    }
+
+    @Test
+    void multipleAutocompleteFieldsWithMixedStrategies() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/autocomplete_fuzzy/source/MixedAutocompleteProduct.java"));
+        assertThat(compilation).succeeded();
+        var sql = assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String();
+        // Should have pg_trgm extension
+        sql.contains("CREATE EXTENSION IF NOT EXISTS \"pg_trgm\"");
+        // Should have trgm index for productName (fuzzy)
+        sql.contains("_product_name_trgm");
+        // Should have trgm index for description (fuzzy CONTAINS)
+        sql.contains("_description_trgm");
+        // Should NOT have trigram index for category (IGNORE_CASE)
+        sql.doesNotContain("_category_trgm");
+        // Should NOT have trigram index for sku (no autocomplete)
+        sql.doesNotContain("_sku_trgm");
+    }
+
+    @Test
+    void extensionIsAddedOnlyOnce() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/autocomplete_fuzzy/source/MixedAutocompleteProduct.java"));
+        assertThat(compilation).succeeded();
+        // Verify the extension is present and count occurrences
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("CREATE EXTENSION IF NOT EXISTS \"pg_trgm\"");
+        // Verify it only appears once by checking no double occurrence
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .doesNotContain("CREATE EXTENSION IF NOT EXISTS \"pg_trgm\"\n.*CREATE EXTENSION IF NOT EXISTS \"pg_trgm\"");
+    }
 }

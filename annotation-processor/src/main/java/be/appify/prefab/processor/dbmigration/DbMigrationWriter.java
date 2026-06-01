@@ -5,8 +5,10 @@ import be.appify.prefab.core.annotations.DbDocument;
 import be.appify.prefab.core.annotations.DbRename;
 import be.appify.prefab.core.annotations.Indexed;
 import be.appify.prefab.core.annotations.TenantId;
+import be.appify.prefab.core.annotations.rest.Autocomplete;
 import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.Filters;
+import be.appify.prefab.core.annotations.rest.MatchStrategy;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.ListUtil;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
@@ -63,6 +65,12 @@ class DbMigrationWriter {
         var currentDatabaseState = currentDatabaseState(processingEnvironment);
         var desiredDatabaseState = desiredDatabaseState(classManifests, polymorphicManifests);
         var changes = detectChanges(currentDatabaseState.tables(), desiredDatabaseState);
+
+        // Add extension enabling if there are fuzzy autocomplete fields
+        if (hasFuzzyAutocompleteFields(classManifests, polymorphicManifests)) {
+            changes.add(0, new DatabaseChange.EnableExtension("pg_trgm"));
+        }
+
         if (!changes.isEmpty()) {
             writeChanges(processingEnvironment, classManifests, polymorphicManifests, changes,
                     currentDatabaseState.version());
@@ -427,6 +435,16 @@ class DbMigrationWriter {
     }
 
     private static List<Index> indexFor(String tableName, String columnName, VariableManifest field) {
+        // Check if this field is an @Autocomplete with fuzzy match strategy
+        var fuzzyAutocompleteIndex = field.getAnnotation(Autocomplete.class)
+                .map(ann -> ann.value().matchStrategy())
+                .filter(strategy -> strategy == MatchStrategy.FUZZY)
+                .map(ignored -> Index.trgm(tableName, columnName));
+
+        if (fuzzyAutocompleteIndex.isPresent()) {
+            return List.of(fuzzyAutocompleteIndex.get());
+        }
+
         if (field.hasAnnotation(Indexed.class)) {
             var isUnique = field.getAnnotation(Indexed.class)
                     .map(a -> a.value().unique())
@@ -437,6 +455,30 @@ class DbMigrationWriter {
             return List.of(Index.of(tableName, columnName, false));
         }
         return List.of();
+    }
+
+    private boolean hasFuzzyAutocompleteFields(List<ClassManifest> classManifests,
+            List<PolymorphicAggregateManifest> polymorphicManifests) {
+        var hasInClassManifests = classManifests.stream()
+                .anyMatch(this::hasFuzzyAutocompleteField);
+        if (hasInClassManifests) {
+            return true;
+        }
+        return polymorphicManifests.stream()
+                .flatMap(pm -> pm.allFields().stream())
+                .anyMatch(this::isFuzzyAutocompleteField);
+    }
+
+    private boolean hasFuzzyAutocompleteField(ClassManifest manifest) {
+        return manifest.fields().stream()
+                .anyMatch(this::isFuzzyAutocompleteField);
+    }
+
+    private boolean isFuzzyAutocompleteField(VariableManifest field) {
+        return field.getAnnotation(Autocomplete.class)
+                .map(ann -> ann.value().matchStrategy())
+                .filter(strategy -> strategy == MatchStrategy.FUZZY)
+                .isPresent();
     }
 
     private List<Table> childEntityTables(String parentTableName, List<String> parentPrimaryKeyColumns,

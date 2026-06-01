@@ -84,6 +84,18 @@ interface DatabaseChange {
         }
     }
 
+    record EnableExtension(String extensionName) implements DatabaseChange {
+        @Override
+        public String toSql() {
+            return "CREATE EXTENSION IF NOT EXISTS \"%s\";\n".formatted(extensionName);
+        }
+
+        @Override
+        public String toString() {
+            return toSql();
+        }
+    }
+
     record AlterTable(String tableName, List<TableModification> modifications) implements DatabaseChange {
         @Override
         public String toSql() {

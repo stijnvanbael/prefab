@@ -3,6 +3,7 @@ package be.appify.prefab.streams.kafka;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.streams.JoinWindow;
+import be.appify.prefab.streams.StreamProcessor;
 import be.appify.prefab.streams.PrefabStream;
 import be.appify.prefab.streams.StreamBackend;
 import be.appify.prefab.streams.StreamBreakoutAdapter;
@@ -12,6 +13,8 @@ import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
+
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serializer;
@@ -185,6 +188,11 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
             );
         }
         return wrap((KStream<String, R>) adaptedKStream);
+    }
+
+    @Override
+    public <VO> PrefabStream<VO> process(Supplier<StreamProcessor<V, VO>> processor) {
+        Objects.requireNonNull(processor, "processor must not be null");
     }
 
     @Override

@@ -71,6 +71,20 @@ class AvscPluginTest {
     }
 
     @Test
+    void uuidLogicalTypeAvscEvent() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/uuid/source/UuidAvsc.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("event.avsc.UuidAvscEvent")
+                .contentsAsUtf8String()
+                .contains("UUID id");
+        assertThat(compilation).generatedSourceFile("event.avsc.UuidAvscEvent")
+                .contentsAsUtf8String()
+                .contains("UUID correlationId");
+    }
+
+    @Test
     void nullableAvscEventSchemaFactoryGeneratesNullableUnion() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

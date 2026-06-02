@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "UuidAvscEvent",
+  "namespace": "event.avsc",
+  "fields": [
+    {"name": "id", "type": {"type": "string", "logicalType": "uuid"}},
+    {"name": "correlationId", "type": {"type": "string", "logicalType": "uuid"}}
+  ]
+}
+

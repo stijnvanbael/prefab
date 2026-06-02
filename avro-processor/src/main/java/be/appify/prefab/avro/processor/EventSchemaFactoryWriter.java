@@ -472,7 +472,7 @@ class EventSchemaFactoryWriter {
     }
 
     private static boolean isTemporalLogicalType(TypeManifest type) {
-        return type.is(Instant.class) || type.is(LocalDate.class) || type.is(Duration.class);
+        return type.is(Instant.class) || type.is(LocalDate.class) || type.is(Duration.class) || type.is(UUID.class);
     }
 
 
@@ -502,6 +502,9 @@ class EventSchemaFactoryWriter {
         } else if (type.is(Duration.class)) {
             return CodeBlock.of("$T.createLogicalSchema($T.LONG, $T.DURATION_MILLIS)",
                     SchemaSupport.class, Schema.Type.class, SchemaSupport.class);
+        } else if (type.is(UUID.class)) {
+            return CodeBlock.of("$T.createLogicalSchema($T.STRING, $T.uuid())",
+                    SchemaSupport.class, Schema.Type.class, LogicalTypes.class);
         }
         throw new IllegalArgumentException("Unsupported type " + type);
     }

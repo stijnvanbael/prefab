@@ -8,28 +8,22 @@ import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import com.palantir.javapoet.*;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecord;
+import org.springframework.core.convert.converter.Converter;
 
+import javax.lang.model.element.Modifier;
+import javax.tools.Diagnostic;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.DeclaredType;
-import javax.tools.Diagnostic;
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericRecord;
-import org.springframework.core.convert.converter.Converter;
+import java.util.UUID;
 
-import static be.appify.prefab.avro.processor.AvroPlugin.isLogicalType;
-import static be.appify.prefab.avro.processor.AvroPlugin.avroUnionRecordBranches;
-import static be.appify.prefab.avro.processor.AvroPlugin.isAvroUnion;
-import static be.appify.prefab.avro.processor.AvroPlugin.isNestedRecord;
-import static be.appify.prefab.avro.processor.AvroPlugin.nestedTypes;
+import static be.appify.prefab.avro.processor.AvroPlugin.*;
 import static be.appify.prefab.avro.processor.AvroSupport.componentAnnotation;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
@@ -247,6 +241,8 @@ class EventToGenericRecordConverterWriter {
             return CodeBlock.of("(int) $L.toEpochDay()", value);
         } else if (type.is(Duration.class)) {
             return CodeBlock.of("$L.toMillis()", value);
+        } else if (type.is(UUID.class)) {
+            return CodeBlock.of("$L.toString()", value);
         } else if (type.isSingleValueType()) {
             return CodeBlock.of("$L.$N()", value, type.singleValueAccessor());
         } else {

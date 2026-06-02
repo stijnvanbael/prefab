@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 /**
@@ -192,6 +193,7 @@ public class AvroPlugin implements PrefabPlugin {
         return type.is(Instant.class)
                 || type.is(LocalDate.class)
                 || type.is(Duration.class)
+                || type.is(UUID.class)
                 || (type.isSingleValueType() && type.fields().getFirst().type().isStandardType());
     }
 }

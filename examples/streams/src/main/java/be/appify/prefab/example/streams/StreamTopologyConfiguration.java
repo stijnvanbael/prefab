@@ -49,7 +49,7 @@ class StreamTopologyConfiguration {
 
         return streams.merge(shortWords, longWords)
                 .map(word -> new WordEvent(word.id(), word.word()))
-                .process(WordCountProcessor::new)
+                .process(new WordCountProcessor(streams))
                 .to(WordEvent.class);
     }
 

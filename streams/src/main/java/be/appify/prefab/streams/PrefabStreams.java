@@ -28,8 +28,8 @@ public interface PrefabStreams {
      * processing topology and can be accessed from {@link StreamProcessor#store(Class)}.
      *
      * @param type store value type
-     * @param <V>  store value type
+     * @param <VS>  store value type
      * @return new state store of the given type
      */
-    <V> Store<V> createStore(Class<V> type);
+    <VS> Store<VS> createStore(Class<VS> type, StreamProcessorContext<?> context);
 }

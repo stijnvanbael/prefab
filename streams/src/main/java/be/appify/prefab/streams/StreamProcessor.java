@@ -10,4 +10,6 @@ public interface StreamProcessor<VI, VO> {
     void forward(StreamRecord<VO> value);
 
     <V> Store<V> store(Class<V> type);
+
+    void init(StreamProcessorContext<VO> context);
 }

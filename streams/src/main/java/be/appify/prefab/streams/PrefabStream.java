@@ -120,13 +120,13 @@ public interface PrefabStream<V> {
      * Process every record in the stream using the provided processor. A processor can either be stateless or be
      * stateful when it uses a state store.
      *
-     * @param processorSupplier
-     *         a supplier for the processor to apply to each record; must not be {@code null}
+     * @param processor
+     *         a processor to apply to each record; must not be {@code null}
      *
      * @return stream of processed values
      */
     <VO> PrefabStream<VO> process(
-            Function<PrefabStreams, ? extends StreamProcessor<V, VO>> processorSupplier
+            StreamProcessor<V, VO> processor
     );
 
     /**

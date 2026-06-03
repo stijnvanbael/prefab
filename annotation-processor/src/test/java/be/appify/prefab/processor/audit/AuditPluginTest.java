@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.audit;
 
 import be.appify.prefab.processor.PrefabProcessor;
+import com.google.testing.compile.Compilation;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.test.ProcessorTestUtil.sourceOf;
@@ -9,14 +10,17 @@ import static com.google.testing.compile.Compiler.javac;
 
 class AuditPluginTest {
 
+    public static final Compilation contractCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("rest/audit/source/Contract.java"));
+    public static final Compilation invoiceCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("rest/audit/source/Invoice.java"));
+
     @Test
     void auditContextProviderIsInjectedIntoService() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/audit/source/Contract.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(contractCompilation).succeeded();
+        assertThat(contractCompilation)
                 .generatedSourceFile("rest.audit.application.ContractService")
                 .contentsAsUtf8String()
                 .contains("AuditContextProvider");
@@ -24,12 +28,8 @@ class AuditPluginTest {
 
     @Test
     void createdAtIsPopulatedOnCreate() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/audit/source/Contract.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(contractCompilation).succeeded();
+        assertThat(contractCompilation)
                 .generatedSourceFile("rest.audit.application.ContractService")
                 .contentsAsUtf8String()
                 .contains("Instant.now()");
@@ -37,12 +37,8 @@ class AuditPluginTest {
 
     @Test
     void createdByIsPopulatedOnCreate() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/audit/source/Contract.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(contractCompilation).succeeded();
+        assertThat(contractCompilation)
                 .generatedSourceFile("rest.audit.application.ContractService")
                 .contentsAsUtf8String()
                 .contains("auditContextProvider.currentUserId()");
@@ -50,17 +46,13 @@ class AuditPluginTest {
 
     @Test
     void lastModifiedFieldsAreUpdatedOnUpdate() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/audit/source/Contract.java"));
-
-        assertThat(compilation).succeeded();
+        assertThat(contractCompilation).succeeded();
         // Update method should reference createdAt/createdBy preserved and lastModifiedAt/lastModifiedBy updated
-        assertThat(compilation)
+        assertThat(contractCompilation)
                 .generatedSourceFile("rest.audit.application.ContractService")
                 .contentsAsUtf8String()
                 .contains("aggregate.createdAt()");
-        assertThat(compilation)
+        assertThat(contractCompilation)
                 .generatedSourceFile("rest.audit.application.ContractService")
                 .contentsAsUtf8String()
                 .contains("aggregate.createdBy()");
@@ -68,16 +60,12 @@ class AuditPluginTest {
 
     @Test
     void auditFieldsAreExcludedFromCreateRequest() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/audit/source/Contract.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(contractCompilation).succeeded();
+        assertThat(contractCompilation)
                 .generatedSourceFile("rest.audit.application.CreateContractRequest")
                 .contentsAsUtf8String()
                 .doesNotContain("createdAt");
-        assertThat(compilation)
+        assertThat(contractCompilation)
                 .generatedSourceFile("rest.audit.application.CreateContractRequest")
                 .contentsAsUtf8String()
                 .doesNotContain("lastModifiedAt");
@@ -85,16 +73,12 @@ class AuditPluginTest {
 
     @Test
     void auditFieldsAreIncludedInResponse() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/audit/source/Contract.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(contractCompilation).succeeded();
+        assertThat(contractCompilation)
                 .generatedSourceFile("rest.audit.infrastructure.http.ContractResponse")
                 .contentsAsUtf8String()
                 .contains("createdAt");
-        assertThat(compilation)
+        assertThat(contractCompilation)
                 .generatedSourceFile("rest.audit.infrastructure.http.ContractResponse")
                 .contentsAsUtf8String()
                 .contains("lastModifiedAt");
@@ -102,20 +86,16 @@ class AuditPluginTest {
 
     @Test
     void auditInfoValueObjectIsPopulatedOnCreate() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/audit/source/Invoice.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(invoiceCompilation).succeeded();
+        assertThat(invoiceCompilation)
                 .generatedSourceFile("rest.audit.application.InvoiceService")
                 .contentsAsUtf8String()
                 .contains("new AuditInfo(");
-        assertThat(compilation)
+        assertThat(invoiceCompilation)
                 .generatedSourceFile("rest.audit.application.InvoiceService")
                 .contentsAsUtf8String()
                 .contains("Instant.now()");
-        assertThat(compilation)
+        assertThat(invoiceCompilation)
                 .generatedSourceFile("rest.audit.application.InvoiceService")
                 .contentsAsUtf8String()
                 .contains("auditContextProvider.currentUserId()");
@@ -123,16 +103,12 @@ class AuditPluginTest {
 
     @Test
     void auditInfoCreatedFieldsArePreservedOnUpdate() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/audit/source/Invoice.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(invoiceCompilation).succeeded();
+        assertThat(invoiceCompilation)
                 .generatedSourceFile("rest.audit.application.InvoiceService")
                 .contentsAsUtf8String()
                 .contains("aggregate.audit().createdAt()");
-        assertThat(compilation)
+        assertThat(invoiceCompilation)
                 .generatedSourceFile("rest.audit.application.InvoiceService")
                 .contentsAsUtf8String()
                 .contains("aggregate.audit().createdBy()");

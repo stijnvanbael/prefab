@@ -18,69 +18,73 @@ import javax.tools.StandardLocation;
 
 class AvscPluginTest {
 
+    public static final com.google.testing.compile.Compilation nullableCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("event/avsc/nullable/source/NullableAvsc.java"));
+    public static final com.google.testing.compile.Compilation simpleCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"));
+    public static final com.google.testing.compile.Compilation multiCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("event/avsc/multi/source/MultiAvsc.java"));
+    public static final com.google.testing.compile.Compilation nonprimitiveCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("event/avsc/nonprimitive/source/NonPrimitiveAvsc.java"));
+
     @Test
     void simpleAvscEvent() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"));
-        assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
+        assertThat(simpleCompilation).succeeded();
+        assertThat(simpleCompilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
                 .contains("@Event(");
-        assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
+        assertThat(simpleCompilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
                 .contains("topic = \"simple-avsc\"");
-        assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
+        assertThat(simpleCompilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
                 .contains("serialization = Event.Serialization.AVRO");
-        assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
+        assertThat(simpleCompilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
                 .contains("namespace = \"event.avsc\"");
-        assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
+        assertThat(simpleCompilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
                 .contains("String name");
-        assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
+        assertThat(simpleCompilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
                 .contains("int age");
-        assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
+        assertThat(simpleCompilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
                 .contains("double score");
-        assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
+        assertThat(simpleCompilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
                 .contains("boolean active");
-        assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
+        assertThat(simpleCompilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
                 .contains("implements SimpleAvsc");
     }
 
     @Test
     void nonPrimitiveAvscEvent() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("event/avsc/nonprimitive/source/NonPrimitiveAvsc.java"));
-        assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avsc.NonPrimitiveAvscEvent")
+        assertThat(nonprimitiveCompilation).succeeded();
+        assertThat(nonprimitiveCompilation).generatedSourceFile("event.avsc.NonPrimitiveAvscEvent")
                 .contentsAsUtf8String()
                 .contains("Instant timestamp");
-        assertThat(compilation).generatedSourceFile("event.avsc.NonPrimitiveAvscEvent")
+        assertThat(nonprimitiveCompilation).generatedSourceFile("event.avsc.NonPrimitiveAvscEvent")
                 .contentsAsUtf8String()
                 .contains("LocalDate date");
-        assertThat(compilation).generatedSourceFile("event.avsc.NonPrimitiveAvscEvent")
+        assertThat(nonprimitiveCompilation).generatedSourceFile("event.avsc.NonPrimitiveAvscEvent")
                 .contentsAsUtf8String()
                 .contains("Duration duration");
     }
 
     @Test
     void nullableAvscEventSchemaFactoryGeneratesNullableUnion() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("event/avsc/nullable/source/NullableAvsc.java"));
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(nullableCompilation).succeeded();
+        assertThat(nullableCompilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.NullableAvscEventSchemaFactory")
                 .contentsAsUtf8String()
                 .contains("SchemaSupport.createNullableSchema(Schema.create(Schema.Type.STRING))");
-        assertThat(compilation)
+        assertThat(nullableCompilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.NullableAvscEventSchemaFactory")
                 .contentsAsUtf8String()
                 .contains("verifySchemaCompatibility(this.schema)");
@@ -88,20 +92,17 @@ class AvscPluginTest {
 
     @Test
     void nullableAvscEvent() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("event/avsc/nullable/source/NullableAvsc.java"));
-        assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avsc.NullableAvscEvent")
+        assertThat(nullableCompilation).succeeded();
+        assertThat(nullableCompilation).generatedSourceFile("event.avsc.NullableAvscEvent")
                 .contentsAsUtf8String()
                 .contains("String id");
-        assertThat(compilation).generatedSourceFile("event.avsc.NullableAvscEvent")
+        assertThat(nullableCompilation).generatedSourceFile("event.avsc.NullableAvscEvent")
                 .contentsAsUtf8String()
                 .contains("String name");
-        assertThat(compilation).generatedSourceFile("event.avsc.NullableAvscEvent")
+        assertThat(nullableCompilation).generatedSourceFile("event.avsc.NullableAvscEvent")
                 .contentsAsUtf8String()
                 .contains("@Nullable");
-        assertThat(compilation).generatedSourceFile("event.avsc.NullableAvscEvent")
+        assertThat(nullableCompilation).generatedSourceFile("event.avsc.NullableAvscEvent")
                 .contentsAsUtf8String()
                 .contains("String description");
     }
@@ -134,51 +135,45 @@ class AvscPluginTest {
 
     @Test
     void simpleAvscEventGeneratesSchemaFactory() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"));
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(simpleCompilation).succeeded();
+        assertThat(simpleCompilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.SimpleAvscEventSchemaFactory")
                 .contentsAsUtf8String()
                 .contains("verifySchemaCompatibility(this.schema)");
-        assertThat(compilation)
+        assertThat(simpleCompilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.SimpleAvscEventSchemaFactory")
                 .contentsAsUtf8String()
                 .contains("Schema.Parser().parse(stream)");
-        assertThat(compilation)
+        assertThat(simpleCompilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.SimpleAvscEventToGenericRecordConverter")
                 .isNotNull();
-        assertThat(compilation)
+        assertThat(simpleCompilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.SimpleAvscToGenericRecordConverter")
                 .isNotNull();
-        assertThat(compilation)
+        assertThat(simpleCompilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.GenericRecordToSimpleAvscEventConverter")
                 .isNotNull();
-        assertThat(compilation)
+        assertThat(simpleCompilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.GenericRecordToSimpleAvscConverter")
                 .isNotNull();
     }
 
     @Test
     void multiPathAvscSchemaFactoriesLoadFromCorrectAvscFiles() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("event/avsc/multi/source/MultiAvsc.java"));
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(multiCompilation).succeeded();
+        assertThat(multiCompilation)
                 .generatedSourceFile("event.avsc.multi.infrastructure.avro.MultiAvscEventASchemaFactory")
                 .contentsAsUtf8String()
                 .contains("verifySchemaCompatibility(this.schema)");
-        assertThat(compilation)
+        assertThat(multiCompilation)
                 .generatedSourceFile("event.avsc.multi.infrastructure.avro.MultiAvscEventBSchemaFactory")
                 .contentsAsUtf8String()
                 .contains("verifySchemaCompatibility(this.schema)");
-        assertThat(compilation)
+        assertThat(multiCompilation)
                 .generatedSourceFile("event.avsc.multi.infrastructure.avro.MultiAvscEventASchemaFactory")
                 .contentsAsUtf8String()
                 .contains("getResourceAsStream(\"event/avsc/multi/source/MultiAvscEventA.avsc\")");
-        assertThat(compilation)
+        assertThat(multiCompilation)
                 .generatedSourceFile("event.avsc.multi.infrastructure.avro.MultiAvscEventBSchemaFactory")
                 .contentsAsUtf8String()
                 .contains("getResourceAsStream(\"event/avsc/multi/source/MultiAvscEventB.avsc\")");
@@ -186,26 +181,23 @@ class AvscPluginTest {
 
     @Test
     void multiPathAvscGeneratesOneRecordPerSchema() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("event/avsc/multi/source/MultiAvsc.java"));
-        assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avsc.multi.MultiAvscEventA")
+        assertThat(multiCompilation).succeeded();
+        assertThat(multiCompilation).generatedSourceFile("event.avsc.multi.MultiAvscEventA")
                 .contentsAsUtf8String()
                 .contains("String id");
-        assertThat(compilation).generatedSourceFile("event.avsc.multi.MultiAvscEventA")
+        assertThat(multiCompilation).generatedSourceFile("event.avsc.multi.MultiAvscEventA")
                 .contentsAsUtf8String()
                 .contains("double amount");
-        assertThat(compilation).generatedSourceFile("event.avsc.multi.MultiAvscEventA")
+        assertThat(multiCompilation).generatedSourceFile("event.avsc.multi.MultiAvscEventA")
                 .contentsAsUtf8String()
                 .contains("implements MultiAvsc");
-        assertThat(compilation).generatedSourceFile("event.avsc.multi.MultiAvscEventB")
+        assertThat(multiCompilation).generatedSourceFile("event.avsc.multi.MultiAvscEventB")
                 .contentsAsUtf8String()
                 .contains("String reference");
-        assertThat(compilation).generatedSourceFile("event.avsc.multi.MultiAvscEventB")
+        assertThat(multiCompilation).generatedSourceFile("event.avsc.multi.MultiAvscEventB")
                 .contentsAsUtf8String()
                 .contains("int count");
-        assertThat(compilation).generatedSourceFile("event.avsc.multi.MultiAvscEventB")
+        assertThat(multiCompilation).generatedSourceFile("event.avsc.multi.MultiAvscEventB")
                 .contentsAsUtf8String()
                 .contains("implements MultiAvsc");
     }
@@ -250,30 +242,24 @@ class AvscPluginTest {
 
     @Test
     void generatedAvscEventRecordContainsNestedBuilder() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"));
-        assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
+        assertThat(simpleCompilation).succeeded();
+        assertThat(simpleCompilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
                 .contains("public static class Builder");
-        assertThat(compilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
+        assertThat(simpleCompilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
                 .contains("public static SimpleAvscEvent.Builder<?> builder()");
     }
     @Test
     void avscEventMotherDelegatesToNestedBuilderNotStandaloneClass() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"));
-        assertThat(compilation).succeeded();
+        assertThat(simpleCompilation).succeeded();
         // The mother must use the nested Builder from the generated record — no standalone class.
-        assertThat(compilation)
+        assertThat(simpleCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "event/avsc", "SimpleAvscEventMother.java")
                 .contentsAsUtf8String()
                 .contains("SimpleAvscEvent.Builder");
         assertFalse(
-                compilation.generatedFiles().stream()
+                simpleCompilation.generatedFiles().stream()
                         .anyMatch(f -> f.toUri().getPath().endsWith("/event/avsc/SimpleAvscEventBuilder.java")),
                 "Standalone SimpleAvscEventBuilder must not be generated when an embedded Builder exists"
         );

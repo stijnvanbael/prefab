@@ -1,8 +1,11 @@
 package mother.nestedinwrapper.source;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.annotations.Generate;
+import be.appify.prefab.processor.assertion.AssertionPlugin;
 
 @Event(topic = "orders")
+@Generate(plugin = AssertionPlugin.class, enabled = false)
 public record OrderEvent(
         String orderId,
         ShippingAddress shippingAddress) {

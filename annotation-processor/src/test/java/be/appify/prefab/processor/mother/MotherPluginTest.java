@@ -7,6 +7,8 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.stream.Stream;
 import javax.tools.StandardLocation;
+
+import com.google.testing.compile.Compilation;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.test.ProcessorTestUtil.classpathOptionsWith;
@@ -18,28 +20,26 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MotherPluginTest {
-
-    @Test
-    void compilationSucceedsWithExampleAnnotations() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/person/source/Person.java"));
-
-        assertThat(compilation).succeeded();
-    }
+    private static final Compilation personCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("mother/person/source/Person.java"));
+    private static final Compilation personEventCompilation =  javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("mother/events/source/PersonEvent.java"));
+    private static final Compilation orderCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(
+                    sourceOf("mother/nullablerecord/source/ShipmentEvent.java"),
+                    sourceOf("mother/nullablerecord/source/Order.java"));
 
     @Test
     void requestRecordContainsSchemaExampleAnnotationFromExampleOnConstructorParam() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/person/source/Person.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(personCompilation).succeeded();
+        assertThat(personCompilation)
                 .generatedSourceFile("mother.person.application.CreatePersonRequest")
                 .contentsAsUtf8String()
                 .contains("example = \"Alice\"");
-        assertThat(compilation)
+        assertThat(personCompilation)
                 .generatedSourceFile("mother.person.application.CreatePersonRequest")
                 .contentsAsUtf8String()
                 .contains("example = \"alice@example.com\"");
@@ -47,12 +47,8 @@ class MotherPluginTest {
 
     @Test
     void updateRequestRecordContainsSchemaExampleAnnotation() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/person/source/Person.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(personCompilation).succeeded();
+        assertThat(personCompilation)
                 .generatedSourceFile("mother.person.application.PersonUpdateRequest")
                 .contentsAsUtf8String()
                 .contains("example = \"Bob\"");
@@ -60,16 +56,12 @@ class MotherPluginTest {
 
     @Test
     void responseRecordContainsSchemaExampleAnnotationFromAggregateField() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/person/source/Person.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(personCompilation).succeeded();
+        assertThat(personCompilation)
                 .generatedSourceFile("mother.person.infrastructure.http.PersonResponse")
                 .contentsAsUtf8String()
                 .contains("example = \"Alice\"");
-        assertThat(compilation)
+        assertThat(personCompilation)
                 .generatedSourceFile("mother.person.infrastructure.http.PersonResponse")
                 .contentsAsUtf8String()
                 .contains("example = \"alice@example.com\"");
@@ -77,12 +69,8 @@ class MotherPluginTest {
 
     @Test
     void requestRecordContainsSchemaDescriptionAnnotationFromDocOnConstructorParam() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/person/source/Person.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(personCompilation).succeeded();
+        assertThat(personCompilation)
                 .generatedSourceFile("mother.person.application.CreatePersonRequest")
                 .contentsAsUtf8String()
                 .contains("description = \"Full name of the person\"");
@@ -90,12 +78,8 @@ class MotherPluginTest {
 
     @Test
     void updateRequestRecordContainsSchemaDescriptionAnnotation() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/person/source/Person.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(personCompilation).succeeded();
+        assertThat(personCompilation)
                 .generatedSourceFile("mother.person.application.PersonUpdateRequest")
                 .contentsAsUtf8String()
                 .contains("description = \"Full name of the person\"");
@@ -103,12 +87,8 @@ class MotherPluginTest {
 
     @Test
     void responseRecordContainsSchemaDescriptionAnnotationFromAggregateField() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/person/source/Person.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(personCompilation).succeeded();
+        assertThat(personCompilation)
                 .generatedSourceFile("mother.person.infrastructure.http.PersonResponse")
                 .contentsAsUtf8String()
                 .contains("description = \"Full name of the person\"");
@@ -125,22 +105,9 @@ class MotherPluginTest {
     }
 
     @Test
-    void compilationSucceedsForEventTypes() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/events/source/PersonEvent.java"));
-
-        assertThat(compilation).succeeded();
-    }
-
-    @Test
     void eventMotherBuilderGeneratedAsProductionSourceFile() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/events/source/PersonEvent.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(personEventCompilation).succeeded();
+        assertThat(personEventCompilation)
                 .generatedSourceFile("mother.events.source.PersonEventCreatedBuilder")
                 .contentsAsUtf8String()
                 .contains("public class PersonEventCreatedBuilder");
@@ -148,24 +115,16 @@ class MotherPluginTest {
 
     @Test
     void eventMotherDelegatesDefaultsToStandaloneBuilder() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/events/source/PersonEvent.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(personEventCompilation).succeeded();
+        assertThat(personEventCompilation)
                 .generatedSourceFile("mother.events.source.PersonEventCreatedBuilder")
                 .contentsAsUtf8String()
                 .doesNotContain("class Builder");
     }
     @Test
     void handWrittenEventMotherGeneratesStandaloneBuilderClass() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/events/source/PersonEvent.java"));
-        assertThat(compilation).succeeded();
-        // Hand-written @Event records have no embedded Builder, so a standalone builder must be generated.
-        assertThat(compilation)
+        assertThat(personEventCompilation).succeeded();
+        assertThat(personEventCompilation)
                 .generatedSourceFile("mother.events.source.PersonEventCreatedBuilder")
                 .contentsAsUtf8String()
                 .contains("public class PersonEventCreatedBuilder");
@@ -266,16 +225,12 @@ class MotherPluginTest {
 
     @Test
     void motherUsesRecordBuilderInsteadOfCanonicalConstructor() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/person/source/Person.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(personCompilation).succeeded();
+        assertThat(personCompilation)
                 .generatedSourceFile("mother.person.application.CreatePersonRequest")
                 .contentsAsUtf8String()
                 .contains("public static CreatePersonRequest.Builder<?> builder()");
-        assertThat(compilation)
+        assertThat(personCompilation)
                 .generatedSourceFile("mother.person.application.CreatePersonRequest")
                 .contentsAsUtf8String()
                 .contains("public static class Builder");
@@ -283,12 +238,8 @@ class MotherPluginTest {
 
     @Test
     void requestMotherHasConsumerOverload() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/person/source/Person.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(personCompilation).succeeded();
+        assertThat(personCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/person", "CreatePersonRequestMother.java")
                 .contentsAsUtf8String()
                 .contains("Consumer");
@@ -296,12 +247,8 @@ class MotherPluginTest {
 
     @Test
     void eventMotherHasConsumerOverload() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/events/source/PersonEvent.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(personEventCompilation).succeeded();
+        assertThat(personEventCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/events/source", "PersonEventCreatedMother.java")
                 .contentsAsUtf8String()
                 .contains("Consumer");
@@ -346,12 +293,8 @@ class MotherPluginTest {
 
     @Test
     void eventMotherWithNullableRecordFieldGeneratesWithoutOverload() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/nullablerecord/source/ShipmentEvent.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(orderCompilation).succeeded();
+        assertThat(orderCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/nullablerecord/source", "ShipmentEventMother.java")
                 .contentsAsUtf8String()
                 .contains("withoutAddress");
@@ -359,12 +302,8 @@ class MotherPluginTest {
 
     @Test
     void eventMotherWithListOfRecordFieldGeneratesVarargsOverload() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/nullablerecord/source/ShipmentEvent.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(orderCompilation).succeeded();
+        assertThat(orderCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/nullablerecord/source", "ShipmentEventMother.java")
                 .contentsAsUtf8String()
                 .contains("itemsCustomisers");
@@ -372,12 +311,8 @@ class MotherPluginTest {
 
     @Test
     void eventMotherWithListOfRecordFieldGeneratesEmptyOverload() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/nullablerecord/source/ShipmentEvent.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(orderCompilation).succeeded();
+        assertThat(orderCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/nullablerecord/source", "ShipmentEventMother.java")
                 .contentsAsUtf8String()
                 .contains("emptyItems");
@@ -385,12 +320,8 @@ class MotherPluginTest {
 
     @Test
     void eventMotherWithNullableListOfRecordFieldGeneratesWithoutOverload() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/nullablerecord/source/ShipmentEvent.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(orderCompilation).succeeded();
+        assertThat(orderCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/nullablerecord/source", "ShipmentEventMother.java")
                 .contentsAsUtf8String()
                 .contains("withoutOptionalItems");
@@ -398,13 +329,9 @@ class MotherPluginTest {
 
     @Test
     void nonNullableRecordFieldDoesNotGenerateWithoutOverload() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("mother/nullablerecord/source/ShipmentEvent.java"));
-
-        assertThat(compilation).succeeded();
+        assertThat(orderCompilation).succeeded();
         // items is non-nullable, so only withoutOptionalItems should appear, not withoutItems
-        assertThat(compilation)
+        assertThat(orderCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/nullablerecord/source", "ShipmentEventMother.java")
                 .contentsAsUtf8String()
                 .doesNotContain("withoutItems(");
@@ -412,14 +339,8 @@ class MotherPluginTest {
 
     @Test
     void requestMotherWithNullableRecordFieldGeneratesWithoutOverload() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("mother/nullablerecord/source/ShipmentEvent.java"),
-                        sourceOf("mother/nullablerecord/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(orderCompilation).succeeded();
+        assertThat(orderCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/nullablerecord/source", "CreateOrderRequestMother.java")
                 .contentsAsUtf8String()
                 .contains("withoutShippingAddress");
@@ -427,18 +348,12 @@ class MotherPluginTest {
 
     @Test
     void requestMotherWithListOfRecordFieldGeneratesVarargsAndEmptyOverloads() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("mother/nullablerecord/source/ShipmentEvent.java"),
-                        sourceOf("mother/nullablerecord/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(orderCompilation).succeeded();
+        assertThat(orderCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/nullablerecord/source", "CreateOrderRequestMother.java")
                 .contentsAsUtf8String()
                 .contains("itemsCustomisers");
-        assertThat(compilation)
+        assertThat(orderCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/nullablerecord/source", "CreateOrderRequestMother.java")
                 .contentsAsUtf8String()
                 .contains("emptyItems");

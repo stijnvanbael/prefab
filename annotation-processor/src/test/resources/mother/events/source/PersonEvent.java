@@ -2,10 +2,13 @@ package mother.events.source;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.Example;
+import be.appify.prefab.core.annotations.Generate;
+import be.appify.prefab.processor.assertion.AssertionPlugin;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
 @Event(topic = "person-events")
+@Generate(plugin = AssertionPlugin.class, enabled = false)
 public sealed interface PersonEvent permits PersonEvent.Created, PersonEvent.Updated {
 
     record Created(

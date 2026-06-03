@@ -9,17 +9,63 @@ import static com.google.testing.compile.Compiler.javac;
 
 class EventHandlerWriterTest {
 
+    public static final com.google.testing.compile.Compilation orderCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(
+                    sourceOf("event/handler/statichandler/source/Order.java"),
+                    sourceOf("event/handler/statichandler/source/OrderCreated.java")
+            );
+    public static final com.google.testing.compile.Compilation multicastChannelCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(
+                    sourceOf("event/handler/multicast/source/Channel.java"),
+                    sourceOf("event/handler/multicast/source/MessageSent.java"),
+                    sourceOf("event/handler/multicast/source/ChannelRepositoryMixin.java")
+            );
+    public static final com.google.testing.compile.Compilation byReferenceChannelCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(
+                    sourceOf("event/handler/byreference/source/Channel.java"),
+                    sourceOf("event/handler/byreference/source/UserSubscribed.java")
+            );
+    public static final com.google.testing.compile.Compilation mergedHandlerOrderCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(
+                    sourceOf("event/handler/mergedhandler/source/Order.java"),
+                    sourceOf("event/handler/mergedhandler/source/OrderCreated.java"),
+                    sourceOf("event/handler/mergedhandler/source/OrderSummary.java")
+            );
+    public static final com.google.testing.compile.Compilation createOrUpdateChannelCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(
+                    sourceOf("event/handler/createorupdate/source/ChannelSummary.java"),
+                    sourceOf("event/handler/createorupdate/source/MessageSent.java")
+            );
+    public static final com.google.testing.compile.Compilation instanceHandlerOrderCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(
+                    sourceOf("event/handler/instancehandler/source/Order.java"),
+                    sourceOf("event/handler/instancehandler/source/OrderCreated.java"),
+                    sourceOf("event/handler/instancehandler/source/OrderProjection.java")
+            );
+    public static final com.google.testing.compile.Compilation multicastCreateOrUpdateChannelCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(
+                    sourceOf("event/handler/multicastcreateorupdate/source/Channel.java"),
+                    sourceOf("event/handler/multicastcreateorupdate/source/MessageSent.java"),
+                    sourceOf("event/handler/multicastcreateorupdate/source/ChannelRepositoryMixin.java")
+            );
+    public static final com.google.testing.compile.Compilation staticHandlerAuditOrderCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(
+                    sourceOf("event/handler/statichandleraudit/source/Order.java"),
+                    sourceOf("event/handler/statichandleraudit/source/OrderCreated.java")
+            );
+
     @Test
     void staticEventHandlerGeneratesServiceMethod() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/statichandler/source/Order.java"),
-                        sourceOf("event/handler/statichandler/source/OrderCreated.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(orderCompilation).succeeded();
+        assertThat(orderCompilation)
                 .generatedSourceFile("event.handler.statichandler.application.OrderService")
                 .contentsAsUtf8String()
                 .contains("orderRepository.save(Order.onCreate(event))");
@@ -27,15 +73,8 @@ class EventHandlerWriterTest {
 
     @Test
     void staticEventHandlerAddsEventListenerAnnotation() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/statichandler/source/Order.java"),
-                        sourceOf("event/handler/statichandler/source/OrderCreated.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(orderCompilation).succeeded();
+        assertThat(orderCompilation)
                 .generatedSourceFile("event.handler.statichandler.application.OrderService")
                 .contentsAsUtf8String()
                 .contains("@EventListener");
@@ -75,16 +114,8 @@ class EventHandlerWriterTest {
 
     @Test
     void multicastEventHandlerQueriesRepository() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/multicast/source/Channel.java"),
-                        sourceOf("event/handler/multicast/source/MessageSent.java"),
-                        sourceOf("event/handler/multicast/source/ChannelRepositoryMixin.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(multicastChannelCompilation).succeeded();
+        assertThat(multicastChannelCompilation)
                 .generatedSourceFile("event.handler.multicast.application.ChannelService")
                 .contentsAsUtf8String()
                 .contains("channelRepository.findByChannel(event.channel())");
@@ -92,16 +123,8 @@ class EventHandlerWriterTest {
 
     @Test
     void multicastEventHandlerThrowsWhenNoAggregatesFound() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/multicast/source/Channel.java"),
-                        sourceOf("event/handler/multicast/source/MessageSent.java"),
-                        sourceOf("event/handler/multicast/source/ChannelRepositoryMixin.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(multicastChannelCompilation).succeeded();
+        assertThat(multicastChannelCompilation)
                 .generatedSourceFile("event.handler.multicast.application.ChannelService")
                 .contentsAsUtf8String()
                 .contains("throw new IllegalStateException");
@@ -109,16 +132,8 @@ class EventHandlerWriterTest {
 
     @Test
     void multicastEventHandlerSavesAllAggregates() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/multicast/source/Channel.java"),
-                        sourceOf("event/handler/multicast/source/MessageSent.java"),
-                        sourceOf("event/handler/multicast/source/ChannelRepositoryMixin.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(multicastChannelCompilation).succeeded();
+        assertThat(multicastChannelCompilation)
                 .generatedSourceFile("event.handler.multicast.application.ChannelService")
                 .contentsAsUtf8String()
                 .contains("channelRepository.saveAll(");
@@ -126,15 +141,8 @@ class EventHandlerWriterTest {
 
     @Test
     void byReferenceEventHandlerLoadsAggregateByReference() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/byreference/source/Channel.java"),
-                        sourceOf("event/handler/byreference/source/UserSubscribed.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(byReferenceChannelCompilation).succeeded();
+        assertThat(byReferenceChannelCompilation)
                 .generatedSourceFile("event.handler.byreference.application.ChannelService")
                 .contentsAsUtf8String()
                 .contains("channelRepository.findById(event.channel()");
@@ -142,15 +150,8 @@ class EventHandlerWriterTest {
 
     @Test
     void byReferenceEventHandlerSavesAggregateAfterHandling() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/byreference/source/Channel.java"),
-                        sourceOf("event/handler/byreference/source/UserSubscribed.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(byReferenceChannelCompilation).succeeded();
+        assertThat(byReferenceChannelCompilation)
                 .generatedSourceFile("event.handler.byreference.application.ChannelService")
                 .contentsAsUtf8String()
                 .contains("channelRepository.save(aggregate)");
@@ -158,15 +159,8 @@ class EventHandlerWriterTest {
 
     @Test
     void byReferenceEventHandlerThrowsWhenAggregateNotFound() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/byreference/source/Channel.java"),
-                        sourceOf("event/handler/byreference/source/UserSubscribed.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(byReferenceChannelCompilation).succeeded();
+        assertThat(byReferenceChannelCompilation)
                 .generatedSourceFile("event.handler.byreference.application.ChannelService")
                 .contentsAsUtf8String()
                 .contains(".orElseThrow()");
@@ -174,16 +168,8 @@ class EventHandlerWriterTest {
 
     @Test
     void mergedEventHandlerGeneratesMethodInAggregateRootService() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/mergedhandler/source/Order.java"),
-                        sourceOf("event/handler/mergedhandler/source/OrderCreated.java"),
-                        sourceOf("event/handler/mergedhandler/source/OrderSummary.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(mergedHandlerOrderCompilation).succeeded();
+        assertThat(mergedHandlerOrderCompilation)
                 .generatedSourceFile("event.handler.mergedhandler.application.OrderService")
                 .contentsAsUtf8String()
                 .contains("orderSummaryRepository.save(OrderSummary.onOrderCreated(event))");
@@ -191,16 +177,8 @@ class EventHandlerWriterTest {
 
     @Test
     void mergedEventHandlerInjectsComponentRepositoryIntoAggregateRootService() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/mergedhandler/source/Order.java"),
-                        sourceOf("event/handler/mergedhandler/source/OrderCreated.java"),
-                        sourceOf("event/handler/mergedhandler/source/OrderSummary.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(mergedHandlerOrderCompilation).succeeded();
+        assertThat(mergedHandlerOrderCompilation)
                 .generatedSourceFile("event.handler.mergedhandler.application.OrderService")
                 .contentsAsUtf8String()
                 .contains("OrderSummaryRepository");
@@ -208,16 +186,8 @@ class EventHandlerWriterTest {
 
     @Test
     void mergedEventHandlerDoesNotGenerateMethodInComponentService() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/mergedhandler/source/Order.java"),
-                        sourceOf("event/handler/mergedhandler/source/OrderCreated.java"),
-                        sourceOf("event/handler/mergedhandler/source/OrderSummary.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(mergedHandlerOrderCompilation).succeeded();
+        assertThat(mergedHandlerOrderCompilation)
                 .generatedSourceFile("event.handler.mergedhandler.application.OrderSummaryService")
                 .contentsAsUtf8String()
                 .doesNotContain("onOrderCreated");
@@ -239,15 +209,8 @@ class EventHandlerWriterTest {
 
     @Test
     void pairedHandlerLoadsAggregateByReference() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/createorupdate/source/ChannelSummary.java"),
-                        sourceOf("event/handler/createorupdate/source/MessageSent.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(createOrUpdateChannelCompilation).succeeded();
+        assertThat(createOrUpdateChannelCompilation)
                 .generatedSourceFile("event.handler.createorupdate.application.ChannelSummaryService")
                 .contentsAsUtf8String()
                 .contains("channelSummaryRepository.findById(event.summary()");
@@ -255,15 +218,8 @@ class EventHandlerWriterTest {
 
     @Test
     void pairedHandlerCallsInstanceMethodWhenAggregateFound() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/createorupdate/source/ChannelSummary.java"),
-                        sourceOf("event/handler/createorupdate/source/MessageSent.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(createOrUpdateChannelCompilation).succeeded();
+        assertThat(createOrUpdateChannelCompilation)
                 .generatedSourceFile("event.handler.createorupdate.application.ChannelSummaryService")
                 .contentsAsUtf8String()
                 .contains("var updated = aggregate.onUpdate(event)");
@@ -271,15 +227,8 @@ class EventHandlerWriterTest {
 
     @Test
     void pairedHandlerCallsStaticMethodWhenAggregateNotFound() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/createorupdate/source/ChannelSummary.java"),
-                        sourceOf("event/handler/createorupdate/source/MessageSent.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(createOrUpdateChannelCompilation).succeeded();
+        assertThat(createOrUpdateChannelCompilation)
                 .generatedSourceFile("event.handler.createorupdate.application.ChannelSummaryService")
                 .contentsAsUtf8String()
                 .contains("orElseGet(() -> channelSummaryRepository.save(ChannelSummary.onCreate(event)))");
@@ -287,15 +236,8 @@ class EventHandlerWriterTest {
 
     @Test
     void pairedHandlerDoesNotGenerateSeparateServiceMethodForStaticHandler() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/createorupdate/source/ChannelSummary.java"),
-                        sourceOf("event/handler/createorupdate/source/MessageSent.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(createOrUpdateChannelCompilation).succeeded();
+        assertThat(createOrUpdateChannelCompilation)
                 .generatedSourceFile("event.handler.createorupdate.application.ChannelSummaryService")
                 .contentsAsUtf8String()
                 .doesNotContain("public void onCreate(");
@@ -303,16 +245,8 @@ class EventHandlerWriterTest {
 
     @Test
     void instanceHandlerOnComponentGeneratesMethodInAggregateRootService() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/instancehandler/source/Order.java"),
-                        sourceOf("event/handler/instancehandler/source/OrderCreated.java"),
-                        sourceOf("event/handler/instancehandler/source/OrderProjection.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(instanceHandlerOrderCompilation).succeeded();
+        assertThat(instanceHandlerOrderCompilation)
                 .generatedSourceFile("event.handler.instancehandler.application.OrderService")
                 .contentsAsUtf8String()
                 .contains("orderProjection.onOrderCreated(event)");
@@ -320,16 +254,8 @@ class EventHandlerWriterTest {
 
     @Test
     void instanceHandlerOnComponentInjectsComponentIntoAggregateRootService() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/instancehandler/source/Order.java"),
-                        sourceOf("event/handler/instancehandler/source/OrderCreated.java"),
-                        sourceOf("event/handler/instancehandler/source/OrderProjection.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(instanceHandlerOrderCompilation).succeeded();
+        assertThat(instanceHandlerOrderCompilation)
                 .generatedSourceFile("event.handler.instancehandler.application.OrderService")
                 .contentsAsUtf8String()
                 .contains("OrderProjection");
@@ -352,16 +278,8 @@ class EventHandlerWriterTest {
 
     @Test
     void multicastWithStaticCompanionCallsStaticWhenNoAggregatesFound() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/multicastcreateorupdate/source/Channel.java"),
-                        sourceOf("event/handler/multicastcreateorupdate/source/MessageSent.java"),
-                        sourceOf("event/handler/multicastcreateorupdate/source/ChannelRepositoryMixin.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(multicastCreateOrUpdateChannelCompilation).succeeded();
+        assertThat(multicastCreateOrUpdateChannelCompilation)
                 .generatedSourceFile("event.handler.multicastcreateorupdate.application.ChannelService")
                 .contentsAsUtf8String()
                 .contains("channelRepository.save(Channel.onCreate(event))");
@@ -369,16 +287,8 @@ class EventHandlerWriterTest {
 
     @Test
     void multicastWithStaticCompanionDoesNotThrowWhenNoAggregatesFound() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/multicastcreateorupdate/source/Channel.java"),
-                        sourceOf("event/handler/multicastcreateorupdate/source/MessageSent.java"),
-                        sourceOf("event/handler/multicastcreateorupdate/source/ChannelRepositoryMixin.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(multicastCreateOrUpdateChannelCompilation).succeeded();
+        assertThat(multicastCreateOrUpdateChannelCompilation)
                 .generatedSourceFile("event.handler.multicastcreateorupdate.application.ChannelService")
                 .contentsAsUtf8String()
                 .doesNotContain("throw new IllegalStateException");
@@ -386,23 +296,16 @@ class EventHandlerWriterTest {
 
     @Test
     void staticEventHandlerWithAuditFieldsPopulatesAuditOnCreate() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/statichandleraudit/source/Order.java"),
-                        sourceOf("event/handler/statichandleraudit/source/OrderCreated.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(staticHandlerAuditOrderCompilation).succeeded();
+        assertThat(staticHandlerAuditOrderCompilation)
                 .generatedSourceFile("event.handler.statichandleraudit.application.OrderService")
                 .contentsAsUtf8String()
                 .contains("var aggregate = Order.onCreate(event)");
-        assertThat(compilation)
+        assertThat(staticHandlerAuditOrderCompilation)
                 .generatedSourceFile("event.handler.statichandleraudit.application.OrderService")
                 .contentsAsUtf8String()
                 .contains("Instant.now()");
-        assertThat(compilation)
+        assertThat(staticHandlerAuditOrderCompilation)
                 .generatedSourceFile("event.handler.statichandleraudit.application.OrderService")
                 .contentsAsUtf8String()
                 .contains("auditContextProvider.currentUserId()");
@@ -410,15 +313,8 @@ class EventHandlerWriterTest {
 
     @Test
     void staticEventHandlerWithAuditFieldsInjectsAuditContextProvider() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/statichandleraudit/source/Order.java"),
-                        sourceOf("event/handler/statichandleraudit/source/OrderCreated.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(staticHandlerAuditOrderCompilation).succeeded();
+        assertThat(staticHandlerAuditOrderCompilation)
                 .generatedSourceFile("event.handler.statichandleraudit.application.OrderService")
                 .contentsAsUtf8String()
                 .contains("AuditContextProvider");
@@ -450,16 +346,8 @@ class EventHandlerWriterTest {
 
     @Test
     void multicastWithStaticCompanionDoesNotGenerateSeparateServiceMethodForStaticHandler() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/handler/multicastcreateorupdate/source/Channel.java"),
-                        sourceOf("event/handler/multicastcreateorupdate/source/MessageSent.java"),
-                        sourceOf("event/handler/multicastcreateorupdate/source/ChannelRepositoryMixin.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(multicastCreateOrUpdateChannelCompilation).succeeded();
+        assertThat(multicastCreateOrUpdateChannelCompilation)
                 .generatedSourceFile("event.handler.multicastcreateorupdate.application.ChannelService")
                 .contentsAsUtf8String()
                 .doesNotContain("public void onCreate(");

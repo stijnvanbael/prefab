@@ -18,13 +18,32 @@ import static com.google.testing.compile.Compiler.javac;
 
 class DbMigrationWriterTest {
 
+    public static final Compilation productCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("dbmigration/indexed/source/Product.java"));
+    public static final Compilation productWithListCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("dbmigration/valuetypewrappingrecord/source/ProductWithList.java"));
+    public static final Compilation customTypeProductCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("dbmigration/customtype/source/Product.java"));
+    public static final Compilation articleCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("dbmigration/textcolumn/source/Article.java"));
+    public static final Compilation varcharSizeProductCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("dbmigration/varcharsize/source/Product.java"));
+    public static final Compilation notNullProductCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("dbmigration/notnull/source/Product.java"));
+    public static final Compilation orderCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("dbmigration/nestedlists/source/Order.java"));
+
     @Test
     void filterFieldGetsIndex() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("dbmigration/indexed/source/Product.java"));
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(productCompilation).succeeded();
+        assertThat(productCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
                 .contains("CREATE INDEX \"product_name_ix\" ON \"product\" (\"name\")");
@@ -32,11 +51,8 @@ class DbMigrationWriterTest {
 
     @Test
     void indexedUniqueFieldGetsUniqueIndex() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("dbmigration/indexed/source/Product.java"));
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(productCompilation).succeeded();
+        assertThat(productCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
                 .contains("CREATE UNIQUE INDEX \"product_sku_uk\" ON \"product\" (\"sku\")");
@@ -44,11 +60,8 @@ class DbMigrationWriterTest {
 
     @Test
     void noIndexForNonAnnotatedField() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("dbmigration/indexed/source/Product.java"));
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(productCompilation).succeeded();
+        assertThat(productCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
                 .doesNotContain("product_description");
@@ -90,12 +103,8 @@ class DbMigrationWriterTest {
 
     @Test
     void notNullConstraintsAreGeneratedForNonNullableFields() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("dbmigration/notnull/source/Product.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(notNullProductCompilation).succeeded();
+        assertThat(notNullProductCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "", "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
                 .isEqualTo(contentsOf("dbmigration/notnull/expected/V1__generated.sql"));
@@ -137,12 +146,8 @@ class DbMigrationWriterTest {
 
     @Test
     void listOfSingleValueTypeWrappingRecordGeneratesChildTable() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("dbmigration/valuetypewrappingrecord/source/ProductWithList.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(productWithListCompilation).succeeded();
+        assertThat(productWithListCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
                 .contains("CREATE TABLE \"product_with_list_address_holder\"");
@@ -150,12 +155,8 @@ class DbMigrationWriterTest {
 
     @Test
     void childTableOfSingleValueTypeWrappingRecordExpandsInnerRecordColumns() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("dbmigration/valuetypewrappingrecord/source/ProductWithList.java"));
-
-        assertThat(compilation).succeeded();
-        var sql = assertThat(compilation)
+        assertThat(productWithListCompilation).succeeded();
+        var sql = assertThat(productWithListCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String();
 
@@ -165,18 +166,14 @@ class DbMigrationWriterTest {
 
     @Test
     void customTypeFieldIsSkippedFromDbMigration() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("dbmigration/customtype/source/Product.java"));
-
-        assertThat(compilation).succeeded();
+        assertThat(customTypeProductCompilation).succeeded();
         // Regular fields ARE present
-        assertThat(compilation)
+        assertThat(customTypeProductCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
                 .contains("\"name\" VARCHAR (255)");
         // @CustomType field is NOT present (no column generated)
-        assertThat(compilation)
+        assertThat(customTypeProductCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
                 .doesNotContain("result");
@@ -184,12 +181,8 @@ class DbMigrationWriterTest {
 
     @Test
     void sizeAnnotationDeterminesVarcharLength() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("dbmigration/varcharsize/source/Product.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(varcharSizeProductCompilation).succeeded();
+        assertThat(varcharSizeProductCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
                 .contains("\"name\" VARCHAR (100)");
@@ -236,27 +229,19 @@ class DbMigrationWriterTest {
 
     @Test
     void customTypeFieldSkipEmitsNote() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("dbmigration/customtype/source/Product.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation).hadNoteContaining("result");
-        assertThat(compilation).hadNoteContaining("@CustomType");
+        assertThat(customTypeProductCompilation).succeeded();
+        assertThat(customTypeProductCompilation).hadNoteContaining("result");
+        assertThat(customTypeProductCompilation).hadNoteContaining("@CustomType");
     }
 
     @Test
     void textAnnotationMapsStringToTextColumn() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("dbmigration/textcolumn/source/Article.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(articleCompilation).succeeded();
+        assertThat(articleCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
                 .contains("\"body\" TEXT");
-        assertThat(compilation)
+        assertThat(articleCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
                 .contains("\"title\" VARCHAR (200)");
@@ -275,12 +260,8 @@ class DbMigrationWriterTest {
 
     @Test
     void constrainedStringFieldDoesNotEmitWarning() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("dbmigration/varcharsize/source/Product.java"));
-
-        assertThat(compilation).succeeded();
-        var prefabWarnings = compilation.warnings().stream()
+        assertThat(varcharSizeProductCompilation).succeeded();
+        var prefabWarnings = varcharSizeProductCompilation.warnings().stream()
                 .filter(d -> d.getMessage(null).contains("VARCHAR(255)"))
                 .toList();
         assertNoPrefabWarnings(prefabWarnings);
@@ -288,12 +269,8 @@ class DbMigrationWriterTest {
 
     @Test
     void textAnnotatedStringFieldDoesNotEmitWarning() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("dbmigration/textcolumn/source/Article.java"));
-
-        assertThat(compilation).succeeded();
-        var prefabWarnings = compilation.warnings().stream()
+        assertThat(articleCompilation).succeeded();
+        var prefabWarnings = articleCompilation.warnings().stream()
                 .filter(d -> d.getMessage(null).contains("VARCHAR(255)"))
                 .toList();
         assertNoPrefabWarnings(prefabWarnings);
@@ -301,12 +278,8 @@ class DbMigrationWriterTest {
 
     @Test
     void defaultIdFieldNameIsUsedAsPrimaryKey() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("dbmigration/notnull/source/Product.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(notNullProductCompilation).succeeded();
+        assertThat(notNullProductCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
                 .contains("PRIMARY KEY(\"id\")");
@@ -327,12 +300,8 @@ class DbMigrationWriterTest {
 
     @Test
     void topLevelChildListTableIsGenerated() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("dbmigration/nestedlists/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(orderCompilation).succeeded();
+        assertThat(orderCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
                 .contains("CREATE TABLE \"order_order_line\"");
@@ -340,12 +309,8 @@ class DbMigrationWriterTest {
 
     @Test
     void deeplyNestedChildListTableIsGenerated() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("dbmigration/nestedlists/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(orderCompilation).succeeded();
+        assertThat(orderCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
                 .contains("CREATE TABLE \"order_order_line_note\"");
@@ -353,12 +318,8 @@ class DbMigrationWriterTest {
 
     @Test
     void deeplyNestedChildTablesAreCreatedAfterReferencedParentTables() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("dbmigration/nestedlists/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        var migration = assertThat(compilation)
+        assertThat(orderCompilation).succeeded();
+        var migration = assertThat(orderCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String();
 
@@ -368,12 +329,8 @@ class DbMigrationWriterTest {
 
     @Test
     void nestedChildTableForeignKeyReferencesParentTable() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("dbmigration/nestedlists/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(orderCompilation).succeeded();
+        assertThat(orderCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
                 .contains("FOREIGN KEY (\"order\", \"order_key\") " +
@@ -382,12 +339,8 @@ class DbMigrationWriterTest {
 
     @Test
     void nestedChildTableForeignKeyUsesParentPrimaryKeyColumn() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("dbmigration/nestedlists/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(orderCompilation).succeeded();
+        assertThat(orderCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
                 .contains("\"order_order_line_key\" INTEGER NOT NULL");

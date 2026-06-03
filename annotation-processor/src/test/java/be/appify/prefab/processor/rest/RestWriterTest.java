@@ -1,18 +1,40 @@
 package be.appify.prefab.processor.rest;
 
+import be.appify.prefab.processor.FileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabProcessor;
 import be.appify.prefab.processor.TestClientWriter;
-import be.appify.prefab.processor.FileOutput;
+import com.palantir.javapoet.TypeSpec;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static be.appify.prefab.processor.test.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
+import static com.palantir.javapoet.JavaFile.builder;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RestWriterTest {
+
+    public static final com.google.testing.compile.Compilation testClientPersonCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("rest/testclient/source/Person.java"));
+    public static final com.google.testing.compile.Compilation aggregateProductOrderCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(
+                    sourceOf("rest/aggregate/source/Product.java"),
+                    sourceOf("rest/aggregate/source/Order.java"));
+    public static final com.google.testing.compile.Compilation pathVariableSubscriptionCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("rest/pathvariable/source/Subscription.java"));
+    public static final com.google.testing.compile.Compilation allPathVariableSlotCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("rest/allpathvariable/source/Slot.java"));
+    public static final com.google.testing.compile.Compilation createOrUpdateProductCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("rest/createorupdate/source/Product.java"));
 
     @Test
     void requestValidationAnnotationsAreGenerated() {
@@ -50,35 +72,18 @@ class RestWriterTest {
 
     @Test
     void aggregateWithCreateAndUpdateGeneratesRequestRecords() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/testclient/source/Person.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(testClientPersonCompilation).succeeded();
+        assertThat(testClientPersonCompilation)
                 .generatedSourceFile("rest.testclient.application.CreatePersonRequest")
                 .isNotNull();
-        assertThat(compilation)
+        assertThat(testClientPersonCompilation)
                 .generatedSourceFile("rest.testclient.application.PersonUpdateRequest")
                 .isNotNull();
     }
 
     @Test
-    void testClientGenerationCompletesSuccessfully() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/testclient/source/Person.java"));
-
-        assertThat(compilation).succeeded();
-    }
-
-    @Test
     void createRequestUsesIdFieldForAggregateTypedParameter() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("rest/aggregate/source/Product.java"),
-                        sourceOf("rest/aggregate/source/Order.java"));
+        var compilation = aggregateProductOrderCompilation;
 
         assertThat(compilation).succeeded();
         assertThat(compilation)
@@ -89,14 +94,8 @@ class RestWriterTest {
 
     @Test
     void createServiceResolvesAggregateParameterFromRepository() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("rest/aggregate/source/Product.java"),
-                        sourceOf("rest/aggregate/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(aggregateProductOrderCompilation).succeeded();
+        assertThat(aggregateProductOrderCompilation)
                 .generatedSourceFile("rest.aggregate.application.OrderService")
                 .contentsAsUtf8String()
                 .contains("productRepository.findById(request.productId()).orElseThrow()");
@@ -104,14 +103,8 @@ class RestWriterTest {
 
     @Test
     void updateRequestIncludesIdForAggregateTypedParameter() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("rest/aggregate/source/Product.java"),
-                        sourceOf("rest/aggregate/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(aggregateProductOrderCompilation).succeeded();
+        assertThat(aggregateProductOrderCompilation)
                 .generatedSourceFile("rest.aggregate.application.OrderAssignProductRequest")
                 .contentsAsUtf8String()
                 .contains("String productId");
@@ -119,14 +112,8 @@ class RestWriterTest {
 
     @Test
     void updateServiceFetchesAggregateParameterByIdFromRequest() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("rest/aggregate/source/Product.java"),
-                        sourceOf("rest/aggregate/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(aggregateProductOrderCompilation).succeeded();
+        assertThat(aggregateProductOrderCompilation)
                 .generatedSourceFile("rest.aggregate.application.OrderService")
                 .contentsAsUtf8String()
                 .contains("productRepository.findById(request.productId()).orElseThrow()");
@@ -134,18 +121,12 @@ class RestWriterTest {
 
     @Test
     void serviceInjectsRepositoryForAggregateTypedParameter() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("rest/aggregate/source/Product.java"),
-                        sourceOf("rest/aggregate/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(aggregateProductOrderCompilation).succeeded();
+        assertThat(aggregateProductOrderCompilation)
                 .generatedSourceFile("rest.aggregate.application.OrderService")
                 .contentsAsUtf8String()
                 .contains("ProductRepository productRepository");
-        assertThat(compilation)
+        assertThat(aggregateProductOrderCompilation)
                 .generatedSourceFile("rest.aggregate.application.OrderService")
                 .contentsAsUtf8String()
                 .contains("this.productRepository = productRepository");
@@ -178,14 +159,8 @@ class RestWriterTest {
     void createRequestMotherUsesIdFieldForAggregateTypedParameter() {
         // Verifies that the CreateOrderRequest record (compilation output) has String productId,
         // which in turn means the generated ObjectMother also uses String productId.
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("rest/aggregate/source/Product.java"),
-                        sourceOf("rest/aggregate/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(aggregateProductOrderCompilation).succeeded();
+        assertThat(aggregateProductOrderCompilation)
                 .generatedSourceFile("rest.aggregate.application.CreateOrderRequest")
                 .contentsAsUtf8String()
                 .contains("String productId");
@@ -193,14 +168,8 @@ class RestWriterTest {
 
     @Test
     void updateRequestIncludesIdFieldForAggregateTypedParameterInMother() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("rest/aggregate/source/Product.java"),
-                        sourceOf("rest/aggregate/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(aggregateProductOrderCompilation).succeeded();
+        assertThat(aggregateProductOrderCompilation)
                 .generatedSourceFile("rest.aggregate.application.OrderAssignProductRequest")
                 .contentsAsUtf8String()
                 .contains("String productId");
@@ -208,16 +177,12 @@ class RestWriterTest {
 
     @Test
     void createRequestRecordContainsNestedBuilder() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/testclient/source/Person.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(testClientPersonCompilation).succeeded();
+        assertThat(testClientPersonCompilation)
                 .generatedSourceFile("rest.testclient.application.CreatePersonRequest")
                 .contentsAsUtf8String()
                 .contains("public static class Builder");
-        assertThat(compilation)
+        assertThat(testClientPersonCompilation)
                 .generatedSourceFile("rest.testclient.application.CreatePersonRequest")
                 .contentsAsUtf8String()
                 .contains("public static CreatePersonRequest.Builder<?> builder()");
@@ -225,16 +190,12 @@ class RestWriterTest {
 
     @Test
     void updateRequestRecordContainsNestedBuilder() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/testclient/source/Person.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(testClientPersonCompilation).succeeded();
+        assertThat(testClientPersonCompilation)
                 .generatedSourceFile("rest.testclient.application.PersonUpdateRequest")
                 .contentsAsUtf8String()
                 .contains("public static class Builder");
-        assertThat(compilation)
+        assertThat(testClientPersonCompilation)
                 .generatedSourceFile("rest.testclient.application.PersonUpdateRequest")
                 .contentsAsUtf8String()
                 .contains("public static PersonUpdateRequest.Builder<?> builder()");
@@ -242,16 +203,12 @@ class RestWriterTest {
 
     @Test
     void pathVariableInCreateIsExcludedFromRequestRecord() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/pathvariable/source/Subscription.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(pathVariableSubscriptionCompilation).succeeded();
+        assertThat(pathVariableSubscriptionCompilation)
                 .generatedSourceFile("rest.pathvariable.application.CreateSubscriptionRequest")
                 .contentsAsUtf8String()
                 .doesNotContain("String plan");
-        assertThat(compilation)
+        assertThat(pathVariableSubscriptionCompilation)
                 .generatedSourceFile("rest.pathvariable.application.CreateSubscriptionRequest")
                 .contentsAsUtf8String()
                 .contains("String email");
@@ -259,16 +216,12 @@ class RestWriterTest {
 
     @Test
     void pathVariableInCreateIsAddedAsPathVariableToController() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/pathvariable/source/Subscription.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(pathVariableSubscriptionCompilation).succeeded();
+        assertThat(pathVariableSubscriptionCompilation)
                 .generatedSourceFile("rest.pathvariable.infrastructure.http.SubscriptionController")
                 .contentsAsUtf8String()
                 .contains("@PathVariable");
-        assertThat(compilation)
+        assertThat(pathVariableSubscriptionCompilation)
                 .generatedSourceFile("rest.pathvariable.infrastructure.http.SubscriptionController")
                 .contentsAsUtf8String()
                 .contains("String plan");
@@ -276,12 +229,8 @@ class RestWriterTest {
 
     @Test
     void pathVariableInCreateIsPassedFromControllerToService() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/pathvariable/source/Subscription.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(pathVariableSubscriptionCompilation).succeeded();
+        assertThat(pathVariableSubscriptionCompilation)
                 .generatedSourceFile("rest.pathvariable.infrastructure.http.SubscriptionController")
                 .contentsAsUtf8String()
                 .contains("service.create(plan, request)");
@@ -289,12 +238,8 @@ class RestWriterTest {
 
     @Test
     void pathVariableInUpdateIsPassedFromControllerToService() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/pathvariable/source/Subscription.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(pathVariableSubscriptionCompilation).succeeded();
+        assertThat(pathVariableSubscriptionCompilation)
                 .generatedSourceFile("rest.pathvariable.infrastructure.http.SubscriptionController")
                 .contentsAsUtf8String()
                 .contains("service.updateSection(id, section, request");
@@ -302,16 +247,12 @@ class RestWriterTest {
 
     @Test
     void pathVariableInCreateIsPassedDirectlyToServiceMethod() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/pathvariable/source/Subscription.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(pathVariableSubscriptionCompilation).succeeded();
+        assertThat(pathVariableSubscriptionCompilation)
                 .generatedSourceFile("rest.pathvariable.application.SubscriptionService")
                 .contentsAsUtf8String()
                 .contains("String plan");
-        assertThat(compilation)
+        assertThat(pathVariableSubscriptionCompilation)
                 .generatedSourceFile("rest.pathvariable.application.SubscriptionService")
                 .contentsAsUtf8String()
                 .contains("new Subscription(plan, request.email())");
@@ -319,16 +260,12 @@ class RestWriterTest {
 
     @Test
     void pathVariableInUpdateIsExcludedFromRequestRecord() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/pathvariable/source/Subscription.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(pathVariableSubscriptionCompilation).succeeded();
+        assertThat(pathVariableSubscriptionCompilation)
                 .generatedSourceFile("rest.pathvariable.application.SubscriptionUpdateSectionRequest")
                 .contentsAsUtf8String()
                 .doesNotContain("String section");
-        assertThat(compilation)
+        assertThat(pathVariableSubscriptionCompilation)
                 .generatedSourceFile("rest.pathvariable.application.SubscriptionUpdateSectionRequest")
                 .contentsAsUtf8String()
                 .contains("String email");
@@ -336,12 +273,8 @@ class RestWriterTest {
 
     @Test
     void pathVariableInUpdateIsAddedAsPathVariableToController() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/pathvariable/source/Subscription.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(pathVariableSubscriptionCompilation).succeeded();
+        assertThat(pathVariableSubscriptionCompilation)
                 .generatedSourceFile("rest.pathvariable.infrastructure.http.SubscriptionController")
                 .contentsAsUtf8String()
                 .contains("String section");
@@ -349,12 +282,8 @@ class RestWriterTest {
 
     @Test
     void pathVariableInUpdateIsPassedDirectlyToServiceMethod() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/pathvariable/source/Subscription.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(pathVariableSubscriptionCompilation).succeeded();
+        assertThat(pathVariableSubscriptionCompilation)
                 .generatedSourceFile("rest.pathvariable.application.SubscriptionService")
                 .contentsAsUtf8String()
                 .contains("String section");
@@ -362,12 +291,8 @@ class RestWriterTest {
 
     @Test
     void allPathVariablesInCreateGeneratesNoRequestRecord() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/allpathvariable/source/Slot.java"));
-
-        assertThat(compilation).succeeded();
-        var unexpectedFiles = compilation.generatedSourceFiles().stream()
+        assertThat(allPathVariableSlotCompilation).succeeded();
+        var unexpectedFiles = allPathVariableSlotCompilation.generatedSourceFiles().stream()
                 .map(javax.tools.JavaFileObject::getName)
                 .filter(name -> name.contains("CreateSlotRequest"))
                 .toList();
@@ -377,12 +302,8 @@ class RestWriterTest {
 
     @Test
     void allPathVariablesInUpdateGeneratesNoRequestRecord() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/allpathvariable/source/Slot.java"));
-
-        assertThat(compilation).succeeded();
-        var unexpectedFiles = compilation.generatedSourceFiles().stream()
+        assertThat(allPathVariableSlotCompilation).succeeded();
+        var unexpectedFiles = allPathVariableSlotCompilation.generatedSourceFiles().stream()
                 .map(javax.tools.JavaFileObject::getName)
                 .filter(name -> name.contains("SlotRescheduleRequest"))
                 .toList();
@@ -392,12 +313,8 @@ class RestWriterTest {
 
     @Test
     void allPathVariablesInCreatePassedDirectlyToServiceConstructor() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/allpathvariable/source/Slot.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(allPathVariableSlotCompilation).succeeded();
+        assertThat(allPathVariableSlotCompilation)
                 .generatedSourceFile("rest.allpathvariable.application.SlotService")
                 .contentsAsUtf8String()
                 .contains("new Slot(day, hour)");
@@ -405,12 +322,8 @@ class RestWriterTest {
 
     @Test
     void allPathVariablesInUpdatePassedDirectlyToDomainMethod() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/allpathvariable/source/Slot.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(allPathVariableSlotCompilation).succeeded();
+        assertThat(allPathVariableSlotCompilation)
                 .generatedSourceFile("rest.allpathvariable.application.SlotService")
                 .contentsAsUtf8String()
                 .contains("aggregate.reschedule(day, hour)");
@@ -418,12 +331,8 @@ class RestWriterTest {
 
     @Test
     void createOrUpdateGeneratesSingleServiceMethod() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/createorupdate/source/Product.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(createOrUpdateProductCompilation).succeeded();
+        assertThat(createOrUpdateProductCompilation)
                 .generatedSourceFile("rest.createorupdate.application.ProductService")
                 .contentsAsUtf8String()
                 .contains("public String create(");
@@ -431,12 +340,8 @@ class RestWriterTest {
 
     @Test
     void createOrUpdateServiceLooksUpAggregateByPathVariable() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/createorupdate/source/Product.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(createOrUpdateProductCompilation).succeeded();
+        assertThat(createOrUpdateProductCompilation)
                 .generatedSourceFile("rest.createorupdate.application.ProductService")
                 .contentsAsUtf8String()
                 .contains("productRepository.findById(id)");
@@ -444,12 +349,8 @@ class RestWriterTest {
 
     @Test
     void createOrUpdateServiceCallsUpdateMethodWhenFound() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/createorupdate/source/Product.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(createOrUpdateProductCompilation).succeeded();
+        assertThat(createOrUpdateProductCompilation)
                 .generatedSourceFile("rest.createorupdate.application.ProductService")
                 .contentsAsUtf8String()
                 .contains("aggregate.update(");
@@ -457,12 +358,8 @@ class RestWriterTest {
 
     @Test
     void createOrUpdateServiceCallsConstructorWhenNotFound() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/createorupdate/source/Product.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(createOrUpdateProductCompilation).succeeded();
+        assertThat(createOrUpdateProductCompilation)
                 .generatedSourceFile("rest.createorupdate.application.ProductService")
                 .contentsAsUtf8String()
                 .contains("new Product(id,");
@@ -470,12 +367,8 @@ class RestWriterTest {
 
     @Test
     void createOrUpdateDoesNotGenerateSeparateCreateEndpoint() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/createorupdate/source/Product.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(createOrUpdateProductCompilation).succeeded();
+        assertThat(createOrUpdateProductCompilation)
                 .generatedSourceFile("rest.createorupdate.infrastructure.http.ProductController")
                 .contentsAsUtf8String()
                 .doesNotContain("PostMapping");
@@ -483,12 +376,8 @@ class RestWriterTest {
 
     @Test
     void createOrUpdateDoesNotGenerateSeparateUpdateEndpoint() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/createorupdate/source/Product.java"));
-
-        assertThat(compilation).succeeded();
-        var serviceContent = compilation.generatedSourceFiles().stream()
+        assertThat(createOrUpdateProductCompilation).succeeded();
+        var serviceContent = createOrUpdateProductCompilation.generatedSourceFiles().stream()
                 .filter(f -> f.getName().contains("ProductService"))
                 .findFirst()
                 .map(f -> {
@@ -505,12 +394,8 @@ class RestWriterTest {
 
     @Test
     void createOrUpdateGeneratesRequestRecord() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/createorupdate/source/Product.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(createOrUpdateProductCompilation).succeeded();
+        assertThat(createOrUpdateProductCompilation)
                 .generatedSourceFile("rest.createorupdate.application.CreateProductRequest")
                 .isNotNull();
     }
@@ -537,7 +422,7 @@ class RestWriterTest {
 
     @javax.annotation.processing.SupportedAnnotationTypes({"be.appify.prefab.core.annotations.*"})
     static class CapturingTestClientProcessor extends PrefabProcessor {
-        final java.util.List<String> capturedSources = new java.util.ArrayList<>();
+        final List<String> capturedSources = new java.util.ArrayList<>();
 
         @Override
         protected TestClientWriter createTestClientWriter(PrefabContext context) {
@@ -546,19 +431,15 @@ class RestWriterTest {
     }
 
     static class CapturingFileOutput implements FileOutput {
-        private final java.util.List<String> capturedSources;
+        private final List<String> capturedSources;
 
-        CapturingFileOutput(java.util.List<String> capturedSources) {
+        CapturingFileOutput(List<String> capturedSources) {
             this.capturedSources = capturedSources;
         }
 
         @Override
-        public void setPreferredElement(javax.lang.model.element.TypeElement element) {
-        }
-
-        @Override
-        public void writeFile(String packagePrefix, String typeName, com.palantir.javapoet.TypeSpec type) {
-            capturedSources.add(com.palantir.javapoet.JavaFile.builder(packagePrefix, type).build().toString());
+        public void writeFile(String packagePrefix, String typeName, TypeSpec type) {
+            capturedSources.add(builder(packagePrefix, type).build().toString());
         }
     }
 }

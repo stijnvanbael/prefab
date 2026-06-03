@@ -14,12 +14,12 @@ public class WordCountProcessor extends StatefulStreamProcessor<WordEvent, WordE
         wordCountStore = store(WordCount.class);
     }
 
-    public void process(StreamRecord<WordEvent> input) {
-        var wordCount = wordCountStore.get(input.key())
+    public void process(StreamRecord<WordEvent> streamRecord) {
+        var wordCount = wordCountStore.get(streamRecord.key())
                 .map(wc -> new WordCount(wc.word(), wc.count() + 1))
-                .orElseGet(() -> new WordCount(input.value().word(), 1));
+                .orElseGet(() -> new WordCount(streamRecord.value().word(), 1));
 
-        wordCountStore.put(input.key(), wordCount);
-        forward(input);
+        wordCountStore.put(streamRecord.key(), wordCount);
+        forward(streamRecord);
     }
 }

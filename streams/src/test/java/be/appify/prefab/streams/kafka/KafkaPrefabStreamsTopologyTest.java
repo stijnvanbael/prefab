@@ -1,8 +1,10 @@
 package be.appify.prefab.streams.kafka;
 
 import be.appify.prefab.streams.JoinWindow;
+import be.appify.prefab.streams.StatefulStreamProcessor;
 import be.appify.prefab.streams.StreamBackend;
 import be.appify.prefab.streams.StreamBreakoutAdapter;
+import be.appify.prefab.streams.StreamRecord;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -263,8 +265,6 @@ class KafkaPrefabStreamsTopologyTest {
         }
     }
 
-
-
     @Test
     void breakout_shouldApplyKafkaNativeFragmentWithinPrefabPipeline() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
@@ -343,6 +343,38 @@ class KafkaPrefabStreamsTopologyTest {
         assertThat(auditDefinition.nativeTopology().describe().toString()).isEqualTo(combinedTopologyDescription);
     }
 
+    @Test
+    void process_shouldPerformStatefulOperations() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var inputTopic = "prefab-streams-test-orders.in";
+        var outputTopic = "prefab-streams-test-orders.out";
+        test.registerJson(inputTopic, IncomingOrder.class);
+        test.registerJson(outputTopic, OrderCount.class);
+        test.registerJson("prefab-streams-test-order-count-changelog", OrderCount.class);
+
+        var streams = test.streams(new StreamsBuilder());
+
+        var countDefinition = streams.from(IncomingOrder.class)
+                .process(new CountOrderProcessor(streams))
+                .to(outputTopic);
+
+        try (var topologyTest = test.run(countDefinition)) {
+            var input = topologyTest.input(inputTopic);
+            var output = topologyTest.output(outputTopic);
+
+            input.pipeInput("o-1", new IncomingOrder("o-1", "alice"));
+            input.pipeInput("o-2", new IncomingOrder("o-2", "bob"));
+            input.pipeInput("o-3", new IncomingOrder("o-3", "alice"));
+
+            assertThat(output.readValuesToList())
+                    .containsExactlyInAnyOrder(
+                            new OrderCount("alice", 1),
+                            new OrderCount("bob", 1),
+                            new OrderCount("alice", 2)
+                    );
+        }
+    }
+
     record IncomingOrder(String orderId, String customer) {
     }
 
@@ -359,6 +391,9 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     record JoinedOrder(String orderId, String customer, String shippingStatus) {
+    }
+
+    record OrderCount(String customer, int numberOfOrders) {
     }
 
     private static final class TrackingStreamsBuilder extends StreamsBuilder {
@@ -412,6 +447,20 @@ class KafkaPrefabStreamsTopologyTest {
         @Override
         public Object apply(KStream<String, IncomingOrder> nativeStream) {
             return "not-a-stream";
+        }
+    }
+
+    private static class CountOrderProcessor extends StatefulStreamProcessor<IncomingOrder, OrderCount> {
+        public CountOrderProcessor(KafkaPrefabStreams streams) {
+            super(streams, OrderCount.class);
+        }
+
+        @Override
+        public void process(StreamRecord<IncomingOrder> streamRecord) {
+            var orderCount = store(OrderCount.class).putOrUpdate(streamRecord.value().customer(),
+                    () -> new OrderCount(streamRecord.value().customer(), 1),
+                    existing -> new OrderCount(existing.customer(), existing.numberOfOrders() + 1));
+            forward(streamRecord.key(), orderCount);
         }
     }
 }

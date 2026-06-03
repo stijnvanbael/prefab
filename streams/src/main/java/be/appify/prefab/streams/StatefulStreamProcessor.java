@@ -1,20 +1,20 @@
 package be.appify.prefab.streams;
 
+import java.time.Instant;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public abstract class StatefulStreamProcessor<VI, VO> implements StreamProcessor<VI, VO> {
-    private Map<Class<?>, Store<?>> stores;
+    private final Map<Class<?>, Store<?>> stores;
     private final ThreadLocal<StreamProcessorContext<VO>> context = new ThreadLocal<>();
-    private final PrefabStreams streams;
-    private final Set<Class<?>> storeTypes;
 
     protected StatefulStreamProcessor(PrefabStreams streams, Class<?>... storeTypes) {
-        this.streams = streams;
-        this.storeTypes = Set.of(storeTypes);
+        this.stores = Stream.of(storeTypes)
+                .collect(Collectors.toMap(type -> type, streams::createStore));
     }
 
     @Override
@@ -31,19 +31,22 @@ public abstract class StatefulStreamProcessor<VI, VO> implements StreamProcessor
         return (Store<V>) stores.get(type);
     }
 
+    public void forward(String key, VO value) {
+        forward(new StreamRecord<>(key, value, Instant.now(), Collections.emptyMap()));
+    }
+
     @Override
-    public void forward(StreamRecord<VO> value) {
+    public void forward(StreamRecord<VO> streamRecord) {
         var processorContext = context.get();
         if (processorContext == null) {
             throw new IllegalStateException("Processor context is not initialized, please call init() first");
         }
-        processorContext.forward(value);
+        processorContext.forward(streamRecord);
     }
 
     @Override
     public void init(StreamProcessorContext<VO> context) {
         this.context.set(context);
-        this.stores = storeTypes.stream()
-                .collect(Collectors.toMap(type -> type, type -> streams.createStore(type, context)));
+        stores.values().forEach(store -> store.init(context));
     }
 }

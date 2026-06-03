@@ -31,5 +31,5 @@ public interface PrefabStreams {
      * @param <VS>  store value type
      * @return new state store of the given type
      */
-    <VS> Store<VS> createStore(Class<VS> type, StreamProcessorContext<?> context);
+    <VS> Store<VS> createStore(Class<VS> type);
 }

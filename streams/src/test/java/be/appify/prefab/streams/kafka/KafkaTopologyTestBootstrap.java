@@ -5,6 +5,7 @@ import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.streams.StreamDefinition;
+import java.util.Properties;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -15,9 +16,6 @@ import org.apache.kafka.streams.TestOutputTopic;
 import org.apache.kafka.streams.TopologyTestDriver;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.core.convert.support.DefaultConversionService;
-
-import java.util.Properties;
-import java.util.UUID;
 
 final class KafkaTopologyTestBootstrap {
     private final EventRegistry typeRegistry = new EventRegistry();
@@ -45,7 +43,7 @@ final class KafkaTopologyTestBootstrap {
 
     TopologyTestSession run(StreamDefinition streamDefinition) {
         var properties = new Properties();
-        properties.put(StreamsConfig.APPLICATION_ID_CONFIG, "prefab-streams-topology-test-" + UUID.randomUUID());
+        properties.put(StreamsConfig.APPLICATION_ID_CONFIG, "prefab-streams-test");
         properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "dummy:9092");
         return new TopologyTestSession(new TopologyTestDriver(streamDefinition.nativeTopology(), properties),
                 serializer,

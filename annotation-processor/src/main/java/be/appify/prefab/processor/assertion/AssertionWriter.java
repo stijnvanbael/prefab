@@ -14,7 +14,6 @@ import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import com.palantir.javapoet.TypeVariableName;
 import com.palantir.javapoet.WildcardTypeName;
-import org.javalite.common.Inflector;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -125,7 +124,8 @@ class AssertionWriter {
     }
 
     private void writeNestedAssertFor(TypeManifest type, TypeElement preferredElement) {
-        if (isNestedRecordType(type) && type.asTypeName() instanceof ClassName subjectType) {
+        if (isNestedRecordType(type)) {
+            var subjectType = eraseParameters(type.asTypeName());
             var flatName = type.simpleName().replace(".", "");
             var packageName = type.packageName();
             var assertName = flatName + "Assert";
@@ -139,10 +139,20 @@ class AssertionWriter {
         }
     }
 
+    private TypeName eraseParameters(TypeName typeName) {
+        if(typeName instanceof ParameterizedTypeName parameterizedTypeName) {
+            return ParameterizedTypeName.get(parameterizedTypeName.rawType(),
+                    parameterizedTypeName.typeArguments().stream()
+                            .map(parameter -> WildcardTypeName.subtypeOf(Object.class))
+                            .toArray(TypeName[]::new));
+        }
+        return typeName;
+    }
+
     private boolean writeAssertClass(
             String packageName,
             String assertName,
-            ClassName subjectType,
+            TypeName subjectType,
             List<VariableManifest> fields,
             TypeElement preferredElement
     ) {
@@ -172,7 +182,7 @@ class AssertionWriter {
                 .build();
     }
 
-    private MethodSpec staticAssertThatFactory(ClassName assertType, ClassName subjectType) {
+    private MethodSpec staticAssertThatFactory(ClassName assertType, TypeName subjectType) {
         return MethodSpec.methodBuilder("assertThat")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .returns(ParameterizedTypeName.get(assertType, WildcardTypeName.subtypeOf(Object.class)))
@@ -181,7 +191,7 @@ class AssertionWriter {
                 .build();
     }
 
-    private MethodSpec protectedConstructorFor(ClassName assertType, ClassName subjectType) {
+    private MethodSpec protectedConstructorFor(ClassName assertType, TypeName subjectType) {
         return MethodSpec.constructorBuilder()
                 .addModifiers(Modifier.PROTECTED)
                 .addParameter(subjectType, "actual")
@@ -199,11 +209,11 @@ class AssertionWriter {
         if (field.type().is(List.class)) {
             return listFieldAssertMethods(selfType, field);
         }
+        if (isSingleValueRecordField(field)) {
+            return List.of(singleValueRecordFieldAssertMethod(selfType, field), recordFieldAssertMethod(selfType, field));
+        }
         if (isNestedRecordType(field.type())) {
             return List.of(recordFieldAssertMethod(selfType, field));
-        }
-        if (isSingleValueRecordField(field)) {
-            return List.of(singleValueRecordFieldAssertMethod(selfType, field));
         }
         return List.of(equalsFieldAssertMethod(selfType, field));
     }
@@ -265,16 +275,6 @@ class AssertionWriter {
                 .addStatement("return myself")
                 .build();
     }
-    private String singularize(String fieldName) {
-        if (fieldName.endsWith("List")) {
-            return fieldName.substring(0, fieldName.length() - 4);
-        }
-        var singular = Inflector.singularize(fieldName);
-        if(fieldName.equals(singular)) {
-            return fieldName + "Item";
-        }
-        return singular;
-    }
 
     private MethodSpec recordFieldAssertMethod(TypeVariableName selfType, VariableManifest field) {
         var fieldName = field.name();
@@ -305,6 +305,7 @@ class AssertionWriter {
                 .returns(selfType)
                 .addParameter(innerType, "expected")
                 .addStatement("isNotNull()")
+                .addStatement("$T.assertThat(actual.$N()).isNotNull()", ASSERTIONS, fieldName)
                 .beginControlFlow("if (!$T.equals(actual.$N().$N(), expected))", Objects.class, fieldName, innerAccessor)
                 .addStatement("failWithMessage($S, expected, actual.$N().$N())",
                         "Expected " + fieldName + " to be <%s> but was <%s>", fieldName, innerAccessor)
@@ -357,7 +358,7 @@ class AssertionWriter {
         return field.type().parameters().getFirst().asBoxed().asTypeName();
     }
 
-    private MethodSpec assertThatDelegateMethod(ClassName subjectType, ClassName assertType) {
+    private MethodSpec assertThatDelegateMethod(TypeName subjectType, ClassName assertType) {
         return MethodSpec.methodBuilder("assertThat")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .returns(ParameterizedTypeName.get(assertType, WildcardTypeName.subtypeOf(Object.class)))
@@ -366,22 +367,20 @@ class AssertionWriter {
                 .build();
     }
 
-    private void addEntry(String packageName, ClassName subjectType, ClassName assertType) {
+    private void addEntry(String packageName, TypeName subjectType, ClassName assertType) {
         entriesByPackage.computeIfAbsent(packageName, k -> new CopyOnWriteArrayList<>())
                 .add(new AssertionEntry(subjectType, assertType));
     }
 
     private boolean isNestedRecordType(TypeManifest type) {
         if (!type.isRecord()) return false;
-        if (type.isSingleValueType()) return false;
         if (type.isStandardType()) return false;
         if (type.isCustomType()) return false;
-        if (!type.parameters().isEmpty()) return false;
         if (type.is(Instant.class) || type.is(LocalDate.class) || type.is(LocalDateTime.class)
                 || type.is(Duration.class)) return false;
         return !type.is(BigDecimal.class);
     }
 
-    record AssertionEntry(ClassName subjectType, ClassName assertType) {
+    record AssertionEntry(TypeName subjectType, ClassName assertType) {
     }
 }

@@ -82,6 +82,7 @@ Avoid: raw types, `StringBuffer`, old `Date`/`Calendar`, `synchronized` (prefer 
 - TDD preferred — write the test first.
 - Descriptive `@DisplayName` or `methodUnderTest_givenCondition_expected()` names.
 - `@ParameterizedTest` for multiple input scenarios.
+- Make tests run as fast as possible; prefer unit tests over integration tests.
 - Testcontainers for real infrastructure (DB, Kafka); tests must be independent and idempotent.
 - **Never leave a failing or flaky test.**
 

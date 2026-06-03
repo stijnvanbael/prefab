@@ -19,14 +19,20 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class AssertionPluginTest {
 
+    public static final com.google.testing.compile.Compilation productCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("assertion/source/Product.java"));
+    public static final com.google.testing.compile.Compilation productCreatedCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("assertion/source/ProductCreated.java"));
+    public static final com.google.testing.compile.Compilation sampleRecordCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("assertion/source/SampleRecord.java"));
+
     @Test
     void responseAssertClassIsGeneratedForAggregate() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("assertion/source/Product.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(productCompilation).succeeded();
+        assertThat(productCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "",
                         "assertion/infrastructure/http/ProductResponseAssert.java")
                 .isNotNull();
@@ -34,12 +40,8 @@ class AssertionPluginTest {
 
     @Test
     void responseAssertClassExtendsAbstractAssert() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("assertion/source/Product.java"));
-
-        assertThat(compilation).succeeded();
-        var contents = assertThat(compilation)
+        assertThat(productCompilation).succeeded();
+        var contents = assertThat(productCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "",
                         "assertion/infrastructure/http/ProductResponseAssert.java")
                 .contentsAsUtf8String();
@@ -49,12 +51,8 @@ class AssertionPluginTest {
 
     @Test
     void responseAssertClassContainsStaticAssertThatFactory() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("assertion/source/Product.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(productCompilation).succeeded();
+        assertThat(productCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "",
                         "assertion/infrastructure/http/ProductResponseAssert.java")
                 .contentsAsUtf8String()
@@ -63,17 +61,13 @@ class AssertionPluginTest {
 
     @Test
     void responseAssertClassContainsFieldAssertionMethods() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("assertion/source/Product.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(productCompilation).succeeded();
+        assertThat(productCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "",
                         "assertion/infrastructure/http/ProductResponseAssert.java")
                 .contentsAsUtf8String()
                 .contains("hasName(String expected)");
-        assertThat(compilation)
+        assertThat(productCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "",
                         "assertion/infrastructure/http/ProductResponseAssert.java")
                 .contentsAsUtf8String()
@@ -82,12 +76,8 @@ class AssertionPluginTest {
 
     @Test
     void responseAssertClassContainsListSatisfyingAssertionMethod() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("assertion/source/Product.java"));
-
-        assertThat(compilation).succeeded();
-        var contents = assertThat(compilation)
+        assertThat(productCompilation).succeeded();
+        var contents = assertThat(productCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "",
                         "assertion/infrastructure/http/ProductResponseAssert.java")
                 .contentsAsUtf8String();
@@ -98,12 +88,8 @@ class AssertionPluginTest {
 
     @Test
     void assertionsFactoryClassIsGeneratedForAggregate() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("assertion/source/Product.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(productCompilation).succeeded();
+        assertThat(productCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "",
                         "assertion/infrastructure/http/Assertions.java")
                 .isNotNull();
@@ -111,12 +97,8 @@ class AssertionPluginTest {
 
     @Test
     void assertionsFactoryContainsAssertThatForResponseType() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("assertion/source/Product.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(productCompilation).succeeded();
+        assertThat(productCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "",
                         "assertion/infrastructure/http/Assertions.java")
                 .contentsAsUtf8String()
@@ -124,25 +106,28 @@ class AssertionPluginTest {
     }
 
     @Test
-    void eventAssertClassIsGeneratedForEventType() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("assertion/source/ProductCreated.java"));
+    void assertClassIsGeneratedForSingleValueType() {
+        assertThat(productCompilation).succeeded();
+        assertThat(productCompilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "", "assertion/ProductMoneyAssert.java")
+                .isNotNull();
+        assertThat(productCompilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "", "be/appify/prefab/core/service/ReferenceAssert.java")
+                .isNotNull();
+    }
 
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+    @Test
+    void eventAssertClassIsGeneratedForEventType() {
+        assertThat(productCreatedCompilation).succeeded();
+        assertThat(productCreatedCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "", "assertion/ProductCreatedAssert.java")
                 .isNotNull();
     }
 
     @Test
     void eventAssertClassContainsFieldAssertionMethods() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("assertion/source/ProductCreated.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(productCreatedCompilation).succeeded();
+        assertThat(productCreatedCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "", "assertion/ProductCreatedAssert.java")
                 .contentsAsUtf8String()
                 .contains("hasProductId(String expected)");
@@ -150,12 +135,8 @@ class AssertionPluginTest {
 
     @Test
     void eventAssertionsFactoryClassIsGenerated() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("assertion/source/ProductCreated.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(productCreatedCompilation).succeeded();
+        assertThat(productCreatedCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "", "assertion/Assertions.java")
                 .isNotNull();
     }
@@ -182,12 +163,8 @@ class AssertionPluginTest {
 
     @Test
     void listFieldNameEndingWithListGeneratesListSatisfyingMethod() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("assertion/source/SampleRecord.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(sampleRecordCompilation).succeeded();
+        assertThat(sampleRecordCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "",
                         "assertion/infrastructure/http/SampleRecordResponseAssert.java")
                 .contentsAsUtf8String()
@@ -196,19 +173,14 @@ class AssertionPluginTest {
 
     @Test
     void listFieldNameEndingWithListGeneratesElementSatisfyingMethod() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("assertion/source/SampleRecord.java"));
-
-        assertThat(compilation).succeeded();
-        var contents = assertThat(compilation)
+        assertThat(sampleRecordCompilation).succeeded();
+        var contents = assertThat(sampleRecordCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "",
                         "assertion/infrastructure/http/SampleRecordResponseAssert.java")
                 .contentsAsUtf8String();
         contents.contains("hasSampleRecordSampleElementSatisfying(");
         contents.contains("SampleRecordSampleElementAssert.assertThat(element)");
     }
-
 
     private static void deleteRecursively(Path root) {
         if (root == null || !Files.exists(root)) {

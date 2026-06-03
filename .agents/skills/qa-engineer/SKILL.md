@@ -16,6 +16,7 @@ validation across modules and examples
 - Validate both source behaviour and generated artefacts where the framework contract depends on code generation
 - Investigate flaky tests, schema drift, and processor regressions instead of masking them
 - Enforce merge readiness across affected modules, not just the file that changed
+- Make tests run fast and reliably, even if that means changing the code under test to be more testable
 
 ## Core Rule
 No green, no merge. Fix the root cause in the model, processor, test fixture, or runtime module instead of weakening the

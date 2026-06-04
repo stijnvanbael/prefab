@@ -5,16 +5,24 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public abstract class StatefulStreamProcessor<VI, VO> implements StreamProcessor<VI, VO> {
-    private final Map<Class<?>, Store<?>> stores;
+    private Map<Class<?>, Store<?>> stores;
     private final ThreadLocal<StreamProcessorContext<VO>> context = new ThreadLocal<>();
+    private final Set<Class<?>> storeTypes;
 
-    protected StatefulStreamProcessor(PrefabStreams streams, Class<?>... storeTypes) {
-        this.stores = Stream.of(storeTypes)
-                .collect(Collectors.toMap(type -> type, streams::createStore));
+    protected StatefulStreamProcessor(Class<?>... storeTypes) {
+        this.storeTypes = Set.of(storeTypes);
+    }
+
+    @Override
+    public void initStreams(PrefabStreams streams) {
+        if(stores == null) {
+            this.stores = storeTypes.stream()
+                    .collect(Collectors.toMap(type -> type, streams::createStore));
+        }
     }
 
     @Override
@@ -45,7 +53,7 @@ public abstract class StatefulStreamProcessor<VI, VO> implements StreamProcessor
     }
 
     @Override
-    public void init(StreamProcessorContext<VO> context) {
+    public void initContext(StreamProcessorContext<VO> context) {
         this.context.set(context);
         stores.values().forEach(store -> store.init(context));
     }

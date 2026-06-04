@@ -4,6 +4,7 @@ import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.streams.JoinWindow;
 import be.appify.prefab.streams.PrefabStream;
+import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.Store;
 import be.appify.prefab.streams.StreamBackend;
 import be.appify.prefab.streams.StreamBreakoutAdapter;
@@ -34,8 +35,7 @@ import java.util.function.Predicate;
  * <p>Each operator delegates to the corresponding native {@link KStream} method, preserving
  * Prefab's serialization infrastructure for the terminal {@code to} operations.
  *
- * @param <V>
- *         current record value type
+ * @param <V> current record value type
  */
 public class KafkaPrefabStream<V> implements PrefabStream<V> {
     private final StreamsBuilder streamsBuilder;
@@ -45,15 +45,18 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
     private final DynamicDeserializer deserializer;
     private final Class<?> valueType;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private final PrefabStreams streams;
 
-    /** Constructs a new KafkaPrefabStream. */
+    /**
+     * Constructs a new KafkaPrefabStream.
+     */
     public KafkaPrefabStream(
             StreamsBuilder streamsBuilder,
             KStream<String, V> stream,
             KafkaTopicResolver topicResolver,
             DynamicSerializer serializer,
             DynamicDeserializer deserializer,
-            Class<?> valueType
+            Class<?> valueType, PrefabStreams streams
     ) {
         this.streamsBuilder = streamsBuilder;
         this.stream = stream;
@@ -61,6 +64,7 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
         this.serializer = serializer;
         this.deserializer = deserializer;
         this.valueType = valueType;
+        this.streams = streams;
     }
 
     @Override
@@ -193,6 +197,7 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
     @Override
     public <VO> PrefabStream<VO> process(StreamProcessor<V, VO> processor) {
         Objects.requireNonNull(processor, "processor must not be null");
+        processor.initStreams(streams);
 
         var stores = processor.stateStores();
         var stateStoreNames = stores.stream()
@@ -219,12 +224,12 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
     }
 
     private <R> KafkaPrefabStream<R> wrap(KStream<String, R> transformed) {
-        return new KafkaPrefabStream<>(streamsBuilder, transformed, topicResolver, serializer, deserializer, null);
+        return new KafkaPrefabStream<>(streamsBuilder, transformed, topicResolver, serializer, deserializer, null, streams);
     }
 
     private <R> KafkaPrefabStream<R> wrap(KStream<String, R> transformed, Class<?> runtimeType) {
-        return new KafkaPrefabStream<>(streamsBuilder, transformed, topicResolver, serializer, deserializer,
-                runtimeType);
+        return new KafkaPrefabStream<>(
+                streamsBuilder, transformed, topicResolver, serializer, deserializer, runtimeType, streams);
     }
 
     @SuppressWarnings("unchecked")
@@ -246,9 +251,9 @@ public class KafkaPrefabStream<V> implements PrefabStream<V> {
 
     private void validateSameContext(KafkaPrefabStream<?> other) {
         if (streamsBuilder == other.streamsBuilder
-            && topicResolver == other.topicResolver
-            && serializer == other.serializer
-            && deserializer == other.deserializer) {
+                && topicResolver == other.topicResolver
+                && serializer == other.serializer
+                && deserializer == other.deserializer) {
             return;
         }
         throw new IllegalArgumentException("Cannot combine streams created by different Kafka stream contexts");

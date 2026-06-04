@@ -41,7 +41,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
         // DynamicSerializer/Deserializer operate on Object at runtime; the cast is safe because
         // the topic is registered for exactly this type and the serde will deserialize to V.
         KStream<String, V> stream = (KStream<String, V>) streamsBuilder.stream(topic, Consumed.with(Serdes.String(), valueSerde));
-        return new KafkaPrefabStream<>(streamsBuilder, stream, topicResolver, serializer, deserializer, type);
+        return new KafkaPrefabStream<>(streamsBuilder, stream, topicResolver, serializer, deserializer, type, this);
     }
 
     @Override
@@ -59,7 +59,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
         return new KafkaPrefabStoreAdapter<>(name);
     }
 
-    private static String toKebabCase(String value) {
+    static String toKebabCase(String value) {
         return value.replaceAll("([a-z])([A-Z]+)", "$1-$2").toLowerCase();
     }
 }

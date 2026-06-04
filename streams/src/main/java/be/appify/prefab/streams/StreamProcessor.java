@@ -11,5 +11,7 @@ public interface StreamProcessor<VI, VO> {
 
     <V> Store<V> store(Class<V> type);
 
-    void init(StreamProcessorContext<VO> context);
+    void initStreams(PrefabStreams streams);
+
+    void initContext(StreamProcessorContext<VO> context);
 }

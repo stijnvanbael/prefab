@@ -23,7 +23,7 @@ public class KafkaPrefabStreamProcessorAdapter<VI, VO> extends ContextualProcess
     @Override
     public void init(ProcessorContext<String, VO> context) {
         super.init(context);
-        processor.init(new KafkaPrefabProcessorContext<>(context));
+        processor.initContext(new KafkaPrefabProcessorContext<>(context));
     }
 
     @Override

@@ -2,8 +2,8 @@ package be.appify.prefab.example.streams;
 
 import be.appify.prefab.core.domain.Key;
 
-public record WordId(String value) implements Key<WordId> {
+public record Word(String value) implements Key<Word> {
     static {
-        Key.register(WordId.class, WordId::new);
+        Key.register(Word.class, Word::new);
     }
 }

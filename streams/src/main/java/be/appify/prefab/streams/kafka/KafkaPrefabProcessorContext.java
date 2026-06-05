@@ -2,24 +2,23 @@ package be.appify.prefab.streams.kafka;
 
 import be.appify.prefab.streams.StreamProcessorContext;
 import be.appify.prefab.streams.StreamRecord;
+import java.util.Map;
 import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.header.internals.RecordHeaders;
 import org.apache.kafka.streams.processor.api.ProcessorContext;
 import org.apache.kafka.streams.processor.api.Record;
 
-import java.util.Map;
-
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-public class KafkaPrefabProcessorContext<VO> implements StreamProcessorContext<VO> {
-    private final ProcessorContext<String, VO> context;
+public class KafkaPrefabProcessorContext<K, V> implements StreamProcessorContext<K, V> {
+    private final ProcessorContext<K, V> context;
 
-    public KafkaPrefabProcessorContext(ProcessorContext<String, VO> context) {
+    public KafkaPrefabProcessorContext(ProcessorContext<K, V> context) {
         this.context = context;
     }
 
     @Override
-    public void forward(StreamRecord<VO> streamRecord) {
+    public void forward(StreamRecord<K, V> streamRecord) {
         context.forward(new Record<>(
                 streamRecord.key(),
                 streamRecord.value(),
@@ -28,7 +27,7 @@ public class KafkaPrefabProcessorContext<VO> implements StreamProcessorContext<V
         ));
     }
 
-    public ProcessorContext<String, VO> kafkaContext() {
+    public ProcessorContext<K, V> kafkaContext() {
         return context;
     }
 

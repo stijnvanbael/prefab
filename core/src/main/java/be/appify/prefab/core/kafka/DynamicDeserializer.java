@@ -10,6 +10,7 @@ import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import tools.jackson.databind.type.TypeFactory;
+
 /**
  * A deserializer that dynamically chooses deserialization based on the topic's serialization format.
  * It uses an {@link EventRegistry} to determine the serialization format for each topic and delegates to the appropriate deserializer.
@@ -101,5 +102,9 @@ public class DynamicDeserializer implements Deserializer<Object> {
     private boolean typeNameMatchesSchema(Class<?> type, String schemaName) {
         var normalizedSchemaName = schemaName.replace('_', '$');
         return type.getName().endsWith("." + normalizedSchemaName);
+    }
+
+    public <T> Deserializer<T> adapt() {
+        return (Deserializer<T>) this;
     }
 }

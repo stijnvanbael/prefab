@@ -4,12 +4,12 @@ import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
-public interface Store<T> {
-    Optional<T> get(String key);
+public interface Store<K, V> {
+    Optional<V> get(K key);
 
-    void put(String key, T value);
+    void put(K key, V value);
 
-    default T putOrUpdate(String key, Supplier<T> create, UnaryOperator<T> update) {
+    default V putOrUpdate(K key, Supplier<V> create, UnaryOperator<V> update) {
         var newValue = get(key).map(update).orElseGet(create);
         put(key, newValue);
         return newValue;
@@ -17,5 +17,5 @@ public interface Store<T> {
 
     String name();
 
-    void init(StreamProcessorContext<?> context);
+    void init(StreamProcessorContext<?, ?> context);
 }

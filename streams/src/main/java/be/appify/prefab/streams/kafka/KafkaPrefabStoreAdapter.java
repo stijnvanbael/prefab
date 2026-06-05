@@ -5,25 +5,25 @@ import be.appify.prefab.streams.StreamProcessorContext;
 import java.util.Optional;
 import org.apache.kafka.streams.state.KeyValueStore;
 
-public class KafkaPrefabStoreAdapter<V> implements Store<V> {
+public class KafkaPrefabStoreAdapter<K, V> implements Store<K, V> {
     private final String name;
-    private final ThreadLocal<KeyValueStore<String, V>> store = new ThreadLocal<>();
+    private final ThreadLocal<KeyValueStore<K, V>> store = new ThreadLocal<>();
 
     public KafkaPrefabStoreAdapter(String name) {
         this.name = name;
     }
 
     @Override
-    public Optional<V> get(String key) {
+    public Optional<V> get(K key) {
         return Optional.ofNullable(store().get(key));
     }
 
     @Override
-    public void put(String key, V value) {
+    public void put(K key, V value) {
         store().put(key, value);
     }
 
-    private KeyValueStore<String, V> store() {
+    private KeyValueStore<K, V> store() {
         var store = this.store.get();
         if (store == null) {
             throw new IllegalStateException("Store is not initialized, call init() first");
@@ -37,7 +37,7 @@ public class KafkaPrefabStoreAdapter<V> implements Store<V> {
     }
 
     @Override
-    public void init(StreamProcessorContext<?> context) {
-        store.set(((KafkaPrefabProcessorContext<?>) context).kafkaContext().getStateStore(name));
+    public void init(StreamProcessorContext<?, ?> context) {
+        store.set(((KafkaPrefabProcessorContext<?, ?>) context).kafkaContext().getStateStore(name));
     }
 }

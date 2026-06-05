@@ -1,6 +1,8 @@
 package be.appify.prefab.streams.kafka;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.domain.Key;
+import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.streams.JoinWindow;
 import be.appify.prefab.streams.PrefabStream;
@@ -15,70 +17,78 @@ import java.util.function.Predicate;
 
 import static be.appify.prefab.streams.kafka.KafkaPrefabStreams.toKebabCase;
 
-public class AutoRegisterPrefabStreamTestDecorator<V> implements PrefabStream<V> {
-    private final PrefabStream<V> delegate;
+public class AutoRegisterPrefabStreamTestDecorator<K extends Key<K>, V extends Keyed<K>> implements PrefabStream<K, V> {
+    private final PrefabStream<K, V> delegate;
     private final EventRegistry eventRegistry;
     private final PrefabStreams streams;
 
-    public AutoRegisterPrefabStreamTestDecorator(PrefabStream<V> delegate, EventRegistry eventRegistry, PrefabStreams streams) {
+    public AutoRegisterPrefabStreamTestDecorator(PrefabStream<K, V> delegate, EventRegistry eventRegistry, PrefabStreams streams) {
         this.delegate = delegate;
         this.eventRegistry = eventRegistry;
         this.streams = streams;
     }
 
-    private <VO> PrefabStream<VO> wrap(PrefabStream<VO> delegate) {
+    private <KO extends Key<KO>, VO extends Keyed<KO>> PrefabStream<KO, VO> wrap(PrefabStream<KO, VO> delegate) {
         return new AutoRegisterPrefabStreamTestDecorator<>(delegate, eventRegistry, streams);
     }
 
-    private <VO> PrefabStream<VO> unwrap(PrefabStream<VO> wrapped) {
-        if(wrapped instanceof AutoRegisterPrefabStreamTestDecorator<VO> wrapper) {
+    private <KO extends Key<KO>, VO extends Keyed<KO>> PrefabStream<KO, VO> unwrap(PrefabStream<KO, VO> wrapped) {
+        if (wrapped instanceof AutoRegisterPrefabStreamTestDecorator<KO, VO> wrapper) {
             return wrapper.delegate;
         }
         return wrapped;
     }
 
     @Override
-    public PrefabStream<V> filter(Predicate<V> predicate) {
+    public PrefabStream<K, V> filter(Predicate<V> predicate) {
         return wrap(delegate.filter(predicate));
     }
 
     @Override
-    public <R> PrefabStream<R> map(Function<V, R> mapper) {
+    public <VO extends Keyed<K>> PrefabStream<K, VO> map(Function<V, VO> mapper) {
         return wrap(delegate.map(mapper));
     }
 
     @Override
-    public <R> PrefabStream<R> flatMap(Function<V, Iterable<R>> mapper) {
+    public <VO extends Keyed<K>> PrefabStream<K, VO> flatMap(Function<V, Iterable<VO>> mapper) {
         return wrap(delegate.flatMap(mapper));
     }
 
     @Override
-    public PrefabStream<V> branch(Predicate<V> predicate) {
+    public PrefabStream<K, V> branch(Predicate<V> predicate) {
         return wrap(delegate.branch(predicate));
     }
 
     @Override
-    public <S extends V> PrefabStream<S> branch(Class<S> subtype) {
+    public <S extends V> PrefabStream<K, S> branch(Class<S> subtype) {
         return wrap(delegate.branch(subtype));
     }
 
     @Override
-    public PrefabStream<V> merge(PrefabStream<? extends V> other) {
+    public PrefabStream<K, V> merge(PrefabStream<K, V> other) {
         return wrap(delegate.merge(unwrap(other)));
     }
 
     @Override
-    public <VO, VR> PrefabStream<VR> join(PrefabStream<VO> other, JoinWindow window, BiFunction<? super V, ? super VO, ? extends VR> joiner) {
+    public <VO extends Keyed<K>, VR extends Keyed<K>> PrefabStream<K, VR> join(
+            PrefabStream<K, VO> other,
+            JoinWindow window,
+            BiFunction<? super V, ? super VO, ? extends VR> joiner
+    ) {
         return wrap(delegate.join(unwrap(other), window, joiner));
     }
 
     @Override
-    public <R, NATIVE_IN, NATIVE_OUT> PrefabStream<R> breakout(StreamBreakoutAdapter<V, R, NATIVE_IN, NATIVE_OUT> adapter) {
+    public <NI, NO, KO extends Key<KO>, VO extends Keyed<KO>> PrefabStream<KO, VO> breakout(
+            StreamBreakoutAdapter<K, V, KO, VO, NI, NO> adapter
+    ) {
         return wrap(delegate.breakout(adapter));
     }
 
     @Override
-    public <VO> PrefabStream<VO> process(StreamProcessor<V, VO> processor) {
+    public <KO extends Key<KO>, VO extends Keyed<KO>> PrefabStream<KO, VO> process(
+            StreamProcessor<K, V, KO, VO> processor
+    ) {
         processor.initStreams(streams);
         return wrap(delegate.process(processor));
     }

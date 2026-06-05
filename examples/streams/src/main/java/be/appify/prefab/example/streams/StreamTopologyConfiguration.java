@@ -31,7 +31,7 @@ class StreamTopologyConfiguration {
                 .filter(event -> !event.payload().isBlank())
                 .map(event -> new StreamEvent(event.id(), event.payload().toUpperCase()))
                 .breakout(new KafkaStreamBreakoutAdapter<>(
-                        nativeStream -> nativeStream.selectKey((key, value) -> value.id())
+                        nativeStream -> nativeStream.selectKey((key, value) -> key)
                 ))
                 .flatMap(event -> Arrays.stream(event.payload().split(","))
                         .map(word -> new WordEvent(UUID.randomUUID().toString(), word.strip()))

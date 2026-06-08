@@ -2,6 +2,8 @@ package be.appify.prefab.streams.kafka;
 
 import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
+import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.streams.JoinWindow;
@@ -28,7 +30,6 @@ import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Named;
 import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.kstream.StreamJoined;
-import tools.jackson.databind.ObjectMapper;
 
 /**
  * Kafka-backed implementation of {@link PrefabStream}.
@@ -47,7 +48,6 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
     private final DynamicDeserializer deserializer;
     private final ValueTypeHint<V> valueType;
     private final Class<K> keyType;
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private final PrefabStreams streams;
 
     /**
@@ -259,8 +259,9 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
 
     @SuppressWarnings("unchecked")
     private <T> Serde<T> joinSerde(ValueTypeHint<T> runtimeType) {
+        Serializer<T> joinSerializer = (topic, data) -> serializeForJoin(topic, data, runtimeType);
         Deserializer<T> joinDeserializer = (topic, data) -> deserializeForJoin(topic, data, runtimeType);
-        return new SerdeAdapter<>((Serializer<T>) serializer, joinDeserializer);
+        return new SerdeAdapter<>(joinSerializer, joinDeserializer);
     }
 
     @SuppressWarnings("unchecked")
@@ -268,10 +269,52 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
         if (data == null) {
             return null;
         }
-        if (topicResolver.hasSerializationForTopic(topic) || runtimeType.isUnknown()) {
-            return (T) deserializer.deserialize(topic, data);
+        if (!topicResolver.hasSerializationForTopic(topic)) {
+            registerInternalTopic(topic, resolveRuntimeType(runtimeType, null));
         }
-        return OBJECT_MAPPER.readValue(data, runtimeType.knownRuntimeType());
+        return (T) deserializer.deserialize(topic, data);
+    }
+
+    private <T> byte[] serializeForJoin(String topic, T data, ValueTypeHint<T> runtimeType) {
+        if (data == null) {
+            return null;
+        }
+        if (!topicResolver.hasSerializationForTopic(topic)) {
+            registerInternalTopic(topic, resolveRuntimeType(runtimeType, data));
+        }
+        return serializer.serialize(topic, data);
+    }
+
+    private Class<?> resolveRuntimeType(ValueTypeHint<?> runtimeType, Object value) {
+        if (!runtimeType.isUnknown()) {
+            return runtimeType.knownRuntimeType();
+        }
+        return value != null ? value.getClass() : null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void registerInternalTopic(String topic, Class<?> runtimeType) {
+        if (runtimeType == null) {
+            return;
+        }
+
+        EventRegistry eventRegistry = serializer.eventRegistry();
+        if (!eventRegistry.contains(topic)) {
+            eventRegistry.register(topic, resolveSerialization(runtimeType, eventRegistry));
+        }
+        if (!eventRegistry.hasTypeForTopic(topic)) {
+            eventRegistry.registerType(topic, (Class<Object>) runtimeType);
+        }
+    }
+
+    private Event.Serialization resolveSerialization(
+            Class<?> runtimeType,
+            EventRegistry eventRegistry
+    ) {
+        return eventRegistry.tryTopicForType(runtimeType)
+                .filter(eventRegistry::contains)
+                .map(eventRegistry::serialization)
+                .orElse(Event.Serialization.JSON);
     }
 
     private void validateSameContext(KafkaPrefabStream<?, ?> other) {

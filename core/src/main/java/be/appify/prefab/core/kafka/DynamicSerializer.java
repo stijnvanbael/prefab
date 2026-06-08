@@ -79,6 +79,10 @@ public class DynamicSerializer implements Serializer<Object> {
         return conversionService.convert(data, GenericRecord.class);
     }
 
+    public EventRegistry eventRegistry() {
+        return eventRegistry;
+    }
+
     public <T> Serializer<T> adapt() {
         return (Serializer<T>) this;
     }

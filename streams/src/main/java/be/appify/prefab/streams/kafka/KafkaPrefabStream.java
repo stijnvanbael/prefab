@@ -45,7 +45,7 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
     private final KafkaTopicResolver topicResolver;
     private final DynamicSerializer serializer;
     private final DynamicDeserializer deserializer;
-    private final Class<V> valueType;
+    private final ValueTypeHint<V> valueType;
     private final Class<K> keyType;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private final PrefabStreams streams;
@@ -63,12 +63,26 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
             PrefabStreams streams,
             Class<K> keyType
     ) {
+        this(streamsBuilder, stream, topicResolver, serializer, deserializer,
+                ValueTypeHint.known(Objects.requireNonNull(valueType, "valueType must not be null")), streams, keyType);
+    }
+
+    private KafkaPrefabStream(
+            StreamsBuilder streamsBuilder,
+            KStream<K, V> stream,
+            KafkaTopicResolver topicResolver,
+            DynamicSerializer serializer,
+            DynamicDeserializer deserializer,
+            ValueTypeHint<V> valueType,
+            PrefabStreams streams,
+            Class<K> keyType
+    ) {
         this.streamsBuilder = streamsBuilder;
         this.stream = stream;
         this.topicResolver = topicResolver;
         this.serializer = serializer;
         this.deserializer = deserializer;
-        this.valueType = valueType;
+        this.valueType = Objects.requireNonNull(valueType, "valueType must not be null");
         this.streams = streams;
         this.keyType = keyType;
     }
@@ -80,12 +94,12 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
 
     @Override
     public <VO extends Keyed<K>> PrefabStream<K, VO> map(Function<V, VO> mapper) {
-        return wrap(stream.mapValues(mapper::apply), null);
+        return wrapUnknown(stream.mapValues(mapper::apply));
     }
 
     @Override
     public <VO extends Keyed<K>> PrefabStream<K, VO> flatMap(Function<V, Iterable<VO>> mapper) {
-        return wrap(stream.flatMapValues(mapper::apply), null);
+        return wrapUnknown(stream.flatMapValues(mapper::apply));
     }
 
     @Override
@@ -104,7 +118,7 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
         var filteredAndCasted = stream
                 .filter((key, value) -> subtype.isInstance(value))
                 .mapValues(subtype::cast);
-        return wrap(filteredAndCasted, subtype);
+        return wrapKnown(filteredAndCasted, subtype);
     }
 
     @Override
@@ -136,7 +150,7 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
                         StreamJoined.with(new StringKeySerde<>(keyType), joinSerde(valueType),
                                 joinSerde(otherKafkaStream.valueType))
                 ),
-                null
+                ValueTypeHint.unknown()
         );
     }
 
@@ -190,7 +204,7 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
                     "Kafka breakout adapter must return a KStream but returned %s".formatted(actualType)
             );
         }
-        return wrap((KStream<KO, VO>) adaptedKStream, null);
+        return wrapUnknown((KStream<KO, VO>) adaptedKStream);
     }
 
     @Override
@@ -206,7 +220,7 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
                 .toArray(String[]::new);
         var output = stream.process(() -> new KafkaPrefabStreamProcessorAdapter<>(processor), stateStoreNames);
 
-        return wrap(output, null);
+        return wrapUnknown(output);
     }
 
     @Override
@@ -223,27 +237,41 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
         return new StreamDefinition(streamsBuilder::build);
     }
 
+    private <KO extends Key<KO>, VO extends Keyed<KO>> KafkaPrefabStream<KO, VO> wrapKnown(
+            KStream<KO, VO> kStream,
+            Class<VO> valueType
+    ) {
+        return wrap(kStream, ValueTypeHint.known(valueType));
+    }
+
+    private <KO extends Key<KO>, VO extends Keyed<KO>> KafkaPrefabStream<KO, VO> wrapUnknown(KStream<KO, VO> kStream) {
+        return wrap(kStream, ValueTypeHint.unknown());
+    }
+
     @SuppressWarnings("unchecked")
-    private <KO extends Key<KO>, VO extends Keyed<KO>> KafkaPrefabStream<KO, VO> wrap(KStream<KO, VO> kStream, Class<VO> valueType) {
+    private <KO extends Key<KO>, VO extends Keyed<KO>> KafkaPrefabStream<KO, VO> wrap(
+            KStream<KO, VO> kStream,
+            ValueTypeHint<VO> valueType
+    ) {
         return new KafkaPrefabStream<>(streamsBuilder, kStream, topicResolver, serializer, deserializer, valueType, streams,
                 (Class<KO>) keyType);
     }
 
     @SuppressWarnings("unchecked")
-    private <T> Serde<T> joinSerde(Class<T> runtimeType) {
+    private <T> Serde<T> joinSerde(ValueTypeHint<T> runtimeType) {
         Deserializer<T> joinDeserializer = (topic, data) -> deserializeForJoin(topic, data, runtimeType);
         return new SerdeAdapter<>((Serializer<T>) serializer, joinDeserializer);
     }
 
     @SuppressWarnings("unchecked")
-    private <T> T deserializeForJoin(String topic, byte[] data, Class<?> runtimeType) {
+    private <T> T deserializeForJoin(String topic, byte[] data, ValueTypeHint<T> runtimeType) {
         if (data == null) {
             return null;
         }
-        if (topicResolver.hasSerializationForTopic(topic) || runtimeType == null) {
+        if (topicResolver.hasSerializationForTopic(topic) || runtimeType.isUnknown()) {
             return (T) deserializer.deserialize(topic, data);
         }
-        return (T) OBJECT_MAPPER.readValue(data, runtimeType);
+        return OBJECT_MAPPER.readValue(data, runtimeType.knownRuntimeType());
     }
 
     private void validateSameContext(KafkaPrefabStream<?, ?> other) {
@@ -257,16 +285,51 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
     }
 
     @SuppressWarnings("unchecked")
-    private static <V> Class<V> commonKnownType(Class<? extends V> left, Class<? extends V> right) {
-        if (left == null || right == null) {
-            return null;
+    private static <V> ValueTypeHint<V> commonKnownType(ValueTypeHint<? extends V> left, ValueTypeHint<? extends V> right) {
+        if (left.isUnknown() || right.isUnknown()) {
+            return ValueTypeHint.unknown();
         }
-        if (left.isAssignableFrom(right)) {
-            return (Class<V>) left;
+        var leftType = left.knownRuntimeType();
+        var rightType = right.knownRuntimeType();
+        if (leftType.isAssignableFrom(rightType)) {
+            return ValueTypeHint.known((Class<V>) leftType);
         }
-        if (right.isAssignableFrom(left)) {
-            return (Class<V>) right;
+        if (rightType.isAssignableFrom(leftType)) {
+            return ValueTypeHint.known((Class<V>) rightType);
         }
-        return null;
+        return ValueTypeHint.unknown();
+    }
+
+    private static final class ValueTypeHint<T> {
+        private static final ValueTypeHint<?> UNKNOWN = new ValueTypeHint<>(Object.class, false);
+
+        private final Class<?> runtimeType;
+        private final boolean known;
+
+        private ValueTypeHint(Class<?> runtimeType, boolean known) {
+            this.runtimeType = Objects.requireNonNull(runtimeType, "runtimeType must not be null");
+            this.known = known;
+        }
+
+        static <T> ValueTypeHint<T> known(Class<T> runtimeType) {
+            return new ValueTypeHint<>(runtimeType, true);
+        }
+
+        @SuppressWarnings("unchecked")
+        static <T> ValueTypeHint<T> unknown() {
+            return (ValueTypeHint<T>) UNKNOWN;
+        }
+
+        boolean isUnknown() {
+            return !known;
+        }
+
+        @SuppressWarnings("unchecked")
+        Class<? extends T> knownRuntimeType() {
+            if (isUnknown()) {
+                throw new IllegalStateException("No known runtime type is available");
+            }
+            return (Class<? extends T>) runtimeType;
+        }
     }
 }

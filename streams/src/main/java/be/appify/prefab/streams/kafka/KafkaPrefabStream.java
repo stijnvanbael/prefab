@@ -161,10 +161,10 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
         Objects.requireNonNull(left, "left must not be null");
         Objects.requireNonNull(right, "right must not be null");
 
-        if (!(left instanceof KafkaPrefabStream<K, ? extends VO> leftKafkaStream)) {
+        if (!(left.unwrap() instanceof KafkaPrefabStream<K, ? extends VO> leftKafkaStream)) {
             throw new IllegalArgumentException("Cannot merge non-Kafka stream implementation");
         }
-        if (!(right instanceof KafkaPrefabStream<K, ? extends VO> rightKafkaStream)) {
+        if (!(right.unwrap() instanceof KafkaPrefabStream<K, ? extends VO> rightKafkaStream)) {
             throw new IllegalArgumentException("Cannot merge non-Kafka stream implementation");
         }
 
@@ -235,6 +235,11 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
         var valueSerde = new SerdeAdapter<V>(serializer.adapt(), deserializer.adapt());
         stream.to(topic, Produced.with(new StringKeySerde<>(keyType), valueSerde));
         return new StreamDefinition(streamsBuilder::build);
+    }
+
+    @Override
+    public PrefabStream<K, V> unwrap() {
+        return this;
     }
 
     private <KO extends Key<KO>, VO extends Keyed<KO>> KafkaPrefabStream<KO, VO> wrapKnown(

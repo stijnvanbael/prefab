@@ -37,4 +37,6 @@ public interface PrefabStream<K extends Key<K>, V extends Keyed<K>> {
     StreamDefinition to(Class<? super V> type);
 
     StreamDefinition to(String topic);
+
+    PrefabStream<K, V> unwrap();
 }

@@ -9,6 +9,9 @@ import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.Store;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.KStream;
@@ -43,38 +46,82 @@ public class KafkaPrefabStreams implements PrefabStreams {
         var valueSerde = new SerdeAdapter<V>(serializer.adapt(), deserializer.adapt());
         // DynamicSerializer/Deserializer operate on Object at runtime; the cast is safe because
         // the topic is registered for exactly this type and the serde will deserialize to V.
-        KStream<K, V> stream = (KStream<K, V>) streamsBuilder.stream(topic,
+        KStream<K, V> stream = streamsBuilder.stream(topic,
                 Consumed.with(new StringKeySerde<>(keyType), valueSerde));
         return new KafkaPrefabStream<>(streamsBuilder, stream, topicResolver, serializer, deserializer, type, this, keyType);
     }
 
     @SuppressWarnings("unchecked")
     static <K extends Key<K>, V extends Keyed<K>> Class<K> keyTypeOf(Class<V> valueType) {
-        return (Class<K>) keyTypeOf(valueType, valueType);
+        return (Class<K>) resolveKeyType(valueType, Map.of(), valueType);
     }
 
-    private static Class<?> keyTypeOf(Class<?> currentType, Class<?> originalType) {
-        for (Type genericInterface : currentType.getGenericInterfaces()) {
-            if (!(genericInterface instanceof ParameterizedType parameterizedType)) {
-                continue;
-            }
-            if (parameterizedType.getRawType() != Keyed.class) {
-                continue;
-            }
-            var keyType = parameterizedType.getActualTypeArguments()[0];
-            if (keyType instanceof Class<?> keyClass) {
-                return keyClass;
-            }
-            if (keyType instanceof ParameterizedType keyParameterizedType && keyParameterizedType.getRawType() instanceof Class<?> keyClass) {
-                return keyClass;
+    private static Class<?> resolveKeyType(Class<?> type, Map<TypeVariable<?>, Type> subs, Class<?> originalType) {
+        // Check direct generic interfaces for Keyed<...>
+        for (var genericInterface : type.getGenericInterfaces()) {
+            if (genericInterface instanceof ParameterizedType pt && pt.getRawType() == Keyed.class) {
+                return extractConcreteClass(resolve(pt.getActualTypeArguments()[0], subs), originalType);
             }
         }
+        // Recurse into each super-interface
+        for (var genericInterface : type.getGenericInterfaces()) {
+            var rawInterface = toRawClass(genericInterface);
+            if (rawInterface == null || rawInterface == Keyed.class) {
+                continue;
+            }
+            try {
+                return resolveKeyType(rawInterface, substitutionsFor(rawInterface, genericInterface, subs), originalType);
+            } catch (IllegalArgumentException ignored) {
+                // not found in this interface branch; continue searching
+            }
+        }
+        // Recurse into superclass
+        var superClass = type.getSuperclass();
+        if (superClass != null && superClass != Object.class) {
+            return resolveKeyType(superClass, substitutionsFor(superClass, type.getGenericSuperclass(), subs), originalType);
+        }
+        throw new IllegalArgumentException("Cannot resolve key type for %s".formatted(originalType.getName()));
+    }
 
-        var superClass = currentType.getSuperclass();
-        if (superClass == null || superClass == Object.class) {
-            throw new IllegalArgumentException("Cannot resolve key type for %s".formatted(originalType.getName()));
+    private static Type resolve(Type type, Map<TypeVariable<?>, Type> subs) {
+        return type instanceof TypeVariable<?> tv ? subs.getOrDefault(tv, tv) : type;
+    }
+
+    private static Class<?> extractConcreteClass(Type type, Class<?> originalType) {
+        if (type instanceof Class<?> c) {
+            return c;
         }
-        return keyTypeOf(superClass, originalType);
+        if (type instanceof ParameterizedType pt && pt.getRawType() instanceof Class<?> c) {
+            return c;
+        }
+        throw new IllegalArgumentException("Cannot resolve key type for %s".formatted(originalType.getName()));
+    }
+
+    private static Class<?> toRawClass(Type type) {
+        if (type instanceof Class<?> c) {
+            return c;
+        }
+        if (type instanceof ParameterizedType pt && pt.getRawType() instanceof Class<?> c) {
+            return c;
+        }
+        return null;
+    }
+
+    private static Map<TypeVariable<?>, Type> substitutionsFor(Class<?> rawClass, Type genericType,
+            Map<TypeVariable<?>, Type> parentSubs) {
+        if (!(genericType instanceof ParameterizedType pt)) {
+            return parentSubs;
+        }
+        var params = rawClass.getTypeParameters();
+        var args = pt.getActualTypeArguments();
+        if (params.length == 0) {
+            return parentSubs;
+        }
+        var result = new HashMap<>(parentSubs);
+        for (var i = 0; i < params.length; i++) {
+            result.put(params[i], resolve(args[i], parentSubs));
+        }
+        return Map.copyOf(result);
     }
 
     @Override

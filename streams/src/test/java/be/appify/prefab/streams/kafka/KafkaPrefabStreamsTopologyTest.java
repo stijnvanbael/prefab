@@ -7,14 +7,14 @@ import be.appify.prefab.streams.StatefulStreamProcessor;
 import be.appify.prefab.streams.StreamBackend;
 import be.appify.prefab.streams.StreamBreakoutAdapter;
 import be.appify.prefab.streams.StreamRecord;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import org.apache.kafka.streams.kstream.KStream;
+import org.apache.kafka.streams.kstream.Named;
+import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.stream.Stream;
-
-import org.apache.kafka.streams.kstream.KStream;
-import org.apache.kafka.streams.kstream.Named;
-import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -282,7 +282,7 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     @Test
-    void combinedMapAndJoin_shouldUseTheRightSerdes() {
+    void joinAfterMap_shouldUseTheRightSerdes() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
         var streams = test.streams();
 
@@ -306,6 +306,35 @@ class KafkaPrefabStreamsTopologyTest {
             assertThat(output.readValuesToList())
                     .containsExactlyInAnyOrder(
                             new JoinedOrder(Reference.fromId("o-1"), Reference.fromId("ALICE"), "SHIPPED")
+                    );
+        }
+    }
+
+    @Test
+    void mergeAfterMap_shouldUseTheRightSerdes() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+
+        var orders = streams.from(IncomingOrder.class)
+                .map(order -> new OrderEvent.OrderCreated(order.orderId(), order.customer()));
+        var shippingUpdates = streams.from(ShippingUpdate.class)
+                .filter(update -> "SHIPPED".equals(update.status()))
+                .map(update -> new OrderEvent.OrderShipped(update.orderId()));
+        var topology = streams.merge(orders, shippingUpdates)
+                .to(OrderEvent.class);
+
+        try (var topologyTest = test.run(topology)) {
+            var inputOrder = topologyTest.input(IncomingOrder.class);
+            var inputShippingUpdate = topologyTest.input(ShippingUpdate.class);
+            var output = topologyTest.output(OrderEvent.class);
+
+            inputOrder.pipeInput("o-1", new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("alice")));
+            inputShippingUpdate.pipeInput("o-1", new ShippingUpdate(Reference.fromId("o-1"), "SHIPPED"));
+
+            assertThat(output.readValuesToList())
+                    .containsExactlyInAnyOrder(
+                            new OrderEvent.OrderCreated(Reference.fromId("o-1"), Reference.fromId("alice")),
+                            new OrderEvent.OrderShipped(Reference.fromId("o-1"))
                     );
         }
     }
@@ -361,6 +390,22 @@ class KafkaPrefabStreamsTopologyTest {
             return customer;
         }
     }
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+    sealed interface OrderEvent extends Keyed<Reference<Order>> permits OrderEvent.OrderCreated, OrderEvent.OrderShipped {
+        @Override
+        default Reference<Order> key() {
+            return orderId();
+        }
+
+        Reference<Order> orderId();
+
+        record OrderCreated(Reference<Order> orderId, Reference<Customer> customer) implements OrderEvent {}
+
+        record OrderShipped(Reference<Order> orderId) implements OrderEvent {}
+    }
+
+
 
     private static final class NonKafkaBreakoutAdapter
             implements StreamBreakoutAdapter<Reference<Order>, IncomingOrder, Reference<Order>, IncomingOrder,

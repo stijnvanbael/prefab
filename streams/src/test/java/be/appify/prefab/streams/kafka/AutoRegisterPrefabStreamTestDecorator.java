@@ -103,4 +103,9 @@ public class AutoRegisterPrefabStreamTestDecorator<K extends Key<K>, V extends K
     public StreamDefinition to(String topic) {
         return delegate.to(topic);
     }
+
+    @Override
+    public PrefabStream<K, V> unwrap() {
+        return delegate;
+    }
 }

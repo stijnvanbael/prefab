@@ -7,9 +7,11 @@ import be.appify.prefab.streams.StatefulStreamProcessor;
 import be.appify.prefab.streams.StreamBackend;
 import be.appify.prefab.streams.StreamBreakoutAdapter;
 import be.appify.prefab.streams.StreamRecord;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.stream.Stream;
+
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Named;
 import org.junit.jupiter.api.Test;
@@ -184,13 +186,13 @@ class KafkaPrefabStreamsTopologyTest {
 
         var topology = test.streams().from(IncomingOrder.class)
                 .breakout(new KafkaStreamBreakoutAdapter<Reference<Order>, Reference<Order>, IncomingOrder, IncomingOrder>(
-                         nativeStream -> nativeStream.selectKey(
-                                 (key, value) -> Reference.fromId("native-" + value.orderId().id()),
-                                 Named.as("native-key")
-                         )
-                 ))
-                 .map(order -> new ProcessedOrder(order.orderId(), Reference.fromId(order.customer().id().toUpperCase())))
-                 .to(ProcessedOrder.class);
+                        nativeStream -> nativeStream.selectKey(
+                                (key, value) -> Reference.fromId("native-" + value.orderId().id()),
+                                Named.as("native-key")
+                        )
+                ))
+                .map(order -> new ProcessedOrder(order.orderId(), Reference.fromId(order.customer().id().toUpperCase())))
+                .to(ProcessedOrder.class);
 
         try (var topologyTest = test.run(topology)) {
             var inputTopic = topologyTest.input(IncomingOrder.class);
@@ -279,6 +281,35 @@ class KafkaPrefabStreamsTopologyTest {
         }
     }
 
+    @Test
+    void combinedMapAndJoin_shouldUseTheRightSerdes() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+
+        var topology = streams.from(IncomingOrder.class)
+                .map(order -> new ProcessedOrder(order.orderId(), Reference.fromId(order.customer().id().toUpperCase())))
+                .join(
+                        streams.from(ShippingUpdate.class),
+                        JoinWindow.of(Duration.ofSeconds(2), Duration.ZERO),
+                        (order, shipping) -> new JoinedOrder(order.orderId(), order.customer(), shipping.status())
+                )
+                .to(JoinedOrder.class);
+
+        try (var topologyTest = test.run(topology)) {
+            var inputOrder = topologyTest.input(IncomingOrder.class);
+            var inputShippingUpdate = topologyTest.input(ShippingUpdate.class);
+            var output = topologyTest.output(JoinedOrder.class);
+
+            inputOrder.pipeInput("o-1", new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("alice")));
+            inputShippingUpdate.pipeInput("o-1", new ShippingUpdate(Reference.fromId("o-1"), "SHIPPED"));
+
+            assertThat(output.readValuesToList())
+                    .containsExactlyInAnyOrder(
+                            new JoinedOrder(Reference.fromId("o-1"), Reference.fromId("ALICE"), "SHIPPED")
+                    );
+        }
+    }
+
     record IncomingOrder(Reference<Order> orderId, Reference<Customer> customer) implements Keyed<Reference<Order>> {
         @Override
         public Reference<Order> key() {
@@ -316,7 +347,8 @@ class KafkaPrefabStreamsTopologyTest {
         }
     }
 
-    record JoinedOrder(Reference<Order> orderId, Reference<Customer> customer, String shippingStatus) implements Keyed<Reference<Order>> {
+    record JoinedOrder(Reference<Order> orderId, Reference<Customer> customer,
+                       String shippingStatus) implements Keyed<Reference<Order>> {
         @Override
         public Reference<Order> key() {
             return orderId;
@@ -380,7 +412,8 @@ class KafkaPrefabStreamsTopologyTest {
 
         @Override
         public void process(StreamRecord<Reference<Order>, IncomingOrder> streamRecord) {
-            var orderCount = store(OrderCount.class).putOrUpdate(streamRecord.value().customer(),
+            var orderCount = store(OrderCount.class).putOrUpdate(
+                    streamRecord.value().customer(),
                     () -> new OrderCount(streamRecord.value().customer(), 1),
                     existing -> new OrderCount(existing.customer(), existing.numberOfOrders() + 1));
             forward(orderCount.key(), orderCount);

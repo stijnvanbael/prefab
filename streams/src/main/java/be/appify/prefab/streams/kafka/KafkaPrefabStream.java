@@ -242,6 +242,12 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
         return this;
     }
 
+    @Override
+    @SuppressWarnings("unchecked")
+    public Class<V> knownValueType() {
+        return valueType.isUnknown() ? null : (Class<V>) valueType.knownRuntimeType();
+    }
+
     private <KO extends Key<KO>, VO extends Keyed<KO>> KafkaPrefabStream<KO, VO> wrapKnown(
             KStream<KO, VO> kStream,
             Class<VO> valueType

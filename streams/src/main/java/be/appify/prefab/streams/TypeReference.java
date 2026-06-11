@@ -20,8 +20,20 @@ public abstract class TypeReference<T> {
         return new SimpleClass<>(type);
     }
 
+    /**
+     * Creates a {@code TypeReference} whose {@link #name()} returns a human-readable
+     * representative label rather than the plain class name.
+     *
+     * <p>The representative name is used for Kafka state-store naming so that stores get
+     * descriptive, unique names. The raw type still drives {@link #rawType()},
+     * {@link #equals}, and {@link #hashCode}, keeping store-lookup semantics intact.
+     */
+    public static <T> TypeReference<T> of(Class<T> rawType, String representativeName) {
+        return new NamedClass<>(rawType, representativeName);
+    }
+
     public String name() {
-        return type.getTypeName();
+        return type.getTypeName().substring(type.getTypeName().lastIndexOf('.') + 1);
     }
 
     @SuppressWarnings("unchecked")
@@ -40,6 +52,20 @@ public abstract class TypeReference<T> {
         }
     }
 
+    private static final class NamedClass<T> extends TypeReference<T> {
+        private final String name;
+
+        NamedClass(Class<T> rawType, String name) {
+            super(rawType);
+            this.name = name;
+        }
+
+        @Override
+        public String name() {
+            return name;
+        }
+    }
+
     @Override
     public int hashCode() {
         return type.hashCode();
@@ -52,7 +78,7 @@ public abstract class TypeReference<T> {
 
     @Override
     public String toString() {
-        return type.getTypeName();
+        return name();
     }
 }
 

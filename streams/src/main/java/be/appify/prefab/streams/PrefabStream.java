@@ -42,11 +42,24 @@ public interface PrefabStream<K extends Key<K>, V extends Keyed<K>> {
 
     PrefabStream<K, V> unwrap();
 
+    /**
+     * Returns the concrete runtime class of the stream's value type {@code V}, when it is known.
+     *
+     * <p>Concrete backend implementations override this to supply the class; decorators delegate
+     * to their wrapped stream. The default returns {@code null} (unknown).
+     *
+     * <p>This is used by {@link #aggregate} to produce a human-readable, unique state-store name
+     * that encodes the input value type instead of the raw generic type-variable names.
+     */
+    default Class<V> knownValueType() {
+        return null;
+    }
+
     default <KO extends Key<KO>, VO extends Keyed<KO>> PrefabStream<KO, VO> aggregate(
             Function<V, KO> groupBy,
             Function<List<V>, VO> aggregation,
             Predicate<VO> egressCondition
     ) {
-        return process(new AggregationProcessor<>(groupBy, aggregation, egressCondition));
+        return process(new AggregationProcessor<>(groupBy, aggregation, egressCondition, knownValueType()));
     }
 }

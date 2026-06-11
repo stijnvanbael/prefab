@@ -192,7 +192,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
      */
     static String toStoreName(String typeName) {
         return toKebabCase(typeName)
-                .replaceAll("[<>, ]", "-")
+                .replaceAll("\\W", "-")
                 .replaceAll("-{2,}", "-")
                 .replaceAll("[-.]+$", "");
     }

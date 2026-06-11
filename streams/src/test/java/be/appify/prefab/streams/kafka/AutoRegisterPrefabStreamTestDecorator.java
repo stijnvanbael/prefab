@@ -108,4 +108,9 @@ public class AutoRegisterPrefabStreamTestDecorator<K extends Key<K>, V extends K
     public PrefabStream<K, V> unwrap() {
         return delegate;
     }
+
+    @Override
+    public Class<V> knownValueType() {
+        return delegate.knownValueType();
+    }
 }

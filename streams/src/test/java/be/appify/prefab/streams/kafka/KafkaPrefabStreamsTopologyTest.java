@@ -286,6 +286,26 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     @Test
+    void aggregate_storeNameReflectsConcreteKeyAndValueTypes() {
+        // The stream was created from IncomingOrder.class so V = IncomingOrder is known at
+        // topology-build time via knownValueType().  Java's standard LambdaMetafactory erases
+        // the groupBy return type to Object at runtime, so the key type (KO = Reference) cannot
+        // be extracted without serialisable lambdas or an explicit parameter.
+        // The store name therefore encodes only the value class: aggregation-incoming-order.
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var definition = test.streams().from(IncomingOrder.class)
+                .aggregate(
+                        IncomingOrder::customer,
+                        orders -> new OrderCount(orders.getFirst().customer(), orders.size()),
+                        count -> true
+                )
+                .to(OrderCount.class);
+
+        var topologyDescription = definition.nativeTopology().describe().toString();
+        assertThat(topologyDescription).contains("aggregation-incoming-order");
+    }
+
+    @Test
     void multipleStreams_shouldBeJoinedInOneTopology() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
         var streams = test.streams();

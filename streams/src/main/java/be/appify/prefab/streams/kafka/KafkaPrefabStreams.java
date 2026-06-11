@@ -1,5 +1,6 @@
 package be.appify.prefab.streams.kafka;
 
+import be.appify.prefab.streams.Aggregation;
 import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
@@ -12,6 +13,9 @@ import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.util.HashMap;
 import java.util.Map;
+
+import be.appify.prefab.streams.TypeReference;
+import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.KStream;
@@ -131,17 +135,65 @@ public class KafkaPrefabStreams implements PrefabStreams {
     }
 
     @Override
-    public <KS extends Key<KS>, VS extends Keyed<KS>> Store<KS, VS> createStore(Class<VS> type) {
-        var name = toKebabCase(type.getSimpleName());
-        var keyType = keyTypeOf(type);
+    public <KS extends Key<KS>, VS extends Keyed<KS>> Store<KS, VS> createStore(TypeReference<VS> type) {
+        var name = toStoreName(type.name());
         streamsBuilder.addStateStore(Stores.keyValueStoreBuilder(
                 Stores.persistentKeyValueStore(name),
-                new StringKeySerde<>(keyType),
-                new SerdeAdapter<>(serializer, deserializer)));
+                keySerde(type),
+                valueSerde(type)));
         return new KafkaPrefabStoreAdapter<>(name);
+    }
+
+    /**
+     * Resolves the value serde for a state store.
+     *
+     * <p>For {@link Aggregation} stores the generic type parameters ({@code K} and {@code V})
+     * are unknown at topology-build time, so a {@link DeferredAggregationSerde} is used. It
+     * captures the concrete types from the first instance seen during serialisation and uses a
+     * dedicated Jackson {@code ObjectMapper} to deserialise correctly.
+     * All other value types use the standard {@link SerdeAdapter}.
+     */
+    @SuppressWarnings("unchecked")
+    private <KS extends Key<KS>, VS extends Keyed<KS>> Serde<VS> valueSerde(TypeReference<VS> type) {
+        if (type.rawType() == (Class<?>) Aggregation.class) {
+            return (Serde<VS>) new DeferredAggregationSerde<>();
+        }
+        return new SerdeAdapter<VS>(serializer.adapt(), deserializer.adapt());
+    }
+
+    /**
+     * Resolves the key serde for a state store.
+     *
+     * <p>When the value type carries concrete key-type information (e.g. a domain record that
+     * directly implements {@code Keyed<ConcreteKey>}), a {@link StringKeySerde} is returned.
+     * When the key type is a type variable that cannot be resolved statically — which happens for
+     * generic wrappers such as {@code Aggregation<KO, V>} — a {@link DeferredStringKeySerde} is
+     * returned instead. The deferred serde learns the concrete key class from the first key it
+     * serialises, which is safe for stores that only use {@code get}/{@code put}.
+     */
+    private <KS extends Key<KS>, VS extends Keyed<KS>> Serde<KS> keySerde(TypeReference<VS> type) {
+        try {
+            return new StringKeySerde<>(keyTypeOf(type.rawType()));
+        } catch (IllegalArgumentException e) {
+            return new DeferredStringKeySerde<>();
+        }
     }
 
     static String toKebabCase(String value) {
         return value.replaceAll("([a-z])([A-Z]+)", "$1-$2").toLowerCase();
+    }
+
+    /**
+     * Converts a fully-qualified type name (possibly containing generic type parameters) into a
+     * name that is safe for use as a Kafka state-store name and as a file-system directory entry.
+     *
+     * <p>Angle brackets, commas, and spaces introduced by generic type parameters are replaced
+     * with hyphens; consecutive hyphens and trailing punctuation are collapsed.
+     */
+    static String toStoreName(String typeName) {
+        return toKebabCase(typeName)
+                .replaceAll("[<>, ]", "-")
+                .replaceAll("-{2,}", "-")
+                .replaceAll("[-.]+$", "");
     }
 }

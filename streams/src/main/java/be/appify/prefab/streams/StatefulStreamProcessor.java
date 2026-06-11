@@ -3,6 +3,7 @@ package be.appify.prefab.streams;
 import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
@@ -11,11 +12,17 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public abstract class StatefulStreamProcessor<KI, VI, KO, VO> implements StreamProcessor<KI, VI, KO, VO> {
-    private Map<Class<?>, Store<?, ?>> stores;
+    private Map<TypeReference<?>, Store<?, ?>> stores;
     private final ThreadLocal<StreamProcessorContext<KO, VO>> context = new ThreadLocal<>();
-    private final Set<Class<?>> storeTypes;
+    private final Set<TypeReference<?>> storeTypes;
 
     protected StatefulStreamProcessor(Class<?>... storeTypes) {
+        this.storeTypes = Arrays.stream(storeTypes)
+                .map(TypeReference::of)
+                .collect(Collectors.toSet());
+    }
+
+    protected StatefulStreamProcessor(TypeReference<?>... storeTypes) {
         this.storeTypes = Set.of(storeTypes);
     }
 
@@ -33,15 +40,15 @@ public abstract class StatefulStreamProcessor<KI, VI, KO, VO> implements StreamP
     }
 
     @SuppressWarnings("unchecked")
-    private static <K extends Key<K>, V extends Keyed<K>> Store<K, V> createStore(PrefabStreams streams, Class<?> type) {
-        return streams.createStore((Class<V>) type);
+    private static <K extends Key<K>, V extends Keyed<K>> Store<K, V> createStore(PrefabStreams streams, TypeReference<?> type) {
+        return streams.createStore((TypeReference<V>) type);
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public <K extends Key<K>, V extends Keyed<K>> Store<K, V> store(Class<V> type) {
+    public <K extends Key<K>, V extends Keyed<K>> Store<K, V> store(TypeReference<V> type) {
         if (!stores.containsKey(type)) {
-            throw new NoSuchElementException("No store found for type: " + type.getName());
+            throw new NoSuchElementException("No store found for type: " + type);
         }
         return (Store<K, V>) stores.get(type);
     }

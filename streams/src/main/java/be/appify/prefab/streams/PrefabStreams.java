@@ -11,5 +11,9 @@ public interface PrefabStreams {
 
     <K extends Key<K>, M extends Keyed<K>> PrefabStream<K, M> merge(PrefabStream<K, ? extends M> left, PrefabStream<K, ? extends M> right);
 
-    <KS extends Key<KS>, VS extends Keyed<KS>> Store<KS, VS> createStore(Class<VS> type);
+    default <KS extends Key<KS>, VS extends Keyed<KS>> Store<KS, VS> createStore(Class<VS> type) {
+        return createStore(TypeReference.of(type));
+    }
+
+    <KS extends Key<KS>, VS extends Keyed<KS>> Store<KS, VS> createStore(TypeReference<VS> type);
 }

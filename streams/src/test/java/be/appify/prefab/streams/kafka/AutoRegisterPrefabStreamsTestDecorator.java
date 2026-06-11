@@ -7,8 +7,10 @@ import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.streams.PrefabStream;
 import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.Store;
+import be.appify.prefab.streams.TypeReference;
 
 import static be.appify.prefab.streams.kafka.KafkaPrefabStreams.toKebabCase;
+import static be.appify.prefab.streams.kafka.KafkaPrefabStreams.toStoreName;
 
 public class AutoRegisterPrefabStreamsTestDecorator implements PrefabStreams {
     private final PrefabStreams delegate;
@@ -32,8 +34,8 @@ public class AutoRegisterPrefabStreamsTestDecorator implements PrefabStreams {
     }
 
     @Override
-    public <KS extends Key<KS>, VS extends Keyed<KS>> Store<KS, VS> createStore(Class<VS> type) {
-        eventRegistry.register("prefab-streams-test-" + toKebabCase(type.getSimpleName()) + "-changelog", type, Event.Serialization.JSON);
+    public <KS extends Key<KS>, VS extends Keyed<KS>> Store<KS, VS> createStore(TypeReference<VS> type) {
+        eventRegistry.register("prefab-streams-test-" + toStoreName(type.name()) + "-changelog", type.rawType(), Event.Serialization.JSON);
         return delegate.createStore(type);
     }
 }

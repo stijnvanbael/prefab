@@ -2,6 +2,8 @@ package be.appify.prefab.streams;
 
 import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
+
+import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -39,4 +41,12 @@ public interface PrefabStream<K extends Key<K>, V extends Keyed<K>> {
     StreamDefinition to(String topic);
 
     PrefabStream<K, V> unwrap();
+
+    default <KO extends Key<KO>, VO extends Keyed<KO>> PrefabStream<KO, VO> aggregate(
+            Function<V, KO> groupBy,
+            Function<List<V>, VO> aggregation,
+            Predicate<VO> egressCondition
+    ) {
+        return process(new AggregationProcessor<>(groupBy, aggregation, egressCondition));
+    }
 }

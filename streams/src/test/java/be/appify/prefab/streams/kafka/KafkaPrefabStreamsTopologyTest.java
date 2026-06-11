@@ -256,6 +256,36 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     @Test
+    void aggregate() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+
+        var countDefinition = streams.from(IncomingOrder.class)
+                .aggregate(
+                        IncomingOrder::customer,
+                        ordersForCustomer -> new OrderCount(ordersForCustomer.getFirst().customer(), ordersForCustomer.size()),
+                        count -> true
+                )
+                .to(OrderCount.class);
+
+        try (var topologyTest = test.run(countDefinition)) {
+            var input = topologyTest.input(IncomingOrder.class);
+            var output = topologyTest.output(OrderCount.class);
+
+            input.pipeInput("o-1", new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("alice")));
+            input.pipeInput("o-2", new IncomingOrder(Reference.fromId("o-2"), Reference.fromId("bob")));
+            input.pipeInput("o-3", new IncomingOrder(Reference.fromId("o-3"), Reference.fromId("alice")));
+
+            assertThat(output.readValuesToList())
+                    .containsExactlyInAnyOrder(
+                            new OrderCount(Reference.fromId("alice"), 1),
+                            new OrderCount(Reference.fromId("bob"), 1),
+                            new OrderCount(Reference.fromId("alice"), 2)
+                    );
+        }
+    }
+
+    @Test
     void multipleStreams_shouldBeJoinedInOneTopology() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
         var streams = test.streams();

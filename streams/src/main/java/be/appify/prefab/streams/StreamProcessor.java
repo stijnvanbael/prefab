@@ -11,7 +11,11 @@ public interface StreamProcessor<KI, VI, KO, VO> {
 
     void forward(StreamRecord<KO, VO> streamRecord);
 
-    <K extends Key<K>, V extends Keyed<K>> Store<K, V> store(Class<V> type);
+    default <K extends Key<K>, V extends Keyed<K>> Store<K, V> store(Class<V> type) {
+        return store(TypeReference.of(type));
+    }
+
+    <K extends Key<K>, V extends Keyed<K>> Store<K, V> store(TypeReference<V> type);
 
     void initStreams(PrefabStreams streams);
 

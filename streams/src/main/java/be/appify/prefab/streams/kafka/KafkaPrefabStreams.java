@@ -27,6 +27,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
     private final KafkaTopicResolver topicResolver;
     private final DynamicSerializer serializer;
     private final DynamicDeserializer deserializer;
+    private final StreamStepNames stepNames;
 
     /**
      * Constructs a new KafkaPrefabStreams.
@@ -41,6 +42,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
         this.topicResolver = topicResolver;
         this.serializer = serializer;
         this.deserializer = deserializer;
+        this.stepNames = new StreamStepNames();
     }
 
     @Override
@@ -52,7 +54,17 @@ public class KafkaPrefabStreams implements PrefabStreams {
         // the topic is registered for exactly this type and the serde will deserialize to V.
         KStream<K, V> stream = streamsBuilder.stream(topic,
                 Consumed.with(new StringKeySerde<>(keyType), valueSerde));
-        return new KafkaPrefabStream<>(streamsBuilder, stream, topicResolver, serializer, deserializer, type, this, keyType);
+        return new KafkaPrefabStream<>(
+                streamsBuilder,
+                stream,
+                topicResolver,
+                serializer,
+                deserializer,
+                type,
+                this,
+                keyType,
+                stepNames
+        );
     }
 
     @SuppressWarnings("unchecked")

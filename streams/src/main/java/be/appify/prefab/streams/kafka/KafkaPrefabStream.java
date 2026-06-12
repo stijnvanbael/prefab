@@ -1,11 +1,11 @@
 package be.appify.prefab.streams.kafka;
 
+import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
-import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
+import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.streams.JoinWindow;
 import be.appify.prefab.streams.PrefabStream;
 import be.appify.prefab.streams.PrefabStreams;
@@ -16,7 +16,6 @@ import be.appify.prefab.streams.StreamDefinition;
 import be.appify.prefab.streams.StreamProcessor;
 import jakarta.validation.constraints.NotNull;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -49,6 +48,7 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
     private final ValueTypeHint<V> valueType;
     private final Class<K> keyType;
     private final PrefabStreams streams;
+    private final StreamStepNames stepNames;
 
     /**
      * Constructs a new KafkaPrefabStream.
@@ -61,10 +61,12 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
             DynamicDeserializer deserializer,
             @NotNull Class<V> valueType,
             PrefabStreams streams,
-            Class<K> keyType
+            Class<K> keyType,
+            StreamStepNames stepNames
     ) {
         this(streamsBuilder, stream, topicResolver, serializer, deserializer,
-                ValueTypeHint.known(Objects.requireNonNull(valueType, "valueType must not be null")), streams, keyType);
+                ValueTypeHint.known(Objects.requireNonNull(valueType, "valueType must not be null")), streams, keyType,
+                stepNames);
     }
 
     private KafkaPrefabStream(
@@ -75,7 +77,8 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
             DynamicDeserializer deserializer,
             ValueTypeHint<V> valueType,
             PrefabStreams streams,
-            Class<K> keyType
+            Class<K> keyType,
+            StreamStepNames stepNames
     ) {
         this.streamsBuilder = streamsBuilder;
         this.stream = stream;
@@ -85,6 +88,7 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
         this.valueType = Objects.requireNonNull(valueType, "valueType must not be null");
         this.streams = streams;
         this.keyType = keyType;
+        this.stepNames = Objects.requireNonNull(stepNames, "stepNames must not be null");
     }
 
     @Override
@@ -105,9 +109,9 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
     @Override
     public PrefabStream<K, V> branch(Predicate<V> predicate) {
         Objects.requireNonNull(predicate, "predicate must not be null");
-        var branchId = "branch-" + UUID.randomUUID();
+        var branchId = stepNames.nextBranchName();
         var branched = stream.split(Named.as(branchId))
-                .branch((key, value) -> predicate.test(value), Branched.as("matched"));
+                .branch((key, value) -> predicate.test(value), Branched.as("-matched"));
         var namedBranches = branched.noDefaultBranch();
         return wrap(namedBranches.get(branchId + "-matched"), valueType);
     }
@@ -264,11 +268,19 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
             KStream<KO, VO> kStream,
             ValueTypeHint<VO> valueType
     ) {
-        return new KafkaPrefabStream<>(streamsBuilder, kStream, topicResolver, serializer, deserializer, valueType, streams,
-                (Class<KO>) keyType);
+        return new KafkaPrefabStream<>(
+                streamsBuilder,
+                kStream,
+                topicResolver,
+                serializer,
+                deserializer,
+                valueType,
+                streams,
+                (Class<KO>) keyType,
+                stepNames
+        );
     }
 
-    @SuppressWarnings("unchecked")
     private <T> Serde<T> joinSerde(ValueTypeHint<T> runtimeType) {
         Serializer<T> joinSerializer = (topic, data) -> serializeForJoin(topic, data, runtimeType);
         Deserializer<T> joinDeserializer = (topic, data) -> deserializeForJoin(topic, data, runtimeType);

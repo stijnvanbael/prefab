@@ -868,6 +868,10 @@ Serialization and deserialization reuse the existing Kafka dynamic serde infrast
 - `DynamicDeserializer` for source records
 - `DynamicSerializer` for sink records
 
+When Prefab assigns Kafka Streams processor names for DSL-owned branch steps, it uses deterministic,
+representative names such as `branch-1-matched`. This keeps identical DSL topologies stable across runs while
+still avoiding name collisions inside one topology.
+
 `from(Class<?>)` and `to(Class<?>)` resolve topic names via registered Kafka event types and fail fast:
 
 - Throws `IllegalArgumentException` when no topic is registered for a class

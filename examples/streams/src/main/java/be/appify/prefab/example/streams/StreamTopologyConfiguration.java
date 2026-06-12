@@ -15,5 +15,6 @@ class StreamTopologyConfiguration {
                         ProductionKey::of,
                         ProductionData::aggregate,
                         ProductionData::isComplete);
+        return null; // TODO
     }
 }

@@ -81,6 +81,37 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     @Test
+    void branch_shouldUseStableRepresentativeStepNames() {
+        var firstDescription = branchTopologyDescription();
+        var secondDescription = branchTopologyDescription();
+
+        assertThat(firstDescription)
+                .isEqualTo(secondDescription)
+                .contains("branch-1")
+                .contains("branch-1-matched")
+                .doesNotContain("UUID");
+    }
+
+    @Test
+    void branch_shouldKeepStepNamesUniqueWithinOneTopology() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+        var source = streams.from(IncomingOrder.class);
+
+        source.branch(order -> order.customer().id().startsWith("A"))
+                .to("orders.a");
+        var topology = source.branch(order -> order.customer().id().startsWith("B"))
+                .to("orders.b");
+
+        var topologyDescription = topology.nativeTopology().describe().toString();
+
+        assertThat(topologyDescription)
+                .contains("branch-1")
+                .contains("branch-1-matched")
+                .contains("branch-2");
+    }
+
+    @Test
     void join_shouldEmitResultWhenKeysMatchWithinWindow() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
 
@@ -513,5 +544,13 @@ class KafkaPrefabStreamsTopologyTest {
                     existing -> new OrderCount(existing.customer(), existing.numberOfOrders() + 1));
             forward(orderCount.key(), orderCount);
         }
+    }
+
+    private String branchTopologyDescription() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var topology = test.streams().from(IncomingOrder.class)
+                .branch(order -> order.customer().id().startsWith("A"))
+                .to("orders.a");
+        return topology.nativeTopology().describe().toString();
     }
 }

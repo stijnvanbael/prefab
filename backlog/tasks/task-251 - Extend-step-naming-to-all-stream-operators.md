@@ -48,33 +48,37 @@ topology step gets a stable, human-readable name such as `filter-1`, `map-2`,
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Extended `StreamStepNames` with one `AtomicInteger` counter per operator type
-(`filter`, `map`, `flat-map`, `branch-subtype`, `merge`, `join`, `process`).
-Each counter starts at 0 and increments on every `next*Name()` call within the same
-topology context, guaranteeing both uniqueness within a topology and stability across
-independent builds of the same DSL structure.
+Extended `StreamStepNames` with a single `Map<String, AtomicInteger> usageCountByName` that
+tracks how many times each base name has been claimed.  All `next*Name()` methods now accept
+the value type(s) of the DSL step as `Class<?>` parameters so the base name encodes the
+actual domain types: `filter-incoming-order`, `join-incoming-order-shipping-update`, etc.
 
-Applied `Named.as(stepNames.next*Name())` to every operator in `KafkaPrefabStream`:
-- `filter` / `map` / `flatMap` — directly on the underlying KStream method.
-- `branch(Class<S>)` — the internal filter step uses `branch-subtype-N` and the cast step
-  `branch-subtype-N-cast`, keeping the pair visually grouped in the topology description.
-- `merge` — via `Named.as(...)` on `KStream.merge`.
-- `join` — via `StreamJoined.with(...).withName(joinName)` (the `NamedOperation` API).
-- `process` — via the `Named`-accepting overload of `KStream.process`.
+`buildBaseName` converts each `Class.getSimpleName()` to kebab-case via the same regex already
+used in `KafkaPrefabStreams`, deduplicates identical type names with `.distinct()`, and falls
+back to the plain operator prefix when all types are null/unknown.  A numeric suffix starting
+at `-2` is appended only on collision (same operator+types used more than once in one topology).
 
-`breakout` was intentionally left unnamed because it delegates entirely to user-supplied
-native Kafka code; imposing a name there would conflict with the caller's own naming.
+A private `inputTypeOrNull()` helper on `KafkaPrefabStream` returns
+`valueType.knownRuntimeType()` when known and `null` when the type is opaque (after `map`,
+`flatMap`, or `breakout`).  This null propagates into `buildBaseName` which simply skips it,
+yielding a graceful fallback (e.g. just `map`) instead of blowing up.
 
-Added 14 new tests (stability + uniqueness) covering every operator; all 34 tests pass.
-Updated `backlog/docs/feature-guides.md` with a reference table of all name patterns.
+`branch(Class<S>)` passes the explicit `subtype` class directly, not the input stream type,
+so branching on `OrderCreated` and `OrderShipped` from the same source produces
+`branch-subtype-order-created` and `branch-subtype-order-shipped` — naturally unique without
+needing a counter.
+
+All 34 tests pass; developer guide updated with type-bearing name examples.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-All DSL stream operators now produce stable, representative Kafka Streams processor names
-(`filter-1`, `map-1`, `flat-map-1`, `branch-subtype-1`, `merge-1`, `join-1`, `process-1`).
-34 tests pass; developer guide updated with a full naming-pattern reference table.
+All DSL stream operators now produce type-bearing, human-readable Kafka Streams processor
+names: `filter-incoming-order`, `map-incoming-order`, `flat-map-word-batch`,
+`branch-incoming-order-matched`, `branch-subtype-order-created`, `merge-incoming-order`,
+`join-incoming-order-shipping-update`, `process-incoming-order`.  34 tests pass; developer
+guide reference table updated.
 <!-- SECTION:FINAL_SUMMARY:END -->
 
 assignee: []

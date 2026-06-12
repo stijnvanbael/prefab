@@ -93,23 +93,23 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
 
     @Override
     public PrefabStream<K, V> filter(Predicate<V> predicate) {
-        return wrap(stream.filter((key, value) -> predicate.test(value), Named.as(stepNames.nextFilterName())), valueType);
+        return wrap(stream.filter((key, value) -> predicate.test(value), Named.as(stepNames.nextFilterName(inputTypeOrNull()))), valueType);
     }
 
     @Override
     public <VO extends Keyed<K>> PrefabStream<K, VO> map(Function<V, VO> mapper) {
-        return wrapUnknown(stream.mapValues(mapper::apply, Named.as(stepNames.nextMapName())));
+        return wrapUnknown(stream.mapValues(mapper::apply, Named.as(stepNames.nextMapName(inputTypeOrNull()))));
     }
 
     @Override
     public <VO extends Keyed<K>> PrefabStream<K, VO> flatMap(Function<V, Iterable<VO>> mapper) {
-        return wrapUnknown(stream.flatMapValues(mapper::apply, Named.as(stepNames.nextFlatMapName())));
+        return wrapUnknown(stream.flatMapValues(mapper::apply, Named.as(stepNames.nextFlatMapName(inputTypeOrNull()))));
     }
 
     @Override
     public PrefabStream<K, V> branch(Predicate<V> predicate) {
         Objects.requireNonNull(predicate, "predicate must not be null");
-        var branchId = stepNames.nextBranchName();
+        var branchId = stepNames.nextBranchName(inputTypeOrNull());
         var branched = stream.split(Named.as(branchId))
                 .branch((key, value) -> predicate.test(value), Branched.as("-matched"));
         var namedBranches = branched.noDefaultBranch();
@@ -119,7 +119,7 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
     @Override
     public <S extends V> PrefabStream<K, S> branch(Class<S> subtype) {
         Objects.requireNonNull(subtype, "subtype must not be null");
-        var branchSubtypeId = stepNames.nextBranchSubtypeName();
+        var branchSubtypeId = stepNames.nextBranchSubtypeName(subtype);
         var filteredAndCasted = stream
                 .filter((key, value) -> subtype.isInstance(value), Named.as(branchSubtypeId))
                 .mapValues(subtype::cast, Named.as(branchSubtypeId + "-cast"));
@@ -153,7 +153,7 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
                         joiner::apply,
                         JoinWindows.ofTimeDifferenceAndGrace(window.timeDifference(), window.grace()),
                         StreamJoined.with(new StringKeySerde<>(keyType), joinSerde(valueType),
-                                joinSerde(otherKafkaStream.valueType)).withName(stepNames.nextJoinName())
+                                joinSerde(otherKafkaStream.valueType)).withName(stepNames.nextJoinName(inputTypeOrNull(), otherKafkaStream.inputTypeOrNull()))
                 ),
                 ValueTypeHint.unknown()
         );
@@ -177,7 +177,9 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
         return leftKafkaStream.wrap(
                 ((KStream<K, VO>) leftKafkaStream.stream).merge(
                         (KStream<K, VO>) rightKafkaStream.stream,
-                        Named.as(leftKafkaStream.stepNames.nextMergeName())
+                        Named.as(leftKafkaStream.stepNames.nextMergeName(
+                                leftKafkaStream.inputTypeOrNull(), rightKafkaStream.inputTypeOrNull()
+                        ))
                 ),
                 commonKnownType(leftKafkaStream.valueType, rightKafkaStream.valueType)
         );
@@ -228,7 +230,7 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
                 .toArray(String[]::new);
         var output = stream.process(
                 () -> new KafkaPrefabStreamProcessorAdapter<>(processor),
-                Named.as(stepNames.nextProcessName()),
+                Named.as(stepNames.nextProcessName(inputTypeOrNull())),
                 stateStoreNames
         );
 
@@ -258,6 +260,10 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
     @SuppressWarnings("unchecked")
     public Class<V> knownValueType() {
         return valueType.isUnknown() ? null : (Class<V>) valueType.knownRuntimeType();
+    }
+
+    private Class<?> inputTypeOrNull() {
+        return valueType.isUnknown() ? null : valueType.knownRuntimeType();
     }
 
     private <KO extends Key<KO>, VO extends Keyed<KO>> KafkaPrefabStream<KO, VO> wrapKnown(

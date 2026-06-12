@@ -869,24 +869,27 @@ Serialization and deserialization reuse the existing Kafka dynamic serde infrast
 - `DynamicSerializer` for sink records
 
 When Prefab assigns Kafka Streams processor names for DSL-owned steps, it uses deterministic,
-representative names that encode the operation type and a per-topology sequence number.
-This keeps identical DSL topologies stable across runs while still avoiding name collisions
-inside one topology.
+representative names that encode the operation type and the simple class names of the value
+types involved, converted to kebab-case.  This keeps identical DSL topologies stable across
+runs while avoiding name collisions inside one topology.
 
-| DSL operator          | Processor name pattern        | Example            |
-|-----------------------|-------------------------------|--------------------|
-| `filter`              | `filter-N`                    | `filter-1`         |
-| `map`                 | `map-N`                       | `map-1`            |
-| `flatMap`             | `flat-map-N`                  | `flat-map-1`       |
-| `branch(Predicate)`   | `branch-N` / `branch-N-matched` | `branch-1-matched` |
-| `branch(Class<S>)`    | `branch-subtype-N` / `branch-subtype-N-cast` | `branch-subtype-1-cast` |
-| `merge`               | `merge-N`                     | `merge-1`          |
-| `join`                | `join-N`                      | `join-1`           |
-| `process`             | `process-N`                   | `process-1`        |
+| DSL operator          | Processor name pattern                                | Example                                  |
+|-----------------------|-------------------------------------------------------|------------------------------------------|
+| `filter`              | `filter-{input-type}`                                 | `filter-incoming-order`                  |
+| `map`                 | `map-{input-type}`                                    | `map-incoming-order`                     |
+| `flatMap`             | `flat-map-{input-type}`                               | `flat-map-word-batch`                    |
+| `branch(Predicate)`   | `branch-{input-type}` / `branch-{input-type}-matched` | `branch-incoming-order-matched`          |
+| `branch(Class<S>)`    | `branch-subtype-{type}` / `branch-subtype-{type}-cast`| `branch-subtype-order-created-cast`      |
+| `merge`               | `merge-{left-type}` or `merge-{left-type}-{right-type}`| `merge-incoming-order`                  |
+| `join`                | `join-{left-type}-{right-type}`                       | `join-incoming-order-shipping-update`    |
+| `process`             | `process-{input-type}`                                | `process-incoming-order`                 |
 
-Each `N` starts at 1 and increments for every additional use of that operator within the same
-topology context. `breakout` delegates to user-supplied native Kafka code and keeps whatever
-name the caller assigns.
+When the same operator+type combination appears more than once in the same topology a numeric
+suffix is appended starting at `-2` (e.g. `filter-incoming-order-2`).  When the value type is
+not statically known — typically after `map`, `flatMap`, or `breakout` — the type segment is
+omitted and only the operator prefix is used (e.g. `map`).
+
+`breakout` delegates to user-supplied native Kafka code and keeps whatever name the caller assigns.
 
 `from(Class<?>)` and `to(Class<?>)` resolve topic names via registered Kafka event types and fail fast:
 

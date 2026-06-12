@@ -1,46 +1,72 @@
 package be.appify.prefab.streams.kafka;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+/**
+ * Generates unique, stable, and representative processor names for each DSL step within a
+ * single Kafka Streams topology.
+ *
+ * <p>Names encode the operator type and the simple class names of the value types involved,
+ * converted to kebab-case (e.g. {@code filter-incoming-order},
+ * {@code join-incoming-order-shipping-update}).  When the same base name would be generated
+ * more than once in the same topology a numeric suffix starting at {@code -2} is appended.
+ */
 public final class StreamStepNames {
-    private final AtomicInteger branchSequence = new AtomicInteger();
-    private final AtomicInteger branchSubtypeSequence = new AtomicInteger();
-    private final AtomicInteger filterSequence = new AtomicInteger();
-    private final AtomicInteger flatMapSequence = new AtomicInteger();
-    private final AtomicInteger joinSequence = new AtomicInteger();
-    private final AtomicInteger mapSequence = new AtomicInteger();
-    private final AtomicInteger mergeSequence = new AtomicInteger();
-    private final AtomicInteger processSequence = new AtomicInteger();
+    private final Map<String, AtomicInteger> usageCountByName = new HashMap<>();
 
-    String nextBranchName() {
-        return "branch-%d".formatted(branchSequence.incrementAndGet());
+    String nextBranchName(Class<?> inputType) {
+        return reserveName("branch", inputType);
     }
 
-    String nextBranchSubtypeName() {
-        return "branch-subtype-%d".formatted(branchSubtypeSequence.incrementAndGet());
+    String nextBranchSubtypeName(Class<?> subtype) {
+        return reserveName("branch-subtype", subtype);
     }
 
-    String nextFilterName() {
-        return "filter-%d".formatted(filterSequence.incrementAndGet());
+    String nextFilterName(Class<?> inputType) {
+        return reserveName("filter", inputType);
     }
 
-    String nextFlatMapName() {
-        return "flat-map-%d".formatted(flatMapSequence.incrementAndGet());
+    String nextFlatMapName(Class<?> inputType) {
+        return reserveName("flat-map", inputType);
     }
 
-    String nextJoinName() {
-        return "join-%d".formatted(joinSequence.incrementAndGet());
+    String nextJoinName(Class<?> leftType, Class<?> rightType) {
+        return reserveName("join", leftType, rightType);
     }
 
-    String nextMapName() {
-        return "map-%d".formatted(mapSequence.incrementAndGet());
+    String nextMapName(Class<?> inputType) {
+        return reserveName("map", inputType);
     }
 
-    String nextMergeName() {
-        return "merge-%d".formatted(mergeSequence.incrementAndGet());
+    String nextMergeName(Class<?> leftType, Class<?> rightType) {
+        return reserveName("merge", leftType, rightType);
     }
 
-    String nextProcessName() {
-        return "process-%d".formatted(processSequence.incrementAndGet());
+    String nextProcessName(Class<?> inputType) {
+        return reserveName("process", inputType);
+    }
+
+    private String reserveName(String operatorPrefix, Class<?>... types) {
+        var baseName = buildBaseName(operatorPrefix, types);
+        var count = usageCountByName.computeIfAbsent(baseName, k -> new AtomicInteger(0))
+                .incrementAndGet();
+        return count == 1 ? baseName : baseName + "-" + count;
+    }
+
+    private static String buildBaseName(String operatorPrefix, Class<?>[] types) {
+        var typePart = Stream.of(types)
+                .filter(t -> t != null && t != Object.class)
+                .map(t -> toKebabCase(t.getSimpleName()))
+                .distinct()
+                .collect(Collectors.joining("-"));
+        return typePart.isEmpty() ? operatorPrefix : operatorPrefix + "-" + typePart;
+    }
+
+    private static String toKebabCase(String value) {
+        return value.replaceAll("([a-z])([A-Z]+)", "$1-$2").toLowerCase();
     }
 }

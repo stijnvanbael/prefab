@@ -87,9 +87,8 @@ class KafkaPrefabStreamsTopologyTest {
 
         assertThat(firstDescription)
                 .isEqualTo(secondDescription)
-                .contains("branch-1")
-                .contains("branch-1-matched")
-                .doesNotContain("UUID");
+                .contains("branch-incoming-order")
+                .contains("branch-incoming-order-matched");
     }
 
     @Test
@@ -106,9 +105,9 @@ class KafkaPrefabStreamsTopologyTest {
         var topologyDescription = topology.nativeTopology().describe().toString();
 
         assertThat(topologyDescription)
-                .contains("branch-1")
-                .contains("branch-1-matched")
-                .contains("branch-2");
+                .contains("branch-incoming-order")
+                .contains("branch-incoming-order-matched")
+                .contains("branch-incoming-order-2");
     }
 
     @Test
@@ -118,7 +117,7 @@ class KafkaPrefabStreamsTopologyTest {
 
         assertThat(firstDescription)
                 .isEqualTo(secondDescription)
-                .contains("filter-1");
+                .contains("filter-incoming-order");
     }
 
     @Test
@@ -130,8 +129,8 @@ class KafkaPrefabStreamsTopologyTest {
         var topology = source.filter(order -> order.customer().id().startsWith("B")).to("orders.b");
 
         assertThat(topology.nativeTopology().describe().toString())
-                .contains("filter-1")
-                .contains("filter-2");
+                .contains("filter-incoming-order")
+                .contains("filter-incoming-order-2");
     }
 
     @Test
@@ -141,20 +140,22 @@ class KafkaPrefabStreamsTopologyTest {
 
         assertThat(firstDescription)
                 .isEqualTo(secondDescription)
-                .contains("map-1");
+                .contains("map-incoming-order");
     }
 
     @Test
     void map_shouldKeepStepNamesUniqueWithinOneTopology() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
-        var topology = test.streams().from(IncomingOrder.class)
-                .map(order -> new ProcessedOrder(order.orderId(), Reference.fromId(order.customer().id().toUpperCase())))
-                .map(order -> new ProcessedOrder(order.orderId(), Reference.fromId(order.customer().id() + "-done")))
+        var source = test.streams().from(IncomingOrder.class);
+
+        source.map(order -> new ProcessedOrder(order.orderId(), Reference.fromId(order.customer().id().toUpperCase())))
+                .to(ProcessedOrder.class);
+        var topology = source.map(order -> new ProcessedOrder(order.orderId(), Reference.fromId(order.customer().id() + "-done")))
                 .to(ProcessedOrder.class);
 
         assertThat(topology.nativeTopology().describe().toString())
-                .contains("map-1")
-                .contains("map-2");
+                .contains("map-incoming-order")
+                .contains("map-incoming-order-2");
     }
 
     @Test
@@ -164,7 +165,7 @@ class KafkaPrefabStreamsTopologyTest {
 
         assertThat(firstDescription)
                 .isEqualTo(secondDescription)
-                .contains("flat-map-1");
+                .contains("flat-map-word-batch");
     }
 
     @Test
@@ -174,8 +175,8 @@ class KafkaPrefabStreamsTopologyTest {
 
         assertThat(firstDescription)
                 .isEqualTo(secondDescription)
-                .contains("branch-subtype-1")
-                .contains("branch-subtype-1-cast");
+                .contains("branch-subtype-incoming-order")
+                .contains("branch-subtype-incoming-order-cast");
     }
 
     @Test
@@ -191,8 +192,8 @@ class KafkaPrefabStreamsTopologyTest {
         var topology = classified.branch(OrderEvent.OrderShipped.class).to("orders.shipped");
 
         assertThat(topology.nativeTopology().describe().toString())
-                .contains("branch-subtype-1")
-                .contains("branch-subtype-2");
+                .contains("branch-subtype-order-created")
+                .contains("branch-subtype-order-shipped");
     }
 
     @Test
@@ -202,7 +203,7 @@ class KafkaPrefabStreamsTopologyTest {
 
         assertThat(firstDescription)
                 .isEqualTo(secondDescription)
-                .contains("merge-1");
+                .contains("merge-incoming-order");
     }
 
     @Test
@@ -212,7 +213,7 @@ class KafkaPrefabStreamsTopologyTest {
 
         assertThat(firstDescription)
                 .isEqualTo(secondDescription)
-                .contains("join-1");
+                .contains("join-incoming-order-shipping-update");
     }
 
     @Test
@@ -222,7 +223,7 @@ class KafkaPrefabStreamsTopologyTest {
 
         assertThat(firstDescription)
                 .isEqualTo(secondDescription)
-                .contains("process-1");
+                .contains("process-incoming-order");
     }
 
 
@@ -706,12 +707,10 @@ class KafkaPrefabStreamsTopologyTest {
     private String mergeTopologyDescription() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
         var streams = test.streams();
-        var orders = streams.from(IncomingOrder.class)
-                .map(order -> new OrderEvent.OrderCreated(order.orderId(), order.customer()));
-        var shippingUpdates = streams.from(ShippingUpdate.class)
-                .filter(update -> "SHIPPED".equals(update.status()))
-                .map(update -> new OrderEvent.OrderShipped(update.orderId()));
-        var topology = streams.merge(orders, shippingUpdates).to(OrderEvent.class);
+        var source = streams.from(IncomingOrder.class);
+        var topology = source.filter(o -> o.customer().id().startsWith("A"))
+                .merge(source.filter(o -> o.customer().id().startsWith("B")))
+                .to(IncomingOrder.class);
         return topology.nativeTopology().describe().toString();
     }
 

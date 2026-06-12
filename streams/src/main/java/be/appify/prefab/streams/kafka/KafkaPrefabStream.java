@@ -93,17 +93,17 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
 
     @Override
     public PrefabStream<K, V> filter(Predicate<V> predicate) {
-        return wrap(stream.filter((key, value) -> predicate.test(value)), valueType);
+        return wrap(stream.filter((key, value) -> predicate.test(value), Named.as(stepNames.nextFilterName())), valueType);
     }
 
     @Override
     public <VO extends Keyed<K>> PrefabStream<K, VO> map(Function<V, VO> mapper) {
-        return wrapUnknown(stream.mapValues(mapper::apply));
+        return wrapUnknown(stream.mapValues(mapper::apply, Named.as(stepNames.nextMapName())));
     }
 
     @Override
     public <VO extends Keyed<K>> PrefabStream<K, VO> flatMap(Function<V, Iterable<VO>> mapper) {
-        return wrapUnknown(stream.flatMapValues(mapper::apply));
+        return wrapUnknown(stream.flatMapValues(mapper::apply, Named.as(stepNames.nextFlatMapName())));
     }
 
     @Override
@@ -119,9 +119,10 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
     @Override
     public <S extends V> PrefabStream<K, S> branch(Class<S> subtype) {
         Objects.requireNonNull(subtype, "subtype must not be null");
+        var branchSubtypeId = stepNames.nextBranchSubtypeName();
         var filteredAndCasted = stream
-                .filter((key, value) -> subtype.isInstance(value))
-                .mapValues(subtype::cast);
+                .filter((key, value) -> subtype.isInstance(value), Named.as(branchSubtypeId))
+                .mapValues(subtype::cast, Named.as(branchSubtypeId + "-cast"));
         return wrapKnown(filteredAndCasted, subtype);
     }
 
@@ -152,7 +153,7 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
                         joiner::apply,
                         JoinWindows.ofTimeDifferenceAndGrace(window.timeDifference(), window.grace()),
                         StreamJoined.with(new StringKeySerde<>(keyType), joinSerde(valueType),
-                                joinSerde(otherKafkaStream.valueType))
+                                joinSerde(otherKafkaStream.valueType)).withName(stepNames.nextJoinName())
                 ),
                 ValueTypeHint.unknown()
         );
@@ -174,7 +175,10 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
 
         //noinspection unchecked
         return leftKafkaStream.wrap(
-                ((KStream<K, VO>) leftKafkaStream.stream).merge((KStream<K, VO>) rightKafkaStream.stream),
+                ((KStream<K, VO>) leftKafkaStream.stream).merge(
+                        (KStream<K, VO>) rightKafkaStream.stream,
+                        Named.as(leftKafkaStream.stepNames.nextMergeName())
+                ),
                 commonKnownType(leftKafkaStream.valueType, rightKafkaStream.valueType)
         );
     }
@@ -222,7 +226,11 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
         var stateStoreNames = stores.stream()
                 .map(Store::name)
                 .toArray(String[]::new);
-        var output = stream.process(() -> new KafkaPrefabStreamProcessorAdapter<>(processor), stateStoreNames);
+        var output = stream.process(
+                () -> new KafkaPrefabStreamProcessorAdapter<>(processor),
+                Named.as(stepNames.nextProcessName()),
+                stateStoreNames
+        );
 
         return wrapUnknown(output);
     }
@@ -315,7 +323,6 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
         return value != null ? value.getClass() : null;
     }
 
-    @SuppressWarnings("unchecked")
     private void registerInternalTopic(String topic, Class<?> runtimeType) {
         if (runtimeType == null) {
             return;
@@ -326,7 +333,7 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
             eventRegistry.register(topic, resolveSerialization(runtimeType, eventRegistry));
         }
         if (!eventRegistry.hasTypeForTopic(topic)) {
-            eventRegistry.registerType(topic, (Class<Object>) runtimeType);
+            eventRegistry.registerType(topic, runtimeType);
         }
     }
 

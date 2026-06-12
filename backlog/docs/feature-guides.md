@@ -868,9 +868,25 @@ Serialization and deserialization reuse the existing Kafka dynamic serde infrast
 - `DynamicDeserializer` for source records
 - `DynamicSerializer` for sink records
 
-When Prefab assigns Kafka Streams processor names for DSL-owned branch steps, it uses deterministic,
-representative names such as `branch-1-matched`. This keeps identical DSL topologies stable across runs while
-still avoiding name collisions inside one topology.
+When Prefab assigns Kafka Streams processor names for DSL-owned steps, it uses deterministic,
+representative names that encode the operation type and a per-topology sequence number.
+This keeps identical DSL topologies stable across runs while still avoiding name collisions
+inside one topology.
+
+| DSL operator          | Processor name pattern        | Example            |
+|-----------------------|-------------------------------|--------------------|
+| `filter`              | `filter-N`                    | `filter-1`         |
+| `map`                 | `map-N`                       | `map-1`            |
+| `flatMap`             | `flat-map-N`                  | `flat-map-1`       |
+| `branch(Predicate)`   | `branch-N` / `branch-N-matched` | `branch-1-matched` |
+| `branch(Class<S>)`    | `branch-subtype-N` / `branch-subtype-N-cast` | `branch-subtype-1-cast` |
+| `merge`               | `merge-N`                     | `merge-1`          |
+| `join`                | `join-N`                      | `join-1`           |
+| `process`             | `process-N`                   | `process-1`        |
+
+Each `N` starts at 1 and increments for every additional use of that operator within the same
+topology context. `breakout` delegates to user-supplied native Kafka code and keeps whatever
+name the caller assigns.
 
 `from(Class<?>)` and `to(Class<?>)` resolve topic names via registered Kafka event types and fail fast:
 

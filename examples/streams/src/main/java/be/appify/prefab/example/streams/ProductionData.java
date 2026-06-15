@@ -25,6 +25,7 @@ public record ProductionData(
     }
 
     public boolean isComplete() {
-        return false;
+        return aggregatedValues.size() == EnergySource.values().length
+                && aggregatedValues.values().stream().allMatch(values -> values.size() == 24);
     }
 }

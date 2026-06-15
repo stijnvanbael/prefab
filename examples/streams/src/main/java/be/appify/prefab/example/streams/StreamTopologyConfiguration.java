@@ -10,11 +10,11 @@ class StreamTopologyConfiguration {
 
     @Bean
     StreamDefinition topology(PrefabStreams streams) {
-        var production = streams.from(RawProductionData.class)
+        return streams.from(RawProductionData.class)
                 .aggregate(
                         ProductionKey::of,
                         ProductionData::aggregate,
-                        ProductionData::isComplete);
-        return null; // TODO
+                        ProductionData::isComplete)
+                .to(ProductionData.class);
     }
 }

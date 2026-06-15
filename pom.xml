@@ -46,7 +46,7 @@
 
         <commons-text.version>1.15.0</commons-text.version>
         <error-handling.version>5.1.1</error-handling.version>
-        <google-cloud.version>8.0.2</google-cloud.version>
+        <google-cloud.version>8.0.4</google-cloud.version>
         <spring-cloud-aws.version>4.0.2</spring-cloud-aws.version>
         <central-publishing-maven-plugin.version>0.10.0</central-publishing-maven-plugin.version>
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>

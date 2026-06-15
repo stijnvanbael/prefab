@@ -1,111 +1,40 @@
 package be.appify.prefab.streams.kafka;
 
+import be.appify.prefab.core.domain.Keyed;
+import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.streams.JoinWindow;
+import be.appify.prefab.streams.StatefulStreamProcessor;
 import be.appify.prefab.streams.StreamBackend;
 import be.appify.prefab.streams.StreamBreakoutAdapter;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-import org.apache.kafka.streams.StreamsBuilder;
+import be.appify.prefab.streams.StreamRecord;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Named;
 import org.junit.jupiter.api.Test;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class KafkaPrefabStreamsTopologyTest {
-
-    @Test
-    void fromClassToClass_shouldForwardRecordUsingDynamicSerde() {
-        var test = KafkaTopologyTestBootstrap.bootstrap();
-        test.registerJson("orders.in", IncomingOrder.class);
-        test.registerJson("orders.out", ProcessedOrder.class);
-
-        var streamsBuilder = new TrackingStreamsBuilder();
-        var streams = test.streams(streamsBuilder);
-        var topology = streams.from(IncomingOrder.class)
-                .map(order -> new ProcessedOrder(order.orderId(), order.customer()))
-                .to(ProcessedOrder.class);
-        assertThat(streamsBuilder.buildInvocations()).isZero();
-
-        assertThat(topology.buildTopology().describe().toString()).contains("orders.in").contains("orders.out");
-        assertThat(streamsBuilder.buildInvocations()).isEqualTo(1);
-
-        try (var topologyTest = test.run(topology)) {
-            var inputTopic = topologyTest.input("orders.in");
-            var outputTopic = topologyTest.output("orders.out");
-
-            inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "Alice"));
-
-            var forwarded = outputTopic.readValue();
-            assertThat(forwarded).isInstanceOf(ProcessedOrder.class);
-            assertThat((ProcessedOrder) forwarded).isEqualTo(new ProcessedOrder("o-1", "Alice"));
-        }
-    }
-
-    @Test
-    void fromClassToTopic_shouldForwardRecordUsingExplicitTopic() {
-        var test = KafkaTopologyTestBootstrap.bootstrap();
-        test.registerJson("orders.in", IncomingOrder.class);
-
-        var streamsBuilder = new TrackingStreamsBuilder();
-        var streams = test.streams(streamsBuilder);
-        var topology = streams.from(IncomingOrder.class).to("orders.dead-letter");
-        assertThat(streamsBuilder.buildInvocations()).isZero();
-
-        assertThat(topology.buildTopology().describe().toString()).contains("orders.in").contains("orders.dead-letter");
-        assertThat(streamsBuilder.buildInvocations()).isEqualTo(1);
-
-        try (var topologyTest = test.run(topology)) {
-            var inputTopic = topologyTest.input("orders.in");
-            var outputTopic = topologyTest.rawOutput("orders.dead-letter");
-
-            inputTopic.pipeInput("o-2", new IncomingOrder("o-2", "Bob"));
-
-            assertThat(outputTopic.readValue()).isNotEmpty();
-        }
-    }
-
-    @Test
-    void fromClass_shouldFailFastWhenNoTopicRegistered() {
-        var streams = KafkaTopologyTestBootstrap.bootstrap().streams(new StreamsBuilder());
-
-        assertThatThrownBy(() -> streams.from(IncomingOrder.class))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("No topic registered for type");
-    }
-
-    @Test
-    void fromClass_shouldFailFastWhenMultipleTopicsRegistered() {
-        var test = KafkaTopologyTestBootstrap.bootstrap();
-        test.registerJson("orders.in.a", IncomingOrder.class);
-        test.registerJson("orders.in.b", IncomingOrder.class);
-
-        var streams = test.streams(new StreamsBuilder());
-
-        assertThatThrownBy(() -> streams.from(IncomingOrder.class))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Multiple topics registered for type");
-    }
-
     @Test
     void filter_shouldDropRecordsNotMatchingPredicate() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
-        test.registerJson("orders.in", IncomingOrder.class);
 
-        var streams = test.streams(new StreamsBuilder());
-        var topology = streams.from(IncomingOrder.class)
-                .filter(order -> order.customer().startsWith("A"))
+        var topology = test.streams().from(IncomingOrder.class)
+                .filter(order -> order.customer().id().startsWith("A"))
                 .to("orders.filtered");
 
         try (var topologyTest = test.run(topology)) {
-            var inputTopic = topologyTest.input("orders.in");
+            var inputTopic = topologyTest.input(IncomingOrder.class);
             var outputTopic = topologyTest.rawOutput("orders.filtered");
 
-            inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "Alice"));
-            inputTopic.pipeInput("o-2", new IncomingOrder("o-2", "Bob"));
-            inputTopic.pipeInput("o-3", new IncomingOrder("o-3", "Anna"));
+            inputTopic.pipeInput("o-1", new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("Alice")));
+            inputTopic.pipeInput("o-2", new IncomingOrder(Reference.fromId("o-2"), Reference.fromId("Bob")));
+            inputTopic.pipeInput("o-3", new IncomingOrder(Reference.fromId("o-3"), Reference.fromId("Anna")));
 
             assertThat(outputTopic.readValuesToList()).hasSize(2);
         }
@@ -114,54 +43,195 @@ class KafkaPrefabStreamsTopologyTest {
     @Test
     void map_shouldTransformValues() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
-        test.registerJson("orders.in", IncomingOrder.class);
-        test.registerJson("orders.out", ProcessedOrder.class);
 
-        var streams = test.streams(new StreamsBuilder());
-        var topology = streams.from(IncomingOrder.class)
-                .map(order -> new ProcessedOrder(order.orderId(), order.customer().toUpperCase()))
+        var topology = test.streams().from(IncomingOrder.class)
+                .map(order -> new ProcessedOrder(order.orderId(), Reference.fromId(order.customer().id().toUpperCase())))
                 .to(ProcessedOrder.class);
 
         try (var topologyTest = test.run(topology)) {
-            var inputTopic = topologyTest.input("orders.in");
-            var outputTopic = topologyTest.output("orders.out");
+            var inputTopic = topologyTest.input(IncomingOrder.class);
+            var outputTopic = topologyTest.output(ProcessedOrder.class);
 
-            inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "Alice"));
+            inputTopic.pipeInput("o-1", new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("Alice")));
 
             var forwarded = outputTopic.readValue();
             assertThat(forwarded).isInstanceOf(ProcessedOrder.class);
-            assertThat((ProcessedOrder) forwarded).isEqualTo(new ProcessedOrder("o-1", "ALICE"));
+            assertThat(forwarded).isEqualTo(new ProcessedOrder(Reference.fromId("o-1"), Reference.fromId("ALICE")));
         }
     }
 
     @Test
     void flatMap_shouldExpandOneRecordToMany() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
-        test.registerJson("words.in", WordBatch.class);
 
-        var streams = test.streams(new StreamsBuilder());
-        var topology = streams.from(WordBatch.class)
-                .flatMap(batch -> List.of(batch.words().split(",")))
+        var topology = test.streams().from(WordBatch.class)
+                .flatMap(batch -> Stream.of(batch.words().split(","))
+                        .map(word -> new WordBatch(batch.batchId(), word))
+                        .toList())
                 .to("words.out");
 
         try (var topologyTest = test.run(topology)) {
-            var inputTopic = topologyTest.input("words.in");
+            var inputTopic = topologyTest.input(WordBatch.class);
             var outputTopic = topologyTest.rawOutput("words.out");
 
-            inputTopic.pipeInput("b-1", new WordBatch("b-1", "hello,world,foo"));
+            inputTopic.pipeInput("b-1", new WordBatch(Reference.fromId("b-1"), "hello,world,foo"));
 
             assertThat(outputTopic.readValuesToList()).hasSize(3);
         }
     }
 
     @Test
+    void branch_shouldUseStableRepresentativeStepNames() {
+        var firstDescription = branchTopologyDescription();
+        var secondDescription = branchTopologyDescription();
+
+        assertThat(firstDescription)
+                .isEqualTo(secondDescription)
+                .contains("branch-incoming-order")
+                .contains("branch-incoming-order-matched");
+    }
+
+    @Test
+    void branch_shouldKeepStepNamesUniqueWithinOneTopology() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+        var source = streams.from(IncomingOrder.class);
+
+        source.branch(order -> order.customer().id().startsWith("A"))
+                .to("orders.a");
+        var topology = source.branch(order -> order.customer().id().startsWith("B"))
+                .to("orders.b");
+
+        var topologyDescription = topology.nativeTopology().describe().toString();
+
+        assertThat(topologyDescription)
+                .contains("branch-incoming-order")
+                .contains("branch-incoming-order-matched")
+                .contains("branch-incoming-order-2");
+    }
+
+    @Test
+    void filter_shouldUseStableRepresentativeStepNames() {
+        var firstDescription = filterTopologyDescription();
+        var secondDescription = filterTopologyDescription();
+
+        assertThat(firstDescription)
+                .isEqualTo(secondDescription)
+                .contains("filter-incoming-order");
+    }
+
+    @Test
+    void filter_shouldKeepStepNamesUniqueWithinOneTopology() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var source = test.streams().from(IncomingOrder.class);
+
+        source.filter(order -> order.customer().id().startsWith("A")).to("orders.a");
+        var topology = source.filter(order -> order.customer().id().startsWith("B")).to("orders.b");
+
+        assertThat(topology.nativeTopology().describe().toString())
+                .contains("filter-incoming-order")
+                .contains("filter-incoming-order-2");
+    }
+
+    @Test
+    void map_shouldUseStableRepresentativeStepNames() {
+        var firstDescription = mapTopologyDescription();
+        var secondDescription = mapTopologyDescription();
+
+        assertThat(firstDescription)
+                .isEqualTo(secondDescription)
+                .contains("map-incoming-order");
+    }
+
+    @Test
+    void map_shouldKeepStepNamesUniqueWithinOneTopology() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var source = test.streams().from(IncomingOrder.class);
+
+        source.map(order -> new ProcessedOrder(order.orderId(), Reference.fromId(order.customer().id().toUpperCase())))
+                .to(ProcessedOrder.class);
+        var topology = source.map(order -> new ProcessedOrder(order.orderId(), Reference.fromId(order.customer().id() + "-done")))
+                .to(ProcessedOrder.class);
+
+        assertThat(topology.nativeTopology().describe().toString())
+                .contains("map-incoming-order")
+                .contains("map-incoming-order-2");
+    }
+
+    @Test
+    void flatMap_shouldUseStableRepresentativeStepNames() {
+        var firstDescription = flatMapTopologyDescription();
+        var secondDescription = flatMapTopologyDescription();
+
+        assertThat(firstDescription)
+                .isEqualTo(secondDescription)
+                .contains("flat-map-word-batch");
+    }
+
+    @Test
+    void branchSubtype_shouldUseStableRepresentativeStepNames() {
+        var firstDescription = branchSubtypeTopologyDescription();
+        var secondDescription = branchSubtypeTopologyDescription();
+
+        assertThat(firstDescription)
+                .isEqualTo(secondDescription)
+                .contains("branch-subtype-incoming-order")
+                .contains("branch-subtype-incoming-order-cast");
+    }
+
+    @Test
+    void branchSubtype_shouldKeepStepNamesUniqueWithinOneTopology() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+        var classified = streams.from(IncomingOrder.class)
+                .map(order -> order.customer().id().length() <= 4
+                        ? (OrderEvent) new OrderEvent.OrderCreated(order.orderId(), order.customer())
+                        : new OrderEvent.OrderShipped(order.orderId()));
+
+        classified.branch(OrderEvent.OrderCreated.class).to("orders.created");
+        var topology = classified.branch(OrderEvent.OrderShipped.class).to("orders.shipped");
+
+        assertThat(topology.nativeTopology().describe().toString())
+                .contains("branch-subtype-order-created")
+                .contains("branch-subtype-order-shipped");
+    }
+
+    @Test
+    void merge_shouldUseStableRepresentativeStepNames() {
+        var firstDescription = mergeTopologyDescription();
+        var secondDescription = mergeTopologyDescription();
+
+        assertThat(firstDescription)
+                .isEqualTo(secondDescription)
+                .contains("merge-incoming-order");
+    }
+
+    @Test
+    void join_shouldUseStableRepresentativeStepNames() {
+        var firstDescription = joinTopologyDescription();
+        var secondDescription = joinTopologyDescription();
+
+        assertThat(firstDescription)
+                .isEqualTo(secondDescription)
+                .contains("join-incoming-order-shipping-update");
+    }
+
+    @Test
+    void process_shouldUseStableRepresentativeStepNames() {
+        var firstDescription = processTopologyDescription();
+        var secondDescription = processTopologyDescription();
+
+        assertThat(firstDescription)
+                .isEqualTo(secondDescription)
+                .contains("process-incoming-order");
+    }
+
+
+    @Test
     void join_shouldEmitResultWhenKeysMatchWithinWindow() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
-        test.registerJson("orders.in", IncomingOrder.class);
-        test.registerJson("shipments.in", ShippingUpdate.class);
-        test.registerJson("orders.joined", JoinedOrder.class);
 
-        var streams = test.streams(new StreamsBuilder());
+        var streams = test.streams();
         var topology = streams.from(IncomingOrder.class)
                 .join(
                         streams.from(ShippingUpdate.class),
@@ -171,34 +241,31 @@ class KafkaPrefabStreamsTopologyTest {
                 .to(JoinedOrder.class);
 
         try (var topologyTest = test.run(topology)) {
-            var ordersInputTopic = topologyTest.input("orders.in");
-            var shipmentsInputTopic = topologyTest.input("shipments.in");
-            var outputTopic = topologyTest.output("orders.joined");
+            var ordersInputTopic = topologyTest.input(IncomingOrder.class);
+            var shipmentsInputTopic = topologyTest.input(ShippingUpdate.class);
+            var outputTopic = topologyTest.output(JoinedOrder.class);
 
             ordersInputTopic.pipeInput(
                     "o-1",
-                    new IncomingOrder("o-1", "Alice"),
+                    new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("Alice")),
                     Instant.ofEpochMilli(1_000L)
             );
             shipmentsInputTopic.pipeInput(
                     "o-1",
-                    new ShippingUpdate("o-1", "SHIPPED"),
+                    new ShippingUpdate(Reference.fromId("o-1"), "SHIPPED"),
                     Instant.ofEpochMilli(5_000L)
             );
 
             assertThat(outputTopic.readValue())
-                    .isEqualTo(new JoinedOrder("o-1", "Alice", "SHIPPED"));
+                    .isEqualTo(new JoinedOrder(Reference.fromId("o-1"), Reference.fromId("Alice"), "SHIPPED"));
         }
     }
 
     @Test
     void join_shouldNotEmitResultWhenKeysDoNotMatch() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
-        test.registerJson("orders.in", IncomingOrder.class);
-        test.registerJson("shipments.in", ShippingUpdate.class);
-        test.registerJson("orders.joined", JoinedOrder.class);
 
-        var streams = test.streams(new StreamsBuilder());
+        var streams = test.streams();
         var topology = streams.from(IncomingOrder.class)
                 .join(
                         streams.from(ShippingUpdate.class),
@@ -208,18 +275,18 @@ class KafkaPrefabStreamsTopologyTest {
                 .to(JoinedOrder.class);
 
         try (var topologyTest = test.run(topology)) {
-            var ordersInputTopic = topologyTest.input("orders.in");
-            var shipmentsInputTopic = topologyTest.input("shipments.in");
-            var outputTopic = topologyTest.output("orders.joined");
+            var ordersInputTopic = topologyTest.input(IncomingOrder.class);
+            var shipmentsInputTopic = topologyTest.input(ShippingUpdate.class);
+            var outputTopic = topologyTest.output(JoinedOrder.class);
 
             ordersInputTopic.pipeInput(
                     "o-1",
-                    new IncomingOrder("o-1", "Alice"),
+                    new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("Alice")),
                     Instant.ofEpochMilli(1_000L)
             );
             shipmentsInputTopic.pipeInput(
                     "o-2",
-                    new ShippingUpdate("o-2", "SHIPPED"),
+                    new ShippingUpdate(Reference.fromId("o-2"), "SHIPPED"),
                     Instant.ofEpochMilli(5_000L)
             );
 
@@ -230,11 +297,8 @@ class KafkaPrefabStreamsTopologyTest {
     @Test
     void join_shouldNotEmitResultWhenRecordsAreOutsideWindow() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
-        test.registerJson("orders.in", IncomingOrder.class);
-        test.registerJson("shipments.in", ShippingUpdate.class);
-        test.registerJson("orders.joined", JoinedOrder.class);
 
-        var streams = test.streams(new StreamsBuilder());
+        var streams = test.streams();
         var topology = streams.from(IncomingOrder.class)
                 .join(
                         streams.from(ShippingUpdate.class),
@@ -244,18 +308,18 @@ class KafkaPrefabStreamsTopologyTest {
                 .to(JoinedOrder.class);
 
         try (var topologyTest = test.run(topology)) {
-            var ordersInputTopic = topologyTest.input("orders.in");
-            var shipmentsInputTopic = topologyTest.input("shipments.in");
-            var outputTopic = topologyTest.output("orders.joined");
+            var ordersInputTopic = topologyTest.input(IncomingOrder.class);
+            var shipmentsInputTopic = topologyTest.input(ShippingUpdate.class);
+            var outputTopic = topologyTest.output(JoinedOrder.class);
 
             ordersInputTopic.pipeInput(
                     "o-1",
-                    new IncomingOrder("o-1", "Alice"),
+                    new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("Alice")),
                     Instant.ofEpochMilli(1_000L)
             );
             shipmentsInputTopic.pipeInput(
                     "o-1",
-                    new ShippingUpdate("o-1", "SHIPPED"),
+                    new ShippingUpdate(Reference.fromId("o-1"), "SHIPPED"),
                     Instant.ofEpochMilli(5_000L)
             );
 
@@ -263,35 +327,32 @@ class KafkaPrefabStreamsTopologyTest {
         }
     }
 
-
-
     @Test
     void breakout_shouldApplyKafkaNativeFragmentWithinPrefabPipeline() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
-        test.registerJson("orders.in", IncomingOrder.class);
-        test.registerJson("orders.out", ProcessedOrder.class);
 
-        var streams = test.streams(new StreamsBuilder());
-
-        var topology = streams.from(IncomingOrder.class)
-                .breakout(new KafkaStreamBreakoutAdapter<>(
-                        nativeStream -> nativeStream.selectKey((key, value) -> "native-" + value.orderId(), Named.as("native-key"))
+        var topology = test.streams().from(IncomingOrder.class)
+                .breakout(new KafkaStreamBreakoutAdapter<Reference<Order>, Reference<Order>, IncomingOrder, IncomingOrder>(
+                        nativeStream -> nativeStream.selectKey(
+                                (key, value) -> Reference.fromId("native-" + value.orderId().id()),
+                                Named.as("native-key")
+                        )
                 ))
-                .map(order -> new ProcessedOrder(order.orderId(), order.customer().toUpperCase()))
+                .map(order -> new ProcessedOrder(order.orderId(), Reference.fromId(order.customer().id().toUpperCase())))
                 .to(ProcessedOrder.class);
 
         try (var topologyTest = test.run(topology)) {
-            var inputTopic = topologyTest.input("orders.in");
-            var outputTopic = topologyTest.output("orders.out");
+            var inputTopic = topologyTest.input(IncomingOrder.class);
+            var outputTopic = topologyTest.output(ProcessedOrder.class);
 
-            inputTopic.pipeInput("o-1", new IncomingOrder("o-1", "alice"));
-            inputTopic.pipeInput("o-2", new IncomingOrder("o-2", "bob"));
+            inputTopic.pipeInput("o-1", new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("alice")));
+            inputTopic.pipeInput("o-2", new IncomingOrder(Reference.fromId("o-2"), Reference.fromId("bob")));
 
             var output = outputTopic.readValuesToList();
             assertThat(output)
                     .containsExactlyInAnyOrder(
-                            new ProcessedOrder("o-1", "ALICE"),
-                            new ProcessedOrder("o-2", "BOB")
+                            new ProcessedOrder(Reference.fromId("o-1"), Reference.fromId("ALICE")),
+                            new ProcessedOrder(Reference.fromId("o-2"), Reference.fromId("BOB"))
                     );
         }
     }
@@ -299,11 +360,8 @@ class KafkaPrefabStreamsTopologyTest {
     @Test
     void breakout_shouldFailFastWhenAdapterTargetsDifferentBackend() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
-        test.registerJson("orders.in", IncomingOrder.class);
 
-        var streams = test.streams(new StreamsBuilder());
-
-        assertThatThrownBy(() -> streams.from(IncomingOrder.class)
+        assertThatThrownBy(() -> test.streams().from(IncomingOrder.class)
                 .breakout(new NonKafkaBreakoutAdapter()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Unsupported breakout backend");
@@ -312,71 +370,243 @@ class KafkaPrefabStreamsTopologyTest {
     @Test
     void breakout_shouldFailFastWhenAdapterReturnsNonKStream() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
-        test.registerJson("orders.in", IncomingOrder.class);
 
-        var streams = test.streams(new StreamsBuilder());
-
-        assertThatThrownBy(() -> streams.from(IncomingOrder.class)
+        assertThatThrownBy(() -> test.streams().from(IncomingOrder.class)
                 .breakout(new InvalidKafkaReturnTypeAdapter()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("must return a KStream");
     }
 
     @Test
-    void multipleDefinitions_shouldShareCombinedTopology() {
+    void process_shouldPerformStatefulOperations() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
-        test.registerJson("orders.in", IncomingOrder.class);
-        test.registerJson("orders.audit.in", AuditOrder.class);
 
-        var streams = test.streams(new StreamsBuilder());
+        var countDefinition = test.streams().from(IncomingOrder.class)
+                .process(new CountOrderProcessor())
+                .to("prefab-streams-test-order-count");
 
-        var forwardDefinition = streams.from(IncomingOrder.class).to("orders.out");
-        var auditDefinition = streams.from(AuditOrder.class).to("orders.audit.out");
+        try (var topologyTest = test.run(countDefinition)) {
+            var input = topologyTest.input(IncomingOrder.class);
+            var output = topologyTest.output(OrderCount.class);
 
-        var combinedTopologyDescription = forwardDefinition.buildTopology().describe().toString();
+            input.pipeInput("o-1", new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("alice")));
+            input.pipeInput("o-2", new IncomingOrder(Reference.fromId("o-2"), Reference.fromId("bob")));
+            input.pipeInput("o-3", new IncomingOrder(Reference.fromId("o-3"), Reference.fromId("alice")));
 
-        assertThat(combinedTopologyDescription)
-                .contains("orders.in")
-                .contains("orders.out")
-                .contains("orders.audit.in")
-                .contains("orders.audit.out");
-        assertThat(auditDefinition.nativeTopology().describe().toString()).isEqualTo(combinedTopologyDescription);
+            assertThat(output.readValuesToList())
+                    .containsExactlyInAnyOrder(
+                            new OrderCount(Reference.fromId("alice"), 1),
+                            new OrderCount(Reference.fromId("bob"), 1),
+                            new OrderCount(Reference.fromId("alice"), 2)
+                    );
+        }
     }
 
-    record IncomingOrder(String orderId, String customer) {
+    @Test
+    void aggregate() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+
+        var countDefinition = streams.from(IncomingOrder.class)
+                .aggregate(
+                        IncomingOrder::customer,
+                        ordersForCustomer -> new OrderCount(ordersForCustomer.getFirst().customer(), ordersForCustomer.size()),
+                        count -> true
+                )
+                .to(OrderCount.class);
+
+        try (var topologyTest = test.run(countDefinition)) {
+            var input = topologyTest.input(IncomingOrder.class);
+            var output = topologyTest.output(OrderCount.class);
+
+            input.pipeInput("o-1", new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("alice")));
+            input.pipeInput("o-2", new IncomingOrder(Reference.fromId("o-2"), Reference.fromId("bob")));
+            input.pipeInput("o-3", new IncomingOrder(Reference.fromId("o-3"), Reference.fromId("alice")));
+
+            assertThat(output.readValuesToList())
+                    .containsExactlyInAnyOrder(
+                            new OrderCount(Reference.fromId("alice"), 1),
+                            new OrderCount(Reference.fromId("bob"), 1),
+                            new OrderCount(Reference.fromId("alice"), 2)
+                    );
+        }
     }
 
-    record ProcessedOrder(String orderId, String customer) {
+    @Test
+    void aggregate_storeNameReflectsConcreteKeyAndValueTypes() {
+        // The stream was created from IncomingOrder.class so V = IncomingOrder is known at
+        // topology-build time via knownValueType().  Java's standard LambdaMetafactory erases
+        // the groupBy return type to Object at runtime, so the key type (KO = Reference) cannot
+        // be extracted without serialisable lambdas or an explicit parameter.
+        // The store name therefore encodes only the value class: aggregation-incoming-order.
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var definition = test.streams().from(IncomingOrder.class)
+                .aggregate(
+                        IncomingOrder::customer,
+                        orders -> new OrderCount(orders.getFirst().customer(), orders.size()),
+                        count -> true
+                )
+                .to(OrderCount.class);
+
+        var topologyDescription = definition.nativeTopology().describe().toString();
+        assertThat(topologyDescription).contains("aggregation-incoming-order");
     }
 
-    record WordBatch(String batchId, String words) {
+    @Test
+    void multipleStreams_shouldBeJoinedInOneTopology() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+
+        streams.from(IncomingOrder.class)
+                .map(order -> new ProcessedOrder(order.orderId(), Reference.fromId(order.customer().id().toUpperCase())))
+                .to(ProcessedOrder.class);
+
+        var topology = streams.from(ProcessedOrder.class)
+                .map(order -> new ShippingUpdate(order.orderId(), "PENDING"))
+                .to(ShippingUpdate.class);
+
+        try (var topologyTest = test.run(topology)) {
+            var input = topologyTest.input(IncomingOrder.class);
+            var output = topologyTest.output(ShippingUpdate.class);
+
+            input.pipeInput("o-1", new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("alice")));
+
+            assertThat(output.readValuesToList())
+                    .containsExactlyInAnyOrder(
+                            new ShippingUpdate(Reference.fromId("o-1"), "PENDING")
+                    );
+        }
     }
 
-    record AuditOrder(String orderId, String status) {
+    @Test
+    void joinAfterMap_shouldUseTheRightSerdes() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+
+        var topology = streams.from(IncomingOrder.class)
+                .map(order -> new ProcessedOrder(order.orderId(), Reference.fromId(order.customer().id().toUpperCase())))
+                .join(
+                        streams.from(ShippingUpdate.class),
+                        JoinWindow.of(Duration.ofSeconds(2), Duration.ZERO),
+                        (order, shipping) -> new JoinedOrder(order.orderId(), order.customer(), shipping.status())
+                )
+                .to(JoinedOrder.class);
+
+        try (var topologyTest = test.run(topology)) {
+            var inputOrder = topologyTest.input(IncomingOrder.class);
+            var inputShippingUpdate = topologyTest.input(ShippingUpdate.class);
+            var output = topologyTest.output(JoinedOrder.class);
+
+            inputOrder.pipeInput("o-1", new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("alice")));
+            inputShippingUpdate.pipeInput("o-1", new ShippingUpdate(Reference.fromId("o-1"), "SHIPPED"));
+
+            assertThat(output.readValuesToList())
+                    .containsExactlyInAnyOrder(
+                            new JoinedOrder(Reference.fromId("o-1"), Reference.fromId("ALICE"), "SHIPPED")
+                    );
+        }
     }
 
-    record ShippingUpdate(String orderId, String status) {
+    @Test
+    void mergeAfterMap_shouldUseTheRightSerdes() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+
+        var orders = streams.from(IncomingOrder.class)
+                .map(order -> new OrderEvent.OrderCreated(order.orderId(), order.customer()));
+        var shippingUpdates = streams.from(ShippingUpdate.class)
+                .filter(update -> "SHIPPED".equals(update.status()))
+                .map(update -> new OrderEvent.OrderShipped(update.orderId()));
+        var topology = streams.merge(orders, shippingUpdates)
+                .to(OrderEvent.class);
+
+        try (var topologyTest = test.run(topology)) {
+            var inputOrder = topologyTest.input(IncomingOrder.class);
+            var inputShippingUpdate = topologyTest.input(ShippingUpdate.class);
+            var output = topologyTest.output(OrderEvent.class);
+
+            inputOrder.pipeInput("o-1", new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("alice")));
+            inputShippingUpdate.pipeInput("o-1", new ShippingUpdate(Reference.fromId("o-1"), "SHIPPED"));
+
+            assertThat(output.readValuesToList())
+                    .containsExactlyInAnyOrder(
+                            new OrderEvent.OrderCreated(Reference.fromId("o-1"), Reference.fromId("alice")),
+                            new OrderEvent.OrderShipped(Reference.fromId("o-1"))
+                    );
+        }
     }
 
-    record JoinedOrder(String orderId, String customer, String shippingStatus) {
-    }
-
-    private static final class TrackingStreamsBuilder extends StreamsBuilder {
-        private int buildInvocations;
-
+    record IncomingOrder(Reference<Order> orderId, Reference<Customer> customer) implements Keyed<Reference<Order>> {
         @Override
-        public org.apache.kafka.streams.Topology build() {
-            buildInvocations++;
-            return super.build();
-        }
-
-        int buildInvocations() {
-            return buildInvocations;
+        public Reference<Order> key() {
+            return orderId;
         }
     }
+
+    record ProcessedOrder(Reference<Order> orderId, Reference<Customer> customer) implements Keyed<Reference<Order>> {
+        @Override
+        public Reference<Order> key() {
+            return orderId;
+        }
+    }
+
+    record Order() {
+    }
+
+    record Customer() {
+    }
+
+    record WordBatch(Reference<Batch> batchId, String words) implements Keyed<Reference<Batch>> {
+        @Override
+        public Reference<Batch> key() {
+            return batchId;
+        }
+    }
+
+    record Batch() {
+    }
+
+    record ShippingUpdate(Reference<Order> orderId, String status) implements Keyed<Reference<Order>> {
+        @Override
+        public Reference<Order> key() {
+            return orderId;
+        }
+    }
+
+    record JoinedOrder(Reference<Order> orderId, Reference<Customer> customer,
+                       String shippingStatus) implements Keyed<Reference<Order>> {
+        @Override
+        public Reference<Order> key() {
+            return orderId;
+        }
+    }
+
+    record OrderCount(Reference<Customer> customer, int numberOfOrders) implements Keyed<Reference<Customer>> {
+        @Override
+        public Reference<Customer> key() {
+            return customer;
+        }
+    }
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+    sealed interface OrderEvent extends Keyed<Reference<Order>> permits OrderEvent.OrderCreated, OrderEvent.OrderShipped {
+        @Override
+        default Reference<Order> key() {
+            return orderId();
+        }
+
+        Reference<Order> orderId();
+
+        record OrderCreated(Reference<Order> orderId, Reference<Customer> customer) implements OrderEvent {}
+
+        record OrderShipped(Reference<Order> orderId) implements OrderEvent {}
+    }
+
+
 
     private static final class NonKafkaBreakoutAdapter
-            implements StreamBreakoutAdapter<IncomingOrder, IncomingOrder, KStream<String, IncomingOrder>, KStream<String, IncomingOrder>> {
+            implements StreamBreakoutAdapter<Reference<Order>, IncomingOrder, Reference<Order>, IncomingOrder,
+            KStream<Reference<Order>, IncomingOrder>, KStream<Reference<Order>, IncomingOrder>> {
 
         @Override
         public StreamBackend backend() {
@@ -385,18 +615,19 @@ class KafkaPrefabStreamsTopologyTest {
 
         @Override
         @SuppressWarnings("unchecked")
-        public Class<KStream<String, IncomingOrder>> nativeInputType() {
-            return (Class<KStream<String, IncomingOrder>>) (Class<?>) KStream.class;
+        public Class<KStream<Reference<Order>, IncomingOrder>> nativeInputType() {
+            return (Class<KStream<Reference<Order>, IncomingOrder>>) (Class<?>) KStream.class;
         }
 
         @Override
-        public KStream<String, IncomingOrder> apply(KStream<String, IncomingOrder> nativeStream) {
+        public KStream<Reference<Order>, IncomingOrder> apply(KStream<Reference<Order>, IncomingOrder> nativeStream) {
             return nativeStream;
         }
     }
 
     private static final class InvalidKafkaReturnTypeAdapter
-            implements StreamBreakoutAdapter<IncomingOrder, IncomingOrder, KStream<String, IncomingOrder>, Object> {
+            implements StreamBreakoutAdapter<Reference<Order>, IncomingOrder, Reference<Order>, IncomingOrder,
+            KStream<Reference<Order>, IncomingOrder>, Object> {
 
         @Override
         public StreamBackend backend() {
@@ -405,13 +636,102 @@ class KafkaPrefabStreamsTopologyTest {
 
         @Override
         @SuppressWarnings("unchecked")
-        public Class<KStream<String, IncomingOrder>> nativeInputType() {
-            return (Class<KStream<String, IncomingOrder>>) (Class<?>) KStream.class;
+        public Class<KStream<Reference<Order>, IncomingOrder>> nativeInputType() {
+            return (Class<KStream<Reference<Order>, IncomingOrder>>) (Class<?>) KStream.class;
         }
 
         @Override
-        public Object apply(KStream<String, IncomingOrder> nativeStream) {
+        public Object apply(KStream<Reference<Order>, IncomingOrder> nativeStream) {
             return "not-a-stream";
         }
+    }
+
+    private static class CountOrderProcessor
+            extends StatefulStreamProcessor<Reference<Order>, IncomingOrder, Reference<Customer>, OrderCount> {
+        public CountOrderProcessor() {
+            super(OrderCount.class);
+        }
+
+        @Override
+        public void process(StreamRecord<Reference<Order>, IncomingOrder> streamRecord) {
+            var orderCount = store(OrderCount.class).putOrUpdate(
+                    streamRecord.value().customer(),
+                    () -> new OrderCount(streamRecord.value().customer(), 1),
+                    existing -> new OrderCount(existing.customer(), existing.numberOfOrders() + 1));
+            forward(orderCount.key(), orderCount);
+        }
+    }
+
+    private String branchTopologyDescription() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var topology = test.streams().from(IncomingOrder.class)
+                .branch(order -> order.customer().id().startsWith("A"))
+                .to("orders.a");
+        return topology.nativeTopology().describe().toString();
+    }
+
+    private String filterTopologyDescription() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var topology = test.streams().from(IncomingOrder.class)
+                .filter(order -> order.customer().id().startsWith("A"))
+                .to("orders.filtered");
+        return topology.nativeTopology().describe().toString();
+    }
+
+    private String mapTopologyDescription() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var topology = test.streams().from(IncomingOrder.class)
+                .map(order -> new ProcessedOrder(order.orderId(), Reference.fromId(order.customer().id().toUpperCase())))
+                .to(ProcessedOrder.class);
+        return topology.nativeTopology().describe().toString();
+    }
+
+    private String flatMapTopologyDescription() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var topology = test.streams().from(WordBatch.class)
+                .flatMap(batch -> Stream.of(batch.words().split(","))
+                        .map(word -> new WordBatch(batch.batchId(), word))
+                        .toList())
+                .to("words.out");
+        return topology.nativeTopology().describe().toString();
+    }
+
+    private String branchSubtypeTopologyDescription() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var topology = test.streams().from(IncomingOrder.class)
+                .branch(IncomingOrder.class)
+                .to("orders.out");
+        return topology.nativeTopology().describe().toString();
+    }
+
+    private String mergeTopologyDescription() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+        var source = streams.from(IncomingOrder.class);
+        var topology = source.filter(o -> o.customer().id().startsWith("A"))
+                .merge(source.filter(o -> o.customer().id().startsWith("B")))
+                .to(IncomingOrder.class);
+        return topology.nativeTopology().describe().toString();
+    }
+
+    private String joinTopologyDescription() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+        var topology = streams.from(IncomingOrder.class)
+                .join(
+                        streams.from(ShippingUpdate.class),
+                        JoinWindow.of(Duration.ofSeconds(10), Duration.ofSeconds(1)),
+                        (order, shipping) -> new JoinedOrder(order.orderId(), order.customer(), shipping.status())
+                )
+                .to(JoinedOrder.class);
+        return topology.nativeTopology().describe().toString();
+    }
+
+    private String processTopologyDescription() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var topology = test.streams().from(IncomingOrder.class)
+                .process(new CountOrderProcessor())
+                .to("prefab-streams-test-order-count");
+        return topology.nativeTopology().describe().toString();
     }
 }

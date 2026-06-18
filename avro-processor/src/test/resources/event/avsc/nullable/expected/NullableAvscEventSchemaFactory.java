@@ -1,7 +1,7 @@
 package event.avsc.infrastructure.avro;
 
 import be.appify.prefab.avro.SchemaSupport;
-import java.util.List;
+import java.io.IOException;
 import org.apache.avro.Schema;
 import org.springframework.stereotype.Component;
 
@@ -10,11 +10,21 @@ public class NullableAvscEventSchemaFactory {
     private final Schema schema;
 
     public NullableAvscEventSchemaFactory() {
-        this.schema = Schema.createRecord("NullableAvscEvent", null, "event.avsc", false, List.of(
-                        new Schema.Field("id", Schema.create(Schema.Type.STRING)),
-                        new Schema.Field("name", Schema.create(Schema.Type.STRING)),
-                        new Schema.Field("description", SchemaSupport.createNullableSchema(Schema.create(Schema.Type.STRING)), null, Schema.Field.NULL_DEFAULT_VALUE)
-                    ));
+        this.schema = loadExpectedSchema();
+    }
+
+    private static Schema loadExpectedSchema() {
+        try (var stream = NullableAvscEventSchemaFactory.class.getClassLoader().getResourceAsStream("event/avsc/nullable/source/NullableAvscEvent.avsc")) {
+            if (stream == null) {
+                throw new IllegalStateException("AVSC file not found on classpath: event/avsc/nullable/source/NullableAvscEvent.avsc");
+            }
+            var parsedSchema = new Schema.Parser().parse(stream);
+            return SchemaSupport.namedTypeOf(parsedSchema, "NullableAvscEvent");
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not read AVSC 'event/avsc/nullable/source/NullableAvscEvent.avsc' for 'NullableAvscEvent': " + e.getMessage(), e);
+        } catch (RuntimeException e) {
+            throw new IllegalStateException("Could not validate AVSC 'event/avsc/nullable/source/NullableAvscEvent.avsc' for 'NullableAvscEvent': " + e.getMessage(), e);
+        }
     }
 
     public Schema createSchema() {

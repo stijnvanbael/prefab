@@ -71,7 +71,7 @@ class AvscPluginTest {
     }
 
     @Test
-    void nullableAvscEventSchemaFactoryGeneratesNullableUnion() {
+    void nullableAvscEventSchemaFactoryLoadsSchemaFromAvscFile() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avsc/nullable/source/NullableAvsc.java"));
@@ -79,11 +79,11 @@ class AvscPluginTest {
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.NullableAvscEventSchemaFactory")
                 .contentsAsUtf8String()
-                .contains("SchemaSupport.createNullableSchema(Schema.create(Schema.Type.STRING))");
+                .contains("loadExpectedSchema()");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.NullableAvscEventSchemaFactory")
                 .contentsAsUtf8String()
-                .contains("verifySchemaCompatibility(this.schema)");
+                .contains("getResourceAsStream(\"event/avsc/nullable/source/NullableAvscEvent.avsc\")");
     }
 
     @Test
@@ -141,7 +141,7 @@ class AvscPluginTest {
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.SimpleAvscEventSchemaFactory")
                 .contentsAsUtf8String()
-                .contains("verifySchemaCompatibility(this.schema)");
+                .contains("loadExpectedSchema()");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.SimpleAvscEventSchemaFactory")
                 .contentsAsUtf8String()
@@ -169,11 +169,11 @@ class AvscPluginTest {
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.multi.infrastructure.avro.MultiAvscEventASchemaFactory")
                 .contentsAsUtf8String()
-                .contains("verifySchemaCompatibility(this.schema)");
+                .contains("loadExpectedSchema()");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.multi.infrastructure.avro.MultiAvscEventBSchemaFactory")
                 .contentsAsUtf8String()
-                .contains("verifySchemaCompatibility(this.schema)");
+                .contains("loadExpectedSchema()");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.multi.infrastructure.avro.MultiAvscEventASchemaFactory")
                 .contentsAsUtf8String()
@@ -245,7 +245,7 @@ class AvscPluginTest {
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.sealedmismatch.infrastructure.avro.MeteringconfigUpdatedSchemaFactory")
                 .contentsAsUtf8String()
-                .contains("intern.dcs.meteringconfig.facts.v1");
+                .contains("MeteringconfigUpdated.avsc");
     }
 
     @Test
@@ -288,11 +288,11 @@ class AvscPluginTest {
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.NullableNestedEnumAvscEventSchemaFactory")
                 .contentsAsUtf8String()
-                .contains("verifySchemaCompatibility(this.schema)");
+                .contains("loadExpectedSchema()");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.NullableNestedEnumAvscEventSchemaFactory")
                 .contentsAsUtf8String()
-                .contains("intern.dcs.meteringconfig.facts.v1");
+                .contains("NullableNestedEnumAvscEvent.avsc");
 
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.StatusSchemaFactory")
@@ -338,10 +338,12 @@ class AvscPluginTest {
                 .compile(sourceOf("event/avsc/nullablesinglevaluedrecord/source/NullableSingleValuedRecordAvsc.java"));
         assertThat(compilation).succeeded();
 
+        // The top-level factory loads from AVSC, which preserves GelinktMarkttoegangspunt as a record
+        // rather than collapsing it to its single primitive value type.
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.NullableSingleValuedRecordAvscEventSchemaFactory")
                 .contentsAsUtf8String()
-                .contains("new Schema.Field(\"eanGsrn\", Schema.create(Schema.Type.STRING))");
+                .contains("loadExpectedSchema()");
     }
 
     @Test

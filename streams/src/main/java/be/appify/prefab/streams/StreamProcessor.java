@@ -4,7 +4,7 @@ import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 import java.util.Collection;
 
-public interface StreamProcessor<KI, VI, KO, VO> {
+public interface StreamProcessor<KI extends Key<KI>, VI extends Keyed<KI>, KO extends Key<KO>, VO extends Keyed<KO>> {
     void process(StreamRecord<KI, VI> streamRecord);
 
     Collection<Store<?, ?>> stateStores();

@@ -11,7 +11,7 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public abstract class StatefulStreamProcessor<KI, VI, KO, VO> implements StreamProcessor<KI, VI, KO, VO> {
+public abstract class StatefulStreamProcessor<KI extends Key<KI>, VI extends Keyed<KI>, KO extends Key<KO>, VO extends Keyed<KO>> implements StreamProcessor<KI, VI, KO, VO> {
     private Map<TypeReference<?>, Store<?, ?>> stores;
     private final ThreadLocal<StreamProcessorContext<KO, VO>> context = new ThreadLocal<>();
     private final Set<TypeReference<?>> storeTypes;

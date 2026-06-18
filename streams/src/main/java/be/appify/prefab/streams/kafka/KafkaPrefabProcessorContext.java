@@ -1,5 +1,7 @@
 package be.appify.prefab.streams.kafka;
 
+import be.appify.prefab.core.domain.Key;
+import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.streams.StreamProcessorContext;
 import be.appify.prefab.streams.StreamRecord;
 import java.util.Map;
@@ -10,7 +12,7 @@ import org.apache.kafka.streams.processor.api.Record;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-public class KafkaPrefabProcessorContext<K, V> implements StreamProcessorContext<K, V> {
+public class KafkaPrefabProcessorContext<K extends Key<K>, V extends Keyed<K>> implements StreamProcessorContext<K, V> {
     private final ProcessorContext<K, V> context;
 
     public KafkaPrefabProcessorContext(ProcessorContext<K, V> context) {

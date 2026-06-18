@@ -129,6 +129,11 @@
             </dependency>
             <dependency>
                 <groupId>be.appify.prefab</groupId>
+                <artifactId>prefab-streams</artifactId>
+                <version>${prefab.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>be.appify.prefab</groupId>
                 <artifactId>prefab-openapi</artifactId>
                 <version>${prefab.version}</version>
             </dependency>

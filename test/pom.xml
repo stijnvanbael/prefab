@@ -115,6 +115,11 @@
         </dependency>
         <dependency>
             <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-streams</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
             <artifactId>prefab-annotation-processor</artifactId>
         </dependency>
         <dependency>

@@ -68,7 +68,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
     }
 
     @SuppressWarnings("unchecked")
-    static <K extends Key<K>, V extends Keyed<K>> Class<K> keyTypeOf(Class<V> valueType) {
+    public static <K extends Key<K>, V extends Keyed<K>> Class<K> keyTypeOf(Class<V> valueType) {
         return (Class<K>) resolveKeyType(valueType, Map.of(), valueType);
     }
 
@@ -170,7 +170,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
         if (type.rawType() == (Class<?>) Aggregation.class) {
             return (Serde<VS>) new DeferredAggregationSerde<>();
         }
-        return new SerdeAdapter<VS>(serializer.adapt(), deserializer.adapt());
+        return new SerdeAdapter<>(serializer.adapt(), deserializer.adapt());
     }
 
     /**
@@ -191,7 +191,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
         }
     }
 
-    static String toKebabCase(String value) {
+    public static String toKebabCase(String value) {
         return value.replaceAll("([a-z])([A-Z]+)", "$1-$2").toLowerCase();
     }
 
@@ -202,7 +202,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
      * <p>Angle brackets, commas, and spaces introduced by generic type parameters are replaced
      * with hyphens; consecutive hyphens and trailing punctuation are collapsed.
      */
-    static String toStoreName(String typeName) {
+    public static String toStoreName(String typeName) {
         return toKebabCase(typeName)
                 .replaceAll("\\W", "-")
                 .replaceAll("-{2,}", "-")

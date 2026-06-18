@@ -22,7 +22,7 @@ public record Reference<T>(
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static void registerReferenceKeyDeserializer() {
-        Key.register((Class) Reference.class, id -> (Reference) Reference.fromId(id));
+        Key.register(Reference.class, id -> (Reference) Reference.fromId(id));
     }
 
     /**

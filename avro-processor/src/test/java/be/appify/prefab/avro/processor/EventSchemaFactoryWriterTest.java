@@ -172,7 +172,7 @@ class EventSchemaFactoryWriterTest {
     }
 
     @Test
-    void avscBackedNestedRecordValidatesTopLevelEventOnly() {
+    void avscBackedNestedRecordLoadsTopLevelSchemaFromAvscFile() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avro/nestedavsc/source/NestedAvscContract.java"));
@@ -181,12 +181,12 @@ class EventSchemaFactoryWriterTest {
         assertThat(compilation)
                 .generatedSourceFile("event.avro.infrastructure.avro.NestedAvscEventSchemaFactory")
                 .contentsAsUtf8String()
-                .contains("verifySchemaCompatibility(this.schema)");
+                .contains("loadExpectedSchema()");
 
         assertThat(compilation)
                 .generatedSourceFile("event.avro.infrastructure.avro.AddressSchemaFactory")
                 .contentsAsUtf8String()
-                .doesNotContain("verifySchemaCompatibility(this.schema)");
+                .doesNotContain("loadExpectedSchema()");
     }
 
     private static String generatedSource(com.google.testing.compile.Compilation compilation, String generatedTypeName) {

@@ -26,7 +26,6 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
-import org.apache.avro.SchemaCompatibility;
 
 import static be.appify.prefab.avro.processor.AvroPlugin.avroUnionRecordBranches;
 import static be.appify.prefab.avro.processor.AvroPlugin.isAvroUnion;
@@ -358,52 +357,27 @@ class EventSchemaFactoryWriter {
 
     private MethodSpec constructor(TypeManifest event, boolean preserveSingleValueRecords, @Nullable String avscPath) {
         var constructor = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC);
-        if (isAvroUnion(event)) {
-            // Avro union sealed interfaces: inject schema factories for record branch components only.
-            // nestedTypes is intentionally skipped here: it would traverse sealedSubtypes and collect
-            // the same branch record types that avroUnionRecordBranches already returns, causing duplicates.
-            avroUnionRecordBranches(event).forEach(componentType -> addSchemaFactory(componentType, constructor));
-        } else {
-            nestedTypes(List.of(event)).forEach(nestedType -> addSchemaFactory(nestedType, constructor));
-            sealedSubtypes(List.of(event)).forEach(subtype -> addSchemaFactory(subtype, constructor));
-        }
-        constructor.addStatement("this.schema = $L", createSchema(event, preserveSingleValueRecords));
         if (avscPath != null) {
-            constructor.addStatement("verifySchemaCompatibility(this.schema)");
+            // Schema is owned by the AVSC file — load it directly at runtime.
+            // No nested factory parameters are needed because the schema is not built programmatically.
+            constructor.addStatement("this.schema = loadExpectedSchema()");
+        } else {
+            if (isAvroUnion(event)) {
+                // Avro union sealed interfaces: inject schema factories for record branch components only.
+                // nestedTypes is intentionally skipped here: it would traverse sealedSubtypes and collect
+                // the same branch record types that avroUnionRecordBranches already returns, causing duplicates.
+                avroUnionRecordBranches(event).forEach(componentType -> addSchemaFactory(componentType, constructor));
+            } else {
+                nestedTypes(List.of(event)).forEach(nestedType -> addSchemaFactory(nestedType, constructor));
+                sealedSubtypes(List.of(event)).forEach(subtype -> addSchemaFactory(subtype, constructor));
+            }
+            constructor.addStatement("this.schema = $L", createSchema(event, preserveSingleValueRecords));
         }
         return constructor.build();
     }
 
     private List<MethodSpec> runtimeAvscValidationMethods(TypeManifest event, String avscPath) {
-        return List.of(
-                runtimeCompatibilityVerifierMethod(event, avscPath),
-                runtimeExpectedSchemaLoaderMethod(event, avscPath),
-                runtimeCompactSchemaMethod());
-    }
-
-    private MethodSpec runtimeCompatibilityVerifierMethod(TypeManifest event, String avscPath) {
-        return MethodSpec.methodBuilder("verifySchemaCompatibility")
-                .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
-                .addParameter(Schema.class, "generatedSchema")
-                .addStatement("var expectedSchema = loadExpectedSchema()")
-                .addStatement("var expectedReadsGenerated = $T.checkReaderWriterCompatibility(expectedSchema, generatedSchema)",
-                        SchemaCompatibility.class)
-                .addStatement("var generatedReadsExpected = $T.checkReaderWriterCompatibility(generatedSchema, expectedSchema)",
-                        SchemaCompatibility.class)
-                .beginControlFlow("if (expectedReadsGenerated.getType() != $T.SchemaCompatibilityType.COMPATIBLE"
-                                + " || generatedReadsExpected.getType() != $T.SchemaCompatibilityType.COMPATIBLE)",
-                        SchemaCompatibility.class,
-                        SchemaCompatibility.class)
-                .addStatement("throw new $T(\"Generated schema factory for '$L' is not compatible with AVSC '$L'. \""
-                                + " + \"expected->generated: \" + expectedReadsGenerated.getDescription()"
-                                + " + \"; generated->expected: \" + generatedReadsExpected.getDescription()"
-                                + " + \". expectedSchema=\" + compactSchema(expectedSchema)"
-                                + " + \"; generatedSchema=\" + compactSchema(generatedSchema))",
-                        IllegalStateException.class,
-                        event.simpleName(),
-                        avscPath)
-                .endControlFlow()
-                .build();
+        return List.of(runtimeExpectedSchemaLoaderMethod(event, avscPath));
     }
 
     private MethodSpec runtimeExpectedSchemaLoaderMethod(TypeManifest event, String avscPath) {
@@ -432,20 +406,6 @@ class EventSchemaFactoryWriter {
                         avscPath,
                         event.simpleName())
                 .endControlFlow()
-                .build();
-    }
-
-    private MethodSpec runtimeCompactSchemaMethod() {
-        return MethodSpec.methodBuilder("compactSchema")
-                .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
-                .returns(String.class)
-                .addParameter(Schema.class, "schema")
-                .addStatement("var schemaText = schema.toString()")
-                .addStatement("var maxLength = 700")
-                .beginControlFlow("if (schemaText.length() <= maxLength)")
-                .addStatement("return schemaText")
-                .endControlFlow()
-                .addStatement("return schemaText.substring(0, maxLength) + $S", "...<truncated>")
                 .build();
     }
 

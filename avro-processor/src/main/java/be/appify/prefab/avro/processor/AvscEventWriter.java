@@ -18,6 +18,7 @@ import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import jakarta.annotation.Nullable;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -29,6 +30,7 @@ import java.util.Optional;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Modifier;
 import javax.tools.Diagnostic;
+
 import org.apache.avro.JsonProperties;
 import org.apache.avro.Schema;
 
@@ -44,36 +46,49 @@ class AvscEventWriter {
     private static final String OPTION_SETTER_PREFIX = "prefab.builder.setterPrefix";
     private final ProcessingEnvironment processingEnvironment;
     private final FileOutput fileWriter;
+
     AvscEventWriter(PrefabContext context) {
         this.processingEnvironment = context.processingEnvironment();
         this.fileWriter = new OutputTargetFileOutput(context, "", OutputTarget.MAIN);
     }
-    void writeAll(Schema schema, String[] topics, Event.Platform platform, String defaultPackage,
-            ClassName contractInterface, List<AnnotationSpec> generateAnnotations) {
+
+    void writeAll(
+            Schema schema, String[] topics, Event.Platform platform, String defaultPackage,
+            ClassName contractInterface, List<AnnotationSpec> generateAnnotations
+    ) {
         var namedTypes = collectNamedTypes(schema);
         var pendingUnions = new ArrayList<UnionTypeGroup>();
         writeTopLevelRecord(schema, topics, platform, defaultPackage, contractInterface, generateAnnotations, fileWriter, pendingUnions);
         writeNestedTypes(schema, namedTypes, defaultPackage, fileWriter, pendingUnions);
         writeUnionTypes(pendingUnions, defaultPackage, fileWriter);
     }
-    private void writeTopLevelRecord(Schema schema, String[] topics, Event.Platform platform,
+
+    private void writeTopLevelRecord(
+            Schema schema, String[] topics, Event.Platform platform,
             String defaultPackage, ClassName contractInterface, List<AnnotationSpec> generateAnnotations,
-            FileOutput fileWriter, List<UnionTypeGroup> pendingUnions) {
+            FileOutput fileWriter, List<UnionTypeGroup> pendingUnions
+    ) {
         var topLevelSpec = buildTopLevelRecord(schema, topics, platform, defaultPackage, contractInterface, generateAnnotations, pendingUnions);
         if (topLevelSpec != null) {
             fileWriter.writeFile(defaultPackage, javaTypeName(schema), topLevelSpec);
         }
     }
-    private void writeNestedTypes(Schema topLevelSchema, Map<String, Schema> namedTypes,
-            String defaultPackage, FileOutput fileWriter, List<UnionTypeGroup> pendingUnions) {
+
+    private void writeNestedTypes(
+            Schema topLevelSchema, Map<String, Schema> namedTypes,
+            String defaultPackage, FileOutput fileWriter, List<UnionTypeGroup> pendingUnions
+    ) {
         for (var entry : namedTypes.entrySet()) {
             var namedSchema = entry.getValue();
             if (namedSchema.equals(topLevelSchema)) continue;
             writeNestedType(namedSchema, defaultPackage, fileWriter, pendingUnions);
         }
     }
-    private void writeNestedType(Schema schema, String defaultPackage,
-            FileOutput fileWriter, List<UnionTypeGroup> pendingUnions) {
+
+    private void writeNestedType(
+            Schema schema, String defaultPackage,
+            FileOutput fileWriter, List<UnionTypeGroup> pendingUnions
+    ) {
         if (schema.getType() == Schema.Type.RECORD) {
             var spec = buildNestedRecord(schema, defaultPackage, pendingUnions);
             if (spec != null) {
@@ -83,6 +98,7 @@ class AvscEventWriter {
             fileWriter.writeFile(defaultPackage, javaTypeName(schema), buildEnum(schema));
         }
     }
+
     private void writeUnionTypes(List<UnionTypeGroup> pendingUnions, String defaultPackage, FileOutput fileWriter) {
         for (var group : pendingUnions) {
             fileWriter.writeFile(defaultPackage, group.interfaceName(), group.interfaceSpec());
@@ -91,11 +107,13 @@ class AvscEventWriter {
             }
         }
     }
+
     private Map<String, Schema> collectNamedTypes(Schema schema) {
         var collected = new LinkedHashMap<String, Schema>();
         collectNamedTypesInto(schema, collected);
         return collected;
     }
+
     private void collectNamedTypesInto(Schema schema, Map<String, Schema> collected) {
         if (schema == null) return;
         switch (schema.getType()) {
@@ -110,9 +128,12 @@ class AvscEventWriter {
             default -> { /* primitives and logical types need no traversal */ }
         }
     }
-    private TypeSpec buildTopLevelRecord(Schema schema, String[] topics, Event.Platform platform,
+
+    private TypeSpec buildTopLevelRecord(
+            Schema schema, String[] topics, Event.Platform platform,
             String schemaPackage, ClassName contractInterface, List<AnnotationSpec> generateAnnotations,
-            List<UnionTypeGroup> pendingUnions) {
+            List<UnionTypeGroup> pendingUnions
+    ) {
         return buildFields(schema, schemaPackage, pendingUnions)
                 .map(fields -> {
                     var typeName = javaTypeName(schema);
@@ -125,12 +146,14 @@ class AvscEventWriter {
                     generateAnnotations.forEach(builder::addAnnotation);
                     docOf(schema).ifPresent(doc -> builder.addAnnotation(docAnnotation(doc)));
                     avroSchemaAnnotation(schema).ifPresent(builder::addAnnotation);
-                    new BuilderWriter(builderSetterPrefix()).enrichWithBuilder(builder, recordType,
+                    new BuilderWriter(builderSetterPrefix()).enrichWithBuilder(
+                            builder, recordType,
                             strippedParams(fields), defaultsFor(schema, schemaPackage));
                     return builder.build();
                 })
                 .orElse(null);
     }
+
     private TypeSpec buildNestedRecord(Schema schema, String defaultPackage, List<UnionTypeGroup> pendingUnions) {
         return buildFields(schema, defaultPackage, pendingUnions)
                 .map(fields -> {
@@ -141,12 +164,14 @@ class AvscEventWriter {
                             .recordConstructor(MethodSpec.compactConstructorBuilder().addParameters(fields).build());
                     docOf(schema).ifPresent(doc -> builder.addAnnotation(docAnnotation(doc)));
                     avroSchemaAnnotation(schema).ifPresent(builder::addAnnotation);
-                    new BuilderWriter(builderSetterPrefix()).enrichWithBuilder(builder, recordType,
+                    new BuilderWriter(builderSetterPrefix()).enrichWithBuilder(
+                            builder, recordType,
                             strippedParams(fields), defaultsFor(schema, defaultPackage));
                     return builder.build();
                 })
                 .orElse(null);
     }
+
     private Map<String, String> defaultsFor(Schema schema, String defaultPackage) {
         var result = new LinkedHashMap<String, String>();
         for (var field : schema.getFields()) {
@@ -154,6 +179,7 @@ class AvscEventWriter {
         }
         return result;
     }
+
     private Optional<String> defaultInitialiserFor(Schema.Field field, String defaultPackage) {
         var defaultValue = field.defaultVal();
         if (defaultValue == null) {
@@ -196,13 +222,17 @@ class AvscEventWriter {
         }
         return Optional.empty();
     }
+
     private List<ParameterSpec> strippedParams(List<ParameterSpec> fields) {
         return fields.stream()
                 .map(f -> ParameterSpec.builder(f.type(), f.name()).build())
                 .toList();
     }
-    private Optional<List<ParameterSpec>> buildFields(Schema schema, String defaultPackage,
-            List<UnionTypeGroup> pendingUnions) {
+
+    private Optional<List<ParameterSpec>> buildFields(
+            Schema schema, String defaultPackage,
+            List<UnionTypeGroup> pendingUnions
+    ) {
         var fields = new ArrayList<ParameterSpec>();
         for (var field : schema.getFields()) {
             var spec = buildField(field, defaultPackage, pendingUnions);
@@ -211,8 +241,11 @@ class AvscEventWriter {
         }
         return Optional.of(fields);
     }
-    private ParameterSpec buildField(Schema.Field field, String defaultPackage,
-            List<UnionTypeGroup> pendingUnions) {
+
+    private ParameterSpec buildField(
+            Schema.Field field, String defaultPackage,
+            List<UnionTypeGroup> pendingUnions
+    ) {
         var resolution = resolveFieldSchema(field, defaultPackage, pendingUnions);
         if (resolution == null) return null;
         TypeName typeName;
@@ -230,15 +263,21 @@ class AvscEventWriter {
         docOf(field).ifPresent(doc -> paramBuilder.addAnnotation(docAnnotation(doc)));
         return paramBuilder.build();
     }
-    private FieldResolution resolveFieldSchema(Schema.Field field, String defaultPackage,
-            List<UnionTypeGroup> pendingUnions) {
+
+    private FieldResolution resolveFieldSchema(
+            Schema.Field field, String defaultPackage,
+            List<UnionTypeGroup> pendingUnions
+    ) {
         var fieldSchema = field.schema();
         if (fieldSchema.getType() != Schema.Type.UNION) {
             return new FieldResolution(fieldSchema, false, null);
         }
         return resolveUnionSchema(field, fieldSchema, defaultPackage, pendingUnions);
     }
-    /** Returns the effective non-null schema for a field, unwrapping single-branch nullable unions. */
+
+    /**
+     * Returns the effective non-null schema for a field, unwrapping single-branch nullable unions.
+     */
     @Nullable
     private Schema resolvedNonNullSchema(Schema schema) {
         if (schema.getType() != Schema.Type.UNION) {
@@ -249,8 +288,11 @@ class AvscEventWriter {
                 .toList();
         return nonNullTypes.size() == 1 ? nonNullTypes.getFirst() : null;
     }
-    private FieldResolution resolveUnionSchema(Schema.Field field, Schema unionSchema, String defaultPackage,
-            List<UnionTypeGroup> pendingUnions) {
+
+    private FieldResolution resolveUnionSchema(
+            Schema.Field field, Schema unionSchema, String defaultPackage,
+            List<UnionTypeGroup> pendingUnions
+    ) {
         var hasNull = unionSchema.getTypes().stream().anyMatch(t -> t.getType() == Schema.Type.NULL);
         var nonNullTypes = unionSchema.getTypes().stream()
                 .filter(t -> t.getType() != Schema.Type.NULL)
@@ -261,8 +303,11 @@ class AvscEventWriter {
         // Multi-branch union: generate a sealed interface with one wrapper record per branch
         return buildMultiBranchUnion(field.name(), nonNullTypes, hasNull, defaultPackage, pendingUnions);
     }
-    private FieldResolution buildMultiBranchUnion(String fieldName, List<Schema> nonNullBranches, boolean nullable,
-            String defaultPackage, List<UnionTypeGroup> pendingUnions) {
+
+    private FieldResolution buildMultiBranchUnion(
+            String fieldName, List<Schema> nonNullBranches, boolean nullable,
+            String defaultPackage, List<UnionTypeGroup> pendingUnions
+    ) {
         var sealedName = capitalize(fieldName);
         var branches = new ArrayList<UnionBranchRecord>();
         for (var branchSchema : nonNullBranches) {
@@ -271,7 +316,8 @@ class AvscEventWriter {
             var branchName = sealedName + suffix;
             var valueType = branchValueType(branchSchema, defaultPackage);
             if (valueType == null) return null;
-            var branchSpec = buildUnionBranchRecord(branchName, valueType,
+            var branchSpec = buildUnionBranchRecord(
+                    branchName, valueType,
                     ClassName.get(defaultPackage, sealedName));
             branches.add(new UnionBranchRecord(branchName, branchSpec));
         }
@@ -282,12 +328,14 @@ class AvscEventWriter {
         pendingUnions.add(new UnionTypeGroup(sealedName, interfaceSpec, branches));
         return new FieldResolution(null, nullable, ClassName.get(defaultPackage, sealedName));
     }
+
     private TypeSpec buildUnionSealedInterface(String name, List<TypeName> permittedSubclasses) {
         var builder = TypeSpec.interfaceBuilder(name)
                 .addModifiers(Modifier.PUBLIC, Modifier.SEALED);
         permittedSubclasses.forEach(builder::addPermittedSubclass);
         return builder.build();
     }
+
     private TypeSpec buildUnionBranchRecord(String branchName, TypeName valueType, ClassName sealedInterface) {
         return TypeSpec.recordBuilder(branchName)
                 .addModifiers(Modifier.PUBLIC)
@@ -297,7 +345,10 @@ class AvscEventWriter {
                         .build())
                 .build();
     }
-    /** Returns the simple-name suffix used to name the wrapper record for this Avro union branch. */
+
+    /**
+     * Returns the simple-name suffix used to name the wrapper record for this Avro union branch.
+     */
     @Nullable
     private String branchTypeSuffix(Schema schema) {
         return switch (schema.getType()) {
@@ -318,7 +369,10 @@ class AvscEventWriter {
             }
         };
     }
-    /** Returns the Java type for the {@code value} field of a union branch wrapper record. */
+
+    /**
+     * Returns the Java type for the {@code value} field of a union branch wrapper record.
+     */
     @Nullable
     private TypeName branchValueType(Schema schema, String defaultPackage) {
         var logicalTypeName = resolveLogicalTypeName(schema);
@@ -345,6 +399,7 @@ class AvscEventWriter {
             }
         };
     }
+
     private Optional<String> sampleOf(Schema.Field field) {
         var fieldLevelSample = field.getProp(PROP_SAMPLE);
         if (fieldLevelSample != null) return Optional.of(fieldLevelSample);
@@ -358,22 +413,27 @@ class AvscEventWriter {
         }
         return Optional.empty();
     }
+
     private AnnotationSpec exampleAnnotation(String sample) {
         return AnnotationSpec.builder(Example.class)
                 .addMember("value", "$S", sample)
                 .build();
     }
+
     private Optional<String> docOf(Schema.Field field) {
         return Optional.ofNullable(field.doc());
     }
+
     private Optional<String> docOf(Schema schema) {
         return Optional.ofNullable(schema.getDoc());
     }
+
     private AnnotationSpec docAnnotation(String doc) {
         return AnnotationSpec.builder(Doc.class)
                 .addMember("value", "$S", doc)
                 .build();
     }
+
     private Optional<AnnotationSpec> avroSchemaAnnotation(Schema schema) {
         var javaName = javaTypeName(schema);
         var avroName = schema.getName();
@@ -392,6 +452,7 @@ class AvscEventWriter {
         }
         return Optional.of(builder.build());
     }
+
     private AnnotationSpec buildEventAnnotation(String[] topics, Event.Platform platform) {
         var builder = AnnotationSpec.builder(Event.class);
         if (topics.length == 1) {
@@ -408,6 +469,7 @@ class AvscEventWriter {
         }
         return builder.build();
     }
+
     private TypeSpec buildEnum(Schema schema) {
         var typeName = javaTypeName(schema);
         var enumBuilder = TypeSpec.enumBuilder(typeName)
@@ -417,6 +479,7 @@ class AvscEventWriter {
         schema.getEnumSymbols().forEach(enumBuilder::addEnumConstant);
         return enumBuilder.build();
     }
+
     private TypeName toTypeName(Schema schema, String defaultPackage, boolean nullable) {
         var logicalTypeName = resolveLogicalTypeName(schema);
         if (logicalTypeName != null) {
@@ -424,11 +487,13 @@ class AvscEventWriter {
         }
         return toPrimitiveTypeName(schema, defaultPackage, nullable);
     }
+
     private String resolveLogicalTypeName(Schema schema) {
         var fromProp = schema.getProp(PROP_LOGICAL_TYPE);
         if (fromProp != null) return fromProp;
         return schema.getLogicalType() != null ? schema.getLogicalType().getName() : null;
     }
+
     private TypeName toLogicalTypeName(String logicalTypeName) {
         return switch (logicalTypeName) {
             case LOGICAL_TYPE_TIMESTAMP_MILLIS -> ClassName.get(Instant.class);
@@ -440,6 +505,7 @@ class AvscEventWriter {
             }
         };
     }
+
     private TypeName toPrimitiveTypeName(Schema schema, String defaultPackage, boolean nullable) {
         return switch (schema.getType()) {
             case STRING -> ClassName.get(String.class);
@@ -456,29 +522,41 @@ class AvscEventWriter {
             }
         };
     }
+
     private TypeName boxIfNullable(TypeName typeName, boolean nullable) {
         return nullable ? typeName.box() : typeName;
     }
+
     private TypeName toListTypeName(Schema schema, String defaultPackage) {
         var elementType = toTypeName(schema.getElementType(), defaultPackage, false);
         if (elementType == null) return null;
         var boxed = elementType.isPrimitive() ? elementType.box() : elementType;
         return ParameterizedTypeName.get(ClassName.get(List.class), boxed);
     }
+
     private static String javaTypeName(Schema schema) {
         return capitalize(schema.getName());
     }
+
     private static String capitalize(String name) {
         if (name == null || name.isEmpty()) return name;
         return Character.toUpperCase(name.charAt(0)) + name.substring(1);
     }
+
     private String builderSetterPrefix() {
         return processingEnvironment.getOptions().getOrDefault(OPTION_SETTER_PREFIX, "");
     }
+
     private void reportError(String message) {
         processingEnvironment.getMessager().printMessage(Diagnostic.Kind.ERROR, message);
     }
-    private record FieldResolution(@Nullable Schema schema, boolean nullable, @Nullable ClassName sealedInterface) {}
-    private record UnionTypeGroup(String interfaceName, TypeSpec interfaceSpec, List<UnionBranchRecord> branches) {}
-    private record UnionBranchRecord(String name, TypeSpec spec) {}
+
+    private record FieldResolution(@Nullable Schema schema, boolean nullable, @Nullable ClassName sealedInterface) {
+    }
+
+    private record UnionTypeGroup(String interfaceName, TypeSpec interfaceSpec, List<UnionBranchRecord> branches) {
+    }
+
+    private record UnionBranchRecord(String name, TypeSpec spec) {
+    }
 }

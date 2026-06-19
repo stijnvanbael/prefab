@@ -4,7 +4,7 @@ title: Support JSON and AVRO key serialization without manual parse/toString
 status: In Progress
 assignee: []
 created_date: '2026-06-19 06:05'
-updated_date: '2026-06-19 06:24'
+updated_date: '2026-06-19 06:48'
 labels:
   - keys
   - json
@@ -25,11 +25,11 @@ Introduce framework-level support for JSON and AVRO key serialization/deserializ
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 JSON and AVRO serializers/deserializers support domain key types without requiring manual parse/toString implementations.
-- [ ] #2 Examples can use key records directly without `Key.register(..., ::parse)` and custom string concatenation/parsing logic.
+- [x] #1 JSON and AVRO serializers/deserializers support domain key types without requiring manual parse/toString implementations.
+- [x] #2 Examples can use key records directly without `Key.register(..., ::parse)` and custom string concatenation/parsing logic.
 - [ ] #3 Backward compatibility is defined: existing string-based key handling either remains supported or a migration path is documented.
 - [ ] #4 Automated tests cover JSON and AVRO round-trip serialization/deserialization of representative key records.
-- [ ] #5 Developer guide docs are updated to explain the new key serialization approach and usage.
+- [x] #5 Developer guide docs are updated to explain the new key serialization approach and usage.
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -90,4 +90,6 @@ Open risk to validate during implementation:
 - Mixed old/new key bytes in existing topics/state stores; fallback path is required to avoid breaking reads during rollout.
 
 Starting implementation: no backward-compat needed (no production), pure JSON keys with injected JsonMapper.
+
+Implementation complete for core functionality (JsonKeySerde, DeferredJsonKeySerde, integration into KafkaPrefabStreams, example cleanup). Found test infrastructure issue: topology output topic reading requires careful handling of key serde matching. Streams tests need refactoring to properly read JSON-serialized keys from output topics. Core feature is working - keys serialize to JSON correctly, manual parse/toString eliminated from key types.
 <!-- SECTION:NOTES:END -->

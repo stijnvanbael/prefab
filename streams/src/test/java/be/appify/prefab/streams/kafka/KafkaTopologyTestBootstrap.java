@@ -89,12 +89,12 @@ public final class KafkaTopologyTestBootstrap {
 
         public <T> TestInputTopic<String, T> inputString(Class<T> type) {
             var topic = eventRegistry().topicForType(type);
-            return driver.createInputTopic(topic, new StringSerializer(), (Serializer<T>) serializer);
+            return driver.createInputTopic(topic, new StringSerializer(), serializer.adapt());
         }
 
         public <T> TestOutputTopic<String, T> outputString(Class<T> type) {
             var topic = eventRegistry().topicForType(type);
-            return driver.createOutputTopic(topic, new StringDeserializer(), (Deserializer<T>) deserializer);
+            return driver.createOutputTopic(topic, new StringDeserializer(), deserializer.adapt());
         }
 
         public TestOutputTopic<String, byte[]> rawOutput(String topic) {

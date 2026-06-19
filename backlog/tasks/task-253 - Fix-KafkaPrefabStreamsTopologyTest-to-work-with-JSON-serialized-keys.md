@@ -1,9 +1,10 @@
 ---
 id: TASK-253
 title: Fix KafkaPrefabStreamsTopologyTest to work with JSON-serialized keys
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-19 06:48'
+updated_date: '2026-06-19 06:55'
 labels:
   - streams
   - testing
@@ -33,6 +34,38 @@ See: /Users/stijnvanbael/IdeaProjects/appify/prefab/streams/src/test/java/be/app
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 KafkaPrefabStreamsTopologyTest runs with 0 test failures
-- [ ] #2 All topology test methods correctly read output values (with or without full key deserialization as appropriate)
+- [x] #1 KafkaPrefabStreamsTopologyTest runs with 0 test failures
+- [x] #2 All topology test methods correctly read output values (with or without full key deserialization as appropriate)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Investigating remaining 7 failures in KafkaPrefabStreamsTopologyTest after JSON key serde migration.
+
+Root cause confirmed: KafkaPrefabStream still used StringKeySerde for join repartition topics and terminal to(...) sinks, producing non-JSON key bytes (e.g., Reference[...] string form) while readers expected JsonKeySerde. Fixed by switching those paths to JsonKeySerde and propagating injected JsonMapper into KafkaPrefabStream.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Fixed all 7 failing tests in KafkaPrefabStreamsTopologyTest.
+
+What changed:
+- Updated `KafkaPrefabStream` to use `JsonKeySerde` (instead of `StringKeySerde`) for:
+  - join internals (`StreamJoined.with(...)` key serde)
+  - sink writes (`to(String)` via `Produced.with(...)` key serde)
+- Added `JsonMapper` as a required dependency of `KafkaPrefabStream` and propagated it through constructors/wrap methods.
+- Updated `KafkaPrefabStreams` to pass the injected `JsonMapper` when creating `KafkaPrefabStream`.
+
+Why this fixed it:
+- The topology had mixed key wire formats: sources/stores used JSON keys, but join/sink paths still emitted string-based keys. Tests reading with `JsonKeySerde` then failed with `Unrecognized token 'Reference'`.
+- Using JSON key serde consistently across source, join/repartition, stores, and sink removes the format mismatch.
+
+Validation:
+- `mvn -pl streams -Dtest=KafkaPrefabStreamsTopologyTest test` => PASS (exit 0)
+- `mvn -pl streams test` => PASS (exit 0)
+
+Result:
+- `KafkaPrefabStreamsTopologyTest` now has 0 failures.
+<!-- SECTION:FINAL_SUMMARY:END -->

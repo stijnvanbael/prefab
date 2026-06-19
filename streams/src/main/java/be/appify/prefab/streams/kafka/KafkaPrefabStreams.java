@@ -64,6 +64,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
                 topicResolver,
                 serializer,
                 deserializer,
+                jsonMapper,
                 type,
                 this,
                 keyType,

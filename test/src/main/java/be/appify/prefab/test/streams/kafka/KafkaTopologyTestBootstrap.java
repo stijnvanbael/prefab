@@ -9,7 +9,7 @@ import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.StreamDefinition;
 import be.appify.prefab.streams.kafka.KafkaPrefabStreams;
 import be.appify.prefab.streams.kafka.KafkaTopicResolver;
-import be.appify.prefab.streams.kafka.StringKeySerde;
+import be.appify.prefab.streams.kafka.JsonKeySerde;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serializer;
@@ -22,6 +22,7 @@ import org.apache.kafka.streams.TestOutputTopic;
 import org.apache.kafka.streams.TopologyTestDriver;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.core.convert.support.DefaultConversionService;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Properties;
 
@@ -31,6 +32,7 @@ public final class KafkaTopologyTestBootstrap {
     private final EventRegistry eventRegistry = new EventRegistry();
     private final DynamicSerializer serializer;
     private final DynamicDeserializer deserializer;
+    private final JsonMapper jsonMapper;
     private final String appId;
 
     private KafkaTopologyTestBootstrap(String appId) {
@@ -39,6 +41,7 @@ public final class KafkaTopologyTestBootstrap {
         var kafkaProperties = new KafkaProperties();
         serializer = new DynamicSerializer(kafkaProperties, conversionService, eventRegistry);
         deserializer = new DynamicDeserializer(kafkaProperties, conversionService, eventRegistry);
+        this.jsonMapper = JsonMapper.builder().findAndAddModules().build();
     }
     public static KafkaTopologyTestBootstrap bootstrap() {
         return bootstrap("test");
@@ -50,7 +53,7 @@ public final class KafkaTopologyTestBootstrap {
 
     public PrefabStreams streams() {
         return new AutoRegisterPrefabStreamsTestDecorator(
-                new KafkaPrefabStreams(new StreamsBuilder(), new KafkaTopicResolver(eventRegistry), serializer, deserializer),
+                new KafkaPrefabStreams(new StreamsBuilder(), new KafkaTopicResolver(eventRegistry), serializer, deserializer, jsonMapper),
                 eventRegistry,
                 appId);
     }
@@ -63,24 +66,26 @@ public final class KafkaTopologyTestBootstrap {
                 new TopologyTestDriver(streamDefinition.nativeTopology(), properties),
                 eventRegistry,
                 serializer,
-                deserializer);
+                deserializer,
+                jsonMapper);
     }
 
     public record TopologyTestSession(
             TopologyTestDriver driver,
             EventRegistry eventRegistry,
             DynamicSerializer serializer,
-            DynamicDeserializer deserializer
+            DynamicDeserializer deserializer,
+            JsonMapper jsonMapper
     ) implements AutoCloseable {
 
         public <K extends Key<K>, V extends Keyed<K>> TestInputTopic<K, V> input(Class<V> type) {
             var topic = eventRegistry().topicForType(type);
-            return driver.createInputTopic(topic, new StringKeySerde<>(keyTypeOf(type)).serializer(), serializer.adapt());
+            return driver.createInputTopic(topic, new JsonKeySerde<>(keyTypeOf(type), jsonMapper).serializer(), serializer.adapt());
         }
 
         public <K extends Key<K>, V extends Keyed<K>> TestOutputTopic<K, V> output(Class<V> type) {
             var topic = eventRegistry().topicForType(type);
-            return driver.createOutputTopic(topic, new StringKeySerde<>(keyTypeOf(type)).deserializer(), deserializer.adapt());
+            return driver.createOutputTopic(topic, new JsonKeySerde<>(keyTypeOf(type), jsonMapper).deserializer(), deserializer.adapt());
         }
 
         @Override

@@ -901,6 +901,46 @@ Use instance `merge(...)` when the current stream type already represents the ta
 
 Use `join(...)` for KStream-KStream **inner join** composition with explicit windowing via `JoinWindow`.
 
+### Key Serialization and JSON Wire Format
+
+Kafka stream keys are automatically serialized to **JSON** using Jackson. This eliminates the need for manual `parse(String)` and `toString()` implementations on key types.
+
+**How it works:**
+
+- Key types (those implementing `Key<K>`) are serialized to JSON bytes via Jackson's `ObjectMapper`.
+- Deserialization automatically reconstructs the key object from JSON.
+- Nested types, temporal fields (`Instant`, `LocalDateTime`), and value objects are automatically handled by Jackson's module system.
+
+**Example key type (no manual serialization needed):**
+
+```java
+public record OrderKey(Reference<Order> orderId, Instant timestamp) implements Key<OrderKey> {
+    // No parse(String), toString(), or Key.register() required!
+}
+```
+
+**Deprecated API:**
+
+The legacy `Key.register(Class, Function)` method is now deprecated and will be removed in a future release. If you have existing key types using manual registration, migration is simple: remove the static initializer block and custom `parse()`/`toString()` methods, and let Jackson handle serialization.
+
+Example migration:
+
+```java
+// Old (deprecated):
+public record OrderKey(...) implements Key<OrderKey> {
+    static {
+        Key.register(OrderKey.class, OrderKey::parse);
+    }
+    public static OrderKey parse(String str) { ... }
+    public String toString() { ... }
+}
+
+// New (recommended):
+public record OrderKey(...) implements Key<OrderKey> {
+    // Jackson handles everything automatically
+}
+```
+
 Example topology with subtype branching and factory merge:
 
 ```java

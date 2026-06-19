@@ -18,6 +18,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafkaStreams;
 import org.springframework.kafka.config.KafkaStreamsConfiguration;
 import org.springframework.kafka.annotation.KafkaStreamsDefaultConfiguration;
+import tools.jackson.databind.json.JsonMapper;
 
 /** Kafka-backed baseline streams DSL wiring. */
 @Configuration
@@ -52,9 +53,10 @@ public class StreamsConfiguration {
             StreamsBuilder streamsBuilder,
             KafkaTopicResolver topicResolver,
             DynamicSerializer serializer,
-            DynamicDeserializer deserializer
+            DynamicDeserializer deserializer,
+            JsonMapper jsonMapper
     ) {
-        return new KafkaPrefabStreams(streamsBuilder, topicResolver, serializer, deserializer);
+        return new KafkaPrefabStreams(streamsBuilder, topicResolver, serializer, deserializer, jsonMapper);
     }
 
     @Bean

@@ -16,14 +16,6 @@ import java.util.UUID;
 public record Reference<T>(
         @JsonValue String id
 ) implements Key<Reference<T>> {
-    static {
-        registerReferenceKeyDeserializer();
-    }
-
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    private static void registerReferenceKeyDeserializer() {
-        Key.register(Reference.class, id -> (Reference) Reference.fromId(id));
-    }
 
     /**
      * Constructs a new Reference

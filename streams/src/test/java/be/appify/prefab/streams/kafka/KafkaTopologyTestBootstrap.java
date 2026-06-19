@@ -1,5 +1,7 @@
 package be.appify.prefab.streams.kafka;
 
+import be.appify.prefab.core.domain.Key;
+import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.core.kafka.EventRegistry;
@@ -17,13 +19,17 @@ import org.apache.kafka.streams.TestOutputTopic;
 import org.apache.kafka.streams.TopologyTestDriver;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.core.convert.support.DefaultConversionService;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Properties;
+
+import static be.appify.prefab.streams.kafka.KafkaPrefabStreams.keyTypeOf;
 
 public final class KafkaTopologyTestBootstrap {
     private final EventRegistry eventRegistry = new EventRegistry();
     private final DynamicSerializer serializer;
     private final DynamicDeserializer deserializer;
+    private final JsonMapper jsonMapper;
     private final String appId;
 
     private KafkaTopologyTestBootstrap(String appId) {
@@ -32,6 +38,7 @@ public final class KafkaTopologyTestBootstrap {
         var kafkaProperties = new KafkaProperties();
         serializer = new DynamicSerializer(kafkaProperties, conversionService, eventRegistry);
         deserializer = new DynamicDeserializer(kafkaProperties, conversionService, eventRegistry);
+        this.jsonMapper = JsonMapper.builder().findAndAddModules().build();
     }
     public static KafkaTopologyTestBootstrap bootstrap() {
         return bootstrap("test");
@@ -43,7 +50,7 @@ public final class KafkaTopologyTestBootstrap {
 
     public PrefabStreams streams() {
         return new AutoRegisterPrefabStreamsTestDecorator(
-                new KafkaPrefabStreams(new StreamsBuilder(), new KafkaTopicResolver(eventRegistry), serializer, deserializer),
+                new KafkaPrefabStreams(new StreamsBuilder(), new KafkaTopicResolver(eventRegistry), serializer, deserializer, jsonMapper),
                 eventRegistry,
                 appId);
     }
@@ -56,22 +63,36 @@ public final class KafkaTopologyTestBootstrap {
                 new TopologyTestDriver(streamDefinition.nativeTopology(), properties),
                 eventRegistry,
                 serializer,
-                deserializer);
+                deserializer,
+                jsonMapper);
     }
 
     public record TopologyTestSession(
             TopologyTestDriver driver,
             EventRegistry eventRegistry,
             DynamicSerializer serializer,
-            DynamicDeserializer deserializer
+            DynamicDeserializer deserializer,
+            JsonMapper jsonMapper
     ) implements AutoCloseable {
 
-        public <T> TestInputTopic<String, T> input(Class<T> type) {
+        public <K extends Key<K>, V extends Keyed<K>> TestInputTopic<K, V> input(Class<V> type) {
+            var topic = eventRegistry().topicForType(type);
+            var keyType = keyTypeOf(type);
+            return driver.createInputTopic(topic, new JsonKeySerde<>(keyType, jsonMapper).serializer(), serializer.adapt());
+        }
+
+        public <K extends Key<K>, V extends Keyed<K>> TestOutputTopic<K, V> output(Class<V> type) {
+            var topic = eventRegistry().topicForType(type);
+            var keyType = keyTypeOf(type);
+            return driver.createOutputTopic(topic, new JsonKeySerde<>(keyType, jsonMapper).deserializer(), deserializer.adapt());
+        }
+
+        public <T> TestInputTopic<String, T> inputString(Class<T> type) {
             var topic = eventRegistry().topicForType(type);
             return driver.createInputTopic(topic, new StringSerializer(), (Serializer<T>) serializer);
         }
 
-        public <T> TestOutputTopic<String, T> output(Class<T> type) {
+        public <T> TestOutputTopic<String, T> outputString(Class<T> type) {
             var topic = eventRegistry().topicForType(type);
             return driver.createOutputTopic(topic, new StringDeserializer(), (Deserializer<T>) deserializer);
         }

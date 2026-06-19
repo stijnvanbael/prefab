@@ -30,12 +30,14 @@ public final class KafkaTopologyTestBootstrap {
     private final DynamicSerializer serializer;
     private final DynamicDeserializer deserializer;
     private final JsonMapper jsonMapper;
+    private final DefaultConversionService conversionService;
+    private final KafkaProperties kafkaProperties;
     private final String appId;
 
     private KafkaTopologyTestBootstrap(String appId) {
         this.appId = appId;
-        var conversionService = new DefaultConversionService();
-        var kafkaProperties = new KafkaProperties();
+        this.conversionService = new DefaultConversionService();
+        this.kafkaProperties = new KafkaProperties();
         serializer = new DynamicSerializer(kafkaProperties, conversionService, eventRegistry);
         deserializer = new DynamicDeserializer(kafkaProperties, conversionService, eventRegistry);
         this.jsonMapper = JsonMapper.builder().findAndAddModules().build();
@@ -50,7 +52,14 @@ public final class KafkaTopologyTestBootstrap {
 
     public PrefabStreams streams() {
         return new AutoRegisterPrefabStreamsTestDecorator(
-                new KafkaPrefabStreams(new StreamsBuilder(), new KafkaTopicResolver(eventRegistry), serializer, deserializer, jsonMapper),
+                new KafkaPrefabStreams(
+                        new StreamsBuilder(),
+                        new KafkaTopicResolver(eventRegistry),
+                        serializer,
+                        deserializer,
+                        jsonMapper,
+                        conversionService,
+                        kafkaProperties.buildProducerProperties()),
                 eventRegistry,
                 appId);
     }

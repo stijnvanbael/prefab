@@ -1,9 +1,13 @@
 package be.appify.prefab.streams.kafka;
 
+import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.Key;
+import be.appify.prefab.core.kafka.EventRegistry;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.convert.support.DefaultConversionService;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Instant;
@@ -109,6 +113,30 @@ class JsonKeySerdeTest {
                 .hasMessageContaining("Key type not yet resolved");
     }
 
+    @Test
+    @DisplayName("should serialize and deserialize keys as AVRO for AVRO topics")
+    void testAvroKeyRoundTrip() {
+        var eventRegistry = new EventRegistry();
+        eventRegistry.register("avro-keys-topic", Event.Serialization.AVRO);
+
+        var serde = new JsonKeySerde<>(
+                AvroComplexKey.class,
+                mapper,
+                eventRegistry,
+                new DefaultConversionService(),
+                Map.of("schema.registry.url", "mock://schema-url"));
+
+        var original = new AvroComplexKey(
+                new NestedValue("field-789"),
+                "avro-name");
+
+        var serialized = serde.serializer().serialize("avro-keys-topic", original);
+        var deserialized = serde.deserializer().deserialize("avro-keys-topic", serialized);
+
+        assertThat(serialized).isNotNull();
+        assertThat(deserialized).isEqualTo(original);
+    }
+
     // Test key classes
     record SimpleKey(String id) implements Key<SimpleKey> {
     }
@@ -117,6 +145,9 @@ class JsonKeySerdeTest {
     }
 
     record ComplexKey(NestedValue nested, String name, Instant timestamp) implements Key<ComplexKey> {
+    }
+
+    record AvroComplexKey(NestedValue nested, String name) implements Key<AvroComplexKey> {
     }
 }
 

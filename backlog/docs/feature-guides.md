@@ -901,15 +901,16 @@ Use instance `merge(...)` when the current stream type already represents the ta
 
 Use `join(...)` for KStream-KStream **inner join** composition with explicit windowing via `JoinWindow`.
 
-### Key Serialization and JSON Wire Format
+### Key Serialization Wire Format (JSON + AVRO)
 
-Kafka stream keys are automatically serialized to **JSON** using Jackson. This eliminates the need for manual `parse(String)` and `toString()` implementations on key types.
+Kafka stream keys are automatically serialized without manual `parse(String)` / `toString()` plumbing.
 
 **How it works:**
 
-- Key types (those implementing `Key<K>`) are serialized to JSON bytes via Jackson's `ObjectMapper`.
-- Deserialization automatically reconstructs the key object from JSON.
-- Nested types, temporal fields (`Instant`, `LocalDateTime`), and value objects are automatically handled by Jackson's module system.
+- For **JSON topics**, key types (`Key<K>`) are serialized as JSON bytes via Jackson's `ObjectMapper`.
+- For **AVRO topics**, key types are serialized as AVRO bytes using the Confluent AVRO serde stack.
+- AVRO key conversion first uses registered Spring converters (`KeyType <-> GenericRecord`) when available, and otherwise falls back to reflection-based record mapping for record-style keys.
+- Deserialization reconstructs the key object directly; manual `Key.register(...)` parsers are no longer required.
 
 **Example key type (no manual serialization needed):**
 
@@ -921,7 +922,7 @@ public record OrderKey(Reference<Order> orderId, Instant timestamp) implements K
 
 **Deprecated API:**
 
-The legacy `Key.register(Class, Function)` method is now deprecated and will be removed in a future release. If you have existing key types using manual registration, migration is simple: remove the static initializer block and custom `parse()`/`toString()` methods, and let Jackson handle serialization.
+The legacy `Key.register(Class, Function)` method is now deprecated and will be removed in a future release. If you have existing key types using manual registration, migration is simple: remove the static initializer block and custom `parse()`/`toString()` methods, and let framework-managed JSON/AVRO key serdes handle serialization.
 
 Example migration:
 

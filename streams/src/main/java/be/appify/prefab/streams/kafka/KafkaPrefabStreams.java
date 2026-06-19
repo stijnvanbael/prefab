@@ -20,6 +20,7 @@ import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.state.Stores;
+import org.springframework.core.convert.ConversionService;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Kafka-backed implementation for the baseline source DSL operation. */
@@ -29,6 +30,8 @@ public class KafkaPrefabStreams implements PrefabStreams {
     private final DynamicSerializer serializer;
     private final DynamicDeserializer deserializer;
     private final JsonMapper jsonMapper;
+    private final ConversionService conversionService;
+    private final Map<String, Object> kafkaClientProperties;
     private final StreamStepNames stepNames;
 
     /**
@@ -39,13 +42,17 @@ public class KafkaPrefabStreams implements PrefabStreams {
             KafkaTopicResolver topicResolver,
             DynamicSerializer serializer,
             DynamicDeserializer deserializer,
-            JsonMapper jsonMapper
+            JsonMapper jsonMapper,
+            ConversionService conversionService,
+            Map<String, Object> kafkaClientProperties
     ) {
         this.streamsBuilder = streamsBuilder;
         this.topicResolver = topicResolver;
         this.serializer = serializer;
         this.deserializer = deserializer;
         this.jsonMapper = jsonMapper;
+        this.conversionService = conversionService;
+        this.kafkaClientProperties = Map.copyOf(kafkaClientProperties);
         this.stepNames = new StreamStepNames();
     }
 
@@ -57,7 +64,12 @@ public class KafkaPrefabStreams implements PrefabStreams {
         // DynamicSerializer/Deserializer operate on Object at runtime; the cast is safe because
         // the topic is registered for exactly this type and the serde will deserialize to V.
         KStream<K, V> stream = streamsBuilder.stream(topic,
-                Consumed.with(new JsonKeySerde<>(keyType, jsonMapper), valueSerde));
+                Consumed.with(new JsonKeySerde<>(
+                        keyType,
+                        jsonMapper,
+                        serializer.eventRegistry(),
+                        conversionService,
+                        kafkaClientProperties), valueSerde));
         return new KafkaPrefabStream<>(
                 streamsBuilder,
                 stream,
@@ -65,6 +77,8 @@ public class KafkaPrefabStreams implements PrefabStreams {
                 serializer,
                 deserializer,
                 jsonMapper,
+                conversionService,
+                kafkaClientProperties,
                 type,
                 this,
                 keyType,
@@ -190,7 +204,12 @@ public class KafkaPrefabStreams implements PrefabStreams {
      */
     private <KS extends Key<KS>, VS extends Keyed<KS>> Serde<KS> keySerde(TypeReference<VS> type) {
         try {
-            return new JsonKeySerde<>(keyTypeOf(type.rawType()), jsonMapper);
+            return new JsonKeySerde<>(
+                    keyTypeOf(type.rawType()),
+                    jsonMapper,
+                    serializer.eventRegistry(),
+                    conversionService,
+                    kafkaClientProperties);
         } catch (IllegalArgumentException e) {
             return new DeferredJsonKeySerde<>(jsonMapper);
         }

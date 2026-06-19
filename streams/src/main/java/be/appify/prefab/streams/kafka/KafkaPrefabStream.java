@@ -16,6 +16,7 @@ import be.appify.prefab.streams.StreamDefinition;
 import be.appify.prefab.streams.StreamProcessor;
 import jakarta.validation.constraints.NotNull;
 import java.util.Objects;
+import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -29,6 +30,7 @@ import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Named;
 import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.kstream.StreamJoined;
+import org.springframework.core.convert.ConversionService;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -47,6 +49,8 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
     private final DynamicSerializer serializer;
     private final DynamicDeserializer deserializer;
     private final JsonMapper jsonMapper;
+    private final ConversionService conversionService;
+    private final Map<String, Object> kafkaClientProperties;
     private final ValueTypeHint<V> valueType;
     private final Class<K> keyType;
     private final PrefabStreams streams;
@@ -62,12 +66,14 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
             DynamicSerializer serializer,
             DynamicDeserializer deserializer,
             JsonMapper jsonMapper,
+            ConversionService conversionService,
+            Map<String, Object> kafkaClientProperties,
             @NotNull Class<V> valueType,
             PrefabStreams streams,
             Class<K> keyType,
             StreamStepNames stepNames
     ) {
-        this(streamsBuilder, stream, topicResolver, serializer, deserializer, jsonMapper,
+        this(streamsBuilder, stream, topicResolver, serializer, deserializer, jsonMapper, conversionService, kafkaClientProperties,
                 ValueTypeHint.known(Objects.requireNonNull(valueType, "valueType must not be null")), streams, keyType,
                 stepNames);
     }
@@ -79,6 +85,8 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
             DynamicSerializer serializer,
             DynamicDeserializer deserializer,
             JsonMapper jsonMapper,
+            ConversionService conversionService,
+            Map<String, Object> kafkaClientProperties,
             ValueTypeHint<V> valueType,
             PrefabStreams streams,
             Class<K> keyType,
@@ -90,6 +98,8 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
         this.serializer = serializer;
         this.deserializer = deserializer;
         this.jsonMapper = Objects.requireNonNull(jsonMapper, "jsonMapper must not be null");
+        this.conversionService = Objects.requireNonNull(conversionService, "conversionService must not be null");
+        this.kafkaClientProperties = Map.copyOf(kafkaClientProperties);
         this.valueType = Objects.requireNonNull(valueType, "valueType must not be null");
         this.streams = streams;
         this.keyType = keyType;
@@ -157,7 +167,13 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
                         otherKafkaStream.stream,
                         joiner::apply,
                         JoinWindows.ofTimeDifferenceAndGrace(window.timeDifference(), window.grace()),
-                        StreamJoined.with(new JsonKeySerde<>(keyType, jsonMapper), joinSerde(valueType),
+                        StreamJoined.with(new JsonKeySerde<>(
+                                        keyType,
+                                        jsonMapper,
+                                        serializer.eventRegistry(),
+                                        conversionService,
+                                        kafkaClientProperties),
+                                joinSerde(valueType),
                                 joinSerde(otherKafkaStream.valueType)).withName(stepNames.nextJoinName(inputTypeOrNull(), otherKafkaStream.inputTypeOrNull()))
                 ),
                 ValueTypeHint.unknown()
@@ -252,7 +268,14 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
         // DynamicSerializer/Deserializer work on Object at runtime; the cast to Serde<V> is safe
         // because the backend selects serialization by topic, not by the generic type parameter.
         var valueSerde = new SerdeAdapter<V>(serializer.adapt(), deserializer.adapt());
-        stream.to(topic, Produced.with(new JsonKeySerde<>(keyType, jsonMapper), valueSerde));
+        stream.to(topic, Produced.with(
+                new JsonKeySerde<>(
+                        keyType,
+                        jsonMapper,
+                        serializer.eventRegistry(),
+                        conversionService,
+                        kafkaClientProperties),
+                valueSerde));
         return new StreamDefinition(streamsBuilder::build);
     }
 
@@ -294,6 +317,8 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
                 serializer,
                 deserializer,
                 jsonMapper,
+                conversionService,
+                kafkaClientProperties,
                 valueType,
                 streams,
                 (Class<KO>) keyType,

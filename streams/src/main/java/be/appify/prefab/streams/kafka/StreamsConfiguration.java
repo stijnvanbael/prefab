@@ -12,9 +12,11 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.kafka.autoconfigure.KafkaConnectionDetails;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.convert.ConversionService;
 import org.springframework.kafka.annotation.EnableKafkaStreams;
 import org.springframework.kafka.config.KafkaStreamsConfiguration;
 import org.springframework.kafka.annotation.KafkaStreamsDefaultConfiguration;
@@ -54,9 +56,18 @@ public class StreamsConfiguration {
             KafkaTopicResolver topicResolver,
             DynamicSerializer serializer,
             DynamicDeserializer deserializer,
-            JsonMapper jsonMapper
+            JsonMapper jsonMapper,
+            ConversionService conversionService,
+            KafkaProperties kafkaProperties
     ) {
-        return new KafkaPrefabStreams(streamsBuilder, topicResolver, serializer, deserializer, jsonMapper);
+        return new KafkaPrefabStreams(
+                streamsBuilder,
+                topicResolver,
+                serializer,
+                deserializer,
+                jsonMapper,
+                conversionService,
+                kafkaProperties.buildProducerProperties());
     }
 
     @Bean

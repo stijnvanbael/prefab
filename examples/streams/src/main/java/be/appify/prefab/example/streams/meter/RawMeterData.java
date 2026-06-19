@@ -9,18 +9,25 @@ import java.util.List;
 
 @Event(topic = "raw-meter-data", serialization = Event.Serialization.JSON)
 public record RawMeterData(
-        RawMeterDataKey key, // TODO: maybe meter serial number is sufficient as key, and only use the composite key for the ingestion state
+        MeterSerialNumber meterSerialNumber,
+        String filename,
+        Instant fileTimestamp,
         Instant start,
         Duration interval,
         List<Double> values,
         int totalNumberOfValues
-) implements Keyed<RawMeterDataKey> {
+) implements Keyed<MeterSerialNumber> {
     public MeterData toMeterData() {
         return new MeterData(
-                key.meterSerialNumber(),
+                meterSerialNumber,
                 start,
                 interval,
                 values
         );
+    }
+
+    @Override
+    public MeterSerialNumber key() {
+        return meterSerialNumber;
     }
 }

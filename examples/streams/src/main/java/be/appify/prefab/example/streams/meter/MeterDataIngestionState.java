@@ -1,19 +1,18 @@
 package be.appify.prefab.example.streams.meter;
 
 import be.appify.prefab.core.domain.Keyed;
-import com.google.common.collect.Range;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
 public record MeterDataIngestionState(
-    RawMeterDataKey key,
+    MeterDataIngestionKey key,
     List<Range<Instant>> ingestedRanges,
     int numberOfIngestedValues,
     int totalNumberOfValues
-) implements Keyed<RawMeterDataKey> {
-    public static MeterDataIngestionState from(RawMeterDataKey key, MeterData meterData, int totalNumberOfValues) {
+) implements Keyed<MeterDataIngestionKey> {
+    public static MeterDataIngestionState from(MeterDataIngestionKey key, MeterData meterData, int totalNumberOfValues) {
         return new MeterDataIngestionState(
                 key,
                 List.of(rangeOf(meterData)),
@@ -23,7 +22,7 @@ public record MeterDataIngestionState(
     }
 
     private static Range<Instant> rangeOf(MeterData meterData) {
-        return Range.closed(meterData.start(), meterData.start().plus(meterData.interval().multipliedBy(meterData.values().size() - 1)));
+        return new Range<>(meterData.start(), meterData.start().plus(meterData.interval().multipliedBy(meterData.values().size() - 1)));
     }
 
     public MeterDataIngestionState add(MeterData rawMeterData) {

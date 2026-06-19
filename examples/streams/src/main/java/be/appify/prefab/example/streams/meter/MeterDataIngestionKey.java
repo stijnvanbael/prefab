@@ -4,9 +4,9 @@ import be.appify.prefab.core.domain.Key;
 
 import java.time.Instant;
 
-public record RawMeterDataKey(
+public record MeterDataIngestionKey(
         MeterSerialNumber meterSerialNumber,
         String filename,
         Instant fileTimestamp
-) implements Key<RawMeterDataKey> {
+) implements Key<MeterDataIngestionKey> {
 }

@@ -18,8 +18,8 @@ public class GenericRecordToDeepNestedRecordEventConverter implements Converter<
     @Override
     public DeepNestedRecordEvent convert(GenericRecord genericRecord) {
         return new DeepNestedRecordEvent(
-                    SchemaSupport.getField(genericRecord, "id").toString(),
-                    SchemaSupport.getField(genericRecord, "order") != null ? genericRecordToDeepNestedRecordEventOrderConverter.convert((GenericRecord) SchemaSupport.getField(genericRecord, "order")) : null
+                    SchemaSupport.getString(genericRecord, "id"),
+                    SchemaSupport.getRecord(genericRecord, "order", genericRecordToDeepNestedRecordEventOrderConverter::convert)
                 );
     }
 }

@@ -14,8 +14,8 @@ public class GenericRecordToHierarchyEventCreatedConverter implements Converter<
     @Override
     public HierarchyEvent.Created convert(GenericRecord genericRecord) {
         return new HierarchyEvent.Created(
-                    SchemaSupport.getField(genericRecord, "id").toString(),
-                    SchemaSupport.getField(genericRecord, "name").toString()
+                    SchemaSupport.getString(genericRecord, "id"),
+                    SchemaSupport.getString(genericRecord, "name")
                 );
     }
 }

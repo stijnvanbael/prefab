@@ -18,9 +18,9 @@ public class GenericRecordToNestedRecordEventConverter implements Converter<Gene
     @Override
     public NestedRecordEvent convert(GenericRecord genericRecord) {
         return new NestedRecordEvent(
-                    SchemaSupport.getField(genericRecord, "id").toString(),
-                    SchemaSupport.getField(genericRecord, "totalAmount") != null ? genericRecordToNestedRecordEventMoneyConverter.convert((GenericRecord) SchemaSupport.getField(genericRecord, "totalAmount")) : null,
-                    SchemaSupport.getField(genericRecord, "paidAmount") != null ? genericRecordToNestedRecordEventMoneyConverter.convert((GenericRecord) SchemaSupport.getField(genericRecord, "paidAmount")) : null
+                    SchemaSupport.getString(genericRecord, "id"),
+                    SchemaSupport.getRecord(genericRecord, "totalAmount", genericRecordToNestedRecordEventMoneyConverter::convert),
+                    SchemaSupport.getRecord(genericRecord, "paidAmount", genericRecordToNestedRecordEventMoneyConverter::convert)
                 );
     }
 }

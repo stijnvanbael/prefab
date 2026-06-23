@@ -14,8 +14,8 @@ public class GenericRecordToInheritEventConverter implements Converter<GenericRe
     @Override
     public InheritEvent convert(GenericRecord genericRecord) {
         return new InheritEvent(
-                    SchemaSupport.getField(genericRecord, "superField").toString(),
-                    SchemaSupport.getField(genericRecord, "subField").toString()
+                    SchemaSupport.getString(genericRecord, "superField"),
+                    SchemaSupport.getString(genericRecord, "subField")
                 );
     }
 }

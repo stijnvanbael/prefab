@@ -14,8 +14,8 @@ public class GenericRecordToNestedRecordEventMoneyConverter implements Converter
     @Override
     public NestedRecordEvent.Money convert(GenericRecord genericRecord) {
         return new NestedRecordEvent.Money(
-                    SchemaSupport.getField(genericRecord, "currency").toString(),
-                    (Double) SchemaSupport.getField(genericRecord, "amount")
+                    SchemaSupport.getString(genericRecord, "currency"),
+                    SchemaSupport.getDouble(genericRecord, "amount")
                 );
     }
 }

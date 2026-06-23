@@ -14,10 +14,10 @@ public class GenericRecordToSimpleEventConverter implements Converter<GenericRec
     @Override
     public SimpleEvent convert(GenericRecord genericRecord) {
         return new SimpleEvent(
-                    SchemaSupport.getField(genericRecord, "name").toString(),
-                    (Integer) SchemaSupport.getField(genericRecord, "age"),
-                    (Double) SchemaSupport.getField(genericRecord, "score"),
-                    (Boolean) SchemaSupport.getField(genericRecord, "active")
+                    SchemaSupport.getString(genericRecord, "name"),
+                    SchemaSupport.getInteger(genericRecord, "age"),
+                    SchemaSupport.getDouble(genericRecord, "score"),
+                    SchemaSupport.getBoolean(genericRecord, "active")
                 );
     }
 }

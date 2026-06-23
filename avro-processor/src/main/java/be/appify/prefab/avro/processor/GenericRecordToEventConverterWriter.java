@@ -284,14 +284,57 @@ class GenericRecordToEventConverterWriter {
                         return CodeBlock.of("null");
                     });
         }
-        var value = CodeBlock.of("$T.getField(genericRecord, $S)", SchemaSupport.class, fieldName);
-        if (type.is(String.class) && field.nullable()) {
-            return maybeNull(value, CodeBlock.of("$L.toString()", value));
+        if (type.is(String.class)) {
+            return CodeBlock.of("$T.getString(genericRecord, $S)", SchemaSupport.class, fieldName);
         }
+        if (type.is(Instant.class)) {
+            return CodeBlock.of("$T.getInstant(genericRecord, $S)", SchemaSupport.class, fieldName);
+        }
+        if (type.is(LocalDate.class)) {
+            return CodeBlock.of("$T.getLocalDate(genericRecord, $S)", SchemaSupport.class, fieldName);
+        }
+        if (type.is(Duration.class)) {
+            return CodeBlock.of("$T.getDuration(genericRecord, $S)", SchemaSupport.class, fieldName);
+        }
+        if (type.isEnum()) {
+            return CodeBlock.of("$T.getEnum(genericRecord, $S, $T.class)", SchemaSupport.class, fieldName, type.asTypeName());
+        }
+        if (type.is(Integer.class) || type.is(int.class)) {
+            return CodeBlock.of("$T.getInteger(genericRecord, $S)", SchemaSupport.class, fieldName);
+        }
+        if (type.is(Long.class) || type.is(long.class)) {
+            return CodeBlock.of("$T.getLong(genericRecord, $S)", SchemaSupport.class, fieldName);
+        }
+        if (type.is(Double.class) || type.is(double.class)) {
+            return CodeBlock.of("$T.getDouble(genericRecord, $S)", SchemaSupport.class, fieldName);
+        }
+        if (type.is(Float.class) || type.is(float.class)) {
+            return CodeBlock.of("$T.getFloat(genericRecord, $S)", SchemaSupport.class, fieldName);
+        }
+        if (type.is(Boolean.class) || type.is(boolean.class)) {
+            return CodeBlock.of("$T.getBoolean(genericRecord, $S)", SchemaSupport.class, fieldName);
+        }
+        // isAvroUnion must be checked before isSealed (avro unions are also sealed)
         if (isAvroUnion(type)) {
+            var value = CodeBlock.of("$T.getField(genericRecord, $S)", SchemaSupport.class, fieldName);
             var switchExpr = avroToUnionValue(value, type);
             return field.nullable() ? maybeNull(value, switchExpr) : switchExpr;
         }
+        // isSealed must be checked before isNestedRecord (sealed types satisfy isNestedRecord)
+        if (type.isSealed()) {
+            var recordValue = CodeBlock.of("$T.getRecord(genericRecord, $S)", SchemaSupport.class, fieldName);
+            return maybeNull(recordValue, sealedType(recordValue, type));
+        }
+        if (isNestedRecord(type)) {
+            var converterName = "genericRecordTo%sConverter".formatted(type.simpleName().replace(".", ""));
+            return CodeBlock.of("$T.getRecord(genericRecord, $S, $L::convert)", SchemaSupport.class, fieldName, converterName);
+        }
+        if (type.is(List.class)) {
+            var arrayValue = CodeBlock.of("$T.getArray(genericRecord, $S)", SchemaSupport.class, fieldName);
+            return maybeNull(arrayValue, listTypeFromArray(arrayValue, type));
+        }
+        // Fallthrough: single-value logical types (Reference etc.) and any other remaining cases
+        var value = CodeBlock.of("$T.getField(genericRecord, $S)", SchemaSupport.class, fieldName);
         return field(value, type);
     }
 
@@ -373,6 +416,18 @@ class GenericRecordToEventConverterWriter {
                 Streams.class,
                 ParameterizedTypeName.get(ClassName.get(GenericData.Array.class), WildcardTypeName.subtypeOf(Object.class)),
                 value,
+                field(CodeBlock.of("item"), elementType));
+    }
+
+    /** Like {@link #listType} but for a value already typed as {@link GenericData.Array}, avoiding the redundant cast. */
+    private CodeBlock listTypeFromArray(CodeBlock arrayValue, TypeManifest type) {
+        var elementType = type.parameters().getFirst();
+        return CodeBlock.of("""
+                        $T.stream($L.iterator())
+                                .map(item -> $L)
+                                .toList()""",
+                Streams.class,
+                arrayValue,
                 field(CodeBlock.of("item"), elementType));
     }
 

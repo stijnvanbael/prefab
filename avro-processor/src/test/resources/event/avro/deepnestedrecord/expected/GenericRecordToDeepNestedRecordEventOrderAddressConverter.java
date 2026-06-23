@@ -14,8 +14,8 @@ public class GenericRecordToDeepNestedRecordEventOrderAddressConverter implement
     @Override
     public DeepNestedRecordEvent.Order.Address convert(GenericRecord genericRecord) {
         return new DeepNestedRecordEvent.Order.Address(
-                    SchemaSupport.getField(genericRecord, "street").toString(),
-                    SchemaSupport.getField(genericRecord, "city").toString()
+                    SchemaSupport.getString(genericRecord, "street"),
+                    SchemaSupport.getString(genericRecord, "city")
                 );
     }
 }

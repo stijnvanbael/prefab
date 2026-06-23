@@ -18,8 +18,8 @@ public class GenericRecordToSingleValuedNestedEventConverter implements Converte
     @Override
     public SingleValuedNestedEvent convert(GenericRecord genericRecord) {
         return new SingleValuedNestedEvent(
-                    SchemaSupport.getField(genericRecord, "id").toString(),
-                    SchemaSupport.getField(genericRecord, "outer") != null ? genericRecordToSingleValuedNestedEventOuterConverter.convert((GenericRecord) SchemaSupport.getField(genericRecord, "outer")) : null
+                    SchemaSupport.getString(genericRecord, "id"),
+                    SchemaSupport.getRecord(genericRecord, "outer", genericRecordToSingleValuedNestedEventOuterConverter::convert)
                 );
     }
 }

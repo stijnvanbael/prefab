@@ -14,9 +14,9 @@ public class GenericRecordToNullableEventConverter implements Converter<GenericR
     @Override
     public NullableEvent convert(GenericRecord genericRecord) {
         return new NullableEvent(
-                    SchemaSupport.getField(genericRecord, "id").toString(),
-                    SchemaSupport.getField(genericRecord, "name").toString(),
-                    SchemaSupport.getField(genericRecord, "description") != null ? SchemaSupport.getField(genericRecord, "description").toString() : null
+                    SchemaSupport.getString(genericRecord, "id"),
+                    SchemaSupport.getString(genericRecord, "name"),
+                    SchemaSupport.getString(genericRecord, "description")
                 );
     }
 }

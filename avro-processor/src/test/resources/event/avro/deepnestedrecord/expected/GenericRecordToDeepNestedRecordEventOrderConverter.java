@@ -18,8 +18,8 @@ public class GenericRecordToDeepNestedRecordEventOrderConverter implements Conve
     @Override
     public DeepNestedRecordEvent.Order convert(GenericRecord genericRecord) {
         return new DeepNestedRecordEvent.Order(
-                    SchemaSupport.getField(genericRecord, "orderId").toString(),
-                    SchemaSupport.getField(genericRecord, "shippingAddress") != null ? genericRecordToDeepNestedRecordEventOrderAddressConverter.convert((GenericRecord) SchemaSupport.getField(genericRecord, "shippingAddress")) : null
+                    SchemaSupport.getString(genericRecord, "orderId"),
+                    SchemaSupport.getRecord(genericRecord, "shippingAddress", genericRecordToDeepNestedRecordEventOrderAddressConverter::convert)
                 );
     }
 }

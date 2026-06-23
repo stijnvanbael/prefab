@@ -1,9 +1,13 @@
 package be.appify.prefab.avro;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -499,6 +503,365 @@ class SchemaSupportTest {
             record.put("description", null);
 
             assertThat(SchemaSupport.getField(record, "description")).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getString")
+    class GetStringTest {
+
+        @Test
+        @DisplayName("should return the field value as a String")
+        void shouldReturnStringValue() {
+            var field = new Schema.Field("name", Schema.create(Schema.Type.STRING));
+            var schema = Schema.createRecord("R", null, "com.example", false, List.of(field));
+            var record = new GenericData.Record(schema);
+            record.put("name", "Alice");
+
+            assertThat(SchemaSupport.getString(record, "name")).isEqualTo("Alice");
+        }
+
+        @Test
+        @DisplayName("should return null when the field is absent from the schema")
+        void shouldReturnNullWhenFieldAbsent() {
+            var schema = Schema.createRecord("R", null, "com.example", false, emptyList());
+            var record = new GenericData.Record(schema);
+
+            assertThat(SchemaSupport.getString(record, "missing")).isNull();
+        }
+
+        @Test
+        @DisplayName("should return null when the field value is null")
+        void shouldReturnNullWhenFieldValueIsNull() {
+            var nullableField = new Schema.Field("name",
+                    Schema.createUnion(Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.STRING)),
+                    null, Schema.Field.NULL_DEFAULT_VALUE);
+            var schema = Schema.createRecord("R", null, "com.example", false, List.of(nullableField));
+            var record = new GenericData.Record(schema);
+            record.put("name", null);
+
+            assertThat(SchemaSupport.getString(record, "name")).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getInteger")
+    class GetIntegerTest {
+
+        @Test
+        @DisplayName("should return the field value as an Integer")
+        void shouldReturnIntegerValue() {
+            var field = new Schema.Field("count", Schema.create(Schema.Type.INT));
+            var schema = Schema.createRecord("R", null, "com.example", false, List.of(field));
+            var record = new GenericData.Record(schema);
+            record.put("count", 42);
+
+            assertThat(SchemaSupport.getInteger(record, "count")).isEqualTo(42);
+        }
+
+        @Test
+        @DisplayName("should return null when the field is absent from the schema")
+        void shouldReturnNullWhenFieldAbsent() {
+            var schema = Schema.createRecord("R", null, "com.example", false, emptyList());
+            var record = new GenericData.Record(schema);
+
+            assertThat(SchemaSupport.getInteger(record, "missing")).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getLong")
+    class GetLongTest {
+
+        @Test
+        @DisplayName("should return the field value as a Long")
+        void shouldReturnLongValue() {
+            var field = new Schema.Field("ts", Schema.create(Schema.Type.LONG));
+            var schema = Schema.createRecord("R", null, "com.example", false, List.of(field));
+            var record = new GenericData.Record(schema);
+            record.put("ts", 1_000_000L);
+
+            assertThat(SchemaSupport.getLong(record, "ts")).isEqualTo(1_000_000L);
+        }
+
+        @Test
+        @DisplayName("should return null when the field is absent from the schema")
+        void shouldReturnNullWhenFieldAbsent() {
+            var schema = Schema.createRecord("R", null, "com.example", false, emptyList());
+            var record = new GenericData.Record(schema);
+
+            assertThat(SchemaSupport.getLong(record, "missing")).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getDouble")
+    class GetDoubleTest {
+
+        @Test
+        @DisplayName("should return the field value as a Double")
+        void shouldReturnDoubleValue() {
+            var field = new Schema.Field("score", Schema.create(Schema.Type.DOUBLE));
+            var schema = Schema.createRecord("R", null, "com.example", false, List.of(field));
+            var record = new GenericData.Record(schema);
+            record.put("score", 3.14);
+
+            assertThat(SchemaSupport.getDouble(record, "score")).isEqualTo(3.14);
+        }
+
+        @Test
+        @DisplayName("should return null when the field is absent from the schema")
+        void shouldReturnNullWhenFieldAbsent() {
+            var schema = Schema.createRecord("R", null, "com.example", false, emptyList());
+            var record = new GenericData.Record(schema);
+
+            assertThat(SchemaSupport.getDouble(record, "missing")).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getFloat")
+    class GetFloatTest {
+
+        @Test
+        @DisplayName("should return the field value as a Float")
+        void shouldReturnFloatValue() {
+            var field = new Schema.Field("ratio", Schema.create(Schema.Type.FLOAT));
+            var schema = Schema.createRecord("R", null, "com.example", false, List.of(field));
+            var record = new GenericData.Record(schema);
+            record.put("ratio", 1.5f);
+
+            assertThat(SchemaSupport.getFloat(record, "ratio")).isEqualTo(1.5f);
+        }
+
+        @Test
+        @DisplayName("should return null when the field is absent from the schema")
+        void shouldReturnNullWhenFieldAbsent() {
+            var schema = Schema.createRecord("R", null, "com.example", false, emptyList());
+            var record = new GenericData.Record(schema);
+
+            assertThat(SchemaSupport.getFloat(record, "missing")).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getBoolean")
+    class GetBooleanTest {
+
+        @Test
+        @DisplayName("should return the field value as a Boolean")
+        void shouldReturnBooleanValue() {
+            var field = new Schema.Field("active", Schema.create(Schema.Type.BOOLEAN));
+            var schema = Schema.createRecord("R", null, "com.example", false, List.of(field));
+            var record = new GenericData.Record(schema);
+            record.put("active", true);
+
+            assertThat(SchemaSupport.getBoolean(record, "active")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should return null when the field is absent from the schema")
+        void shouldReturnNullWhenFieldAbsent() {
+            var schema = Schema.createRecord("R", null, "com.example", false, emptyList());
+            var record = new GenericData.Record(schema);
+
+            assertThat(SchemaSupport.getBoolean(record, "missing")).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getInstant")
+    class GetInstantTest {
+
+        @Test
+        @DisplayName("should convert epoch-millis long to Instant")
+        void shouldConvertEpochMillisToInstant() {
+            var field = new Schema.Field("ts", Schema.create(Schema.Type.LONG));
+            var schema = Schema.createRecord("R", null, "com.example", false, List.of(field));
+            var record = new GenericData.Record(schema);
+            record.put("ts", 1_000L);
+
+            assertThat(SchemaSupport.getInstant(record, "ts")).isEqualTo(Instant.ofEpochMilli(1_000L));
+        }
+
+        @Test
+        @DisplayName("should return null when the field is absent from the schema")
+        void shouldReturnNullWhenFieldAbsent() {
+            var schema = Schema.createRecord("R", null, "com.example", false, emptyList());
+            var record = new GenericData.Record(schema);
+
+            assertThat(SchemaSupport.getInstant(record, "missing")).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getLocalDate")
+    class GetLocalDateTest {
+
+        @Test
+        @DisplayName("should convert epoch-day int to LocalDate")
+        void shouldConvertEpochDayToLocalDate() {
+            var field = new Schema.Field("date", Schema.create(Schema.Type.INT));
+            var schema = Schema.createRecord("R", null, "com.example", false, List.of(field));
+            var record = new GenericData.Record(schema);
+            record.put("date", 1);
+
+            assertThat(SchemaSupport.getLocalDate(record, "date")).isEqualTo(LocalDate.ofEpochDay(1));
+        }
+
+        @Test
+        @DisplayName("should return null when the field is absent from the schema")
+        void shouldReturnNullWhenFieldAbsent() {
+            var schema = Schema.createRecord("R", null, "com.example", false, emptyList());
+            var record = new GenericData.Record(schema);
+
+            assertThat(SchemaSupport.getLocalDate(record, "missing")).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getDuration")
+    class GetDurationTest {
+
+        @Test
+        @DisplayName("should convert millis long to Duration")
+        void shouldConvertMillisToDuration() {
+            var field = new Schema.Field("dur", Schema.create(Schema.Type.LONG));
+            var schema = Schema.createRecord("R", null, "com.example", false, List.of(field));
+            var record = new GenericData.Record(schema);
+            record.put("dur", 5_000L);
+
+            assertThat(SchemaSupport.getDuration(record, "dur")).isEqualTo(Duration.ofMillis(5_000L));
+        }
+
+        @Test
+        @DisplayName("should return null when the field is absent from the schema")
+        void shouldReturnNullWhenFieldAbsent() {
+            var schema = Schema.createRecord("R", null, "com.example", false, emptyList());
+            var record = new GenericData.Record(schema);
+
+            assertThat(SchemaSupport.getDuration(record, "missing")).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getRecord")
+    class GetRecordTest {
+
+        private GenericData.Record nestedRecord() {
+            var nested = Schema.createRecord("Nested", null, "com.example", false,
+                    List.of(new Schema.Field("val", Schema.create(Schema.Type.STRING))));
+            var record = new GenericData.Record(nested);
+            record.put("val", "hello");
+            return record;
+        }
+
+        @Test
+        @DisplayName("should return the nested GenericRecord when present")
+        void shouldReturnNestedRecord() {
+            var nested = nestedRecord();
+            var nestedField = new Schema.Field("child", nested.getSchema());
+            var schema = Schema.createRecord("Parent", null, "com.example", false, List.of(nestedField));
+            var parent = new GenericData.Record(schema);
+            parent.put("child", nested);
+
+            assertThat(SchemaSupport.getRecord(parent, "child")).isSameAs(nested);
+        }
+
+        @Test
+        @DisplayName("should return null when the field is absent from the schema")
+        void shouldReturnNullWhenFieldAbsent() {
+            var schema = Schema.createRecord("R", null, "com.example", false, emptyList());
+            var record = new GenericData.Record(schema);
+
+            assertThat(SchemaSupport.getRecord(record, "missing")).isNull();
+        }
+
+        @Test
+        @DisplayName("functional variant should apply the converter when the record is present")
+        void functionalVariantShouldApplyConverter() {
+            var nested = nestedRecord();
+            var nestedField = new Schema.Field("child", nested.getSchema());
+            var schema = Schema.createRecord("Parent", null, "com.example", false, List.of(nestedField));
+            var parent = new GenericData.Record(schema);
+            parent.put("child", nested);
+
+            var result = SchemaSupport.getRecord(parent, "child", r -> r.get("val").toString());
+
+            assertThat(result).isEqualTo("hello");
+        }
+
+        @Test
+        @DisplayName("functional variant should return null without calling the converter when field is absent")
+        void functionalVariantShouldReturnNullWhenFieldAbsent() {
+            var schema = Schema.createRecord("R", null, "com.example", false, emptyList());
+            var record = new GenericData.Record(schema);
+            var converterCalled = new boolean[]{false};
+
+            var result = SchemaSupport.<String>getRecord(record, "missing", r -> {
+                converterCalled[0] = true;
+                return "should-not-be-called";
+            });
+
+            assertThat(result).isNull();
+            assertThat(converterCalled[0]).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("getEnum")
+    class GetEnumTest {
+
+        enum Color { RED, GREEN, BLUE }
+
+        @Test
+        @DisplayName("should return the matching enum constant")
+        void shouldReturnEnumConstant() {
+            var enumSchema = Schema.createEnum("Color", null, "com.example", List.of("RED", "GREEN", "BLUE"));
+            var field = new Schema.Field("color", enumSchema);
+            var schema = Schema.createRecord("R", null, "com.example", false, List.of(field));
+            var record = new GenericData.Record(schema);
+            record.put("color", new GenericData.EnumSymbol(enumSchema, "GREEN"));
+
+            assertThat(SchemaSupport.getEnum(record, "color", Color.class)).isEqualTo(Color.GREEN);
+        }
+
+        @Test
+        @DisplayName("should return null when the field is absent from the schema")
+        void shouldReturnNullWhenFieldAbsent() {
+            var schema = Schema.createRecord("R", null, "com.example", false, emptyList());
+            var record = new GenericData.Record(schema);
+
+            assertThat(SchemaSupport.getEnum(record, "missing", Color.class)).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getArray")
+    class GetArrayTest {
+
+        @Test
+        @DisplayName("should return the GenericData.Array when present")
+        void shouldReturnArray() {
+            var arraySchema = Schema.createArray(Schema.create(Schema.Type.STRING));
+            var field = new Schema.Field("tags", arraySchema);
+            var schema = Schema.createRecord("R", null, "com.example", false, List.of(field));
+            var record = new GenericData.Record(schema);
+            var array = new GenericData.Array<>(arraySchema, List.of("a", "b"));
+            record.put("tags", array);
+
+            GenericData.Array<?> result = SchemaSupport.getArray(record, "tags");
+            assertThat((Object) result).isSameAs(array);
+        }
+
+        @Test
+        @DisplayName("should return null when the field is absent from the schema")
+        void shouldReturnNullWhenFieldAbsent() {
+            var schema = Schema.createRecord("R", null, "com.example", false, emptyList());
+            var record = new GenericData.Record(schema);
+
+            GenericData.Array<?> result = SchemaSupport.getArray(record, "missing");
+            assertThat((Object) result).isNull();
         }
     }
 }

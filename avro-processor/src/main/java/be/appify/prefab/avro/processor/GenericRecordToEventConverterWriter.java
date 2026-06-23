@@ -330,8 +330,9 @@ class GenericRecordToEventConverterWriter {
             return CodeBlock.of("$T.getRecord(genericRecord, $S, $L::convert)", SchemaSupport.class, fieldName, converterName);
         }
         if (type.is(List.class)) {
-            var arrayValue = CodeBlock.of("$T.getArray(genericRecord, $S)", SchemaSupport.class, fieldName);
-            return maybeNull(arrayValue, listTypeFromArray(arrayValue, type));
+            var elementType = type.parameters().getFirst();
+            return CodeBlock.of("$T.getArray(genericRecord, $S, item -> $L)",
+                    SchemaSupport.class, fieldName, field(CodeBlock.of("item"), elementType));
         }
         // Fallthrough: single-value logical types (Reference etc.) and any other remaining cases
         var value = CodeBlock.of("$T.getField(genericRecord, $S)", SchemaSupport.class, fieldName);
@@ -416,18 +417,6 @@ class GenericRecordToEventConverterWriter {
                 Streams.class,
                 ParameterizedTypeName.get(ClassName.get(GenericData.Array.class), WildcardTypeName.subtypeOf(Object.class)),
                 value,
-                field(CodeBlock.of("item"), elementType));
-    }
-
-    /** Like {@link #listType} but for a value already typed as {@link GenericData.Array}, avoiding the redundant cast. */
-    private CodeBlock listTypeFromArray(CodeBlock arrayValue, TypeManifest type) {
-        var elementType = type.parameters().getFirst();
-        return CodeBlock.of("""
-                        $T.stream($L.iterator())
-                                .map(item -> $L)
-                                .toList()""",
-                Streams.class,
-                arrayValue,
                 field(CodeBlock.of("item"), elementType));
     }
 

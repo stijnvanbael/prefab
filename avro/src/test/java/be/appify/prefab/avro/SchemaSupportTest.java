@@ -863,5 +863,30 @@ class SchemaSupportTest {
             GenericData.Array<?> result = SchemaSupport.getArray(record, "missing");
             assertThat((Object) result).isNull();
         }
+
+        @Test
+        @DisplayName("should apply converter to each element and return a list")
+        void shouldApplyConverterAndReturnList() {
+            var arraySchema = Schema.createArray(Schema.create(Schema.Type.STRING));
+            var field = new Schema.Field("tags", arraySchema);
+            var schema = Schema.createRecord("R", null, "com.example", false, List.of(field));
+            var record = new GenericData.Record(schema);
+            record.put("tags", new GenericData.Array<>(arraySchema, List.of("a", "b")));
+
+            var result = SchemaSupport.getArray(record, "tags", Object::toString);
+
+            assertThat((Iterable<String>) result).containsExactly("a", "b");
+        }
+
+        @Test
+        @DisplayName("should return null when field is absent and converter is provided")
+        void shouldReturnNullWhenFieldAbsentWithConverter() {
+            var schema = Schema.createRecord("R", null, "com.example", false, emptyList());
+            var record = new GenericData.Record(schema);
+
+            var result = SchemaSupport.getArray(record, "missing", Object::toString);
+
+            assertThat((Object) result).isNull();
+        }
     }
 }

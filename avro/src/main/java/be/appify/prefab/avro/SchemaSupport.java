@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -407,6 +408,23 @@ public class SchemaSupport {
      */
     public static GenericData.Array<?> getArray(GenericRecord record, String fieldName) {
         return (GenericData.Array<?>) getField(record, fieldName);
+    }
+
+    /**
+     * Reads an array field, applies {@code converter} to each element, and returns the resulting
+     * list, returning {@code null} when the field is absent or its value is null. This eliminates
+     * the boilerplate null-guard and streaming code that would otherwise be duplicated around every
+     * array field converter call.
+     *
+     * @param record    the generic record to read from
+     * @param fieldName the name of the field to retrieve
+     * @param converter the function to apply to each array element
+     * @param <T>       the element type after conversion
+     * @return the converted list, or {@code null} if the field is absent or null
+     */
+    public static <T> List<T> getArray(GenericRecord record, String fieldName, Function<Object, T> converter) {
+        var array = getArray(record, fieldName);
+        return array != null ? array.stream().map(converter).toList() : null;
     }
 
     /**

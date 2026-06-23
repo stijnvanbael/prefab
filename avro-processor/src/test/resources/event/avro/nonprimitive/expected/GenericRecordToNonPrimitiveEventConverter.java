@@ -1,10 +1,8 @@
 package event.avro.infrastructure.avro;
 
+import be.appify.prefab.avro.SchemaSupport;
 import be.appify.prefab.core.service.Reference;
 import event.avro.NonPrimitiveEvent;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.LocalDate;
 import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.stereotype.Component;
@@ -17,13 +15,13 @@ public class GenericRecordToNonPrimitiveEventConverter implements Converter<Gene
     @Override
     public NonPrimitiveEvent convert(GenericRecord genericRecord) {
         return new NonPrimitiveEvent(
-                    genericRecord.get("status") != null ? NonPrimitiveEvent.Status.valueOf(genericRecord.get("status").toString()) : null,
-                    genericRecord.get("timestamp") != null ? Instant.ofEpochMilli((Long) genericRecord.get("timestamp")) : null,
-                    genericRecord.get("date") != null ? LocalDate.ofEpochDay((Integer) genericRecord.get("date")) : null,
-                    genericRecord.get("duration") != null ? Duration.ofMillis((Long) genericRecord.get("duration")) : null,
-                    genericRecord.get("reference") != null ? genericRecord.get("reference") instanceof GenericRecord singleValueRecord
-                        ? new Reference<Object>(singleValueRecord.get("id").toString())
-                        : new Reference<Object>(genericRecord.get("reference").toString()) : null
+                    SchemaSupport.getEnum(genericRecord, "status", NonPrimitiveEvent.Status.class),
+                    SchemaSupport.getInstant(genericRecord, "timestamp"),
+                    SchemaSupport.getLocalDate(genericRecord, "date"),
+                    SchemaSupport.getDuration(genericRecord, "duration"),
+                    SchemaSupport.getField(genericRecord, "reference") != null ? SchemaSupport.getField(genericRecord, "reference") instanceof GenericRecord singleValueRecord
+                        ? new Reference<Object>(SchemaSupport.getField(singleValueRecord, "id").toString())
+                        : new Reference<Object>(SchemaSupport.getField(genericRecord, "reference").toString()) : null
                 );
     }
 }

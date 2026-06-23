@@ -1,5 +1,6 @@
 package event.avro.infrastructure.avro;
 
+import be.appify.prefab.avro.SchemaSupport;
 import event.avro.SingleValuedNestedEvent;
 import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
@@ -17,8 +18,8 @@ public class GenericRecordToSingleValuedNestedEventConverter implements Converte
     @Override
     public SingleValuedNestedEvent convert(GenericRecord genericRecord) {
         return new SingleValuedNestedEvent(
-                    genericRecord.get("id").toString(),
-                    genericRecord.get("outer") != null ? genericRecordToSingleValuedNestedEventOuterConverter.convert((GenericRecord) genericRecord.get("outer")) : null
+                    SchemaSupport.getString(genericRecord, "id"),
+                    SchemaSupport.getRecord(genericRecord, "outer", genericRecordToSingleValuedNestedEventOuterConverter::convert)
                 );
     }
 }

@@ -1,5 +1,6 @@
 package event.avro.infrastructure.avro;
 
+import be.appify.prefab.avro.SchemaSupport;
 import event.avro.DeepNestedRecordEvent;
 import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
@@ -17,8 +18,8 @@ public class GenericRecordToDeepNestedRecordEventOrderConverter implements Conve
     @Override
     public DeepNestedRecordEvent.Order convert(GenericRecord genericRecord) {
         return new DeepNestedRecordEvent.Order(
-                    genericRecord.get("orderId").toString(),
-                    genericRecord.get("shippingAddress") != null ? genericRecordToDeepNestedRecordEventOrderAddressConverter.convert((GenericRecord) genericRecord.get("shippingAddress")) : null
+                    SchemaSupport.getString(genericRecord, "orderId"),
+                    SchemaSupport.getRecord(genericRecord, "shippingAddress", genericRecordToDeepNestedRecordEventOrderAddressConverter::convert)
                 );
     }
 }

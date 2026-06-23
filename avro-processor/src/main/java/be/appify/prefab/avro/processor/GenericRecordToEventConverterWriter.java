@@ -1,6 +1,7 @@
 package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.core.util.Streams;
+import be.appify.prefab.avro.SchemaSupport;
 import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.OutputTarget;
@@ -265,7 +266,7 @@ class GenericRecordToEventConverterWriter {
         var fieldName = field.name();
         var type = field.type();
         if (type.isCustomType()) {
-            var rawValue = CodeBlock.of("genericRecord.get($S)", fieldName);
+            var rawValue = CodeBlock.of("$T.getField(genericRecord, $S)", SchemaSupport.class, fieldName);
             return context.plugins().stream()
                     .map(plugin -> plugin.fromAvroValueOf(type, rawValue))
                     .filter(Optional::isPresent)
@@ -283,14 +284,58 @@ class GenericRecordToEventConverterWriter {
                         return CodeBlock.of("null");
                     });
         }
-        var value = CodeBlock.of("genericRecord.get($S)", fieldName);
-        if (type.is(String.class) && field.nullable()) {
-            return maybeNull(value, CodeBlock.of("$L.toString()", value));
+        if (type.is(String.class)) {
+            return CodeBlock.of("$T.getString(genericRecord, $S)", SchemaSupport.class, fieldName);
         }
+        if (type.is(Instant.class)) {
+            return CodeBlock.of("$T.getInstant(genericRecord, $S)", SchemaSupport.class, fieldName);
+        }
+        if (type.is(LocalDate.class)) {
+            return CodeBlock.of("$T.getLocalDate(genericRecord, $S)", SchemaSupport.class, fieldName);
+        }
+        if (type.is(Duration.class)) {
+            return CodeBlock.of("$T.getDuration(genericRecord, $S)", SchemaSupport.class, fieldName);
+        }
+        if (type.isEnum()) {
+            return CodeBlock.of("$T.getEnum(genericRecord, $S, $T.class)", SchemaSupport.class, fieldName, type.asTypeName());
+        }
+        if (type.is(Integer.class) || type.is(int.class)) {
+            return CodeBlock.of("$T.getInteger(genericRecord, $S)", SchemaSupport.class, fieldName);
+        }
+        if (type.is(Long.class) || type.is(long.class)) {
+            return CodeBlock.of("$T.getLong(genericRecord, $S)", SchemaSupport.class, fieldName);
+        }
+        if (type.is(Double.class) || type.is(double.class)) {
+            return CodeBlock.of("$T.getDouble(genericRecord, $S)", SchemaSupport.class, fieldName);
+        }
+        if (type.is(Float.class) || type.is(float.class)) {
+            return CodeBlock.of("$T.getFloat(genericRecord, $S)", SchemaSupport.class, fieldName);
+        }
+        if (type.is(Boolean.class) || type.is(boolean.class)) {
+            return CodeBlock.of("$T.getBoolean(genericRecord, $S)", SchemaSupport.class, fieldName);
+        }
+        // isAvroUnion must be checked before isSealed (avro unions are also sealed)
         if (isAvroUnion(type)) {
+            var value = CodeBlock.of("$T.getField(genericRecord, $S)", SchemaSupport.class, fieldName);
             var switchExpr = avroToUnionValue(value, type);
             return field.nullable() ? maybeNull(value, switchExpr) : switchExpr;
         }
+        // isSealed must be checked before isNestedRecord (sealed types satisfy isNestedRecord)
+        if (type.isSealed()) {
+            var recordValue = CodeBlock.of("$T.getRecord(genericRecord, $S)", SchemaSupport.class, fieldName);
+            return maybeNull(recordValue, sealedType(recordValue, type));
+        }
+        if (isNestedRecord(type)) {
+            var converterName = "genericRecordTo%sConverter".formatted(type.simpleName().replace(".", ""));
+            return CodeBlock.of("$T.getRecord(genericRecord, $S, $L::convert)", SchemaSupport.class, fieldName, converterName);
+        }
+        if (type.is(List.class)) {
+            var elementType = type.parameters().getFirst();
+            return CodeBlock.of("$T.getArray(genericRecord, $S, item -> $L)",
+                    SchemaSupport.class, fieldName, field(CodeBlock.of("item"), elementType));
+        }
+        // Fallthrough: single-value logical types (Reference etc.) and any other remaining cases
+        var value = CodeBlock.of("$T.getField(genericRecord, $S)", SchemaSupport.class, fieldName);
         return field(value, type);
     }
 
@@ -346,7 +391,7 @@ class GenericRecordToEventConverterWriter {
             return CodeBlock.of("$T.ofMillis((Long) $L)", Duration.class, value);
         } else if (type.isSingleValueType()) {
             var component = type.fields().getFirst();
-            var fromRecord = field(CodeBlock.of("singleValueRecord.get($S)", component.name()), component.type());
+            var fromRecord = field(CodeBlock.of("$T.getField(singleValueRecord, $S)", SchemaSupport.class, component.name()), component.type());
             var fromScalar = field(value, component.type());
             return CodeBlock.of("""
                     $L instanceof $T singleValueRecord

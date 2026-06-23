@@ -1,9 +1,14 @@
 package be.appify.prefab.avro;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import org.apache.avro.LogicalType;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -222,6 +227,204 @@ public class SchemaSupport {
             return Schema.createUnion(types);
         }
         return Schema.createUnion(Schema.create(Schema.Type.NULL), schema);
+    }
+
+    /**
+     * Retrieves the value of a named field from a {@link GenericRecord}, returning {@code null}
+     * when the field is absent from the record's schema.
+     *
+     * <p>Avro schema evolution may add new fields after messages have been produced. Calling
+     * {@code record.get(fieldName)} on a record written with an older schema that does not contain
+     * the field throws an {@link org.apache.avro.AvroRuntimeException}. This method guards against
+     * that by checking for field presence first.</p>
+     *
+     * @param record    the generic record to read from
+     * @param fieldName the name of the field to retrieve
+     * @return the field value, or {@code null} if the field does not exist in the record's schema
+     */
+    public static Object getField(GenericRecord record, String fieldName) {
+        return record.getSchema().getField(fieldName) != null ? record.get(fieldName) : null;
+    }
+
+    /**
+     * Reads a field as a {@link String}, returning {@code null} when the field is absent or its
+     * value is null. Avro stores strings as {@code CharSequence} (typically {@code Utf8}), so
+     * {@code toString()} is called to obtain the Java {@code String}.
+     *
+     * @param record    the generic record to read from
+     * @param fieldName the name of the field to retrieve
+     * @return the field value as a {@code String}, or {@code null}
+     */
+    public static String getString(GenericRecord record, String fieldName) {
+        var value = getField(record, fieldName);
+        return value != null ? value.toString() : null;
+    }
+
+    /**
+     * Reads a field as an {@link Integer}, returning {@code null} when the field is absent.
+     *
+     * @param record    the generic record to read from
+     * @param fieldName the name of the field to retrieve
+     * @return the field value cast to {@code Integer}, or {@code null}
+     */
+    public static Integer getInteger(GenericRecord record, String fieldName) {
+        return (Integer) getField(record, fieldName);
+    }
+
+    /**
+     * Reads a field as a {@link Long}, returning {@code null} when the field is absent.
+     *
+     * @param record    the generic record to read from
+     * @param fieldName the name of the field to retrieve
+     * @return the field value cast to {@code Long}, or {@code null}
+     */
+    public static Long getLong(GenericRecord record, String fieldName) {
+        return (Long) getField(record, fieldName);
+    }
+
+    /**
+     * Reads a field as a {@link Double}, returning {@code null} when the field is absent.
+     *
+     * @param record    the generic record to read from
+     * @param fieldName the name of the field to retrieve
+     * @return the field value cast to {@code Double}, or {@code null}
+     */
+    public static Double getDouble(GenericRecord record, String fieldName) {
+        return (Double) getField(record, fieldName);
+    }
+
+    /**
+     * Reads a field as a {@link Float}, returning {@code null} when the field is absent.
+     *
+     * @param record    the generic record to read from
+     * @param fieldName the name of the field to retrieve
+     * @return the field value cast to {@code Float}, or {@code null}
+     */
+    public static Float getFloat(GenericRecord record, String fieldName) {
+        return (Float) getField(record, fieldName);
+    }
+
+    /**
+     * Reads a field as a {@link Boolean}, returning {@code null} when the field is absent.
+     *
+     * @param record    the generic record to read from
+     * @param fieldName the name of the field to retrieve
+     * @return the field value cast to {@code Boolean}, or {@code null}
+     */
+    public static Boolean getBoolean(GenericRecord record, String fieldName) {
+        return (Boolean) getField(record, fieldName);
+    }
+
+    /**
+     * Reads a {@code long} field stored as milliseconds since the epoch and converts it to an
+     * {@link Instant}, returning {@code null} when the field is absent or its value is null.
+     *
+     * @param record    the generic record to read from
+     * @param fieldName the name of the field to retrieve
+     * @return the field value as an {@code Instant}, or {@code null}
+     */
+    public static Instant getInstant(GenericRecord record, String fieldName) {
+        var millis = getLong(record, fieldName);
+        return millis != null ? Instant.ofEpochMilli(millis) : null;
+    }
+
+    /**
+     * Reads an {@code int} field stored as days since the epoch and converts it to a
+     * {@link LocalDate}, returning {@code null} when the field is absent or its value is null.
+     *
+     * @param record    the generic record to read from
+     * @param fieldName the name of the field to retrieve
+     * @return the field value as a {@code LocalDate}, or {@code null}
+     */
+    public static LocalDate getLocalDate(GenericRecord record, String fieldName) {
+        var epochDay = getInteger(record, fieldName);
+        return epochDay != null ? LocalDate.ofEpochDay(epochDay) : null;
+    }
+
+    /**
+     * Reads a {@code long} field stored as milliseconds and converts it to a {@link Duration},
+     * returning {@code null} when the field is absent or its value is null.
+     *
+     * @param record    the generic record to read from
+     * @param fieldName the name of the field to retrieve
+     * @return the field value as a {@code Duration}, or {@code null}
+     */
+    public static Duration getDuration(GenericRecord record, String fieldName) {
+        var millis = getLong(record, fieldName);
+        return millis != null ? Duration.ofMillis(millis) : null;
+    }
+
+    /**
+     * Reads a nested-record field as a {@link GenericRecord}, returning {@code null} when the
+     * field is absent or its value is null.
+     *
+     * @param record    the generic record to read from
+     * @param fieldName the name of the field to retrieve
+     * @return the field value cast to {@code GenericRecord}, or {@code null}
+     */
+    public static GenericRecord getRecord(GenericRecord record, String fieldName) {
+        return (GenericRecord) getField(record, fieldName);
+    }
+
+    /**
+     * Reads a nested-record field, passes it to {@code converter} and returns the result,
+     * short-circuiting to {@code null} when the field is absent or its value is null. This
+     * eliminates the boilerplate null-guard that would otherwise be duplicated around every
+     * nested-record converter call.
+     *
+     * @param record    the generic record to read from
+     * @param fieldName the name of the field to retrieve
+     * @param converter the function to apply to the nested record when it is present
+     * @param <T>       the converted type
+     * @return the converter result, or {@code null} if the field is absent or null
+     */
+    public static <T> T getRecord(GenericRecord record, String fieldName, Function<GenericRecord, T> converter) {
+        var nested = getRecord(record, fieldName);
+        return nested != null ? converter.apply(nested) : null;
+    }
+
+    /**
+     * Reads an enum field by looking up the Avro symbol name in the given enum class, returning
+     * {@code null} when the field is absent or its value is null.
+     *
+     * @param record    the generic record to read from
+     * @param fieldName the name of the field to retrieve
+     * @param enumClass the enum class to look up the symbol in
+     * @param <E>       the enum type
+     * @return the matching enum constant, or {@code null}
+     */
+    public static <E extends Enum<E>> E getEnum(GenericRecord record, String fieldName, Class<E> enumClass) {
+        var value = getField(record, fieldName);
+        return value != null ? Enum.valueOf(enumClass, value.toString()) : null;
+    }
+
+    /**
+     * Reads an array field as a {@link GenericData.Array}, returning {@code null} when the field
+     * is absent or its value is null.
+     *
+     * @param record    the generic record to read from
+     * @param fieldName the name of the field to retrieve
+     * @return the field value cast to {@code GenericData.Array}, or {@code null}
+     */
+    public static GenericData.Array<?> getArray(GenericRecord record, String fieldName) {
+        return (GenericData.Array<?>) getField(record, fieldName);
+    }
+
+    /**
+     * Reads an array field, applies {@code converter} to each element, and returns the resulting
+     * list, returning {@code null} when the field is absent or its value is null. This eliminates
+     * the boilerplate null-guard and streaming code that would otherwise be duplicated around every
+     * array field converter call.
+     *
+     * @param record    the generic record to read from
+     * @param fieldName the name of the field to retrieve
+     * @param converter the function to apply to each array element
+     * @param <T>       the element type after conversion
+     * @return the converted list, or {@code null} if the field is absent or null
+     */
+    public static <T> List<T> getArray(GenericRecord record, String fieldName, Function<Object, T> converter) {
+        var array = getArray(record, fieldName);
+        return array != null ? array.stream().map(converter).toList() : null;
     }
 
     /**

@@ -1,5 +1,6 @@
 package event.avro.infrastructure.avro;
 
+import be.appify.prefab.avro.SchemaSupport;
 import event.avro.DeepNestedRecordEvent;
 import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
@@ -17,8 +18,8 @@ public class GenericRecordToDeepNestedRecordEventConverter implements Converter<
     @Override
     public DeepNestedRecordEvent convert(GenericRecord genericRecord) {
         return new DeepNestedRecordEvent(
-                    genericRecord.get("id").toString(),
-                    genericRecord.get("order") != null ? genericRecordToDeepNestedRecordEventOrderConverter.convert((GenericRecord) genericRecord.get("order")) : null
+                    SchemaSupport.getString(genericRecord, "id"),
+                    SchemaSupport.getRecord(genericRecord, "order", genericRecordToDeepNestedRecordEventOrderConverter::convert)
                 );
     }
 }

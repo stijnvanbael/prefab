@@ -1,5 +1,6 @@
 package event.avro.infrastructure.avro;
 
+import be.appify.prefab.avro.SchemaSupport;
 import event.avro.InheritEvent;
 import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
@@ -13,8 +14,8 @@ public class GenericRecordToInheritEventConverter implements Converter<GenericRe
     @Override
     public InheritEvent convert(GenericRecord genericRecord) {
         return new InheritEvent(
-                    genericRecord.get("superField").toString(),
-                    genericRecord.get("subField").toString()
+                    SchemaSupport.getField(genericRecord, "superField").toString(),
+                    SchemaSupport.getField(genericRecord, "subField").toString()
                 );
     }
 }

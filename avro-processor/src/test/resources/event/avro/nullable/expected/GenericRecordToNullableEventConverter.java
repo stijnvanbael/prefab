@@ -1,5 +1,6 @@
 package event.avro.infrastructure.avro;
 
+import be.appify.prefab.avro.SchemaSupport;
 import event.avro.NullableEvent;
 import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
@@ -13,9 +14,9 @@ public class GenericRecordToNullableEventConverter implements Converter<GenericR
     @Override
     public NullableEvent convert(GenericRecord genericRecord) {
         return new NullableEvent(
-                    genericRecord.get("id").toString(),
-                    genericRecord.get("name").toString(),
-                    genericRecord.get("description") != null ? genericRecord.get("description").toString() : null
+                    SchemaSupport.getField(genericRecord, "id").toString(),
+                    SchemaSupport.getField(genericRecord, "name").toString(),
+                    SchemaSupport.getField(genericRecord, "description") != null ? SchemaSupport.getField(genericRecord, "description").toString() : null
                 );
     }
 }

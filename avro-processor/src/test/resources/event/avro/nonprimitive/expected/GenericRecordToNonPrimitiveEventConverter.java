@@ -1,5 +1,6 @@
 package event.avro.infrastructure.avro;
 
+import be.appify.prefab.avro.SchemaSupport;
 import be.appify.prefab.core.service.Reference;
 import event.avro.NonPrimitiveEvent;
 import java.time.Duration;
@@ -17,13 +18,13 @@ public class GenericRecordToNonPrimitiveEventConverter implements Converter<Gene
     @Override
     public NonPrimitiveEvent convert(GenericRecord genericRecord) {
         return new NonPrimitiveEvent(
-                    genericRecord.get("status") != null ? NonPrimitiveEvent.Status.valueOf(genericRecord.get("status").toString()) : null,
-                    genericRecord.get("timestamp") != null ? Instant.ofEpochMilli((Long) genericRecord.get("timestamp")) : null,
-                    genericRecord.get("date") != null ? LocalDate.ofEpochDay((Integer) genericRecord.get("date")) : null,
-                    genericRecord.get("duration") != null ? Duration.ofMillis((Long) genericRecord.get("duration")) : null,
-                    genericRecord.get("reference") != null ? genericRecord.get("reference") instanceof GenericRecord singleValueRecord
-                        ? new Reference<Object>(singleValueRecord.get("id").toString())
-                        : new Reference<Object>(genericRecord.get("reference").toString()) : null
+                    SchemaSupport.getField(genericRecord, "status") != null ? NonPrimitiveEvent.Status.valueOf(SchemaSupport.getField(genericRecord, "status").toString()) : null,
+                    SchemaSupport.getField(genericRecord, "timestamp") != null ? Instant.ofEpochMilli((Long) SchemaSupport.getField(genericRecord, "timestamp")) : null,
+                    SchemaSupport.getField(genericRecord, "date") != null ? LocalDate.ofEpochDay((Integer) SchemaSupport.getField(genericRecord, "date")) : null,
+                    SchemaSupport.getField(genericRecord, "duration") != null ? Duration.ofMillis((Long) SchemaSupport.getField(genericRecord, "duration")) : null,
+                    SchemaSupport.getField(genericRecord, "reference") != null ? SchemaSupport.getField(genericRecord, "reference") instanceof GenericRecord singleValueRecord
+                        ? new Reference<Object>(SchemaSupport.getField(singleValueRecord, "id").toString())
+                        : new Reference<Object>(SchemaSupport.getField(genericRecord, "reference").toString()) : null
                 );
     }
 }

@@ -1,6 +1,7 @@
 package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.core.util.Streams;
+import be.appify.prefab.avro.SchemaSupport;
 import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.OutputTarget;
@@ -265,7 +266,7 @@ class GenericRecordToEventConverterWriter {
         var fieldName = field.name();
         var type = field.type();
         if (type.isCustomType()) {
-            var rawValue = CodeBlock.of("genericRecord.get($S)", fieldName);
+            var rawValue = CodeBlock.of("$T.getField(genericRecord, $S)", SchemaSupport.class, fieldName);
             return context.plugins().stream()
                     .map(plugin -> plugin.fromAvroValueOf(type, rawValue))
                     .filter(Optional::isPresent)
@@ -283,7 +284,7 @@ class GenericRecordToEventConverterWriter {
                         return CodeBlock.of("null");
                     });
         }
-        var value = CodeBlock.of("genericRecord.get($S)", fieldName);
+        var value = CodeBlock.of("$T.getField(genericRecord, $S)", SchemaSupport.class, fieldName);
         if (type.is(String.class) && field.nullable()) {
             return maybeNull(value, CodeBlock.of("$L.toString()", value));
         }
@@ -346,7 +347,7 @@ class GenericRecordToEventConverterWriter {
             return CodeBlock.of("$T.ofMillis((Long) $L)", Duration.class, value);
         } else if (type.isSingleValueType()) {
             var component = type.fields().getFirst();
-            var fromRecord = field(CodeBlock.of("singleValueRecord.get($S)", component.name()), component.type());
+            var fromRecord = field(CodeBlock.of("$T.getField(singleValueRecord, $S)", SchemaSupport.class, component.name()), component.type());
             var fromScalar = field(value, component.type());
             return CodeBlock.of("""
                     $L instanceof $T singleValueRecord

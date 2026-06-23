@@ -456,4 +456,49 @@ class SchemaSupportTest {
                     .hasMessageContaining("Schema is not a union and does not have branch");
         }
     }
+
+    @Nested
+    @DisplayName("getField")
+    class GetFieldTest {
+
+        private Schema recordSchema(String... fieldNames) {
+            var fields = java.util.Arrays.stream(fieldNames)
+                    .map(name -> new Schema.Field(name, Schema.create(Schema.Type.STRING)))
+                    .toList();
+            return Schema.createRecord("TestRecord", null, "com.example", false, fields);
+        }
+
+        @Test
+        @DisplayName("should return the field value when the field exists in the schema")
+        void shouldReturnValueWhenFieldExists() {
+            var schema = recordSchema("name");
+            var record = new org.apache.avro.generic.GenericData.Record(schema);
+            record.put("name", "Alice");
+
+            assertThat(SchemaSupport.getField(record, "name")).isEqualTo("Alice");
+        }
+
+        @Test
+        @DisplayName("should return null when the field is not present in the schema")
+        void shouldReturnNullWhenFieldAbsent() {
+            var schema = recordSchema("name");
+            var record = new org.apache.avro.generic.GenericData.Record(schema);
+            record.put("name", "Alice");
+
+            assertThat(SchemaSupport.getField(record, "addedLater")).isNull();
+        }
+
+        @Test
+        @DisplayName("should return null when the field value is explicitly null")
+        void shouldReturnNullWhenFieldValueIsNull() {
+            var nullableField = new Schema.Field("description",
+                    Schema.createUnion(Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.STRING)),
+                    null, Schema.Field.NULL_DEFAULT_VALUE);
+            var schema = Schema.createRecord("TestRecord", null, "com.example", false, List.of(nullableField));
+            var record = new org.apache.avro.generic.GenericData.Record(schema);
+            record.put("description", null);
+
+            assertThat(SchemaSupport.getField(record, "description")).isNull();
+        }
+    }
 }

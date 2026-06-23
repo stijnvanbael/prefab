@@ -1,5 +1,6 @@
 package event.avro.infrastructure.avro;
 
+import be.appify.prefab.avro.SchemaSupport;
 import be.appify.prefab.core.util.Streams;
 import event.avro.ArrayFieldEvent;
 import org.apache.avro.generic.GenericData;
@@ -19,10 +20,10 @@ public class GenericRecordToArrayFieldEventConverter implements Converter<Generi
     @Override
     public ArrayFieldEvent convert(GenericRecord genericRecord) {
         return new ArrayFieldEvent(
-                    genericRecord.get("tags") != null ? Streams.stream(((GenericData.Array<?>) genericRecord.get("tags")).iterator())
+                    SchemaSupport.getField(genericRecord, "tags") != null ? Streams.stream(((GenericData.Array<?>) SchemaSupport.getField(genericRecord, "tags")).iterator())
                         .map(item -> item.toString())
                         .toList() : null,
-                    genericRecord.get("lines") != null ? Streams.stream(((GenericData.Array<?>) genericRecord.get("lines")).iterator())
+                    SchemaSupport.getField(genericRecord, "lines") != null ? Streams.stream(((GenericData.Array<?>) SchemaSupport.getField(genericRecord, "lines")).iterator())
                         .map(item -> item != null ? genericRecordToArrayFieldEventSaleLineConverter.convert((GenericRecord) item) : null)
                         .toList() : null
                 );

@@ -1,5 +1,6 @@
 package event.avro.infrastructure.avro;
 
+import be.appify.prefab.avro.SchemaSupport;
 import event.avro.HierarchyEvent;
 import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
@@ -13,8 +14,8 @@ public class GenericRecordToHierarchyEventUpdatedConverter implements Converter<
     @Override
     public HierarchyEvent.Updated convert(GenericRecord genericRecord) {
         return new HierarchyEvent.Updated(
-                    genericRecord.get("id").toString(),
-                    genericRecord.get("name").toString()
+                    SchemaSupport.getField(genericRecord, "id").toString(),
+                    SchemaSupport.getField(genericRecord, "name").toString()
                 );
     }
 }

@@ -225,6 +225,23 @@ public class SchemaSupport {
     }
 
     /**
+     * Retrieves the value of a named field from a {@link GenericRecord}, returning {@code null}
+     * when the field is absent from the record's schema.
+     *
+     * <p>Avro schema evolution may add new fields after messages have been produced. Calling
+     * {@code record.get(fieldName)} on a record written with an older schema that does not contain
+     * the field throws an {@link org.apache.avro.AvroRuntimeException}. This method guards against
+     * that by checking for field presence first.</p>
+     *
+     * @param record    the generic record to read from
+     * @param fieldName the name of the field to retrieve
+     * @return the field value, or {@code null} if the field does not exist in the record's schema
+     */
+    public static Object getField(GenericRecord record, String fieldName) {
+        return record.getSchema().getField(fieldName) != null ? record.get(fieldName) : null;
+    }
+
+    /**
      * Resolves a named branch from a union schema.
      *
      * @param unionSchema the union schema to inspect

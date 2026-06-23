@@ -1,5 +1,6 @@
 package event.avro.infrastructure.avro;
 
+import be.appify.prefab.avro.SchemaSupport;
 import event.avro.NestedRecordEvent;
 import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
@@ -13,8 +14,8 @@ public class GenericRecordToNestedRecordEventMoneyConverter implements Converter
     @Override
     public NestedRecordEvent.Money convert(GenericRecord genericRecord) {
         return new NestedRecordEvent.Money(
-                    genericRecord.get("currency").toString(),
-                    (Double) genericRecord.get("amount")
+                    SchemaSupport.getField(genericRecord, "currency").toString(),
+                    (Double) SchemaSupport.getField(genericRecord, "amount")
                 );
     }
 }

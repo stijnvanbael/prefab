@@ -4,9 +4,15 @@ import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.streams.StreamProcessorContext;
 import be.appify.prefab.streams.StreamRecord;
+
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
+import java.util.function.Consumer;
+
 import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.header.internals.RecordHeaders;
+import org.apache.kafka.streams.processor.PunctuationType;
 import org.apache.kafka.streams.processor.api.ProcessorContext;
 import org.apache.kafka.streams.processor.api.Record;
 
@@ -27,6 +33,11 @@ public class KafkaPrefabProcessorContext<K extends Key<K>, V extends Keyed<K>> i
                 streamRecord.timestamp().toEpochMilli(),
                 toHeaders(streamRecord.headers())
         ));
+    }
+
+    @Override
+    public void schedule(Duration interval, Consumer<Instant> task) {
+        context.schedule(interval, PunctuationType.WALL_CLOCK_TIME, (timestamp) -> task.accept(Instant.ofEpochMilli(timestamp)));
     }
 
     public ProcessorContext<K, V> kafkaContext() {

@@ -6,6 +6,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.stream.Stream;
+
+import com.google.testing.compile.Compilation;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -18,14 +20,17 @@ import static com.google.testing.compile.Compiler.javac;
 
 class SerializationPluginTest {
 
+    public static final Compilation multipackageCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(
+                    sourceOf("event/serialization/multipackage/source/order/OrderCreated.java"),
+                    sourceOf("event/serialization/multipackage/source/payment/PaymentProcessed.java")
+            );
+
     @Test
     void singlePackageEventGeneratesOneRegistrar() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("event/serialization/multipackage/source/order/OrderCreated.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(multipackageCompilation).succeeded();
+        assertThat(multipackageCompilation)
                 .generatedSourceFile(
                         "event.serialization.multipackage.order.infrastructure.event.OrderCreatedEventTypeRegistrar")
                 .contentsAsUtf8String()
@@ -34,20 +39,13 @@ class SerializationPluginTest {
 
     @Test
     void multiPackageEventsGenerateOneRegistrarPerType() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/serialization/multipackage/source/order/OrderCreated.java"),
-                        sourceOf("event/serialization/multipackage/source/payment/PaymentProcessed.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(multipackageCompilation).succeeded();
+        assertThat(multipackageCompilation)
                 .generatedSourceFile(
                         "event.serialization.multipackage.order.infrastructure.event.OrderCreatedEventTypeRegistrar")
                 .contentsAsUtf8String()
                 .contains("order-created");
-        assertThat(compilation)
+        assertThat(multipackageCompilation)
                 .generatedSourceFile(
                         "event.serialization.multipackage.payment.infrastructure.event.PaymentProcessedEventTypeRegistrar")
                 .contentsAsUtf8String()
@@ -56,20 +54,13 @@ class SerializationPluginTest {
 
     @Test
     void multiPackageEventsUseClassNameDerivedFromType() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("event/serialization/multipackage/source/order/OrderCreated.java"),
-                        sourceOf("event/serialization/multipackage/source/payment/PaymentProcessed.java")
-                );
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(multipackageCompilation).succeeded();
+        assertThat(multipackageCompilation)
                 .generatedSourceFile(
                         "event.serialization.multipackage.order.infrastructure.event.OrderCreatedEventTypeRegistrar")
                 .contentsAsUtf8String()
                 .contains("OrderCreatedEventTypeRegistrar");
-        assertThat(compilation)
+        assertThat(multipackageCompilation)
                 .generatedSourceFile(
                         "event.serialization.multipackage.payment.infrastructure.event.PaymentProcessedEventTypeRegistrar")
                 .contentsAsUtf8String()

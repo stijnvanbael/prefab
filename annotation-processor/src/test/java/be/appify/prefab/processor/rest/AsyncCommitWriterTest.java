@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.rest;
 
 import be.appify.prefab.processor.PrefabProcessor;
+import com.google.testing.compile.Compilation;
 import org.junit.jupiter.api.Test;
 
 import javax.tools.StandardLocation;
@@ -12,22 +13,36 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AsyncCommitWriterTest {
 
+    public static final Compilation asyncCreateOrderCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("rest/asynccreate/source/Order.java"));
+    public static final Compilation asyncMultipleCreateOrderCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("rest/asyncmultiplecreate/source/Order.java"));
+    public static final Compilation asyncCreateWithParentCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(
+                    sourceOf("rest/asynccreatewithparent/source/Project.java"),
+                    sourceOf("rest/asynccreatewithparent/source/Task.java"));
+    public static final Compilation asyncUpdateOrderCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("rest/asyncupdate/source/Order.java"));
+    public static final Compilation asyncPathVariableTicketCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("rest/asyncpathvariable/source/Ticket.java"));
+
     @Test
     void asyncCreateGenerates202AndCallsFactory() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/asynccreate/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(asyncCreateOrderCompilation).succeeded();
+        assertThat(asyncCreateOrderCompilation)
                 .generatedSourceFile("rest.asynccreate.infrastructure.http.OrderController")
                 .contentsAsUtf8String()
                 .contains("accepted()");
-        assertThat(compilation)
+        assertThat(asyncCreateOrderCompilation)
                 .generatedSourceFile("rest.asynccreate.application.OrderService")
                 .contentsAsUtf8String()
                 .doesNotContain("DomainEventPublisher");
-        assertThat(compilation)
+        assertThat(asyncCreateOrderCompilation)
                 .generatedSourceFile("rest.asynccreate.application.OrderService")
                 .contentsAsUtf8String()
                 .contains("placeOrder");
@@ -35,24 +50,16 @@ class AsyncCommitWriterTest {
 
     @Test
     void asyncCreateGeneratesRequestRecord() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/asynccreate/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(asyncCreateOrderCompilation).succeeded();
+        assertThat(asyncCreateOrderCompilation)
                 .generatedSourceFile("rest.asynccreate.application.PlaceOrderRequest")
                 .isNotNull();
     }
 
     @Test
     void asyncCreateServiceReturnsVoid() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/asynccreate/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(asyncCreateOrderCompilation).succeeded();
+        assertThat(asyncCreateOrderCompilation)
                 .generatedSourceFile("rest.asynccreate.application.OrderService")
                 .contentsAsUtf8String()
                 .contains("void placeOrder(");
@@ -60,24 +67,20 @@ class AsyncCommitWriterTest {
 
     @Test
     void multipleAsyncCreateFactoriesGenerateOneMethodEach() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/asyncmultiplecreate/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(asyncMultipleCreateOrderCompilation).succeeded();
+        assertThat(asyncMultipleCreateOrderCompilation)
                 .generatedSourceFile("rest.asyncmultiplecreate.infrastructure.http.OrderController")
                 .contentsAsUtf8String()
                 .contains("placeOrder(");
-        assertThat(compilation)
+        assertThat(asyncMultipleCreateOrderCompilation)
                 .generatedSourceFile("rest.asyncmultiplecreate.infrastructure.http.OrderController")
                 .contentsAsUtf8String()
                 .contains("quickOrder(");
-        assertThat(compilation)
+        assertThat(asyncMultipleCreateOrderCompilation)
                 .generatedSourceFile("rest.asyncmultiplecreate.application.OrderService")
                 .contentsAsUtf8String()
                 .contains("void placeOrder(");
-        assertThat(compilation)
+        assertThat(asyncMultipleCreateOrderCompilation)
                 .generatedSourceFile("rest.asyncmultiplecreate.application.OrderService")
                 .contentsAsUtf8String()
                 .contains("void quickOrder(");
@@ -85,31 +88,23 @@ class AsyncCommitWriterTest {
 
     @Test
     void multipleAsyncCreateFactoriesGenerateOneRequestRecordEach() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/asyncmultiplecreate/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(asyncMultipleCreateOrderCompilation).succeeded();
+        assertThat(asyncMultipleCreateOrderCompilation)
                 .generatedSourceFile("rest.asyncmultiplecreate.application.PlaceOrderRequest")
                 .isNotNull();
-        assertThat(compilation)
+        assertThat(asyncMultipleCreateOrderCompilation)
                 .generatedSourceFile("rest.asyncmultiplecreate.application.QuickOrderRequest")
                 .isNotNull();
     }
 
     @Test
     void multipleAsyncCreateFactoriesGenerateAllMethodsInTestClient() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/asyncmultiplecreate/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(asyncMultipleCreateOrderCompilation).succeeded();
+        assertThat(asyncMultipleCreateOrderCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "rest/asyncmultiplecreate/OrderClient.java")
                 .contentsAsUtf8String()
                 .contains("void placeOrder(");
-        assertThat(compilation)
+        assertThat(asyncMultipleCreateOrderCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "rest/asyncmultiplecreate/OrderClient.java")
                 .contentsAsUtf8String()
                 .contains("void quickOrder(");
@@ -173,18 +168,12 @@ class AsyncCommitWriterTest {
 
     @Test
     void asyncCreateWithParentAddsPathVariableToController() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("rest/asynccreatewithparent/source/Project.java"),
-                        sourceOf("rest/asynccreatewithparent/source/Task.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(asyncCreateWithParentCompilation).succeeded();
+        assertThat(asyncCreateWithParentCompilation)
                 .generatedSourceFile("rest.asynccreatewithparent.infrastructure.http.TaskController")
                 .contentsAsUtf8String()
                 .contains("@PathVariable");
-        assertThat(compilation)
+        assertThat(asyncCreateWithParentCompilation)
                 .generatedSourceFile("rest.asynccreatewithparent.infrastructure.http.TaskController")
                 .contentsAsUtf8String()
                 .contains("String projectId");
@@ -192,18 +181,12 @@ class AsyncCommitWriterTest {
 
     @Test
     void asyncCreateWithParentPassesParentIdToService() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(
-                        sourceOf("rest/asynccreatewithparent/source/Project.java"),
-                        sourceOf("rest/asynccreatewithparent/source/Task.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(asyncCreateWithParentCompilation).succeeded();
+        assertThat(asyncCreateWithParentCompilation)
                 .generatedSourceFile("rest.asynccreatewithparent.application.TaskService")
                 .contentsAsUtf8String()
                 .contains("String projectId");
-        assertThat(compilation)
+        assertThat(asyncCreateWithParentCompilation)
                 .generatedSourceFile("rest.asynccreatewithparent.application.TaskService")
                 .contentsAsUtf8String()
                 .contains("new Reference<>(projectId)");
@@ -231,16 +214,12 @@ class AsyncCommitWriterTest {
 
     @Test
     void asyncUpdateGenerates202AndDoesNotSave() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/asyncupdate/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(asyncUpdateOrderCompilation).succeeded();
+        assertThat(asyncUpdateOrderCompilation)
                 .generatedSourceFile("rest.asyncupdate.infrastructure.http.OrderController")
                 .contentsAsUtf8String()
                 .contains("accepted()");
-        assertThat(compilation)
+        assertThat(asyncUpdateOrderCompilation)
                 .generatedSourceFile("rest.asyncupdate.application.OrderService")
                 .contentsAsUtf8String()
                 .doesNotContain("orderRepository.save");
@@ -248,12 +227,8 @@ class AsyncCommitWriterTest {
 
     @Test
     void asyncUpdateReturns404WhenAggregateNotFound() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/asyncupdate/source/Order.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(asyncUpdateOrderCompilation).succeeded();
+        assertThat(asyncUpdateOrderCompilation)
                 .generatedSourceFile("rest.asyncupdate.infrastructure.http.OrderController")
                 .contentsAsUtf8String()
                 .contains("notFound()");
@@ -274,16 +249,12 @@ class AsyncCommitWriterTest {
 
     @Test
     void asyncCreatePathVariableIsExcludedFromRequestRecord() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/asyncpathvariable/source/Ticket.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(asyncPathVariableTicketCompilation).succeeded();
+        assertThat(asyncPathVariableTicketCompilation)
                 .generatedSourceFile("rest.asyncpathvariable.application.OpenRequest")
                 .contentsAsUtf8String()
                 .doesNotContain("String queue");
-        assertThat(compilation)
+        assertThat(asyncPathVariableTicketCompilation)
                 .generatedSourceFile("rest.asyncpathvariable.application.OpenRequest")
                 .contentsAsUtf8String()
                 .contains("String subject");
@@ -291,16 +262,12 @@ class AsyncCommitWriterTest {
 
     @Test
     void asyncCreatePathVariableIsPassedDirectlyToFactory() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/asyncpathvariable/source/Ticket.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(asyncPathVariableTicketCompilation).succeeded();
+        assertThat(asyncPathVariableTicketCompilation)
                 .generatedSourceFile("rest.asyncpathvariable.application.TicketService")
                 .contentsAsUtf8String()
                 .contains("String queue");
-        assertThat(compilation)
+        assertThat(asyncPathVariableTicketCompilation)
                 .generatedSourceFile("rest.asyncpathvariable.application.TicketService")
                 .contentsAsUtf8String()
                 .contains("Ticket.open(queue, request.subject())");
@@ -308,12 +275,8 @@ class AsyncCommitWriterTest {
 
     @Test
     void asyncUpdatePathVariableIsExcludedFromRequestRecord() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/asyncpathvariable/source/Ticket.java"));
-
-        assertThat(compilation).succeeded();
-        var unexpectedFiles = compilation.generatedSourceFiles().stream()
+        assertThat(asyncPathVariableTicketCompilation).succeeded();
+        var unexpectedFiles = asyncPathVariableTicketCompilation.generatedSourceFiles().stream()
                 .map(javax.tools.JavaFileObject::getName)
                 .filter(name -> name.contains("TicketTransitionRequest"))
                 .toList();
@@ -323,12 +286,8 @@ class AsyncCommitWriterTest {
 
     @Test
     void asyncCreatePathVariableIsPassedFromControllerToService() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/asyncpathvariable/source/Ticket.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(asyncPathVariableTicketCompilation).succeeded();
+        assertThat(asyncPathVariableTicketCompilation)
                 .generatedSourceFile("rest.asyncpathvariable.infrastructure.http.TicketController")
                 .contentsAsUtf8String()
                 .contains("service.open(queue, request)");
@@ -336,12 +295,8 @@ class AsyncCommitWriterTest {
 
     @Test
     void asyncUpdatePathVariableIsPassedFromControllerToService() {
-        var compilation = javac()
-                .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/asyncpathvariable/source/Ticket.java"));
-
-        assertThat(compilation).succeeded();
-        assertThat(compilation)
+        assertThat(asyncPathVariableTicketCompilation).succeeded();
+        assertThat(asyncPathVariableTicketCompilation)
                 .generatedSourceFile("rest.asyncpathvariable.infrastructure.http.TicketController")
                 .contentsAsUtf8String()
                 .contains("service.transition(id, status)");

@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "name": "CrossEventA",
+  "namespace": "event.avsc.crossincompatible",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {
+      "name": "address",
+      "type": {
+        "type": "record",
+        "name": "Address",
+        "namespace": "event.avsc.crossincompatible",
+        "fields": [
+          {"name": "street", "type": "string"}
+        ]
+      }
+    }
+  ]
+}
+

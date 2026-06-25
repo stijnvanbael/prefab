@@ -34,11 +34,12 @@ public class AvscPlugin implements PrefabPlugin {
 
     @Override
     public void writeEventFiles() {
+        var registry = new AvscRecordRegistry(context.processingEnvironment());
         context.avscElementsFromCurrentCompilation()
-                .forEach(element -> processElement(element, element.getAnnotation(Avsc.class)));
+                .forEach(element -> processElement(element, element.getAnnotation(Avsc.class), registry));
     }
 
-    private void processElement(Element element, Avsc annotation) {
+    private void processElement(Element element, Avsc annotation, AvscRecordRegistry registry) {
         var eventAnnotation = element.getAnnotation(Event.class);
         if (eventAnnotation == null) {
             context.processingEnvironment().getMessager().printMessage(
@@ -69,6 +70,7 @@ public class AvscPlugin implements PrefabPlugin {
                         element);
                 continue;
             }
+            registry.registerAll(path, schema, element);
             writer.writeAll(schema, eventAnnotation.topic(), eventAnnotation.platform(), contractPackage, contractInterface, generateAnnotationSpecs);
         }
     }

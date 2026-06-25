@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "name": "CrossEventD",
+  "namespace": "event.avsc.crossdocwarning",
+  "fields": [
+    {"name": "reference", "type": "string"},
+    {
+      "name": "shared",
+      "type": {
+        "type": "record",
+        "name": "Shared",
+        "namespace": "event.avsc.crossdocwarning",
+        "fields": [
+          {"name": "code", "type": "string", "doc": "Second description"}
+        ]
+      }
+    }
+  ]
+}
+

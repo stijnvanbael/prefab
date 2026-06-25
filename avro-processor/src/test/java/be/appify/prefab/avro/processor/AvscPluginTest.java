@@ -579,6 +579,30 @@ class AvscPluginTest {
                 .contains("implements LowercaseAvsc");
     }
 
+    @Test
+    void crossAvscBinaryIncompatibleNestedRecordFailsCompilation() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/crossincompatible/source/CrossIncompatibleAvsc.java"));
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("event.avsc.crossincompatible.Address");
+        assertThat(compilation).hadErrorContaining("CrossEventA.avsc");
+        assertThat(compilation).hadErrorContaining("CrossEventB.avsc");
+        assertThat(compilation).hadErrorContaining("not binary-compatible");
+    }
+
+    @Test
+    void crossAvscBinaryCompatibleRecordWithDifferentDocEmitsWarning() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/crossdocwarning/source/CrossDocWarningAvsc.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation).hadWarningContaining("event.avsc.crossdocwarning.Shared");
+        assertThat(compilation).hadWarningContaining("code");
+        assertThat(compilation).hadWarningContaining("CrossEventC.avsc");
+        assertThat(compilation).hadWarningContaining("CrossEventD.avsc");
+    }
+
     private static void deleteRecursively(Path root) {
         if (root == null || !Files.exists(root)) {
             return;

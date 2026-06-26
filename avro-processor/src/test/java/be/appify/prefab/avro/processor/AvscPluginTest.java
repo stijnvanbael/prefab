@@ -667,4 +667,79 @@ class AvscPluginTest {
                 .contentsAsUtf8String()
                 .contains("enabled = false");
     }
+
+    // -------------------------------------------------------------------------
+    // Schema-contract validation: compact-constructor checks (TASK-257)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void compactConstructorContainsRequireNonNullForNonNullableFields() {
+        assertThat(nullableCompilation).succeeded();
+        var source = assertThat(nullableCompilation)
+                .generatedSourceFile("event.avsc.NullableAvscEvent")
+                .contentsAsUtf8String();
+        // Non-nullable string fields must have null guards
+        source.contains("requireNonNull(id, \"id\")");
+        source.contains("requireNonNull(name, \"name\")");
+        // Nullable field must NOT have a null guard
+        source.doesNotContain("requireNonNull(description");
+    }
+
+    @Test
+    void compactConstructorOmitsRequireNonNullForPrimitiveFields() {
+        assertThat(simpleCompilation).succeeded();
+        var source = assertThat(simpleCompilation)
+                .generatedSourceFile("event.avsc.SimpleAvscEvent")
+                .contentsAsUtf8String();
+        // String field must have a null guard
+        source.contains("requireNonNull(name, \"name\")");
+        // Primitive fields (int, double, boolean) must NOT have null guards
+        source.doesNotContain("requireNonNull(age");
+        source.doesNotContain("requireNonNull(score");
+        source.doesNotContain("requireNonNull(active");
+    }
+
+    @Test
+    void compactConstructorContainsListCopyOfForArrayField() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/array/source/ArrayAvsc.java"));
+        assertThat(compilation).succeeded();
+        var source = assertThat(compilation)
+                .generatedSourceFile("event.avsc.ArrayAvscEvent")
+                .contentsAsUtf8String();
+        // Non-nullable list field must have a requireNonNull followed by List.copyOf
+        source.contains("requireNonNull(tags, \"tags\")");
+        source.contains("List.copyOf(tags)");
+    }
+
+    @Test
+    void compactConstructorContainsRequireNonNullForReferenceTypedUnionBranchValue() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/scalarunion/source/ScalarUnionAvsc.java"));
+        assertThat(compilation).succeeded();
+        // String branch wrapper: reference type — must guard its value
+        assertThat(compilation).generatedSourceFile("event.avsc.scalarunion.ExactValueString")
+                .contentsAsUtf8String()
+                .contains("requireNonNull(value, \"value\")");
+        // Double branch wrapper: primitive type — must NOT guard its value
+        assertThat(compilation).generatedSourceFile("event.avsc.scalarunion.ExactValueDouble")
+                .contentsAsUtf8String()
+                .doesNotContain("requireNonNull(value");
+    }
+
+    @Test
+    void compactConstructorContainsGuardedListCopyOfForNullableArrayField() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf(
+                        "event/avsc/nullablearraynestedsinglevaluedrecord/source/NullableArrayNestedSingleValuedRecordAvsc.java"));
+        assertThat(compilation).succeeded();
+        // Non-nullable array field on top-level record must use List.copyOf unconditionally
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.NullableArrayNestedSingleValuedRecordAvscEvent")
+                .contentsAsUtf8String()
+                .contains("List.copyOf(toegangspuntList)");
+    }
 }

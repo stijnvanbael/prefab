@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Modifier;
@@ -140,7 +141,7 @@ class AvscEventWriter {
                     var recordType = ClassName.get(schemaPackage, typeName);
                     var builder = TypeSpec.recordBuilder(typeName)
                             .addModifiers(Modifier.PUBLIC)
-                            .recordConstructor(MethodSpec.compactConstructorBuilder().addParameters(fields).build())
+                            .recordConstructor(buildCompactConstructor(fields))
                             .addAnnotation(buildEventAnnotation(topics, platform))
                             .addSuperinterface(contractInterface);
                     generateAnnotations.forEach(builder::addAnnotation);
@@ -161,7 +162,7 @@ class AvscEventWriter {
                     var recordType = ClassName.get(defaultPackage, typeName);
                     var builder = TypeSpec.recordBuilder(typeName)
                             .addModifiers(Modifier.PUBLIC)
-                            .recordConstructor(MethodSpec.compactConstructorBuilder().addParameters(fields).build());
+                            .recordConstructor(buildCompactConstructor(fields));
                     docOf(schema).ifPresent(doc -> builder.addAnnotation(docAnnotation(doc)));
                     avroSchemaAnnotation(schema).ifPresent(builder::addAnnotation);
                     new BuilderWriter(builderSetterPrefix()).enrichWithBuilder(
@@ -337,13 +338,62 @@ class AvscEventWriter {
     }
 
     private TypeSpec buildUnionBranchRecord(String branchName, TypeName valueType, ClassName sealedInterface) {
+        var valueParam = ParameterSpec.builder(valueType, "value").build();
+        var ctor = MethodSpec.compactConstructorBuilder()
+                .addModifiers(Modifier.PUBLIC)
+                .addParameter(valueParam);
+        if (!valueType.isPrimitive()) {
+            ctor.addStatement("$T.requireNonNull(value, $S)", Objects.class, "value");
+        }
+        if (isListField(valueType)) {
+            ctor.addStatement("value = $T.copyOf(value)", List.class);
+        }
         return TypeSpec.recordBuilder(branchName)
                 .addModifiers(Modifier.PUBLIC)
                 .addSuperinterface(sealedInterface)
-                .recordConstructor(MethodSpec.compactConstructorBuilder()
-                        .addParameter(ParameterSpec.builder(valueType, "value").build())
-                        .build())
+                .recordConstructor(ctor.build())
                 .build();
+    }
+
+    /**
+     * Builds a compact constructor that enforces schema-contract invariants:
+     * <ul>
+     *   <li>{@code Objects.requireNonNull} for every non-primitive, non-nullable field</li>
+     *   <li>{@code List.copyOf} for every list field (non-nullable inline; null-guarded when nullable)</li>
+     * </ul>
+     */
+    private MethodSpec buildCompactConstructor(List<ParameterSpec> fields) {
+        var ctor = MethodSpec.compactConstructorBuilder()
+                .addModifiers(Modifier.PUBLIC)
+                .addParameters(fields);
+        fields.forEach(f -> emitFieldValidation(ctor, f));
+        return ctor.build();
+    }
+
+    private void emitFieldValidation(MethodSpec.Builder ctor, ParameterSpec field) {
+        var nullable = isNullableField(field);
+        var list = isListField(field.type());
+        if (!nullable && !field.type().isPrimitive()) {
+            ctor.addStatement("$T.requireNonNull($L, $S)", Objects.class, field.name(), field.name());
+        }
+        if (list) {
+            if (nullable) {
+                ctor.beginControlFlow("if ($L != null)", field.name())
+                        .addStatement("$L = $T.copyOf($L)", field.name(), List.class, field.name())
+                        .endControlFlow();
+            } else {
+                ctor.addStatement("$L = $T.copyOf($L)", field.name(), List.class, field.name());
+            }
+        }
+    }
+
+    private static boolean isNullableField(ParameterSpec field) {
+        var nullableType = ClassName.get(Nullable.class);
+        return field.annotations().stream().anyMatch(a -> a.type().equals(nullableType));
+    }
+
+    private static boolean isListField(TypeName type) {
+        return type instanceof ParameterizedTypeName p && p.rawType().equals(ClassName.get(List.class));
     }
 
     /**

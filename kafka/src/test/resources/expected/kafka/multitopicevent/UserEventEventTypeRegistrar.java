@@ -7,7 +7,7 @@ import kafka.multitopicevent.UserEvent;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-@Component
+@Component("kafka_multitopicevent_UserEventEventTypeRegistrar")
 public class UserEventEventTypeRegistrar implements EventRegistryCustomizer {
     private final String userEventTopic0;
 

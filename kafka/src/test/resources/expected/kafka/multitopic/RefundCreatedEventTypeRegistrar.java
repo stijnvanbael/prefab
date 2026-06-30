@@ -5,7 +5,7 @@ import be.appify.prefab.core.kafka.EventRegistryCustomizer;
 import kafka.multitopic.Refund;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-@Component
+@Component("kafka_multitopic_RefundCreatedEventTypeRegistrar")
 public class RefundCreatedEventTypeRegistrar implements EventRegistryCustomizer {
     private final String refundCreatedTopic;
     public RefundCreatedEventTypeRegistrar(

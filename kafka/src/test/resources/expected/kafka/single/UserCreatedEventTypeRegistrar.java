@@ -4,7 +4,7 @@ import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.kafka.EventRegistryCustomizer;
 import kafka.single.UserCreated;
 import org.springframework.stereotype.Component;
-@Component
+@Component("kafka_single_UserCreatedEventTypeRegistrar")
 public class UserCreatedEventTypeRegistrar implements EventRegistryCustomizer {
     @Override
     public void customize(EventRegistry registry) {

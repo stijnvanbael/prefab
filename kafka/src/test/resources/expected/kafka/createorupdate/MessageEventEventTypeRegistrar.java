@@ -5,7 +5,7 @@ import be.appify.prefab.core.kafka.EventRegistryCustomizer;
 import kafka.createorupdate.MessageEvent;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-@Component
+@Component("kafka_createorupdate_MessageEventEventTypeRegistrar")
 public class MessageEventEventTypeRegistrar implements EventRegistryCustomizer {
     private final String messageEventTopic;
     public MessageEventEventTypeRegistrar(

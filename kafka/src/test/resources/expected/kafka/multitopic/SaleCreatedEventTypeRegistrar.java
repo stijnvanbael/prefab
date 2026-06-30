@@ -5,7 +5,7 @@ import be.appify.prefab.core.kafka.EventRegistryCustomizer;
 import kafka.multitopic.Sale;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-@Component
+@Component("kafka_multitopic_SaleCreatedEventTypeRegistrar")
 public class SaleCreatedEventTypeRegistrar implements EventRegistryCustomizer {
     private final String saleCreatedTopic;
     public SaleCreatedEventTypeRegistrar(

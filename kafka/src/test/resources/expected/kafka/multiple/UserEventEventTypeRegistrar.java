@@ -5,7 +5,7 @@ import be.appify.prefab.core.kafka.EventRegistryCustomizer;
 import kafka.multiple.UserEvent;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-@Component
+@Component("kafka_multiple_UserEventEventTypeRegistrar")
 public class UserEventEventTypeRegistrar implements EventRegistryCustomizer {
     private final String userEventTopic;
     public UserEventEventTypeRegistrar(

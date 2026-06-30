@@ -8,7 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import sns.publishtoall.UserEvent;
 
-@Component
+@Component("sns_publishtoall_UserEventEventTypeRegistrar")
 public class UserEventEventTypeRegistrar implements EventRegistryCustomizer {
     private final String userEventTopic0;
 

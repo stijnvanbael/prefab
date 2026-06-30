@@ -54,7 +54,7 @@ public class EventTypeRegistrarWriter {
                 .orElseThrow();
         var simpleName = event.simpleName().replace(".", "");
         var name = registrarName(simpleName);
-        var type = buildRegistrarType(name, annotation.topic(), annotation.serialization(),
+        var type = buildRegistrarType(event.packageName(), name, annotation.topic(), annotation.serialization(),
                 annotation.publishTo(), simpleName, event.asTypeName(), keyField(event, context));
         fileOutput.writeFile(event.packageName(), name, type);
     }
@@ -69,17 +69,18 @@ public class EventTypeRegistrarWriter {
      */
     public void writeAvscRegistrar(String packageName, ClassName eventType, String[] topics, PublishTo publishTo) {
         var name = registrarName(eventType.simpleName());
-        var type = buildRegistrarType(name, topics, Event.Serialization.AVRO,
+        var type = buildRegistrarType(packageName, name, topics, Event.Serialization.AVRO,
                 publishTo, eventType.simpleName(), eventType, Optional.empty());
         fileOutput.writeFile(packageName, name, type);
     }
 
-    private TypeSpec buildRegistrarType(String name, String[] topics, Event.Serialization serialization,
+    private TypeSpec buildRegistrarType(String packageName, String name, String[] topics,
+                                        Event.Serialization serialization,
                                         PublishTo publishTo, String simpleName, TypeName eventTypeName,
                                         Optional<CodeBlock> keyExtractor) {
         var typeBuilder = TypeSpec.classBuilder(name)
                 .addModifiers(Modifier.PUBLIC)
-                .addAnnotation(Component.class)
+                .addAnnotation(componentAnnotation(packageName, name))
                 .addSuperinterface(EventRegistryCustomizer.class);
 
         var placeholderTopics = Arrays.stream(topics)
@@ -159,6 +160,20 @@ public class EventTypeRegistrarWriter {
 
     private static String registrarName(String simpleName) {
         return "%sEventTypeRegistrar".formatted(simpleName);
+    }
+
+    /**
+     * Builds a {@code @Component} annotation whose value is a fully qualified bean name derived from
+     * the event's package and the generated class name.  This prevents Spring context conflicts when
+     * multiple events share the same simple name but live in different packages.
+     *
+     * <p>Example: package {@code com.example.order}, class {@code OrderCreatedEventTypeRegistrar}
+     * → bean name {@code com_example_order_OrderCreatedEventTypeRegistrar}.
+     */
+    private static AnnotationSpec componentAnnotation(String packageName, String name) {
+        return AnnotationSpec.builder(Component.class)
+                .addMember("value", "$S", packageName.replace('.', '_') + "_" + name)
+                .build();
     }
 }
 

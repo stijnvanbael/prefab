@@ -7,7 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import sns.supertype.UserEvent;
 
-@Component
+@Component("sns_supertype_UserEventEventTypeRegistrar")
 public class UserEventEventTypeRegistrar implements EventRegistryCustomizer {
     private final String userEventTopic;
 

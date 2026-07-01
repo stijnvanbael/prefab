@@ -9,12 +9,13 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.stream.Stream;
 
-import static be.appify.prefab.processor.kafka.ProcessorTestUtil.assertGeneratedSourceEqualsIgnoringWhitespace;
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.classpathOptionsWith;
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.compileDependencyClasspath;
+import static be.appify.prefab.processor.kafka.ProcessorTestUtil.generatedSourceOf;
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class KafkaEventTypeRegistrarWriterTest {
 
@@ -27,10 +28,10 @@ class KafkaEventTypeRegistrarWriterTest {
                         sourceOf("kafka/single/UserCreated.java"),
                         sourceOf("kafka/single/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.single.infrastructure.event.UserCreatedEventTypeRegistrar",
-                "expected/kafka/single/UserCreatedEventTypeRegistrar.java");
+        var source = generatedSourceOf(compilation, "kafka.single.infrastructure.event.UserCreatedEventTypeRegistrar");
+        assertThat(source).contains("@Component(\"kafka_single_UserCreatedEventTypeRegistrar\")");
+        assertThat(source).contains("implements EventRegistryCustomizer");
+        assertThat(source).contains("registry.register(\"prefab.user\", UserCreated.class, Event.Serialization.JSON");
     }
 
     @Test
@@ -42,10 +43,12 @@ class KafkaEventTypeRegistrarWriterTest {
                         sourceOf("kafka/multiple/UserEvent.java"),
                         sourceOf("kafka/multiple/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.multiple.infrastructure.event.UserEventEventTypeRegistrar",
-                "expected/kafka/multiple/UserEventEventTypeRegistrar.java");
+        var source = generatedSourceOf(compilation, "kafka.multiple.infrastructure.event.UserEventEventTypeRegistrar");
+        assertThat(source).contains("@Component(\"kafka_multiple_UserEventEventTypeRegistrar\")");
+        assertThat(source).contains("implements EventRegistryCustomizer");
+        // topic injected via @Value, registered dynamically
+        assertThat(source).contains("@Value(\"${topic.user.name}\")");
+        assertThat(source).contains("registry.register(userEventTopic, UserEvent.class, Event.Serialization.JSON");
     }
 
     @Test
@@ -58,14 +61,14 @@ class KafkaEventTypeRegistrarWriterTest {
                         sourceOf("kafka/multitopic/DayTotal.java"),
                         sourceOf("kafka/multitopic/DayTotalRepositoryMixin.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.multitopic.infrastructure.event.SaleCreatedEventTypeRegistrar",
-                "expected/kafka/multitopic/SaleCreatedEventTypeRegistrar.java");
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.multitopic.infrastructure.event.RefundCreatedEventTypeRegistrar",
-                "expected/kafka/multitopic/RefundCreatedEventTypeRegistrar.java");
+
+        var saleSrc = generatedSourceOf(compilation, "kafka.multitopic.infrastructure.event.SaleCreatedEventTypeRegistrar");
+        assertThat(saleSrc).contains("@Component(\"kafka_multitopic_SaleCreatedEventTypeRegistrar\")");
+        assertThat(saleSrc).contains("registry.register(saleCreatedTopic, Sale.Created.class, Event.Serialization.JSON)");
+
+        var refundSrc = generatedSourceOf(compilation, "kafka.multitopic.infrastructure.event.RefundCreatedEventTypeRegistrar");
+        assertThat(refundSrc).contains("@Component(\"kafka_multitopic_RefundCreatedEventTypeRegistrar\")");
+        assertThat(refundSrc).contains("registry.register(refundCreatedTopic, Refund.Created.class, Event.Serialization.JSON)");
     }
 
     @Test
@@ -76,10 +79,13 @@ class KafkaEventTypeRegistrarWriterTest {
                         sourceOf("kafka/multitopicevent/UserEvent.java"),
                         sourceOf("kafka/multitopicevent/UserService.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.multitopicevent.infrastructure.event.UserEventEventTypeRegistrar",
-                "expected/kafka/multitopicevent/UserEventEventTypeRegistrar.java");
+        var source = generatedSourceOf(compilation, "kafka.multitopicevent.infrastructure.event.UserEventEventTypeRegistrar");
+        assertThat(source).contains("@Component(\"kafka_multitopicevent_UserEventEventTypeRegistrar\")");
+        // two topic fields injected for the two topics
+        assertThat(source).contains("@Value(\"${topic.user.primary}\")");
+        assertThat(source).contains("@Value(\"${topic.user.secondary}\")");
+        assertThat(source).contains("registry.register(userEventTopic0, UserEvent.class, Event.Serialization.JSON)");
+        assertThat(source).contains("registry.register(userEventTopic1, UserEvent.class, Event.Serialization.JSON)");
     }
 
     @Test
@@ -90,10 +96,11 @@ class KafkaEventTypeRegistrarWriterTest {
                         sourceOf("kafka/publishtoall/UserEvent.java"),
                         sourceOf("kafka/publishtoall/UserService.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.publishtoall.infrastructure.event.UserEventEventTypeRegistrar",
-                "expected/kafka/publishtoall/UserEventEventTypeRegistrar.java");
+        var source = generatedSourceOf(compilation, "kafka.publishtoall.infrastructure.event.UserEventEventTypeRegistrar");
+        assertThat(source).contains("@Component(\"kafka_publishtoall_UserEventEventTypeRegistrar\")");
+        assertThat(source).contains("registry.register(");
+        // publishToAll must register the PublishTo.ALL behaviour
+        assertThat(source).contains("registry.registerPublishTo(UserEvent.class, PublishTo.ALL)");
     }
 
     @Test
@@ -104,10 +111,9 @@ class KafkaEventTypeRegistrarWriterTest {
                         sourceOf("kafka/createorupdate/ChannelSummary.java"),
                         sourceOf("kafka/createorupdate/MessageEvent.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.createorupdate.infrastructure.event.MessageEventEventTypeRegistrar",
-                "expected/kafka/createorupdate/MessageEventEventTypeRegistrar.java");
+        var source = generatedSourceOf(compilation, "kafka.createorupdate.infrastructure.event.MessageEventEventTypeRegistrar");
+        assertThat(source).contains("@Component(\"kafka_createorupdate_MessageEventEventTypeRegistrar\")");
+        assertThat(source).contains("registry.register(messageEventTopic, MessageEvent.class, Event.Serialization.JSON)");
     }
 
     @Test
@@ -118,10 +124,10 @@ class KafkaEventTypeRegistrarWriterTest {
                         sourceOf("kafka/avsc/OrderCreated.java"),
                         sourceOf("kafka/avsc/OrderProcessor.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.avsc.infrastructure.event.OrderCreatedEventEventTypeRegistrar",
-                "expected/kafka/avsc/OrderCreatedEventEventTypeRegistrar.java");
+        var source = generatedSourceOf(compilation, "kafka.avsc.infrastructure.event.OrderCreatedEventEventTypeRegistrar");
+        assertThat(source).contains("@Component(\"kafka_avsc_OrderCreatedEventEventTypeRegistrar\")");
+        // AVRO serialization must be used for AVSC events
+        assertThat(source).contains("registry.register(\"prefab.order\", OrderCreatedEvent.class, Event.Serialization.AVRO)");
     }
 
     @Test
@@ -161,4 +167,3 @@ class KafkaEventTypeRegistrarWriterTest {
         }
     }
 }
-

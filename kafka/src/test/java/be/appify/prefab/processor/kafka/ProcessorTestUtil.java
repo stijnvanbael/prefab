@@ -41,6 +41,10 @@ public class ProcessorTestUtil {
         }
     }
 
+    public static String generatedSourceOf(Compilation compilation, String generatedTypeName) {
+        return generatedSourceContentsOf(compilation, generatedTypeName);
+    }
+
     public static void assertGeneratedSourceEqualsIgnoringWhitespace(
             Compilation compilation,
             String generatedTypeName,

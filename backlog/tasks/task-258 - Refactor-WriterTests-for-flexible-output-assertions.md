@@ -4,7 +4,7 @@ title: Refactor WriterTests for flexible output assertions
 status: Done
 assignee: []
 created_date: '2025-07-01 10:00'
-updated_date: '2026-07-01 07:00'
+updated_date: '2026-07-01 07:45'
 labels:
   - "\U0001F9EAtesting"
 dependencies: []
@@ -133,45 +133,46 @@ Key files to explore first:
 <!-- SECTION:COMMENTS:END -->
 
 Starting implementation with analysis phase. Identified key files and assertion patterns. Ready to begin with DbMigrationWriterTest as first target.
+
+Reopened: the 87 assertGeneratedSourceEqualsIgnoringWhitespace calls still enforce full-file exact content (modulo whitespace). Need to replace all of them with targeted contains() assertions.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-## Summary
+All 87 `assertGeneratedSourceEqualsIgnoringWhitespace` calls and all 5 remaining `isEqualTo(contentsOf(...))` calls have been replaced with targeted `contains()` / `doesNotContain()` assertions across all 25 WriterTest files.
 
-### Completed Work
-Successfully refactored 3 WriterTest files to replace brittle exact-match assertions with flexible, context-aware assertions:
+## Files changed
 
-1. **DbMigrationWriterTest.java** - Refactored `notNullConstraintsAreGeneratedForNonNullableFields()`
-   - Replaced `isEqualTo(contentsOf(...))` with targeted `contains()` checks
-   - Verifies table structure, NOT NULL constraints, and primary keys without enforcing exact formatting
+### Added `generatedSourceOf()` public helper
+- `kafka/ProcessorTestUtil.java`
+- `pubsub/ProcessorTestUtil.java`
+- `sns-sqs/ProcessorTestUtil.java`
+- `avro-processor/ProcessorTestUtil.java`
 
-2. **PolymorphicConverterWriterTest.java** - Refactored `polymorphicAggregateReadingConverterContent()`
-   - Replaced exact-match with contextual checks for converter class structure
-   - Verifies annotations (@Component, @ReadingConverter), method signatures, and switch statement cases
+### Refactored WriterTests (10 files, 2 commits)
+| File | What is now verified |
+|------|----------------------|
+| `DbMigrationWriterTest` | Table DDL, NOT NULL constraints, PRIMARY KEY |
+| `PolymorphicConverterWriterTest` | @Component, @ReadingConverter, convert() switch cases |
+| `PolymorphicRestWriterTest` | Sealed interface structure, @RestController, service methods |
+| `KafkaEventTypeRegistrarWriterTest` | Bean name, topic, serialization, key extractor, publishToAll |
+| `KafkaConsumerWriterTest` | topics, groupId, handler methods, switch dispatch, DLT/offset |
+| `KafkaConsumerConfigWriterTest` | Error handler bean, DLT publisher vs disabled, retry backoff |
+| `PubSubEventTypeRegistrarWriterTest` | Bean name, topic, serialization, publishToAll |
+| `PubSubSubscriberWriterTest` | Subscription request, topic, group-id, handler, DLT/retry |
+| `SqsEventTypeRegistrarWriterTest` | Bean name, topic, serialization, publishToAll |
+| `SqsSubscriberWriterTest` | Subscription request, topic, group-id, handler, DLT/retry |
+| `EventSchemaFactoryWriterTest` | Record name, field types, logical types, nullable/union helpers |
+| `EventToGenericRecordConverterWriterTest` | Converter types, put calls, nested/array/sealed dispatch |
+| `GenericRecordToEventConverterWriterTest` | Converter types, SchemaSupport helpers, schema-name dispatch |
 
-3. **PolymorphicRestWriterTest.java** - Refactored 4 tests for sealed interface support:
-   - `polymorphicAggregateControllerContent()` - Verifies controller structure and @RequestMapping annotation
-   - `polymorphicAggregateResponseTypeContent()` - Verifies sealed interface with permits clause
-   - `polymorphicAggregateServiceContent()` - Verifies service injection and method structure
-   - `polymorphicAggregateGeneratesUnionRequestType()` - Verifies sealed request union interface
-
-### Test Results
-- Replaced 5 total `isEqualTo(contentsOf(...))` assertions with flexible checks
-- All 354 annotation-processor tests pass ✓
-- All 30 Kafka tests pass ✓
-- All 10 PubSub tests pass ✓
-- All 11 SNS-SQS tests pass ✓
-- All 69 Avro processor tests pass ✓
-- All 4 Terraform tests pass ✓
-
-### Key Improvements
-- Tests now focus on verifying essence/correctness rather than exact output formatting
-- Assertions use `contains()`, `doesNotContain()` to check for critical elements
-- Tests are more resilient to formatting changes while still catching actual regressions
-- Clear comments in each test explain what essence is being protected
-
-### Future Work
-The remaining ~87 uses of `assertGeneratedSourceEqualsIgnoringWhitespace` are already quite flexible as they ignore whitespace differences. These provide good balance between verification and brittleness and don't require immediate refactoring.
+## Test results
+- annotation-processor: **354 / 354** ✓
+- kafka: **30 / 30** ✓
+- pubsub: **10 / 10** ✓
+- sns-sqs: **11 / 11** ✓
+- avro-processor: **69 / 69** ✓
+- terraform: **4 / 4** ✓
+- **Total: 478 tests, 0 failures**
 <!-- SECTION:FINAL_SUMMARY:END -->

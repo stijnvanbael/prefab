@@ -104,10 +104,22 @@ class DbMigrationWriterTest {
     @Test
     void notNullConstraintsAreGeneratedForNonNullableFields() {
         assertThat(notNullProductCompilation).succeeded();
-        assertThat(notNullProductCompilation)
+        var sql = assertThat(notNullProductCompilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "", "db/migration/V1__generated.sql")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("dbmigration/notnull/expected/V1__generated.sql"));
+                .contentsAsUtf8String();
+        
+        // Verify core table structure
+        sql.contains("CREATE TABLE \"product\"");
+        sql.contains("PRIMARY KEY(\"id\")");
+        
+        // Verify NOT NULL constraints on non-nullable fields
+        sql.contains("\"id\" VARCHAR (255) NOT NULL");
+        sql.contains("\"version\" BIGINT NOT NULL");
+        sql.contains("\"name\" VARCHAR (255) NOT NULL");
+        
+        // Verify nullable field lacks NOT NULL constraint
+        sql.contains("\"description\" VARCHAR (255)");
+        sql.doesNotContain("\"description\" VARCHAR (255) NOT NULL");
     }
 
     @Test

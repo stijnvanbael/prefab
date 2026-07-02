@@ -1,18 +1,15 @@
 package be.appify.prefab.streams.kafka;
 
-import be.appify.prefab.core.domain.Key;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serializer;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 /**
- * A {@link Serde} for {@link Key} instances whose concrete type is unknown at topology-build time.
+ * A {@link Serde} for key instances whose concrete type is unknown at topology-build time.
  *
  * <p>The serializer captures the key's runtime class from the first instance it encounters.
- * The deserializer then uses that captured class to reconstruct keys via {@link Key#parse}.
+ * The deserializer then uses that captured class to reconstruct keys via {@link StringKeySerde}.
  *
  * <p>This is safe for state stores that only use {@code get}/{@code put}: Kafka Streams restores
  * persistent stores from their changelog by writing raw bytes directly into RocksDB, bypassing
@@ -21,7 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
  *
  * @param <K> the key type
  */
-class DeferredStringKeySerde<K extends Key<K>> implements Serde<K> {
+class DeferredStringKeySerde<K> implements Serde<K> {
 
     private final AtomicReference<Class<K>> keyClass = new AtomicReference<>();
 
@@ -32,7 +29,7 @@ class DeferredStringKeySerde<K extends Key<K>> implements Serde<K> {
                 return null;
             }
             keyClass.compareAndSet(null, rawClass(key));
-            return key.toString().getBytes(UTF_8);
+            return serdeFor(rawClass(key)).serializer().serialize(topic, key);
         };
     }
 
@@ -50,13 +47,17 @@ class DeferredStringKeySerde<K extends Key<K>> implements Serde<K> {
                         + "Ensure at least one record is written to the store before typed key "
                         + "deserialization is attempted (e.g. via store iteration).");
             }
-            return Key.parse(new String(data, UTF_8), resolved);
+            return serdeFor(resolved).deserializer().deserialize(topic, data);
         };
     }
 
     @SuppressWarnings("unchecked")
-    private static <K extends Key<K>> Class<K> rawClass(K key) {
+    private static <K> Class<K> rawClass(K key) {
         return (Class<K>) key.getClass();
+    }
+
+    private static <K> Serde<K> serdeFor(Class<K> keyType) {
+        return new StringKeySerde<>(keyType);
     }
 }
 

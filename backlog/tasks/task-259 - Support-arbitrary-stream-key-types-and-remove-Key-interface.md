@@ -1,10 +1,10 @@
 ---
 id: TASK-259
 title: Support arbitrary stream key types and remove Key interface
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-07-01 13:44'
-updated_date: '2026-07-01 13:45'
+updated_date: '2026-07-02 06:42'
 labels:
   - streams
   - core

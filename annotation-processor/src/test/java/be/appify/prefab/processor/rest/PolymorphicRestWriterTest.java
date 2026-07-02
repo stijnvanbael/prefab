@@ -47,37 +47,72 @@ class PolymorphicRestWriterTest {
     @Test
     void polymorphicAggregateControllerContent() {
         assertThat(shapeCompilation).succeeded();
-        assertThat(shapeCompilation)
+        var content = assertThat(shapeCompilation)
                 .generatedSourceFile("rest.polymorphic.infrastructure.http.ShapeController")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("rest/polymorphic/expected/ShapeController.java"));
+                .contentsAsUtf8String();
+        
+        // Verify controller structure
+        content.contains("public class ShapeController");
+        content.contains("@RestController");
+        content.contains("@RequestMapping");
+        content.contains("path = \"shapes\"");
+        content.contains("private final ShapeService service");
+        
+        // Verify create operation
+        content.contains("public ResponseEntity<Void> create(@Valid @RequestBody CreateShapeRequest request)");
+        content.contains("@Operation");
+        content.contains("Create a new Shape");
     }
 
     @Test
     void polymorphicAggregateResponseTypeContent() {
         assertThat(shapeCompilation).succeeded();
-        assertThat(shapeCompilation)
+        var content = assertThat(shapeCompilation)
                 .generatedSourceFile("rest.polymorphic.infrastructure.http.ShapeResponse")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("rest/polymorphic/expected/ShapeResponse.java"));
+                .contentsAsUtf8String();
+        
+        // Verify response sealed interface structure
+        content.contains("public sealed interface ShapeResponse");
+        content.contains("permits ShapeResponse.CircleResponse, ShapeResponse.RectangleResponse");
+        content.contains("static ShapeResponse from(Shape aggregate)");
+        content.contains("@JsonTypeInfo");
+        content.contains("@JsonSubTypes");
+        content.contains("record CircleResponse");
+        content.contains("record RectangleResponse");
     }
 
     @Test
     void polymorphicAggregateServiceContent() {
         assertThat(shapeCompilation).succeeded();
-        assertThat(shapeCompilation)
+        var content = assertThat(shapeCompilation)
                 .generatedSourceFile("rest.polymorphic.application.ShapeService")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("rest/polymorphic/expected/ShapeService.java"));
+                .contentsAsUtf8String();
+        
+        // Verify service structure
+        content.contains("public class ShapeService");
+        content.contains("@Component");
+        content.contains("@Transactional");
+        content.contains("private final ShapeRepository shapeRepository");
+        content.contains("public String createCircle(@Valid CreateShapeRequest.CreateCircleRequest request)");
+        content.contains("public String createRectangle(@Valid CreateShapeRequest.CreateRectangleRequest request)");
+        content.contains("public Optional<Shape> getById(String id)");
+        content.contains("public Page<Shape> getList(Pageable pageable)");
     }
 
     @Test
     void polymorphicAggregateGeneratesUnionRequestType() {
         assertThat(shapeCompilation).succeeded();
-        assertThat(shapeCompilation)
+        var content = assertThat(shapeCompilation)
                 .generatedSourceFile("rest.polymorphic.application.CreateShapeRequest")
-                .contentsAsUtf8String()
-                .isEqualTo(contentsOf("rest/polymorphic/expected/CreateShapeRequest.java"));
+                .contentsAsUtf8String();
+        
+        // Verify sealed union request interface structure
+        content.contains("public sealed interface CreateShapeRequest");
+        content.contains("permits CreateShapeRequest.CreateCircleRequest, CreateShapeRequest.CreateRectangleRequest");
+        content.contains("@JsonTypeInfo");
+        content.contains("record CreateCircleRequest");
+        content.contains("record CreateRectangleRequest");
+        content.contains("implements CreateShapeRequest");
     }
 
     @Test

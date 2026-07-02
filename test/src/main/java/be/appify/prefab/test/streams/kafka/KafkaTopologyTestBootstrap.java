@@ -1,15 +1,20 @@
-package be.appify.prefab.streams.kafka;
+package be.appify.prefab.test.streams.kafka;
 
+import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.StreamDefinition;
+import be.appify.prefab.streams.kafka.KafkaPrefabStreams;
+import be.appify.prefab.streams.kafka.KafkaTopicResolver;
+import be.appify.prefab.streams.kafka.JsonKeySerde;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.TestInputTopic;
@@ -82,34 +87,14 @@ public final class KafkaTopologyTestBootstrap {
             JsonMapper jsonMapper
     ) implements AutoCloseable {
 
-        public <K, V extends Keyed<K>> TestInputTopic<K, V> input(Class<V> type) {
+        public <K extends Key<K>, V extends Keyed<K>> TestInputTopic<K, V> input(Class<V> type) {
             var topic = eventRegistry().topicForType(type);
-            var keyType = keyTypeOf(type);
-            return driver.createInputTopic(topic, new JsonKeySerde<>(keyType, jsonMapper).serializer(), serializer.adapt());
+            return driver.createInputTopic(topic, new JsonKeySerde<>(keyTypeOf(type), jsonMapper).serializer(), serializer.adapt());
         }
 
-        <K, T> TestInputTopic<K, T> input(Class<T> type, Class<K> keyType) {
+        public <K extends Key<K>, V extends Keyed<K>> TestOutputTopic<K, V> output(Class<V> type) {
             var topic = eventRegistry().topicForType(type);
-            return driver.createInputTopic(topic, new StringKeySerde<>(keyType).serializer(), (Serializer<T>) serializer);
-        }
-
-        public <K, V extends Keyed<K>> TestOutputTopic<K, V> output(Class<V> type) {
-            var topic = eventRegistry().topicForType(type);
-            var keyType = keyTypeOf(type);
-            return driver.createOutputTopic(topic, new JsonKeySerde<>(keyType, jsonMapper).deserializer(), deserializer.adapt());
-        }
-
-        <K, T> TestOutputTopic<K, T> output(Class<T> type, Class<K> keyType) {
-            var topic = eventRegistry().topicForType(type);
-            return driver.createOutputTopic(topic, new StringKeySerde<>(keyType).deserializer(), (Deserializer<T>) deserializer);
-        }
-
-        TestOutputTopic<String, byte[]> rawOutput(String topic) {
-            return driver.createOutputTopic(topic, new StringDeserializer(), new ByteArrayDeserializer());
-        }
-
-        TestOutputTopic<byte[], byte[]> rawOutputBytes(String topic) {
-            return driver.createOutputTopic(topic, new ByteArrayDeserializer(), new ByteArrayDeserializer());
+            return driver.createOutputTopic(topic, new JsonKeySerde<>(keyTypeOf(type), jsonMapper).deserializer(), deserializer.adapt());
         }
 
         @Override
@@ -118,3 +103,4 @@ public final class KafkaTopologyTestBootstrap {
         }
     }
 }
+

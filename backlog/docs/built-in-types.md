@@ -24,7 +24,8 @@ Reference<Customer> customer      // foreign key to Customer aggregate
 ```
 
 **Database mapping:** Stored as `VARCHAR(36)` (UUID string).
-**JSON mapping:** Serialized as a plain string (not an object).
+**JSON mapping (REST):** Serialized as a plain string (not an object).
+**Kafka key mapping:** Automatically serialized to JSON; no manual registration required. The `@JsonValue` and `@JsonCreator` annotations ensure proper JSON round-trip.
 
 ---
 

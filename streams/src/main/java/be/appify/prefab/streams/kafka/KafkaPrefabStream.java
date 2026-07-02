@@ -15,6 +15,7 @@ import be.appify.prefab.streams.StreamDefinition;
 import be.appify.prefab.streams.StreamProcessor;
 import jakarta.validation.constraints.NotNull;
 import java.util.Objects;
+import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -28,6 +29,8 @@ import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Named;
 import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.kstream.StreamJoined;
+import org.springframework.core.convert.ConversionService;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Kafka-backed implementation of {@link PrefabStream}.
@@ -44,6 +47,9 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
     private final KafkaTopicResolver topicResolver;
     private final DynamicSerializer serializer;
     private final DynamicDeserializer deserializer;
+    private final JsonMapper jsonMapper;
+    private final ConversionService conversionService;
+    private final Map<String, Object> kafkaClientProperties;
     private final ValueTypeHint<V> valueType;
     private final Serde<K> keySerde;
     private final PrefabStreams streams;
@@ -58,12 +64,15 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
             KafkaTopicResolver topicResolver,
             DynamicSerializer serializer,
             DynamicDeserializer deserializer,
+            JsonMapper jsonMapper,
+            ConversionService conversionService,
+            Map<String, Object> kafkaClientProperties,
             @NotNull Class<V> valueType,
             PrefabStreams streams,
             Serde<K> keySerde,
             StreamStepNames stepNames
     ) {
-        this(streamsBuilder, stream, topicResolver, serializer, deserializer,
+        this(streamsBuilder, stream, topicResolver, serializer, deserializer, jsonMapper, conversionService, kafkaClientProperties,
                 ValueTypeHint.known(Objects.requireNonNull(valueType, "valueType must not be null")), streams, keySerde,
                 stepNames);
     }
@@ -74,6 +83,9 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
             KafkaTopicResolver topicResolver,
             DynamicSerializer serializer,
             DynamicDeserializer deserializer,
+            JsonMapper jsonMapper,
+            ConversionService conversionService,
+            Map<String, Object> kafkaClientProperties,
             ValueTypeHint<V> valueType,
             PrefabStreams streams,
             Serde<K> keySerde,
@@ -84,6 +96,9 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
         this.topicResolver = topicResolver;
         this.serializer = serializer;
         this.deserializer = deserializer;
+        this.jsonMapper = Objects.requireNonNull(jsonMapper, "jsonMapper must not be null");
+        this.conversionService = Objects.requireNonNull(conversionService, "conversionService must not be null");
+        this.kafkaClientProperties = Map.copyOf(kafkaClientProperties);
         this.valueType = Objects.requireNonNull(valueType, "valueType must not be null");
         this.streams = streams;
         this.keySerde = Objects.requireNonNull(keySerde, "keySerde must not be null");
@@ -294,6 +309,9 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
                 topicResolver,
                 serializer,
                 deserializer,
+                jsonMapper,
+                conversionService,
+                kafkaClientProperties,
                 valueType,
                 streams,
                 keySerde,

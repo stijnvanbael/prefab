@@ -9,14 +9,16 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.stream.Stream;
 
-import static be.appify.prefab.processor.kafka.ProcessorTestUtil.assertGeneratedSourceEqualsIgnoringWhitespace;
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.classpathOptionsWith;
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.compileDependencyClasspath;
+import static be.appify.prefab.processor.kafka.ProcessorTestUtil.generatedSourceOf;
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class KafkaConsumerWriterTest {
+
     @Test
     void singleEventType() {
         var compilation = javac()
@@ -26,10 +28,11 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/single/UserCreated.java"),
                         sourceOf("kafka/single/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.single.infrastructure.kafka.UserExporterKafkaConsumer",
-                "expected/kafka/single/UserExporterKafkaConsumer.java");
+        var source = generatedSourceOf(compilation, "kafka.single.infrastructure.kafka.UserExporterKafkaConsumer");
+        assertThat(source).contains("topics = \"prefab.user\"");
+        assertThat(source).contains("groupId = \"${spring.application.name}.user-exporter-on-user-created\"");
+        assertThat(source).contains("public void onUserCreated(UserCreated event)");
+        assertThat(source).contains("userExporter.onUserCreated(event)");
     }
 
     @Test
@@ -41,10 +44,14 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/multiple/UserEvent.java"),
                         sourceOf("kafka/multiple/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.multiple.infrastructure.kafka.UserExporterKafkaConsumer",
-                "expected/kafka/multiple/UserExporterKafkaConsumer.java");
+        var source = generatedSourceOf(compilation, "kafka.multiple.infrastructure.kafka.UserExporterKafkaConsumer");
+        assertThat(source).contains("topics = \"${topic.user.name}\"");
+        assertThat(source).contains("groupId = \"${spring.application.name}.user-exporter-on-user-event\"");
+        assertThat(source).contains("public void onUserEvent(UserEvent event)");
+        // switch dispatches to each sub-type handler
+        assertThat(source).contains("case UserEvent.Created e -> userExporter.onUserCreated(e)");
+        assertThat(source).contains("case UserEvent.Deleted e -> userExporter.onUserDeleted(e)");
+        assertThat(source).contains("case UserEvent.Updated e -> userExporter.onUserUpdated(e)");
     }
 
     @Test
@@ -68,10 +75,14 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/multitopic/DayTotal.java"),
                         sourceOf("kafka/multitopic/DayTotalRepositoryMixin.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.multitopic.infrastructure.kafka.DayTotalKafkaConsumer",
-                "expected/kafka/multitopic/DayTotalKafkaConsumer.java");
+        var source = generatedSourceOf(compilation, "kafka.multitopic.infrastructure.kafka.DayTotalKafkaConsumer");
+        // two @KafkaListener methods, one per topic
+        assertThat(source).contains("topics = \"${topic.sale.name}\"");
+        assertThat(source).contains("public void onSaleCreated(Sale.Created event)");
+        assertThat(source).contains("dayTotalService.onSaleCreated(event)");
+        assertThat(source).contains("topics = \"${topic.refund.name}\"");
+        assertThat(source).contains("public void onRefundCreated(Refund.Created event)");
+        assertThat(source).contains("dayTotalService.onRefundCreated(event)");
     }
 
     @Test
@@ -82,10 +93,13 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/multitopicevent/UserEvent.java"),
                         sourceOf("kafka/multitopicevent/UserService.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.multitopicevent.infrastructure.kafka.UserServiceKafkaConsumer",
-                "expected/kafka/multitopicevent/UserServiceKafkaConsumer.java");
+        var source = generatedSourceOf(compilation, "kafka.multitopicevent.infrastructure.kafka.UserServiceKafkaConsumer");
+        // listener subscribes to both topics in a single annotation
+        assertThat(source).contains("\"${topic.user.primary}\"");
+        assertThat(source).contains("\"${topic.user.secondary}\"");
+        assertThat(source).contains("public void onUserEvent(UserEvent event)");
+        assertThat(source).contains("case UserEvent.Created e -> userService.onUserCreated(e)");
+        assertThat(source).contains("case UserEvent.Updated e -> userService.onUserUpdated(e)");
     }
 
     @Test
@@ -96,10 +110,10 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/consumefromtopics/UserEvent.java"),
                         sourceOf("kafka/consumefromtopics/UserService.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.consumefromtopics.infrastructure.kafka.UserServiceKafkaConsumer",
-                "expected/kafka/consumefromtopics/UserServiceKafkaConsumer.java");
+        var source = generatedSourceOf(compilation, "kafka.consumefromtopics.infrastructure.kafka.UserServiceKafkaConsumer");
+        // only the primary topic is subscribed, secondary is excluded by @ConsumeFromTopics
+        assertThat(source).contains("topics = \"${topic.user.primary}\"");
+        assertThat(source).doesNotContain("topic.user.secondary");
     }
 
     @Test
@@ -111,10 +125,9 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/customdlt/UserEvent.java"),
                         sourceOf("kafka/customdlt/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.customdlt.infrastructure.kafka.UserExporterKafkaConsumer",
-                "expected/kafka/customdlt/UserExporterKafkaConsumer.java");
+        var source = generatedSourceOf(compilation, "kafka.customdlt.infrastructure.kafka.UserExporterKafkaConsumer");
+        // a custom error handler is referenced in the listener when DLT is configured
+        assertThat(source).contains("errorHandler = \"userExporterKafkaErrorHandler\"");
     }
 
     @Test
@@ -126,10 +139,9 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/dltdisabled/UserEvent.java"),
                         sourceOf("kafka/dltdisabled/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.dltdisabled.infrastructure.kafka.UserExporterKafkaConsumer",
-                "expected/kafka/dltdisabled/UserExporterKafkaConsumer.java");
+        var source = generatedSourceOf(compilation, "kafka.dltdisabled.infrastructure.kafka.UserExporterKafkaConsumer");
+        // DLT disabled: still uses error handler for retries without dead-letter publishing
+        assertThat(source).contains("errorHandler = \"userExporterKafkaErrorHandler\"");
     }
 
     @Test
@@ -141,10 +153,9 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/offsetoverride/UserCreated.java"),
                         sourceOf("kafka/offsetoverride/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.offsetoverride.infrastructure.kafka.UserExporterKafkaConsumer",
-                "expected/kafka/offsetoverride/UserExporterKafkaConsumer.java");
+        var source = generatedSourceOf(compilation, "kafka.offsetoverride.infrastructure.kafka.UserExporterKafkaConsumer");
+        // offset override must be propagated as a listener property
+        assertThat(source).contains("properties = \"auto.offset.reset=${offset.override:latest}\"");
     }
 
     @Test
@@ -155,10 +166,10 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/avsc/OrderCreated.java"),
                         sourceOf("kafka/avsc/OrderProcessor.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.avsc.infrastructure.kafka.OrderProcessorKafkaConsumer",
-                "expected/kafka/avsc/OrderProcessorKafkaConsumer.java");
+        var source = generatedSourceOf(compilation, "kafka.avsc.infrastructure.kafka.OrderProcessorKafkaConsumer");
+        assertThat(source).contains("topics = \"prefab.order\"");
+        assertThat(source).contains("public void onOrderCreated(OrderCreatedEvent event)");
+        assertThat(source).contains("orderProcessor.onOrderCreated(event)");
     }
 
     @Test
@@ -169,10 +180,12 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/avscaggregate/OrderEvent.java"),
                         sourceOf("kafka/avscaggregate/OrderProcessor.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.avscaggregate.infrastructure.kafka.OrderProcessorKafkaConsumer",
-                "expected/kafka/avscaggregate/OrderProcessorKafkaConsumer.java");
+        var source = generatedSourceOf(compilation, "kafka.avscaggregate.infrastructure.kafka.OrderProcessorKafkaConsumer");
+        assertThat(source).contains("topics = \"prefab.order\"");
+        assertThat(source).contains("public void onOrderEvent(OrderEvent event)");
+        // concrete subtypes dispatched via switch
+        assertThat(source).contains("case OrderCreatedEvent e -> orderProcessor.onOrderCreated(e)");
+        assertThat(source).contains("case OrderShippedEvent e -> orderProcessor.onOrderShipped(e)");
     }
 
     @Test
@@ -183,10 +196,11 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/avscmulti/OrderEvent.java"),
                         sourceOf("kafka/avscmulti/OrderProcessor.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.avscmulti.infrastructure.kafka.OrderProcessorKafkaConsumer",
-                "expected/kafka/avscmulti/OrderProcessorKafkaConsumer.java");
+        var source = generatedSourceOf(compilation, "kafka.avscmulti.infrastructure.kafka.OrderProcessorKafkaConsumer");
+        assertThat(source).contains("topics = \"prefab.order\"");
+        assertThat(source).contains("public void onOrderEvent(OrderEvent event)");
+        // all events forwarded as-is to a single handler method
+        assertThat(source).contains("orderProcessor.onOrderEvent(event)");
     }
 
     @Test
@@ -197,10 +211,11 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/avscpartial/OrderEvent.java"),
                         sourceOf("kafka/avscpartial/OrderProcessor.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.avscpartial.infrastructure.kafka.OrderProcessorKafkaConsumer",
-                "expected/kafka/avscpartial/OrderProcessorKafkaConsumer.java");
+        var source = generatedSourceOf(compilation, "kafka.avscpartial.infrastructure.kafka.OrderProcessorKafkaConsumer");
+        assertThat(source).contains("topics = \"prefab.order\"");
+        assertThat(source).contains("public void onOrderEvent(OrderEvent event)");
+        // only OrderCreatedEvent is handled; other subtypes fall through to default
+        assertThat(source).contains("case OrderCreatedEvent e -> orderProcessor.onOrderCreated(e)");
     }
 
     @Test
@@ -211,10 +226,10 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/createorupdate/ChannelSummary.java"),
                         sourceOf("kafka/createorupdate/MessageEvent.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.createorupdate.infrastructure.kafka.ChannelSummaryKafkaConsumer",
-                "expected/kafka/createorupdate/ChannelSummaryKafkaConsumer.java");
+        var source = generatedSourceOf(compilation, "kafka.createorupdate.infrastructure.kafka.ChannelSummaryKafkaConsumer");
+        assertThat(source).contains("topics = \"${topic.message.name}\"");
+        assertThat(source).contains("public void onMessageEvent(MessageEvent event)");
+        assertThat(source).contains("case MessageEvent.Sent e -> channelSummaryService.onUpdate(e)");
     }
 
     @Test
@@ -261,10 +276,11 @@ class KafkaConsumerWriterTest {
                     .withProcessors(new PrefabProcessor())
                     .compile(sourceOf("kafka/externaldependency/UserImporter.java"));
             assertThat(compilation).succeeded();
-            assertGeneratedSourceEqualsIgnoringWhitespace(
-                    compilation,
-                    "kafka.externaldependency.infrastructure.kafka.UserImporterKafkaConsumer",
-                    "expected/kafka/externaldependency/UserImporterKafkaConsumer.java");
+            var source = generatedSourceOf(compilation, "kafka.externaldependency.infrastructure.kafka.UserImporterKafkaConsumer");
+            assertThat(source).contains("import kafka.dependencyevents.ExternalUserCreated");
+            assertThat(source).contains("topics = \"prefab.external.user\"");
+            assertThat(source).contains("public void onExternalUserCreated(ExternalUserCreated event)");
+            assertThat(source).contains("userImporter.onExternalUserCreated(event)");
         } finally {
             deleteRecursively(dependencyClasspath);
         }

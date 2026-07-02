@@ -1,4 +1,4 @@
-package be.appify.prefab.streams.kafka;
+package be.appify.prefab.test.streams.kafka;
 
 import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
@@ -7,6 +7,9 @@ import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.StreamDefinition;
+import be.appify.prefab.streams.kafka.KafkaPrefabStreams;
+import be.appify.prefab.streams.kafka.KafkaTopicResolver;
+import be.appify.prefab.streams.kafka.JsonKeySerde;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serializer;
@@ -86,28 +89,12 @@ public final class KafkaTopologyTestBootstrap {
 
         public <K extends Key<K>, V extends Keyed<K>> TestInputTopic<K, V> input(Class<V> type) {
             var topic = eventRegistry().topicForType(type);
-            var keyType = keyTypeOf(type);
-            return driver.createInputTopic(topic, new JsonKeySerde<>(keyType, jsonMapper).serializer(), serializer.adapt());
+            return driver.createInputTopic(topic, new JsonKeySerde<>(keyTypeOf(type), jsonMapper).serializer(), serializer.adapt());
         }
 
         public <K extends Key<K>, V extends Keyed<K>> TestOutputTopic<K, V> output(Class<V> type) {
             var topic = eventRegistry().topicForType(type);
-            var keyType = keyTypeOf(type);
-            return driver.createOutputTopic(topic, new JsonKeySerde<>(keyType, jsonMapper).deserializer(), deserializer.adapt());
-        }
-
-        public <T> TestInputTopic<String, T> inputString(Class<T> type) {
-            var topic = eventRegistry().topicForType(type);
-            return driver.createInputTopic(topic, new StringSerializer(), serializer.adapt());
-        }
-
-        public <T> TestOutputTopic<String, T> outputString(Class<T> type) {
-            var topic = eventRegistry().topicForType(type);
-            return driver.createOutputTopic(topic, new StringDeserializer(), deserializer.adapt());
-        }
-
-        public TestOutputTopic<String, byte[]> rawOutput(String topic) {
-            return driver.createOutputTopic(topic, new StringDeserializer(), new ByteArrayDeserializer());
+            return driver.createOutputTopic(topic, new JsonKeySerde<>(keyTypeOf(type), jsonMapper).deserializer(), deserializer.adapt());
         }
 
         @Override

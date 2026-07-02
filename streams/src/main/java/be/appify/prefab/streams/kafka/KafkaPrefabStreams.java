@@ -20,6 +20,8 @@ import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.state.Stores;
+import org.springframework.core.convert.ConversionService;
+import tools.jackson.databind.json.JsonMapper;
 
 /** Kafka-backed implementation for the baseline source DSL operation. */
 public class KafkaPrefabStreams implements PrefabStreams {
@@ -27,6 +29,9 @@ public class KafkaPrefabStreams implements PrefabStreams {
     private final KafkaTopicResolver topicResolver;
     private final DynamicSerializer serializer;
     private final DynamicDeserializer deserializer;
+    private final JsonMapper jsonMapper;
+    private final ConversionService conversionService;
+    private final Map<String, Object> kafkaClientProperties;
     private final StreamStepNames stepNames;
 
     /**
@@ -36,12 +41,18 @@ public class KafkaPrefabStreams implements PrefabStreams {
             StreamsBuilder streamsBuilder,
             KafkaTopicResolver topicResolver,
             DynamicSerializer serializer,
-            DynamicDeserializer deserializer
+            DynamicDeserializer deserializer,
+            JsonMapper jsonMapper,
+            ConversionService conversionService,
+            Map<String, Object> kafkaClientProperties
     ) {
         this.streamsBuilder = streamsBuilder;
         this.topicResolver = topicResolver;
         this.serializer = serializer;
         this.deserializer = deserializer;
+        this.jsonMapper = jsonMapper;
+        this.conversionService = conversionService;
+        this.kafkaClientProperties = Map.copyOf(kafkaClientProperties);
         this.stepNames = new StreamStepNames();
     }
 
@@ -53,13 +64,21 @@ public class KafkaPrefabStreams implements PrefabStreams {
         // DynamicSerializer/Deserializer operate on Object at runtime; the cast is safe because
         // the topic is registered for exactly this type and the serde will deserialize to V.
         KStream<K, V> stream = streamsBuilder.stream(topic,
-                Consumed.with(new StringKeySerde<>(keyType), valueSerde));
+                Consumed.with(new JsonKeySerde<>(
+                        keyType,
+                        jsonMapper,
+                        serializer.eventRegistry(),
+                        conversionService,
+                        kafkaClientProperties), valueSerde));
         return new KafkaPrefabStream<>(
                 streamsBuilder,
                 stream,
                 topicResolver,
                 serializer,
                 deserializer,
+                jsonMapper,
+                conversionService,
+                kafkaClientProperties,
                 type,
                 this,
                 keyType,
@@ -68,7 +87,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
     }
 
     @SuppressWarnings("unchecked")
-    static <K extends Key<K>, V extends Keyed<K>> Class<K> keyTypeOf(Class<V> valueType) {
+    public static <K extends Key<K>, V extends Keyed<K>> Class<K> keyTypeOf(Class<V> valueType) {
         return (Class<K>) resolveKeyType(valueType, Map.of(), valueType);
     }
 
@@ -170,28 +189,33 @@ public class KafkaPrefabStreams implements PrefabStreams {
         if (type.rawType() == (Class<?>) Aggregation.class) {
             return (Serde<VS>) new DeferredAggregationSerde<>();
         }
-        return new SerdeAdapter<VS>(serializer.adapt(), deserializer.adapt());
+        return new SerdeAdapter<>(serializer.adapt(), deserializer.adapt());
     }
 
     /**
      * Resolves the key serde for a state store.
      *
      * <p>When the value type carries concrete key-type information (e.g. a domain record that
-     * directly implements {@code Keyed<ConcreteKey>}), a {@link StringKeySerde} is returned.
+     * directly implements {@code Keyed<ConcreteKey>}), a {@link JsonKeySerde} is returned.
      * When the key type is a type variable that cannot be resolved statically — which happens for
-     * generic wrappers such as {@code Aggregation<KO, V>} — a {@link DeferredStringKeySerde} is
+     * generic wrappers such as {@code Aggregation<KO, V>} — a {@link DeferredJsonKeySerde} is
      * returned instead. The deferred serde learns the concrete key class from the first key it
      * serialises, which is safe for stores that only use {@code get}/{@code put}.
      */
     private <KS extends Key<KS>, VS extends Keyed<KS>> Serde<KS> keySerde(TypeReference<VS> type) {
         try {
-            return new StringKeySerde<>(keyTypeOf(type.rawType()));
+            return new JsonKeySerde<>(
+                    keyTypeOf(type.rawType()),
+                    jsonMapper,
+                    serializer.eventRegistry(),
+                    conversionService,
+                    kafkaClientProperties);
         } catch (IllegalArgumentException e) {
-            return new DeferredStringKeySerde<>();
+            return new DeferredJsonKeySerde<>(jsonMapper);
         }
     }
 
-    static String toKebabCase(String value) {
+    public static String toKebabCase(String value) {
         return value.replaceAll("([a-z])([A-Z]+)", "$1-$2").toLowerCase();
     }
 
@@ -202,7 +226,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
      * <p>Angle brackets, commas, and spaces introduced by generic type parameters are replaced
      * with hyphens; consecutive hyphens and trailing punctuation are collapsed.
      */
-    static String toStoreName(String typeName) {
+    public static String toStoreName(String typeName) {
         return toKebabCase(typeName)
                 .replaceAll("\\W", "-")
                 .replaceAll("-{2,}", "-")

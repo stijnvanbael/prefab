@@ -1,4 +1,4 @@
-package be.appify.prefab.streams.kafka;
+package be.appify.prefab.test.streams.kafka;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.Key;

@@ -901,6 +901,47 @@ Use instance `merge(...)` when the current stream type already represents the ta
 
 Use `join(...)` for KStream-KStream **inner join** composition with explicit windowing via `JoinWindow`.
 
+### Key Serialization Wire Format (JSON + AVRO)
+
+Kafka stream keys are automatically serialized without manual `parse(String)` / `toString()` plumbing.
+
+**How it works:**
+
+- For **JSON topics**, key types (`Key<K>`) are serialized as JSON bytes via Jackson's `ObjectMapper`.
+- For **AVRO topics**, key types are serialized as AVRO bytes using the Confluent AVRO serde stack.
+- AVRO key conversion first uses registered Spring converters (`KeyType <-> GenericRecord`) when available, and otherwise falls back to reflection-based record mapping for record-style keys.
+- Deserialization reconstructs the key object directly; manual `Key.register(...)` parsers are no longer required.
+
+**Example key type (no manual serialization needed):**
+
+```java
+public record OrderKey(Reference<Order> orderId, Instant timestamp) implements Key<OrderKey> {
+    // No parse(String), toString(), or Key.register() required!
+}
+```
+
+**Deprecated API:**
+
+The legacy `Key.register(Class, Function)` method is now deprecated and will be removed in a future release. If you have existing key types using manual registration, migration is simple: remove the static initializer block and custom `parse()`/`toString()` methods, and let framework-managed JSON/AVRO key serdes handle serialization.
+
+Example migration:
+
+```java
+// Old (deprecated):
+public record OrderKey(...) implements Key<OrderKey> {
+    static {
+        Key.register(OrderKey.class, OrderKey::parse);
+    }
+    public static OrderKey parse(String str) { ... }
+    public String toString() { ... }
+}
+
+// New (recommended):
+public record OrderKey(...) implements Key<OrderKey> {
+    // Jackson handles everything automatically
+}
+```
+
 Example topology with subtype branching and factory merge:
 
 ```java

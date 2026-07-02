@@ -85,7 +85,7 @@ public final class KafkaTopologyTestBootstrap {
         public <K, V extends Keyed<K>> TestInputTopic<K, V> input(Class<V> type) {
             var topic = eventRegistry().topicForType(type);
             var keyType = keyTypeOf(type);
-            return driver.createInputTopic(topic, new JsonKeySerde<>(keyType, jsonMapper).serializer(), serializer.adapt());
+            return driver.createInputTopic(topic, new StringKeySerde<>(keyType).serializer(), serializer.adapt());
         }
 
         <K, T> TestInputTopic<K, T> input(Class<T> type, Class<K> keyType) {
@@ -96,7 +96,7 @@ public final class KafkaTopologyTestBootstrap {
         public <K, V extends Keyed<K>> TestOutputTopic<K, V> output(Class<V> type) {
             var topic = eventRegistry().topicForType(type);
             var keyType = keyTypeOf(type);
-            return driver.createOutputTopic(topic, new JsonKeySerde<>(keyType, jsonMapper).deserializer(), deserializer.adapt());
+            return driver.createOutputTopic(topic, new StringKeySerde<>(keyType).deserializer(), deserializer.adapt());
         }
 
         <K, T> TestOutputTopic<K, T> output(Class<T> type, Class<K> keyType) {

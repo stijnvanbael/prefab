@@ -415,7 +415,7 @@ class KafkaPrefabStreamsTopologyTest {
             var input = topologyTest.input(IncomingOrder.class);
             var output = topologyTest.rawOutputBytes("orders.single-field-key");
 
-            input.pipeInput("o-1", new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("alice")));
+            input.pipeInput(Reference.fromId("o-1"), new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("alice")));
 
             var record = output.readRecord();
             assertThat(new String(record.key(), UTF_8)).isEqualTo("o-1");

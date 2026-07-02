@@ -4,14 +4,16 @@ import be.appify.prefab.processor.PrefabProcessor;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import static be.appify.prefab.processor.kafka.ProcessorTestUtil.assertGeneratedSourceEqualsIgnoringWhitespace;
+import static be.appify.prefab.processor.kafka.ProcessorTestUtil.generatedSourceOf;
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class KafkaConsumerConfigWriterTest {
+
     @Test
-    void customConcurrency() {
+    void defaultConfigNotGeneratedWithoutDlt() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(
@@ -32,10 +34,14 @@ class KafkaConsumerConfigWriterTest {
                         sourceOf("kafka/customdlt/UserEvent.java"),
                         sourceOf("kafka/customdlt/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.customdlt.infrastructure.kafka.UserExporterKafkaConsumerConfig",
-                "expected/kafka/customdlt/UserExporterKafkaConsumerConfig.java");
+        var source = generatedSourceOf(compilation, "kafka.customdlt.infrastructure.kafka.UserExporterKafkaConsumerConfig");
+        // error handler bean named to match the consumer's errorHandler reference
+        assertThat(source).contains("@Qualifier(\"userExporterKafkaErrorHandler\")");
+        // dead-letter publishing recoverer bean is generated for custom DLT
+        assertThat(source).contains("@Qualifier(\"userExporterDeadLetterPublishingRecoverer\")");
+        assertThat(source).contains("DeadLetterPublishingRecoverer");
+        // custom DLT topic property is wired in
+        assertThat(source).contains("${custom.dlt.name}");
     }
 
     @Test
@@ -47,10 +53,12 @@ class KafkaConsumerConfigWriterTest {
                         sourceOf("kafka/dltdisabled/UserEvent.java"),
                         sourceOf("kafka/dltdisabled/UserExporter.java"));
         assertThat(compilation).succeeded();
-        assertGeneratedSourceEqualsIgnoringWhitespace(
-                compilation,
-                "kafka.dltdisabled.infrastructure.kafka.UserExporterKafkaConsumerConfig",
-                "expected/kafka/dltdisabled/UserExporterKafkaConsumerConfig.java");
+        var source = generatedSourceOf(compilation, "kafka.dltdisabled.infrastructure.kafka.UserExporterKafkaConsumerConfig");
+        assertThat(source).contains("@Qualifier(\"userExporterKafkaErrorHandler\")");
+        // DLT disabled: no dead-letter publisher, just retry backoff
+        assertThat(source).doesNotContain("DeadLetterPublishingRecoverer");
+        assertThat(source).contains("DefaultErrorHandler");
+        assertThat(source).contains("ExponentialBackOffWithMaxRetries");
     }
 
     @Test

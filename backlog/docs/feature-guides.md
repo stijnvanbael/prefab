@@ -868,6 +868,16 @@ Serialization and deserialization reuse the existing Kafka dynamic serde infrast
 - `DynamicDeserializer` for source records
 - `DynamicSerializer` for sink records
 
+Default key serialization in the Streams DSL is now shape-based:
+
+- **Single-field record keys** (for example `record OrderId(String value)`) are encoded as plain UTF-8 strings.
+- **Composite record keys** (records with 2+ components) are encoded as JSON.
+- Non-record keys also use JSON by default.
+
+This is a **breaking change** for persisted Kafka state/changelog key bytes for topologies that previously relied on
+`Key.toString()`/`Key.parse(...)` semantics. Existing state stores and changelog topics may need reset or migration when
+moving to this version.
+
 When Prefab assigns Kafka Streams processor names for DSL-owned steps, it uses deterministic,
 representative names that encode the operation type and the simple class names of the value
 types involved, converted to kebab-case.  This keeps identical DSL topologies stable across

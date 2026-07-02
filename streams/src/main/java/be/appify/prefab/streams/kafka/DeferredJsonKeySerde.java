@@ -1,6 +1,5 @@
 package be.appify.prefab.streams.kafka;
 
-import be.appify.prefab.core.domain.Key;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serde;
@@ -8,7 +7,7 @@ import org.apache.kafka.common.serialization.Serializer;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * A {@link Serde} for {@link Key} instances whose concrete type is unknown at topology-build time.
+ * A {@link Serde} for key instances whose concrete type is unknown at topology-build time.
  *
  * <p>The serializer captures the key's runtime class from the first instance it encounters and uses
  * JSON serialization. The deserializer then uses that captured class to reconstruct keys via Jackson.
@@ -20,7 +19,7 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * @param <K> the key type
  */
-class DeferredJsonKeySerde<K extends Key<K>> implements Serde<K> {
+class DeferredJsonKeySerde<K> implements Serde<K> {
 
     private final AtomicReference<Class<K>> keyClass = new AtomicReference<>();
     private final JsonMapper mapper;
@@ -71,8 +70,7 @@ class DeferredJsonKeySerde<K extends Key<K>> implements Serde<K> {
     }
 
     @SuppressWarnings("unchecked")
-    private static <K extends Key<K>> Class<K> rawClass(K key) {
+    private static <K> Class<K> rawClass(K key) {
         return (Class<K>) key.getClass();
     }
 }
-

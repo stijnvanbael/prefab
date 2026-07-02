@@ -1,6 +1,5 @@
 package be.appify.prefab.streams;
 
-import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 
 import java.util.Collection;
@@ -15,7 +14,7 @@ import java.util.Collections;
  * @param <KO> The type of the key for the output records.
  * @param <VO> The type of the value for the output records.
  */
-public interface StreamProcessor<KI extends Key<KI>, VI extends Keyed<KI>, KO extends Key<KO>, VO extends Keyed<KO>> {
+public interface StreamProcessor<KI, VI extends Keyed<KI>, KO, VO extends Keyed<KO>> {
     /**
      * Processes an incoming stream record. Implementations should define the logic for handling the input record and producing any necessary output records.
      *

@@ -1,6 +1,5 @@
 package be.appify.prefab.test.streams.kafka;
 
-import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
@@ -9,7 +8,7 @@ import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.StreamDefinition;
 import be.appify.prefab.streams.kafka.KafkaPrefabStreams;
 import be.appify.prefab.streams.kafka.KafkaTopicResolver;
-import be.appify.prefab.streams.kafka.JsonKeySerde;
+import be.appify.prefab.streams.kafka.StringKeySerde;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serializer;
@@ -87,14 +86,14 @@ public final class KafkaTopologyTestBootstrap {
             JsonMapper jsonMapper
     ) implements AutoCloseable {
 
-        public <K extends Key<K>, V extends Keyed<K>> TestInputTopic<K, V> input(Class<V> type) {
+        public <K, V extends Keyed<K>> TestInputTopic<K, V> input(Class<V> type) {
             var topic = eventRegistry().topicForType(type);
-            return driver.createInputTopic(topic, new JsonKeySerde<>(keyTypeOf(type), jsonMapper).serializer(), serializer.adapt());
+            return driver.createInputTopic(topic, new StringKeySerde<>(keyTypeOf(type)).serializer(), serializer.adapt());
         }
 
-        public <K extends Key<K>, V extends Keyed<K>> TestOutputTopic<K, V> output(Class<V> type) {
+        public <K, V extends Keyed<K>> TestOutputTopic<K, V> output(Class<V> type) {
             var topic = eventRegistry().topicForType(type);
-            return driver.createOutputTopic(topic, new JsonKeySerde<>(keyTypeOf(type), jsonMapper).deserializer(), deserializer.adapt());
+            return driver.createOutputTopic(topic, new StringKeySerde<>(keyTypeOf(type)).deserializer(), deserializer.adapt());
         }
 
         @Override
@@ -103,4 +102,3 @@ public final class KafkaTopologyTestBootstrap {
         }
     }
 }
-

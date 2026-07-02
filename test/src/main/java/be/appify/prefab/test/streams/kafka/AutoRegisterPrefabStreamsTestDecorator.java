@@ -1,7 +1,6 @@
 package be.appify.prefab.test.streams.kafka;
 
 import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.streams.PrefabStream;
@@ -24,19 +23,19 @@ public class AutoRegisterPrefabStreamsTestDecorator implements PrefabStreams {
     }
 
     @Override
-    public <K extends Key<K>, V extends Keyed<K>> PrefabStream<K, V> from(Class<V> type) {
+    public <K, V extends Keyed<K>> PrefabStream<K, V> from(Class<V> type) {
         eventRegistry.register(appId + "-" + toKebabCase(type.getSimpleName()), type, Event.Serialization.JSON);
         return new AutoRegisterPrefabStreamTestDecorator<>(delegate.from(type), eventRegistry, this, appId);
     }
 
     @Override
-    public <K extends Key<K>, M extends Keyed<K>> PrefabStream<K, M> merge(PrefabStream<K, ? extends M> left,
+    public <K, M extends Keyed<K>> PrefabStream<K, M> merge(PrefabStream<K, ? extends M> left,
             PrefabStream<K, ? extends M> right) {
         return new AutoRegisterPrefabStreamTestDecorator<>(delegate.merge(left, right), eventRegistry, this, appId);
     }
 
     @Override
-    public <KS extends Key<KS>, VS extends Keyed<KS>> Store<KS, VS> createStore(TypeReference<VS> type) {
+    public <KS, VS extends Keyed<KS>> Store<KS, VS> createStore(TypeReference<VS> type) {
         eventRegistry.register(appId + "-" + toStoreName(type.name()) + "-changelog", type.rawType(), Event.Serialization.JSON);
         return delegate.createStore(type);
     }

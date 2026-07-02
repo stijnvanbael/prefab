@@ -1,6 +1,5 @@
 package be.appify.prefab.streams.kafka;
 
-import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 import org.junit.jupiter.api.Test;
 
@@ -12,7 +11,7 @@ class KeyTypeResolutionTest {
 
     // ── test-fixture types ─────────────────────────────────────────────────────
 
-    record FooId(String value) implements Key<FooId> {}
+    record FooId(String value) {}
 
     /** Case 1: direct Keyed implementation on the concrete class. */
     record DirectEntity(FooId id) implements Keyed<FooId> {
@@ -37,7 +36,7 @@ class KeyTypeResolutionTest {
     }
 
     /** Case 4: intermediate generic interface — type parameter resolved at the concrete class. */
-    interface GenericBridge<K extends Key<K>> extends Keyed<K> {}
+    interface GenericBridge<K> extends Keyed<K> {}
 
     record GenericBridgeEntity(FooId id) implements GenericBridge<FooId> {
         @Override

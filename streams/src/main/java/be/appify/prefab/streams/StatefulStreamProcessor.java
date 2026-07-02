@@ -1,6 +1,5 @@
 package be.appify.prefab.streams;
 
-import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 
 import java.util.Arrays;
@@ -10,7 +9,8 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public abstract class StatefulStreamProcessor<KI extends Key<KI>, VI extends Keyed<KI>, KO extends Key<KO>, VO extends Keyed<KO>> extends ContextualStreamProcessor<KI, VI, KO, VO> {
+public abstract class StatefulStreamProcessor<KI, VI extends Keyed<KI>, KO, VO extends Keyed<KO>>
+        extends ContextualStreamProcessor<KI, VI, KO, VO> {
     private Map<TypeReference<?>, Store<?, ?>> stores;
     private final Set<TypeReference<?>> storeTypes;
 
@@ -38,7 +38,7 @@ public abstract class StatefulStreamProcessor<KI extends Key<KI>, VI extends Key
     }
 
     @SuppressWarnings("unchecked")
-    private static <K extends Key<K>, V extends Keyed<K>> Store<K, V> createStore(PrefabStreams streams, TypeReference<?> type) {
+    private static <K, V extends Keyed<K>> Store<K, V> createStore(PrefabStreams streams, TypeReference<?> type) {
         return streams.createStore((TypeReference<V>) type);
     }
 
@@ -50,7 +50,7 @@ public abstract class StatefulStreamProcessor<KI extends Key<KI>, VI extends Key
      * @param type The class of the value type for the state store.
      * @return The state store of the specified type.
      */
-    protected <K extends Key<K>, V extends Keyed<K>> Store<K, V> store(Class<V> type) {
+    protected <K, V extends Keyed<K>> Store<K, V> store(Class<V> type) {
         return store(TypeReference.of(type));
     }
 
@@ -63,7 +63,7 @@ public abstract class StatefulStreamProcessor<KI extends Key<KI>, VI extends Key
      * @return The state store of the specified type.
      */
     @SuppressWarnings("unchecked")
-    protected <K extends Key<K>, V extends Keyed<K>> Store<K, V> store(TypeReference<V> type) {
+    protected <K, V extends Keyed<K>> Store<K, V> store(TypeReference<V> type) {
         if (!stores.containsKey(type)) {
             throw new NoSuchElementException("No store found for type: " + type);
         }

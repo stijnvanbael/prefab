@@ -82,7 +82,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
     }
 
     @SuppressWarnings("unchecked")
-    static <K, V extends Keyed<K>> Class<K> keyTypeOf(Class<V> valueType) {
+    public static <K, V extends Keyed<K>> Class<K> keyTypeOf(Class<V> valueType) {
         return (Class<K>) resolveKeyType(valueType, Map.of(), valueType);
     }
 

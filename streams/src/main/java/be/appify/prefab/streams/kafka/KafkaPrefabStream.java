@@ -1,7 +1,6 @@
 package be.appify.prefab.streams.kafka;
 
 import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
@@ -42,7 +41,7 @@ import tools.jackson.databind.json.JsonMapper;
  * @param <V>
  *         current record value type
  */
-public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements PrefabStream<K, V> {
+public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K, V> {
     private final StreamsBuilder streamsBuilder;
     private final KStream<K, V> stream;
     private final KafkaTopicResolver topicResolver;
@@ -52,7 +51,7 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
     private final ConversionService conversionService;
     private final Map<String, Object> kafkaClientProperties;
     private final ValueTypeHint<V> valueType;
-    private final Class<K> keyType;
+    private final Serde<K> keySerde;
     private final PrefabStreams streams;
     private final StreamStepNames stepNames;
 
@@ -70,11 +69,11 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
             Map<String, Object> kafkaClientProperties,
             @NotNull Class<V> valueType,
             PrefabStreams streams,
-            Class<K> keyType,
+            Serde<K> keySerde,
             StreamStepNames stepNames
     ) {
         this(streamsBuilder, stream, topicResolver, serializer, deserializer, jsonMapper, conversionService, kafkaClientProperties,
-                ValueTypeHint.known(Objects.requireNonNull(valueType, "valueType must not be null")), streams, keyType,
+                ValueTypeHint.known(Objects.requireNonNull(valueType, "valueType must not be null")), streams, keySerde,
                 stepNames);
     }
 
@@ -89,7 +88,7 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
             Map<String, Object> kafkaClientProperties,
             ValueTypeHint<V> valueType,
             PrefabStreams streams,
-            Class<K> keyType,
+            Serde<K> keySerde,
             StreamStepNames stepNames
     ) {
         this.streamsBuilder = streamsBuilder;
@@ -102,23 +101,26 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
         this.kafkaClientProperties = Map.copyOf(kafkaClientProperties);
         this.valueType = Objects.requireNonNull(valueType, "valueType must not be null");
         this.streams = streams;
-        this.keyType = keyType;
+        this.keySerde = Objects.requireNonNull(keySerde, "keySerde must not be null");
         this.stepNames = Objects.requireNonNull(stepNames, "stepNames must not be null");
     }
 
     @Override
     public PrefabStream<K, V> filter(Predicate<V> predicate) {
-        return wrap(stream.filter((key, value) -> predicate.test(value), Named.as(stepNames.nextFilterName(inputTypeOrNull()))), valueType);
+        return wrap(
+                stream.filter((key, value) -> predicate.test(value), Named.as(stepNames.nextFilterName(inputTypeOrNull()))),
+                valueType,
+                keySerde);
     }
 
     @Override
     public <VO extends Keyed<K>> PrefabStream<K, VO> map(Function<V, VO> mapper) {
-        return wrapUnknown(stream.mapValues(mapper::apply, Named.as(stepNames.nextMapName(inputTypeOrNull()))));
+        return wrapUnknown(stream.mapValues(mapper::apply, Named.as(stepNames.nextMapName(inputTypeOrNull()))), keySerde);
     }
 
     @Override
     public <VO extends Keyed<K>> PrefabStream<K, VO> flatMap(Function<V, Iterable<VO>> mapper) {
-        return wrapUnknown(stream.flatMapValues(mapper::apply, Named.as(stepNames.nextFlatMapName(inputTypeOrNull()))));
+        return wrapUnknown(stream.flatMapValues(mapper::apply, Named.as(stepNames.nextFlatMapName(inputTypeOrNull()))), keySerde);
     }
 
     @Override
@@ -128,7 +130,7 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
         var branched = stream.split(Named.as(branchId))
                 .branch((key, value) -> predicate.test(value), Branched.as("-matched"));
         var namedBranches = branched.noDefaultBranch();
-        return wrap(namedBranches.get(branchId + "-matched"), valueType);
+        return wrap(namedBranches.get(branchId + "-matched"), valueType, keySerde);
     }
 
     @Override
@@ -138,7 +140,7 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
         var filteredAndCasted = stream
                 .filter((key, value) -> subtype.isInstance(value), Named.as(branchSubtypeId))
                 .mapValues(subtype::cast, Named.as(branchSubtypeId + "-cast"));
-        return wrapKnown(filteredAndCasted, subtype);
+        return wrapKnown(filteredAndCasted, subtype, keySerde);
     }
 
     @Override
@@ -167,20 +169,15 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
                         otherKafkaStream.stream,
                         joiner::apply,
                         JoinWindows.ofTimeDifferenceAndGrace(window.timeDifference(), window.grace()),
-                        StreamJoined.with(new JsonKeySerde<>(
-                                        keyType,
-                                        jsonMapper,
-                                        serializer.eventRegistry(),
-                                        conversionService,
-                                        kafkaClientProperties),
-                                joinSerde(valueType),
+                        StreamJoined.with(keySerde, joinSerde(valueType),
                                 joinSerde(otherKafkaStream.valueType)).withName(stepNames.nextJoinName(inputTypeOrNull(), otherKafkaStream.inputTypeOrNull()))
                 ),
-                ValueTypeHint.unknown()
+                ValueTypeHint.unknown(),
+                keySerde
         );
     }
 
-    static <K extends Key<K>, VO extends Keyed<K>> KafkaPrefabStream<K, VO> mergeStreams(
+    static <K, VO extends Keyed<K>> KafkaPrefabStream<K, VO> mergeStreams(
             PrefabStream<K, ? extends VO> left,
             PrefabStream<K, ? extends VO> right
     ) {
@@ -202,13 +199,14 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
                                 leftKafkaStream.inputTypeOrNull(), rightKafkaStream.inputTypeOrNull()
                         ))
                 ),
-                commonKnownType(leftKafkaStream.valueType, rightKafkaStream.valueType)
+                commonKnownType(leftKafkaStream.valueType, rightKafkaStream.valueType),
+                leftKafkaStream.keySerde
         );
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public <NI, NO, KO extends Key<KO>, VO extends Keyed<KO>> PrefabStream<KO, VO> breakout(
+    public <NI, NO, KO, VO extends Keyed<KO>> PrefabStream<KO, VO> breakout(
             StreamBreakoutAdapter<K, V, KO, VO, NI, NO> adapter
     ) {
         var breakoutAdapter = Objects.requireNonNull(adapter, "adapter must not be null");
@@ -235,11 +233,11 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
                     "Kafka breakout adapter must return a KStream but returned %s".formatted(actualType)
             );
         }
-        return wrapUnknown((KStream<KO, VO>) adaptedKStream);
+        return wrapUnknown((KStream<KO, VO>) adaptedKStream, new DeferredStringKeySerde<>());
     }
 
     @Override
-    public <KO extends Key<KO>, VO extends Keyed<KO>> PrefabStream<KO, VO> process(
+    public <KO, VO extends Keyed<KO>> PrefabStream<KO, VO> process(
             StreamProcessor<K, V, KO, VO> processor
     ) {
         Objects.requireNonNull(processor, "processor must not be null");
@@ -255,7 +253,7 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
                 stateStoreNames
         );
 
-        return wrapUnknown(output);
+        return wrapUnknown(output, new DeferredStringKeySerde<>());
     }
 
     @Override
@@ -268,14 +266,7 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
         // DynamicSerializer/Deserializer work on Object at runtime; the cast to Serde<V> is safe
         // because the backend selects serialization by topic, not by the generic type parameter.
         var valueSerde = new SerdeAdapter<V>(serializer.adapt(), deserializer.adapt());
-        stream.to(topic, Produced.with(
-                new JsonKeySerde<>(
-                        keyType,
-                        jsonMapper,
-                        serializer.eventRegistry(),
-                        conversionService,
-                        kafkaClientProperties),
-                valueSerde));
+        stream.to(topic, Produced.with(keySerde, valueSerde));
         return new StreamDefinition(streamsBuilder::build);
     }
 
@@ -294,21 +285,23 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
         return valueType.isUnknown() ? null : valueType.knownRuntimeType();
     }
 
-    private <KO extends Key<KO>, VO extends Keyed<KO>> KafkaPrefabStream<KO, VO> wrapKnown(
+    private <KO, VO extends Keyed<KO>> KafkaPrefabStream<KO, VO> wrapKnown(
             KStream<KO, VO> kStream,
-            Class<VO> valueType
+            Class<VO> valueType,
+            Serde<KO> keySerde
     ) {
-        return wrap(kStream, ValueTypeHint.known(valueType));
+        return wrap(kStream, ValueTypeHint.known(valueType), keySerde);
     }
 
-    private <KO extends Key<KO>, VO extends Keyed<KO>> KafkaPrefabStream<KO, VO> wrapUnknown(KStream<KO, VO> kStream) {
-        return wrap(kStream, ValueTypeHint.unknown());
+    private <KO, VO extends Keyed<KO>> KafkaPrefabStream<KO, VO> wrapUnknown(KStream<KO, VO> kStream, Serde<KO> keySerde) {
+        return wrap(kStream, ValueTypeHint.unknown(), keySerde);
     }
 
     @SuppressWarnings("unchecked")
-    private <KO extends Key<KO>, VO extends Keyed<KO>> KafkaPrefabStream<KO, VO> wrap(
+    private <KO, VO extends Keyed<KO>> KafkaPrefabStream<KO, VO> wrap(
             KStream<KO, VO> kStream,
-            ValueTypeHint<VO> valueType
+            ValueTypeHint<VO> valueType,
+            Serde<KO> keySerde
     ) {
         return new KafkaPrefabStream<>(
                 streamsBuilder,
@@ -321,7 +314,7 @@ public class KafkaPrefabStream<K extends Key<K>, V extends Keyed<K>> implements 
                 kafkaClientProperties,
                 valueType,
                 streams,
-                (Class<KO>) keyType,
+                keySerde,
                 stepNames
         );
     }

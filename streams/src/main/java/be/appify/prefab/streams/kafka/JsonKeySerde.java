@@ -1,7 +1,6 @@
 package be.appify.prefab.streams.kafka;
 
 import be.appify.prefab.core.annotations.Event;
-import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.kafka.EventRegistry;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroDeserializer;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroSerializer;
@@ -15,14 +14,14 @@ import org.springframework.core.convert.ConversionService;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * JSON-based {@link Serde} for {@link Key} types.
+ * JSON-based {@link Serde} for key types.
  *
  * <p>Serializes keys to JSON using Jackson; deserializes JSON back to strongly-typed key instances.
  * This eliminates the need for manual {@code parse(String)} and {@code toString()} implementations.
  *
  * @param <K> the key type
  */
-public class JsonKeySerde<K extends Key<K>> implements Serde<K> {
+public class JsonKeySerde<K> implements Serde<K> {
     private final JsonKeySerializer<K> serializer;
     private final JsonKeyDeserializer<K> deserializer;
 
@@ -189,4 +188,3 @@ public class JsonKeySerde<K extends Key<K>> implements Serde<K> {
                 && eventRegistry.serialization(topic) == Event.Serialization.AVRO;
     }
 }
-

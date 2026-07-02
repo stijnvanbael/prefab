@@ -1,7 +1,6 @@
 package be.appify.prefab.streams.kafka;
 
 import be.appify.prefab.streams.Aggregation;
-import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
@@ -57,19 +56,15 @@ public class KafkaPrefabStreams implements PrefabStreams {
     }
 
     @Override
-    public <K extends Key<K>, V extends Keyed<K>> PrefabStream<K, V> from(Class<V> type) {
+    public <K, V extends Keyed<K>> PrefabStream<K, V> from(Class<V> type) {
         var topic = topicResolver.topicForType(type);
         var keyType = keyTypeOf(type);
+        var keySerde = new StringKeySerde<>(keyType);
         var valueSerde = new SerdeAdapter<V>(serializer.adapt(), deserializer.adapt());
         // DynamicSerializer/Deserializer operate on Object at runtime; the cast is safe because
         // the topic is registered for exactly this type and the serde will deserialize to V.
         KStream<K, V> stream = streamsBuilder.stream(topic,
-                Consumed.with(new JsonKeySerde<>(
-                        keyType,
-                        jsonMapper,
-                        serializer.eventRegistry(),
-                        conversionService,
-                        kafkaClientProperties), valueSerde));
+                Consumed.with(keySerde, valueSerde));
         return new KafkaPrefabStream<>(
                 streamsBuilder,
                 stream,
@@ -81,13 +76,13 @@ public class KafkaPrefabStreams implements PrefabStreams {
                 kafkaClientProperties,
                 type,
                 this,
-                keyType,
+                keySerde,
                 stepNames
         );
     }
 
     @SuppressWarnings("unchecked")
-    public static <K extends Key<K>, V extends Keyed<K>> Class<K> keyTypeOf(Class<V> valueType) {
+    static <K, V extends Keyed<K>> Class<K> keyTypeOf(Class<V> valueType) {
         return (Class<K>) resolveKeyType(valueType, Map.of(), valueType);
     }
 
@@ -160,13 +155,13 @@ public class KafkaPrefabStreams implements PrefabStreams {
     }
 
     @Override
-    public <K extends Key<K>, M extends Keyed<K>> PrefabStream<K, M> merge(PrefabStream<K, ? extends M> left,
+    public <K, M extends Keyed<K>> PrefabStream<K, M> merge(PrefabStream<K, ? extends M> left,
             PrefabStream<K, ? extends M> right) {
         return KafkaPrefabStream.mergeStreams(left, right);
     }
 
     @Override
-    public <KS extends Key<KS>, VS extends Keyed<KS>> Store<KS, VS> createStore(TypeReference<VS> type) {
+    public <KS, VS extends Keyed<KS>> Store<KS, VS> createStore(TypeReference<VS> type) {
         var name = toStoreName(type.name());
         streamsBuilder.addStateStore(Stores.keyValueStoreBuilder(
                 Stores.persistentKeyValueStore(name),
@@ -185,7 +180,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
      * All other value types use the standard {@link SerdeAdapter}.
      */
     @SuppressWarnings("unchecked")
-    private <KS extends Key<KS>, VS extends Keyed<KS>> Serde<VS> valueSerde(TypeReference<VS> type) {
+    private <KS, VS extends Keyed<KS>> Serde<VS> valueSerde(TypeReference<VS> type) {
         if (type.rawType() == (Class<?>) Aggregation.class) {
             return (Serde<VS>) new DeferredAggregationSerde<>();
         }
@@ -202,7 +197,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
      * returned instead. The deferred serde learns the concrete key class from the first key it
      * serialises, which is safe for stores that only use {@code get}/{@code put}.
      */
-    private <KS extends Key<KS>, VS extends Keyed<KS>> Serde<KS> keySerde(TypeReference<VS> type) {
+    private <KS, VS extends Keyed<KS>> Serde<KS> keySerde(TypeReference<VS> type) {
         try {
             return new JsonKeySerde<>(
                     keyTypeOf(type.rawType()),

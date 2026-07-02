@@ -1,12 +1,11 @@
 package be.appify.prefab.streams;
 
-import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-public class AggregationProcessor<K extends Key<K>, V extends Keyed<K>, KO extends Key<KO>, VO extends Keyed<KO>>
+public class AggregationProcessor<K, V extends Keyed<K>, KO, VO extends Keyed<KO>>
         extends StatefulStreamProcessor<K, V, KO, VO> {
 
     private final TypeReference<Aggregation<KO, V>> storeType;
@@ -94,7 +93,7 @@ public class AggregationProcessor<K extends Key<K>, V extends Keyed<K>, KO exten
      * separately.
      */
     @SuppressWarnings("unchecked")
-    private static <KO extends Key<KO>, V> TypeReference<Aggregation<KO, V>> deriveStoreType(
+    private static <KO, V> TypeReference<Aggregation<KO, V>> deriveStoreType(
             Class<V> inputClass
     ) {
         var aggregationClass = (Class<Aggregation<KO, V>>) (Class<?>) Aggregation.class;

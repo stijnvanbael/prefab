@@ -1,6 +1,5 @@
 package be.appify.prefab.streams.kafka;
 
-import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.streams.StreamProcessor;
 import be.appify.prefab.streams.StreamRecord;
@@ -14,7 +13,8 @@ import org.apache.kafka.streams.processor.api.Record;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-public class KafkaPrefabStreamProcessorAdapter<KI extends Key<KI>, VI extends Keyed<KI>, KO extends Key<KO>, VO extends Keyed<KO>> extends ContextualProcessor<KI, VI, KO, VO> {
+public class KafkaPrefabStreamProcessorAdapter<KI, VI extends Keyed<KI>, KO, VO extends Keyed<KO>>
+        extends ContextualProcessor<KI, VI, KO, VO> {
     private final StreamProcessor<KI, VI, KO, VO> processor;
 
     public KafkaPrefabStreamProcessorAdapter(StreamProcessor<KI, VI, KO,  VO> processor) {

@@ -1,6 +1,5 @@
 package be.appify.prefab.test.streams.kafka;
 
-import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
@@ -87,12 +86,12 @@ public final class KafkaTopologyTestBootstrap {
             JsonMapper jsonMapper
     ) implements AutoCloseable {
 
-        public <K extends Key<K>, V extends Keyed<K>> TestInputTopic<K, V> input(Class<V> type) {
+        public <K, V extends Keyed<K>> TestInputTopic<K, V> input(Class<V> type) {
             var topic = eventRegistry().topicForType(type);
             return driver.createInputTopic(topic, new JsonKeySerde<>(keyTypeOf(type), jsonMapper).serializer(), serializer.adapt());
         }
 
-        public <K extends Key<K>, V extends Keyed<K>> TestOutputTopic<K, V> output(Class<V> type) {
+        public <K, V extends Keyed<K>> TestOutputTopic<K, V> output(Class<V> type) {
             var topic = eventRegistry().topicForType(type);
             return driver.createOutputTopic(topic, new JsonKeySerde<>(keyTypeOf(type), jsonMapper).deserializer(), deserializer.adapt());
         }
@@ -103,4 +102,3 @@ public final class KafkaTopologyTestBootstrap {
         }
     }
 }
-

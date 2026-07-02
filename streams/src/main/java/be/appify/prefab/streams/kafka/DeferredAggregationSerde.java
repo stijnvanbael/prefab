@@ -1,6 +1,5 @@
 package be.appify.prefab.streams.kafka;
 
-import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.streams.Aggregation;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.kafka.common.serialization.Deserializer;
@@ -28,7 +27,7 @@ import tools.jackson.databind.json.JsonMapper;
  * @param <K> the grouping key type
  * @param <V> the accumulated value type
  */
-class DeferredAggregationSerde<K extends Key<K>, V> implements Serde<Aggregation<K, V>> {
+class DeferredAggregationSerde<K, V> implements Serde<Aggregation<K, V>> {
 
     private final AtomicReference<JavaType> capturedType = new AtomicReference<>();
     private final JsonMapper objectMapper = JsonMapper.builder().findAndAddModules().build();

@@ -4,7 +4,7 @@ title: Support arbitrary stream key types and remove Key interface
 status: Done
 assignee: []
 created_date: '2026-07-01 13:44'
-updated_date: '2026-07-02 06:52'
+updated_date: '2026-07-02 14:02'
 labels:
   - streams
   - core
@@ -75,6 +75,8 @@ Extended tests to validate topology behavior for both key categories, including 
 Updated developer documentation (`backlog/docs/feature-guides.md`, Streams DSL section) with new key-serialization defaults and explicit migration warning for persisted state/changelog bytes.
 
 Verification: `mvn -pl streams -am test -DskipITs -Dtest=KafkaPrefabStreamsTopologyTest,StringKeySerdeTest,KeyTypeResolutionTest -Dsurefire.failIfNoSpecifiedTests=false`; `mvn -pl streams,examples/streams -am test -DskipITs -Dtest=KafkaPrefabStreamsTopologyTest,StringKeySerdeTest,KeyTypeResolutionTest -Dsurefire.failIfNoSpecifiedTests=false`.
+
+CI follow-up (2026-07-02): the shared `test/src/main/java/be/appify/prefab/test/streams/kafka/KafkaTopologyTestBootstrap.java` also needs to use `StringKeySerde`. It had been switched to `JsonKeySerde`, which caused `examples/streams` topology tests to fail when reading single-field record keys that are intentionally serialized as plain UTF-8 strings.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

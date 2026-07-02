@@ -1,6 +1,5 @@
 package be.appify.prefab.streams;
 
-import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 
 import java.time.Duration;
@@ -8,7 +7,8 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.function.Consumer;
 
-public abstract class ContextualStreamProcessor<KI extends Key<KI>, VI extends Keyed<KI>, KO extends Key<KO>, VO extends Keyed<KO>> implements StreamProcessor<KI, VI, KO, VO> {
+public abstract class ContextualStreamProcessor<KI, VI extends Keyed<KI>, KO, VO extends Keyed<KO>>
+        implements StreamProcessor<KI, VI, KO, VO> {
     private final ThreadLocal<StreamProcessorContext<KO, VO>> context = new ThreadLocal<>();
 
     /**

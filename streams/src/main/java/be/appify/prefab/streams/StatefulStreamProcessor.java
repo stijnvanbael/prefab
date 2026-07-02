@@ -1,6 +1,5 @@
 package be.appify.prefab.streams;
 
-import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 
 import java.util.Arrays;
@@ -10,7 +9,8 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public abstract class StatefulStreamProcessor<KI extends Key<KI>, VI extends Keyed<KI>, KO extends Key<KO>, VO extends Keyed<KO>> extends ContextualStreamProcessor<KI, VI, KO, VO> {
+public abstract class StatefulStreamProcessor<KI, VI extends Keyed<KI>, KO, VO extends Keyed<KO>>
+        extends ContextualStreamProcessor<KI, VI, KO, VO> {
     private Map<TypeReference<?>, Store<?, ?>> stores;
     private final Set<TypeReference<?>> storeTypes;
 

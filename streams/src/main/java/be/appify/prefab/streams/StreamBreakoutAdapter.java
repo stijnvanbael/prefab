@@ -1,6 +1,5 @@
 package be.appify.prefab.streams;
 
-import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 
 /**
@@ -14,9 +13,9 @@ import be.appify.prefab.core.domain.Keyed;
  * @param <NATIVE_OUT> backend-native output stream type
  */
 public interface StreamBreakoutAdapter<
-        KI extends Key<KI>,
+        KI,
         VI extends Keyed<KI>,
-        KO extends Key<KO>,
+        KO,
         VO extends Keyed<KO>,
         NATIVE_IN,
         NATIVE_OUT

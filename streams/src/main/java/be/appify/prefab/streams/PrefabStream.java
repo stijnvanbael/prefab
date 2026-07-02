@@ -1,6 +1,5 @@
 package be.appify.prefab.streams;
 
-import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 
 import java.util.List;
@@ -8,7 +7,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-public interface PrefabStream<K extends Key<K>, V extends Keyed<K>> {
+public interface PrefabStream<K, V extends Keyed<K>> {
 
     PrefabStream<K, V> filter(Predicate<V> predicate);
 
@@ -28,11 +27,11 @@ public interface PrefabStream<K extends Key<K>, V extends Keyed<K>> {
             BiFunction<? super V, ? super VO, ? extends VR> joiner
     );
 
-    <NI, NO, KO extends Key<KO>, VO extends Keyed<KO>> PrefabStream<KO, VO> breakout(
+    <NI, NO, KO, VO extends Keyed<KO>> PrefabStream<KO, VO> breakout(
             StreamBreakoutAdapter<K, V, KO, VO, NI, NO> adapter
     );
 
-    <KO extends Key<KO>, VO extends Keyed<KO>> PrefabStream<KO, VO> process(
+    <KO, VO extends Keyed<KO>> PrefabStream<KO, VO> process(
             StreamProcessor<K, V, KO, VO> processor
     );
 
@@ -55,7 +54,7 @@ public interface PrefabStream<K extends Key<K>, V extends Keyed<K>> {
         return null;
     }
 
-    default <KO extends Key<KO>, VO extends Keyed<KO>> PrefabStream<KO, VO> aggregate(
+    default <KO, VO extends Keyed<KO>> PrefabStream<KO, VO> aggregate(
             Function<V, KO> groupBy,
             Function<List<V>, VO> aggregation,
             Predicate<VO> egressCondition

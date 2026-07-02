@@ -1,6 +1,5 @@
 package be.appify.prefab.core.service;
 
-import be.appify.prefab.core.domain.Key;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.UUID;
@@ -15,15 +14,7 @@ import java.util.UUID;
  */
 public record Reference<T>(
         @JsonValue String id
-) implements Key<Reference<T>> {
-    static {
-        registerReferenceKeyDeserializer();
-    }
-
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    private static void registerReferenceKeyDeserializer() {
-        Key.register((Class) Reference.class, id -> (Reference) Reference.fromId(id));
-    }
+) {
 
     /**
      * Constructs a new Reference

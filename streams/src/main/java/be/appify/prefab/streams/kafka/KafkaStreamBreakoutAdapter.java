@@ -1,6 +1,5 @@
 package be.appify.prefab.streams.kafka;
 
-import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.streams.StreamBackend;
 import be.appify.prefab.streams.StreamBreakoutAdapter;
@@ -9,7 +8,7 @@ import java.util.function.Function;
 import org.apache.kafka.streams.kstream.KStream;
 
 /** Kafka breakout adapter for injecting a native KStream fragment. */
-public record KafkaStreamBreakoutAdapter<KI extends Key<KI>, KO extends Key<KO>, V extends Keyed<KI>, R extends Keyed<KO>>(
+public record KafkaStreamBreakoutAdapter<KI, KO, V extends Keyed<KI>, R extends Keyed<KO>>(
         Function<KStream<KI, V>, KStream<KO, R>> fragment
 ) implements StreamBreakoutAdapter<KI, V, KO, R, KStream<KI, V>, KStream<KO, R>> {
 

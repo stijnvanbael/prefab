@@ -63,13 +63,27 @@ final class KafkaTopologyTestBootstrap {
             return driver.createInputTopic(topic, new StringSerializer(), (Serializer<T>) serializer);
         }
 
+        <K, T> TestInputTopic<K, T> input(Class<T> type, Class<K> keyType) {
+            var topic = eventRegistry().topicForType(type);
+            return driver.createInputTopic(topic, new StringKeySerde<>(keyType).serializer(), (Serializer<T>) serializer);
+        }
+
         <T> TestOutputTopic<String, T> output(Class<T> type) {
             var topic = eventRegistry().topicForType(type);
             return driver.createOutputTopic(topic, new StringDeserializer(), (Deserializer<T>) deserializer);
         }
 
+        <K, T> TestOutputTopic<K, T> output(Class<T> type, Class<K> keyType) {
+            var topic = eventRegistry().topicForType(type);
+            return driver.createOutputTopic(topic, new StringKeySerde<>(keyType).deserializer(), (Deserializer<T>) deserializer);
+        }
+
         TestOutputTopic<String, byte[]> rawOutput(String topic) {
             return driver.createOutputTopic(topic, new StringDeserializer(), new ByteArrayDeserializer());
+        }
+
+        TestOutputTopic<byte[], byte[]> rawOutputBytes(String topic) {
+            return driver.createOutputTopic(topic, new ByteArrayDeserializer(), new ByteArrayDeserializer());
         }
 
         @Override

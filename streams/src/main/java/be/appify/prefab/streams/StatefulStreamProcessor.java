@@ -1,6 +1,5 @@
 package be.appify.prefab.streams;
 
-import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.domain.Keyed;
 import java.time.Instant;
 import java.util.Arrays;
@@ -40,13 +39,13 @@ public abstract class StatefulStreamProcessor<KI, VI, KO, VO> implements StreamP
     }
 
     @SuppressWarnings("unchecked")
-    private static <K extends Key<K>, V extends Keyed<K>> Store<K, V> createStore(PrefabStreams streams, TypeReference<?> type) {
+    private static <K, V extends Keyed<K>> Store<K, V> createStore(PrefabStreams streams, TypeReference<?> type) {
         return streams.createStore((TypeReference<V>) type);
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public <K extends Key<K>, V extends Keyed<K>> Store<K, V> store(TypeReference<V> type) {
+    public <K, V extends Keyed<K>> Store<K, V> store(TypeReference<V> type) {
         if (!stores.containsKey(type)) {
             throw new NoSuchElementException("No store found for type: " + type);
         }

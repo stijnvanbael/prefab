@@ -3,6 +3,7 @@ package be.appify.prefab.streams;
 import be.appify.prefab.core.domain.Keyed;
 
 import java.util.List;
+import java.util.Arrays;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -34,6 +35,13 @@ public interface PrefabStream<K, V extends Keyed<K>> {
     <KO, VO extends Keyed<KO>> PrefabStream<KO, VO> process(
             StreamProcessor<K, V, KO, VO> processor
     );
+
+    default <KO, VO extends Keyed<KO>> PrefabStream<KO, VO> process(
+            StreamProcessor<K, V, KO, VO> processor,
+            Store<?, ?>... stores
+    ) {
+        return process(new StoreBindingStreamProcessor<>(processor, Arrays.asList(stores)));
+    }
 
     StreamDefinition to(Class<? super V> type);
 

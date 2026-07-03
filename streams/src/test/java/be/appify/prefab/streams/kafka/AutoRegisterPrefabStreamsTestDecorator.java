@@ -39,4 +39,10 @@ public class AutoRegisterPrefabStreamsTestDecorator implements PrefabStreams {
         eventRegistry.register(appId + "-" + toStoreName(type.name()) + "-changelog", type.rawType(), Event.Serialization.JSON);
         return delegate.createStore(type);
     }
+
+    @Override
+    public <KS, VS extends Keyed<KS>> Store<KS, VS> sharedStore(String name, TypeReference<VS> type) {
+        eventRegistry.register(appId + "-" + toStoreName(name) + "-changelog", type.rawType(), Event.Serialization.JSON);
+        return delegate.sharedStore(name, type);
+    }
 }

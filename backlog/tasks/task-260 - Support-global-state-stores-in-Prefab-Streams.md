@@ -1,10 +1,10 @@
 ---
 id: TASK-260
 title: Support global state stores in Prefab Streams
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-07-02 06:32'
-updated_date: '2026-07-02 06:41'
+updated_date: '2026-07-03 05:31'
 labels:
   - feature
   - streams
@@ -66,4 +66,16 @@ Open questions to resolve during implementation:
 - Should the shared store be declared explicitly by name, or inferred from the `StateStore` definition?
 - How should the Kafka backend guard against duplicate incompatible store declarations?
 - Do non-Kafka backends need the same sharing contract now, or only the backend-agnostic abstraction?
+
+Implemented topology-scoped shared stores in Streams DSL: added `PrefabStreams.sharedStore(...)` declarations and Kafka backend registry that materializes each shared store once per topology and reuses the same store adapter instance for compatible redeclarations.
+
+Added fail-fast validation for incompatible shared store redeclarations (same name, different key/value contract) with actionable `IllegalArgumentException` messages.
+
+Added explicit `process(processor, Store... stores)` binding flow via `StoreBindingStreamProcessor` so non-`StatefulStreamProcessor` processors can bind and initialize shared stores safely; added conflict validation for duplicate store names with different instances.
+
+Extended topology tests with shared-store scenarios: cross-branch shared read/write behavior, declaration reuse identity, incompatible declaration failure, and conflicting process binding failure.
+
+Updated `backlog/docs/feature-guides.md` Streams section with shared-store usage guidance, when to choose shared vs local stores, and failure semantics.
+
+Verification: `mvn -pl streams -am test -Dtest=KafkaPrefabStreamsTopologyTest -Dsurefire.failIfNoSpecifiedTests=false` (pass), `mvn -pl test -am test -DskipTests` (pass compile for dependent modules).
 <!-- SECTION:NOTES:END -->

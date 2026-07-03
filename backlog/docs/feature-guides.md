@@ -860,6 +860,7 @@ Supported operations:
 - `merge(PrefabStream<? extends V>)`
 - `PrefabStreams.merge(PrefabStream<? extends M>, PrefabStream<? extends M>)`
 - `breakout(StreamBreakoutAdapter<?, ?, ?, ?>)`
+- `sharedStore(String, Class<?>)`
 - `to(Class<?>)`
 - `to(String)`
 
@@ -910,6 +911,40 @@ Use instance `merge(...)` when the current stream type already represents the ta
 `PrefabStreams.merge(...)` when sibling streams should be widened into a declared common supertype.
 
 Use `join(...)` for KStream-KStream **inner join** composition with explicit windowing via `JoinWindow`.
+
+### Topology-scoped shared state stores
+
+`sharedStore(...)` declares one state store at topology scope and allows multiple processors to bind to the same logical
+store instance.
+
+Use shared stores when multiple branches or processors must observe the same state (for example command updates on one
+branch and read-enrichment on another branch). Use local per-processor stores (`StatefulStreamProcessor` with
+`createStore(...)`) when state should remain private to a single processor.
+
+```java
+@Configuration
+class StreamTopologyConfiguration {
+
+    @Bean
+    StreamDefinition customerEnrichment(PrefabStreams streams) {
+        var customerProfiles = streams.sharedStore("customer-profiles", CustomerProfile.class);
+
+        streams.from(CustomerProfileUpdated.class)
+                .process(new UpdateCustomerProfileProcessor(customerProfiles), customerProfiles)
+                .to("customer-profiles.audit");
+
+        return streams.from(OrderPlaced.class)
+                .process(new EnrichOrderProcessor(customerProfiles), customerProfiles)
+                .to(OrderEnriched.class);
+    }
+}
+```
+
+Validation and failure behavior:
+
+- Shared store declarations are keyed by name and value type.
+- Re-declaring the same name with a different type fails fast with an actionable `IllegalArgumentException`.
+- Binding conflicting store instances with the same name to one processor step fails fast before topology execution.
 
 ### Key Serialization Wire Format (JSON + AVRO)
 

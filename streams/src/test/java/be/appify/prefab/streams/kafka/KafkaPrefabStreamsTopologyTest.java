@@ -2,8 +2,10 @@ package be.appify.prefab.streams.kafka;
 
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.service.Reference;
+import be.appify.prefab.streams.ContextualStreamProcessor;
 import be.appify.prefab.streams.JoinWindow;
 import be.appify.prefab.streams.StatefulStreamProcessor;
+import be.appify.prefab.streams.Store;
 import be.appify.prefab.streams.StreamBackend;
 import be.appify.prefab.streams.StreamBreakoutAdapter;
 import be.appify.prefab.streams.StreamRecord;
@@ -405,6 +407,87 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     @Test
+    void sharedStore_shouldBeReusableAcrossProcessorsAndBranches() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+        var customerProfiles = streams.sharedStore("customer-profiles", CustomerProfile.class);
+
+        streams.from(CustomerProfileUpdated.class)
+                .process(new UpdateCustomerProfileProcessor(customerProfiles), customerProfiles)
+                .to("customer-profile-updates.audit");
+
+        var topology = streams.from(IncomingOrder.class)
+                .process(new EnrichOrderWithProfileProcessor(customerProfiles), customerProfiles)
+                .to(OrderProfileView.class);
+
+        try (var topologyTest = test.run(topology)) {
+            var profileUpdates = topologyTest.input(CustomerProfileUpdated.class);
+            var orders = topologyTest.input(IncomingOrder.class);
+            var output = topologyTest.output(OrderProfileView.class);
+
+            profileUpdates.pipeInput(
+                    Reference.fromId("alice"),
+                    new CustomerProfileUpdated(Reference.fromId("alice"), "SILVER")
+            );
+            orders.pipeInput(
+                    Reference.fromId("o-1"),
+                    new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("alice"))
+            );
+            profileUpdates.pipeInput(
+                    Reference.fromId("alice"),
+                    new CustomerProfileUpdated(Reference.fromId("alice"), "GOLD")
+            );
+            orders.pipeInput(
+                    Reference.fromId("o-2"),
+                    new IncomingOrder(Reference.fromId("o-2"), Reference.fromId("alice"))
+            );
+
+            assertThat(output.readValuesToList())
+                    .containsExactly(
+                            new OrderProfileView(Reference.fromId("o-1"), Reference.fromId("alice"), "SILVER"),
+                            new OrderProfileView(Reference.fromId("o-2"), Reference.fromId("alice"), "GOLD")
+                    );
+        }
+    }
+
+    @Test
+    void sharedStore_shouldReturnSameDeclarationForCompatibleReuse() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+
+        var first = streams.sharedStore("customer-profiles", CustomerProfile.class);
+        var second = streams.sharedStore("customer-profiles", CustomerProfile.class);
+
+        assertThat(first).isSameAs(second);
+    }
+
+    @Test
+    void sharedStore_shouldFailFastForIncompatibleDeclarations() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+        streams.sharedStore("shared-store", CustomerProfile.class);
+
+        assertThatThrownBy(() -> streams.sharedStore("shared-store", OrderCount.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("already declared")
+                .hasMessageContaining("shared-store");
+    }
+
+    @Test
+    void process_shouldFailFastForConflictingStoreBindings() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        assertThatThrownBy(() -> test.streams().from(IncomingOrder.class)
+                .process(
+                        new CountOrderProcessor(),
+                        new KafkaPrefabStoreAdapter<>("duplicate-store"),
+                        new KafkaPrefabStoreAdapter<>("duplicate-store")
+                ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Duplicate store binding 'duplicate-store'");
+    }
+
+    @Test
     void to_shouldEmitPlainUtf8KeyBytesForSingleFieldRecordKeys() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
 
@@ -694,6 +777,28 @@ class KafkaPrefabStreamsTopologyTest {
         }
     }
 
+    record CustomerProfile(Reference<Customer> customerId, String tier) implements Keyed<Reference<Customer>> {
+        @Override
+        public Reference<Customer> key() {
+            return customerId;
+        }
+    }
+
+    record CustomerProfileUpdated(Reference<Customer> customerId, String tier) implements Keyed<Reference<Customer>> {
+        @Override
+        public Reference<Customer> key() {
+            return customerId;
+        }
+    }
+
+    record OrderProfileView(Reference<Order> orderId, Reference<Customer> customer, String tier)
+            implements Keyed<Reference<Order>> {
+        @Override
+        public Reference<Order> key() {
+            return orderId;
+        }
+    }
+
     record CompositeOrderKey(String biddingZone, String orderId) {
     }
 
@@ -781,6 +886,44 @@ class KafkaPrefabStreamsTopologyTest {
                     () -> new OrderCount(streamRecord.value().customer(), 1),
                     existing -> new OrderCount(existing.customer(), existing.numberOfOrders() + 1));
             forward(orderCount.key(), orderCount);
+        }
+    }
+
+    private static final class UpdateCustomerProfileProcessor
+            extends ContextualStreamProcessor<Reference<Customer>, CustomerProfileUpdated, Reference<Customer>, CustomerProfileUpdated> {
+        private final Store<Reference<Customer>, CustomerProfile> customerProfiles;
+
+        private UpdateCustomerProfileProcessor(Store<Reference<Customer>, CustomerProfile> customerProfiles) {
+            this.customerProfiles = customerProfiles;
+        }
+
+        @Override
+        public void process(StreamRecord<Reference<Customer>, CustomerProfileUpdated> streamRecord) {
+            customerProfiles.put(
+                    streamRecord.key(),
+                    new CustomerProfile(streamRecord.key(), streamRecord.value().tier())
+            );
+            forward(streamRecord.key(), streamRecord.value());
+        }
+    }
+
+    private static final class EnrichOrderWithProfileProcessor
+            extends ContextualStreamProcessor<Reference<Order>, IncomingOrder, Reference<Order>, OrderProfileView> {
+        private final Store<Reference<Customer>, CustomerProfile> customerProfiles;
+
+        private EnrichOrderWithProfileProcessor(Store<Reference<Customer>, CustomerProfile> customerProfiles) {
+            this.customerProfiles = customerProfiles;
+        }
+
+        @Override
+        public void process(StreamRecord<Reference<Order>, IncomingOrder> streamRecord) {
+            var tier = customerProfiles.get(streamRecord.value().customer())
+                    .map(CustomerProfile::tier)
+                    .orElse("UNKNOWN");
+            forward(
+                    streamRecord.key(),
+                    new OrderProfileView(streamRecord.key(), streamRecord.value().customer(), tier)
+            );
         }
     }
 

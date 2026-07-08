@@ -241,11 +241,15 @@ public class PubSubUtil {
         }
     }
 
-    private <T> void consumeTyped(SubscriptionRequest<T> request, PubsubMessage pubsubMessage) {
+    <T> void consumeTyped(SubscriptionRequest<T> request, PubsubMessage pubsubMessage) {
         var typeName = pubsubMessage.getAttributesOrThrow("type");
-        var consumedType = eventRegistry.typeByClassName(typeName)
-                .orElseThrow(() -> new IllegalArgumentException("Type not registered in allowlist: " + typeName));
-        if (request.type().isAssignableFrom(consumedType)) {
+        var consumedType = eventRegistry.typeByClassName(typeName);
+        if (consumedType.isEmpty()) {
+            log.warn("Ignoring Pub/Sub message with unknown event type [{}] on topic [{}]",
+                    typeName, request.topic());
+            return;
+        }
+        if (request.type().isAssignableFrom(consumedType.get())) {
             request.consumer().accept(deserializer.deserialize(request.topic(), pubsubMessage.getData(), request.type()));
         }
     }

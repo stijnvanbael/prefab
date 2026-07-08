@@ -1,6 +1,7 @@
 package be.appify.prefab.core.sns;
 
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.core.kafka.UnknownEventTypeException;
 import be.appify.prefab.core.spring.JsonUtil;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import java.io.IOException;
@@ -82,7 +83,7 @@ public class SqsDeserializer {
     private <T> T deserializeJson(String payload, String typeName, Class<T> type) {
         if (typeName != null) {
             var resolvedType = eventRegistry.typeByClassName(typeName)
-                    .orElseThrow(() -> new IllegalArgumentException("Type not registered in allowlist: " + typeName));
+                    .orElseThrow(() -> new UnknownEventTypeException(typeName));
             if (type.isAssignableFrom(resolvedType)) {
                 return (T) jsonUtil.parseJson(payload, resolvedType);
             }

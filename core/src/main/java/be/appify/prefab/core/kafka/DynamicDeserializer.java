@@ -1,7 +1,6 @@
 package be.appify.prefab.core.kafka;
 
 import io.confluent.kafka.streams.serdes.avro.GenericAvroDeserializer;
-import java.util.NoSuchElementException;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.slf4j.Logger;
@@ -67,7 +66,12 @@ public class DynamicDeserializer implements Deserializer<Object> {
                     case AVRO -> toEvent(topic, avroDeserializer.deserialize(topic, data));
                     case JSON -> jsonDeserializer.deserialize(topic, data);
                 };
+            } catch (UnknownEventTypeException e) {
+                throw e;
             } catch (RuntimeException e) {
+                if (isUnknownTypeIdException(e)) {
+                    throw new UnknownEventTypeException(extractTypeId(e));
+                }
                 log.error("Failed to deserialize message from topic [{}]", topic, e);
                 throw e;
             }
@@ -89,7 +93,7 @@ public class DynamicDeserializer implements Deserializer<Object> {
                 .toList();
 
         if (candidates.isEmpty()) {
-            throw new NoSuchElementException(schemaFullName);
+            throw new UnknownEventTypeException(schemaFullName);
         }
         if (candidates.size() > 1) {
             throw new IllegalArgumentException("Multiple event types registered for schema "
@@ -106,5 +110,26 @@ public class DynamicDeserializer implements Deserializer<Object> {
 
     public <T> Deserializer<T> adapt() {
         return (Deserializer<T>) this;
+    }
+
+    private static boolean isUnknownTypeIdException(Throwable e) {
+        while (e != null) {
+            if ("tools.jackson.databind.exc.InvalidTypeIdException".equals(e.getClass().getName())) {
+                return true;
+            }
+            e = e.getCause();
+        }
+        return false;
+    }
+
+    private static String extractTypeId(RuntimeException e) {
+        var cause = (Throwable) e;
+        while (cause != null) {
+            if ("tools.jackson.databind.exc.InvalidTypeIdException".equals(cause.getClass().getName())) {
+                return cause.getMessage() != null ? cause.getMessage() : "unknown";
+            }
+            cause = cause.getCause();
+        }
+        return "unknown";
     }
 }

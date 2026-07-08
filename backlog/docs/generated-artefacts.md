@@ -82,6 +82,7 @@ The consumer:
 - Routes to the correct `@EventHandler` method in the service
 - Handles retries and dead-lettering according to `@EventHandlerConfig`
 - Generates per-topic executor fields to prevent cross-topic deadlocks
+- Ignores messages whose event type is not registered locally and continues processing subsequent known events
 
 ---
 

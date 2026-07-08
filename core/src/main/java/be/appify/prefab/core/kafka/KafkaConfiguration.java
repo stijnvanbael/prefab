@@ -36,6 +36,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
+import org.springframework.kafka.listener.ConsumerRecordRecoverer;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
@@ -177,7 +178,8 @@ public class KafkaConfiguration {
         backoff.setInitialInterval(initialRetryInterval);
         backoff.setMultiplier(backoffMultiplier);
         backoff.setMaxInterval(maxRetryInterval);
-        var errorHandler = new DefaultErrorHandler(deadLetterPublishingRecoverer, backoff);
+        var recoverer = unknownEventTypeIgnoringRecoverer(deadLetterPublishingRecoverer);
+        var errorHandler = new DefaultErrorHandler(recoverer, backoff);
         var customExceptions = nonRetryableExceptions.stream()
                 .filter(name -> !name.isBlank())
                 .map(Classes::classWithName);
@@ -185,6 +187,28 @@ public class KafkaConfiguration {
                 .toArray(Class[]::new);
         errorHandler.addNotRetryableExceptions(notRetryable);
         return errorHandler;
+    }
+
+    static ConsumerRecordRecoverer unknownEventTypeIgnoringRecoverer(
+            DeadLetterPublishingRecoverer deadLetterPublishingRecoverer
+    ) {
+        return (record, e) -> {
+            if (isUnknownEventType(e)) {
+                log.warn("Ignoring Kafka message with unknown event type from topic [{}]", record.topic());
+            } else {
+                deadLetterPublishingRecoverer.accept(record, e);
+            }
+        };
+    }
+
+    private static boolean isUnknownEventType(Throwable e) {
+        while (e != null) {
+            if (e instanceof UnknownEventTypeException) {
+                return true;
+            }
+            e = e.getCause();
+        }
+        return false;
     }
 
     @Bean

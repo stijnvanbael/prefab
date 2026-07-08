@@ -2,6 +2,7 @@ package be.appify.prefab.core.kafka;
 
 import be.appify.prefab.core.annotations.Event;
 import java.util.List;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
@@ -14,6 +15,11 @@ import org.springframework.kafka.transaction.KafkaTransactionManager;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 class KafkaConfigurationTest {
 
@@ -55,6 +61,29 @@ class KafkaConfigurationTest {
         var producer = configuration.genericKafkaProducer(null, new EventRegistry());
 
         assertNotNull(producer);
+    }
+
+    @Test
+    void recovererSkipsDeadLetterPublishingForUnknownEventType() {
+        var dltRecoverer = mock(org.springframework.kafka.listener.DeadLetterPublishingRecoverer.class);
+        var recoverer = KafkaConfiguration.unknownEventTypeIgnoringRecoverer(dltRecoverer);
+        var record = new ConsumerRecord<>("topic", 0, 0L, "key", "value");
+
+        recoverer.accept(record, new UnknownEventTypeException("unknown.Type"));
+
+        verify(dltRecoverer, never()).accept(any(), any());
+    }
+
+    @Test
+    void recovererDelegatesToDeadLetterPublishingForOtherExceptions() {
+        var dltRecoverer = mock(org.springframework.kafka.listener.DeadLetterPublishingRecoverer.class);
+        var recoverer = KafkaConfiguration.unknownEventTypeIgnoringRecoverer(dltRecoverer);
+        var record = new ConsumerRecord<>("topic", 0, 0L, "key", "value");
+        var failure = new IllegalArgumentException("boom");
+
+        recoverer.accept(record, failure);
+
+        verify(dltRecoverer).accept(eq(record), eq(failure));
     }
 
     private DynamicDeserializer dynamicDeserializer(KafkaProperties kafkaProperties) {

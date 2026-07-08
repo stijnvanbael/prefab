@@ -4,7 +4,6 @@ import be.appify.prefab.core.annotations.Event;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
-import java.util.NoSuchElementException;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
@@ -36,15 +35,15 @@ class DynamicDeserializerTest {
     }
 
     @Test
-    void avroToEventFailsWhenTargetClassCannotBeResolved() {
+    void avroToEventThrowsUnknownEventTypeExceptionForUnregisteredSchema() {
         var eventRegistry = new EventRegistry();
         eventRegistry.register("avro-topic", AvroEvent.class, Event.Serialization.AVRO);
         var deserializer = createDeserializer(new GenericConversionService(), eventRegistry);
         var genericRecord = recordWithSchema("be.appify.prefab.core.kafka", "UnknownAvroEvent", "value");
 
-        var exception = assertThrows(NoSuchElementException.class, () -> invokeToEvent(deserializer, genericRecord));
+        var exception = assertThrows(UnknownEventTypeException.class, () -> invokeToEvent(deserializer, genericRecord));
 
-        assertEquals("be.appify.prefab.core.kafka.UnknownAvroEvent", exception.getMessage());
+        assertEquals("be.appify.prefab.core.kafka.UnknownAvroEvent", exception.eventTypeName());
     }
 
     @Test

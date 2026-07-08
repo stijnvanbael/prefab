@@ -1,6 +1,7 @@
 package be.appify.prefab.core.sns;
 
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.core.kafka.UnknownEventTypeException;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -267,10 +268,18 @@ public class SqsUtil implements DisposableBean {
     }
 
     private <T> void processMessage(SqsSubscriptionRequest<T> request, String queueUrl, Message message) {
+        T event;
+        try {
+            event = sqsDeserializer.deserialize(request.topic(), message.body(), request.type());
+        } catch (UnknownEventTypeException e) {
+            log.warn("Ignoring SQS message with unknown event type [{}] on topic [{}]",
+                    e.eventTypeName(), request.topic());
+            deleteMessage(queueUrl, message);
+            return;
+        }
         try {
             request.retryTemplate().orElse(retryTemplate).execute(() -> {
                 try {
-                    T event = sqsDeserializer.deserialize(request.topic(), message.body(), request.type());
                     request.consumer().accept(event);
                     deleteMessage(queueUrl, message);
                 } catch (Exception e) {

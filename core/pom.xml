@@ -6,7 +6,7 @@
     <parent>
         <groupId>be.appify.prefab</groupId>
         <artifactId>prefab-parent</artifactId>
-        <version>0.10.7</version>
+        <version>0.10.8-SNAPSHOT</version>
     </parent>
 
     <artifactId>prefab-core</artifactId>

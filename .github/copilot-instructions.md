@@ -14,11 +14,13 @@ Only edit backlog markdown files directly when the MCP tools are unavailable —
    read `backlog/tasks/**.md`) — check acceptance criteria and current status.
 2. **Before creating a new task**: search first (`task_search` or scan
    `backlog/tasks/`) to avoid duplicates.
-3. **After each meaningful code change**: commit with a conventional-commits message
+3. **Document your progress**: when working on a task, add analysis to it first and document your findings during
+   implementation so anyone can resume it at any time with a fresh context
+4. **After each meaningful code change**: commit with a conventional-commits message
    (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`).
-4. **After completing a task**: set status to `Done` and add implementation notes — do
+5. **After completing a task**: set status to `Done` and add implementation notes — do
    this before moving on to the next task.
-5. **When a plan changes mid-task** (user interrupts, pivots, or uncovers a side-issue):
+6. **When a plan changes mid-task** (user interrupts, pivots, or uncovers a side-issue):
   - If the side-issue is out of scope → create a new task for it rather than silently
     doing the work.
   - Re-read *these* instructions before resuming so the workflow is fresh.

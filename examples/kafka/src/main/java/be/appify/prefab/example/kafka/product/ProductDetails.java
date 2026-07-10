@@ -1,5 +1,6 @@
 package be.appify.prefab.example.kafka.product;
 
+import be.appify.prefab.core.annotations.Computed;
 import be.appify.prefab.core.annotations.DbDocument;
 import be.appify.prefab.core.annotations.Indexed;
 import jakarta.annotation.Nullable;
@@ -11,4 +12,8 @@ public record ProductDetails(
         @Nullable @Size(max = 1000) String description,
         @NotNull @Indexed String category
 ) {
+    @Computed
+    public String summary() {
+        return "%s: %s".formatted(category, description);
+    }
 }

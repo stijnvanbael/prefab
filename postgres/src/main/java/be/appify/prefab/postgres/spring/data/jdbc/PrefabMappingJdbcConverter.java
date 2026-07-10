@@ -1,5 +1,6 @@
 package be.appify.prefab.postgres.spring.data.jdbc;
 
+import be.appify.prefab.core.annotations.Computed;
 import be.appify.prefab.core.annotations.DbDocument;
 import org.jspecify.annotations.Nullable;
 import org.postgresql.util.PGobject;
@@ -16,7 +17,12 @@ import org.springframework.data.relational.domain.RowDocument;
 import org.springframework.jdbc.core.SqlTypeValue;
 import org.springframework.jdbc.core.StatementCreatorUtils;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import tools.jackson.core.Version;
+import tools.jackson.databind.AnnotationIntrospector;
 import tools.jackson.databind.JavaType;
+import tools.jackson.databind.cfg.MapperConfig;
+import tools.jackson.databind.introspect.AnnotatedMember;
+import tools.jackson.databind.introspect.AnnotationIntrospectorPair;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.lang.reflect.Array;
@@ -77,9 +83,33 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
             JsonMapper jsonMapper
     ) {
         super(context, relationResolver, conversions, typeFactory);
-        this.jsonMapper = jsonMapper;
+        this.jsonMapper = withComputedFieldsIgnored(jsonMapper);
         this.relationResolver = relationResolver;
         this.mappingContext = context;
+    }
+
+    /**
+     * {@link Computed} methods are synthetic, read-only REST response fields; their values are derived and must not
+     * be stored in JSONB documents.
+     */
+    private static JsonMapper withComputedFieldsIgnored(JsonMapper jsonMapper) {
+        return jsonMapper.rebuild()
+                .annotationIntrospector(new AnnotationIntrospectorPair(
+                        new ComputedIgnoringIntrospector(),
+                        jsonMapper.serializationConfig().getAnnotationIntrospector()))
+                .build();
+    }
+
+    private static final class ComputedIgnoringIntrospector extends AnnotationIntrospector {
+        @Override
+        public Version version() {
+            return Version.unknownVersion();
+        }
+
+        @Override
+        public boolean hasIgnoreMarker(MapperConfig<?> config, AnnotatedMember member) {
+            return member.hasAnnotation(Computed.class);
+        }
     }
 
     @Override

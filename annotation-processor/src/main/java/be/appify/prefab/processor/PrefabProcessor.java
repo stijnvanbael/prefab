@@ -1,6 +1,7 @@
 package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.Computed;
 import be.appify.prefab.core.annotations.OutputTarget;
 import com.google.auto.service.AutoService;
 import java.util.ArrayList;
@@ -18,11 +19,13 @@ import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedOptions;
 import javax.lang.model.SourceVersion;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
+import javax.tools.Diagnostic;
 
 /**
  * Annotation processor for Prefab framework that generates code based on annotated aggregates.
@@ -85,6 +88,7 @@ public class PrefabProcessor extends AbstractProcessor {
         var polymorphicAggregates = resolvePolymorphicAggregates(environment);
         // Validate @Generate annotations eagerly to emit compile errors early
         validateGenerateAnnotationsEagerly(context, environment);
+        validateComputedMethods(environment);
         writeAggregates(context, aggregates);
         writePolymorphicAggregates(context, polymorphicAggregates);
         writeAdditionalFilesIfNeeded(context, plugins, aggregates, polymorphicAggregates);
@@ -122,6 +126,36 @@ public class PrefabProcessor extends AbstractProcessor {
                 .filter(e -> e.getKind().isClass())
                 .map(TypeElement.class::cast)
                 .forEach(context::pluginOverridesFor);
+    }
+
+    /**
+     * Validate all @Computed methods: they must be public, take no arguments, return a value and not clash with a
+     * field of the enclosing type, otherwise the generated response record would not compile or Jackson could not
+     * serialize the synthetic field.
+     */
+    private void validateComputedMethods(RoundEnvironment environment) {
+        environment.getElementsAnnotatedWith(Computed.class).stream()
+                .filter(ExecutableElement.class::isInstance)
+                .map(ExecutableElement.class::cast)
+                .forEach(method -> {
+                    if (!method.getModifiers().contains(Modifier.PUBLIC)
+                            || !method.getParameters().isEmpty()
+                            || method.getReturnType().getKind() == TypeKind.VOID) {
+                        processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+                                "@Computed method %s must be public, take no arguments and return a value"
+                                        .formatted(method.getSimpleName()),
+                                method);
+                    }
+                    var clashesWithField = method.getEnclosingElement().getEnclosedElements().stream()
+                            .anyMatch(element -> element.getKind() == ElementKind.FIELD
+                                    && element.getSimpleName().contentEquals(method.getSimpleName()));
+                    if (clashesWithField) {
+                        processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+                                "@Computed method %s clashes with a field of the same name"
+                                        .formatted(method.getSimpleName()),
+                                method);
+                    }
+                });
     }
 
     private boolean hasAvscAnnotations(PrefabContext context) {

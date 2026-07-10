@@ -1,6 +1,7 @@
 package be.appify.prefab.example.kafka.product;
 
 import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.Computed;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.GetList;
@@ -31,5 +32,10 @@ public record Product(
     @Update(path = "/tags", method = "POST")
     public void addTag(@NotNull ProductTag tag) {
         tags.add(tag);
+    }
+
+    @Computed
+    public int tagCount() {
+        return tags.size();
     }
 }

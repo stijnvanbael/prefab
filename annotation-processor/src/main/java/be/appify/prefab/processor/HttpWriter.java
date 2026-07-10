@@ -1,5 +1,6 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.core.annotations.Computed;
 import be.appify.prefab.core.annotations.Doc;
 import be.appify.prefab.core.annotations.Example;
 import be.appify.prefab.core.annotations.OutputTarget;
@@ -14,6 +15,7 @@ import com.palantir.javapoet.TypeSpec;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.lang.model.element.TypeElement;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -159,6 +161,7 @@ class HttpWriter {
                                     }
                                     return paramBuilder.build();
                                 }).toList())
+                        .addParameters(computedParameters(manifest))
                         .build())
                 .addMethod(MethodSpec.methodBuilder("from")
                         .addModifiers(PUBLIC, STATIC)
@@ -169,9 +172,7 @@ class HttpWriter {
                         ).build())
                         .addStatement("return new $T($L)",
                                 responseType(manifest),
-                                manifest.fields().stream()
-                                        .map(field -> "aggregateRoot.%s()".formatted(field.name()))
-                                        .collect(Collectors.joining(",\n"))
+                                responseAccessors(manifest, "aggregateRoot")
                         )
                         .build())
                 .build();
@@ -242,9 +243,7 @@ class HttpWriter {
                 .addParameter(subtype.type().asTypeName(), "subtype")
                 .addStatement("return new $T($L)",
                         subtypeResponseClassName,
-                        subtype.fields().stream()
-                                .map(field -> "subtype.%s()".formatted(field.name()))
-                                .collect(Collectors.joining(",\n")))
+                        responseAccessors(subtype, "subtype"))
                 .build();
         return TypeSpec.recordBuilder(subtypeResponseName)
                 .addModifiers(PUBLIC, STATIC)
@@ -254,6 +253,7 @@ class HttpWriter {
                                 .map(field -> ParameterSpec.builder(
                                         field.type().asTypeName(), field.name()).build())
                                 .toList())
+                        .addParameters(computedParameters(subtype))
                         .build())
                 .addMethod(fromMethod)
                 .build();
@@ -277,6 +277,24 @@ class HttpWriter {
                 .addParameter(manifest.type().asTypeName(), "aggregate")
                 .addStatement("return switch (aggregate) {\n$L;\n}", switchCases)
                 .build();
+    }
+
+    private List<ParameterSpec> computedParameters(ClassManifest manifest) {
+        return manifest.methodsWith(Computed.class).stream()
+                .map(method -> ParameterSpec.builder(
+                        TypeManifest.of(method.getReturnType(), context.processingEnvironment()).asTypeName(),
+                        method.getSimpleName().toString())
+                        .build())
+                .toList();
+    }
+
+    private String responseAccessors(ClassManifest manifest, String variableName) {
+        return Stream.concat(
+                        manifest.fields().stream().map(VariableManifest::name),
+                        manifest.methodsWith(Computed.class).stream()
+                                .map(method -> method.getSimpleName().toString()))
+                .map(accessor -> "%s.%s()".formatted(variableName, accessor))
+                .collect(Collectors.joining(",\n"));
     }
 
     static String polymorphicPathOf(PolymorphicAggregateManifest manifest) {

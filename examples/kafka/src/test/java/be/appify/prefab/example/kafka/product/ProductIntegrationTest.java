@@ -4,14 +4,20 @@ import be.appify.prefab.test.IntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
+import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @IntegrationTest
 class ProductIntegrationTest {
 
     @Autowired
     ProductClient productClient;
+
+    @Autowired
+    MockMvc mockMvc;
 
     @Test
     void createProductWithJsonbDetails() throws Exception {
@@ -39,6 +45,22 @@ class ProductIntegrationTest {
         assertThat(product.tags()).hasSize(2);
         assertThat(product.tags()).extracting(ProductTag::name).containsExactlyInAnyOrder("color", "storage");
         assertThat(product.tags()).extracting(ProductTag::value).containsExactlyInAnyOrder("black", "256GB");
+        assertThat(product.tagCount()).isEqualTo(2);
+    }
+
+    @Test
+    void responseContainsComputedFieldsOfAggregateAndValueObject() throws Exception {
+        var details = new ProductDetails("A mechanical keyboard", "Electronics");
+        var productId = productClient.createProduct("Keyboard", details);
+
+        var json = mockMvc.perform(get("/products/{id}", productId))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(json).contains("\"tagCount\":0");
+        assertThat(json).contains("\"summary\":\"Electronics: A mechanical keyboard\"");
     }
 
     @Test

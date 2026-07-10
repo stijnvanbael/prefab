@@ -548,6 +548,43 @@ See [Feature Guides — SSE Streaming](feature-guides.md#711-sse-streaming) for 
 
 ---
 
+### `@Computed`
+
+**Target:** `METHOD`
+**Package:** `be.appify.prefab.core.annotations`
+**Retention:** `RUNTIME`
+
+Exposes a public no-argument method of an aggregate root or value object as a synthetic, read-only
+field in REST responses. The field name matches the method name.
+
+- On an **aggregate root** (or polymorphic subtype), the generated response record gains a component
+  with the method's name and return type, populated from the method.
+- On a **value object**, the method result is serialized as a read-only Jackson property wherever the
+  value object appears in a response.
+
+The synthetic field is never part of request records, is ignored when deserializing request bodies,
+and is not mapped to a database column or stored in `@DbDocument` JSONB documents.
+
+**Attributes:** None
+
+```java
+@Aggregate
+public record Order(
+        @Id Reference<Order> id,
+        @Version long version,
+        List<OrderLine> lines
+) {
+    @Computed
+    public BigDecimal total() {
+        return lines.stream().map(OrderLine::price).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+}
+```
+
+The `OrderResponse` record then contains a `total` field alongside the regular fields.
+
+---
+
 ### `@Parent`
 
 **Target:** `FIELD`, `METHOD`
@@ -1236,6 +1273,7 @@ See [Feature Guides — Repository Mixins](feature-guides.md#710-repository-mixi
 | `@Filter`             | Field                     | SOURCE    | Enable filtering on `@GetList`                                                                                                                                                                                                                                        |
 | `@Download`           | Field                     | SOURCE    | HTTP binary download endpoint                                                                                                                                                                                                                                         |
 | `@Streaming`          | Method                    | SOURCE    | SSE streaming endpoint                                                                                                                                                                                                                                                |
+| `@Computed`           | Method                    | RUNTIME   | Synthetic read-only field in REST responses                                                                                                                                                                                                                           |
 | `@Parent`             | Field, Method             | SOURCE    | Parent aggregate reference for nested paths                                                                                                                                                                                                                           |
 | `@Security`           | (attribute only)          | SOURCE    | Security settings for REST endpoints                                                                                                                                                                                                                                  |
 | `@Event`              | Type                      | CLASS     | Domain event for a messaging topic                                                                                                                                                                                                                                    |

@@ -17,6 +17,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeKind;
 
 /** Plugin to handle ByReference event handlers in Prefab. */
 public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
@@ -49,14 +50,16 @@ public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
                 .flatMap(element -> {
                     var annotation = element.getAnnotationsByType(ByReference.class)[0];
                     var eventType = getEventType(element, context);
-                    return getFields(eventType.asElement(), context.processingEnvironment()).stream()
-                            .filter(field -> field.name().equals(annotation.property())
-                                    && (field.type().isSingleValueType() || field.type().is(String.class)))
+                    return Stream.concat(
+                                    getFields(eventType.asElement(), context.processingEnvironment()).stream(),
+                                    getAccessors(eventType.asElement(), context.processingEnvironment()).stream())
+                            .filter(member -> member.name().equals(annotation.property())
+                                    && (member.type().isSingleValueType() || member.type().is(String.class)))
                             .findFirst()
                             .or(() -> {
                                 context.logError(
-                                        "Event type %s does not have a field named %s, or the field is not of type Reference".formatted(
-                                                element, annotation.property()), element);
+                                        "Event type %s does not have a field or method named '%s', or it is not of a primitive or single-value type".formatted(
+                                                eventType.asElement().getSimpleName(), annotation.property()), element);
                                 return Optional.empty();
                             })
                             .map(referenceField -> new ByReferenceEventHandlerManifest(
@@ -78,6 +81,19 @@ public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
                 .filter(element -> element.getKind() == ElementKind.FIELD)
                 .map(VariableElement.class::cast)
                 .map(element -> VariableManifest.of(element, processingEnvironment))
+                .toList();
+    }
+
+    private List<VariableManifest> getAccessors(TypeElement typeElement, ProcessingEnvironment processingEnvironment) {
+        return typeElement.getEnclosedElements()
+                .stream()
+                .filter(element -> element.getKind() == ElementKind.METHOD)
+                .map(ExecutableElement.class::cast)
+                .filter(method -> method.getParameters().isEmpty()
+                        && !method.getModifiers().contains(Modifier.STATIC)
+                        && method.getModifiers().contains(Modifier.PUBLIC)
+                        && method.getReturnType().getKind() != TypeKind.VOID)
+                .map(method -> VariableManifest.ofMethod(method, processingEnvironment))
                 .toList();
     }
 

@@ -28,6 +28,12 @@ class EventHandlerWriterTest {
                     sourceOf("event/handler/byreference/source/Channel.java"),
                     sourceOf("event/handler/byreference/source/UserSubscribed.java")
             );
+    public static final com.google.testing.compile.Compilation byReferenceMethodPropertyCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(
+                    sourceOf("event/handler/byreferencemethodproperty/source/Channel.java"),
+                    sourceOf("event/handler/byreferencemethodproperty/source/UserSubscribed.java")
+            );
     public static final com.google.testing.compile.Compilation mergedHandlerOrderCompilation = javac()
             .withProcessors(new PrefabProcessor())
             .compile(
@@ -164,6 +170,24 @@ class EventHandlerWriterTest {
                 .generatedSourceFile("event.handler.byreference.application.ChannelService")
                 .contentsAsUtf8String()
                 .contains(".orElseThrow()");
+    }
+
+    @Test
+    void byReferenceEventHandlerResolvesMethodProperty() {
+        assertThat(byReferenceMethodPropertyCompilation).succeeded();
+        assertThat(byReferenceMethodPropertyCompilation)
+                .generatedSourceFile("event.handler.byreferencemethodproperty.application.ChannelService")
+                .contentsAsUtf8String()
+                .contains("channelRepository.findById(event.channelId()");
+    }
+
+    @Test
+    void byReferenceEventHandlerWithMethodPropertySavesAggregate() {
+        assertThat(byReferenceMethodPropertyCompilation).succeeded();
+        assertThat(byReferenceMethodPropertyCompilation)
+                .generatedSourceFile("event.handler.byreferencemethodproperty.application.ChannelService")
+                .contentsAsUtf8String()
+                .contains("channelRepository.save(aggregate)");
     }
 
     @Test

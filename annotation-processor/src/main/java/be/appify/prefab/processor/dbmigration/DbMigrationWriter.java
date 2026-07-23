@@ -173,8 +173,8 @@ class DbMigrationWriter {
     private DatabaseState currentDatabaseState(ProcessingEnvironment processingEnvironment) {
         try {
             var tablesByName = new HashMap<String, Table>();
-            var generatedMigrations = existingGeneratedMigrations(processingEnvironment);
-            generatedMigrations.forEach(file -> parseSql(file, tablesByName));
+            var migrations = existingMigrations(processingEnvironment);
+            migrations.forEach(file -> parseSql(file, tablesByName));
             var latestVersion = latestMigrationVersion(processingEnvironment);
             return new DatabaseState(List.copyOf(tablesByName.values()), latestVersion);
         } catch (IOException e) {
@@ -182,18 +182,23 @@ class DbMigrationWriter {
         }
     }
 
-    private static List<FileObject> existingGeneratedMigrations(ProcessingEnvironment processingEnvironment)
+    private static List<java.nio.file.Path> existingMigrations(ProcessingEnvironment processingEnvironment)
             throws IOException {
-        var files = new ArrayList<FileObject>();
-        for (int i = 1; i <= MAX_VERSION_PROBE; i++) {
-            try {
-                var file = processingEnvironment.getFiler().getResource(StandardLocation.CLASS_PATH, "db.migration",
-                        "V%d__generated.sql".formatted(i));
-                files.add(file);
-            } catch (FileNotFoundException ignored) {
-            }
+        var migrationDir = migrationDirectory(processingEnvironment);
+        if (migrationDir == null) {
+            return List.of();
         }
-        return files;
+        try (var paths = java.nio.file.Files.list(migrationDir)) {
+            return paths
+                    .filter(java.nio.file.Files::isRegularFile)
+                    .filter(path -> extractVersion(path.getFileName().toString()) >= 0)
+                    .sorted(Comparator
+                            .comparingInt((java.nio.file.Path path) -> extractVersion(path.getFileName().toString()))
+                            .thenComparing(path -> path.getFileName().toString()))
+                    .toList();
+        } catch (java.nio.file.NoSuchFileException e) {
+            return List.of();
+        }
     }
 
     private static int latestMigrationVersion(ProcessingEnvironment processingEnvironment) throws IOException {
@@ -230,7 +235,7 @@ class DbMigrationWriter {
                 return dir;
             }
         }
-        return null;
+        return migrationDirectoryFromClasspathEntries();
     }
 
     private static java.nio.file.Path migrationDirectoryFromClassPathVersion(
@@ -248,6 +253,23 @@ class DbMigrationWriter {
     }
 
     private static final List<String> CLASSPATH_PROBE_SUFFIXES = List.of("generated", "manual", "init", "baseline");
+
+    private static java.nio.file.Path migrationDirectoryFromClasspathEntries() {
+        var classPath = System.getProperty("java.class.path");
+        if (classPath == null || classPath.isBlank()) {
+            return null;
+        }
+        for (String classPathEntry : classPath.split(java.io.File.pathSeparator)) {
+            try {
+                var candidate = java.nio.file.Path.of(classPathEntry).resolve("db").resolve("migration");
+                if (java.nio.file.Files.isDirectory(candidate)) {
+                    return candidate;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
+    }
 
     private static java.nio.file.Path migrationDirectoryFromClassOutput(ProcessingEnvironment processingEnvironment)
             throws IOException {
@@ -268,9 +290,9 @@ class DbMigrationWriter {
         return matcher.matches() ? Integer.parseInt(matcher.group(1)) : -1;
     }
 
-    private static void parseSql(FileObject file, Map<String, Table> tables) {
-        try (var input = file.openInputStream()) {
-            var content = new String(input.readAllBytes());
+    private static void parseSql(java.nio.file.Path file, Map<String, Table> tables) {
+        try {
+            var content = java.nio.file.Files.readString(file);
             new SqlStatementParser().parse(content, tables);
         } catch (Exception e) {
             throw new RuntimeException(e);

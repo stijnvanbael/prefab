@@ -1,7 +1,7 @@
 ---
 id: TASK-267
 title: Duplicate migration generated after renaming a copied generated SQL migration
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-23 12:14'
 labels:
@@ -57,4 +57,31 @@ treated as irrelevant to the state comparison.
 - [ ] #3 The version number of any newly generated migration is always higher than the highest existing `V{n}__` file, regardless of the suffix used in earlier migrations
 - [ ] #4 The fix is covered by a unit / compilation test that places a renamed migration on the classpath and asserts no duplicate DDL is produced
 - [ ] #5 Existing tests for `DbMigrationWriter` continue to pass unchanged
+- [x] #1 Copying a generated migration to `src/main/resources/db/migration/` and renaming it (e.g. `V1__generated.sql` → `V1__initial_schema.sql`) then recompiling produces no new migration containing the same DDL
+- [x] #2 If the schema genuinely changes after the rename (e.g. a new field is added to the aggregate), the processor still generates a new incremental migration with only the delta DDL
+- [x] #3 The version number of any newly generated migration is always higher than the highest existing `V{n}__` file, regardless of the suffix used in earlier migrations
+- [x] #4 The fix is covered by a unit / compilation test that places a renamed migration on the classpath and asserts no duplicate DDL is produced
+- [x] #5 Existing tests for `DbMigrationWriter` continue to pass unchanged
 <!-- AC:END -->
+
+## Implementation Notes
+
+- 2026-07-23: Started investigation.
+- Confirmed root cause in `annotation-processor/src/main/java/be/appify/prefab/processor/dbmigration/DbMigrationWriter.java`:
+  `currentDatabaseState()` reads only `existingGeneratedMigrations()` (`V{n}__generated.sql`), while
+  `latestMigrationVersion()` already inspects all `V{n}__*.sql`.
+- Plan: replace generated-only state loading with scan of all migration files in the migration directory, ordered by
+  version and parsed into current table state; add regression tests for renamed migrations and incremental delta after
+  rename.
+- Implemented `existingMigrations(...)` to read all `V{n}__*.sql` files from the discovered migration directory,
+  ordered by version and filename before parsing.
+- `currentDatabaseState()` now reconstructs table state from all migration suffixes, not only `__generated` files.
+- Added regression coverage in `DbMigrationWriterTest`:
+  - renamed migration on classpath (`V1__initial_schema.sql`) does not generate duplicate DDL
+  - schema delta after rename still generates an incremental migration with version higher than existing migrations
+- Added changed-schema fixture at
+  `annotation-processor/src/test/resources/dbmigration/indexed_renamed/source/Product.java`.
+- Verification:
+  - `mvn -pl annotation-processor -Dtest=DbMigrationWriterTest test`
+  - `mvn -pl annotation-processor test`
+

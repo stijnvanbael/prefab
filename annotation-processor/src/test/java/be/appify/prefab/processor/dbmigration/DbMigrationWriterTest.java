@@ -4,6 +4,9 @@ import be.appify.prefab.core.util.IdentifierShortener;
 import be.appify.prefab.processor.PrefabProcessor;
 import com.google.common.truth.Truth;
 import com.google.testing.compile.Compilation;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import javax.tools.StandardLocation;
 import org.junit.jupiter.api.BeforeAll;
@@ -11,7 +14,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import static be.appify.prefab.processor.test.ProcessorTestUtil.contentsOf;
+import static be.appify.prefab.processor.test.ProcessorTestUtil.classpathOptionsWith;
 import static be.appify.prefab.processor.test.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
@@ -627,5 +630,86 @@ class DbMigrationWriterTest {
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
                 .doesNotContain("CREATE EXTENSION IF NOT EXISTS \"pg_trgm\"\n.*CREATE EXTENSION IF NOT EXISTS \"pg_trgm\"");
+    }
+
+    @Test
+    void renamedMigrationOnClasspathDoesNotGenerateDuplicateMigration() throws IOException {
+        var baselineCompilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/indexed/source/Product.java"));
+        assertThat(baselineCompilation).succeeded();
+        var baselineMigrationSql = generatedMigrationContent(baselineCompilation, "db/migration/V1__generated.sql");
+
+        var dependencyClasspath = classpathWithMigration("V1__initial_schema.sql", baselineMigrationSql);
+        var recompilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .withOptions(classpathOptionsWith(dependencyClasspath))
+                .compile(sourceOf("dbmigration/indexed/source/Product.java"));
+
+        assertThat(recompilation).succeeded();
+        var generatedMigrations = recompilation.generatedFiles().stream()
+                .map(file -> file.getName())
+                .filter(name -> name.contains("db/migration/") && name.endsWith("__generated.sql"))
+                .toList();
+        Truth.assertThat(generatedMigrations).isEmpty();
+    }
+
+    @Test
+    void renamedMigrationStillAllowsDeltaGenerationAndNextVersionSelection() throws IOException {
+        var baselineCompilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/indexed/source/Product.java"));
+        assertThat(baselineCompilation).succeeded();
+        var baselineMigrationSql = generatedMigrationContent(baselineCompilation, "db/migration/V1__generated.sql");
+
+        var dependencyClasspath = classpathWithMigration("V7__initial_schema.sql", baselineMigrationSql);
+        var changedCompilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .withOptions(classpathOptionsWith(dependencyClasspath))
+                .compile(sourceOf("dbmigration/indexed_renamed/source/Product.java"));
+
+        assertThat(changedCompilation).succeeded();
+        var generatedMigrations = changedCompilation.generatedFiles().stream()
+                .map(file -> file.getName())
+                .filter(name -> name.contains("db/migration/") && name.endsWith("__generated.sql"))
+                .toList();
+        Truth.assertThat(generatedMigrations).isNotEmpty();
+        var generatedMigration = generatedMigrations.stream()
+                .max(java.util.Comparator.comparingInt(DbMigrationWriterTest::migrationVersion))
+                .orElseThrow();
+        Truth.assertThat(migrationVersion(generatedMigration)).isGreaterThan(7);
+
+        var migrationPath = generatedMigration.substring(generatedMigration.indexOf("db/migration/"));
+        var deltaMigration = generatedMigrationContent(changedCompilation, migrationPath);
+        Truth.assertThat(deltaMigration).contains("ALTER TABLE product");
+        Truth.assertThat(deltaMigration).contains("sku");
+        Truth.assertThat(deltaMigration).doesNotContain("CREATE TABLE \"product\"");
+    }
+
+    private static Path classpathWithMigration(String migrationName, String migrationSql) throws IOException {
+        var classpathDirectory = Files.createTempDirectory("prefab-db-migration-classpath");
+        var migrationDirectory = classpathDirectory.resolve(Path.of("db", "migration"));
+        Files.createDirectories(migrationDirectory);
+        var versionPrefix = migrationName.substring(0, migrationName.indexOf("__"));
+        Files.writeString(migrationDirectory.resolve(versionPrefix + "__baseline.sql"), "");
+        Files.writeString(migrationDirectory.resolve(migrationName), migrationSql);
+        return classpathDirectory;
+    }
+
+    private static String generatedMigrationContent(Compilation compilation, String migrationPath) throws IOException {
+        var migrationFile = compilation.generatedFiles().stream()
+                .filter(file -> file.getName().endsWith(migrationPath))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Missing generated migration: " + migrationPath));
+        return migrationFile.getCharContent(false).toString();
+    }
+
+    private static int migrationVersion(String migrationPath) {
+        var filename = migrationPath.substring(migrationPath.lastIndexOf('/') + 1);
+        var matcher = java.util.regex.Pattern.compile("^V(\\d+)__.*\\.sql$").matcher(filename);
+        if (!matcher.matches()) {
+            return -1;
+        }
+        return Integer.parseInt(matcher.group(1));
     }
 }

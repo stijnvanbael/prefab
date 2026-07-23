@@ -3,7 +3,7 @@ id: TASK-266
 title: >-
   Support @EventHandler methods with interface or sealed-supertype parameter for
   all handler variants
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-07-23 12:13'
 labels:
@@ -34,5 +34,21 @@ priority: medium
 
 ## Implementation Notes
 
-- Investigating a processor-level expansion from declared handler contract type -> concrete handled event types so all consumer writers can continue generating listener methods against concrete event payload classes while service methods keep the user-declared supertype signature.
+- Added regression coverage for `@EventHandler` methods that declare an interface or sealed-supertype parameter across:
+  - static aggregate handlers
+  - merged handlers
+  - `@ByReference` create-or-update handlers
+  - `@Multicast` create-or-update handlers
+  - generated Kafka, Pub/Sub, and SNS/SQS consumers
+- Fixed `MulticastEventHandlerWriter` so `@Multicast(parameters = ...)` resolves zero-argument accessor methods on the event contract in addition to direct fields. This allows repository query arguments to be read from interface and sealed-supertype event contracts.
+- Updated the create-or-update messaging fixtures so the shared event contract explicitly declares the reference accessor required by `@ByReference(property = ...)`.
+- Updated `backlog/docs/annotation-reference.md`, `backlog/docs/feature-guides.md`, and `backlog/docs/troubleshooting.md` to document supertype handler parameters and accessor-based property mapping.
+
+## Verification
+
+- Focused regression suite:
+  - `mvn -pl annotation-processor,kafka,pubsub,sns-sqs -am -Dtest=EventHandlerWriterTest,KafkaConsumerWriterTest,PubSubSubscriberWriterTest,SqsSubscriberWriterTest -Dsurefire.failIfNoSpecifiedTests=false test`
+- Full repository suite:
+  - `mvn test`
+  - `mvn -q test` (re-run with explicit success marker)
 

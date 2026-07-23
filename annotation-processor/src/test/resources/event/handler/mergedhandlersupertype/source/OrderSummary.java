@@ -1,7 +1,6 @@
-package event.handler.createorupdate;
+package event.handler.mergedhandlersupertype;
 
 import be.appify.prefab.core.annotations.Aggregate;
-import be.appify.prefab.core.annotations.ByReference;
 import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.annotations.Generate;
 import be.appify.prefab.core.service.Reference;
@@ -14,18 +13,13 @@ import org.springframework.data.annotation.Id;
 @Generate(plugin = MotherPlugin.class, enabled = false)
 @Generate(plugin = AssertionPlugin.class, enabled = false)
 @Generate(plugin = DbMigrationPlugin.class, enabled = false)
-public record ChannelSummary(
-        @Id Reference<ChannelSummary> id,
-        int messageCount
+public record OrderSummary(
+        @Id Reference<OrderSummary> id,
+        String orderId
 ) {
-    @EventHandler
-    public static ChannelSummary onCreate(MessageEvent event) {
-        return new ChannelSummary(event.summary(), 1);
-    }
-
-    @EventHandler
-    @ByReference(property = "summary")
-    public ChannelSummary onUpdate(MessageEvent event) {
-        return new ChannelSummary(id, messageCount + 1);
+    @EventHandler(Order.class)
+    public static OrderSummary onOrderCreated(OrderEvent event) {
+        return new OrderSummary(Reference.create(), event.orderId());
     }
 }
+

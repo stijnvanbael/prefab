@@ -7,6 +7,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
 @Event(topic = "${topic.message.name}", platform = Event.Platform.SNS_SQS)
 public sealed interface MessageEvent permits MessageEvent.Sent {
+    Reference<ChannelSummary> summary();
+
     record Sent(
             Reference<ChannelSummary> summary,
             String text

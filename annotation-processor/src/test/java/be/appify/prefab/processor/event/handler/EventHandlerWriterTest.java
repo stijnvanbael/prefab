@@ -45,6 +45,7 @@ class EventHandlerWriterTest {
             .withProcessors(new PrefabProcessor())
             .compile(
                     sourceOf("event/handler/createorupdate/source/ChannelSummary.java"),
+                    sourceOf("event/handler/createorupdate/source/MessageEvent.java"),
                     sourceOf("event/handler/createorupdate/source/MessageSent.java")
             );
     public static final com.google.testing.compile.Compilation instanceHandlerOrderCompilation = javac()
@@ -58,6 +59,7 @@ class EventHandlerWriterTest {
             .withProcessors(new PrefabProcessor())
             .compile(
                     sourceOf("event/handler/multicastcreateorupdate/source/Channel.java"),
+                    sourceOf("event/handler/multicastcreateorupdate/source/MessageEvent.java"),
                     sourceOf("event/handler/multicastcreateorupdate/source/MessageSent.java"),
                     sourceOf("event/handler/multicastcreateorupdate/source/ChannelRepositoryMixin.java")
             );
@@ -66,6 +68,19 @@ class EventHandlerWriterTest {
             .compile(
                     sourceOf("event/handler/statichandleraudit/source/Order.java"),
                     sourceOf("event/handler/statichandleraudit/source/OrderCreated.java")
+            );
+    public static final com.google.testing.compile.Compilation staticHandlerSupertypeCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(
+                    sourceOf("event/handler/statichandlersupertype/source/Order.java"),
+                    sourceOf("event/handler/statichandlersupertype/source/OrderEvent.java")
+            );
+    public static final com.google.testing.compile.Compilation mergedHandlerSupertypeCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(
+                    sourceOf("event/handler/mergedhandlersupertype/source/Order.java"),
+                    sourceOf("event/handler/mergedhandlersupertype/source/OrderEvent.java"),
+                    sourceOf("event/handler/mergedhandlersupertype/source/OrderSummary.java")
             );
 
     @Test
@@ -84,6 +99,19 @@ class EventHandlerWriterTest {
                 .generatedSourceFile("event.handler.statichandler.application.OrderService")
                 .contentsAsUtf8String()
                 .contains("@EventListener");
+    }
+
+    @Test
+    void staticEventHandlerWithSupertypeParameterGeneratesServiceMethod() {
+        assertThat(staticHandlerSupertypeCompilation).succeeded();
+        assertThat(staticHandlerSupertypeCompilation)
+                .generatedSourceFile("event.handler.statichandlersupertype.application.OrderService")
+                .contentsAsUtf8String()
+                .contains("public void onCreate(OrderEvent event)");
+        assertThat(staticHandlerSupertypeCompilation)
+                .generatedSourceFile("event.handler.statichandlersupertype.application.OrderService")
+                .contentsAsUtf8String()
+                .contains("orderRepository.save(Order.onCreate(event))");
     }
 
     @Test
@@ -218,6 +246,19 @@ class EventHandlerWriterTest {
     }
 
     @Test
+    void mergedEventHandlerWithSupertypeParameterGeneratesMethodInAggregateRootService() {
+        assertThat(mergedHandlerSupertypeCompilation).succeeded();
+        assertThat(mergedHandlerSupertypeCompilation)
+                .generatedSourceFile("event.handler.mergedhandlersupertype.application.OrderService")
+                .contentsAsUtf8String()
+                .contains("public void onOrderCreated(OrderEvent event)");
+        assertThat(mergedHandlerSupertypeCompilation)
+                .generatedSourceFile("event.handler.mergedhandlersupertype.application.OrderService")
+                .contentsAsUtf8String()
+                .contains("orderSummaryRepository.save(OrderSummary.onOrderCreated(event))");
+    }
+
+    @Test
     void mergedEventHandlerWithNonAggregateRootRaisesCompilerError() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
@@ -243,6 +284,10 @@ class EventHandlerWriterTest {
     @Test
     void pairedHandlerCallsInstanceMethodWhenAggregateFound() {
         assertThat(createOrUpdateChannelCompilation).succeeded();
+        assertThat(createOrUpdateChannelCompilation)
+                .generatedSourceFile("event.handler.createorupdate.application.ChannelSummaryService")
+                .contentsAsUtf8String()
+                .contains("public void onUpdate(MessageEvent event)");
         assertThat(createOrUpdateChannelCompilation)
                 .generatedSourceFile("event.handler.createorupdate.application.ChannelSummaryService")
                 .contentsAsUtf8String()
@@ -303,6 +348,10 @@ class EventHandlerWriterTest {
     @Test
     void multicastWithStaticCompanionCallsStaticWhenNoAggregatesFound() {
         assertThat(multicastCreateOrUpdateChannelCompilation).succeeded();
+        assertThat(multicastCreateOrUpdateChannelCompilation)
+                .generatedSourceFile("event.handler.multicastcreateorupdate.application.ChannelService")
+                .contentsAsUtf8String()
+                .contains("public void onMessageSent(MessageEvent event)");
         assertThat(multicastCreateOrUpdateChannelCompilation)
                 .generatedSourceFile("event.handler.multicastcreateorupdate.application.ChannelService")
                 .contentsAsUtf8String()

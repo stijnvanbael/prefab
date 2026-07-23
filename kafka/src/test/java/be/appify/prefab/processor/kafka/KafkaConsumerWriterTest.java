@@ -229,7 +229,8 @@ class KafkaConsumerWriterTest {
         var source = generatedSourceOf(compilation, "kafka.createorupdate.infrastructure.kafka.ChannelSummaryKafkaConsumer");
         assertThat(source).contains("topics = \"${topic.message.name}\"");
         assertThat(source).contains("public void onMessageEvent(MessageEvent event)");
-        assertThat(source).contains("case MessageEvent.Sent e -> channelSummaryService.onUpdate(e)");
+        assertThat(source).contains("channelSummaryService.onUpdate(event)");
+        assertThat(source).doesNotContain("case MessageEvent.Sent e ->");
     }
 
     @Test

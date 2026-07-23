@@ -775,6 +775,8 @@ public record OrderCreated(
 **Retention:** `SOURCE`
 
 Marks a method to process a domain event. The method parameter type determines which event type it handles.
+The parameter may be a concrete event record/class, or an event contract such as an interface or sealed
+supertype.
 
 | Attribute | Type       | Default      | Description                                                                            |
 |-----------|------------|--------------|----------------------------------------------------------------------------------------|
@@ -789,17 +791,21 @@ Marks a method to process a domain event. The method parameter type determines w
 | **Instance method** on `@Component` | Class must have `@Component`                                     | Injected as service dependency; called directly                          |
 
 ```java
+public sealed interface MessageEvent permits MessageSent {
+    Reference<ChannelSummary> summary();
+}
+
 // Static (create pattern):
 @EventHandler
-public static Order onOrderCreated(OrderCreated event) {
-    return new Order(event.id(), 0L, event.customerName());
+public static ChannelSummary onCreate(MessageEvent event) {
+    return new ChannelSummary(event.summary(), 1);
 }
 
 // Instance + @ByReference (update pattern):
 @EventHandler
-@ByReference(property = "orderId")
-public void onOrderPaid(OrderPaid event) {
-    this.status = Status.PAID;
+@ByReference(property = "summary")
+public void onUpdate(MessageEvent event) {
+    this.messageCount++;
 }
 ```
 
@@ -859,12 +865,12 @@ precedence over `spring.kafka.consumer.auto-offset-reset`.
 **Target:** `METHOD`
 **Retention:** `SOURCE`
 
-Used on an instance `@EventHandler` method to specify which field on the event holds the reference to the
-aggregate to update.
+Used on an instance `@EventHandler` method to specify which field or zero-argument accessor on the event
+contract holds the reference to the aggregate to update.
 
 | Attribute  | Type     | Default | Description                                                                                         |
 |------------|----------|---------|-----------------------------------------------------------------------------------------------------|
-| `property` | `String` | `""`    | Name of the event field of type `Reference<Aggregate>`. If empty, uses the default reference field. |
+| `property` | `String` | `""`    | Name of the event field or zero-argument accessor of type `Reference<Aggregate>`. If empty, uses the default reference field. |
 
 ```java
 
@@ -889,7 +895,7 @@ by a repository query.
 | Attribute     | Type       | Default          | Description                                                         |
 |---------------|------------|------------------|---------------------------------------------------------------------|
 | `queryMethod` | `String`   | — **(required)** | Name of the repository method that fetches the target aggregates.   |
-| `parameters`  | `String[]` | `{}`             | Event field names mapped to the query method parameters (in order). |
+| `parameters`  | `String[]` | `{}`             | Event field or zero-argument accessor names mapped to the query method parameters (in order). |
 
 If no aggregates are found, `IllegalStateException` is thrown to trigger retry.
 

@@ -10,5 +10,5 @@ import be.appify.prefab.processor.mother.MotherPlugin;
 public record MessageSent(
         Reference<ChannelSummary> summary,
         String text
-) {
+) implements MessageEvent {
 }

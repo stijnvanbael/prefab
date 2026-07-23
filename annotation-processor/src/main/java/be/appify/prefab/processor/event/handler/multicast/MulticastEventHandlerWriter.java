@@ -6,11 +6,13 @@ import be.appify.prefab.processor.PrefabContext;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeKind;
 import org.springframework.context.event.EventListener;
 
 import static org.apache.commons.text.WordUtils.capitalize;
@@ -27,30 +29,15 @@ class MulticastEventHandlerWriter {
         method.addParameter(event.asTypeName(), "event");
 
         var repositoryName = manifest.simpleName() + "Repository";
-        var eventElement = eventHandler.eventType().asElement();
-        var eventProperties = eventElement.getEnclosedElements()
-                .stream()
-                .filter(e -> e.getKind() == ElementKind.FIELD)
-                .map(VariableElement.class::cast)
-                .toList();
-
-        var arguments = Stream.of(eventHandler.paramMapping())
+        var arguments = java.util.Arrays.stream(eventHandler.paramMapping())
                 .map(param -> {
-                    var eventProperty = eventProperties.stream()
-                            .filter(p -> p.getSimpleName().toString().equals(param))
-                            .findFirst()
-                            .orElse(null);
-
-                    if (eventProperty == null) {
+                    var accessor = accessorFor(eventHandler, param).orElse(null);
+                    if (accessor == null) {
                         context.logError("Cannot find property '%s' on event %s"
                                         .formatted(param, eventHandler.eventType().simpleName()),
                                 eventHandler.methodElement());
                         return CodeBlock.of("null");
                     }
-
-                    var accessor = eventHandler.eventType().isRecord()
-                            ? eventProperty.getSimpleName().toString()
-                            : "get" + capitalize(eventProperty.getSimpleName().toString());
                     return CodeBlock.of("event.$L()", accessor);
                 })
                 .collect(Collectors.toList());
@@ -71,6 +58,31 @@ class MulticastEventHandlerWriter {
                                 ? CodeBlock.of("aggregate = aggregate.$L(event);", eventHandler.methodName())
                                 : CodeBlock.of("aggregate.$L(event);", eventHandler.methodName()))
                 .build();
+    }
+
+    private Optional<String> accessorFor(MulticastEventHandlerManifest eventHandler, String property) {
+        var eventElement = eventHandler.eventType().asElement();
+        if (eventElement == null) {
+            return Optional.empty();
+        }
+        return eventElement.getEnclosedElements().stream()
+                .filter(element -> element.getKind() == ElementKind.METHOD)
+                .map(ExecutableElement.class::cast)
+                .filter(method -> method.getParameters().isEmpty()
+                        && method.getModifiers().contains(Modifier.PUBLIC)
+                        && !method.getModifiers().contains(Modifier.STATIC)
+                        && method.getReturnType().getKind() != TypeKind.VOID)
+                .filter(method -> method.getSimpleName().contentEquals(property))
+                .map(method -> method.getSimpleName().toString())
+                .findFirst()
+                .or(() -> eventElement.getEnclosedElements().stream()
+                        .filter(element -> element.getKind() == ElementKind.FIELD)
+                        .map(VariableElement.class::cast)
+                        .filter(field -> field.getSimpleName().contentEquals(property))
+                        .map(field -> eventHandler.eventType().isRecord()
+                                ? field.getSimpleName().toString()
+                                : "get" + capitalize(field.getSimpleName().toString()))
+                        .findFirst());
     }
 
     private CodeBlock generateEmptyAggregatesHandling(

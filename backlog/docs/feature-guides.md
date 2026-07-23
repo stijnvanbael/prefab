@@ -173,18 +173,24 @@ public interface ChannelSummaryRepositoryMixin {
 
 ### Create-or-Update Pattern
 
-Combine a static `@EventHandler` with a `@ByReference` or `@Multicast` handler for the same event type:
+Combine a static `@EventHandler` with a `@ByReference` or `@Multicast` handler for the same event type.
+The shared event type may be a concrete event record or an interface / sealed supertype contract that
+declares the accessors the handlers need:
 
 ```java
 
-@EventHandler
-public static Order onCreate(OrderCreated event) {
-    return new Order(event.id(), 0L, event.customer());
+public sealed interface MessageEvent permits MessageSent {
+    Reference<ChannelSummary> summary();
 }
 
 @EventHandler
-@ByReference(property = "id")
-public void onUpdate(OrderUpdated event) {
+public static ChannelSummary onCreate(MessageEvent event) {
+    return new ChannelSummary(event.summary(), 1);
+}
+
+@EventHandler
+@ByReference(property = "summary")
+public void onUpdate(MessageEvent event) {
     // updates existing order
 }
 ```

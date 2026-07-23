@@ -12,13 +12,13 @@ public record ChannelSummary(
         int messageCount
 ) {
     @EventHandler
-    public static ChannelSummary onCreate(MessageEvent.Sent event) {
+    public static ChannelSummary onCreate(MessageEvent event) {
         return new ChannelSummary(event.summary(), 1);
     }
 
     @EventHandler
     @ByReference(property = "summary")
-    public ChannelSummary onUpdate(MessageEvent.Sent event) {
+    public ChannelSummary onUpdate(MessageEvent event) {
         return new ChannelSummary(id, messageCount + 1);
     }
 }

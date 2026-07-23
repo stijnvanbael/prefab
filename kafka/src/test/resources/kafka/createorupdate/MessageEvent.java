@@ -5,6 +5,8 @@ import be.appify.prefab.core.service.Reference;
 
 @Event(topic = "${topic.message.name}", platform = Event.Platform.KAFKA)
 public sealed interface MessageEvent permits MessageEvent.Sent {
+    Reference<ChannelSummary> summary();
+
     record Sent(
             Reference<ChannelSummary> summary,
             String text

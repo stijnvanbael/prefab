@@ -43,9 +43,11 @@ it automatically from `TenantContextProvider`.
 
 ## Error: `Compilation error: Cannot map event property to query parameter`
 
-**Cause:** A `@Multicast` `parameters` value references a field that does not exist on the event.
+**Cause:** A `@Multicast` `parameters` value references a field or zero-argument accessor that does not
+exist on the event contract.
 
-**Fix:** Verify the `parameters` values match the event record field names exactly (case-sensitive).
+**Fix:** Verify the `parameters` values match the event record field names or contract accessor names
+exactly (case-sensitive).
 
 ---
 

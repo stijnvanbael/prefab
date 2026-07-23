@@ -133,6 +133,7 @@ class SqsSubscriberWriterTest {
         var source = generatedSourceOf(compilation, "sns.createorupdate.infrastructure.sns.ChannelSummarySqsSubscriber");
         assertThat(source).contains("SqsSubscriptionRequest<MessageEvent>(messageEventTopic, \"channel-summary-on-message-event\", MessageEvent.class");
         assertThat(source).contains("private void onMessageEvent(MessageEvent event)");
-        assertThat(source).contains("case MessageEvent.Sent e -> channelSummaryService.onUpdate(e)");
+        assertThat(source).contains("channelSummaryService.onUpdate(event)");
+        assertThat(source).doesNotContain("case MessageEvent.Sent e ->");
     }
 }

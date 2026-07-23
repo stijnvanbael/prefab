@@ -21,13 +21,13 @@ public record Channel(
         int messageCount
 ) {
     @EventHandler
-    public static Channel onCreate(MessageSent event) {
+    public static Channel onCreate(MessageEvent event) {
         return new Channel(Reference.create(), 0L, 1);
     }
 
     @EventHandler
     @Multicast(queryMethod = "findByChannel", parameters = "channel")
-    public Channel onMessageSent(MessageSent event) {
+    public Channel onMessageSent(MessageEvent event) {
         return new Channel(id, version, messageCount + 1);
     }
 }

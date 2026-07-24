@@ -1,6 +1,7 @@
 package assertion;
 
 import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.Computed;
 import be.appify.prefab.core.annotations.Generate;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.GetById;
@@ -37,6 +38,15 @@ public record Product(
         return new Product(id, version, name, price, tags);
     }
 
+    @Computed
+    public int tagCount() {
+        return tags.size();
+    }
+
     public static record Money(double value) {
+        @Computed
+        public String formatted() {
+            return "%.2f".formatted(value);
+        }
     }
 }

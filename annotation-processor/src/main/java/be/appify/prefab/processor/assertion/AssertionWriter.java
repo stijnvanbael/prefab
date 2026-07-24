@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.assertion;
 
+import be.appify.prefab.core.annotations.Computed;
 import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.OutputTargetFileOutput;
@@ -26,6 +27,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Stream;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 
@@ -61,9 +63,17 @@ class AssertionWriter {
         var responseTypeName = manifest.simpleName() + "Response";
         var subjectType = ClassName.get(responsePackage, responseTypeName);
         var assertName = responseTypeName + "Assert";
-        if (writeAssertClass(responsePackage, assertName, subjectType, manifest.fields(), manifest.type().asElement())) {
+        var assertFields = Stream.concat(
+                        manifest.fields().stream(),
+                        manifest.methodsWith(Computed.class).stream()
+                                .map(method -> VariableManifest.ofMethod(method, context.processingEnvironment())))
+                .toList();
+        if (writeAssertClass(responsePackage, assertName, subjectType, assertFields, manifest.type().asElement())) {
             addEntry(responsePackage, subjectType, ClassName.get(responsePackage, assertName));
             manifest.fields().forEach(field -> writeNestedAssertFor(field.type(), manifest.type().asElement()));
+            manifest.methodsWith(Computed.class).stream()
+                    .map(method -> TypeManifest.of(method.getReturnType(), context.processingEnvironment()))
+                    .forEach(type -> writeNestedAssertFor(type, manifest.type().asElement()));
         }
     }
 
@@ -117,9 +127,17 @@ class AssertionWriter {
         var flatName = eventType.simpleName().replace(".", "");
         var packageName = eventType.packageName();
         var assertName = flatName + "Assert";
-        if (writeAssertClass(packageName, assertName, subjectType, eventType.fields(), preferredElement)) {
+        var assertFields = Stream.concat(
+                        eventType.fields().stream(),
+                        eventType.methodsWith(Computed.class).stream()
+                                .map(method -> VariableManifest.ofMethod(method, context.processingEnvironment())))
+                .toList();
+        if (writeAssertClass(packageName, assertName, subjectType, assertFields, preferredElement)) {
             addEntry(packageName, subjectType, ClassName.get(packageName, assertName));
             eventType.fields().forEach(field -> writeNestedAssertFor(field.type(), preferredElement));
+            eventType.methodsWith(Computed.class).stream()
+                    .map(method -> TypeManifest.of(method.getReturnType(), context.processingEnvironment()))
+                    .forEach(type -> writeNestedAssertFor(type, preferredElement));
         }
     }
 
@@ -129,9 +147,17 @@ class AssertionWriter {
             var flatName = type.simpleName().replace(".", "");
             var packageName = type.packageName();
             var assertName = flatName + "Assert";
-            if (writeAssertClass(packageName, assertName, subjectType, type.fields(), preferredElement)) {
+            var assertFields = Stream.concat(
+                            type.fields().stream(),
+                            type.methodsWith(Computed.class).stream()
+                                    .map(method -> VariableManifest.ofMethod(method, context.processingEnvironment())))
+                    .toList();
+            if (writeAssertClass(packageName, assertName, subjectType, assertFields, preferredElement)) {
                 addEntry(packageName, subjectType, ClassName.get(packageName, assertName));
                 type.fields().forEach(field -> writeNestedAssertFor(field.type(), preferredElement));
+                type.methodsWith(Computed.class).stream()
+                        .map(method -> TypeManifest.of(method.getReturnType(), context.processingEnvironment()))
+                        .forEach(fieldType -> writeNestedAssertFor(fieldType, preferredElement));
             }
         } else if (type.is(List.class) && !type.parameters().isEmpty()
                 && isNestedRecordType(type.parameters().getFirst())) {

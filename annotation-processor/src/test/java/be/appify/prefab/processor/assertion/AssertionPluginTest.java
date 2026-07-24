@@ -75,6 +75,26 @@ class AssertionPluginTest {
     }
 
     @Test
+    void responseAssertClassContainsComputedFieldAssertionMethods() {
+        assertThat(productCompilation).succeeded();
+        assertThat(productCompilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "",
+                        "assertion/infrastructure/http/ProductResponseAssert.java")
+                .contentsAsUtf8String()
+                .contains("hasTagCount(Integer expected)");
+    }
+
+    @Test
+    void nestedRecordAssertClassContainsComputedFieldAssertionMethods() {
+        assertThat(productCompilation).succeeded();
+        assertThat(productCompilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "",
+                        "assertion/ProductMoneyAssert.java")
+                .contentsAsUtf8String()
+                .contains("hasFormatted(String expected)");
+    }
+
+    @Test
     void responseAssertClassContainsListSatisfyingAssertionMethod() {
         assertThat(productCompilation).succeeded();
         var contents = assertThat(productCompilation)

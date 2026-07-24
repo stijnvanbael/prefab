@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "OrderCreatedEvent",
+  "namespace": "kafka.avscconsumeronly",
+  "fields": [
+    {
+      "name": "id",
+      "type": "string"
+    }
+  ]
+}
+

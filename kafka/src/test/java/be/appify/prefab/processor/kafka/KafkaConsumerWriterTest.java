@@ -219,6 +219,35 @@ class KafkaConsumerWriterTest {
     }
 
     @Test
+    void avscConsumerOnlyInterfaceHandlerGeneratesConsumer() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/avscconsumeronly/OrderEvent.java"),
+                        sourceOf("kafka/avscconsumeronly/OrderProcessor.java"));
+        assertThat(compilation).succeeded();
+        var source = generatedSourceOf(compilation,
+                "kafka.avscconsumeronly.infrastructure.kafka.OrderProcessorKafkaConsumer");
+        assertThat(source).contains("topics = \"prefab.order.consumer.only\"");
+        assertThat(source).contains("public void onOrderEvent(OrderCreatedEvent event)");
+        assertThat(source).contains("orderProcessor.onOrderEvent(event)");
+    }
+
+    @Test
+    void mixedInterfaceAndConcreteHandlersReportCompileError() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/mixedcontractandconcrete/UserEvent.java"),
+                        sourceOf("kafka/mixedcontractandconcrete/UserCreated.java"),
+                        sourceOf("kafka/mixedcontractandconcrete/UserExporter.java"));
+
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining(
+                "Mixed @EventHandler parameter hierarchy is not supported");
+    }
+
+    @Test
     void aggregateCreateOrUpdateHandler() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
@@ -303,6 +332,25 @@ class KafkaConsumerWriterTest {
                     .contains("import kafka.dependencyavsc.ExternalOrderCreatedEvent;");
             assertThat(compilation)
                     .generatedSourceFile("kafka.externaldependencyavsc.infrastructure.kafka.ExternalOrderImporterKafkaConsumer")
+                    .contentsAsUtf8String()
+                    .contains("topics = \"prefab.external.order\"");
+        } finally {
+            deleteRecursively(dependencyClasspath);
+        }
+    }
+
+    @Test
+    void avscInterfaceEventTypeFromDependencyModule() {
+        var dependencyClasspath = compileDependencyClasspath(
+                sourceOf("kafka/dependencyavsc/ExternalOrderCreated.java"));
+        try {
+            var compilation = javac()
+                    .withOptions(classpathOptionsWith(dependencyClasspath))
+                    .withProcessors(new PrefabProcessor())
+                    .compile(sourceOf("kafka/externaldependencyavsc/ExternalOrderInterfaceImporter.java"));
+            assertThat(compilation).succeeded();
+            assertThat(compilation)
+                    .generatedSourceFile("kafka.externaldependencyavsc.infrastructure.kafka.ExternalOrderInterfaceImporterKafkaConsumer")
                     .contentsAsUtf8String()
                     .contains("topics = \"prefab.external.order\"");
         } finally {

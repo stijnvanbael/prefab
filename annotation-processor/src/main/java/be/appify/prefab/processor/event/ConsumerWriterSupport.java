@@ -103,12 +103,44 @@ public class ConsumerWriterSupport {
                                   Map.Entry<TypeManifest, List<ExecutableElement>> eventHandlersForEvent,
                                   TypeManifest listenerParamType, MethodSpec.Builder method) {
         var eventHandlers = deduplicateByEventType(context, eventHandlersForEvent.getValue());
+        var hierarchyConflict = hierarchyConflict(eventHandlers, context);
+        if (hierarchyConflict.isPresent()) {
+            context.logError(hierarchyConflict.get(), eventHandlers.getFirst());
+            return;
+        }
         if (eventHandlers.size() == 1 && sameType(listenerParamType, eventHandlers.getFirst(), context)) {
             singleTypeHandler(context, eventHandlers.getFirst(), method, "event");
         } else {
             multiTypeHandler(context, eventHandlers, method);
         }
         type.addMethod(method.build());
+    }
+
+    private Optional<String> hierarchyConflict(List<ExecutableElement> eventHandlers, PrefabContext context) {
+        var typeUtils = context.processingEnvironment().getTypeUtils();
+        for (var i = 0; i < eventHandlers.size(); i++) {
+            for (var j = i + 1; j < eventHandlers.size(); j++) {
+                var first = eventHandlers.get(i);
+                var second = eventHandlers.get(j);
+                var firstType = first.getParameters().getFirst().asType();
+                var secondType = second.getParameters().getFirst().asType();
+                if (typeUtils.isSameType(firstType, secondType)) {
+                    continue;
+                }
+                if (typeUtils.isAssignable(firstType, secondType) || typeUtils.isAssignable(secondType, firstType)) {
+                    var firstTypeName = TypeManifest.of(firstType, context.processingEnvironment()).simpleName();
+                    var secondTypeName = TypeManifest.of(secondType, context.processingEnvironment()).simpleName();
+                    return Optional.of(
+                            "Mixed @EventHandler parameter hierarchy is not supported: handler methods %s(%s) and %s(%s) overlap. Use only the shared contract type or only concrete implementations."
+                                    .formatted(
+                                            first.getSimpleName(),
+                                            firstTypeName,
+                                            second.getSimpleName(),
+                                            secondTypeName));
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     private static boolean sameType(TypeManifest listenerParamType, ExecutableElement eventHandler, PrefabContext context) {
@@ -339,6 +371,7 @@ public class ConsumerWriterSupport {
         var rootType = rootEventType(handler, context);
         return rootType.asElement() != null
                 && rootType.asElement().getAnnotation(Avsc.class) != null
+                && context.isFromCurrentCompilation(rootType.asElement())
                 && concreteEventTypes(rootType, context).getFirst() == rootType;
     }
 

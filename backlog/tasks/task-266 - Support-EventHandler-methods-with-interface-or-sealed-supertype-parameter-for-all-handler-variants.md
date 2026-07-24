@@ -3,7 +3,7 @@ id: TASK-266
 title: >-
   Support @EventHandler methods with interface or sealed-supertype parameter for
   all handler variants
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-07-23 12:13'
 labels:
@@ -57,5 +57,22 @@ priority: medium
 - Scenario still failing: when only consumer methods declare an `@Avsc` event contract interface, Kafka consumer generation can be deferred and never emitted.
 - Scenario still failing: mixing a handler parameter on the event interface/supertype with another handler on a concrete implementation can generate an invalid dominated `switch` pattern.
 - Requested behavior for now: detect mixed supertype+subtype handler declarations and emit a clear compile-time error instead of generating invalid code.
+
+## Follow-up Implementation Notes (2026-07-24)
+
+- Updated `ConsumerWriterSupport#hasAvscEventWithoutConcreteType(...)` behavior by scoping deferral to `@Avsc` contracts from the **current compilation only**. This prevents Kafka consumer generation from being deferred forever when handlers consume an `@Avsc` interface coming from a dependency.
+- Added hierarchy-overlap validation in `ConsumerWriterSupport#writeEventHandler(...)`:
+  - if two handler parameter types are assignable to each other (supertype/subtype overlap), processor now reports a clear compiler error:
+    - `Mixed @EventHandler parameter hierarchy is not supported ...`
+  - generation of the invalid switch body is skipped for that listener method, avoiding javac dominance errors.
+- Added Kafka regressions:
+  - `avscInterfaceEventTypeFromDependencyModule` verifies a consumer is generated when only a dependency contract interface is consumed.
+  - `mixedInterfaceAndConcreteHandlersReportCompileError` verifies clear compile-time failure for mixed contract+concrete handlers.
+
+## Follow-up Verification (2026-07-24)
+
+- `mvn -pl kafka -am -Dtest=KafkaConsumerWriterTest -Dsurefire.failIfNoSpecifiedTests=false test`
+- `mvn -pl annotation-processor,kafka,pubsub,sns-sqs -am -Dtest=EventHandlerWriterTest,KafkaConsumerWriterTest,PubSubSubscriberWriterTest,SqsSubscriberWriterTest -Dsurefire.failIfNoSpecifiedTests=false test`
+
 
 

@@ -63,6 +63,9 @@ that ignores `@Computed` members.
 - `PrefabMappingJdbcConverter` (postgres): the injected `JsonMapper` is rebuilt with an
   `AnnotationIntrospector` that ignores `@Computed` members, so JSONB documents never store the
   derived value; legacy documents containing it still read fine (READ_ONLY).
+- `AssertionPlugin` now includes `@Computed` methods when building response and nested assert
+  classes, so generated assertion helpers expose synthetic field checks alongside regular record
+  components.
 - Documented in `backlog/docs/annotation-reference.md` (REST annotations + quick reference table).
 - Tests: `ComputedFieldTest` (processor, 7 tests incl. polymorphic and validation failures),
   `ComputedTest` (core Jackson behaviour), `PrefabMappingJdbcConverterTest` (JSONB exclusion),

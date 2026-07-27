@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component;
 public class OrderCreatedEventEventTypeRegistrar implements EventRegistryCustomizer {
     @Override
     public void customize(EventRegistry registry) {
-        registry.register("prefab.order", OrderCreatedEvent.class, Event.Serialization.AVRO);
+        registry.register("prefab.order", OrderCreatedEvent.class, Event.Serialization.AVRO, event -> event.orderId());
     }
 }
-

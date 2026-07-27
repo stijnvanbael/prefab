@@ -68,9 +68,14 @@ public class EventTypeRegistrarWriter {
      * @param publishTo   the publish-to strategy
      */
     public void writeAvscRegistrar(String packageName, ClassName eventType, String[] topics, PublishTo publishTo) {
+        writeAvscRegistrar(packageName, eventType, topics, publishTo, Optional.empty());
+    }
+
+    public void writeAvscRegistrar(String packageName, ClassName eventType, String[] topics,
+                                   PublishTo publishTo, Optional<CodeBlock> keyExtractor) {
         var name = registrarName(eventType.simpleName());
         var type = buildRegistrarType(packageName, name, topics, Event.Serialization.AVRO,
-                publishTo, eventType.simpleName(), eventType, Optional.empty());
+                publishTo, eventType.simpleName(), eventType, keyExtractor);
         fileOutput.writeFile(packageName, name, type);
     }
 
@@ -176,4 +181,3 @@ public class EventTypeRegistrarWriter {
                 .build();
     }
 }
-

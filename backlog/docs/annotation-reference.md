@@ -710,9 +710,10 @@ public sealed interface UserEvent permits UserEvent.Created, UserEvent.Updated {
 
 AVSC-first event generation. Must be combined with `@Event(serialization = AVRO)` on the same interface.
 
-| Attribute | Type       | Default          | Description                                            |
-|-----------|------------|------------------|--------------------------------------------------------|
-| `value`   | `String[]` | — **(required)** | One or more classpath-relative paths to `.avsc` files. |
+| Attribute | Type         | Default | Description                                                                                  |
+|-----------|--------------|---------|----------------------------------------------------------------------------------------------|
+| `value`   | `String[]`   | `{}`    | Preferred form when all referenced AVSC events share the same `@PartitioningKey` contract method. |
+| `files`   | `AvscFile[]` | `{}`    | Explicit schema declarations with optional per-file `keyProperty` partitioning-key metadata. |
 
 See [Feature Guides — Avro / AVSC-first Events](feature-guides.md#74-avro--avsc-first-events) for full details.
 
@@ -721,6 +722,8 @@ See [Feature Guides — Avro / AVSC-first Events](feature-guides.md#74-avro--avs
 @Event(topic = "sale", serialization = Event.Serialization.AVRO)
 @Avsc({"avro/sale-created.avsc", "avro/sale-paid.avsc"})
 public sealed interface SaleEvent permits SaleCreated, SalePaid {
+    @PartitioningKey
+    String saleId();
 }
 ```
 
@@ -1305,4 +1308,3 @@ See [Feature Guides — Repository Mixins](feature-guides.md#710-repository-mixi
 | `@RepositoryMixin`    | Type                      | RUNTIME   | Add custom query methods to repository                                                                                                                                                                                                                                |
 | `@ContentType`        | Field                     | —         | Allowed MIME types for `Binary` uploads                                                                                                                                                                                                                               |
 | `@FileSize`           | Field                     | —         | Maximum file size for `Binary` uploads                                                                                                                                                                                                                                |
-

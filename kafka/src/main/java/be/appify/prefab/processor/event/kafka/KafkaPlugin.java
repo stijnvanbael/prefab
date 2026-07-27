@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.event.kafka;
 
 import be.appify.prefab.core.annotations.Avsc;
+import be.appify.prefab.core.annotations.AvscFiles;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.processor.ClassManifest;
@@ -9,6 +10,7 @@ import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.event.EventTypeRegistrarWriter;
 import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.CodeBlock;
 import org.apache.avro.Schema;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.derivedPlatform;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.filteredEventHandlersByOwner;
@@ -26,6 +28,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+
+import static be.appify.prefab.processor.event.ConsumerWriterSupport.keyField;
 
 /**
  * Prefab plugin to generate Kafka producers and consumers based on event annotations.
@@ -108,16 +113,59 @@ public class KafkaPlugin implements PrefabPlugin {
     private void writeAvscRegistrarsForElement(TypeElement element) {
         var avsc = element.getAnnotation(Avsc.class);
         var event = requireNonNull(element.getAnnotation(Event.class));
+        var avscFiles = AvscFiles.resolve(requireNonNull(avsc));
+        if (avscFiles.hasErrors()) {
+            avscFiles.errors().forEach(error -> context.logError(error, element));
+            return;
+        }
         var packageName = context.processingEnvironment().getElementUtils()
                 .getPackageOf(element).getQualifiedName().toString();
-        for (var path : requireNonNull(avsc).value()) {
-            var schema = parseAvscSchema(path, element);
+        var eventManifest = TypeManifest.of(element.asType(), context.processingEnvironment());
+        var sharedPartitioningProperty = sharedPartitioningProperty(eventManifest);
+        var sharedKeyExtractor = keyField(eventManifest, context);
+        for (var definition : avscFiles.definitions()) {
+            var schema = parseAvscSchema(definition.path(), element);
             if (schema == null)
                 continue;
+            var effectivePartitioningProperty = definition.keyProperty().or(() -> sharedPartitioningProperty);
+            if (effectivePartitioningProperty.isPresent() && schema.getField(effectivePartitioningProperty.orElseThrow()) == null) {
+                context.logError(
+                        missingPartitioningPropertyMessage(definition, effectivePartitioningProperty.orElseThrow(), sharedPartitioningProperty),
+                        element);
+                continue;
+            }
             var schemaPackage = schema.getNamespace() != null ? schema.getNamespace() : packageName;
             var eventType = ClassName.get(schemaPackage, schema.getName());
-            eventTypeRegistrarWriter.writeAvscRegistrar(schemaPackage, eventType, event.topic(), event.publishTo());
+            var keyExtractor = definition.keyProperty()
+                    .<CodeBlock>map(property -> CodeBlock.of("event.$L()", property))
+                    .or(() -> sharedKeyExtractor);
+            eventTypeRegistrarWriter.writeAvscRegistrar(
+                    schemaPackage,
+                    eventType,
+                    event.topic(),
+                    event.publishTo(),
+                    keyExtractor);
         }
+    }
+
+    private Optional<String> sharedPartitioningProperty(TypeManifest eventManifest) {
+        return eventManifest.methodsWith(be.appify.prefab.core.annotations.PartitioningKey.class).stream()
+                .findFirst()
+                .map(method -> method.getSimpleName().toString());
+    }
+
+    private String missingPartitioningPropertyMessage(AvscFiles.Definition definition, String property,
+                                                      Optional<String> sharedPartitioningProperty) {
+        if (definition.keyProperty().isPresent()) {
+            return "AVSC file '%s' does not define field '%s' required by @Avsc keyProperty."
+                    .formatted(definition.path(), property);
+        }
+        if (sharedPartitioningProperty.isPresent()) {
+            return "AVSC file '%s' does not define field '%s' required by the @PartitioningKey method on the @Avsc contract."
+                    .formatted(definition.path(), property);
+        }
+        return "AVSC file '%s' does not define field '%s'."
+                .formatted(definition.path(), property);
     }
 
     private Schema parseAvscSchema(String path, TypeElement originatingElement) {

@@ -12,14 +12,14 @@ import java.lang.annotation.Target;
  * record implements the annotated interface, making it usable as that type at runtime.
  *
  * <p>Place this annotation together with {@link Event} on an interface that represents the event
- * contract. The topic, platform, and serialization are taken from {@link Event}; {@link Avsc} only
- * specifies the paths to the AVSC schema files.
+ * contract. The topic, platform, and serialization are taken from {@link Event}; {@link Avsc} specifies
+ * the AVSC schema files and optional per-file partitioning-key metadata.
  *
  * <p>Single-event usage:
  *
  * <pre>{@code
  * @Event(topic = "sale", serialization = Event.Serialization.AVRO)
- * @Avsc("avro/sale-created.avsc")
+ * @Avsc(files = @AvscFile(path = "avro/sale-created.avsc", keyProperty = "saleId"))
  * public interface SaleCreated {}
  * }</pre>
  *
@@ -27,7 +27,11 @@ import java.lang.annotation.Target;
  *
  * <pre>{@code
  * @Event(topic = "sale", serialization = Event.Serialization.AVRO)
- * @Avsc({"avro/sale-created.avsc", "avro/sale-paid.avsc", "avro/sale-cancelled.avsc"})
+ * @Avsc(files = {
+ *         @AvscFile(path = "avro/sale-created.avsc", keyProperty = "saleId"),
+ *         @AvscFile(path = "avro/sale-paid.avsc", keyProperty = "saleId"),
+ *         @AvscFile(path = "avro/sale-cancelled.avsc")
+ * })
  * public interface SaleEvent {}
  * }</pre>
  *
@@ -38,7 +42,10 @@ import java.lang.annotation.Target;
  *
  * <pre>{@code
  * @Event(topic = "sale", serialization = Event.Serialization.AVRO)
- * @Avsc({"avro/sale-created.avsc", "avro/sale-paid.avsc"})
+ * @Avsc(files = {
+ *         @AvscFile(path = "avro/sale-created.avsc", keyProperty = "saleId"),
+ *         @AvscFile(path = "avro/sale-paid.avsc", keyProperty = "saleId")
+ * })
  * public sealed interface SaleEvent permits SaleCreated, SalePaid {}
  * }</pre>
  *
@@ -51,10 +58,20 @@ import java.lang.annotation.Target;
 public @interface Avsc {
 
     /**
-     * One or more classpath-relative paths to AVSC schema files. A separate event record is
-     * generated for each path; all generated records implement the annotated interface.
+     * Legacy shorthand for one or more classpath-relative paths to AVSC schema files. A separate event
+     * record is generated for each path; all generated records implement the annotated interface.
+     *
+     * <p>Use {@link #files()} when you need per-schema metadata such as {@code keyProperty}. This
+     * shorthand remains available for backwards compatibility.
      *
      * @return the classpath-relative paths to the AVSC files
      */
-    String[] value();
+    String[] value() default {};
+
+    /**
+     * Explicit AVSC schema declarations with optional partitioning-key metadata per schema.
+     *
+     * @return the schema declarations
+     */
+    AvscFile[] files() default {};
 }

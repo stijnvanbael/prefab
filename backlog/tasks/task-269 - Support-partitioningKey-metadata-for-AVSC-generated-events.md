@@ -1,10 +1,10 @@
 ---
 id: TASK-269
 title: Support partitioningKey metadata for AVSC-generated events
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-27 08:36'
-updated_date: '2026-07-27 08:36'
+updated_date: '2026-07-27 09:08'
 labels:
   - annotation-processor
   - avro
@@ -20,6 +20,22 @@ When an event contract uses `@Avsc`, the generated records cannot declare `@Part
 
 Prefer a shape that lives next to `value()` and supports multi-schema contracts explicitly, for example a list of entries where each entry declares the AVSC file and the property name to use as the partitioning key.
 
+## Analysis
+
+- The current `@Avsc` contract in `core` only exposes `String[] value()`, so every consumer assumes schema paths come exclusively from `value()`.
+- The AVSC path is currently consumed in three places:
+  - `avro-processor/.../AvscPlugin` to generate AVSC-backed event records
+  - `avro-processor/.../EventSchemaFactoryWriter` to resolve AVSC-backed schema factories and named types
+  - `kafka/.../KafkaPlugin` to generate AVSC `EventTypeRegistrar` classes
+- Partitioning-key extraction for non-AVSC events is already centralized in generated registrars via `annotation-processor/.../EventTypeRegistrarWriter`, which can emit `registry.register(..., event -> ...)`.
+- AVSC-generated records already flow through the same producer/runtime path (`EventRegistry#keyFor(...)`), so this task only needs to supply the missing registrar key-extractor metadata for generated AVSC event types.
+- The new annotation contract should therefore:
+  - keep legacy `value()` usage working,
+  - add explicit `files = { @AvscFile(path = \"...\", keyProperty = \"...\") }` support,
+  - normalize both inputs into one schema list with duplicate/conflict validation,
+  - validate `keyProperty` against the referenced AVSC schema before code generation,
+  - and pass the resolved property into Kafka AVSC registrar generation.
+
 ## Acceptance Criteria
 
 - [ ] #1 `@Avsc` exposes a developer-facing way to configure a partitioning key for each referenced AVSC schema without editing the generated event classes
@@ -34,3 +50,19 @@ Prefer a shape that lives next to `value()` and supports multi-schema contracts 
 - Reuse the existing event registry and partitioning-key extraction flow instead of introducing a separate AVSC-specific mechanism.
 - The final API shape should be a nested annotation such as `files = { @AvscFile(path = "...", keyProperty = "...") }`
 - If the final API shape materially affects the public annotation contract, capture the decision in `backlog/decisions/`.
+
+## Completion Notes
+
+- Added `@AvscFile` plus `Avsc#files()` while keeping legacy `value()` support intact.
+- Added shared `AvscFiles.resolve(...)` normalization so AVSC schema paths are resolved consistently across AVSC generation, schema-factory lookup, and Kafka registrar generation.
+- Added compile-time validation for:
+  - empty/duplicate schema declarations across `value()` and `files()`
+  - `keyProperty` values that do not match a field in the referenced AVSC schema
+- Updated Kafka AVSC registrar generation to emit `EventRegistry` key extractors from `keyProperty`.
+- Updated the AVSC annotation docs and feature guide with the explicit `files = @AvscFile(...)` shape and partitioning-key behaviour.
+
+## Verification
+
+- Focused suite passed:
+  - `mvn -pl core,annotation-processor,avro-processor,kafka -am -Dtest=AvscPluginTest,SerializationPluginTest,KafkaEventTypeRegistrarWriterTest -Dsurefire.failIfNoSpecifiedTests=false test`
+- Full repository suite was run with `mvn test` and failed outside this change in `examples/avro` because Testcontainers could not complete the `apache/kafka:4.0.2` Docker image pull for `SaleIntegrationTest`.

@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.event.kafka;
 
 import be.appify.prefab.core.annotations.Avsc;
+import be.appify.prefab.core.annotations.AvscFiles;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.processor.ClassManifest;
@@ -9,6 +10,7 @@ import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.event.EventTypeRegistrarWriter;
 import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.CodeBlock;
 import org.apache.avro.Schema;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.derivedPlatform;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.filteredEventHandlersByOwner;
@@ -108,15 +110,33 @@ public class KafkaPlugin implements PrefabPlugin {
     private void writeAvscRegistrarsForElement(TypeElement element) {
         var avsc = element.getAnnotation(Avsc.class);
         var event = requireNonNull(element.getAnnotation(Event.class));
+        var avscFiles = AvscFiles.resolve(requireNonNull(avsc));
+        if (avscFiles.hasErrors()) {
+            avscFiles.errors().forEach(error -> context.logError(error, element));
+            return;
+        }
         var packageName = context.processingEnvironment().getElementUtils()
                 .getPackageOf(element).getQualifiedName().toString();
-        for (var path : requireNonNull(avsc).value()) {
-            var schema = parseAvscSchema(path, element);
+        for (var definition : avscFiles.definitions()) {
+            var schema = parseAvscSchema(definition.path(), element);
             if (schema == null)
                 continue;
+            if (definition.keyProperty().isPresent() && schema.getField(definition.keyProperty().orElseThrow()) == null) {
+                context.logError(
+                        "AVSC file '%s' does not define field '%s' required by @Avsc keyProperty."
+                                .formatted(definition.path(), definition.keyProperty().orElseThrow()),
+                        element);
+                continue;
+            }
             var schemaPackage = schema.getNamespace() != null ? schema.getNamespace() : packageName;
             var eventType = ClassName.get(schemaPackage, schema.getName());
-            eventTypeRegistrarWriter.writeAvscRegistrar(schemaPackage, eventType, event.topic(), event.publishTo());
+            var keyExtractor = definition.keyProperty().map(property -> CodeBlock.of("event.$L()", property));
+            eventTypeRegistrarWriter.writeAvscRegistrar(
+                    schemaPackage,
+                    eventType,
+                    event.topic(),
+                    event.publishTo(),
+                    keyExtractor);
         }
     }
 

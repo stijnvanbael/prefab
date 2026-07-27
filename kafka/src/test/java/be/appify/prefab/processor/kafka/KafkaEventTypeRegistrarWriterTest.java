@@ -126,8 +126,7 @@ class KafkaEventTypeRegistrarWriterTest {
         assertThat(compilation).succeeded();
         var source = generatedSourceOf(compilation, "kafka.avsc.infrastructure.event.OrderCreatedEventEventTypeRegistrar");
         assertThat(source).contains("@Component(\"kafka_avsc_OrderCreatedEventEventTypeRegistrar\")");
-        // AVRO serialization must be used for AVSC events
-        assertThat(source).contains("registry.register(\"prefab.order\", OrderCreatedEvent.class, Event.Serialization.AVRO)");
+        assertThat(source).contains("registry.register(\"prefab.order\", OrderCreatedEvent.class, Event.Serialization.AVRO, event -> event.orderId())");
     }
 
     @Test

@@ -1,6 +1,7 @@
 package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.core.annotations.Avsc;
+import be.appify.prefab.core.annotations.AvscFiles;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.Generate;
 import be.appify.prefab.core.annotations.OutputTarget;
@@ -49,6 +50,12 @@ public class AvscPlugin implements PrefabPlugin {
                     element);
             return;
         }
+        var avscFiles = AvscFiles.resolve(annotation);
+        if (avscFiles.hasErrors()) {
+            avscFiles.errors().forEach(error -> context.processingEnvironment().getMessager().printMessage(
+                    Diagnostic.Kind.ERROR, error, element));
+            return;
+        }
         var typeElement = (TypeElement) element;
         var contractPackage = context.processingEnvironment()
                 .getElementUtils()
@@ -58,9 +65,17 @@ public class AvscPlugin implements PrefabPlugin {
         var contractInterface = ClassName.get(contractPackage, typeElement.getSimpleName().toString());
         var generateAnnotationSpecs = buildGenerateAnnotationSpecs(typeElement);
         var writer = new AvscEventWriter(context);
-        for (var path : annotation.value()) {
-            var schema = parseSchema(path, element);
+        for (var definition : avscFiles.definitions()) {
+            var schema = parseSchema(definition.path(), element);
             if (schema == null) continue;
+            if (definition.keyProperty().isPresent() && schema.getField(definition.keyProperty().orElseThrow()) == null) {
+                context.processingEnvironment().getMessager().printMessage(
+                        Diagnostic.Kind.ERROR,
+                        "AVSC file '%s' does not define field '%s' required by @Avsc keyProperty."
+                                .formatted(definition.path(), definition.keyProperty().orElseThrow()),
+                        element);
+                continue;
+            }
             var javaTypeName = capitalize(schema.getName());
             if (javaTypeName.equals(contractInterface.simpleName())) {
                 context.processingEnvironment().getMessager().printMessage(
@@ -70,7 +85,7 @@ public class AvscPlugin implements PrefabPlugin {
                         element);
                 continue;
             }
-            registry.registerAll(path, schema, element);
+            registry.registerAll(definition.path(), schema, element);
             writer.writeAll(schema, eventAnnotation.topic(), eventAnnotation.platform(), contractPackage, contractInterface, generateAnnotationSpecs);
         }
     }
@@ -132,4 +147,3 @@ public class AvscPlugin implements PrefabPlugin {
         return Character.toUpperCase(name.charAt(0)) + name.substring(1);
     }
 }
-

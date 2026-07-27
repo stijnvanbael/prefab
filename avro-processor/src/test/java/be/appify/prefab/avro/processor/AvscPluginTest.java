@@ -203,6 +203,37 @@ class AvscPluginTest {
     }
 
     @Test
+    void filesAttributeSupportsPerSchemaMetadata() {
+        assertThat(multiCompilation).succeeded();
+        assertThat(multiCompilation).generatedSourceFile("event.avsc.multi.MultiAvscEventA")
+                .contentsAsUtf8String()
+                .contains("implements MultiAvsc");
+        assertThat(multiCompilation).generatedSourceFile("event.avsc.multi.MultiAvscEventB")
+                .contentsAsUtf8String()
+                .contains("implements MultiAvsc");
+    }
+
+    @Test
+    void avscKeyPropertyMustReferenceExistingSchemaField() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/invalidkeyproperty/source/InvalidKeyPropertyAvsc.java"));
+
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("does not define field 'missing' required by @Avsc keyProperty");
+    }
+
+    @Test
+    void avscSchemaPathMayNotBeDeclaredTwiceAcrossValueAndFiles() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/duplicatepath/source/DuplicatePathAvsc.java"));
+
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("declared multiple times on @Avsc");
+    }
+
+    @Test
     void sealedInterfaceWithPermitsReferencingGeneratedTypesCompiles() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

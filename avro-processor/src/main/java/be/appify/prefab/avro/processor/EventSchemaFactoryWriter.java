@@ -2,6 +2,7 @@ package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.avro.SchemaSupport;
 import be.appify.prefab.core.annotations.Avsc;
+import be.appify.prefab.core.annotations.AvscFiles;
 import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.annotations.Doc;
 import be.appify.prefab.core.annotations.Example;
@@ -117,7 +118,10 @@ class EventSchemaFactoryWriter {
         if (avscRecordNamesIndex == null) {
             avscRecordNamesIndex = new HashMap<>();
             avscAnnotatedInterfaces()
-                    .flatMap(e -> Arrays.stream(Objects.requireNonNull(e.getAnnotation(Avsc.class)).value()))
+                    .flatMap(e -> AvscFiles.resolve(Objects.requireNonNull(e.getAnnotation(Avsc.class)))
+                            .definitions()
+                            .stream()
+                            .map(AvscFiles.Definition::path))
                     .distinct()
                     .forEach(path -> avscRecordNamesIndex.put(path, collectNamedTypes(path)));
         }
@@ -213,7 +217,10 @@ class EventSchemaFactoryWriter {
         return typeElement.getInterfaces().stream()
                 .map(iface -> (TypeElement) ((DeclaredType) iface).asElement())
                 .filter(iface -> iface.getAnnotation(Avsc.class) != null)
-                .flatMap(iface -> Arrays.stream(Objects.requireNonNull(iface.getAnnotation(Avsc.class)).value()));
+                .flatMap(iface -> AvscFiles.resolve(Objects.requireNonNull(iface.getAnnotation(Avsc.class)))
+                        .definitions()
+                        .stream()
+                        .map(AvscFiles.Definition::path));
     }
 
     private boolean matchesRecordName(String avscPath, String recordSimpleName) {

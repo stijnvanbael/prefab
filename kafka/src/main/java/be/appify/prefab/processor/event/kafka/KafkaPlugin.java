@@ -28,6 +28,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+
+import static be.appify.prefab.processor.event.ConsumerWriterSupport.keyField;
 
 /**
  * Prefab plugin to generate Kafka producers and consumers based on event annotations.
@@ -117,20 +120,25 @@ public class KafkaPlugin implements PrefabPlugin {
         }
         var packageName = context.processingEnvironment().getElementUtils()
                 .getPackageOf(element).getQualifiedName().toString();
+        var eventManifest = TypeManifest.of(element.asType(), context.processingEnvironment());
+        var sharedPartitioningProperty = sharedPartitioningProperty(eventManifest);
+        var sharedKeyExtractor = keyField(eventManifest, context);
         for (var definition : avscFiles.definitions()) {
             var schema = parseAvscSchema(definition.path(), element);
             if (schema == null)
                 continue;
-            if (definition.keyProperty().isPresent() && schema.getField(definition.keyProperty().orElseThrow()) == null) {
+            var effectivePartitioningProperty = definition.keyProperty().or(() -> sharedPartitioningProperty);
+            if (effectivePartitioningProperty.isPresent() && schema.getField(effectivePartitioningProperty.orElseThrow()) == null) {
                 context.logError(
-                        "AVSC file '%s' does not define field '%s' required by @Avsc keyProperty."
-                                .formatted(definition.path(), definition.keyProperty().orElseThrow()),
+                        missingPartitioningPropertyMessage(definition, effectivePartitioningProperty.orElseThrow(), sharedPartitioningProperty),
                         element);
                 continue;
             }
             var schemaPackage = schema.getNamespace() != null ? schema.getNamespace() : packageName;
             var eventType = ClassName.get(schemaPackage, schema.getName());
-            var keyExtractor = definition.keyProperty().map(property -> CodeBlock.of("event.$L()", property));
+            var keyExtractor = definition.keyProperty()
+                    .<CodeBlock>map(property -> CodeBlock.of("event.$L()", property))
+                    .or(() -> sharedKeyExtractor);
             eventTypeRegistrarWriter.writeAvscRegistrar(
                     schemaPackage,
                     eventType,
@@ -138,6 +146,26 @@ public class KafkaPlugin implements PrefabPlugin {
                     event.publishTo(),
                     keyExtractor);
         }
+    }
+
+    private Optional<String> sharedPartitioningProperty(TypeManifest eventManifest) {
+        return eventManifest.methodsWith(be.appify.prefab.core.annotations.PartitioningKey.class).stream()
+                .findFirst()
+                .map(method -> method.getSimpleName().toString());
+    }
+
+    private String missingPartitioningPropertyMessage(AvscFiles.Definition definition, String property,
+                                                      Optional<String> sharedPartitioningProperty) {
+        if (definition.keyProperty().isPresent()) {
+            return "AVSC file '%s' does not define field '%s' required by @Avsc keyProperty."
+                    .formatted(definition.path(), property);
+        }
+        if (sharedPartitioningProperty.isPresent()) {
+            return "AVSC file '%s' does not define field '%s' required by the @PartitioningKey method on the @Avsc contract."
+                    .formatted(definition.path(), property);
+        }
+        return "AVSC file '%s' does not define field '%s'."
+                .formatted(definition.path(), property);
     }
 
     private Schema parseAvscSchema(String path, TypeElement originatingElement) {

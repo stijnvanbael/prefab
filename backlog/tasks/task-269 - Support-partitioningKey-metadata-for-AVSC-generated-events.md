@@ -4,7 +4,7 @@ title: Support partitioningKey metadata for AVSC-generated events
 status: Done
 assignee: []
 created_date: '2026-07-27 08:36'
-updated_date: '2026-07-27 09:08'
+updated_date: '2026-07-27 11:23'
 labels:
   - annotation-processor
   - avro
@@ -30,7 +30,7 @@ Prefer a shape that lives next to `value()` and supports multi-schema contracts 
 - Partitioning-key extraction for non-AVSC events is already centralized in generated registrars via `annotation-processor/.../EventTypeRegistrarWriter`, which can emit `registry.register(..., event -> ...)`.
 - AVSC-generated records already flow through the same producer/runtime path (`EventRegistry#keyFor(...)`), so this task only needs to supply the missing registrar key-extractor metadata for generated AVSC event types.
 - The new annotation contract should therefore:
-  - keep legacy `value()` usage working,
+  - keep `value()` as the preferred path when all referenced AVSC events share the same `@PartitioningKey` contract method,
   - add explicit `files = { @AvscFile(path = \"...\", keyProperty = \"...\") }` support,
   - normalize both inputs into one schema list with duplicate/conflict validation,
   - validate `keyProperty` against the referenced AVSC schema before code generation,
@@ -53,13 +53,15 @@ Prefer a shape that lives next to `value()` and supports multi-schema contracts 
 
 ## Completion Notes
 
-- Added `@AvscFile` plus `Avsc#files()` while keeping legacy `value()` support intact.
+- Added `@AvscFile` plus `Avsc#files()` while keeping `value()` as the preferred shared-key path.
 - Added shared `AvscFiles.resolve(...)` normalization so AVSC schema paths are resolved consistently across AVSC generation, schema-factory lookup, and Kafka registrar generation.
 - Added compile-time validation for:
   - empty/duplicate schema declarations across `value()` and `files()`
-  - `keyProperty` values that do not match a field in the referenced AVSC schema
-- Updated Kafka AVSC registrar generation to emit `EventRegistry` key extractors from `keyProperty`.
-- Updated the AVSC annotation docs and feature guide with the explicit `files = @AvscFile(...)` shape and partitioning-key behaviour.
+-  `keyProperty` values that do not match a field in the referenced AVSC schema
+-  `@PartitioningKey` contract methods whose name is not present in a referenced AVSC schema
+- Updated Kafka AVSC registrar generation to emit `EventRegistry` key extractors from either the contract `@PartitioningKey` method or per-file `keyProperty`.
+  - Corrected the public contract so `@Avsc("...")` remains the preferred form when every generated event shares the same partitioning key via a contract interface method.
+  - Updated the AVSC annotation docs and feature guide with the explicit `files = @AvscFile(...)` shape and partitioning-key behaviour.
 
 ## Verification
 

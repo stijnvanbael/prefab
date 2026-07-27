@@ -712,7 +712,7 @@ AVSC-first event generation. Must be combined with `@Event(serialization = AVRO)
 
 | Attribute | Type         | Default | Description                                                                                  |
 |-----------|--------------|---------|----------------------------------------------------------------------------------------------|
-| `value`   | `String[]`   | `{}`    | Legacy shorthand for one or more classpath-relative paths to `.avsc` files.                 |
+| `value`   | `String[]`   | `{}`    | Preferred form when all referenced AVSC events share the same `@PartitioningKey` contract method. |
 | `files`   | `AvscFile[]` | `{}`    | Explicit schema declarations with optional per-file `keyProperty` partitioning-key metadata. |
 
 See [Feature Guides — Avro / AVSC-first Events](feature-guides.md#74-avro--avsc-first-events) for full details.
@@ -720,11 +720,10 @@ See [Feature Guides — Avro / AVSC-first Events](feature-guides.md#74-avro--avs
 ```java
 
 @Event(topic = "sale", serialization = Event.Serialization.AVRO)
-@Avsc(files = {
-        @AvscFile(path = "avro/sale-created.avsc", keyProperty = "saleId"),
-        @AvscFile(path = "avro/sale-paid.avsc", keyProperty = "saleId")
-})
+@Avsc({"avro/sale-created.avsc", "avro/sale-paid.avsc"})
 public sealed interface SaleEvent permits SaleCreated, SalePaid {
+    @PartitioningKey
+    String saleId();
 }
 ```
 

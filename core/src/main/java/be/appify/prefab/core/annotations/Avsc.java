@@ -19,20 +19,22 @@ import java.lang.annotation.Target;
  *
  * <pre>{@code
  * @Event(topic = "sale", serialization = Event.Serialization.AVRO)
- * @Avsc(files = @AvscFile(path = "avro/sale-created.avsc", keyProperty = "saleId"))
- * public interface SaleCreated {}
+ * @Avsc("avro/sale-created.avsc")
+ * public interface SaleCreated {
+ *     @PartitioningKey
+ *     String saleId();
+ * }
  * }</pre>
  *
  * <p>Multiple-event usage (all generated records implement {@code SaleEvent}):
  *
  * <pre>{@code
  * @Event(topic = "sale", serialization = Event.Serialization.AVRO)
- * @Avsc(files = {
- *         @AvscFile(path = "avro/sale-created.avsc", keyProperty = "saleId"),
- *         @AvscFile(path = "avro/sale-paid.avsc", keyProperty = "saleId"),
- *         @AvscFile(path = "avro/sale-cancelled.avsc")
- * })
- * public interface SaleEvent {}
+ * @Avsc({"avro/sale-created.avsc", "avro/sale-paid.avsc", "avro/sale-cancelled.avsc"})
+ * public interface SaleEvent {
+ *     @PartitioningKey
+ *     String saleId();
+ * }
  * }</pre>
  *
  * <p>Sealed multiple-event usage – the interface may be declared {@code sealed} with a
@@ -44,7 +46,7 @@ import java.lang.annotation.Target;
  * @Event(topic = "sale", serialization = Event.Serialization.AVRO)
  * @Avsc(files = {
  *         @AvscFile(path = "avro/sale-created.avsc", keyProperty = "saleId"),
- *         @AvscFile(path = "avro/sale-paid.avsc", keyProperty = "saleId")
+ *         @AvscFile(path = "avro/sale-paid.avsc", keyProperty = "paymentId")
  * })
  * public sealed interface SaleEvent permits SaleCreated, SalePaid {}
  * }</pre>
@@ -58,11 +60,11 @@ import java.lang.annotation.Target;
 public @interface Avsc {
 
     /**
-     * Legacy shorthand for one or more classpath-relative paths to AVSC schema files. A separate event
-     * record is generated for each path; all generated records implement the annotated interface.
+     * One or more classpath-relative paths to AVSC schema files. A separate event record is generated for
+     * each path; all generated records implement the annotated interface.
      *
-     * <p>Use {@link #files()} when you need per-schema metadata such as {@code keyProperty}. This
-     * shorthand remains available for backwards compatibility.
+     * <p>This is the preferred form when all referenced AVSC events share the same partitioning key. In
+     * that case, declare a matching interface method annotated with {@link PartitioningKey}.
      *
      * @return the classpath-relative paths to the AVSC files
      */
@@ -70,6 +72,9 @@ public @interface Avsc {
 
     /**
      * Explicit AVSC schema declarations with optional partitioning-key metadata per schema.
+     *
+     * <p>Use this form when different AVSC files need different partitioning-key properties, or when only
+     * some of the generated events should register a partitioning key extractor.
      *
      * @return the schema declarations
      */

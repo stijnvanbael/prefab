@@ -234,6 +234,16 @@ class AvscPluginTest {
     }
 
     @Test
+    void sharedPartitioningKeyMethodMustMatchEveryReferencedSchemaField() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/invalidsharedkey/source/InvalidSharedKeyAvsc.java"));
+
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("required by the @PartitioningKey method on the @Avsc contract");
+    }
+
+    @Test
     void sealedInterfaceWithPermitsReferencingGeneratedTypesCompiles() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

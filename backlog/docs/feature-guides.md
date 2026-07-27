@@ -245,11 +245,10 @@ Place `.avsc` files on the classpath and use `@Avsc` + `@Event`:
 // { "type": "record", "name": "SaleCreated", "namespace": "be.example.sale", "fields": [...] }
 
 @Event(topic = "sale", serialization = Event.Serialization.AVRO)
-@Avsc(files = {
-        @AvscFile(path = "avro/sale-created.avsc", keyProperty = "saleId"),
-        @AvscFile(path = "avro/sale-paid.avsc", keyProperty = "saleId")
-})
+@Avsc({"avro/sale-created.avsc", "avro/sale-paid.avsc"})
 public sealed interface SaleEvent permits SaleCreated, SalePaid {
+    @PartitioningKey
+    String saleId();
 }
 ```
 
@@ -263,10 +262,13 @@ At runtime, generated schema factories validate their in-memory schema against t
 files. If a generated schema is not compatible with the AVSC contract, schema factory initialization
 fails fast with an explicit exception.
 
-Use `keyProperty` when an AVSC-generated event should publish with the same partitioning semantics as
-handwritten `@PartitioningKey` events. The value must match a top-level field name in the referenced
-schema. When `keyProperty` is omitted, Prefab keeps the current fallback behaviour and registers no
-partitioning-key extractor for that generated event.
+When all referenced AVSC events share the same partitioning key, prefer `@Avsc({...})` and declare a
+matching `@PartitioningKey` method on the shared interface. Prefab uses that method for all generated
+event registrars.
+
+Use `files = @AvscFile(...)` when different AVSC files need different partitioning-key properties, or
+when only some of the generated events should register a partitioning-key extractor. In that case,
+`keyProperty` must match a top-level field name in the referenced schema.
 
 For nullable Avro fields, Prefab treats annotations named `Nullable` (including
 `jakarta.annotation.Nullable`) as optional markers and generates Avro unions as `["null", T]` with a
@@ -1286,5 +1288,4 @@ String sku;
 @Autocomplete
 String code; // PREFIX + IGNORE_CASE
 ```
-
 

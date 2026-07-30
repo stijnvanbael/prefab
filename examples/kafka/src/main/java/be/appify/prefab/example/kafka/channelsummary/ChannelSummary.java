@@ -24,7 +24,7 @@ public record ChannelSummary(
         @Id Reference<ChannelSummary>  id,
         @Version long version,
         Reference<Channel> channel,
-        @Filter @Size(max = 255) String name,
+        @Filter(operator = Filter.Operator.EQUAL) @Size(max = 255) String name,
         int totalMessages,
         int totalSubscribers
 ) {

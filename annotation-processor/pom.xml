@@ -11,12 +11,6 @@
 
     <artifactId>prefab-annotation-processor</artifactId>
     <name>Prefab Annotation Processor</name>
-    <properties>
-        <jsqlparser.version>5.3</jsqlparser.version>
-        <auto-service.version>1.1.1</auto-service.version>
-        <javapoet.version>0.15.0</javapoet.version>
-        <javalite.version>3.5-j11</javalite.version>
-    </properties>
 
     <dependencies>
         <dependency>

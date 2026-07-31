@@ -13,10 +13,6 @@
     <artifactId>pubsub-example</artifactId>
     <name>Prefab Pub/Sub Example</name>
 
-    <properties>
-        <google-cloud.version>8.0.2</google-cloud.version>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>be.appify.prefab</groupId>

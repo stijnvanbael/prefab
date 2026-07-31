@@ -2,15 +2,20 @@ package be.appify.prefab.postgres.spring.data.jdbc;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jdbc.core.convert.DataAccessStrategy;
 import org.springframework.data.jdbc.core.convert.DelegatingDataAccessStrategy;
 import org.springframework.data.jdbc.core.convert.Identifier;
 import org.springframework.data.jdbc.core.convert.InsertSubject;
 import org.springframework.data.mapping.PersistentPropertyPath;
 import org.springframework.data.relational.core.conversion.IdValueSource;
+import org.springframework.data.relational.core.dialect.Escaper;
 import org.springframework.data.relational.core.mapping.RelationalPersistentProperty;
+import org.springframework.data.relational.core.query.Query;
 import org.springframework.data.relational.core.sql.SqlIdentifier;
 
 /**
@@ -31,14 +36,71 @@ public class PrefabDataAccessStrategy extends DelegatingDataAccessStrategy {
      */
     static final ThreadLocal<Set<Class<?>>> SKIP_CHILD_TYPES = new ThreadLocal<>();
 
+    private final Escaper likeEscaper;
+
     /**
      * Constructs a new PrefabDataAccessStrategy wrapping the given delegate.
      *
      * @param delegate
      *         the underlying {@link DataAccessStrategy} to delegate to
+     * @param likeEscaper
+     *         the dialect's LIKE escaper, used to resolve {@code ValueFunction} query values eagerly
      */
-    public PrefabDataAccessStrategy(DataAccessStrategy delegate) {
+    public PrefabDataAccessStrategy(DataAccessStrategy delegate, Escaper likeEscaper) {
         super(delegate);
+        this.likeEscaper = likeEscaper;
+    }
+
+    @Override
+    public <T> long count(Query query, Class<T> domainType) {
+        return super.count(resolveValueFunctions(query), domainType);
+    }
+
+    @Override
+    public <T> boolean exists(Query query, Class<T> domainType) {
+        return super.exists(resolveValueFunctions(query), domainType);
+    }
+
+    @Override
+    public <T> Optional<T> findOne(Query query, Class<T> domainType) {
+        return super.findOne(resolveValueFunctions(query), domainType);
+    }
+
+    @Override
+    public <T> Iterable<T> findAll(Query query, Class<T> domainType) {
+        return super.findAll(resolveValueFunctions(query), domainType);
+    }
+
+    @Override
+    public <T> Stream<T> streamAll(Query query, Class<T> domainType) {
+        return super.streamAll(resolveValueFunctions(query), domainType);
+    }
+
+    @Override
+    public <T> Iterable<T> findAll(Query query, Class<T> domainType, Pageable pageable) {
+        return super.findAll(resolveValueFunctions(query), domainType, pageable);
+    }
+
+    /**
+     * Rebuilds the given {@link Query} with any {@code ValueFunction} criteria value resolved eagerly.
+     * <p>
+     * Works around a Spring Data JDBC 4.1.0 regression (spring-projects/spring-data-relational#2317): the
+     * {@code contains}/{@code startsWith}/{@code endsWith} {@code ExampleMatcher}s and derived-query keywords
+     * produce a lazily-evaluated {@code ValueFunction} value that is otherwise bound to the JDBC statement
+     * unresolved, causing the query to compare against the lambda's {@code toString()} instead of the intended
+     * escaped LIKE pattern.
+     */
+    private Query resolveValueFunctions(Query query) {
+        var criteria = query.getCriteria()
+                .map(c -> ValueFunctionResolvingCriteria.wrap(c, likeEscaper));
+        if (criteria.isEmpty()) {
+            return query;
+        }
+        return Query.query(criteria.get())
+                .columns(query.getColumns().toArray(new SqlIdentifier[0]))
+                .sort(query.getSort())
+                .offset(query.getOffset())
+                .limit(query.getLimit());
     }
 
     @Override

@@ -13,7 +13,6 @@ import be.appify.prefab.postgres.spring.data.jdbc.SingleValueRecordSimpleTypeHol
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -110,7 +109,7 @@ public class PrefabJdbcConfiguration extends AbstractJdbcConfiguration {
             JdbcDialect dialect
     ) {
         DataAccessStrategy defaultStrategy = super.dataAccessStrategyBean(operations, jdbcConverter, context, dialect);
-        return new PrefabDataAccessStrategy(defaultStrategy);
+        return new PrefabDataAccessStrategy(defaultStrategy, dialect.getLikeEscaper());
     }
 
     @Bean

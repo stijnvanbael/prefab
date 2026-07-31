@@ -296,8 +296,8 @@ class AssertionWriter {
                 .addParameter(consumerType, "requirements")
                 .addStatement("isNotNull()")
                 .addStatement("$T.requireNonNull(requirements, $S)", Objects.class, "requirements must not be null")
-                .addStatement("actual.$N().forEach(element -> requirements.accept($T.assertThat(element)))",
-                        field.name(), elementAssertType)
+                .addStatement("$T.assertThat(actual.$N()).anySatisfy(element -> requirements.accept($T.assertThat(element)))",
+                        ASSERTIONS, field.name(), elementAssertType)
                 .addStatement("return myself")
                 .build();
     }

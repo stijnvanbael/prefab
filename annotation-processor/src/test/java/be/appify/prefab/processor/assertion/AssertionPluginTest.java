@@ -199,7 +199,7 @@ class AssertionPluginTest {
                         "assertion/infrastructure/http/SampleRecordResponseAssert.java")
                 .contentsAsUtf8String();
         contents.contains("hasSampleRecordSampleElementSatisfying(");
-        contents.contains("SampleRecordSampleElementAssert.assertThat(element)");
+        contents.contains("anySatisfy(element -> requirements.accept(SampleRecordSampleElementAssert.assertThat(element)))");
     }
 
     private static void deleteRecursively(Path root) {

@@ -25,7 +25,6 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import static be.appify.prefab.processor.CaseUtil.toKebabCase;
 import static org.apache.commons.text.WordUtils.capitalize;
 import static org.apache.commons.text.WordUtils.uncapitalize;
-import org.javalite.common.Inflector;
 import static org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE;
 
 /** Utility class for controller-related operations. */
@@ -70,12 +69,8 @@ public class ControllerUtil {
      * @return the generated path as a String
      */
     public static String pathOf(ClassManifest manifest) {
-        var parentPath = manifest.parent()
-                .map(parent -> "%s/{%sId}/" .formatted(
-                        toKebabCase(Inflector.pluralize(parent.type().parameters().getFirst().simpleName())),
-                        uncapitalize(parent.name())))
-                .orElse("");
-        return parentPath + toKebabCase(Inflector.pluralize(manifest.simpleName()));
+        var parentPath = manifest.parent().map(ControllerUtil::parentPathSegment).orElse("");
+        return parentPath + toKebabCase(manifest.plural());
     }
 
     /**
@@ -86,12 +81,14 @@ public class ControllerUtil {
      * @return the generated path as a String
      */
     public static String pathOf(PolymorphicAggregateManifest manifest) {
-        var parentPath = manifest.parent()
-                .map(parent -> "%s/{%sId}/" .formatted(
-                        toKebabCase(Inflector.pluralize(parent.type().parameters().getFirst().simpleName())),
-                        uncapitalize(parent.name())))
-                .orElse("");
-        return parentPath + toKebabCase(Inflector.pluralize(manifest.simpleName()));
+        var parentPath = manifest.parent().map(ControllerUtil::parentPathSegment).orElse("");
+        return parentPath + toKebabCase(manifest.plural());
+    }
+
+    private static String parentPathSegment(VariableManifest parent) {
+        return "%s/{%sId}/".formatted(
+                toKebabCase(parent.type().parameters().getFirst().plural()),
+                uncapitalize(parent.name()));
     }
 
     /**

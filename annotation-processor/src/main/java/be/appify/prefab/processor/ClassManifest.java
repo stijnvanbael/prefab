@@ -214,6 +214,10 @@ public class ClassManifest {
         return type.simpleName();
     }
 
+    public String plural() {
+        return type.plural();
+    }
+
     public List<VariableManifest> fields() {
         return fields;
     }

@@ -9,4 +9,12 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Aggregate {
+    /**
+     * A custom plural form for this aggregate root, used wherever Prefab generates a plural (REST paths, OpenAPI
+     * summaries, generated test client method names, log messages). When left empty, the plural is derived
+     * automatically via {@code org.javalite.common.Inflector.pluralize(...)}.
+     *
+     * @return the custom plural form, or an empty string to use the default Inflector-derived plural
+     */
+    String plural() default "";
 }

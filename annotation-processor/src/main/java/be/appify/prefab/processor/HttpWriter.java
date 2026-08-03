@@ -27,7 +27,6 @@ import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
-import org.javalite.common.Inflector;
 
 class HttpWriter {
     private static final ClassName JSON_TYPE_INFO =
@@ -298,7 +297,7 @@ class HttpWriter {
     }
 
     static String polymorphicPathOf(PolymorphicAggregateManifest manifest) {
-        return toKebabCase(Inflector.pluralize(manifest.simpleName()));
+        return toKebabCase(manifest.plural());
     }
 
     private static String lastSimpleName(String simpleName) {

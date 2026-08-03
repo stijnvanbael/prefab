@@ -116,6 +116,10 @@ public class PolymorphicAggregateManifest {
         return type.simpleName();
     }
 
+    public String plural() {
+        return type.plural();
+    }
+
     public TypeName className() {
         return type.asTypeName();
     }

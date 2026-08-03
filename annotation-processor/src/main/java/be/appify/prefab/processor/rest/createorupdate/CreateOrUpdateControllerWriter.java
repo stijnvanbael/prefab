@@ -24,7 +24,6 @@ import static be.appify.prefab.processor.CaseUtil.toKebabCase;
 import static be.appify.prefab.processor.rest.ControllerUtil.operationAnnotation;
 import static be.appify.prefab.processor.rest.ControllerUtil.requestMapping;
 import static be.appify.prefab.processor.rest.ControllerUtil.securedAnnotation;
-import org.javalite.common.Inflector;
 
 class CreateOrUpdateControllerWriter {
 
@@ -32,7 +31,7 @@ class CreateOrUpdateControllerWriter {
         var create = createOrUpdate.createConstructor().getAnnotation(Create.class);
         var pathVarNames = PathVariables.extractFrom(create.path());
         var lookupVar = createOrUpdate.lookupVariable();
-        var redirectPath = toKebabCase("/" + Inflector.pluralize(manifest.simpleName()) + "/");
+        var redirectPath = toKebabCase("/" + manifest.plural() + "/");
 
         var params = createOrUpdate.createConstructor().getParameters().stream()
                 .map(p -> VariableManifest.of(p, context.processingEnvironment()))

@@ -24,7 +24,6 @@ import static be.appify.prefab.processor.rest.ControllerUtil.securedAnnotation;
 import static be.appify.prefab.processor.rest.getlist.GetListUtil.filterPropertiesOf;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static org.apache.commons.text.WordUtils.uncapitalize;
-import org.javalite.common.Inflector;
 
 class GetListControllerWriter {
 
@@ -40,7 +39,7 @@ class GetListControllerWriter {
                         ParameterizedTypeName.get(
                                 ClassName.get(PagedModel.class),
                                 responseType)));
-        operationAnnotation("List " + Inflector.pluralize(manifest.simpleName())).ifPresent(method::addAnnotation);
+        operationAnnotation("List " + manifest.plural()).ifPresent(method::addAnnotation);
         securedAnnotation(getList.security()).ifPresent(method::addAnnotation);
         manifest.parent().ifPresent(parent -> method.addParameter(parentParameter(parent)));
         var parameters = getListParameters(manifest);
@@ -89,7 +88,7 @@ class GetListControllerWriter {
                 .returns(ParameterizedTypeName.get(
                         ClassName.get(ResponseEntity.class),
                         ParameterizedTypeName.get(ClassName.get(PagedModel.class), responseType)));
-        operationAnnotation("List " + Inflector.pluralize(manifest.simpleName())).ifPresent(method::addAnnotation);
+        operationAnnotation("List " + manifest.plural()).ifPresent(method::addAnnotation);
         securedAnnotation(getList.security()).ifPresent(method::addAnnotation);
         manifest.parent().ifPresent(parent -> method.addParameter(parentParameter(parent)));
         method.addParameter(Pageable.class, "pageable");

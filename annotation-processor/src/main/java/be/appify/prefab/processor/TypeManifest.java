@@ -1,5 +1,6 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.CustomType;
 import be.appify.prefab.core.annotations.Doc;
 import com.palantir.javapoet.TypeName;
@@ -19,6 +20,7 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
 import javax.tools.Diagnostic;
+import org.javalite.common.Inflector;
 import org.springframework.util.ClassUtils;
 
 /**
@@ -281,6 +283,20 @@ public class TypeManifest {
      */
     public Optional<String> doc() {
         return annotationsOfType(Doc.class).stream().findFirst().map(Doc::value);
+    }
+
+    /**
+     * Returns the plural form of this type's simple name, honouring a custom {@code @Aggregate(plural = ...)} value
+     * when present and falling back to {@link Inflector#pluralize(String)} otherwise.
+     *
+     * @return the plural form of the simple name
+     */
+    public String plural() {
+        return annotationsOfType(Aggregate.class).stream()
+                .findFirst()
+                .map(Aggregate::plural)
+                .filter(plural -> !plural.isBlank())
+                .orElseGet(() -> Inflector.pluralize(simpleName()));
     }
 
     /**

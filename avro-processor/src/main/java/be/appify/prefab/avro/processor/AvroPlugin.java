@@ -12,6 +12,7 @@ import be.appify.prefab.processor.event.EventPlatformPluginSupport;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.ArrayDeque;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -192,6 +193,7 @@ public class AvroPlugin implements PrefabPlugin {
         return type.is(Instant.class)
                 || type.is(LocalDate.class)
                 || type.is(Duration.class)
+                || type.is(BigDecimal.class)
                 || (type.isSingleValueType() && type.fields().getFirst().type().isStandardType());
     }
 }

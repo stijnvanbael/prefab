@@ -27,6 +27,7 @@ import javax.tools.Diagnostic;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -335,18 +336,18 @@ class GenericRecordToEventConverterWriter {
             return CodeBlock.of("$T.getRecord(genericRecord, $S, $L::convert)", SchemaSupport.class, fieldName, converterName);
         }
         if (type.is(List.class)) {
-            var elementType = type.parameters().getFirst();
-            return CodeBlock.of("$T.getArray(genericRecord, $S, item -> $L)",
-                    SchemaSupport.class, fieldName, field(CodeBlock.of("item"), elementType));
+            var value = CodeBlock.of("$T.getArray(genericRecord, $S)", SchemaSupport.class, fieldName);
+            return maybeNull(value, listType(value, type));
         }
         // Fallthrough: single-value logical types (Reference etc.) and any other remaining cases
         var value = CodeBlock.of("$T.getField(genericRecord, $S)", SchemaSupport.class, fieldName);
-        return field(value, type);
+        var schema = CodeBlock.of("$T.getFieldSchema(genericRecord, $S)", SchemaSupport.class, fieldName);
+        return field(value, schema, type);
     }
 
-    private CodeBlock field(CodeBlock value, TypeManifest type) {
+    private CodeBlock field(CodeBlock value, CodeBlock schema, TypeManifest type) {
         if (isLogicalType(type)) {
-            return maybeNull(value, logicalType(value, type));
+            return maybeNull(value, logicalType(value, schema, type));
         } else if (type.isEnum()) {
             return maybeNull(value, CodeBlock.of("$T.valueOf($L.toString())", type.asTypeName(), value));
         } else if(type.isSealed()) {
@@ -387,17 +388,25 @@ class GenericRecordToEventConverterWriter {
         return CodeBlock.of("$L != null ? $L : null", value, nonNullValue);
     }
 
-    private CodeBlock logicalType(CodeBlock value, TypeManifest type) {
+    private CodeBlock logicalType(CodeBlock value, CodeBlock schema, TypeManifest type) {
         if (type.is(Instant.class)) {
             return CodeBlock.of("$T.ofEpochMilli((Long) $L)", Instant.class, value);
         } else if (type.is(LocalDate.class)) {
             return CodeBlock.of("$T.ofEpochDay((Integer) $L)", LocalDate.class, value);
         } else if (type.is(Duration.class)) {
             return CodeBlock.of("$T.ofMillis((Long) $L)", Duration.class, value);
+        } else if (type.is(BigDecimal.class)) {
+            if (schema == null) {
+                return CodeBlock.of("($T) $L", BigDecimal.class, value);
+            }
+            return CodeBlock.of("$T.fromDecimalAvro($L, $L)", SchemaSupport.class, value, schema);
         } else if (type.isSingleValueType()) {
             var component = type.fields().getFirst();
-            var fromRecord = field(CodeBlock.of("$T.getField(singleValueRecord, $S)", SchemaSupport.class, component.name()), component.type());
-            var fromScalar = field(value, component.type());
+            var fromRecord = field(
+                    CodeBlock.of("$T.getField(singleValueRecord, $S)", SchemaSupport.class, component.name()),
+                    CodeBlock.of("$T.getFieldSchema(singleValueRecord, $S)", SchemaSupport.class, component.name()),
+                    component.type());
+            var fromScalar = field(value, schema, component.type());
             return CodeBlock.of("""
                     $L instanceof $T singleValueRecord
                             ? new $T($L)
@@ -415,6 +424,9 @@ class GenericRecordToEventConverterWriter {
 
     private CodeBlock listType(CodeBlock value, TypeManifest type) {
         var elementType = type.parameters().getFirst();
+        var elementSchema = CodeBlock.of("(($T) $L).getSchema().getElementType()",
+                ParameterizedTypeName.get(ClassName.get(GenericData.Array.class), WildcardTypeName.subtypeOf(Object.class)),
+                value);
         return CodeBlock.of("""
                         $T.stream((($T) $L).iterator())
                                 .map(item -> $L)
@@ -422,7 +434,7 @@ class GenericRecordToEventConverterWriter {
                 Streams.class,
                 ParameterizedTypeName.get(ClassName.get(GenericData.Array.class), WildcardTypeName.subtypeOf(Object.class)),
                 value,
-                field(CodeBlock.of("item"), elementType));
+                field(CodeBlock.of("item"), elementSchema, elementType));
     }
 
     /** Deserialises a raw Avro union value to the matching sealed-interface branch wrapper. */
@@ -470,10 +482,11 @@ class GenericRecordToEventConverterWriter {
         }
         if (componentType.is(List.class)) {
             var elementType = componentType.parameters().getFirst();
+            var elementSchema = CodeBlock.of("v.getSchema().getElementType()");
             return CodeBlock.of("new $T($T.stream(v.iterator()).map(item -> $L).toList())",
                     branchType.asTypeName(),
                     be.appify.prefab.core.util.Streams.class,
-                    field(CodeBlock.of("item"), elementType));
+                    field(CodeBlock.of("item"), elementSchema, elementType));
         }
         return CodeBlock.of("new $T(v)", branchType.asTypeName());
     }

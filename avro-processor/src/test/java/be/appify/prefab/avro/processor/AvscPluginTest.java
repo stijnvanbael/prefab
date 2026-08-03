@@ -30,6 +30,9 @@ class AvscPluginTest {
     public static final com.google.testing.compile.Compilation nonprimitiveCompilation = javac()
             .withProcessors(new PrefabProcessor())
             .compile(sourceOf("event/avsc/nonprimitive/source/NonPrimitiveAvsc.java"));
+    public static final com.google.testing.compile.Compilation decimalCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("event/avsc/decimal/source/DecimalAvsc.java"));
 
     @Test
     void simpleAvscEvent() {
@@ -75,6 +78,37 @@ class AvscPluginTest {
         assertThat(nonprimitiveCompilation).generatedSourceFile("event.avsc.NonPrimitiveAvscEvent")
                 .contentsAsUtf8String()
                 .contains("Duration duration");
+    }
+
+    @Test
+    void decimalLogicalTypeAvscEvent() {
+        assertThat(decimalCompilation).succeeded();
+        assertThat(decimalCompilation).generatedSourceFile("event.avsc.decimal.DecimalAvscEvent")
+                .contentsAsUtf8String()
+                .contains("BigDecimal amount");
+        assertThat(decimalCompilation).generatedSourceFile("event.avsc.decimal.DecimalAvscEvent")
+                .contentsAsUtf8String()
+                .contains("BigDecimal optionalAmount");
+        assertThat(decimalCompilation).generatedSourceFile("event.avsc.decimal.DecimalAvscEvent")
+                .contentsAsUtf8String()
+                .contains("List<BigDecimal> amounts");
+    }
+
+    @Test
+    void decimalLogicalTypeConvertersUseSchemaAwareConversions() {
+        assertThat(decimalCompilation).succeeded();
+        assertThat(decimalCompilation)
+                .generatedSourceFile("event.avsc.decimal.infrastructure.avro.DecimalAvscEventToGenericRecordConverter")
+                .contentsAsUtf8String()
+                .contains("SchemaSupport.toDecimalAvro(");
+        assertThat(decimalCompilation)
+                .generatedSourceFile("event.avsc.decimal.infrastructure.avro.GenericRecordToDecimalAvscEventConverter")
+                .contentsAsUtf8String()
+                .contains("SchemaSupport.fromDecimalAvro(");
+        assertThat(decimalCompilation)
+                .generatedSourceFile("event.avsc.decimal.infrastructure.avro.GenericRecordToDecimalAvscEventConverter")
+                .contentsAsUtf8String()
+                .contains("SchemaSupport.getFieldSchema(genericRecord, \"amount\")");
     }
 
     @Test

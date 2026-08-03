@@ -12,6 +12,7 @@ import com.palantir.javapoet.*;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -201,7 +202,7 @@ class EventToGenericRecordConverterWriter {
         if (type.isSingleValueType()) {
             return maybeNull(value, singleValueType(value, schema, type));
         } else if (isLogicalType(type)) {
-            return maybeNull(value, logicalType(value, type));
+            return maybeNull(value, logicalType(value, schema, type));
         } else if (type.isEnum()) {
             return maybeNull(value, CodeBlock.of("new $T($T.enumSchemaOf($L), $L.name())", GenericData.EnumSymbol.class, SchemaSupport.class, schema, value));
         } else if (isAvroUnion(type)) {
@@ -240,13 +241,15 @@ class EventToGenericRecordConverterWriter {
         return CodeBlock.of("$L != null ? $L : null", value, nonNullValue);
     }
 
-    private static CodeBlock logicalType(CodeBlock value, TypeManifest type) {
+    private static CodeBlock logicalType(CodeBlock value, CodeBlock schema, TypeManifest type) {
         if (type.is(Instant.class)) {
             return CodeBlock.of("$L.toEpochMilli()", value);
         } else if (type.is(LocalDate.class)) {
             return CodeBlock.of("(int) $L.toEpochDay()", value);
         } else if (type.is(Duration.class)) {
             return CodeBlock.of("$L.toMillis()", value);
+        } else if (type.is(BigDecimal.class)) {
+            return CodeBlock.of("$T.toDecimalAvro($L, $L)", SchemaSupport.class, value, schema);
         } else if (type.isSingleValueType()) {
             return CodeBlock.of("$L.$N()", value, type.singleValueAccessor());
         } else {
@@ -294,7 +297,7 @@ class EventToGenericRecordConverterWriter {
                     schema,
                     converterName,
                     value,
-                    logicalType(value, type));
+                    logicalType(value, schema, type));
         }
 
         var componentValue = field(
@@ -309,7 +312,7 @@ class EventToGenericRecordConverterWriter {
                 schema,
                 component.name(),
                 componentValue,
-                logicalType(value, type));
+                logicalType(value, schema, type));
     }
 
     /** Converts an Avro-union-typed Java field value to its raw Avro representation. */

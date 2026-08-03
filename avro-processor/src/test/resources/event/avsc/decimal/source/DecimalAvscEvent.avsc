@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "DecimalAvscEvent",
+  "namespace": "event.avsc.decimal",
+  "fields": [
+    {"name": "amount", "type": {"type": "bytes", "logicalType": "decimal", "precision": 12, "scale": 2}},
+    {"name": "optionalAmount", "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 14, "scale": 4}], "default": null},
+    {"name": "amounts", "type": {"type": "array", "items": {"type": "bytes", "logicalType": "decimal", "precision": 12, "scale": 2}}}
+  ]
+}
+

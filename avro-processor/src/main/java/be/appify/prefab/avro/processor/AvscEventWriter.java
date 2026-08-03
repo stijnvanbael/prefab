@@ -22,6 +22,7 @@ import jakarta.annotation.Nullable;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -44,6 +45,7 @@ class AvscEventWriter {
     private static final String LOGICAL_TYPE_TIMESTAMP_MILLIS = "timestamp-millis";
     private static final String LOGICAL_TYPE_DATE = "date";
     private static final String LOGICAL_TYPE_DURATION_MILLIS = "duration-millis";
+    private static final String LOGICAL_TYPE_DECIMAL = "decimal";
     private static final String OPTION_SETTER_PREFIX = "prefab.builder.setterPrefix";
     private final ProcessingEnvironment processingEnvironment;
     private final FileOutput fileWriter;
@@ -549,6 +551,7 @@ class AvscEventWriter {
             case LOGICAL_TYPE_TIMESTAMP_MILLIS -> ClassName.get(Instant.class);
             case LOGICAL_TYPE_DATE -> ClassName.get(LocalDate.class);
             case LOGICAL_TYPE_DURATION_MILLIS -> ClassName.get(Duration.class);
+            case LOGICAL_TYPE_DECIMAL -> ClassName.get(BigDecimal.class);
             default -> {
                 reportError("Unsupported logical type: " + logicalTypeName);
                 yield null;

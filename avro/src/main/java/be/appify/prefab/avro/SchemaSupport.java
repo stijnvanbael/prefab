@@ -3,6 +3,8 @@ package be.appify.prefab.avro;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -10,7 +12,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import org.apache.avro.LogicalType;
+import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
+import org.apache.avro.Conversions;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 
@@ -81,6 +85,39 @@ public class SchemaSupport {
      */
     public static Schema enumSchemaOf(Schema schema) {
         return unwrapUnion(schema, Schema.Type.ENUM);
+    }
+
+    /**
+     * Converts a Java {@link BigDecimal} to the raw Avro representation expected by a decimal logical type.
+     * Supports both {@code bytes} and {@code fixed} decimal backing types.
+     */
+    public static Object toDecimalAvro(BigDecimal value, Schema schema) {
+        var decimalSchema = decimalSchemaOf(schema);
+        var decimalType = (LogicalTypes.Decimal) decimalSchema.getLogicalType();
+        var conversion = new Conversions.DecimalConversion();
+        return switch (decimalSchema.getType()) {
+            case BYTES -> conversion.toBytes(value, decimalSchema, decimalType);
+            case FIXED -> conversion.toFixed(value, decimalSchema, decimalType);
+            default -> throw new IllegalArgumentException("Decimal logical type must use bytes or fixed schema: " + decimalSchema);
+        };
+    }
+
+    /**
+     * Converts raw Avro decimal data back to a Java {@link BigDecimal}.
+     */
+    public static BigDecimal fromDecimalAvro(Object rawValue, Schema schema) {
+        if (rawValue == null) {
+            return null;
+        }
+        var decimalSchema = decimalSchemaOf(schema);
+        var decimalType = (LogicalTypes.Decimal) decimalSchema.getLogicalType();
+        var conversion = new Conversions.DecimalConversion();
+        return switch (rawValue) {
+            case ByteBuffer bytes -> conversion.fromBytes(bytes, decimalSchema, decimalType);
+            case GenericData.Fixed fixed -> conversion.fromFixed(fixed, decimalSchema, decimalType);
+            case BigDecimal decimal -> decimal;
+            default -> throw new IllegalArgumentException("Unsupported Avro decimal value type: " + rawValue.getClass().getName());
+        };
     }
 
     /**
@@ -170,6 +207,24 @@ public class SchemaSupport {
                         "No %s schema found in union: %s".formatted(targetType, schema)));
     }
 
+    private static Schema decimalSchemaOf(Schema schema) {
+        if (schema.getType() == Schema.Type.UNION) {
+            return schema.getTypes().stream()
+                    .filter(SchemaSupport::isDecimalSchema)
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("No decimal schema found in union: " + schema));
+        }
+        if (isDecimalSchema(schema)) {
+            return schema;
+        }
+        throw new IllegalArgumentException("Schema is not a decimal logical type: " + schema);
+    }
+
+    private static boolean isDecimalSchema(Schema schema) {
+        var logicalType = schema.getLogicalType();
+        return logicalType instanceof LogicalTypes.Decimal;
+    }
+
     /**
      * Extracts a plain record schema from a field schema, unwrapping it from a union if necessary.
      *
@@ -244,6 +299,14 @@ public class SchemaSupport {
      */
     public static Object getField(GenericRecord record, String fieldName) {
         return record.getSchema().getField(fieldName) != null ? record.get(fieldName) : null;
+    }
+
+    /**
+     * Returns the schema of a named field, or {@code null} when the field does not exist.
+     */
+    public static Schema getFieldSchema(GenericRecord record, String fieldName) {
+        var field = record.getSchema().getField(fieldName);
+        return field != null ? field.schema() : null;
     }
 
     /**

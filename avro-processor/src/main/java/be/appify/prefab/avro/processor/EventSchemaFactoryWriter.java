@@ -15,6 +15,7 @@ import com.palantir.javapoet.*;
 import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -40,6 +41,8 @@ import static org.apache.commons.lang3.StringUtils.uncapitalize;
 class EventSchemaFactoryWriter {
 
     private static final String AVRO_PACKAGE_SUFFIX = "infrastructure.avro";
+    private static final int DEFAULT_DECIMAL_PRECISION = 19;
+    private static final int DEFAULT_DECIMAL_SCALE = 4;
 
     private final PrefabContext context;
 
@@ -430,7 +433,7 @@ class EventSchemaFactoryWriter {
 
     private CodeBlock createSchema(TypeManifest type, boolean preserveSingleValueRecords) {
         return switch (type) {
-            case TypeManifest t when isTemporalLogicalType(t) -> createLogicalSchema(type);
+            case TypeManifest t when isLogicalType(t) -> createLogicalSchema(type);
             case TypeManifest t when t.isStandardType() -> createPrimitiveSchema(type);
             case TypeManifest t when t.isEnum() -> createEnumSchema(type);
             case TypeManifest t when t.isCustomType() -> createCustomTypeSchema(type);
@@ -438,8 +441,11 @@ class EventSchemaFactoryWriter {
         };
     }
 
-    private static boolean isTemporalLogicalType(TypeManifest type) {
-        return type.is(Instant.class) || type.is(LocalDate.class) || type.is(Duration.class);
+    private static boolean isLogicalType(TypeManifest type) {
+        return type.is(Instant.class)
+                || type.is(LocalDate.class)
+                || type.is(Duration.class)
+                || type.is(BigDecimal.class);
     }
 
 
@@ -469,6 +475,13 @@ class EventSchemaFactoryWriter {
         } else if (type.is(Duration.class)) {
             return CodeBlock.of("$T.createLogicalSchema($T.LONG, $T.DURATION_MILLIS)",
                     SchemaSupport.class, Schema.Type.class, SchemaSupport.class);
+        } else if (type.is(BigDecimal.class)) {
+            return CodeBlock.of("$T.createLogicalSchema($T.BYTES, $T.decimal($L, $L))",
+                    SchemaSupport.class,
+                    Schema.Type.class,
+                    LogicalTypes.class,
+                    DEFAULT_DECIMAL_PRECISION,
+                    DEFAULT_DECIMAL_SCALE);
         }
         throw new IllegalArgumentException("Unsupported type " + type);
     }

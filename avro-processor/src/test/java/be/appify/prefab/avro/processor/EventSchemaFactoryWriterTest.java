@@ -57,6 +57,7 @@ class EventSchemaFactoryWriterTest {
         // temporal types use logical type helpers
         assertThat(source).contains("LogicalTypes.timestampMillis()");
         assertThat(source).contains("LogicalTypes.date()");
+        assertThat(source).contains("LogicalTypes.decimal(19, 4)");
     }
 
     @Test

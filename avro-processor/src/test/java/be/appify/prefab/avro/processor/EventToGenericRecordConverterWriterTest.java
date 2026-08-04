@@ -52,6 +52,7 @@ class EventToGenericRecordConverterWriterTest {
         // temporal types use explicit conversions
         assertThat(source).contains("toEpochMilli()");
         assertThat(source).contains("toEpochDay()");
+        assertThat(source).contains("SchemaSupport.toDecimalAvro(");
     }
 
     @Test

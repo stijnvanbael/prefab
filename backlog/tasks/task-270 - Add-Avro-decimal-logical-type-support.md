@@ -28,6 +28,7 @@ Add support for Avro `decimal` logical type in AVSC-driven event generation and 
 - Decimal logical types are currently not recognised by `AvscEventWriter` (unsupported logical type error).
 - Existing converter writers handle temporal logical types only; decimal requires explicit conversion using Avro decimal semantics (`bytes`/`fixed` + precision/scale).
 - `SchemaSupport` lacks reusable decimal conversion helpers.
+- Follow-up: code-first `@Event(serialization = AVRO)` schema generation still treated `BigDecimal` as a primitive standard type, yielding an "Unsupported standard type" error in `EventSchemaFactoryWriter`.
 
 ## Progress
 
@@ -46,7 +47,7 @@ Add support for Avro `decimal` logical type in AVSC-driven event generation and 
 - `EventToGenericRecordConverterWriter` now serialises `BigDecimal` via `SchemaSupport.toDecimalAvro(...)`.
 - `GenericRecordToEventConverterWriter` now deserialises `BigDecimal` via `SchemaSupport.fromDecimalAvro(...)`, including list elements where decimal item schema is derived from array schema.
 - Added decimal AVSC fixture and tests in `AvscPluginTest` to verify generated record signatures and converter code paths.
+- Follow-up: `EventSchemaFactoryWriter` now treats `BigDecimal` as a logical type for code-first AVRO events, generating `bytes` schemas annotated with `LogicalTypes.decimal(19, 4)`.
 - Verification: `mvn -pl avro,avro-processor test` passes.
-
 
 

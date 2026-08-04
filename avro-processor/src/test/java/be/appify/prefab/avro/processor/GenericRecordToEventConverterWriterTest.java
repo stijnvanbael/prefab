@@ -83,6 +83,7 @@ class GenericRecordToEventConverterWriterTest {
         assertThat(source).contains("NonPrimitiveEvent.Status");
         // temporal types use SchemaSupport helpers
         assertThat(source).contains("SchemaSupport.get");
+        assertThat(source).contains("SchemaSupport.fromDecimalAvro(");
     }
 
     @Test

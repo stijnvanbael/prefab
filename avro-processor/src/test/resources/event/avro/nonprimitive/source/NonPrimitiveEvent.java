@@ -2,6 +2,7 @@ package event.avro;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.service.Reference;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -12,6 +13,7 @@ public record NonPrimitiveEvent(
         Instant timestamp,
         LocalDate date,
         Duration duration,
+        BigDecimal amount,
         Reference<Object> reference
 ) {
     public enum Status {

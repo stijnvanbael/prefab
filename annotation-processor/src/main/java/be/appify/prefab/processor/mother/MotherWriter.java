@@ -719,8 +719,11 @@ class MotherWriter {
         try {
             return parser.get();
         } catch (NumberFormatException e) {
-            reportExampleParseError(value, targetType, param);
-            return fallback;
+            if (param != null) {
+                reportExampleParseError(value, targetType, param);
+                return fallback;
+            }
+            return null;
         }
     }
 
@@ -840,11 +843,12 @@ class MotherWriter {
     }
 
     private void reportExampleParseError(String value, String targetType, VariableManifest param) {
+        var fieldName = param == null ? "<unknown>" : param.name();
         context.processingEnvironment().getMessager().printMessage(
                 Diagnostic.Kind.ERROR,
                 "@Example value \"" + value + "\" cannot be parsed as " + targetType
-                        + " on field \"" + param.name() + "\"",
-                param.element()
+                        + " on field \"" + fieldName + "\"",
+                param == null ? null : param.element()
         );
     }
 }

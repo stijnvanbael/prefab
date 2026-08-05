@@ -3,10 +3,12 @@ package be.appify.prefab.avro.processor;
 import be.appify.prefab.avro.SchemaSupport;
 import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.AvscFiles;
+import be.appify.prefab.core.annotations.Decimal;
 import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.annotations.Doc;
 import be.appify.prefab.core.annotations.Example;
 import be.appify.prefab.core.annotations.AvroSchema;
+import be.appify.prefab.processor.AnnotationManifest;
 import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
@@ -64,8 +66,10 @@ class EventSchemaFactoryWriter {
             return writeAvscInterfaceSchemaFactory(event);
         }
 
-        var avscPath = findAvscPath(event);
+        var avscPath = findAvscPath(event).or(() -> findAvscPathFromEnclosingTypes(event));
         var preserveSingleValueRecords = avscPath.isPresent();
+        var avscSchema = avscPath.flatMap(this::cachedAvscSchema)
+                .map(schema -> schemaForCurrentType(schema, event));
 
         var directAvscPath = findDirectAvscPath(event);
 
@@ -74,7 +78,7 @@ class EventSchemaFactoryWriter {
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(componentAnnotation(event, name))
                 .addField(FieldSpec.builder(Schema.class, "schema", Modifier.PRIVATE, Modifier.FINAL).build())
-                .addMethod(constructor(event, preserveSingleValueRecords, directAvscPath.orElse(null)))
+                .addMethod(constructor(event, preserveSingleValueRecords, directAvscPath.orElse(null), avscSchema.orElse(null)))
                 .addMethod(createSchemaMethod());
         directAvscPath.ifPresent(path -> type.addMethods(runtimeAvscValidationMethods(event, path)));
 
@@ -90,10 +94,16 @@ class EventSchemaFactoryWriter {
 
         var recordSimpleName = event.simpleName();
         var index = avscRecordNamesIndex();
-        return index.entrySet().stream()
+        var directOrNestedMatch = index.entrySet().stream()
                 .filter(entry -> avroTypeNames(recordSimpleName).anyMatch(entry.getValue()::contains))
                 .map(Map.Entry::getKey)
                 .findFirst();
+        if (directOrNestedMatch.isPresent()) {
+            return directOrNestedMatch;
+        }
+        return index.size() == 1
+                ? Optional.of(index.keySet().iterator().next())
+                : Optional.empty();
     }
 
     /**
@@ -110,6 +120,21 @@ class EventSchemaFactoryWriter {
         return avscPathsFromImplementedInterfaces(typeElement)
                 .filter(path -> matchesRecordName(path, recordSimpleName))
                 .findFirst();
+    }
+
+    private Optional<String> findAvscPathFromEnclosingTypes(TypeManifest event) {
+        if (!(event.asElement() instanceof TypeElement typeElement)) {
+            return Optional.empty();
+        }
+        var enclosing = typeElement.getEnclosingElement();
+        while (enclosing instanceof TypeElement enclosingType) {
+            var path = findAvscPath(TypeManifest.of(enclosingType.asType(), context.processingEnvironment()));
+            if (path.isPresent()) {
+                return path;
+            }
+            enclosing = enclosingType.getEnclosingElement();
+        }
+        return Optional.empty();
     }
 
     /**
@@ -183,7 +208,7 @@ class EventSchemaFactoryWriter {
                 .filter(ns -> !ns.isBlank())
                 .findFirst()
                 .or(() -> findAvscPath(type)
-                        .flatMap(path -> namedTypeFromAvsc(path, avroSchemaNameOf(type)))
+                        .flatMap(this::cachedAvscSchema)
                         .map(Schema::getNamespace)
                         .filter(ns -> !ns.isBlank()))
                 .orElse(type.packageName());
@@ -199,14 +224,6 @@ class EventSchemaFactoryWriter {
                 .filter(name -> !name.isBlank())
                 .findFirst()
                 .orElse(type.simpleName().replace('.', '_'));
-    }
-
-    private Optional<Schema> namedTypeFromAvsc(String avscPath, String simpleName) {
-        return cachedAvscSchema(avscPath)
-                .flatMap(parsedSchema -> avroTypeNames(simpleName)
-                        .filter(typeName -> containsNamedType(parsedSchema, typeName))
-                        .findFirst()
-                        .map(typeName -> SchemaSupport.namedTypeOf(parsedSchema, typeName)));
     }
 
     private java.util.stream.Stream<TypeElement> avscAnnotatedInterfaces() {
@@ -365,7 +382,12 @@ class EventSchemaFactoryWriter {
                         .collect(CodeBlock.joining(",\n    ")));
     }
 
-    private MethodSpec constructor(TypeManifest event, boolean preserveSingleValueRecords, @Nullable String avscPath) {
+    private MethodSpec constructor(
+            TypeManifest event,
+            boolean preserveSingleValueRecords,
+            @Nullable String avscPath,
+            @Nullable Schema avscSchema
+    ) {
         var constructor = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC);
         if (avscPath != null) {
             // Schema is owned by the AVSC file — load it directly at runtime.
@@ -381,7 +403,7 @@ class EventSchemaFactoryWriter {
                 nestedTypes(List.of(event)).forEach(nestedType -> addSchemaFactory(nestedType, constructor));
                 sealedSubtypes(List.of(event)).forEach(subtype -> addSchemaFactory(subtype, constructor));
             }
-            constructor.addStatement("this.schema = $L", createSchema(event, preserveSingleValueRecords));
+            constructor.addStatement("this.schema = $L", createSchema(event, preserveSingleValueRecords, avscSchema));
         }
         return constructor.build();
     }
@@ -431,13 +453,17 @@ class EventSchemaFactoryWriter {
                 .build();
     }
 
-    private CodeBlock createSchema(TypeManifest type, boolean preserveSingleValueRecords) {
+    private CodeBlock createSchema(TypeManifest type, boolean preserveSingleValueRecords, @Nullable Schema avscSchema) {
+        return createSchema(type, preserveSingleValueRecords, avscSchema, null);
+    }
+
+    private CodeBlock createSchema(TypeManifest type, boolean preserveSingleValueRecords, @Nullable Schema avscSchema, @Nullable Decimal decimalAnnotation) {
         return switch (type) {
-            case TypeManifest t when isLogicalType(t) -> createLogicalSchema(type);
+            case TypeManifest t when isLogicalType(t) -> createLogicalSchema(type, avscSchema, decimalAnnotation);
             case TypeManifest t when t.isStandardType() -> createPrimitiveSchema(type);
             case TypeManifest t when t.isEnum() -> createEnumSchema(type);
             case TypeManifest t when t.isCustomType() -> createCustomTypeSchema(type);
-            default -> createRecordSchema(type, preserveSingleValueRecords);
+            default -> createRecordSchema(type, preserveSingleValueRecords, avscSchema);
         };
     }
 
@@ -465,7 +491,7 @@ class EventSchemaFactoryWriter {
                 });
     }
 
-    private static CodeBlock createLogicalSchema(TypeManifest type) {
+    private static CodeBlock createLogicalSchema(TypeManifest type, @Nullable Schema avscSchema, @Nullable Decimal decimalAnnotation) {
         if (type.is(Instant.class)) {
             return CodeBlock.of("$T.createLogicalSchema($T.LONG, $T.timestampMillis())",
                     SchemaSupport.class, Schema.Type.class, LogicalTypes.class);
@@ -476,14 +502,66 @@ class EventSchemaFactoryWriter {
             return CodeBlock.of("$T.createLogicalSchema($T.LONG, $T.DURATION_MILLIS)",
                     SchemaSupport.class, Schema.Type.class, SchemaSupport.class);
         } else if (type.is(BigDecimal.class)) {
+            int precision;
+            int scale;
+            if (decimalAnnotation != null) {
+                precision = decimalAnnotation.precision();
+                scale = decimalAnnotation.scale();
+            } else {
+                var decimalSchema = decimalSchemaOf(avscSchema);
+                precision = decimalSchema.map(EventSchemaFactoryWriter::decimalPrecision).orElse(DEFAULT_DECIMAL_PRECISION);
+                scale = decimalSchema.map(EventSchemaFactoryWriter::decimalScale).orElse(DEFAULT_DECIMAL_SCALE);
+            }
             return CodeBlock.of("$T.createLogicalSchema($T.BYTES, $T.decimal($L, $L))",
                     SchemaSupport.class,
                     Schema.Type.class,
                     LogicalTypes.class,
-                    DEFAULT_DECIMAL_PRECISION,
-                    DEFAULT_DECIMAL_SCALE);
+                    precision,
+                    scale);
         }
         throw new IllegalArgumentException("Unsupported type " + type);
+    }
+
+    private static Optional<Schema> decimalSchemaOf(@Nullable Schema schema) {
+        if (schema == null) {
+            return Optional.empty();
+        }
+        if (isDecimalSchema(schema)) {
+            return Optional.of(schema);
+        }
+        if (schema.getType() == Schema.Type.UNION) {
+            return schema.getTypes().stream()
+                    .filter(EventSchemaFactoryWriter::isDecimalSchema)
+                    .findFirst();
+        }
+        return Optional.empty();
+    }
+
+    private static Schema schemaForCurrentType(Schema avscSchema, TypeManifest type) {
+        var typeName = avroSchemaNameOf(type);
+        if (typeName.equals(avscSchema.getName())) {
+            return avscSchema;
+        }
+        if (avscSchema.getType() == Schema.Type.RECORD) {
+            var field = avscSchema.getField(uncapitalize(typeName));
+            if (field != null) {
+                return field.schema();
+            }
+        }
+        return avscSchema;
+    }
+
+    private static boolean isDecimalSchema(Schema schema) {
+        var logicalType = schema.getLogicalType();
+        return logicalType instanceof LogicalTypes.Decimal;
+    }
+
+    private static int decimalPrecision(Schema schema) {
+        return ((LogicalTypes.Decimal) schema.getLogicalType()).getPrecision();
+    }
+
+    private static int decimalScale(Schema schema) {
+        return ((LogicalTypes.Decimal) schema.getLogicalType()).getScale();
     }
 
     private CodeBlock createEnumSchema(TypeManifest type) {
@@ -525,15 +603,15 @@ class EventSchemaFactoryWriter {
         return Schema.Type.NULL;
     }
 
-    private CodeBlock createRecordSchema(TypeManifest type, boolean preserveSingleValueRecords) {
+    private CodeBlock createRecordSchema(TypeManifest type, boolean preserveSingleValueRecords, @Nullable Schema avscSchema) {
         if (type.isSealed()) {
-            return isAvroUnion(type) ? createAvroUnionSchema(type) : createSealedUnionSchema(type);
+            return isAvroUnion(type) ? createAvroUnionSchema(type, avscSchema) : createSealedUnionSchema(type, avscSchema);
         }
-        return createFlatRecordSchema(type, preserveSingleValueRecords);
+        return createFlatRecordSchema(type, preserveSingleValueRecords, avscSchema);
     }
 
     /** Generates a union schema for a sealed event hierarchy (each subtype has its own schema factory). */
-    private CodeBlock createSealedUnionSchema(TypeManifest type) {
+    private CodeBlock createSealedUnionSchema(TypeManifest type, @Nullable Schema avscSchema) {
         return CodeBlock.of("""
                         $T.createUnion($T.of(
                             $L
@@ -549,16 +627,16 @@ class EventSchemaFactoryWriter {
      * Generates a union schema for an Avro union sealed interface.
      * Each permitted subtype is a single-value wrapper; its component type determines the branch schema.
      */
-    private CodeBlock createAvroUnionSchema(TypeManifest type) {
+    private CodeBlock createAvroUnionSchema(TypeManifest type, @Nullable Schema avscSchema) {
         return CodeBlock.of("$T.createUnion($T.of(\n    $L\n))",
                 Schema.class,
                 List.class,
                 type.permittedSubtypes().stream()
-                        .map(this::avroUnionBranchSchema)
+                        .map(subtype -> avroUnionBranchSchema(subtype, avscSchema))
                         .collect(CodeBlock.joining(",\n    ")));
     }
 
-    private CodeBlock avroUnionBranchSchema(TypeManifest branchType) {
+    private CodeBlock avroUnionBranchSchema(TypeManifest branchType, @Nullable Schema avscSchema) {
         var componentType = branchType.fields().getFirst().type();
         if (isNestedRecord(componentType)) {
             return CodeBlock.of("$L.createSchema()", schemaFactoryFieldName(componentType));
@@ -566,12 +644,12 @@ class EventSchemaFactoryWriter {
         if (componentType.is(java.util.List.class)) {
             // Array branch: generate an Avro array schema from the list element type.
             return CodeBlock.of("$T.createArray($L)", Schema.class,
-                    createSchema(componentType.parameters().getFirst(), false));
+                    createSchema(componentType.parameters().getFirst(), false, avscSchema));
         }
-        return createSchema(componentType, false);
+        return createSchema(componentType, false, avscSchema);
     }
 
-    private CodeBlock createFlatRecordSchema(TypeManifest type, boolean preserveSingleValueRecords) {
+    private CodeBlock createFlatRecordSchema(TypeManifest type, boolean preserveSingleValueRecords, @Nullable Schema avscSchema) {
         return CodeBlock.of("""
                         $T.createRecord($S, $S, $S, false, $T.of(
                                 $L
@@ -583,7 +661,7 @@ class EventSchemaFactoryWriter {
                 List.class,
                 type.fields().stream()
                         .filter(this::hasAvroSchema)
-                        .map(field -> createField(field, preserveSingleValueRecords))
+                        .map(field -> createField(field, preserveSingleValueRecords, fieldSchemaOf(avscSchema, field.name())))
                         .collect(CodeBlock.joining(",\n        ")));
     }
 
@@ -604,8 +682,8 @@ class EventSchemaFactoryWriter {
         return supported;
     }
 
-    private CodeBlock createField(VariableManifest field, boolean preserveSingleValueRecords) {
-        var schema = maybeArray(field, preserveSingleValueRecords);
+    private CodeBlock createField(VariableManifest field, boolean preserveSingleValueRecords, @Nullable Schema avscSchema) {
+        var schema = maybeArray(field, preserveSingleValueRecords, avscSchema);
         var doc = field.getAnnotation(Doc.class).map(d -> d.value().value()).orElse(null);
         var fieldBlock = buildFieldBlock(field, schema, doc);
         return wrapWithSampleIfPresent(field, fieldBlock);
@@ -637,17 +715,45 @@ class EventSchemaFactoryWriter {
                 .orElse(fieldBlock);
     }
 
-    private CodeBlock maybeArray(VariableManifest field, boolean preserveSingleValueRecords) {
+    private CodeBlock maybeArray(VariableManifest field, boolean preserveSingleValueRecords, @Nullable Schema avscSchema) {
+        var decimalAnnotation = field.getAnnotation(Decimal.class).map(AnnotationManifest::value).orElse(null);
         return field.type().is(List.class)
                 ? CodeBlock.of("$T.createArray($L)", Schema.class,
-                        maybeNested(field.type().parameters().getFirst(), preserveSingleValueRecords))
-                : maybeNested(field.type(), preserveSingleValueRecords);
+                        maybeNested(field.type().parameters().getFirst(), preserveSingleValueRecords, arrayItemSchemaOf(avscSchema), decimalAnnotation))
+                : maybeNested(field.type(), preserveSingleValueRecords, avscSchema, decimalAnnotation);
     }
 
-    private CodeBlock maybeNested(TypeManifest type, boolean preserveSingleValueRecords) {
+    private CodeBlock maybeNested(TypeManifest type, boolean preserveSingleValueRecords, @Nullable Schema avscSchema) {
+        return maybeNested(type, preserveSingleValueRecords, avscSchema, null);
+    }
+
+    private CodeBlock maybeNested(TypeManifest type, boolean preserveSingleValueRecords, @Nullable Schema avscSchema, @Nullable Decimal decimalAnnotation) {
         return isNestedRecord(type)
                 ? CodeBlock.of("$L.createSchema()", schemaFactoryFieldName(type))
-                : createSchema(type, preserveSingleValueRecords);
+                : createSchema(type, preserveSingleValueRecords, avscSchema, decimalAnnotation);
+    }
+
+    private static @Nullable Schema fieldSchemaOf(@Nullable Schema avscSchema, String fieldName) {
+        if (avscSchema == null || avscSchema.getType() != Schema.Type.RECORD) {
+            return null;
+        }
+        var field = avscSchema.getField(fieldName);
+        return field == null ? null : field.schema();
+    }
+
+    private static @Nullable Schema arrayItemSchemaOf(@Nullable Schema avscSchema) {
+        if (avscSchema == null) {
+            return null;
+        }
+        var arraySchema = avscSchema.getType() == Schema.Type.UNION
+                ? avscSchema.getTypes().stream()
+                        .filter(schema -> schema.getType() == Schema.Type.ARRAY)
+                        .findFirst()
+                        .orElse(null)
+                : avscSchema;
+        return arraySchema != null && arraySchema.getType() == Schema.Type.ARRAY
+                ? arraySchema.getElementType()
+                : null;
     }
 
 

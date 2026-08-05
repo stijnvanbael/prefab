@@ -490,6 +490,9 @@ class AvscEventWriter {
     }
 
     private Optional<AnnotationSpec> decimalAnnotationOf(Schema fieldSchema) {
+        if (fieldSchema == null) {
+            return Optional.empty();
+        }
         var effectiveSchema = resolvedNonNullSchema(fieldSchema);
         if (effectiveSchema == null) {
             return Optional.empty();

@@ -144,6 +144,47 @@ class MotherPluginTest {
     }
 
     @Test
+    void motherUsesCompilableLiteralsForBaseTypes() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/basetypes/source/BaseTypes.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/basetypes/source", "CreateBaseTypesRequestMother.java")
+                .contentsAsUtf8String()
+                .contains("((byte) 1)");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/basetypes/source", "CreateBaseTypesRequestMother.java")
+                .contentsAsUtf8String()
+                .contains("((short) 3)");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/basetypes/source", "CreateBaseTypesRequestMother.java")
+                .contentsAsUtf8String()
+                .contains("Instant.ofEpochMilli(1691234567890L)");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/basetypes/source", "CreateBaseTypesRequestMother.java")
+                .contentsAsUtf8String()
+                .contains("OffsetDateTime.parse(\"2026-08-05T08:05:00+02:00\").toInstant()");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/basetypes/source", "CreateBaseTypesRequestMother.java")
+                .contentsAsUtf8String()
+                .contains("LocalDate.parse(\"2026-08-05\")");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/basetypes/source", "CreateBaseTypesRequestMother.java")
+                .contentsAsUtf8String()
+                .contains("LocalDateTime.parse(\"2026-08-05T08:05:00\")");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/basetypes/source", "CreateBaseTypesRequestMother.java")
+                .contentsAsUtf8String()
+                .contains("Duration.parse(\"PT15M\")");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/basetypes/source", "CreateBaseTypesRequestMother.java")
+                .contentsAsUtf8String()
+                .contains("new BigDecimal(\"12.34\")");
+    }
+
+    @Test
     void motherGeneratedForMultiFieldRecordNestedInsideSingleValueType() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

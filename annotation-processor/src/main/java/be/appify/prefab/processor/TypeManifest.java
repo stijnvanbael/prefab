@@ -222,6 +222,8 @@ public class TypeManifest {
      */
     public TypeManifest asBoxed() {
         return switch (simpleName()) {
+            case "byte" -> TypeManifest.of(Byte.class, processingEnvironment);
+            case "short" -> TypeManifest.of(Short.class, processingEnvironment);
             case "int" -> TypeManifest.of(Integer.class, processingEnvironment);
             case "long" -> TypeManifest.of(Long.class, processingEnvironment);
             case "double" -> TypeManifest.of(Double.class, processingEnvironment);

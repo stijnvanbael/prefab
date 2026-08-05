@@ -22,12 +22,15 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -567,6 +570,7 @@ class MotherWriter {
         if (type.is(String.class)) return CodeBlock.of("$S", fieldName);
         var numericDefault = numericDefaultValue(type);
         if (numericDefault != null) return numericDefault;
+        if (type.is(char.class) || type.is(Character.class)) return CodeBlock.of("$S.charAt(0)", "a");
         if (type.is(boolean.class) || type.is(Boolean.class)) return CodeBlock.of(FALSE_LITERAL);
         if (type.is(List.class)) {
             var elementType = type.parameters().getFirst();
@@ -600,6 +604,8 @@ class MotherWriter {
     }
 
     private static CodeBlock numericDefaultValue(TypeManifest type) {
+        if (type.is(byte.class) || type.is(Byte.class)) return CodeBlock.of("((byte) 1)");
+        if (type.is(short.class) || type.is(Short.class)) return CodeBlock.of("((short) 1)");
         if (type.is(int.class) || type.is(Integer.class)) return CodeBlock.of("1");
         if (type.is(long.class) || type.is(Long.class)) return CodeBlock.of("1L");
         if (type.is(double.class) || type.is(Double.class)) return CodeBlock.of("1.0");
@@ -616,22 +622,11 @@ class MotherWriter {
     }
 
     private CodeBlock exampleLiteralFor(String value, TypeManifest type, VariableManifest param) {
-        if (type.is(String.class)) return CodeBlock.of("$S", value);
-        var numericLiteral = numericExampleLiteral(value, type, param);
-        if (numericLiteral != null) return numericLiteral;
-        if (type.is(boolean.class) || type.is(Boolean.class)) {
-            if (!"true".equalsIgnoreCase(value) && !FALSE_LITERAL.equalsIgnoreCase(value)) {
-                reportExampleParseError(value, "boolean", param);
-                return CodeBlock.of(FALSE_LITERAL);
-            }
-            return CodeBlock.of("$L", value.toLowerCase());
-        }
-        if (type.isEnum()) {
-            return CodeBlock.of("$T.$L", type.asTypeName(), value);
-        }
+        var literal = literalForBaseType(value, type, param, true);
+        if (literal != null) return literal;
         if (type.isSingleValueType()) {
             var innerField = type.fields().getFirst();
-            var innerLiteral = tryExampleLiteralFor(value, innerField.type().asBoxed());
+            var innerLiteral = literalForBaseType(value, innerField.type().asBoxed(), param, true);
             if (innerLiteral != null) {
                 return CodeBlock.of("new $T($L)", type.asTypeName(), innerLiteral);
             }
@@ -683,30 +678,18 @@ class MotherWriter {
      * Returns {@code null} when the value cannot be interpreted as that type.
      */
     private CodeBlock tryExampleLiteralFor(String value, TypeManifest type) {
-        if (type.is(String.class)) return CodeBlock.of("$S", value);
-        if (type.is(int.class) || type.is(Integer.class)) {
-            try { return CodeBlock.of("$L", Integer.parseInt(value)); } catch (NumberFormatException ignored) { return null; }
-        }
-        if (type.is(long.class) || type.is(Long.class)) {
-            try { return CodeBlock.of("$LL", Long.parseLong(value)); } catch (NumberFormatException ignored) { return null; }
-        }
-        if (type.is(double.class) || type.is(Double.class)) {
-            try { return CodeBlock.of("$L", Double.parseDouble(value)); } catch (NumberFormatException ignored) { return null; }
-        }
-        if (type.is(float.class) || type.is(Float.class)) {
-            try { return CodeBlock.of("$Lf", Float.parseFloat(value)); } catch (NumberFormatException ignored) { return null; }
-        }
-        if (type.is(boolean.class) || type.is(Boolean.class)) {
-            if ("true".equalsIgnoreCase(value) || "false".equalsIgnoreCase(value)) {
-                return CodeBlock.of("$L", value.toLowerCase());
-            }
-            return null;
-        }
-        if (type.isEnum()) return CodeBlock.of("$T.$L", type.asTypeName(), value);
-        return null;
+        return literalForBaseType(value, type, null, false);
     }
 
     private CodeBlock numericExampleLiteral(String value, TypeManifest type, VariableManifest param) {
+        if (type.is(byte.class) || type.is(Byte.class)) {
+            return parsedNumericLiteral(value, "byte", param, () ->
+                    CodeBlock.of("((byte) $L)", Byte.parseByte(value)), CodeBlock.of("((byte) 1)"));
+        }
+        if (type.is(short.class) || type.is(Short.class)) {
+            return parsedNumericLiteral(value, "short", param, () ->
+                    CodeBlock.of("((short) $L)", Short.parseShort(value)), CodeBlock.of("((short) 1)"));
+        }
         if (type.is(int.class) || type.is(Integer.class)) {
             return parsedNumericLiteral(value, "int", param, () ->
                     CodeBlock.of("$L", Integer.parseInt(value)), CodeBlock.of("1"));
@@ -730,14 +713,129 @@ class MotherWriter {
             String value,
             String targetType,
             VariableManifest param,
-            java.util.concurrent.Callable<CodeBlock> parser,
+            Supplier<CodeBlock> parser,
             CodeBlock fallback
     ) {
         try {
-            return parser.call();
-        } catch (Exception e) {
+            return parser.get();
+        } catch (NumberFormatException e) {
             reportExampleParseError(value, targetType, param);
             return fallback;
+        }
+    }
+
+    private CodeBlock literalForBaseType(String value, TypeManifest type, VariableManifest param, boolean reportErrors) {
+        if (type.is(String.class)) return CodeBlock.of("$S", value);
+        var numericLiteral = numericExampleLiteral(value, type, param);
+        if (numericLiteral != null) return numericLiteral;
+        var temporalLiteral = temporalExampleLiteral(value, type, param, reportErrors);
+        if (temporalLiteral != null) return temporalLiteral;
+        var decimalLiteral = bigDecimalExampleLiteral(value, type, param, reportErrors);
+        if (decimalLiteral != null) return decimalLiteral;
+        if (type.is(char.class) || type.is(Character.class)) {
+            if (value.length() == 1) {
+                return CodeBlock.of("$S.charAt(0)", value);
+            }
+            if (reportErrors && param != null) {
+                reportExampleParseError(value, "char", param);
+                return CodeBlock.of("$S.charAt(0)", "a");
+            }
+            return null;
+        }
+        if (type.is(boolean.class) || type.is(Boolean.class)) {
+            if ("true".equalsIgnoreCase(value) || FALSE_LITERAL.equalsIgnoreCase(value)) {
+                return CodeBlock.of("$L", value.toLowerCase());
+            }
+            if (reportErrors && param != null) {
+                reportExampleParseError(value, "boolean", param);
+                return CodeBlock.of(FALSE_LITERAL);
+            }
+            return null;
+        }
+        if (type.isEnum()) {
+            if (type.enumValues().contains(value)) {
+                return CodeBlock.of("$T.$L", type.asTypeName(), value);
+            }
+            if (reportErrors && param != null) {
+                reportExampleParseError(value,
+                        "one of " + type.enumValues().stream().collect(Collectors.joining(", ")), param);
+                return typeDefaultValue(type, param.name());
+            }
+            return null;
+        }
+        return null;
+    }
+
+    private CodeBlock temporalExampleLiteral(String value, TypeManifest type, VariableManifest param, boolean reportErrors) {
+        if (type.is(Instant.class)) {
+            try {
+                var epochMillis = Long.parseLong(value);
+                return CodeBlock.of("$T.ofEpochMilli($LL)", Instant.class, epochMillis);
+            } catch (NumberFormatException ignored) {
+                try {
+                    OffsetDateTime.parse(value);
+                    return CodeBlock.of("$T.parse($S).toInstant()", OffsetDateTime.class, value);
+                } catch (DateTimeParseException e) {
+                    if (reportErrors && param != null) {
+                        reportExampleParseError(value, "Instant or epoch millis", param);
+                        return CodeBlock.of("$T.now()", Instant.class);
+                    }
+                    return null;
+                }
+            }
+        }
+        if (type.is(LocalDate.class)) {
+            try {
+                LocalDate.parse(value);
+                return CodeBlock.of("$T.parse($S)", LocalDate.class, value);
+            } catch (DateTimeParseException e) {
+                if (reportErrors && param != null) {
+                    reportExampleParseError(value, "LocalDate", param);
+                    return CodeBlock.of("$T.now()", LocalDate.class);
+                }
+                return null;
+            }
+        }
+        if (type.is(LocalDateTime.class)) {
+            try {
+                LocalDateTime.parse(value);
+                return CodeBlock.of("$T.parse($S)", LocalDateTime.class, value);
+            } catch (DateTimeParseException e) {
+                if (reportErrors && param != null) {
+                    reportExampleParseError(value, "LocalDateTime", param);
+                    return CodeBlock.of("$T.now()", LocalDateTime.class);
+                }
+                return null;
+            }
+        }
+        if (type.is(Duration.class)) {
+            try {
+                Duration.parse(value);
+                return CodeBlock.of("$T.parse($S)", Duration.class, value);
+            } catch (DateTimeParseException e) {
+                if (reportErrors && param != null) {
+                    reportExampleParseError(value, "Duration", param);
+                    return CodeBlock.of("$T.ofSeconds(1)", Duration.class);
+                }
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private CodeBlock bigDecimalExampleLiteral(String value, TypeManifest type, VariableManifest param, boolean reportErrors) {
+        if (!type.is(BigDecimal.class)) {
+            return null;
+        }
+        try {
+            new BigDecimal(value);
+            return CodeBlock.of("new $T($S)", BigDecimal.class, value);
+        } catch (NumberFormatException e) {
+            if (reportErrors && param != null) {
+                reportExampleParseError(value, "BigDecimal", param);
+                return CodeBlock.of("$T.ONE", BigDecimal.class);
+            }
+            return null;
         }
     }
 
@@ -750,4 +848,3 @@ class MotherWriter {
         );
     }
 }
-

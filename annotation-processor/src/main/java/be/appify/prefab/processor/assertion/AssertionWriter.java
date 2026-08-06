@@ -236,9 +236,18 @@ class AssertionWriter {
             return listFieldAssertMethods(selfType, field);
         }
         if (isSingleValueRecordField(field)) {
-            return List.of(singleValueRecordFieldAssertMethod(selfType, field), recordFieldAssertMethod(selfType, field));
+            var methods = new ArrayList<MethodSpec>();
+            methods.add(singleValueRecordFieldAssertMethod(selfType, field));
+            methods.add(recordFieldAssertMethod(selfType, field));
+            if (field.nullable()) {
+                methods.add(recordFieldNullAssertMethod(selfType, field));
+            }
+            return List.copyOf(methods);
         }
         if (isNestedRecordType(field.type())) {
+            if (field.nullable()) {
+                return List.of(recordFieldAssertMethod(selfType, field), recordFieldNullAssertMethod(selfType, field));
+            }
             return List.of(recordFieldAssertMethod(selfType, field));
         }
         return List.of(equalsFieldAssertMethod(selfType, field));
@@ -317,6 +326,20 @@ class AssertionWriter {
                 .addStatement("isNotNull()")
                 .addStatement("$T.requireNonNull(requirements, $S)", Objects.class, "requirements must not be null")
                 .addStatement("requirements.accept($T.assertThat(actual.$N()))", fieldAssertType, fieldName)
+                .addStatement("return myself")
+                .build();
+    }
+
+    private MethodSpec recordFieldNullAssertMethod(TypeVariableName selfType, VariableManifest field) {
+        var fieldName = field.name();
+        return MethodSpec.methodBuilder("has" + capitalize(fieldName) + "Null")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(selfType)
+                .addStatement("isNotNull()")
+                .beginControlFlow("if (actual.$N() != null)", fieldName)
+                .addStatement("failWithMessage($S, actual.$N())",
+                        "Expected " + fieldName + " to be <null> but was <%s>", fieldName)
+                .endControlFlow()
                 .addStatement("return myself")
                 .build();
     }

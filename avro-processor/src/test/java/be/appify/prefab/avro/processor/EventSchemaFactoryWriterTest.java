@@ -184,4 +184,21 @@ class EventSchemaFactoryWriterTest {
                 .contentsAsUtf8String()
                 .doesNotContain("loadExpectedSchema()");
     }
+
+    @Test
+    void avscBackedNestedDecimalRecordUsesSchemaPrecisionAndScale() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avro/nestedavsc/source/NestedAvscContract.java"));
+        assertThat(compilation).succeeded();
+
+        assertThat(compilation)
+                .generatedSourceFile("event.avro.infrastructure.avro.AddressSchemaFactory")
+                .contentsAsUtf8String()
+                .contains("LogicalTypes.decimal(12, 2)");
+        assertThat(compilation)
+                .generatedSourceFile("event.avro.infrastructure.avro.AddressSchemaFactory")
+                .contentsAsUtf8String()
+                .contains("LogicalTypes.decimal(14, 4)");
+    }
 }

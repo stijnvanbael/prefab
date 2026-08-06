@@ -1,6 +1,7 @@
 package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.core.annotations.AvroSchema;
+import be.appify.prefab.core.annotations.Decimal;
 import be.appify.prefab.core.annotations.Doc;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.Example;
@@ -34,6 +35,7 @@ import javax.lang.model.element.Modifier;
 import javax.tools.Diagnostic;
 
 import org.apache.avro.JsonProperties;
+import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 
 import static com.palantir.javapoet.CodeBlock.joining;
@@ -262,6 +264,7 @@ class AvscEventWriter {
         if (resolution.nullable()) {
             paramBuilder.addAnnotation(Nullable.class);
         }
+        decimalAnnotationOf(resolution.schema()).ifPresent(paramBuilder::addAnnotation);
         sampleOf(field).ifPresent(sample -> paramBuilder.addAnnotation(exampleAnnotation(sample)));
         docOf(field).ifPresent(doc -> paramBuilder.addAnnotation(docAnnotation(doc)));
         return paramBuilder.build();
@@ -484,6 +487,24 @@ class AvscEventWriter {
         return AnnotationSpec.builder(Doc.class)
                 .addMember("value", "$S", doc)
                 .build();
+    }
+
+    private Optional<AnnotationSpec> decimalAnnotationOf(Schema fieldSchema) {
+        if (fieldSchema == null) {
+            return Optional.empty();
+        }
+        var effectiveSchema = resolvedNonNullSchema(fieldSchema);
+        if (effectiveSchema == null) {
+            return Optional.empty();
+        }
+        var logicalType = effectiveSchema.getLogicalType();
+        if (!(logicalType instanceof LogicalTypes.Decimal decimal)) {
+            return Optional.empty();
+        }
+        return Optional.of(AnnotationSpec.builder(Decimal.class)
+                .addMember("precision", "$L", decimal.getPrecision())
+                .addMember("scale", "$L", decimal.getScale())
+                .build());
     }
 
     private Optional<AnnotationSpec> avroSchemaAnnotation(Schema schema) {

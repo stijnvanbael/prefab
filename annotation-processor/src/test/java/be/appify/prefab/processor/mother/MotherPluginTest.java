@@ -131,6 +131,19 @@ class MotherPluginTest {
     }
 
     @Test
+    void standaloneEventBuilderSupportsListAdders() {
+        assertThat(orderCompilation).succeeded();
+        assertThat(orderCompilation)
+                .generatedSourceFile("mother.nullablerecord.source.ShipmentEventBuilder")
+                .contentsAsUtf8String()
+                .contains("public SELF addItems(ShipmentEvent.Item item)");
+        assertThat(orderCompilation)
+                .generatedSourceFile("mother.nullablerecord.source.ShipmentEventBuilder")
+                .contentsAsUtf8String()
+                .contains("public SELF addOptionalItems(ShipmentEvent.Item item)");
+    }
+
+    @Test
     void motherUsesExampleValueFromInnerFieldOfSingleValueType() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

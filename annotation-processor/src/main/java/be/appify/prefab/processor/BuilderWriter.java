@@ -66,7 +66,35 @@ public class BuilderWriter {
     public void enrichWithBuilder(TypeSpec.Builder recordBuilder, ClassName recordType,
             List<ParameterSpec> fields, Map<String, String> fieldDefaults) {
         recordBuilder.addMethod(builderFactoryMethod(recordType));
-        recordBuilder.addType(buildNestedBuilderClass(recordType, fields, fieldDefaults));
+        recordBuilder.addType(nestedBuilderClass(recordType, fields, fieldDefaults));
+    }
+
+    /**
+     * Builds a standalone builder type that can be emitted as a top-level class.
+     *
+     * @param builderType   the class name of the standalone builder
+     * @param targetType    the target type constructed by {@code build()}
+     * @param fields        builder fields and setter/add method source
+     * @return the generated standalone builder class
+     */
+    public TypeSpec standaloneBuilderClass(ClassName builderType, TypeName targetType, List<ParameterSpec> fields) {
+        return standaloneBuilderClass(builderType, targetType, fields, Map.of());
+    }
+
+    /**
+     * Builds a standalone builder type that can be emitted as a top-level class.
+     *
+     * @param builderType   the class name of the standalone builder
+     * @param targetType    the target type constructed by {@code build()}
+     * @param fields        builder fields and setter/add method source
+     * @param fieldDefaults map of field name to JavaPoet initialiser literal
+     * @return the generated standalone builder class
+     */
+    public TypeSpec standaloneBuilderClass(ClassName builderType, TypeName targetType,
+            List<ParameterSpec> fields, Map<String, String> fieldDefaults) {
+        var builder = TypeSpec.classBuilder(builderType.simpleName())
+                .addModifiers(Modifier.PUBLIC);
+        return enrichBuilderClass(builder, builderType, targetType, fields, fieldDefaults).build();
     }
 
     private MethodSpec builderFactoryMethod(ClassName recordType) {
@@ -78,15 +106,20 @@ public class BuilderWriter {
                 .build();
     }
 
-    private TypeSpec buildNestedBuilderClass(ClassName recordType, List<ParameterSpec> fields,
+    private TypeSpec nestedBuilderClass(ClassName recordType, List<ParameterSpec> fields,
             Map<String, String> fieldDefaults) {
-        var selfTypeName = TypeVariableName.get("SELF");
-        var selfBound = ParameterizedTypeName.get(ClassName.get("", BUILDER), selfTypeName);
-        var selfTypeVar = TypeVariableName.get("SELF", selfBound);
-
         var builder = TypeSpec.classBuilder(BUILDER)
-                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .addTypeVariable(selfTypeVar);
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC);
+        return enrichBuilderClass(builder, ClassName.get("", BUILDER), recordType, fields, fieldDefaults).build();
+    }
+
+    private TypeSpec.Builder enrichBuilderClass(TypeSpec.Builder builder,
+            ClassName selfRawType, TypeName targetType,
+            List<ParameterSpec> fields, Map<String, String> fieldDefaults) {
+        var selfTypeName = TypeVariableName.get("SELF");
+        var selfBound = ParameterizedTypeName.get(selfRawType, selfTypeName);
+        var selfTypeVar = TypeVariableName.get("SELF", selfBound);
+        builder.addTypeVariable(selfTypeVar);
 
         fields.forEach(field -> {
             builder.addField(buildField(field, fieldDefaults));
@@ -97,9 +130,8 @@ public class BuilderWriter {
         });
 
         builder.addMethod(selfMethod());
-        builder.addMethod(buildMethod(recordType, fields));
-
-        return builder.build();
+        builder.addMethod(buildMethod(targetType, fields));
+        return builder;
     }
 
     private MethodSpec selfMethod() {
@@ -170,12 +202,12 @@ public class BuilderWriter {
         return "add" + capitalize(fieldName);
     }
 
-    private MethodSpec buildMethod(ClassName recordType, List<ParameterSpec> fields) {
+    private MethodSpec buildMethod(TypeName targetType, List<ParameterSpec> fields) {
         var args = fields.stream().map(ParameterSpec::name).collect(Collectors.joining(", "));
         return MethodSpec.methodBuilder("build")
                 .addModifiers(Modifier.PUBLIC)
-                .returns(recordType)
-                .addStatement("return new $T($L)", recordType, args)
+                .returns(targetType)
+                .addStatement("return new $T($L)", targetType, args)
                 .build();
     }
 }

@@ -1,11 +1,21 @@
 package be.appify.prefab.processor;
 
-import com.palantir.javapoet.*;
+import com.palantir.javapoet.AnnotationSpec;
+import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.FieldSpec;
+import com.palantir.javapoet.MethodSpec;
+import com.palantir.javapoet.ParameterSpec;
+import com.palantir.javapoet.ParameterizedTypeName;
+import com.palantir.javapoet.TypeSpec;
+import com.palantir.javapoet.TypeVariableName;
+import com.palantir.javapoet.TypeName;
+import com.palantir.javapoet.WildcardTypeName;
 
+import java.util.ArrayList;
+import javax.lang.model.element.Modifier;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import javax.lang.model.element.Modifier;
 
 import static org.apache.commons.text.WordUtils.capitalize;
 
@@ -81,6 +91,9 @@ public class BuilderWriter {
         fields.forEach(field -> {
             builder.addField(buildField(field, fieldDefaults));
             builder.addMethod(withMethod(field));
+            if (isListField(field)) {
+                builder.addMethod(addMethod(field));
+            }
         });
 
         builder.addMethod(selfMethod());
@@ -121,8 +134,40 @@ public class BuilderWriter {
                 .build();
     }
 
+    private MethodSpec addMethod(ParameterSpec field) {
+        var itemParam = ParameterSpec.builder(listItemType(field), "item").build();
+        return MethodSpec.methodBuilder(addMethodName(field.name()))
+                .addModifiers(Modifier.PUBLIC)
+                .returns(TypeVariableName.get("SELF"))
+                .addParameter(itemParam)
+                .beginControlFlow("if (this.$N == null)", field.name())
+                .addStatement("this.$N = new $T<>()", field.name(), ArrayList.class)
+                .nextControlFlow("else if (!(this.$N instanceof $T))", field.name(), ArrayList.class)
+                .addStatement("this.$N = new $T<>(this.$N)", field.name(), ArrayList.class, field.name())
+                .endControlFlow()
+                .addStatement("this.$N.add(item)", field.name())
+                .addStatement("return self()")
+                .build();
+    }
+
+    private boolean isListField(ParameterSpec field) {
+        return field.type() instanceof ParameterizedTypeName parameterizedType
+                && parameterizedType.rawType().equals(ClassName.get(List.class));
+    }
+
+    private TypeName listItemType(ParameterSpec field) {
+        if (field.type() instanceof ParameterizedTypeName parameterizedType && !parameterizedType.typeArguments().isEmpty()) {
+            return parameterizedType.typeArguments().getFirst();
+        }
+        return TypeName.get(Object.class);
+    }
+
     private String setterMethodName(String fieldName) {
         return setterPrefix.isEmpty() ? fieldName : setterPrefix + capitalize(fieldName);
+    }
+
+    private String addMethodName(String fieldName) {
+        return "add" + capitalize(fieldName);
     }
 
     private MethodSpec buildMethod(ClassName recordType, List<ParameterSpec> fields) {

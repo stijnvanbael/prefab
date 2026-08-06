@@ -2,6 +2,7 @@ package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.processor.PrefabProcessor;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
@@ -324,6 +325,14 @@ class AvscPluginTest {
         assertThat(simpleCompilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
                 .contains("public static SimpleAvscEvent.Builder<?> builder()");
+    }
+
+    @Test
+    void avscRecordBuilderSupportsListAdders() {
+        assertThat(decimalCompilation).succeeded();
+        assertThat(decimalCompilation).generatedSourceFile("event.avsc.decimal.DecimalAvscEvent")
+                .contentsAsUtf8String()
+                .contains("public SELF addAmounts(BigDecimal item)");
     }
     @Test
     void avscEventMotherDelegatesToNestedBuilderNotStandaloneClass() {

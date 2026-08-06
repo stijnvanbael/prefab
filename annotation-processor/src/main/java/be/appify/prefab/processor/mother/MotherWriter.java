@@ -2,6 +2,7 @@ package be.appify.prefab.processor.mother;
 
 import be.appify.prefab.core.annotations.Example;
 import be.appify.prefab.core.annotations.OutputTarget;
+import be.appify.prefab.processor.BuilderWriter;
 import be.appify.prefab.processor.FileOutput;
 import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
@@ -11,12 +12,11 @@ import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ArrayTypeName;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
-import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
+import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
-import com.palantir.javapoet.TypeVariableName;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -469,59 +469,15 @@ class MotherWriter {
     // -- Event / nested types: standalone Builder class in production source --
 
     private TypeSpec buildStandaloneBuilderClass(ClassName builderType, TypeName targetType, List<VariableManifest> fields) {
-        var selfTypeName = TypeVariableName.get("SELF");
-        var selfBound = ParameterizedTypeName.get(builderType, selfTypeName);
-        var selfTypeVar = TypeVariableName.get("SELF", selfBound);
-
-        var builder = TypeSpec.classBuilder(builderType.simpleName())
-                .addModifiers(Modifier.PUBLIC)
-                .addTypeVariable(selfTypeVar);
-
-        fields.forEach(field -> builder.addField(
-                FieldSpec.builder(field.type().asTypeName(), field.name(), Modifier.PRIVATE).build()
-        ));
-
-        fields.forEach(field -> builder.addMethod(standaloneWithMethod(field.name(), field.type().asTypeName())));
-
-        builder.addMethod(standaloneSelfMethod());
-        builder.addMethod(buildMethod(targetType,
-                fields.stream().map(VariableManifest::name).collect(Collectors.joining(", "))));
-
-        return builder.build();
-    }
-
-    private MethodSpec standaloneWithMethod(String fieldName, TypeName fieldType) {
-        return MethodSpec.methodBuilder(setterMethodName(fieldName))
-                .addModifiers(Modifier.PUBLIC)
-                .returns(TypeVariableName.get("SELF"))
-                .addParameter(fieldType, fieldName)
-                .addStatement("this.$1N = $1N", fieldName)
-                .addStatement("return self()")
-                .build();
-    }
-
-    private MethodSpec standaloneSelfMethod() {
-        return MethodSpec.methodBuilder("self")
-                .addModifiers(Modifier.PROTECTED)
-                .addAnnotation(AnnotationSpec.builder(SuppressWarnings.class)
-                        .addMember("value", "$S", "unchecked")
-                        .build())
-                .returns(TypeVariableName.get("SELF"))
-                .addStatement("return (SELF) this")
-                .build();
+        var builderFields = fields.stream()
+                .map(field -> ParameterSpec.builder(field.type().asTypeName(), field.name()).build())
+                .toList();
+        return new BuilderWriter(context.builderSetterPrefix()).standaloneBuilderClass(builderType, targetType, builderFields);
     }
 
     private String setterMethodName(String fieldName) {
         var prefix = context.builderSetterPrefix();
         return prefix.isEmpty() ? fieldName : prefix + capitalize(fieldName);
-    }
-
-    private MethodSpec buildMethod(TypeName targetType, String args) {
-        return MethodSpec.methodBuilder("build")
-                .addModifiers(Modifier.PUBLIC)
-                .returns(targetType)
-                .addStatement("return new $T($L)", targetType, args)
-                .build();
     }
 
     private MethodSpec motherFactoryMethod(TypeName returnType, String typeName) {

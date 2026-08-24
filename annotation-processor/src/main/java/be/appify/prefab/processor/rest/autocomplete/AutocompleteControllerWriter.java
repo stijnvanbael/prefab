@@ -1,9 +1,11 @@
 package be.appify.prefab.processor.rest.autocomplete;
 
 import be.appify.prefab.core.annotations.rest.Autocomplete;
+import com.palantir.javapoet.AnnotationSpec;
 import be.appify.prefab.processor.ClassManifest;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
+import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 
 import javax.lang.model.element.Modifier;
@@ -24,6 +26,7 @@ class AutocompleteControllerWriter {
                                 manifest.simpleName(),
                                 field.name(),
                                 endpointPath(field.name(), annotation.value().path()),
+                                annotation.value().limit(),
                                 annotation.value().security())))
                 .flatMap(java.util.Optional::stream)
                 .toList();
@@ -33,6 +36,7 @@ class AutocompleteControllerWriter {
             String aggregateName,
             String fieldName,
             String path,
+            int defaultLimit,
             be.appify.prefab.core.annotations.rest.Security security
     ) {
         var methodName = "autocompleteBy" + toPascalCase(fieldName);
@@ -41,10 +45,16 @@ class AutocompleteControllerWriter {
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(requestMapping("GET", path))
                 .returns(ParameterizedTypeName.get(ClassName.get("org.springframework.http", "ResponseEntity"), responseType))
-                .addParameter(com.palantir.javapoet.ParameterSpec.builder(String.class, "query")
+                .addParameter(ParameterSpec.builder(String.class, "query")
                         .addAnnotation(ClassName.get("org.springframework.web.bind.annotation", "RequestParam"))
                         .build())
-                .addStatement("return $T.ok(service.$N(query))",
+                .addParameter(ParameterSpec.builder(int.class, "page")
+                        .addAnnotation(requestParamWithDefault("0"))
+                        .build())
+                .addParameter(ParameterSpec.builder(int.class, "limit")
+                        .addAnnotation(requestParamWithDefault(String.valueOf(defaultLimit)))
+                        .build())
+                .addStatement("return $T.ok(service.$N(query, page, limit))",
                         ClassName.get("org.springframework.http", "ResponseEntity"), methodName);
 
         operationAnnotation("Autocomplete " + aggregateName + " " + fieldName).ifPresent(method::addAnnotation);
@@ -58,5 +68,10 @@ class AutocompleteControllerWriter {
         }
         return configuredPath.startsWith("/") ? configuredPath : "/" + configuredPath;
     }
-}
 
+    private AnnotationSpec requestParamWithDefault(String defaultValue) {
+        return AnnotationSpec.builder(ClassName.get("org.springframework.web.bind.annotation", "RequestParam"))
+                .addMember("defaultValue", "$S", defaultValue)
+                .build();
+    }
+}

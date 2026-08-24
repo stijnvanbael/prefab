@@ -12,7 +12,6 @@ public record Product(
         @Id String id,
         @Version long version,
         @Autocomplete(scanMode = ScanMode.CONTAINS, matchStrategy = MatchStrategy.IGNORE_CASE) String name,
-        @Autocomplete(path = "/brands/search") String brand
+        @Autocomplete(path = "/brands/search", limit = 7) String brand
 ) {
 }
-

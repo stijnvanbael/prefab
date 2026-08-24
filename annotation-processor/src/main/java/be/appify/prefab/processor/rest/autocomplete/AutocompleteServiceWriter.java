@@ -13,6 +13,8 @@ import static be.appify.prefab.processor.CaseUtil.toPascalCase;
 import static org.apache.commons.text.WordUtils.uncapitalize;
 
 class AutocompleteServiceWriter {
+    private static final boolean JDBC_INCLUDED = isClassIncluded("org.springframework.data.relational.core.mapping.Table");
+    private static final boolean MONGO_INCLUDED = isClassIncluded("org.springframework.data.mongodb.core.MongoTemplate");
 
     List<MethodSpec> autocompleteMethods(ClassManifest manifest) {
         var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
@@ -51,10 +53,30 @@ class AutocompleteServiceWriter {
                         .returns(returnType)
                         .addStatement("log.debug($S, $T.class.getSimpleName(), $S)",
                                 "Autocompleting {} by {}", manifest.className(), fieldName)
-                        .addStatement("return $N.$N(query, $T.of(page, limit))",
-                                repositoryName,
-                                methodName,
-                                ClassName.get("org.springframework.data.domain", "PageRequest"))
+                        .addStatement("$T offset = (long) page * limit", long.class)
+                        .addStatement("return $L",
+                                repositoryCall(repositoryName, methodName))
                         .build());
+    }
+
+    private String repositoryCall(String repositoryName, String methodName) {
+        if (JDBC_INCLUDED) {
+            return repositoryName + "." + methodName + "(query, limit, offset)";
+        }
+        if (MONGO_INCLUDED) {
+            return repositoryName + "." + methodName + "(query, "
+                    + "org.springframework.data.domain.PageRequest.of(page, limit))";
+        }
+        return repositoryName + "." + methodName + "(query, "
+                + "org.springframework.data.domain.PageRequest.of(page, limit))";
+    }
+
+    private static boolean isClassIncluded(String className) {
+        try {
+            Class.forName(className);
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
     }
 }

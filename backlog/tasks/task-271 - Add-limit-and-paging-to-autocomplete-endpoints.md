@@ -4,7 +4,7 @@ title: Add limit and paging to autocomplete endpoints
 status: Done
 assignee: []
 created_date: '2026-08-24 10:45'
-updated_date: '2026-08-24 11:08'
+updated_date: '2026-08-24 15:30'
 labels:
   - ✨feature
   - rest
@@ -23,7 +23,7 @@ Extend generated `@Autocomplete` endpoints so callers can control how many resul
 <!-- AC:BEGIN -->
 - [x] #1 `@Autocomplete` exposes a `limit()` attribute with default value `20`
 - [x] #2 Generated controller methods accept `query`, `page`, and `limit` request parameters, defaulting to page `0` and the annotation-configured limit
-- [x] #3 Generated service methods propagate page and limit to the repository via `PageRequest`
+- [x] #3 Generated service methods propagate page and limit to persistence in a way that is effective for Spring Data JDBC
 - [x] #4 Generated autocomplete test clients can request non-default pages and limits
 - [x] #5 Autocomplete generation tests and docs are updated to describe the new contract
 <!-- AC:END -->
@@ -49,4 +49,12 @@ Extend generated `@Autocomplete` endpoints so callers can control how many resul
   - targeted autocomplete generation tests
   - full `core` + `annotation-processor` Maven tests via `mvn -q -pl core,annotation-processor -am test`
 - A repository-wide `mvn -q test` run was started as well, but it was aborted after example integration tests spent an extended time repeatedly pulling `apache/kafka:4.0.2` in the shared environment.
+- Follow-up analysis after adoption: paging is ineffective on Spring Data JDBC for generated autocomplete repository methods because `@Query` + `Pageable` does not apply SQL pagination to the custom query in this setup.
+- Proposed corrective direction: generate JDBC autocomplete SQL with explicit `LIMIT :limit OFFSET :offset` parameters and pass scalar paging values from service (`offset = page * limit`), while keeping MongoDB on `Pageable`.
+- Implemented corrective fix in generation:
+  - JDBC repository methods now generate `@Query` SQL ending with `LIMIT :limit OFFSET :offset` and accept `@Param("limit") int limit` + `@Param("offset") long offset`.
+  - Service methods compute `long offset = (long) page * limit` and delegate with scalar paging values for JDBC-backed repositories.
+  - Mongo behavior remains pageable-backed.
+- Updated autocomplete generator tests (`AutocompletePluginTest`, `AutocompleteRepositoryWriterTest`) to assert the new SQL and method signatures.
+- Validation completed with targeted autocomplete tests and full `core` + `annotation-processor` module tests.
 <!-- SECTION:NOTES:END -->

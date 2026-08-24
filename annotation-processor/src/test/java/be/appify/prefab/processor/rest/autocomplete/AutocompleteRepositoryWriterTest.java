@@ -167,13 +167,16 @@ class AutocompleteRepositoryWriterTest {
 
     @ParameterizedTest
     @EnumSource(MatchStrategy.class)
-    @DisplayName("JDBC method always includes pageable parameter and ORDER BY")
-    void jdbcAlwaysHasPageableAndOrderBy(MatchStrategy strategy) {
+    @DisplayName("JDBC method always includes explicit limit/offset parameters and ORDER BY")
+    void jdbcAlwaysHasLimitOffsetAndOrderBy(MatchStrategy strategy) {
         var source = AutocompleteRepositoryWriter
                 .autocompleteJdbcMethod("field", "table", ScanMode.PREFIX, strategy)
                 .toString();
 
-        assertTrue(source.contains("Pageable pageable"));
+        assertTrue(source.contains("limit"));
+        assertTrue(source.contains("offset"));
+        assertFalse(source.contains("Pageable pageable"));
+        assertTrue(source.contains("LIMIT :limit OFFSET :offset"));
         assertTrue(source.contains("ORDER BY"));
     }
 

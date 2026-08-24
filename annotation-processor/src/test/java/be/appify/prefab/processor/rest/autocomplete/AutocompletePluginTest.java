@@ -76,7 +76,11 @@ class AutocompletePluginTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.autocomplete.application.ProductService")
                 .contentsAsUtf8String()
-                .contains("productRepository.autocompleteByName(query, PageRequest.of(page, limit))");
+                .contains("long offset = (long) page * limit;");
+        assertThat(compilation)
+                .generatedSourceFile("rest.autocomplete.application.ProductService")
+                .contentsAsUtf8String()
+                .contains("productRepository.autocompleteByName(query, limit, offset)");
         assertThat(compilation)
                 .generatedSourceFile("rest.autocomplete.application.ProductService")
                 .contentsAsUtf8String()
@@ -85,19 +89,23 @@ class AutocompletePluginTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.autocomplete.application.ProductRepository")
                 .contentsAsUtf8String()
-                .contains("@Query(\"SELECT DISTINCT \\\"name\\\" FROM \\\"product\\\" WHERE LOWER(\\\"name\\\") LIKE LOWER(CONCAT('%', :query, '%')) ORDER BY \\\"name\\\"\")");
+                .contains("@Query(\"SELECT DISTINCT \\\"name\\\" FROM \\\"product\\\" WHERE LOWER(\\\"name\\\") LIKE LOWER(CONCAT('%', :query, '%')) ORDER BY \\\"name\\\" LIMIT :limit OFFSET :offset\")");
         assertThat(compilation)
                 .generatedSourceFile("rest.autocomplete.application.ProductRepository")
                 .contentsAsUtf8String()
-                .contains("@Query(\"SELECT DISTINCT \\\"brand\\\" FROM \\\"product\\\" WHERE LOWER(\\\"brand\\\") LIKE LOWER(CONCAT(:query, '%')) ORDER BY \\\"brand\\\"\")");
+                .contains("@Query(\"SELECT DISTINCT \\\"brand\\\" FROM \\\"product\\\" WHERE LOWER(\\\"brand\\\") LIKE LOWER(CONCAT(:query, '%')) ORDER BY \\\"brand\\\" LIMIT :limit OFFSET :offset\")");
         assertThat(compilation)
                 .generatedSourceFile("rest.autocomplete.application.ProductRepository")
                 .contentsAsUtf8String()
-                .contains("List<String> autocompleteByName(@Param(\"query\") String query, Pageable pageable);");
+                .contains("List<String> autocompleteByName(@Param(\"query\") String query, @Param(\"limit\") int limit,");
         assertThat(compilation)
                 .generatedSourceFile("rest.autocomplete.application.ProductRepository")
                 .contentsAsUtf8String()
-                .contains("List<String> autocompleteByBrand(@Param(\"query\") String query, Pageable pageable);");
+                .contains("@Param(\"offset\") long offset);");
+        assertThat(compilation)
+                .generatedSourceFile("rest.autocomplete.application.ProductRepository")
+                .contentsAsUtf8String()
+                .contains("List<String> autocompleteByBrand(@Param(\"query\") String query, @Param(\"limit\") int limit,");
     }
 
     @Test

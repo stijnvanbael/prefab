@@ -41,7 +41,8 @@ class AutocompleteRepositoryWriter {
         var table = quoted(tableName);
         var whereClause = buildJdbcWhereClause(columnName, scanMode, matchStrategy);
         var sql = "SELECT DISTINCT " + columnName + " FROM " + table + " WHERE " + whereClause
-                + " ORDER BY " + columnName;
+                + " ORDER BY " + columnName
+                + " LIMIT :limit OFFSET :offset";
 
         return MethodSpec.methodBuilder(methodName)
                 .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
@@ -54,7 +55,16 @@ class AutocompleteRepositoryWriter {
                                 .addMember("value", "$S", "query")
                                 .build())
                         .build())
-                .addParameter(Pageable.class, "pageable")
+                .addParameter(com.palantir.javapoet.ParameterSpec.builder(int.class, "limit")
+                        .addAnnotation(AnnotationSpec.builder(Param.class)
+                                .addMember("value", "$S", "limit")
+                                .build())
+                        .build())
+                .addParameter(com.palantir.javapoet.ParameterSpec.builder(long.class, "offset")
+                        .addAnnotation(AnnotationSpec.builder(Param.class)
+                                .addMember("value", "$S", "offset")
+                                .build())
+                        .build())
                 .returns(ParameterizedTypeName.get(List.class, String.class))
                 .build();
     }
@@ -144,4 +154,3 @@ class AutocompleteRepositoryWriter {
         }
     }
 }
-

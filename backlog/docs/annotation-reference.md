@@ -447,13 +447,14 @@ String name;
 Exposes a dedicated `GET` endpoint that returns distinct matching values for the annotated field,
 suitable for powering autocomplete widgets.
 
-**Generated endpoint:** `GET /{aggregate}/{field}/autocomplete?query=term` → `List<String>`
+**Generated endpoint:** `GET /{aggregate}/{field}/autocomplete?query=term&page=0&limit=20` → `List<String>`
 
 | Attribute       | Type            | Default                     | Description                                               |
 |-----------------|-----------------|-----------------------------|-----------------------------------------------------------|
 | `path`          | `String`        | `""`                        | Path override; defaults to `/{kebab-field}/autocomplete`. |
 | `scanMode`      | `ScanMode`      | `ScanMode.PREFIX`           | Where the term must appear in the value (see below).      |
 | `matchStrategy` | `MatchStrategy` | `MatchStrategy.IGNORE_CASE` | How the term is compared to field values (see below).     |
+| `limit`         | `int`           | `20`                        | Default page size when the endpoint is called without an explicit `limit` query parameter. |
 | `security`      | `@Security`     | `@Security`                 | Security settings for this endpoint.                      |
 
 #### `ScanMode`
@@ -487,6 +488,9 @@ String sku;
 @Autocomplete(path = "/brands/search", matchStrategy = MatchStrategy.FUZZY)
 String brand;
 ```
+
+Generated controllers also accept `page` and `limit` request parameters. `page` defaults to `0`;
+`limit` defaults to the annotation's `limit()` value.
 
 #### Migration from `ignoreCase`
 

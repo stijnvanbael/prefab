@@ -18,24 +18,43 @@ class AutocompleteServiceWriter {
         var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
         return manifest.fields().stream()
                 .map(field -> field.getAnnotation(Autocomplete.class)
-                        .map(annotation -> autocompleteMethod(manifest, field.name(), repositoryName)))
+                        .map(annotation -> autocompleteMethods(
+                                manifest,
+                                field.name(),
+                                repositoryName,
+                                annotation.value().limit())))
                 .flatMap(java.util.Optional::stream)
+                .flatMap(List::stream)
                 .toList();
     }
 
-    private MethodSpec autocompleteMethod(ClassManifest manifest, String fieldName, String repositoryName) {
+    private List<MethodSpec> autocompleteMethods(
+            ClassManifest manifest,
+            String fieldName,
+            String repositoryName,
+            int defaultLimit
+    ) {
         var methodName = "autocompleteBy" + toPascalCase(fieldName);
-        return MethodSpec.methodBuilder(methodName)
-                .addModifiers(Modifier.PUBLIC)
-                .addParameter(String.class, "query")
-                .returns(ParameterizedTypeName.get(ClassName.get(List.class), ClassName.get(String.class)))
-                .addStatement("log.debug($S, $T.class.getSimpleName(), $S)",
-                        "Autocompleting {} by {}", manifest.className(), fieldName)
-                .addStatement("return $N.$N(query, $T.of(0, 10))",
-                        repositoryName,
-                        methodName,
-                        ClassName.get("org.springframework.data.domain", "PageRequest"))
-                .build();
+        var returnType = ParameterizedTypeName.get(ClassName.get(List.class), ClassName.get(String.class));
+        return List.of(
+                MethodSpec.methodBuilder(methodName)
+                        .addModifiers(Modifier.PUBLIC)
+                        .addParameter(String.class, "query")
+                        .returns(returnType)
+                        .addStatement("return $N(query, 0, $L)", methodName, defaultLimit)
+                        .build(),
+                MethodSpec.methodBuilder(methodName)
+                        .addModifiers(Modifier.PUBLIC)
+                        .addParameter(String.class, "query")
+                        .addParameter(int.class, "page")
+                        .addParameter(int.class, "limit")
+                        .returns(returnType)
+                        .addStatement("log.debug($S, $T.class.getSimpleName(), $S)",
+                                "Autocompleting {} by {}", manifest.className(), fieldName)
+                        .addStatement("return $N.$N(query, $T.of(page, limit))",
+                                repositoryName,
+                                methodName,
+                                ClassName.get("org.springframework.data.domain", "PageRequest"))
+                        .build());
     }
 }
-

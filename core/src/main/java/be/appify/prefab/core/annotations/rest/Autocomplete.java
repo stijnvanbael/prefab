@@ -48,6 +48,14 @@ public @interface Autocomplete {
     MatchStrategy matchStrategy() default MatchStrategy.IGNORE_CASE;
 
     /**
+     * Default number of results returned when the generated endpoint is called without an explicit
+     * {@code limit} request parameter.
+     *
+     * @return the default page size for autocomplete requests.
+     */
+    int limit() default 20;
+
+    /**
      * Security settings for this endpoint. Default is secured with no required authorities.
      *
      * @return Security settings for this endpoint.

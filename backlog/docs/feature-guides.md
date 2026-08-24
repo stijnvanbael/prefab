@@ -1191,7 +1191,10 @@ public record Product(
 }
 ```
 
-**Generated endpoint:** `GET /products/name/autocomplete?query=ap` → `["Apple", "Apricot"]`
+**Generated endpoint:** `GET /products/name/autocomplete?query=ap&page=0&limit=20` → `["Apple", "Apricot"]`
+
+Pass a different `limit` to control page size and increment `page` to fetch the next slice of
+results, for example `GET /products/name/autocomplete?query=ap&page=1&limit=20`.
 
 ---
 
@@ -1288,4 +1291,3 @@ String sku;
 @Autocomplete
 String code; // PREFIX + IGNORE_CASE
 ```
-

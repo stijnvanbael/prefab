@@ -31,7 +31,15 @@ class AutocompletePluginTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.autocomplete.infrastructure.http.ProductController")
                 .contentsAsUtf8String()
-                .contains("ResponseEntity<List<String>> autocompleteByName(@RequestParam String query)");
+                .contains("ResponseEntity<List<String>> autocompleteByName(@RequestParam String query,");
+        assertThat(compilation)
+                .generatedSourceFile("rest.autocomplete.infrastructure.http.ProductController")
+                .contentsAsUtf8String()
+                .contains("@RequestParam(defaultValue = \"0\") int page,");
+        assertThat(compilation)
+                .generatedSourceFile("rest.autocomplete.infrastructure.http.ProductController")
+                .contentsAsUtf8String()
+                .contains("@RequestParam(defaultValue = \"20\") int limit)");
         assertThat(compilation)
                 .generatedSourceFile("rest.autocomplete.infrastructure.http.ProductController")
                 .contentsAsUtf8String()
@@ -47,7 +55,11 @@ class AutocompletePluginTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.autocomplete.infrastructure.http.ProductController")
                 .contentsAsUtf8String()
-                .contains("return ResponseEntity.ok(service.autocompleteByName(query));");
+                .contains("return ResponseEntity.ok(service.autocompleteByName(query, page, limit));");
+        assertThat(compilation)
+                .generatedSourceFile("rest.autocomplete.infrastructure.http.ProductController")
+                .contentsAsUtf8String()
+                .contains("@RequestParam(defaultValue = \"7\") int limit");
 
         assertThat(compilation)
                 .generatedSourceFile("rest.autocomplete.application.ProductService")
@@ -56,11 +68,19 @@ class AutocompletePluginTest {
         assertThat(compilation)
                 .generatedSourceFile("rest.autocomplete.application.ProductService")
                 .contentsAsUtf8String()
-                .contains("productRepository.autocompleteByName(query, PageRequest.of(0, 10))");
+                .contains("List<String> autocompleteByName(String query, int page, int limit)");
         assertThat(compilation)
                 .generatedSourceFile("rest.autocomplete.application.ProductService")
                 .contentsAsUtf8String()
-                .contains("productRepository.autocompleteByBrand(query, PageRequest.of(0, 10))");
+                .contains("return autocompleteByName(query, 0, 20);");
+        assertThat(compilation)
+                .generatedSourceFile("rest.autocomplete.application.ProductService")
+                .contentsAsUtf8String()
+                .contains("productRepository.autocompleteByName(query, PageRequest.of(page, limit))");
+        assertThat(compilation)
+                .generatedSourceFile("rest.autocomplete.application.ProductService")
+                .contentsAsUtf8String()
+                .contains("return autocompleteByBrand(query, 0, 7);");
 
         assertThat(compilation)
                 .generatedSourceFile("rest.autocomplete.application.ProductRepository")
@@ -94,10 +114,13 @@ class AutocompletePluginTest {
                 .orElse("");
 
         Assertions.assertTrue(clientSource.contains("List<String> autocompleteByName(String query)"));
+        Assertions.assertTrue(clientSource.contains("List<String> autocompleteByName(String query, Pageable pageable)"));
         Assertions.assertTrue(clientSource.contains("List<String> autocompleteByBrand(String query)"));
         Assertions.assertTrue(clientSource.contains("/products/name/autocomplete"));
         Assertions.assertTrue(clientSource.contains("/products/brands/search"));
         Assertions.assertTrue(clientSource.contains("request.queryParam(\"query\", query);"));
+        Assertions.assertTrue(clientSource.contains("request.queryParam(\"page\", String.valueOf(pageable.getPageNumber()))"));
+        Assertions.assertTrue(clientSource.contains("queryParam(\"limit\", String.valueOf(pageable.getPageSize()))"));
     }
 
     @SupportedAnnotationTypes({"be.appify.prefab.core.annotations.*"})
@@ -127,4 +150,3 @@ class AutocompletePluginTest {
         }
     }
 }
-

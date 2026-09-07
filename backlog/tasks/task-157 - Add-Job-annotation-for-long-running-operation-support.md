@@ -1,9 +1,15 @@
 ---
-id: TBD
-title: "Add @Job annotation for long-running operation support"
-status: "To Do"
-priority: "Medium"
-labels: ["feature", "annotation-processor", "requested-by:maestro"]
+id: TASK-157
+title: Add @Job annotation for long-running operation support
+status: To Do
+assignee: []
+created_date: '2026-05-06 21:39'
+labels:
+  - feature
+  - annotation-processor
+  - 'requested-by:maestro'
+dependencies: []
+priority: medium
 ---
 
 ## Background / Problem Statement

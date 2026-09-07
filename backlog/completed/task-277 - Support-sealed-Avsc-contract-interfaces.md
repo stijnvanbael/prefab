@@ -1,5 +1,5 @@
 ---
-id: TASK-150
+id: TASK-277
 title: Support sealed @Avsc contract interfaces
 status: Done
 assignee: []

@@ -1,5 +1,5 @@
 ---
-id: TASK-231
+id: TASK-279
 title: Fix hanging prompt stream in MindForgeApi
 status: Done
 assignee:

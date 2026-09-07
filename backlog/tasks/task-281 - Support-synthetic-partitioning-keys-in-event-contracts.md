@@ -1,5 +1,5 @@
 ---
-id: TASK-273
+id: TASK-281
 title: Support synthetic partitioning keys in event contracts
 status: To Do
 assignee: []

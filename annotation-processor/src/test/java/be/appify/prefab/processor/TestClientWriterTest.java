@@ -36,6 +36,15 @@ class TestClientWriterTest {
         assertTrue(source.contains("configurers.forEach(builder::apply)"), source);
     }
 
+    @Test
+    void constructorOnlyAppliesSpringSecurityWhenFilterChainBeanExists() {
+        var constructor = TestClientWriter.buildConstructor();
+
+        var source = toSource(constructor);
+
+        assertTrue(source.contains("context.containsBean(\"springSecurityFilterChain\")"), source);
+    }
+
     private static String toSource(com.palantir.javapoet.MethodSpec constructor) {
         var type = TypeSpec.classBuilder("TestClient")
                 .addModifiers(Modifier.PUBLIC)
@@ -44,5 +53,4 @@ class TestClientWriterTest {
         return JavaFile.builder("test", type).build().toString();
     }
 }
-
 

@@ -88,7 +88,7 @@ public class TestClientWriter {
     private static void applyConfigurers(MethodSpec.Builder constructor) {
         if (ControllerUtil.SECURITY_INCLUDED) {
             constructor
-                    .beginControlFlow("if (configurers.isEmpty())")
+                    .beginControlFlow("if (configurers.isEmpty() && context.containsBean($S))", "springSecurityFilterChain")
                     .addStatement("builder.apply($T.springSecurity())", SECURITY_MOCK_MVC_CONFIGURERS)
                     .nextControlFlow("else")
                     .addStatement("$T.sort(configurers)", ANNOTATION_AWARE_ORDER_COMPARATOR)

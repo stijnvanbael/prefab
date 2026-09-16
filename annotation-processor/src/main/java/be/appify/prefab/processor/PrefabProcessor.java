@@ -3,13 +3,24 @@ package be.appify.prefab.processor;
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.Computed;
 import be.appify.prefab.core.annotations.OutputTarget;
+import be.appify.prefab.core.annotations.rest.Autocomplete;
+import be.appify.prefab.core.annotations.rest.Create;
+import be.appify.prefab.core.annotations.rest.Delete;
+import be.appify.prefab.core.annotations.rest.Download;
+import be.appify.prefab.core.annotations.rest.GetById;
+import be.appify.prefab.core.annotations.rest.GetList;
+import be.appify.prefab.core.annotations.rest.Security;
+import be.appify.prefab.core.annotations.rest.Streaming;
+import be.appify.prefab.core.annotations.rest.Update;
 import com.google.auto.service.AutoService;
+import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.Spliterators;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -89,6 +100,7 @@ public class PrefabProcessor extends AbstractProcessor {
         // Validate @Generate annotations eagerly to emit compile errors early
         validateGenerateAnnotationsEagerly(context, environment);
         validateComputedMethods(environment);
+        validateSecurityAnnotations(environment);
         writeAggregates(context, aggregates);
         writePolymorphicAggregates(context, polymorphicAggregates);
         writeAdditionalFilesIfNeeded(context, plugins, aggregates, polymorphicAggregates);
@@ -156,6 +168,39 @@ public class PrefabProcessor extends AbstractProcessor {
                                 method);
                     }
                 });
+    }
+
+    private void validateSecurityAnnotations(RoundEnvironment environment) {
+        validateSecurityAnnotation(environment, Autocomplete.class, Autocomplete::security);
+        validateSecurityAnnotation(environment, Create.class, Create::security);
+        validateSecurityAnnotation(environment, Delete.class, Delete::security);
+        validateSecurityAnnotation(environment, Download.class, Download::security);
+        validateSecurityAnnotation(environment, GetById.class, GetById::security);
+        validateSecurityAnnotation(environment, GetList.class, GetList::security);
+        validateSecurityAnnotation(environment, Streaming.class, Streaming::security);
+        validateSecurityAnnotation(environment, Update.class, Update::security);
+    }
+
+    private <A extends Annotation> void validateSecurityAnnotation(
+            RoundEnvironment environment,
+            Class<A> annotationType,
+            Function<A, Security> securityExtractor
+    ) {
+        environment.getElementsAnnotatedWith(annotationType).forEach(element -> {
+            var annotation = element.getAnnotation(annotationType);
+            if (annotation != null) {
+                validateSecurityConfiguration(element, securityExtractor.apply(annotation));
+            }
+        });
+    }
+
+    private void validateSecurityConfiguration(javax.lang.model.element.Element element, Security security) {
+        if (!security.authority().isBlank() && !security.role().isBlank()) {
+            processingEnv.getMessager().printMessage(
+                    Diagnostic.Kind.ERROR,
+                    "@Security supports either authority or role, but not both",
+                    element);
+        }
     }
 
     private boolean hasAvscAnnotations(PrefabContext context) {

@@ -5,6 +5,8 @@ import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.PartitioningKey;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.Delete;
+import be.appify.prefab.core.annotations.rest.GetById;
+import be.appify.prefab.core.annotations.rest.Security;
 import be.appify.prefab.core.domain.PublishesEvents;
 import be.appify.prefab.core.service.Reference;
 import jakarta.validation.constraints.NotNull;
@@ -13,6 +15,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 
 @Aggregate
+@GetById(security = @Security(enabled = false))
 public record Customer(
         @Id Reference<Customer> id,
         @Version long version,
@@ -20,13 +23,13 @@ public record Customer(
         @Size(max = 255) String email
 ) implements PublishesEvents {
 
-    @Create
+    @Create(security = @Security(authority = "ROLE_CUSTOMER_WRITE"))
     public Customer(@NotNull PersonName name, @NotNull String email) {
         this(Reference.create(), 0L, name, email);
         publish(new Created(id, name, email));
     }
 
-    @Delete
+    @Delete(security = @Security(role = "CUSTOMER_ADMIN"))
     public void delete() {
         publish(new Deleted(id));
     }

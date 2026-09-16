@@ -16,7 +16,21 @@ public @interface Security {
     /**
      * The authority required to access the endpoint. Default is no authority required.
      *
+     * <p>Use this for full Spring Security authorities such as {@code ROLE_ADMIN} or
+     * {@code SCOPE_messages.read}. Mutually exclusive with {@link #role()}.
+     *
      * @return The authority required to access the endpoint.
      */
     String authority() default "";
+
+    /**
+     * The role required to access the endpoint. Default is no role required.
+     *
+     * <p>Use the unprefixed Spring Security role name such as {@code ADMIN}; generated source
+     * applies role semantics via {@code hasRole("ADMIN")}. Mutually exclusive with
+     * {@link #authority()}.
+     *
+     * @return The required role name.
+     */
+    String role() default "";
 }

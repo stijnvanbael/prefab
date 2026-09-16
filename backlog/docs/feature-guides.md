@@ -1263,9 +1263,22 @@ String description;
         path = "/brands/search",
         scanMode = ScanMode.CONTAINS,
         matchStrategy = MatchStrategy.IGNORE_CASE,
-        security = @Security(authenticated = true, authorities = {"ROLE_USER"})
+        security = @Security(role = "USER")
 )
 String brand;
+```
+
+---
+
+To extend the default `WebSecurityConfiguration` without replacing Prefab's
+`SecurityFilterChain`, register an `HttpSecurityCustomizer` bean:
+
+```java
+@Bean
+HttpSecurityCustomizer docsCustomizer() {
+    return http -> http.authorizeHttpRequests(auth -> auth
+            .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll());
+}
 ```
 
 ---

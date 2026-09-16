@@ -1,6 +1,7 @@
 package be.appify.prefab.core.security;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -31,6 +32,8 @@ public class WebSecurityConfiguration {
      *   <li>Enforces {@code STATELESS} session management to prevent accidental session creation.</li>
      *   <li>Supports both browser OAuth2 login and programmatic API access via Bearer tokens.</li>
      *   <li>Adds restrictive security response headers (CSP, Referrer-Policy).</li>
+     *   <li>Applies all registered {@link HttpSecurityCustomizer} beans so adopters can extend the
+     *       default chain without replacing it.</li>
      * </ul>
      * <p>
      * Adopters who embed a Swagger UI must loosen the {@code Content-Security-Policy} (e.g. allow {@code 'unsafe-inline'} for styles).
@@ -39,16 +42,25 @@ public class WebSecurityConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) {
-        return http.csrf(CsrfConfigurer::disable)
+    SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            ObjectProvider<HttpSecurityCustomizer> customizers
+    ) throws Exception {
+        http.csrf(CsrfConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth ->
                         auth.anyRequest().authenticated())
-                .oauth2Login(withDefaults())
                 .oauth2ResourceServer(rs -> rs.jwt(withDefaults()))
                 .headers(headers -> headers
                         .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; frame-ancestors 'none'"))
-                        .referrerPolicy(rp -> rp.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN)))
-                .build();
+                        .referrerPolicy(rp -> rp.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN)));
+        applyCustomizers(http, customizers);
+        return http.build();
+    }
+
+    void applyCustomizers(HttpSecurity http, ObjectProvider<HttpSecurityCustomizer> customizers) throws Exception {
+        for (var customizer : customizers.orderedStream().toList()) {
+            customizer.customize(http);
+        }
     }
 }

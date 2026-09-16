@@ -120,9 +120,14 @@ public class ControllerUtil {
                     .addMember("value", "$S", "permitAll()")
                     .build());
         }
-        return !security.authority().isEmpty() ?
+        if (hasAuthority(security)) {
+            return Optional.of(AnnotationSpec.builder(PRE_AUTHORIZE)
+                    .addMember("value", "$S", "hasAuthority('%s')" .formatted(security.authority()))
+                    .build());
+        }
+        return hasRole(security) ?
                 Optional.of(AnnotationSpec.builder(PRE_AUTHORIZE)
-                        .addMember("value", "$S", "hasAuthority('%s')" .formatted(security.authority()))
+                        .addMember("value", "$S", "hasRole('%s')" .formatted(security.role()))
                         .build()) :
                 Optional.of(AnnotationSpec.builder(PRE_AUTHORIZE)
                         .addMember("value", "$S", "isAuthenticated()")
@@ -148,11 +153,22 @@ public class ControllerUtil {
     }
 
     private static CodeBlock withSecurity(Security security) {
-        return security.authority().isEmpty()
-                ? CodeBlock.of("")
-                : CodeBlock.of(".authorities(new $T($S))",
+        if (hasAuthority(security)) {
+            return CodeBlock.of(".authorities(new $T($S))",
                         ClassName.get("org.springframework.security.core.authority", "SimpleGrantedAuthority"),
                         security.authority());
+        }
+        return hasRole(security)
+                ? CodeBlock.of(".roles($S)", security.role())
+                : CodeBlock.of("");
+    }
+
+    private static boolean hasAuthority(Security security) {
+        return !security.authority().isBlank();
+    }
+
+    private static boolean hasRole(Security security) {
+        return security.authority().isBlank() && !security.role().isBlank();
     }
 
     /**

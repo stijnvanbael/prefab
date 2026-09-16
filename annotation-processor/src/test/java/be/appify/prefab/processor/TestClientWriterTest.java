@@ -42,7 +42,8 @@ class TestClientWriterTest {
 
         var source = toSource(constructor);
 
-        assertTrue(source.contains("context.containsBean(\"springSecurityFilterChain\")"), source);
+        assertTrue(source.contains("if (configurers.isEmpty() && context.containsBean(\"springSecurityFilterChain\"))"), source);
+        assertTrue(source.contains("builder.apply(SecurityMockMvcConfigurers.springSecurity())"), source);
     }
 
     private static String toSource(com.palantir.javapoet.MethodSpec constructor) {
@@ -53,4 +54,3 @@ class TestClientWriterTest {
         return JavaFile.builder("test", type).build().toString();
     }
 }
-

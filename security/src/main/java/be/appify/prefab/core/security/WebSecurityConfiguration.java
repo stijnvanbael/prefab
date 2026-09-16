@@ -50,7 +50,6 @@ public class WebSecurityConfiguration {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth ->
                         auth.anyRequest().authenticated())
-                .oauth2Login(withDefaults())
                 .oauth2ResourceServer(rs -> rs.jwt(withDefaults()))
                 .headers(headers -> headers
                         .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; frame-ancestors 'none'"))

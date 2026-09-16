@@ -504,11 +504,12 @@ class CreateTestClientWriter {
             }
         });
         return method.addStatement("""
-                                var result = mockMvc.perform($T.multipart($L)
+                                var result = mockMvc.perform($T.multipart($L)$L
                                     $L
                                 ).andExpect($T.status().isCreated())""",
                         MOCK_MVC_REQUEST_BUILDERS,
                         pathVariables(manifest, create, pathVariables),
+                        ControllerUtil.withMockUser(create.security()),
                         requestParts.stream().map(part -> {
                             if (part.type().equals(ClassName.get(MultipartFile.class))) {
                                 return ".file(%sMock)".formatted(part.name());

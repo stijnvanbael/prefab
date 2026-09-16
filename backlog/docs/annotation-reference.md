@@ -624,15 +624,32 @@ public record OrderLine(
 Used as the value of the `security` attribute on `@Create`, `@Update`, `@Delete`, `@GetById`,
 `@GetList`, `@Download`, `@Streaming`.
 
-| Attribute   | Type      | Default | Description                                |
-|-------------|-----------|---------|--------------------------------------------|
-| `enabled`   | `boolean` | `true`  | Whether Spring Security is enforced.       |
-| `authority` | `String`  | `""`    | Required Spring Security authority (role). |
+| Attribute   | Type      | Default | Description                                                                 |
+|-------------|-----------|---------|-----------------------------------------------------------------------------|
+| `enabled`   | `boolean` | `true`  | Whether Spring Security is enforced.                                        |
+| `authority` | `String`  | `""`    | Required Spring Security authority such as `ROLE_ADMIN`; mutually exclusive with `role`. |
+| `role`      | `String`  | `""`    | Required Spring Security role such as `ADMIN`; generated as `hasRole(...)` and mutually exclusive with `authority`. |
 
 ```java
 
 @Create(security = @Security(authority = "ROLE_ADMIN"))
 public Order(String customerName) { ...}
+```
+
+```java
+@Delete(security = @Security(role = "ADMIN"))
+void delete() { ... }
+```
+
+To extend Prefab's default `WebSecurityConfiguration` without replacing the entire
+`SecurityFilterChain` bean, register one or more `HttpSecurityCustomizer` beans:
+
+```java
+@Bean
+HttpSecurityCustomizer swaggerCustomizer() {
+    return http -> http.authorizeHttpRequests(auth -> auth
+            .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll());
+}
 ```
 
 ---

@@ -35,7 +35,9 @@ That combination makes the generated client constructor fail during Spring conte
 - `examples/avro` depends on `prefab-test`, which brings in `spring-security-test`, but it does not depend on `prefab-security`, so the example has no `springSecurityFilterChain` bean.
 - `TestClientWriter` currently generates `builder.apply(SecurityMockMvcConfigurers.springSecurity())` whenever Spring Security is on the processor classpath and no custom `MockMvcConfigurer` beans are provided.
 - The generated fallback needs to be conditional on the filter chain bean actually being present in the `WebApplicationContext`; otherwise unsecured modules that merely inherit test support fail during bean construction.
+- The `prefab-test` module had excluded `spring-security-core` and `spring-security-web` from `spring-security-test`, so once task 284 made generated clients create Spring Security mock users again, example tests failed later with `NoClassDefFoundError: org/springframework/security/web/context/SecurityContextRepository`.
 - Updated `TestClientWriter` to guard the generated `springSecurity()` application behind `context.containsBean("springSecurityFilterChain")` while preserving the existing configurer sorting and application path.
+- Restored the full `spring-security-test` runtime classpath in `prefab-test` and added a regression test that exercises `SecurityMockMvcRequestPostProcessors.user("test")`, so security-aware generated clients can build mock users without missing-class failures.
 - Added a focused regression test in `TestClientWriterTest` that asserts the generated constructor now contains the `springSecurityFilterChain` bean guard.
 - Tried to run `mvn -q -pl annotation-processor,examples/avro -am test`, but local verification was blocked by resolution of `io.confluent:kafka-streams-avro-serde:8.3.0` from `https://packages.confluent.io/maven/`, so the runtime confirmation depends on CI.
 <!-- SECTION:NOTES:END -->

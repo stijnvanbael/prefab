@@ -70,7 +70,7 @@ public final class PartitioningKeySupport {
                     .map(ExecutableElement.class::cast)
                     .filter(method -> method.getModifiers().contains(Modifier.PUBLIC))
                     .filter(method -> !partitioningKeyOnly || method.getAnnotation(PartitioningKey.class) != null)
-                    .forEach(method -> methods.putIfAbsent(methodSignature(method), method));
+                    .forEach(method -> methods.put(methodSignature(method), method));
         }
         directSupertypes(type).forEach(supertype -> collectAnnotatedMethods(supertype, methods, visited, partitioningKeyOnly));
     }

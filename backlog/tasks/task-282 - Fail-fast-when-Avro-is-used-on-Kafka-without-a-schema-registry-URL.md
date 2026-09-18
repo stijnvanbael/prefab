@@ -1,9 +1,10 @@
 ---
 id: TASK-282
 title: Fail fast when Avro is used on Kafka without a schema registry URL
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-07 06:38'
+updated_date: '2026-09-18 11:00'
 labels:
   - bug
   - events
@@ -26,12 +27,12 @@ The mock default exists so that tests and the annotation-processor fixtures do n
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 An application that publishes or consumes AVRO events over Kafka without a configured schema.registry.url fails at startup with a message naming the missing property and the affected topics or event types.
-- [ ] #2 The mock registry fallback is no longer applied implicitly; it is only used when explicitly opted in, for example through a Prefab test property or the existing test autoconfiguration.
-- [ ] #3 Applications that use only JSON serialization are unaffected and still start without a schema registry.
-- [ ] #4 The same behaviour applies to the streams module key serdes, which today apply the mock default independently in JsonKeySerde.
-- [ ] #5 Existing tests and annotation-processor fixtures that rely on the mock registry continue to pass through the explicit opt-in, and a regression test covers the fail-fast path.
-- [ ] #6 backlog/docs/configuration.md documents the schema registry requirement for AVRO on Kafka and the test-only opt-in.
+- [x] #1 An application that publishes or consumes AVRO events over Kafka without a configured schema.registry.url fails at startup with a message naming the missing property and the affected topics or event types.
+- [x] #2 The mock registry fallback is no longer applied implicitly; it is only used when explicitly opted in, for example through a Prefab test property or the existing test autoconfiguration.
+- [x] #3 Applications that use only JSON serialization are unaffected and still start without a schema registry.
+- [x] #4 The same behaviour applies to the streams module key serdes, which today apply the mock default independently in JsonKeySerde.
+- [x] #5 Existing tests and annotation-processor fixtures that rely on the mock registry continue to pass through the explicit opt-in, and a regression test covers the fail-fast path.
+- [x] #6 backlog/docs/configuration.md documents the schema registry requirement for AVRO on Kafka and the test-only opt-in.
 <!-- AC:END -->
 
 ## Analysis
@@ -41,3 +42,13 @@ The mock default exists so that tests and the annotation-processor fixtures do n
 - The right ownership boundary is runtime support, not generated code: the `EventRegistry` already knows whether Kafka topics are AVRO-backed, so startup validation can stay deterministic and shared across core + streams.
 - Test-only convenience still needs an explicit escape hatch because topology/unit test helpers construct these serdes directly outside the Spring testcontainer path.
 <!-- SECTION:ANALYSIS:END -->
+
+## Implementation Notes
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+- Added `KafkaSchemaRegistrySupport` as the shared guard for Kafka AVRO serializers/deserializers and streams key serdes.
+- `DynamicSerializer`, `DynamicDeserializer`, and `JsonKeySerde` now fail fast for AVRO registrations without `schema.registry.url`, while still allowing an explicit `prefab.mock-schema-registry.enabled` opt-in for tests.
+- Updated topology test bootstraps and AVRO regression tests to use the explicit mock opt-in instead of the implicit fallback.
+- Documented the required Spring Kafka schema-registry properties and the test-only mock opt-in in `backlog/docs/configuration.md`.
+- Targeted Maven validation was attempted, but dependency resolution to `https://packages.confluent.io/maven/` is blocked in this environment, so the suite could not be executed here.
+<!-- SECTION:FINAL_SUMMARY:END -->

@@ -27,6 +27,24 @@ Prefab uses standard Spring Kafka properties (`spring.kafka.*`). The `KafkaConfi
 dynamic JSON serializers/deserializers via `DynamicSerializer` and `DynamicDeserializer` that look up the
 correct Avro or JSON schema from `SerializationRegistry`.
 
+When any Kafka topic is registered with `@Event(serialization = Event.Serialization.AVRO)`, a real
+schema registry URL is required at startup. Configure `schema.registry.url` through the standard Spring
+Kafka property path that matches your client:
+
+- `spring.kafka.properties.schema.registry.url`
+- `spring.kafka.producer.properties.schema.registry.url`
+- `spring.kafka.consumer.properties.schema.registry.url`
+- `spring.kafka.streams.properties.schema.registry.url`
+
+If AVRO is used on Kafka and no schema registry URL is configured, Prefab now fails fast at startup with
+an error that names the missing property and the affected topic registrations instead of silently using
+Confluent's in-memory mock registry.
+
+For tests only, you may explicitly opt into the in-memory mock registry by setting
+`spring.kafka.properties.prefab.mock-schema-registry.enabled=true` (or the producer/consumer/streams-scoped
+equivalent). Prefab's Kafka schema-registry testcontainer support remains the preferred path because it
+automatically provides a real `schema.registry.url`.
+
 By default, Prefab sets `auto.offset.reset=earliest` for production consumers when no explicit value is provided.
 
 In test mode, generated Kafka listeners (those backing `@EventHandler` methods) default to `latest`
@@ -145,4 +163,3 @@ class MyTest {
     }
 }
 ```
-

@@ -26,6 +26,7 @@ import java.time.LocalDate;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -59,21 +60,28 @@ class AvscEventWriter {
 
     void writeAll(
             Schema schema, String[] topics, Event.Platform platform, String defaultPackage,
-            ClassName contractInterface, List<AnnotationSpec> generateAnnotations
+            ClassName contractInterface, List<AnnotationSpec> generateAnnotations,
+            Map<String, List<ClassName>> interfaceImplementations
     ) {
         var namedTypes = collectNamedTypes(schema);
         var pendingUnions = new ArrayList<UnionTypeGroup>();
-        writeTopLevelRecord(schema, topics, platform, defaultPackage, contractInterface, generateAnnotations, fileWriter, pendingUnions);
-        writeNestedTypes(schema, namedTypes, defaultPackage, fileWriter, pendingUnions);
+        writeTopLevelRecord(schema, topics, platform, defaultPackage, contractInterface, generateAnnotations,
+                interfaceImplementations, fileWriter, pendingUnions);
+        writeNestedTypes(schema, namedTypes, defaultPackage, interfaceImplementations, fileWriter, pendingUnions);
         writeUnionTypes(pendingUnions, defaultPackage, fileWriter);
     }
 
     private void writeTopLevelRecord(
             Schema schema, String[] topics, Event.Platform platform,
             String defaultPackage, ClassName contractInterface, List<AnnotationSpec> generateAnnotations,
+            Map<String, List<ClassName>> interfaceImplementations,
             FileOutput fileWriter, List<UnionTypeGroup> pendingUnions
     ) {
-        var topLevelSpec = buildTopLevelRecord(schema, topics, platform, defaultPackage, contractInterface, generateAnnotations, pendingUnions);
+        var topLevelInterfaces = new ArrayList<ClassName>();
+        topLevelInterfaces.add(contractInterface);
+        topLevelInterfaces.addAll(interfaceImplementationsFor(schema, interfaceImplementations));
+        var topLevelSpec = buildTopLevelRecord(schema, topics, platform, defaultPackage, generateAnnotations,
+                distinctInterfaces(topLevelInterfaces), pendingUnions);
         if (topLevelSpec != null) {
             fileWriter.writeFile(defaultPackage, javaTypeName(schema), topLevelSpec);
         }
@@ -81,26 +89,29 @@ class AvscEventWriter {
 
     private void writeNestedTypes(
             Schema topLevelSchema, Map<String, Schema> namedTypes,
-            String defaultPackage, FileOutput fileWriter, List<UnionTypeGroup> pendingUnions
+            String defaultPackage, Map<String, List<ClassName>> interfaceImplementations,
+            FileOutput fileWriter, List<UnionTypeGroup> pendingUnions
     ) {
         for (var entry : namedTypes.entrySet()) {
             var namedSchema = entry.getValue();
             if (namedSchema.equals(topLevelSchema)) continue;
-            writeNestedType(namedSchema, defaultPackage, fileWriter, pendingUnions);
+            writeNestedType(namedSchema, defaultPackage, interfaceImplementations, fileWriter, pendingUnions);
         }
     }
 
     private void writeNestedType(
             Schema schema, String defaultPackage,
+            Map<String, List<ClassName>> interfaceImplementations,
             FileOutput fileWriter, List<UnionTypeGroup> pendingUnions
     ) {
+        var matchedInterfaces = interfaceImplementationsFor(schema, interfaceImplementations);
         if (schema.getType() == Schema.Type.RECORD) {
-            var spec = buildNestedRecord(schema, defaultPackage, pendingUnions);
+            var spec = buildNestedRecord(schema, defaultPackage, matchedInterfaces, pendingUnions);
             if (spec != null) {
                 fileWriter.writeFile(defaultPackage, javaTypeName(schema), spec);
             }
         } else if (schema.getType() == Schema.Type.ENUM) {
-            fileWriter.writeFile(defaultPackage, javaTypeName(schema), buildEnum(schema));
+            fileWriter.writeFile(defaultPackage, javaTypeName(schema), buildEnum(schema, matchedInterfaces));
         }
     }
 
@@ -136,7 +147,7 @@ class AvscEventWriter {
 
     private TypeSpec buildTopLevelRecord(
             Schema schema, String[] topics, Event.Platform platform,
-            String schemaPackage, ClassName contractInterface, List<AnnotationSpec> generateAnnotations,
+            String schemaPackage, List<AnnotationSpec> generateAnnotations, List<ClassName> superinterfaces,
             List<UnionTypeGroup> pendingUnions
     ) {
         return buildFields(schema, schemaPackage, pendingUnions)
@@ -146,8 +157,8 @@ class AvscEventWriter {
                     var builder = TypeSpec.recordBuilder(typeName)
                             .addModifiers(Modifier.PUBLIC)
                             .recordConstructor(buildCompactConstructor(fields))
-                            .addAnnotation(buildEventAnnotation(topics, platform))
-                            .addSuperinterface(contractInterface);
+                            .addAnnotation(buildEventAnnotation(topics, platform));
+                    superinterfaces.forEach(builder::addSuperinterface);
                     generateAnnotations.forEach(builder::addAnnotation);
                     docOf(schema).ifPresent(doc -> builder.addAnnotation(docAnnotation(doc)));
                     avroSchemaAnnotation(schema).ifPresent(builder::addAnnotation);
@@ -159,7 +170,9 @@ class AvscEventWriter {
                 .orElse(null);
     }
 
-    private TypeSpec buildNestedRecord(Schema schema, String defaultPackage, List<UnionTypeGroup> pendingUnions) {
+    private TypeSpec buildNestedRecord(
+            Schema schema, String defaultPackage, List<ClassName> superinterfaces, List<UnionTypeGroup> pendingUnions
+    ) {
         return buildFields(schema, defaultPackage, pendingUnions)
                 .map(fields -> {
                     var typeName = javaTypeName(schema);
@@ -167,6 +180,7 @@ class AvscEventWriter {
                     var builder = TypeSpec.recordBuilder(typeName)
                             .addModifiers(Modifier.PUBLIC)
                             .recordConstructor(buildCompactConstructor(fields));
+                    distinctInterfaces(superinterfaces).forEach(builder::addSuperinterface);
                     docOf(schema).ifPresent(doc -> builder.addAnnotation(docAnnotation(doc)));
                     avroSchemaAnnotation(schema).ifPresent(builder::addAnnotation);
                     new BuilderWriter(builderSetterPrefix()).enrichWithBuilder(
@@ -543,14 +557,23 @@ class AvscEventWriter {
         return builder.build();
     }
 
-    private TypeSpec buildEnum(Schema schema) {
+    private TypeSpec buildEnum(Schema schema, List<ClassName> superinterfaces) {
         var typeName = javaTypeName(schema);
         var enumBuilder = TypeSpec.enumBuilder(typeName)
                 .addModifiers(Modifier.PUBLIC);
+        distinctInterfaces(superinterfaces).forEach(enumBuilder::addSuperinterface);
         docOf(schema).ifPresent(doc -> enumBuilder.addAnnotation(docAnnotation(doc)));
         avroSchemaAnnotation(schema).ifPresent(enumBuilder::addAnnotation);
         schema.getEnumSymbols().forEach(enumBuilder::addEnumConstant);
         return enumBuilder.build();
+    }
+
+    private List<ClassName> interfaceImplementationsFor(Schema schema, Map<String, List<ClassName>> interfaceImplementations) {
+        return interfaceImplementations.getOrDefault(avroTypeKey(schema), List.of());
+    }
+
+    private List<ClassName> distinctInterfaces(List<ClassName> interfaces) {
+        return new ArrayList<>(new LinkedHashSet<>(interfaces));
     }
 
     private TypeName toTypeName(Schema schema, String defaultPackage, boolean nullable) {
@@ -610,6 +633,11 @@ class AvscEventWriter {
 
     private static String javaTypeName(Schema schema) {
         return capitalize(schema.getName());
+    }
+
+    private static String avroTypeKey(Schema schema) {
+        var namespace = schema.getNamespace();
+        return namespace == null || namespace.isBlank() ? schema.getName() : namespace + "." + schema.getName();
     }
 
     private static String capitalize(String name) {

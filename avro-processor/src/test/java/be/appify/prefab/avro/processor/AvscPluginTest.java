@@ -752,6 +752,24 @@ class AvscPluginTest {
                 .contains("enabled = false");
     }
 
+    @Test
+    void avscConfiguredInterfacesAreImplementedByMatchingGeneratedRecordsAndEnums() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/interfaceimplementation/source/InterfaceImplementationAvsc.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("event.avsc.interfaceimplementation.LifecycleStarted")
+                .contentsAsUtf8String()
+                .contains("implements InterfaceImplementationAvsc, LifecycleEvent, SharedLifecycleEvent");
+        assertThat(compilation).generatedSourceFile("event.avsc.interfaceimplementation.LifecycleStopped")
+                .contentsAsUtf8String()
+                .contains("implements InterfaceImplementationAvsc, LifecycleEvent");
+        assertThat(compilation).generatedSourceFile("event.avsc.interfaceimplementation.Status")
+                .contentsAsUtf8String()
+                .contains("enum Status implements LifecycleStatus");
+    }
+
     // -------------------------------------------------------------------------
     // Schema-contract validation: compact-constructor checks (TASK-257)
     // -------------------------------------------------------------------------

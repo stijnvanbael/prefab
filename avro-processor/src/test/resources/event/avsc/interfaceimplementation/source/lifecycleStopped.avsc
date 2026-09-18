@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "lifecycleStopped",
+  "namespace": "intern.events.lifecycle.v1",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {
+      "name": "status",
+      "type": {
+        "type": "enum",
+        "name": "status",
+        "namespace": "intern.events.lifecycle.v1",
+        "symbols": ["STARTED", "PAUSED"]
+      }
+    }
+  ]
+}

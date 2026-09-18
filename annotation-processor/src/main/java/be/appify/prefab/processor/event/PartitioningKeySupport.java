@@ -64,6 +64,7 @@ public final class PartitioningKeySupport {
         if (element == null || !visited.add(element.getQualifiedName().toString())) {
             return;
         }
+        directSupertypes(type).forEach(supertype -> collectAnnotatedMethods(supertype, methods, visited, partitioningKeyOnly));
         if (element.getKind() == ElementKind.CLASS || element.getKind() == ElementKind.INTERFACE || element.getKind() == ElementKind.RECORD) {
             element.getEnclosedElements().stream()
                     .filter(member -> member.getKind() == ElementKind.METHOD)
@@ -72,7 +73,6 @@ public final class PartitioningKeySupport {
                     .filter(method -> !partitioningKeyOnly || method.getAnnotation(PartitioningKey.class) != null)
                     .forEach(method -> methods.put(methodSignature(method), method));
         }
-        directSupertypes(type).forEach(supertype -> collectAnnotatedMethods(supertype, methods, visited, partitioningKeyOnly));
     }
 
     private static Stream<TypeManifest> directSupertypes(TypeManifest type) {

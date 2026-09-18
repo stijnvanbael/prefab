@@ -9,6 +9,7 @@ import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.event.EventTypeRegistrarWriter;
+import be.appify.prefab.processor.event.PartitioningKeySupport;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import org.apache.avro.Schema;
@@ -29,8 +30,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
-import static be.appify.prefab.processor.event.ConsumerWriterSupport.keyField;
 
 /**
  * Prefab plugin to generate Kafka producers and consumers based on event annotations.
@@ -121,8 +120,15 @@ public class KafkaPlugin implements PrefabPlugin {
         var packageName = context.processingEnvironment().getElementUtils()
                 .getPackageOf(element).getQualifiedName().toString();
         var eventManifest = TypeManifest.of(element.asType(), context.processingEnvironment());
-        var sharedPartitioningProperty = sharedPartitioningProperty(eventManifest);
-        var sharedKeyExtractor = keyField(eventManifest, context);
+        var hasSharedPartitioningKey = PartitioningKeySupport.hasPartitioningKey(eventManifest);
+        var sharedPartitioningKey = PartitioningKeySupport.partitioningKey(eventManifest, context);
+        if (hasSharedPartitioningKey && sharedPartitioningKey.isEmpty()) {
+            return;
+        }
+        var sharedPartitioningProperty = sharedPartitioningKey
+                .filter(key -> !key.synthetic())
+                .map(PartitioningKeySupport.PartitioningKeyMethod::propertyName);
+        var sharedKeyExtractor = sharedPartitioningKey.map(PartitioningKeySupport.PartitioningKeyMethod::extractor);
         for (var definition : avscFiles.definitions()) {
             var schema = parseAvscSchema(definition.path(), element);
             if (schema == null)
@@ -132,6 +138,14 @@ public class KafkaPlugin implements PrefabPlugin {
                 context.logError(
                         missingPartitioningPropertyMessage(definition, effectivePartitioningProperty.orElseThrow(), sharedPartitioningProperty),
                         element);
+                continue;
+            }
+            var missingContractMethod = definition.keyProperty().isEmpty()
+                    && sharedPartitioningKey.filter(PartitioningKeySupport.PartitioningKeyMethod::synthetic).isPresent()
+                    ? missingContractMethod(schema, eventManifest)
+                    : Optional.<String>empty();
+            if (missingContractMethod.isPresent()) {
+                context.logError(missingContractMethodMessage(definition.path(), missingContractMethod.orElseThrow()), element);
                 continue;
             }
             var schemaPackage = schema.getNamespace() != null ? schema.getNamespace() : packageName;
@@ -148,10 +162,11 @@ public class KafkaPlugin implements PrefabPlugin {
         }
     }
 
-    private Optional<String> sharedPartitioningProperty(TypeManifest eventManifest) {
-        return eventManifest.methodsWith(be.appify.prefab.core.annotations.PartitioningKey.class).stream()
-                .findFirst()
-                .map(method -> method.getSimpleName().toString());
+    private Optional<String> missingContractMethod(Schema schema, TypeManifest eventManifest) {
+        return PartitioningKeySupport.abstractContractMethods(eventManifest).stream()
+                .map(method -> method.getSimpleName().toString())
+                .filter(methodName -> schema.getField(methodName) == null)
+                .findFirst();
     }
 
     private String missingPartitioningPropertyMessage(AvscFiles.Definition definition, String property,
@@ -166,6 +181,11 @@ public class KafkaPlugin implements PrefabPlugin {
         }
         return "AVSC file '%s' does not define field '%s'."
                 .formatted(definition.path(), property);
+    }
+
+    private String missingContractMethodMessage(String path, String methodName) {
+        return "AVSC file '%s' is missing field '%s' required by the shared @Avsc contract method '%s()'."
+                .formatted(path, methodName, methodName);
     }
 
     private Schema parseAvscSchema(String path, TypeElement originatingElement) {

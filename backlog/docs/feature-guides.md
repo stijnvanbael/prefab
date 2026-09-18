@@ -286,8 +286,26 @@ files. If a generated schema is not compatible with the AVSC contract, schema fa
 fails fast with an explicit exception.
 
 When all referenced AVSC events share the same partitioning key, prefer `@Avsc({...})` and declare a
-matching `@PartitioningKey` method on the shared interface. Prefab uses that method for all generated
-event registrars.
+shared `@PartitioningKey` method on the contract. That method can either match a physical schema field
+or be a derived default method:
+
+```java
+@Event(topic = "sale", serialization = Event.Serialization.AVRO)
+@Avsc({"avro/sale-created.avsc", "avro/sale-paid.avsc"})
+public interface SaleEvent {
+    String tenantId();
+    String saleId();
+
+    @PartitioningKey
+    default String tenantSaleKey() {
+        return tenantId() + ":" + saleId();
+    }
+}
+```
+
+For synthetic keys, every referenced schema must still expose the shared accessor methods used by the
+default implementation (for example `tenantId` and `saleId` above). Prefab uses the shared method for
+all generated event registrars.
 
 Use `files = @AvscFile(...)` when different AVSC files need different partitioning-key properties, or
 when only some of the generated events should register a partitioning-key extractor. In that case,

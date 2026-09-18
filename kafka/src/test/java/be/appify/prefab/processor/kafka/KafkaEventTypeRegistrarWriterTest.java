@@ -130,6 +130,28 @@ class KafkaEventTypeRegistrarWriterTest {
     }
 
     @Test
+    void syntheticPartitioningKeyMethodOnRegularEventUsesMethodExtractor() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("kafka/synthetic/SyntheticOrderEvent.java"));
+        assertThat(compilation).succeeded();
+        var source = generatedSourceOf(compilation, "kafka.synthetic.infrastructure.event.SyntheticOrderEventEventTypeRegistrar");
+        assertThat(source).contains("registry.register(\"prefab.synthetic\", SyntheticOrderEvent.class, Event.Serialization.JSON, event -> event.tenantOrderKey())");
+    }
+
+    @Test
+    void syntheticPartitioningKeyMethodOnAvscContractUsesSharedMethodExtractor() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/avscsynthetic/SyntheticOrderEvents.java"),
+                        sourceOf("kafka/avscsynthetic/SyntheticOrderProcessor.java"));
+        assertThat(compilation).succeeded();
+        var source = generatedSourceOf(compilation, "kafka.avscsynthetic.infrastructure.event.SyntheticOrderCreatedEventTypeRegistrar");
+        assertThat(source).contains("registry.register(\"prefab.synthetic.avsc\", SyntheticOrderCreated.class, Event.Serialization.AVRO, event -> event.tenantOrderKey())");
+    }
+
+    @Test
     void dependencyEventDoesNotGenerateRegistrarInConsumer() {
         var dependencyClasspath = compileDependencyClasspath(
                 sourceOf("kafka/dependencyevents/ExternalUserCreated.java"));

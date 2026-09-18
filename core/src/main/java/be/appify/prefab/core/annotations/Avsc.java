@@ -45,8 +45,16 @@ import java.lang.annotation.Target;
  *         "avro/sale-created.avsc",
  *         "avro/sale-paid.avsc"
  * })
- * @AvscInterface(type = LifecycleEvent.class, namespace = "be.example.sale", name = "saleCreated")
- * @AvscInterface(type = LifecycleEvent.class, namespace = "be.example.sale", name = "salePaid")
+ * @be.appify.prefab.core.annotations.AvscInterface(
+ *         type = LifecycleEvent.class,
+ *         namespace = "be.example.sale",
+ *         name = "saleCreated"
+ * )
+ * @be.appify.prefab.core.annotations.AvscInterface(
+ *         type = LifecycleEvent.class,
+ *         namespace = "be.example.sale",
+ *         name = "salePaid"
+ * )
  * public interface SaleEvent {}
  *
  * interface LifecycleEvent {

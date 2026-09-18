@@ -5,9 +5,10 @@ import be.appify.prefab.core.annotations.AvscFiles;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.Generate;
 import be.appify.prefab.core.annotations.OutputTarget;
-import be.appify.prefab.core.annotations.PartitioningKey;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
+import be.appify.prefab.processor.TypeManifest;
+import be.appify.prefab.processor.event.PartitioningKeySupport;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
@@ -65,8 +66,16 @@ public class AvscPlugin implements PrefabPlugin {
                 .getQualifiedName()
                 .toString();
         var contractInterface = ClassName.get(contractPackage, typeElement.getSimpleName().toString());
+        var eventManifest = TypeManifest.of(typeElement.asType(), context.processingEnvironment());
         var generateAnnotationSpecs = buildGenerateAnnotationSpecs(typeElement);
-        var sharedPartitioningProperty = sharedPartitioningProperty(typeElement);
+        var hasSharedPartitioningKey = PartitioningKeySupport.hasPartitioningKey(eventManifest);
+        var sharedPartitioningKey = PartitioningKeySupport.partitioningKey(eventManifest, context);
+        if (hasSharedPartitioningKey && sharedPartitioningKey.isEmpty()) {
+            return;
+        }
+        var sharedPartitioningProperty = sharedPartitioningKey
+                .filter(key -> !key.synthetic())
+                .map(PartitioningKeySupport.PartitioningKeyMethod::propertyName);
         var writer = new AvscEventWriter(context);
         for (var definition : avscFiles.definitions()) {
             var schema = parseSchema(definition.path(), element);
@@ -76,6 +85,17 @@ public class AvscPlugin implements PrefabPlugin {
                 context.processingEnvironment().getMessager().printMessage(
                         Diagnostic.Kind.ERROR,
                         missingPartitioningPropertyMessage(definition, effectivePartitioningProperty.orElseThrow(), sharedPartitioningProperty),
+                        element);
+                continue;
+            }
+            var missingContractMethod = definition.keyProperty().isEmpty()
+                    && sharedPartitioningKey.filter(PartitioningKeySupport.PartitioningKeyMethod::synthetic).isPresent()
+                    ? hasMissingContractMethod(schema, eventManifest)
+                    : Optional.<String>empty();
+            if (missingContractMethod.isPresent()) {
+                context.processingEnvironment().getMessager().printMessage(
+                        Diagnostic.Kind.ERROR,
+                        missingContractMethodMessage(definition.path(), missingContractMethod.orElseThrow()),
                         element);
                 continue;
             }
@@ -93,11 +113,11 @@ public class AvscPlugin implements PrefabPlugin {
         }
     }
 
-    private Optional<String> sharedPartitioningProperty(TypeElement typeElement) {
-        return typeElement.getEnclosedElements().stream()
-                .filter(element -> element.getAnnotation(PartitioningKey.class) != null)
-                .findFirst()
-                .map(element -> element.getSimpleName().toString());
+    private Optional<String> hasMissingContractMethod(Schema schema, TypeManifest eventManifest) {
+        return PartitioningKeySupport.abstractContractMethods(eventManifest).stream()
+                .map(method -> method.getSimpleName().toString())
+                .filter(methodName -> schema.getField(methodName) == null)
+                .findFirst();
     }
 
     private String missingPartitioningPropertyMessage(AvscFiles.Definition definition, String property,
@@ -112,6 +132,11 @@ public class AvscPlugin implements PrefabPlugin {
         }
         return "AVSC file '%s' does not define field '%s'."
                 .formatted(definition.path(), property);
+    }
+
+    private String missingContractMethodMessage(String path, String methodName) {
+        return "AVSC file '%s' is missing field '%s' required by the shared @Avsc contract method '%s()'."
+                .formatted(path, methodName, methodName);
     }
 
     private List<AnnotationSpec> buildGenerateAnnotationSpecs(TypeElement element) {

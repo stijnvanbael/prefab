@@ -733,7 +733,7 @@ AVSC-first event generation. Must be combined with `@Event(serialization = AVRO)
 
 | Attribute | Type         | Default | Description                                                                                  |
 |-----------|--------------|---------|----------------------------------------------------------------------------------------------|
-| `value`   | `String[]`   | `{}`    | Preferred form when all referenced AVSC events share the same `@PartitioningKey` contract method. |
+| `value`   | `String[]`   | `{}`    | Preferred form when all referenced AVSC events share the same `@PartitioningKey` contract method, including a derived default method. |
 | `files`   | `AvscFile[]` | `{}`    | Explicit schema declarations with optional per-file `keyProperty` partitioning-key metadata. |
 
 See [Feature Guides — Avro / AVSC-first Events](feature-guides.md#74-avro--avsc-first-events) for full details.
@@ -742,9 +742,14 @@ See [Feature Guides — Avro / AVSC-first Events](feature-guides.md#74-avro--avs
 
 @Event(topic = "sale", serialization = Event.Serialization.AVRO)
 @Avsc({"avro/sale-created.avsc", "avro/sale-paid.avsc"})
-public sealed interface SaleEvent permits SaleCreated, SalePaid {
-    @PartitioningKey
+public interface SaleEvent {
+    String tenantId();
     String saleId();
+
+    @PartitioningKey
+    default String tenantSaleKey() {
+        return tenantId() + ":" + saleId();
+    }
 }
 ```
 
@@ -773,8 +778,8 @@ type name or package name.
 **Target:** `FIELD`, `METHOD`
 **Retention:** `SOURCE`
 
-Marks the field that determines which partition (Kafka) or ordering key (Pub/Sub, SQS) an event is
-routed to. Ensures that events for the same entity arrive in order.
+Marks the field or no-argument method that determines which partition (Kafka) or ordering key (Pub/Sub,
+SQS) an event is routed to. Ensures that events for the same entity arrive in order.
 
 **Attributes:** None
 
@@ -787,6 +792,21 @@ public record OrderCreated(
 ) {
 }
 ```
+
+```java
+@Event(topic = "orders")
+public record OrderExported(String tenantId, String orderId) {
+    @PartitioningKey
+    public String tenantOrderKey() {
+        return tenantId + ":" + orderId;
+    }
+}
+```
+
+Method-based partitioning keys must take no arguments and must resolve to `String`, either directly or
+through a single-value wrapper. For `@Avsc` contracts, prefer a default method when the key is derived
+from other shared schema-backed accessors, and use `keyProperty` when each schema needs a different
+physical field.
 
 ---
 

@@ -32,8 +32,13 @@ import java.lang.annotation.Target;
  * @Event(topic = "sale", serialization = Event.Serialization.AVRO)
  * @Avsc({"avro/sale-created.avsc", "avro/sale-paid.avsc", "avro/sale-cancelled.avsc"})
  * public interface SaleEvent {
- *     @PartitioningKey
+ *     String tenantId();
  *     String saleId();
+ *
+ *     @PartitioningKey
+ *     default String tenantSaleKey() {
+ *         return tenantId() + ":" + saleId();
+ *     }
  * }
  * }</pre>
  *
@@ -64,7 +69,8 @@ public @interface Avsc {
      * each path; all generated records implement the annotated interface.
      *
      * <p>This is the preferred form when all referenced AVSC events share the same partitioning key. In
-     * that case, declare a matching interface method annotated with {@link PartitioningKey}.
+     * that case, declare a shared {@link PartitioningKey} method on the contract, either as a schema-backed
+     * accessor or as a derived default method implemented from other shared accessors.
      *
      * @return the classpath-relative paths to the AVSC files
      */

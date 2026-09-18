@@ -138,8 +138,8 @@ public class AvscPlugin implements PrefabPlugin {
 
     private Optional<InterfaceImplementation> toInterfaceImplementation(AvscInterface annotation, TypeElement originatingElement) {
         var typeMirror = interfaceTypeMirror(annotation);
-        var typeElement = (TypeElement) context.processingEnvironment().getTypeUtils().asElement(typeMirror);
-        if (typeElement == null || typeElement.getKind() != ElementKind.INTERFACE) {
+        var resolvedElement = context.processingEnvironment().getTypeUtils().asElement(typeMirror);
+        if (!(resolvedElement instanceof TypeElement typeElement) || typeElement.getKind() != ElementKind.INTERFACE) {
             context.processingEnvironment().getMessager().printMessage(
                     Diagnostic.Kind.ERROR,
                     "@AvscInterface.type must reference a Java interface.",

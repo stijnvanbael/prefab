@@ -1,9 +1,10 @@
 ---
 id: TASK-281
 title: Support synthetic partitioning keys in event contracts
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-06 07:31'
+updated_date: '2026-09-18 09:46'
 labels:
   - feature
   - events
@@ -31,3 +32,20 @@ Out of scope: changing partition selection algorithms, adding runtime hashing op
 - [ ] #4 The build fails with clear compile-time feedback when a synthetic partitioning key cannot be generated or invoked safely, for example because the method is abstract for an AVSC-generated event, depends on properties that are not present on all referenced event types, or violates the existing key return-type rules.
 - [ ] #5 Generated event registrars and producer infrastructure use the synthetic method for key extraction everywhere Prefab currently honours event partitioning keys, and docs/examples explain when to use synthetic keys versus schema-backed @PartitioningKey or keyProperty.
 <!-- AC:END -->
+
+## Analysis
+
+- Regular event registrars already extract keys by invoking the annotated method name, so method-based synthetic keys are structurally compatible with the existing `EventRegistry` flow as long as the generated lambda returns a `String`.
+- The current AVSC path still assumes every shared `@PartitioningKey` method is schema-backed by a top-level field of the same name:
+  - `avro-processor/.../AvscPlugin` validates the method name against each schema field list
+  - `kafka/.../KafkaPlugin` repeats the same validation before generating AVSC registrars
+- That assumption blocks valid default/interface methods such as `tenantId() + ":" + entityId()` even though the generated records can inherit and invoke those methods safely when their dependent accessors are present on every schema.
+- The smallest safe fix is to classify partitioning keys as either:
+  - schema-backed (`@PartitioningKey` abstract accessor or explicit `keyProperty`)
+  - synthetic (`@PartitioningKey` default/concrete method)
+- AVSC validation should keep the existing field-backed checks, but allow synthetic keys while failing early with explicit errors when:
+  - the synthetic key method returns an unsupported type for `EventRegistry`
+  - referenced schemas do not provide the abstract accessor methods required by the shared contract
+  - an explicit `keyProperty` still points to a missing field
+
+## Implementation Notes

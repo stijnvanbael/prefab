@@ -1,10 +1,10 @@
 ---
 id: TASK-281
 title: Support synthetic partitioning keys in event contracts
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-06 07:31'
-updated_date: '2026-09-18 09:46'
+updated_date: '2026-09-18 10:00'
 labels:
   - feature
   - events
@@ -26,11 +26,11 @@ Out of scope: changing partition selection algorithms, adding runtime hashing op
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Developers can declare a synthetic @PartitioningKey method for an event contract when the routing key is derived from existing event properties instead of a serialized field.
-- [ ] #2 AVSC-backed event contracts can use the same synthetic partitioning-key pattern without requiring keyProperty to point at a physical top-level schema field.
-- [ ] #3 Annotation processing distinguishes between schema-backed partitioning keys and synthetic/default/computed ones, keeping existing validation for field-backed keys while allowing derived implementations that are fully resolvable from the event contract.
-- [ ] #4 The build fails with clear compile-time feedback when a synthetic partitioning key cannot be generated or invoked safely, for example because the method is abstract for an AVSC-generated event, depends on properties that are not present on all referenced event types, or violates the existing key return-type rules.
-- [ ] #5 Generated event registrars and producer infrastructure use the synthetic method for key extraction everywhere Prefab currently honours event partitioning keys, and docs/examples explain when to use synthetic keys versus schema-backed @PartitioningKey or keyProperty.
+- [x] #1 Developers can declare a synthetic @PartitioningKey method for an event contract when the routing key is derived from existing event properties instead of a serialized field.
+- [x] #2 AVSC-backed event contracts can use the same synthetic partitioning-key pattern without requiring keyProperty to point at a physical top-level schema field.
+- [x] #3 Annotation processing distinguishes between schema-backed partitioning keys and synthetic/default/computed ones, keeping existing validation for field-backed keys while allowing derived implementations that are fully resolvable from the event contract.
+- [x] #4 The build fails with clear compile-time feedback when a synthetic partitioning key cannot be generated or invoked safely, for example because the method is abstract for an AVSC-generated event, depends on properties that are not present on all referenced event types, or violates the existing key return-type rules.
+- [x] #5 Generated event registrars and producer infrastructure use the synthetic method for key extraction everywhere Prefab currently honours event partitioning keys, and docs/examples explain when to use synthetic keys versus schema-backed @PartitioningKey or keyProperty.
 <!-- AC:END -->
 
 ## Analysis
@@ -49,3 +49,27 @@ Out of scope: changing partition selection algorithms, adding runtime hashing op
   - an explicit `keyProperty` still points to a missing field
 
 ## Implementation Notes
+
+- Added shared `PartitioningKeySupport` resolution in the annotation processor so generated registrars can distinguish schema-backed partitioning keys from synthetic default/concrete methods and validate supported return types early.
+- Updated AVSC processing in both `AvscPlugin` and Kafka registrar generation to keep field-backed validation for abstract/shared accessors while allowing synthetic shared methods and explicitly rejecting schemas that miss required shared contract accessors.
+- Added compile-testing coverage for:
+  - synthetic partitioning-key methods on regular Kafka events
+  - synthetic shared partitioning-key methods on AVSC contracts
+  - invalid AVSC synthetic keys with missing contract accessors
+  - invalid synthetic key return types
+- Updated the public annotation docs and Javadocs to explain when to use synthetic `@PartitioningKey` methods versus per-schema `keyProperty`.
+
+## Completion Notes
+
+- Synthetic `@PartitioningKey` methods now work for regular event records and shared AVSC contracts when the method is directly invokable from the generated event type.
+- AVSC validation now treats abstract `@PartitioningKey` methods as schema-backed accessors and default/concrete methods as synthetic keys, preserving the previous field-name validation only for the schema-backed case.
+- Builds now fail with explicit annotation-processor errors when:
+  - a partitioning-key method returns something other than `String` or a single-value wrapper around `String`
+  - an AVSC schema used with a synthetic shared key is missing a required abstract contract accessor
+
+## Verification
+
+- Added focused compile-testing coverage in `AvscPluginTest` and `KafkaEventTypeRegistrarWriterTest`.
+- Attempted Maven verification with:
+  - `mvn -q -pl core,annotation-processor,avro-processor,kafka -am -Dtest=AvscPluginTest,KafkaEventTypeRegistrarWriterTest -Dsurefire.failIfNoSpecifiedTests=false test`
+- Maven verification was blocked in the sandbox because dependency resolution for `io.confluent:kafka-streams-avro-serde:8.3.0` could not reach `packages.confluent.io`.

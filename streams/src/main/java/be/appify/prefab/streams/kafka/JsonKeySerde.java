@@ -2,10 +2,11 @@ package be.appify.prefab.streams.kafka;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.core.kafka.KafkaSchemaRegistrySupport;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroDeserializer;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroSerializer;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serde;
@@ -64,7 +65,9 @@ public class JsonKeySerde<K> implements Serde<K> {
         private final JsonMapper mapper;
         private final EventRegistry eventRegistry;
         private final ConversionService conversionService;
-        private final GenericAvroSerializer avroSerializer;
+        private final Map<String, Object> kafkaClientProperties;
+        private final ReentrantLock avroSerializerLock = new ReentrantLock();
+        private GenericAvroSerializer avroSerializer;
 
         JsonKeySerializer(
                 JsonMapper mapper,
@@ -75,8 +78,10 @@ public class JsonKeySerde<K> implements Serde<K> {
             this.mapper = mapper;
             this.eventRegistry = eventRegistry;
             this.conversionService = conversionService;
-            this.avroSerializer = new GenericAvroSerializer();
-            this.avroSerializer.configure(withSchemaRegistryUrl(kafkaClientProperties), true);
+            this.kafkaClientProperties = Map.copyOf(kafkaClientProperties);
+            if (eventRegistry != null && eventRegistry.hasSerialization(Event.Serialization.AVRO)) {
+                this.avroSerializer = configuredAvroSerializer();
+            }
         }
 
         @Override
@@ -86,7 +91,7 @@ public class JsonKeySerde<K> implements Serde<K> {
             }
             try {
                 if (isAvroTopic(topic, eventRegistry)) {
-                    return avroSerializer.serialize(topic, toGenericRecord(data));
+                    return avroSerializer().serialize(topic, toGenericRecord(data));
                 }
                 return mapper.writeValueAsBytes(data);
             } catch (Exception e) {
@@ -108,15 +113,40 @@ public class JsonKeySerde<K> implements Serde<K> {
             }
             return AvroKeyRecordMapper.toGenericRecord(data);
         }
+
+        private GenericAvroSerializer avroSerializer() {
+            var serializer = avroSerializer;
+            if (serializer != null) {
+                return serializer;
+            }
+            avroSerializerLock.lock();
+            try {
+                if (avroSerializer == null) {
+                    avroSerializer = configuredAvroSerializer();
+                }
+                return avroSerializer;
+            } finally {
+                avroSerializerLock.unlock();
+            }
+        }
+
+        private GenericAvroSerializer configuredAvroSerializer() {
+            var serializer = new GenericAvroSerializer();
+            serializer.configure(
+                    KafkaSchemaRegistrySupport.avroClientProperties(kafkaClientProperties, eventRegistry),
+                    true);
+            return serializer;
+        }
     }
 
-    private record JsonKeyDeserializer<K>(
-            Class<K> keyType,
-            JsonMapper mapper,
-            EventRegistry eventRegistry,
-            ConversionService conversionService,
-            GenericAvroDeserializer avroDeserializer
-    ) implements Deserializer<K> {
+    private static class JsonKeyDeserializer<K> implements Deserializer<K> {
+        private final Class<K> keyType;
+        private final JsonMapper mapper;
+        private final EventRegistry eventRegistry;
+        private final ConversionService conversionService;
+        private final Map<String, Object> kafkaClientProperties;
+        private final ReentrantLock avroDeserializerLock = new ReentrantLock();
+        private GenericAvroDeserializer avroDeserializer;
 
         JsonKeyDeserializer(
                 Class<K> keyType,
@@ -125,13 +155,14 @@ public class JsonKeySerde<K> implements Serde<K> {
                 ConversionService conversionService,
                 Map<String, Object> kafkaClientProperties
         ) {
-            this(
-                    keyType,
-                    mapper,
-                    eventRegistry,
-                    conversionService,
-                    configuredAvroDeserializer(kafkaClientProperties)
-            );
+            this.keyType = keyType;
+            this.mapper = mapper;
+            this.eventRegistry = eventRegistry;
+            this.conversionService = conversionService;
+            this.kafkaClientProperties = Map.copyOf(kafkaClientProperties);
+            if (eventRegistry != null && eventRegistry.hasSerialization(Event.Serialization.AVRO)) {
+                this.avroDeserializer = configuredAvroDeserializer();
+            }
         }
 
         @Override
@@ -141,7 +172,7 @@ public class JsonKeySerde<K> implements Serde<K> {
             }
             try {
                 if (isAvroTopic(topic, eventRegistry)) {
-                    var genericRecord = avroDeserializer.deserialize(topic, data);
+                    var genericRecord = avroDeserializer().deserialize(topic, data);
                     if (genericRecord == null) {
                         return null;
                     }
@@ -168,18 +199,30 @@ public class JsonKeySerde<K> implements Serde<K> {
             }
             return (K) genericRecord;
         }
-    }
 
-    private static GenericAvroDeserializer configuredAvroDeserializer(Map<String, Object> kafkaClientProperties) {
-        var deserializer = new GenericAvroDeserializer();
-        deserializer.configure(withSchemaRegistryUrl(kafkaClientProperties), true);
-        return deserializer;
-    }
+        private GenericAvroDeserializer avroDeserializer() {
+            var deserializer = avroDeserializer;
+            if (deserializer != null) {
+                return deserializer;
+            }
+            avroDeserializerLock.lock();
+            try {
+                if (avroDeserializer == null) {
+                    avroDeserializer = configuredAvroDeserializer();
+                }
+                return avroDeserializer;
+            } finally {
+                avroDeserializerLock.unlock();
+            }
+        }
 
-    private static Map<String, Object> withSchemaRegistryUrl(Map<String, Object> kafkaClientProperties) {
-        var properties = new HashMap<>(kafkaClientProperties);
-        properties.putIfAbsent("schema.registry.url", "mock://schema-url");
-        return properties;
+        private GenericAvroDeserializer configuredAvroDeserializer() {
+            var deserializer = new GenericAvroDeserializer();
+            deserializer.configure(
+                    KafkaSchemaRegistrySupport.avroClientProperties(kafkaClientProperties, eventRegistry),
+                    true);
+            return deserializer;
+        }
     }
 
     private static boolean isAvroTopic(String topic, EventRegistry eventRegistry) {

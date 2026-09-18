@@ -1,6 +1,9 @@
 package be.appify.prefab.core.kafka;
 
+import be.appify.prefab.core.annotations.Event;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroDeserializer;
+import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.slf4j.Logger;
@@ -19,9 +22,11 @@ public class DynamicDeserializer implements Deserializer<Object> {
     private static final Logger log = LoggerFactory.getLogger(DynamicDeserializer.class);
 
     private final JacksonJsonDeserializer<Object> jsonDeserializer = new JacksonJsonDeserializer<>();
-    private final GenericAvroDeserializer avroDeserializer = new GenericAvroDeserializer();
     private final ConversionService conversionService;
     private final EventRegistry eventRegistry;
+    private final Map<String, Object> consumerProperties;
+    private final ReentrantLock avroDeserializerLock = new ReentrantLock();
+    private GenericAvroDeserializer avroDeserializer;
 
     /**
      * Constructs a DynamicDeserializer and configures the underlying JsonDeserializer and AvroDeserializer.
@@ -37,14 +42,13 @@ public class DynamicDeserializer implements Deserializer<Object> {
     ) {
         this.conversionService = conversionService;
         this.eventRegistry = eventRegistry;
-        var consumerProperties = kafkaProperties.buildConsumerProperties();
+        this.consumerProperties = kafkaProperties.buildConsumerProperties();
         jsonDeserializer.setTypeResolver(
                 (topic, data, headers) -> TypeFactory.unsafeSimpleType(eventRegistry.typeFor(topic)));
         jsonDeserializer.configure(consumerProperties, false);
-        if (!consumerProperties.containsKey("schema.registry.url")) {
-            consumerProperties.put("schema.registry.url", "mock://schema-url");
+        if (eventRegistry.hasSerialization(Event.Serialization.AVRO)) {
+            this.avroDeserializer = configuredAvroDeserializer();
         }
-        avroDeserializer.configure(consumerProperties, false);
     }
 
     /**
@@ -63,7 +67,7 @@ public class DynamicDeserializer implements Deserializer<Object> {
         } else {
             try {
                 return switch (eventRegistry.serialization(topic)) {
-                    case AVRO -> toEvent(topic, avroDeserializer.deserialize(topic, data));
+                    case AVRO -> toEvent(topic, avroDeserializer().deserialize(topic, data));
                     case JSON -> jsonDeserializer.deserialize(topic, data);
                 };
             } catch (UnknownEventTypeException e) {
@@ -76,6 +80,28 @@ public class DynamicDeserializer implements Deserializer<Object> {
                 throw e;
             }
         }
+    }
+
+    private GenericAvroDeserializer avroDeserializer() {
+        var deserializer = avroDeserializer;
+        if (deserializer != null) {
+            return deserializer;
+        }
+        avroDeserializerLock.lock();
+        try {
+            if (avroDeserializer == null) {
+                avroDeserializer = configuredAvroDeserializer();
+            }
+            return avroDeserializer;
+        } finally {
+            avroDeserializerLock.unlock();
+        }
+    }
+
+    private GenericAvroDeserializer configuredAvroDeserializer() {
+        var deserializer = new GenericAvroDeserializer();
+        deserializer.configure(KafkaSchemaRegistrySupport.avroClientProperties(consumerProperties, eventRegistry), false);
+        return deserializer;
     }
 
     private Object toEvent(String topic, GenericRecord genericRecord) {

@@ -149,4 +149,16 @@ class GenericRecordToEventConverterWriterTest {
         assertThat(updated).contains("@Component(\"event_avro_GenericRecordToHierarchyEventUpdatedConverter\")");
         assertThat(updated).contains("implements Converter<GenericRecord, HierarchyEvent.Updated>");
     }
+
+    @Test
+    void transientFieldsRemainInAvroDeserialization() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avro/transientfield/source/TransientFieldEvent.java"));
+        assertThat(compilation).succeeded();
+        assertThat(generatedSourceOf(compilation, "event.avro.infrastructure.avro.GenericRecordToTransientFieldEventConverter"))
+                .contains("SchemaSupport.getString(genericRecord, \"previewToken\")");
+        assertThat(generatedSourceOf(compilation, "event.avro.infrastructure.avro.GenericRecordToTransientFieldEventDetailsConverter"))
+                .contains("SchemaSupport.getString(genericRecord, \"cacheKey\")");
+    }
 }

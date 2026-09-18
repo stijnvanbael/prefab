@@ -179,12 +179,31 @@ Opts a type out of Prefab's automatic field-mapping. Fields of this type are ski
 - Database migration script generation (no column generated)
 - Avro schema generation (field omitted)
 
-REST responses still include the field; Jackson handles serialization normally.
+REST responses still include the field; Jackson handles serialization normally. For a single field that should stay in
+REST/event contracts but not be stored in the database, prefer [`@Transient`](#transient).
 
 **Attributes:** None
 
 To include a `@CustomType` field in migrations or Avro schemas, implement a `PrefabPlugin` and override
 `dataTypeOf()`, `avroSchemaOf()`, `toAvroValueOf()`, and `fromAvroValueOf()`.
+
+---
+
+### `@Transient`
+
+**Package:** `be.appify.prefab.core.annotations`
+**Target:** `FIELD`, `METHOD`, `RECORD_COMPONENT`
+**Retention:** `RUNTIME`
+
+Keeps a field in the domain model while excluding it from database persistence.
+
+- Generated Flyway migrations do not create a column for the field.
+- Spring Data JDBC treats the field as non-persistent.
+- `@DbDocument` JSONB serialization omits the field.
+- REST request/response DTOs and event payloads still include the field.
+
+Use this when only a specific aggregate or value-object field should be non-persistent. Use `@CustomType` only when
+an entire type needs custom persistence/Avro handling.
 
 ---
 

@@ -1,5 +1,6 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.core.annotations.Transient;
 import jakarta.annotation.Nullable;
 import java.lang.annotation.Annotation;
 import java.util.List;
@@ -258,6 +259,15 @@ public class VariableManifest {
                 .filter(annotation -> annotation.type().is(annotationClass))
                 .findFirst()
                 .map(annotation -> (AnnotationManifest<A>) annotation);
+    }
+
+    /**
+     * Determines whether the variable is excluded from database persistence metadata.
+     *
+     * @return {@code true} when either Prefab's transient annotation or Spring Data's transient annotation is present
+     */
+    public boolean isTransient() {
+        return hasAnnotation(Transient.class) || hasAnnotation(org.springframework.data.annotation.Transient.class);
     }
 
     /**

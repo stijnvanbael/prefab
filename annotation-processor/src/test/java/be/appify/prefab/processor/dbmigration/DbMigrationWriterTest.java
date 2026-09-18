@@ -30,6 +30,9 @@ class DbMigrationWriterTest {
     public static final Compilation customTypeProductCompilation = javac()
             .withProcessors(new PrefabProcessor())
             .compile(sourceOf("dbmigration/customtype/source/Product.java"));
+    public static final Compilation transientFieldProductCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("dbmigration/transientfield/source/Product.java"));
     public static final Compilation articleCompilation = javac()
             .withProcessors(new PrefabProcessor())
             .compile(sourceOf("dbmigration/textcolumn/source/Article.java"));
@@ -247,6 +250,27 @@ class DbMigrationWriterTest {
         assertThat(customTypeProductCompilation).succeeded();
         assertThat(customTypeProductCompilation).hadNoteContaining("result");
         assertThat(customTypeProductCompilation).hadNoteContaining("@CustomType");
+    }
+
+    @Test
+    void transientFieldsAreSkippedFromDbMigration() {
+        assertThat(transientFieldProductCompilation).succeeded();
+        assertThat(transientFieldProductCompilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"name\" VARCHAR (255)");
+        assertThat(transientFieldProductCompilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"details_sku\" VARCHAR (255)");
+        assertThat(transientFieldProductCompilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .doesNotContain("preview_token");
+        assertThat(transientFieldProductCompilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .doesNotContain("details_cache_key");
     }
 
     @Test

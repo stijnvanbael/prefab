@@ -83,6 +83,7 @@ class DbMigrationWriter {
 
     private void warnUnconstrainedStringFields(ClassManifest manifest) {
         manifest.fields().stream()
+                .filter(field -> !field.isTransient())
                 .filter(field -> !field.type().is(List.class))
                 .filter(field -> !isDbDocumentField(field))
                 .forEach(this::warnIfUnconstrainedString);
@@ -344,6 +345,7 @@ class DbMigrationWriter {
 
         // Columns from all subtypes: common ones are NOT NULL, subtype-specific are nullable
         var allColumns = manifest.allFields().stream()
+                .filter(field -> !field.isTransient())
                 .filter(field -> !field.type().is(List.class)
                         || field.type().parameters().getFirst().isStandardType()
                         || (field.type().parameters().getFirst().isSingleValueType()
@@ -393,6 +395,7 @@ class DbMigrationWriter {
             return fieldIndexesOf(tableName, innerField.type().asClassManifest(), prefix);
         }
         return manifest.fields().stream()
+                .filter(field -> !field.isTransient())
                 .filter(field -> !field.type().is(List.class) || isDbDocumentField(field))
                 .flatMap(field -> {
                     if (isDbDocumentField(field)) {
@@ -511,6 +514,7 @@ class DbMigrationWriter {
     private List<Table> childEntityTablesOf(String parentTableName, List<String> parentPrimaryKeyColumns,
             ClassManifest manifest) {
         return manifest.fields().stream().filter(field -> field.type().is(List.class))
+                .filter(field -> !field.isTransient())
                 .filter(field -> !isDbDocumentField(field))
                 .map(field -> field.type().parameters().getFirst())
                 .flatMap(child -> {
@@ -599,6 +603,7 @@ class DbMigrationWriter {
             return columnsOf(innerField.type().asClassManifest(), prefix, parentNullable || innerField.nullable());
         }
         return manifest.fields().stream()
+                .filter(field -> !field.isTransient())
                 .filter(field -> !field.type().is(List.class)
                         || field.type().parameters().getFirst().isStandardType()
                         || (field.type().parameters().getFirst().isSingleValueType()
@@ -716,7 +721,7 @@ class DbMigrationWriter {
                             Diagnostic.Kind.NOTE,
                             ("Field '%s' of @CustomType '%s' has no database column: no PrefabPlugin provides a " +
                             "DataType mapping. Annotate the field with " +
-                            "@org.springframework.data.annotation.Transient to suppress this message, or " +
+                            "@be.appify.prefab.core.annotations.Transient to exclude it from database persistence, or " +
                             "implement PrefabPlugin.dataTypeOf() to generate a column.")
                                     .formatted(field.name(), field.type()),
                             field.element()

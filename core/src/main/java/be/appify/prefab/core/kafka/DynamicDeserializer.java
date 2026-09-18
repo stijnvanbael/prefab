@@ -41,10 +41,7 @@ public class DynamicDeserializer implements Deserializer<Object> {
         jsonDeserializer.setTypeResolver(
                 (topic, data, headers) -> TypeFactory.unsafeSimpleType(eventRegistry.typeFor(topic)));
         jsonDeserializer.configure(consumerProperties, false);
-        if (!consumerProperties.containsKey("schema.registry.url")) {
-            consumerProperties.put("schema.registry.url", "mock://schema-url");
-        }
-        avroDeserializer.configure(consumerProperties, false);
+        avroDeserializer.configure(KafkaSchemaRegistrySupport.avroClientProperties(consumerProperties, eventRegistry), false);
     }
 
     /**

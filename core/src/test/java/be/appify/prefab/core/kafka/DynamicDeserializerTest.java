@@ -104,7 +104,9 @@ class DynamicDeserializerTest {
             GenericConversionService conversionService,
             EventRegistry eventRegistry
     ) {
-        return new DynamicDeserializer(new KafkaProperties(), conversionService, eventRegistry);
+        var kafkaProperties = new KafkaProperties();
+        KafkaSchemaRegistrySupport.enableMockSchemaRegistry(kafkaProperties);
+        return new DynamicDeserializer(kafkaProperties, conversionService, eventRegistry);
     }
 
     private static GenericRecord recordWithSchema(String namespace, String name, String value) {
@@ -145,4 +147,3 @@ class DynamicDeserializerTest {
 
     private record ConcreteAvroEvent(String value) implements SealedAvroEvents {}
 }
-

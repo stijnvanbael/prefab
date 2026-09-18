@@ -36,10 +36,7 @@ public class DynamicSerializer implements Serializer<Object> {
         this.eventRegistry = eventRegistry;
         var producerProperties = kafkaProperties.buildProducerProperties();
         jsonSerializer.configure(producerProperties, false);
-        if (!producerProperties.containsKey("schema.registry.url")) {
-            producerProperties.put("schema.registry.url", "mock://schema-url");
-        }
-        avroSerializer.configure(producerProperties, false);
+        avroSerializer.configure(KafkaSchemaRegistrySupport.avroClientProperties(producerProperties, eventRegistry), false);
     }
 
     /**

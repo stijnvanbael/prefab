@@ -138,6 +138,19 @@ public class EventRegistry {
     }
 
     /**
+     * Returns all topics registered with the given serialization format.
+     *
+     * @param serialization the serialization format to match
+     * @return immutable set of topic names
+     */
+    public Set<String> topicsWithSerialization(Event.Serialization serialization) {
+        return serializations.entrySet().stream()
+                .filter(entry -> entry.getValue() == serialization)
+                .map(Map.Entry::getKey)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
+    /**
      * Registers a Java type for a specific topic.
      * If the type is a sealed interface, all permitted subtypes are recursively added to the allowlist.
      *

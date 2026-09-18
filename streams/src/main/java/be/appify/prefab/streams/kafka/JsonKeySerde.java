@@ -2,9 +2,9 @@ package be.appify.prefab.streams.kafka;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.core.kafka.KafkaSchemaRegistrySupport;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroDeserializer;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroSerializer;
-import java.util.HashMap;
 import java.util.Map;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.common.serialization.Deserializer;
@@ -76,7 +76,9 @@ public class JsonKeySerde<K> implements Serde<K> {
             this.eventRegistry = eventRegistry;
             this.conversionService = conversionService;
             this.avroSerializer = new GenericAvroSerializer();
-            this.avroSerializer.configure(withSchemaRegistryUrl(kafkaClientProperties), true);
+            this.avroSerializer.configure(
+                    KafkaSchemaRegistrySupport.avroClientProperties(kafkaClientProperties, eventRegistry),
+                    true);
         }
 
         @Override
@@ -130,7 +132,8 @@ public class JsonKeySerde<K> implements Serde<K> {
                     mapper,
                     eventRegistry,
                     conversionService,
-                    configuredAvroDeserializer(kafkaClientProperties)
+                    configuredAvroDeserializer(
+                            KafkaSchemaRegistrySupport.avroClientProperties(kafkaClientProperties, eventRegistry))
             );
         }
 
@@ -172,14 +175,8 @@ public class JsonKeySerde<K> implements Serde<K> {
 
     private static GenericAvroDeserializer configuredAvroDeserializer(Map<String, Object> kafkaClientProperties) {
         var deserializer = new GenericAvroDeserializer();
-        deserializer.configure(withSchemaRegistryUrl(kafkaClientProperties), true);
+        deserializer.configure(kafkaClientProperties, true);
         return deserializer;
-    }
-
-    private static Map<String, Object> withSchemaRegistryUrl(Map<String, Object> kafkaClientProperties) {
-        var properties = new HashMap<>(kafkaClientProperties);
-        properties.putIfAbsent("schema.registry.url", "mock://schema-url");
-        return properties;
     }
 
     private static boolean isAvroTopic(String topic, EventRegistry eventRegistry) {

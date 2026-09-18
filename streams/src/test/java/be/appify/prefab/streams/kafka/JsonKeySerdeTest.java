@@ -3,6 +3,7 @@ package be.appify.prefab.streams.kafka;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.Key;
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.core.kafka.KafkaSchemaRegistrySupport;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -124,7 +125,7 @@ class JsonKeySerdeTest {
                 mapper,
                 eventRegistry,
                 new DefaultConversionService(),
-                Map.of("schema.registry.url", "mock://schema-url"));
+                Map.of(KafkaSchemaRegistrySupport.MOCK_SCHEMA_REGISTRY_ENABLED, "true"));
 
         var original = new AvroComplexKey(
                 new NestedValue("field-789"),
@@ -135,6 +136,24 @@ class JsonKeySerdeTest {
 
         assertThat(serialized).isNotNull();
         assertThat(deserialized).isEqualTo(original);
+    }
+
+    @Test
+    @DisplayName("should fail fast for AVRO topics when no schema registry is configured")
+    void testAvroKeySerdeFailsFastWithoutSchemaRegistryConfiguration() {
+        var eventRegistry = new EventRegistry();
+        eventRegistry.register("avro-keys-topic", AvroComplexKey.class, Event.Serialization.AVRO);
+
+        assertThatThrownBy(() -> new JsonKeySerde<>(
+                AvroComplexKey.class,
+                mapper,
+                eventRegistry,
+                new DefaultConversionService(),
+                Map.of()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("schema.registry.url")
+                .hasMessageContaining("avro-keys-topic")
+                .hasMessageContaining(AvroComplexKey.class.getName());
     }
 
     // Test key classes
@@ -150,4 +169,3 @@ class JsonKeySerdeTest {
     record AvroComplexKey(NestedValue nested, String name) implements Key<AvroComplexKey> {
     }
 }
-

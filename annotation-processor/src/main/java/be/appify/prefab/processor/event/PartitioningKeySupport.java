@@ -123,7 +123,11 @@ public final class PartitioningKeySupport {
     }
 
     private static String methodSignature(ExecutableElement method) {
-        return method.getSimpleName() + "#" + method.getParameters().size();
+        var parameterTypes = method.getParameters().stream()
+                .map(parameter -> parameter.asType().toString())
+                .reduce((left, right) -> left + "," + right)
+                .orElse("");
+        return method.getSimpleName() + "(" + parameterTypes + ")";
     }
 
     /** Resolved partitioning-key metadata for a contract method. */

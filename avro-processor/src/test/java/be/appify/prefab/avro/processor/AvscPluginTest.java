@@ -28,6 +28,9 @@ class AvscPluginTest {
     public static final com.google.testing.compile.Compilation multiCompilation = javac()
             .withProcessors(new PrefabProcessor())
             .compile(sourceOf("event/avsc/multi/source/MultiAvsc.java"));
+    public static final com.google.testing.compile.Compilation syntheticKeyCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("event/avsc/synthetickey/source/SyntheticKeyAvsc.java"));
     public static final com.google.testing.compile.Compilation nonprimitiveCompilation = javac()
             .withProcessors(new PrefabProcessor())
             .compile(sourceOf("event/avsc/nonprimitive/source/NonPrimitiveAvsc.java"));
@@ -249,6 +252,14 @@ class AvscPluginTest {
     }
 
     @Test
+    void syntheticPartitioningKeyDefaultMethodIsAllowedForAvscContracts() {
+        assertThat(syntheticKeyCompilation).succeeded();
+        assertThat(syntheticKeyCompilation).generatedSourceFile("event.avsc.synthetic.SyntheticKeyAvscEvent")
+                .contentsAsUtf8String()
+                .contains("implements SyntheticKeyAvsc");
+    }
+
+    @Test
     void avscKeyPropertyMustReferenceExistingSchemaField() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
@@ -276,6 +287,26 @@ class AvscPluginTest {
 
         assertThat(compilation).failed();
         assertThat(compilation).hadErrorContaining("required by the @PartitioningKey method on the @Avsc contract");
+    }
+
+    @Test
+    void syntheticPartitioningKeyDependenciesMustExistOnEverySchema() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/invalidsynthetickeydependency/source/InvalidSyntheticKeyDependencyAvsc.java"));
+
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("missing field 'orderId' required by the shared @Avsc contract method 'orderId()'");
+    }
+
+    @Test
+    void syntheticPartitioningKeyMustUseSupportedReturnType() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/invalidsynthetickeyreturn/source/InvalidSyntheticKeyReturnAvsc.java"));
+
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("@PartitioningKey method 'tenantOrderKey()' must return String or a single-value type backed by String");
     }
 
     @Test

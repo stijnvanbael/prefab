@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "SyntheticKeyAvscEvent",
+  "namespace": "event.avsc.synthetic",
+  "fields": [
+    {"name": "tenantId", "type": "string"},
+    {"name": "orderId", "type": "string"},
+    {"name": "status", "type": "string"}
+  ]
+}

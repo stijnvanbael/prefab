@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "SyntheticOrderCreated",
+  "namespace": "kafka.avscsynthetic",
+  "fields": [
+    {"name": "tenantId", "type": "string"},
+    {"name": "orderId", "type": "string"},
+    {"name": "status", "type": "string"}
+  ]
+}

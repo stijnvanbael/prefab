@@ -192,7 +192,7 @@ To include a `@CustomType` field in migrations or Avro schemas, implement a `Pre
 ### `@Transient`
 
 **Package:** `be.appify.prefab.core.annotations`
-**Target:** `FIELD`, `METHOD`, `RECORD_COMPONENT`
+**Target:** `FIELD`, `RECORD_COMPONENT`
 **Retention:** `RUNTIME`
 
 Keeps a field in the domain model while excluding it from database persistence.

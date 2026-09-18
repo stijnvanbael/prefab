@@ -50,5 +50,6 @@ The mock default exists so that tests and the annotation-processor fixtures do n
 - `DynamicSerializer`, `DynamicDeserializer`, and `JsonKeySerde` now fail fast for AVRO registrations without `schema.registry.url`, while still allowing an explicit `prefab.mock-schema-registry.enabled` opt-in for tests.
 - Updated topology test bootstraps and AVRO regression tests to use the explicit mock opt-in instead of the implicit fallback.
 - Documented the required Spring Kafka schema-registry properties and the test-only mock opt-in in `backlog/docs/configuration.md`.
+- Secret scanning passed and parallel validation (code review + CodeQL) reported no findings.
 - Targeted Maven validation was attempted, but dependency resolution to `https://packages.confluent.io/maven/` is blocked in this environment, so the suite could not be executed here.
 <!-- SECTION:FINAL_SUMMARY:END -->

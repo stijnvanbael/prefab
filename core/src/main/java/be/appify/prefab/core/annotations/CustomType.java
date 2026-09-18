@@ -13,10 +13,10 @@ import java.lang.annotation.Target;
  * Avro schema field. Types that are not recognised by the built-in whitelist will cause a compile-time error.
  * Annotating such a type with {@code @CustomType} opts out of the automatic handling:
  * <ul>
- *   <li><strong>Database migration</strong> – the field is skipped (no column is generated). To keep Spring Data happy
- *       you must either annotate the field on the aggregate with
- *       {@code @org.springframework.data.annotation.Transient}, or register a
- *       {@code PrefabPlugin} that returns a {@code DataType} from its {@code dataTypeOf()} method.</li>
+ *   <li><strong>Database migration</strong> – the field is skipped (no column is generated). If you only need a
+ *       single field to stay out of database persistence, prefer annotating that field with {@link Transient}
+ *       instead. Otherwise register a {@code PrefabPlugin} that returns a {@code DataType} from its
+ *       {@code dataTypeOf()} method.</li>
  *   <li><strong>Avro events</strong> – the field is omitted from the generated Avro schema and converters. To include
  *       it, register a {@code PrefabPlugin} that implements {@code avroSchemaOf()},
  *       {@code toAvroValueOf()}, and {@code fromAvroValueOf()}.</li>

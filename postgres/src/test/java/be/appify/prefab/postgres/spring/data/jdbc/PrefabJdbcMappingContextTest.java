@@ -14,7 +14,8 @@ class PrefabJdbcMappingContextTest {
         var entity = context.getRequiredPersistentEntity(Product.class);
         var propertyNames = new ArrayList<String>();
 
-        entity.doWithProperties(property -> propertyNames.add(property.getName()));
+        entity.doWithProperties((org.springframework.data.mapping.PropertyHandler<org.springframework.data.relational.core.mapping.RelationalPersistentProperty>) property ->
+                propertyNames.add(property.getName()));
 
         assertThat(propertyNames)
                 .contains("id", "name")

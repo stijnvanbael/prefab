@@ -14,7 +14,7 @@ import java.lang.annotation.Target;
  * {@link DbDocument}, it is also excluded from the stored JSONB document.</p>
  */
 @org.springframework.data.annotation.Transient
-@Target({ElementType.FIELD, ElementType.METHOD, ElementType.RECORD_COMPONENT})
+@Target({ElementType.FIELD, ElementType.RECORD_COMPONENT})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Transient {
 }

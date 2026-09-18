@@ -1,5 +1,6 @@
 package be.appify.prefab.postgres.spring.data.jdbc;
 
+import be.appify.prefab.core.annotations.Transient;
 import be.appify.prefab.core.annotations.DbDocument;
 import java.lang.annotation.Annotation;
 import java.util.Map;
@@ -83,6 +84,7 @@ public class PrefabJdbcPersistentProperty extends BasicJdbcPersistentProperty {
             Class<?> actualType = getActualType();
             SimpleTypeHolder holder = getSimpleTypeHolder();
             if (!isCollectionLike()
+                    && !isTransient()
                     && actualType.isRecord()
                     && !actualType.isAnnotationPresent(Table.class)
                     && !holder.isSimpleType(actualType)
@@ -128,6 +130,11 @@ public class PrefabJdbcPersistentProperty extends BasicJdbcPersistentProperty {
     @Override
     public boolean isEmbedded() {
         return findAnnotation(Embedded.class) != null;
+    }
+
+    @Override
+    public boolean isTransient() {
+        return super.isTransient() || super.findAnnotation(Transient.class) != null;
     }
 
     @Override

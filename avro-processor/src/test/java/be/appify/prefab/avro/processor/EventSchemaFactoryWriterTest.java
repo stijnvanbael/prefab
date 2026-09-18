@@ -168,6 +168,18 @@ class EventSchemaFactoryWriterTest {
     }
 
     @Test
+    void transientFieldsRemainInAvroSchemas() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avro/transientfield/source/TransientFieldEvent.java"));
+        assertThat(compilation).succeeded();
+        assertThat(generatedSourceOf(compilation, "event.avro.infrastructure.avro.TransientFieldEventSchemaFactory"))
+                .contains("\"previewToken\"");
+        assertThat(generatedSourceOf(compilation, "event.avro.infrastructure.avro.TransientFieldEventDetailsSchemaFactory"))
+                .contains("\"cacheKey\"");
+    }
+
+    @Test
     void avscBackedNestedRecordLoadsTopLevelSchemaFromAvscFile() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

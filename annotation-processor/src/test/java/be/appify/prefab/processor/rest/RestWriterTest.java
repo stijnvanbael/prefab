@@ -35,6 +35,9 @@ class RestWriterTest {
     public static final com.google.testing.compile.Compilation createOrUpdateProductCompilation = javac()
             .withProcessors(new PrefabProcessor())
             .compile(sourceOf("rest/createorupdate/source/Product.java"));
+    public static final com.google.testing.compile.Compilation transientFieldProductCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("rest/transient/source/Product.java"));
 
     @Test
     void requestValidationAnnotationsAreGenerated() {
@@ -68,6 +71,24 @@ class RestWriterTest {
                 .generatedSourceFile("rest.valuetype.application.CreateProductRequest")
                 .contentsAsUtf8String()
                 .contains("BigDecimal price");
+    }
+
+    @Test
+    void transientFieldsRemainInCreateRequestRecords() {
+        assertThat(transientFieldProductCompilation).succeeded();
+        assertThat(transientFieldProductCompilation)
+                .generatedSourceFile("rest.transientfield.application.CreateProductRequest")
+                .contentsAsUtf8String()
+                .contains("String previewToken");
+    }
+
+    @Test
+    void transientFieldsRemainInResponseRecords() {
+        assertThat(transientFieldProductCompilation).succeeded();
+        assertThat(transientFieldProductCompilation)
+                .generatedSourceFile("rest.transientfield.infrastructure.http.ProductResponse")
+                .contentsAsUtf8String()
+                .contains("String previewToken");
     }
 
     @Test

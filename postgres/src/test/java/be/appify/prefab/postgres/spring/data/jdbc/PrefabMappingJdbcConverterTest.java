@@ -2,6 +2,7 @@ package be.appify.prefab.postgres.spring.data.jdbc;
 
 import be.appify.prefab.core.annotations.Computed;
 import be.appify.prefab.core.annotations.DbDocument;
+import be.appify.prefab.core.annotations.Transient;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 import org.postgresql.util.PGobject;
@@ -44,11 +45,39 @@ class PrefabMappingJdbcConverterTest {
         assertThat(money).isEqualTo(new Money(BigDecimal.valueOf(10), "EUR"));
     }
 
+    @Test
+    void transientFieldsAreNotStoredInJsonbDocuments() {
+        var jsonb = (PGobject) converter.writeValue(new Snapshot("draft", "preview"), TypeInformation.of(Snapshot.class));
+
+        assertThat(jsonb.getValue())
+                .contains("\"status\"")
+                .doesNotContain("previewToken");
+    }
+
+    @Test
+    void jsonbDocumentsWithTransientFieldsAreReadIgnoringTheTransientValue() throws Exception {
+        var stored = new PGobject();
+        stored.setType("jsonb");
+        stored.setValue("""
+                {"status":"draft","previewToken":"tampered"}""");
+
+        var snapshot = converter.readValue(stored, TypeInformation.of(Snapshot.class));
+
+        assertThat(snapshot).isEqualTo(new Snapshot("draft", null));
+    }
+
     @DbDocument
     record Money(BigDecimal amount, String currency) {
         @Computed
         public String display() {
             return "%s %s".formatted(amount, currency);
         }
+    }
+
+    @DbDocument
+    record Snapshot(
+            String status,
+            @Transient String previewToken
+    ) {
     }
 }

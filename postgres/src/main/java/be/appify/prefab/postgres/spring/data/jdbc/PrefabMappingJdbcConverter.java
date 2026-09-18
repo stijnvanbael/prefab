@@ -2,6 +2,7 @@ package be.appify.prefab.postgres.spring.data.jdbc;
 
 import be.appify.prefab.core.annotations.Computed;
 import be.appify.prefab.core.annotations.DbDocument;
+import be.appify.prefab.core.annotations.Transient;
 import org.jspecify.annotations.Nullable;
 import org.postgresql.util.PGobject;
 import org.springframework.data.core.TypeInformation;
@@ -83,24 +84,24 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
             JsonMapper jsonMapper
     ) {
         super(context, relationResolver, conversions, typeFactory);
-        this.jsonMapper = withComputedFieldsIgnored(jsonMapper);
+        this.jsonMapper = withPersistenceIgnoredMembers(jsonMapper);
         this.relationResolver = relationResolver;
         this.mappingContext = context;
     }
 
     /**
-     * {@link Computed} methods are synthetic, read-only REST response fields; their values are derived and must not
+     * {@link Computed} methods and Prefab {@link Transient} members are part of the in-memory model only and must not
      * be stored in JSONB documents.
      */
-    private static JsonMapper withComputedFieldsIgnored(JsonMapper jsonMapper) {
+    private static JsonMapper withPersistenceIgnoredMembers(JsonMapper jsonMapper) {
         return jsonMapper.rebuild()
                 .annotationIntrospector(new AnnotationIntrospectorPair(
-                        new ComputedIgnoringIntrospector(),
+                        new PersistenceIgnoringIntrospector(),
                         jsonMapper.serializationConfig().getAnnotationIntrospector()))
                 .build();
     }
 
-    private static final class ComputedIgnoringIntrospector extends AnnotationIntrospector {
+    private static final class PersistenceIgnoringIntrospector extends AnnotationIntrospector {
         @Override
         public Version version() {
             return Version.unknownVersion();
@@ -108,7 +109,7 @@ public class PrefabMappingJdbcConverter extends MappingJdbcConverter {
 
         @Override
         public boolean hasIgnoreMarker(MapperConfig<?> config, AnnotatedMember member) {
-            return member.hasAnnotation(Computed.class);
+            return member.hasAnnotation(Computed.class) || member.hasAnnotation(Transient.class);
         }
     }
 

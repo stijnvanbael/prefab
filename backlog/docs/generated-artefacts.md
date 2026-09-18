@@ -61,7 +61,8 @@ For each `@Create` constructor and `@Update` method, one request record is gener
 
 One response record:
 
-- `OrderResponse` — all fields of the aggregate, with `Reference<T>` serialized as `String`
+- `OrderResponse` — all fields of the aggregate, including `@Transient` fields, with `Reference<T>` serialized as
+  `String`
 
 Nested value objects (inner records) are also represented as nested response records.
 
@@ -124,6 +125,9 @@ Column type mapping:
 | `List<X>` + `@DbDocument` | `JSONB`            |                   |
 | `enum`                    | `VARCHAR(255)`     | Enum name         |
 | `Binary`                  | Omitted            | Stored externally |
+
+Fields annotated with `@Transient` are omitted from generated persistence metadata and migration columns but remain in
+REST and event contracts.
 
 ---
 

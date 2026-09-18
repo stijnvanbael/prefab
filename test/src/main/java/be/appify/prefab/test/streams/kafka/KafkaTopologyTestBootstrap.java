@@ -4,6 +4,7 @@ import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.core.kafka.KafkaSchemaRegistrySupport;
 import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.StreamDefinition;
 import be.appify.prefab.streams.kafka.KafkaPrefabStreams;
@@ -40,6 +41,7 @@ public final class KafkaTopologyTestBootstrap {
         this.appId = appId;
         this.conversionService = new DefaultConversionService();
         this.kafkaProperties = new KafkaProperties();
+        KafkaSchemaRegistrySupport.enableMockSchemaRegistry(kafkaProperties);
         serializer = new DynamicSerializer(kafkaProperties, conversionService, eventRegistry);
         deserializer = new DynamicDeserializer(kafkaProperties, conversionService, eventRegistry);
         this.jsonMapper = JsonMapper.builder().findAndAddModules().build();

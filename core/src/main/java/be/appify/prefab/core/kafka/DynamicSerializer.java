@@ -1,6 +1,9 @@
 package be.appify.prefab.core.kafka;
 
+import be.appify.prefab.core.annotations.Event;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroSerializer;
+import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -16,9 +19,11 @@ import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 public class DynamicSerializer implements Serializer<Object> {
     private final StringSerializer stringSerializer = new StringSerializer();
     private final JacksonJsonSerializer<Object> jsonSerializer = new JacksonJsonSerializer<>();
-    private final GenericAvroSerializer avroSerializer = new GenericAvroSerializer();
     private final ConversionService conversionService;
     private final EventRegistry eventRegistry;
+    private final Map<String, Object> producerProperties;
+    private final ReentrantLock avroSerializerLock = new ReentrantLock();
+    private GenericAvroSerializer avroSerializer;
 
     /**
      * Constructs a DynamicSerializer and configures the underlying JsonSerializer with the provided Kafka properties.
@@ -34,12 +39,11 @@ public class DynamicSerializer implements Serializer<Object> {
     ) {
         this.conversionService = conversionService;
         this.eventRegistry = eventRegistry;
-        var producerProperties = kafkaProperties.buildProducerProperties();
+        this.producerProperties = kafkaProperties.buildProducerProperties();
         jsonSerializer.configure(producerProperties, false);
-        if (!producerProperties.containsKey("schema.registry.url")) {
-            producerProperties.put("schema.registry.url", "mock://schema-url");
+        if (eventRegistry.hasSerialization(Event.Serialization.AVRO)) {
+            this.avroSerializer = configuredAvroSerializer();
         }
-        avroSerializer.configure(producerProperties, false);
     }
 
     /**
@@ -68,11 +72,33 @@ public class DynamicSerializer implements Serializer<Object> {
                     return jsonSerializer.serialize(topic, data);
                 }
                 return switch (eventRegistry.serialization(topic)) {
-                    case AVRO -> avroSerializer.serialize(topic, toGenericRecord(data));
+                    case AVRO -> avroSerializer().serialize(topic, toGenericRecord(data));
                     case JSON -> jsonSerializer.serialize(topic, data);
                 };
             }
         }
+    }
+
+    private GenericAvroSerializer avroSerializer() {
+        var serializer = avroSerializer;
+        if (serializer != null) {
+            return serializer;
+        }
+        avroSerializerLock.lock();
+        try {
+            if (avroSerializer == null) {
+                avroSerializer = configuredAvroSerializer();
+            }
+            return avroSerializer;
+        } finally {
+            avroSerializerLock.unlock();
+        }
+    }
+
+    private GenericAvroSerializer configuredAvroSerializer() {
+        var serializer = new GenericAvroSerializer();
+        serializer.configure(KafkaSchemaRegistrySupport.avroClientProperties(producerProperties, eventRegistry), false);
+        return serializer;
     }
 
     private GenericRecord toGenericRecord(Object data) {

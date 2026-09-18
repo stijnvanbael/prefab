@@ -4,7 +4,6 @@ import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
-import be.appify.prefab.core.annotations.PartitioningKey;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import com.palantir.javapoet.ClassName;
@@ -376,18 +375,12 @@ public class ConsumerWriterSupport {
     }
 
     public static Optional<CodeBlock> keyField(TypeManifest event, PrefabContext context) {
-        return event.methodsWith(PartitioningKey.class).stream()
-                .findFirst()
-                .map(method -> {
-                    var returnType = TypeManifest.of(method.getReturnType(), context.processingEnvironment());
-                    if (returnType.isSingleValueType()) {
-                        return CodeBlock.of("event.$L().$L()", method.getSimpleName().toString(),
-                                returnType.singleValueAccessor());
-                    } else {
-                        return CodeBlock.of("event.$L()", method.getSimpleName().toString());
-                    }
-                })
+        return PartitioningKeySupport.partitioningKey(event, context)
+                .map(PartitioningKeySupport.PartitioningKeyMethod::extractor)
                 .or(() -> {
+                    if (PartitioningKeySupport.hasPartitioningKey(event)) {
+                        return Optional.empty();
+                    }
                     context.logNote(("No partitioning key found on event %s. Annotate a field with @PartitioningKey if you need " +
                             "guaranteed ordering on all events with the same value for that field.")
                             .formatted(event.simpleName()), event.asElement());

@@ -238,6 +238,13 @@ public class TypeManifest {
         return element;
     }
 
+    /**
+     * Returns the processing environment that created this manifest.
+     */
+    public ProcessingEnvironment processingEnvironment() {
+        return processingEnvironment;
+    }
+
     public boolean isRecord() {
         return kind == ElementKind.RECORD;
     }

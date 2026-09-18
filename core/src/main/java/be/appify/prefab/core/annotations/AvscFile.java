@@ -20,8 +20,8 @@ public @interface AvscFile {
     String path();
 
     /**
-     * The generated record property to use as the partitioning key extractor. Leave blank to use no partitioning key
-     * for this AVSC-generated event.
+     * The generated record property to use as the partitioning key extractor. Leave blank to use either the shared
+     * {@link PartitioningKey} contract method or no partitioning key for this AVSC-generated event.
      *
      * @return the generated record property used as partitioning key
      */

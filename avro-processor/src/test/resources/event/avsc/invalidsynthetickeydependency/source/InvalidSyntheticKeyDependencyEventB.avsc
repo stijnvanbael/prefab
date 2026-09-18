@@ -1,0 +1,8 @@
+{
+  "type": "record",
+  "name": "InvalidSyntheticKeyDependencyEventB",
+  "namespace": "event.avsc.invalidsynthetickeydependency",
+  "fields": [
+    {"name": "tenantId", "type": "string"}
+  ]
+}

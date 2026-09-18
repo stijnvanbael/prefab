@@ -6,9 +6,13 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotate a field to indicate that it is used to determine the partitioning key of an event. This key determines
- * which partition the event is sent to in a messaging system. Typically, event order is guaranteed within a
- * partition.
+ * Annotate an event field or no-argument method to indicate that it determines the partitioning or ordering key.
+ * This key decides which partition the event is sent to in a messaging system, and event order is typically
+ * preserved within a partition.
+ *
+ * <p>Annotate a method when the routing key is derived from existing event properties rather than stored as a
+ * serialized field. Partitioning-key methods must be invokable without arguments and must resolve to a
+ * {@link String} value, either directly or through a single-value wrapper such as a reference type.
  */
 @Target({ ElementType.FIELD, ElementType.METHOD })
 @Retention(RetentionPolicy.SOURCE)

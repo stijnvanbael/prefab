@@ -42,6 +42,31 @@ import java.lang.annotation.Target;
  * }
  * }</pre>
  *
+ * <p>Per-generated-type interface usage:
+ *
+ * <pre>{@code
+ * @Event(topic = "sale", serialization = Event.Serialization.AVRO)
+ * @Avsc({
+ *         "avro/sale-created.avsc",
+ *         "avro/sale-paid.avsc"
+ * })
+ * @be.appify.prefab.core.annotations.AvscInterface(
+ *         type = LifecycleEvent.class,
+ *         namespace = "be.example.sale",
+ *         name = "saleCreated"
+ * )
+ * @be.appify.prefab.core.annotations.AvscInterface(
+ *         type = LifecycleEvent.class,
+ *         namespace = "be.example.sale",
+ *         name = "salePaid"
+ * )
+ * public interface SaleEvent {}
+ *
+ * interface LifecycleEvent {
+ *     String saleId();
+ * }
+ * }</pre>
+ *
  * <p>Sealed multiple-event usage – the interface may be declared {@code sealed} with a
  * {@code permits} clause that lists the names of the generated records. The annotation processor
  * generates the permitted records in round 1; javac resolves the {@code permits} clause in round 2

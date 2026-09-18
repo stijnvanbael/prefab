@@ -755,6 +755,43 @@ public interface SaleEvent {
 
 ---
 
+### `@AvscInterface`
+
+**Package:** `be.appify.prefab.core.annotations`
+**Target:** `TYPE` (repeatable on the top-level `@Avsc` contract interface)
+**Retention:** `CLASS`
+
+Maps an Avro schema `namespace` + `name` pair to a Java interface that the matching generated AVSC
+record or enum must implement.
+
+| Attribute   | Type       | Default | Description |
+|-------------|------------|---------|-------------|
+| `type`      | `Class<?>` | —       | Java interface to add to the generated type's `implements` clause |
+| `namespace` | `String`   | `""`    | Avro namespace to match |
+| `name`      | `String`   | —       | Avro type name to match |
+
+```java
+@Event(topic = "sale", serialization = Event.Serialization.AVRO)
+@Avsc({"avro/sale-created.avsc", "avro/sale-paid.avsc"})
+@AvscInterface(type = LifecycleEvent.class, namespace = "be.example.sale", name = "saleCreated")
+@AvscInterface(type = LifecycleEvent.class, namespace = "be.example.sale", name = "salePaid")
+@AvscInterface(type = SaleStatus.class, namespace = "be.example.sale", name = "saleStatus")
+public interface SaleEvent {
+}
+
+interface LifecycleEvent {
+    String saleId();
+}
+
+interface SaleStatus {
+}
+```
+
+Multiple generated AVSC records or enums may target the same Java interface by repeating the
+annotation with different Avro `namespace`/`name` pairs.
+
+---
+
 ### `@AvroSchema`
 
 **Package:** `be.appify.prefab.core.annotations`
@@ -1328,6 +1365,7 @@ See [Feature Guides — Repository Mixins](feature-guides.md#710-repository-mixi
 | `@Security`           | (attribute only)          | SOURCE    | Security settings for REST endpoints                                                                                                                                                                                                                                  |
 | `@Event`              | Type                      | CLASS     | Domain event for a messaging topic                                                                                                                                                                                                                                    |
 | `@Avsc`               | Type                      | CLASS     | AVSC-first event generation                                                                                                                                                                                                                                           |
+| `@AvscInterface`      | Type                      | CLASS     | Map an AVSC namespace/name pair to a Java interface for generated records/enums                                                                                                                                                                                       |
 | `@AvroSchema`         | Type                      | SOURCE    | Override Avro schema name/namespace                                                                                                                                                                                                                                   |
 | `@PartitioningKey`    | Field, Method             | SOURCE    | Event partitioning/ordering key                                                                                                                                                                                                                                       |
 | `@EventHandler`       | Method                    | SOURCE    | Processes a domain event                                                                                                                                                                                                                                              |

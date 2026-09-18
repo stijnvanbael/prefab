@@ -258,6 +258,29 @@ letter (e.g. `saleCreated`), the generated record is capitalised (`SaleCreated`)
 `@AvroSchema(name = "saleCreated")` so schema factories can recover the original Avro name during
 serialisation.
 
+When individual generated AVSC records or enums should implement extra Java interfaces, declare
+repeatable `@AvscInterface` mappings on the top-level `@Avsc` contract and identify targets by the
+original Avro `namespace` + `name`:
+
+```java
+@Event(topic = "sale", serialization = Event.Serialization.AVRO)
+@Avsc({"avro/sale-created.avsc", "avro/sale-paid.avsc"})
+@AvscInterface(type = LifecycleEvent.class, namespace = "be.example.sale", name = "saleCreated")
+@AvscInterface(type = LifecycleEvent.class, namespace = "be.example.sale", name = "salePaid")
+@AvscInterface(type = SaleStatus.class, namespace = "be.example.sale", name = "saleStatus")
+public interface SaleEvent {}
+
+interface LifecycleEvent {
+    String saleId();
+}
+
+interface SaleStatus {}
+```
+
+This keeps the mapping stable even when Prefab capitalises Java type names or when the AVSC namespace
+differs from the Java package. Multiple generated records or enums can share the same interface by
+repeating `@AvscInterface` with different Avro type identifiers.
+
 At runtime, generated schema factories validate their in-memory schema against the referenced AVSC
 files. If a generated schema is not compatible with the AVSC contract, schema factory initialization
 fails fast with an explicit exception.

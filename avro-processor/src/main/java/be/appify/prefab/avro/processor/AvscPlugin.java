@@ -1,6 +1,7 @@
 package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.core.annotations.Avsc;
+import be.appify.prefab.core.annotations.AvscInterface;
 import be.appify.prefab.core.annotations.AvscFiles;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.Generate;
@@ -17,11 +18,14 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.MirroredTypeException;
+import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import org.apache.avro.Schema;
 
@@ -68,6 +72,7 @@ public class AvscPlugin implements PrefabPlugin {
         var contractInterface = ClassName.get(contractPackage, typeElement.getSimpleName().toString());
         var eventManifest = TypeManifest.of(typeElement.asType(), context.processingEnvironment());
         var generateAnnotationSpecs = buildGenerateAnnotationSpecs(typeElement);
+        var interfaceImplementations = buildInterfaceImplementations(typeElement);
         var hasSharedPartitioningKey = PartitioningKeySupport.hasPartitioningKey(eventManifest);
         var sharedPartitioningKey = PartitioningKeySupport.partitioningKey(eventManifest, context);
         if (hasSharedPartitioningKey && sharedPartitioningKey.isEmpty()) {
@@ -109,7 +114,8 @@ public class AvscPlugin implements PrefabPlugin {
                 continue;
             }
             registry.registerAll(definition.path(), schema, element);
-            writer.writeAll(schema, eventAnnotation.topic(), eventAnnotation.platform(), contractPackage, contractInterface, generateAnnotationSpecs);
+            writer.writeAll(schema, eventAnnotation.topic(), eventAnnotation.platform(), contractPackage, contractInterface,
+                    generateAnnotationSpecs, interfaceImplementations);
         }
     }
 
@@ -143,6 +149,44 @@ public class AvscPlugin implements PrefabPlugin {
         return Stream.of(element.getAnnotationsByType(Generate.class))
                 .map(this::toAnnotationSpec)
                 .toList();
+    }
+
+    private Map<String, List<ClassName>> buildInterfaceImplementations(TypeElement element) {
+        return Stream.of(element.getAnnotationsByType(AvscInterface.class))
+                .map(annotation -> toInterfaceImplementation(annotation, element))
+                .flatMap(Optional::stream)
+                .collect(java.util.stream.Collectors.groupingBy(
+                        InterfaceImplementation::avroTypeKey,
+                        java.util.LinkedHashMap::new,
+                        java.util.stream.Collectors.mapping(InterfaceImplementation::type, java.util.stream.Collectors.toList())));
+    }
+
+    private Optional<InterfaceImplementation> toInterfaceImplementation(AvscInterface annotation, TypeElement originatingElement) {
+        var typeMirror = interfaceTypeMirror(annotation);
+        var resolvedElement = context.processingEnvironment().getTypeUtils().asElement(typeMirror);
+        if (!(resolvedElement instanceof TypeElement typeElement) || typeElement.getKind() != ElementKind.INTERFACE) {
+            context.processingEnvironment().getMessager().printMessage(
+                    Diagnostic.Kind.ERROR,
+                    "@AvscInterface.type must reference a Java interface.",
+                    originatingElement);
+            return Optional.empty();
+        }
+        return Optional.of(new InterfaceImplementation(
+                avroTypeKey(annotation.namespace(), annotation.name()),
+                ClassName.get(typeElement)));
+    }
+
+    private TypeMirror interfaceTypeMirror(AvscInterface annotation) {
+        try {
+            var type = annotation.type();
+            var typeElement = context.processingEnvironment().getElementUtils().getTypeElement(type.getCanonicalName());
+            if (typeElement == null) {
+                throw new IllegalArgumentException("Unable to resolve @AvscInterface.type(): " + type.getCanonicalName());
+            }
+            return typeElement.asType();
+        } catch (MirroredTypeException e) {
+            return e.getTypeMirror();
+        }
     }
 
     private AnnotationSpec toAnnotationSpec(Generate generate) {
@@ -194,5 +238,12 @@ public class AvscPlugin implements PrefabPlugin {
     private static String capitalize(String name) {
         if (name == null || name.isEmpty()) return name;
         return Character.toUpperCase(name.charAt(0)) + name.substring(1);
+    }
+
+    private static String avroTypeKey(String namespace, String name) {
+        return namespace == null || namespace.isBlank() ? name : namespace + "." + name;
+    }
+
+    private record InterfaceImplementation(String avroTypeKey, ClassName type) {
     }
 }

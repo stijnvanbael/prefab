@@ -153,8 +153,12 @@ public class AvscPlugin implements PrefabPlugin {
 
     private TypeMirror interfaceTypeMirror(AvscInterface annotation) {
         try {
-            annotation.type();
-            throw new AssertionError("Expected MirroredTypeException when reading @AvscInterface.type()");
+            var type = annotation.type();
+            var typeElement = context.processingEnvironment().getElementUtils().getTypeElement(type.getCanonicalName());
+            if (typeElement == null) {
+                throw new IllegalArgumentException("Unable to resolve @AvscInterface.type(): " + type.getCanonicalName());
+            }
+            return typeElement.asType();
         } catch (MirroredTypeException e) {
             return e.getTypeMirror();
         }

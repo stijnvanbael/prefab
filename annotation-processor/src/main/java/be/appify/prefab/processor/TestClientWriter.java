@@ -11,6 +11,7 @@ import com.palantir.javapoet.TypeSpec;
 import java.util.List;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.Modifier;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.WebApplicationContext;
 import tools.jackson.databind.json.JsonMapper;
@@ -96,6 +97,9 @@ public class TestClientWriter {
                 .addStatement("this.mockMvc = builder.build()")
                 .addStatement("this.jsonMapper = jsonMapper");
         if (ControllerUtil.SECURITY_INCLUDED) {
+            // A second (private) constructor is present to support as(...), so Spring's implicit
+            // single-constructor autowiring no longer applies; mark this one explicitly.
+            constructor.addAnnotation(Autowired.class);
             constructor.addStatement("this.securityOverrides = $T.of()", ClassName.get(List.class));
         }
         return constructor.build();

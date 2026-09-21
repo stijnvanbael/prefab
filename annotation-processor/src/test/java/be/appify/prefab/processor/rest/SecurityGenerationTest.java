@@ -51,6 +51,7 @@ class SecurityGenerationTest {
         Assertions.assertTrue(clientSource.contains("public DocumentClient as(RequestPostProcessor... requestPostProcessors)"));
         Assertions.assertTrue(clientSource.contains("private RequestPostProcessor applySecurityOverride(RequestPostProcessor defaultPostProcessor)"));
         Assertions.assertTrue(clientSource.contains(".with(applySecurityOverride(SecurityMockMvcRequestPostProcessors.user(\"test\").roles(\"READER\")))"));
+        Assertions.assertTrue(clientSource.contains("@Autowired"));
     }
 
     @Test

@@ -6,6 +6,7 @@ import be.appify.prefab.test.TestUtil;
 import java.lang.Exception;
 import java.lang.String;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
@@ -31,6 +32,7 @@ public class ShapeClient {
 
     private final List<RequestPostProcessor> securityOverrides;
 
+    @Autowired
     public ShapeClient(WebApplicationContext context, JsonMapper jsonMapper,
             List<MockMvcConfigurer> configurers) {
         var builder = MockMvcBuilders.webAppContextSetup(context);

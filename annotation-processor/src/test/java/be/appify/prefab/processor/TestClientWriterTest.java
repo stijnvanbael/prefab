@@ -47,6 +47,15 @@ class TestClientWriterTest {
         assertTrue(source.contains("this.securityOverrides = List.of()"), source);
     }
 
+    @Test
+    void constructorIsExplicitlyAutowiredWhenSecurityIsIncluded() {
+        var constructor = TestClientWriter.buildConstructor();
+
+        var source = toSource(constructor);
+
+        assertTrue(source.contains("@Autowired"), source);
+    }
+
     private static String toSource(com.palantir.javapoet.MethodSpec constructor) {
         var type = TypeSpec.classBuilder("TestClient")
                 .addModifiers(Modifier.PUBLIC)

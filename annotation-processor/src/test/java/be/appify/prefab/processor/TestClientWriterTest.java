@@ -37,13 +37,23 @@ class TestClientWriterTest {
     }
 
     @Test
-    void constructorOnlyAppliesSpringSecurityWhenFilterChainBeanExists() {
+    void constructorAlwaysAppliesConfigurersInOrder() {
         var constructor = TestClientWriter.buildConstructor();
 
         var source = toSource(constructor);
 
-        assertTrue(source.contains("if (configurers.isEmpty() && context.containsBean(\"springSecurityFilterChain\"))"), source);
-        assertTrue(source.contains("builder.apply(SecurityMockMvcConfigurers.springSecurity())"), source);
+        assertTrue(source.contains("AnnotationAwareOrderComparator.sort(configurers)"), source);
+        assertTrue(source.contains("configurers.forEach(builder::apply)"), source);
+        assertTrue(source.contains("this.securityOverrides = List.of()"), source);
+    }
+
+    @Test
+    void constructorIsExplicitlyAutowiredWhenSecurityIsIncluded() {
+        var constructor = TestClientWriter.buildConstructor();
+
+        var source = toSource(constructor);
+
+        assertTrue(source.contains("@Autowired"), source);
     }
 
     private static String toSource(com.palantir.javapoet.MethodSpec constructor) {

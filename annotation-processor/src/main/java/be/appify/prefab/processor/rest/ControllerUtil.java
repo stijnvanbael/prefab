@@ -146,7 +146,7 @@ public class ControllerUtil {
             return CodeBlock.of("");
         }
         return security.enabled() ?
-                CodeBlock.of("\n.with($T.user(\"test\")$L)",
+                CodeBlock.of("\n.with(applySecurityOverride($T.user(\"test\")$L))",
                         ClassName.get("org.springframework.security.test.web.servlet.request", "SecurityMockMvcRequestPostProcessors"),
                         withSecurity(security))
                 : CodeBlock.of("");

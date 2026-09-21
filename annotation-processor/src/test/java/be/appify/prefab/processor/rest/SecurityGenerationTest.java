@@ -48,6 +48,9 @@ class SecurityGenerationTest {
         Assertions.assertTrue(clientSource.contains(".authorities(new SimpleGrantedAuthority(\"ROLE_EDITOR\"))"));
         Assertions.assertTrue(clientSource.contains(".roles(\"SEARCHER\")"));
         Assertions.assertTrue(clientSource.contains(".authorities(new SimpleGrantedAuthority(\"ROLE_ATTACHMENT_READ\"))"));
+        Assertions.assertTrue(clientSource.contains("public DocumentClient as(RequestPostProcessor... requestPostProcessors)"));
+        Assertions.assertTrue(clientSource.contains("private RequestPostProcessor applySecurityOverride(RequestPostProcessor defaultPostProcessor)"));
+        Assertions.assertTrue(clientSource.contains(".with(applySecurityOverride(SecurityMockMvcRequestPostProcessors.user(\"test\").roles(\"READER\")))"));
     }
 
     @Test

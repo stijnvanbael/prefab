@@ -70,4 +70,12 @@ public class TestClasses {
     public static final ClassName ANNOTATION_AWARE_ORDER_COMPARATOR = ClassName.get(
             "org.springframework.core.annotation",
             "AnnotationAwareOrderComparator");
+
+    /**
+     * ClassName for org.springframework.test.web.servlet.request.RequestPostProcessor, used to override the mocked
+     * security user for a single generated test client call via {@code as(...)}.
+     */
+    public static final ClassName REQUEST_POST_PROCESSOR = ClassName.get(
+            "org.springframework.test.web.servlet.request",
+            "RequestPostProcessor");
 }

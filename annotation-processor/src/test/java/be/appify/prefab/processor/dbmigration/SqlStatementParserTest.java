@@ -5,10 +5,36 @@ import org.junit.jupiter.api.Test;
 import java.util.HashMap;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SqlStatementParserTest {
+
+    @Test
+    void dropTableStatementRemovesTableFromReplayedState() {
+        var tables = new HashMap<String, Table>();
+        tables.put("chapter", tableWithForeignKey());
+        var sql = "DROP TABLE chapter;";
+
+        new SqlStatementParser().parse(sql, tables);
+
+        assertFalse(tables.containsKey("chapter"));
+    }
+
+    @Test
+    void createTableFollowedByDropTableLeavesNoTrace() {
+        var tables = new HashMap<String, Table>();
+        var sql = """
+                CREATE TABLE chapter (id VARCHAR(255) PRIMARY KEY);
+                DROP TABLE chapter;
+                """;
+
+        new SqlStatementParser().parse(sql, tables);
+
+        assertTrue(tables.isEmpty());
+    }
 
     @Test
     void dropConstraintStatementDoesNotCrash() {

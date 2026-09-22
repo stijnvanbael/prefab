@@ -124,7 +124,7 @@ class DbMigrationWriter {
                         // Check if column structure differs (ignoring table name difference)
                         if (!oldTable.columns().equals(desired.columns())
                                 || !oldTable.primaryKey().equals(desired.primaryKey())) {
-                            changes.add(DatabaseChange.AlterTable.from(oldTable, desired));
+                            addAlterTableIfNotEmpty(changes, DatabaseChange.AlterTable.from(oldTable, desired));
                         }
                         continue;
                     }
@@ -133,7 +133,7 @@ class DbMigrationWriter {
                 desired.indexes().forEach(index -> changes.add(new DatabaseChange.CreateIndex(desired.name(), index)));
             } else {
                 if (!existingColumnsMatch(existing, desired)) {
-                    changes.add(DatabaseChange.AlterTable.from(existing, desired));
+                    addAlterTableIfNotEmpty(changes, DatabaseChange.AlterTable.from(existing, desired));
                 }
                 detectIndexChanges(existing, desired, changes);
             }
@@ -145,6 +145,18 @@ class DbMigrationWriter {
             }
         }
         return changes;
+    }
+
+    /**
+     * Only registers the alter statement when it actually carries modifications. Some differences
+     * detected upstream (e.g. a primary key change with otherwise identical columns) are not yet
+     * translated into a {@link DatabaseChange.TableModification}, which would otherwise result in
+     * an empty, invalid {@code ALTER TABLE ...;} statement being emitted.
+     */
+    private static void addAlterTableIfNotEmpty(List<DatabaseChange> changes, DatabaseChange.AlterTable alterTable) {
+        if (!alterTable.modifications().isEmpty()) {
+            changes.add(alterTable);
+        }
     }
 
     private static boolean existingColumnsMatch(Table existing, Table desired) {

@@ -2,7 +2,6 @@ package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.avro.SchemaSupport;
 import be.appify.prefab.core.annotations.Avsc;
-import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
@@ -70,16 +69,21 @@ class EventToGenericRecordConverterWriter {
      * concrete record converter instead of trying to map the interface's fields directly.
      */
     private boolean writeAvscInterfaceConverter(TypeManifest contractInterface) {
+        // Concrete implementations may be AVSC-generated records or hand-written records that
+        // implement the contract interface directly; neither necessarily carries its own @Event
+        // annotation, since it is inherited from the contract interface.
         var implementations = context.eventElementsFromCurrentCompilation()
                 .filter(e -> !e.equals(contractInterface.asElement()))
-                .filter(e -> e.getAnnotation(Event.class) != null)
+                .filter(e -> e.getKind() == ElementKind.RECORD)
                 .filter(e -> context.processingEnvironment().getTypeUtils()
                         .isSubtype(e.asType(), contractInterface.asElement().asType()))
                 .map(e -> TypeManifest.of(e.asType(), context.processingEnvironment()))
                 .toList();
 
-        // Skip round 1: concrete records are compiled in round 2 and not yet available.
-        if (implementations.isEmpty()) {
+        // Defer while concrete records are still being compiled across rounds, or — for sealed
+        // contract interfaces — until every permitted subtype has been resolved, so a partial set
+        // (e.g. hand-written records only) is never written and left stale.
+        if (!AvroPlugin.hasAllPermittedSubtypes(contractInterface, implementations)) {
             return false;
         }
 

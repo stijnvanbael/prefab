@@ -1,0 +1,9 @@
+{
+  "type": "record",
+  "name": "MixedOriginAvscEvent",
+  "namespace": "event.avro.mixedorigin",
+  "fields": [
+    {"name": "name", "type": "string"},
+    {"name": "amount", "type": "double"}
+  ]
+}

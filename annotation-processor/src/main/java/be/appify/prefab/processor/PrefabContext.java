@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -255,21 +256,43 @@ public class PrefabContext {
     }
 
     private List<TypeElement> computeCurrentCompilationEventElements() {
-        var annotated = roundEnvironment.getElementsAnnotatedWith(Event.class)
-                .stream()
-                .map(e -> (TypeElement) e);
+        var elementUtils = processingEnvironment.getElementUtils();
+        var result = new LinkedHashSet<TypeElement>();
+        currentCompilationTypeNames.stream()
+                .map(elementUtils::getTypeElement)
+                .filter(Objects::nonNull)
+                .forEach(root -> collectEventElements(root, result));
+        return List.copyOf(result);
+    }
 
-        var avscGenerated = roundEnvironment.getRootElements()
-                .stream()
-                .filter(e -> e.getKind() == ElementKind.RECORD)
-                .map(e -> (TypeElement) e)
-                .filter(r -> r.getInterfaces().stream()
-                        .map(i -> (TypeElement) ((DeclaredType) i).asElement())
-                        .anyMatch(i -> i.getAnnotation(Avsc.class) != null));
+    /**
+     * Recursively collects {@code @Event}-annotated types and AVSC-generated records from
+     * {@code type} and its nested members.
+     * <p>
+     * Root elements are only visible in {@link RoundEnvironment} during the round in which they
+     * are introduced (source files in round 1, generated files in the round after they are
+     * written). Walking {@link #currentCompilationTypeNames} — which accumulates root type names
+     * across every round — instead of the current round's {@code RoundEnvironment} directly
+     * ensures event types introduced in different rounds (e.g. a hand-written record alongside an
+     * AVSC-generated one) are all discovered together, however many rounds compilation takes.
+     */
+    private static void collectEventElements(TypeElement type, Set<TypeElement> result) {
+        if (isEventElement(type)) {
+            result.add(type);
+        }
+        type.getEnclosedElements().stream()
+                .filter(TypeElement.class::isInstance)
+                .map(TypeElement.class::cast)
+                .forEach(nested -> collectEventElements(nested, result));
+    }
 
-        return Stream.concat(annotated, avscGenerated)
-                .distinct()
-                .toList();
+    private static boolean isEventElement(TypeElement type) {
+        if (type.getAnnotation(Event.class) != null) {
+            return true;
+        }
+        return type.getKind() == ElementKind.RECORD && type.getInterfaces().stream()
+                .map(i -> (TypeElement) ((DeclaredType) i).asElement())
+                .anyMatch(i -> i.getAnnotation(Avsc.class) != null);
     }
 
     private List<TypeElement> computeCurrentAndConsumedEventElements() {

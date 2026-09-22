@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -123,6 +124,41 @@ public class AvroPlugin implements PrefabPlugin {
 
     private static boolean isAvscContract(TypeManifest type) {
         return type.asElement() != null && type.asElement().getAnnotation(Avsc.class) != null;
+    }
+
+    /**
+     * Returns whether {@code implementations} accounts for every concrete implementer of
+     * {@code contractInterface} that is currently known to be required.
+     * <p>
+     * When the contract interface is a sealed interface, its {@code permits} clause names the
+     * complete, closed set of implementers up front — including AVSC-generated records that are
+     * declared in the permits clause before they are generated. Annotation processing happens in
+     * rounds, and implementers (whether AVSC-generated or hand-written) may become visible in
+     * different rounds, so generation must be deferred until all permitted subtypes are resolved;
+     * otherwise a partial (e.g. hand-written-only) set would be written and never revisited.
+     * <p>
+     * Non-sealed contract interfaces have no closed set to compare against, so any non-empty
+     * result is accepted as-is.
+     */
+    static boolean hasAllPermittedSubtypes(TypeManifest contractInterface, List<TypeManifest> implementations) {
+        if (!contractInterface.isSealed()) {
+            return !implementations.isEmpty();
+        }
+        if (!contractInterface.permittedSubtypesResolved()) {
+            // A permitted subtype (e.g. an AVSC-generated record) has not been compiled yet — defer.
+            return false;
+        }
+        var permittedNames = contractInterface.permittedSubtypes().stream()
+                .map(AvroPlugin::qualifiedName)
+                .collect(Collectors.toSet());
+        var implementationNames = implementations.stream()
+                .map(AvroPlugin::qualifiedName)
+                .collect(Collectors.toSet());
+        return implementationNames.containsAll(permittedNames);
+    }
+
+    private static String qualifiedName(TypeManifest type) {
+        return type.packageName() + "." + type.simpleName();
     }
 
     /**

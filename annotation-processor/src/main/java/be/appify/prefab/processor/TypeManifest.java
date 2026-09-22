@@ -397,6 +397,16 @@ public class TypeManifest {
     }
 
     /**
+     * Returns whether every class named in this sealed type's {@code permits} clause has resolved
+     * to a real, compiled type. See {@link TypeMembers#permittedSubtypesResolved()}.
+     *
+     * @return true if all permitted subtypes are resolved (or this type is not sealed / has no element)
+     */
+    public boolean permittedSubtypesResolved() {
+        return members.permittedSubtypesResolved();
+    }
+
+    /**
      * Checks if the type is a single-value type, i.e. a record with exactly one record component.
      * <p>
      * Any record with a single component is automatically treated as a scalar value wrapper by the Prefab framework. The {@link #fields()}

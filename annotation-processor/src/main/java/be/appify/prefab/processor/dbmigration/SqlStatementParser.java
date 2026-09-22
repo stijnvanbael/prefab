@@ -59,6 +59,8 @@ class SqlStatementParser {
                 applyCreateIndex(createIndex, tables);
             } else if (statement instanceof Drop drop && "INDEX".equalsIgnoreCase(drop.getType())) {
                 applyDropIndex(drop, tables);
+            } else if (statement instanceof Drop drop && "TABLE".equalsIgnoreCase(drop.getType())) {
+                applyDropTable(drop, tables);
             }
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse SQL statement: " + sql, e);
@@ -92,6 +94,11 @@ class SqlStatementParser {
                 .filter(t -> t.getIndex(indexName).isPresent())
                 .findFirst()
                 .ifPresent(t -> tables.put(t.name(), t.withRemovedIndex(indexName)));
+    }
+
+    private void applyDropTable(Drop drop, Map<String, Table> tables) {
+        var tableName = drop.getName().getName().replace("\"", "");
+        tables.remove(tableName);
     }
 }
 

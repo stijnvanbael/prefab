@@ -126,6 +126,53 @@ class DbRenameTest {
     }
 
     @Test
+    void primaryKeyOnlyChangeDoesNotEmitEmptyAlterTable() {
+        var currentTables = List.of(
+                new Table("user", List.of(
+                        new Column("id", new DataType.Varchar(255), false, null, null, null),
+                        new Column("email", new DataType.Varchar(255), false, null, null, null)
+                ), List.of("id"))
+        );
+        var desiredTables = List.of(
+                new Table("user", List.of(
+                        new Column("id", new DataType.Varchar(255), false, null, null, null),
+                        new Column("email", new DataType.Varchar(255), false, null, null, null)
+                ), List.of("email"))
+        );
+
+        var writer = new DbMigrationWriter(null);
+        var changes = writer.detectChanges(currentTables, desiredTables);
+
+        // The primary key change is not yet translated into a TableModification, so no
+        // (necessarily empty and invalid) ALTER TABLE statement should be emitted for it.
+        for (var change : changes) {
+            assertThat(change).isNotInstanceOf(DatabaseChange.AlterTable.class);
+        }
+    }
+
+    @Test
+    void renameTableWithPrimaryKeyOnlyChangeDoesNotEmitEmptyAlterTable() {
+        var currentTables = List.of(
+                new Table("old_user", List.of(
+                        new Column("id", new DataType.Varchar(255), false, null, null, null),
+                        new Column("email", new DataType.Varchar(255), false, null, null, null)
+                ), List.of("id"))
+        );
+        var desiredTables = List.of(
+                new Table("user", List.of(
+                        new Column("id", new DataType.Varchar(255), false, null, null, null),
+                        new Column("email", new DataType.Varchar(255), false, null, null, null)
+                ), List.of("email"), "old_user")
+        );
+
+        var writer = new DbMigrationWriter(null);
+        var changes = writer.detectChanges(currentTables, desiredTables);
+
+        assertThat(changes).hasSize(1);
+        assertThat(changes.getFirst()).isInstanceOf(DatabaseChange.RenameTable.class);
+    }
+
+    @Test
     void parseRenameColumnFromSql() throws Exception {
         var table = new Table("user", List.of(
                 new Column("first_name", new DataType.Varchar(255), false, null, null, null)

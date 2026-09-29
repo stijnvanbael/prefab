@@ -34,6 +34,7 @@ import org.springframework.stereotype.Component;
 import static be.appify.prefab.core.annotations.EventHandlerConfig.Util.hasCustomDeadLetterTopic;
 import static be.appify.prefab.core.annotations.EventHandlerConfig.Util.hasCustomRetries;
 import static be.appify.prefab.processor.event.ConsumerWriterSupport.concurrencyExpression;
+import static be.appify.prefab.processor.event.TopicExpressions.isExpression;
 import static java.util.stream.Collectors.groupingBy;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -155,6 +156,9 @@ class SqsSubscriberWriter {
                 constructor.addParameter(configParameter(Double.class, "backoffMultiplier", config.backoffMultiplier()));
             }
         }
+        if (hasCustomDeadLetterTopic(config) && isExpression(config.deadLetterTopic())) {
+            constructor.addParameter(configParameter(String.class, "deadLetterTopic", config.deadLetterTopic()));
+        }
         for (int i = 0; i < topics.size(); i++) {
             addTopic(owner, eventHandlers, topics.get(i), uniqueNames.get(i), constructor);
         }
@@ -170,33 +174,27 @@ class SqsSubscriberWriter {
             MethodSpec.Builder constructor
     ) {
         var eventType = support.eventTypeOf(eventHandlers, context, topic);
-        var topicVariableName = uniqueBaseName + "Topic";
         var eventName = eventType.simpleName().replace(".", "");
-        if (topic.matches("\\$\\{.+}")) {
-            constructor.addParameter(ParameterSpec.builder(String.class, topicVariableName)
-                    .addAnnotation(AnnotationSpec.builder(Value.class)
-                            .addMember("value", "$S", topic)
-                            .build())
-                    .build());
-        }
         var eventHandlerConfig = owner.inheritedAnnotationsOfType(EventHandlerConfig.class).stream().findFirst().orElse(null);
-        if (hasCustomDeadLetterTopic(eventHandlerConfig) && eventHandlerConfig.deadLetterTopic().matches("\\$\\{.+}")) {
-            constructor.addParameter(ParameterSpec.builder(String.class, "deadLetterTopic")
-                    .addAnnotation(AnnotationSpec.builder(Value.class)
-                            .addMember("value", "$S", eventHandlerConfig.deadLetterTopic())
-                            .build())
-                    .build());
-        }
-        constructor.addStatement("""
+        var subscribe = CodeBlock.of("""
                         sqsUtil.subscribe(new $T($L, $S, $T.class, this::on$L)
                         .withExecutor(executor)$L)""",
                 ParameterizedTypeName.get(ClassName.get(SqsSubscriptionRequest.class),
                         eventType.asTypeName()),
-                topic.matches("\\$\\{.+}") ? topicVariableName : CodeBlock.of("$S", topic),
+                isExpression(topic) ? "topic" : CodeBlock.of("$S", topic),
                 CaseUtil.toKebabCase(owner.simpleName()) + "-on-" + CaseUtil.toKebabCase(eventName),
                 eventType.asTypeName(),
                 eventName,
                 deadLetterConfig(eventHandlerConfig));
+        if (isExpression(topic)) {
+            var topicsVariableName = uniqueBaseName + "Topics";
+            constructor.addParameter(configParameter(String[].class, topicsVariableName, topic));
+            constructor.beginControlFlow("for (var topic : $L)", topicsVariableName)
+                    .addStatement(subscribe)
+                    .endControlFlow();
+        } else {
+            constructor.addStatement(subscribe);
+        }
     }
 
     private static ParameterSpec configParameter(Class<?> type, String name, String value) {
@@ -214,7 +212,7 @@ class SqsSubscriberWriter {
                 codeBlock.add(CodeBlock.of("""
                                 
                                 .withDeadLetterQueueName($L)""",
-                        eventHandlerConfig.deadLetterTopic().matches("\\$\\{.+}")
+                        isExpression(eventHandlerConfig.deadLetterTopic())
                                 ? "deadLetterTopic"
                                 : CodeBlock.of("$S", eventHandlerConfig.deadLetterTopic())
                 ));

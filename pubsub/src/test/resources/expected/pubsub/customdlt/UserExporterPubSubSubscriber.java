@@ -4,7 +4,6 @@ import be.appify.prefab.core.pubsub.PubSubUtil;
 import be.appify.prefab.core.pubsub.SubscriptionRequest;
 import com.google.pubsub.v1.DeadLetterPolicy;
 import java.time.Duration;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,26 +18,25 @@ import pubsub.customdlt.UserExporter;
 public class UserExporterPubSubSubscriber {
     private static final Logger log = LoggerFactory.getLogger(UserExporterPubSubSubscriber.class);
 
-    private final Executor userEventExecutor;
-
     private final UserExporter userExporter;
 
     public UserExporterPubSubSubscriber(UserExporter userExporter, PubSubUtil pubSub,
             @Value("${prefab.dlt.retries.backoff-multiplier:1.5}") Double backoffMultiplier,
-            @Value("${topic.user.name}") String userEventTopic,
-            @Value("${custom.dlt.name}") String deadLetterTopic) {
-        userEventExecutor = Executors.newFixedThreadPool(1);
-        pubSub.subscribe(new SubscriptionRequest<UserEvent>(userEventTopic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
-                .withExecutor(userEventExecutor)
-                .withDeadLetterPolicy(DeadLetterPolicy.newBuilder()
-                    .setDeadLetterTopic(deadLetterTopic)
-                    .build())
-                .withRetryTemplate(new RetryTemplate(RetryPolicy.builder()
-                        .maxRetries(10)
-                        .delay(Duration.ofMillis(100L))
-                        .maxDelay(Duration.ofMillis(10000L))
-                        .multiplier(backoffMultiplier)
-                        .build())));
+            @Value("${custom.dlt.name}") String deadLetterTopic,
+            @Value("${topic.user.name}") String[] userEventTopics) {
+        for (var topic : userEventTopics) {
+            pubSub.subscribe(new SubscriptionRequest<UserEvent>(topic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
+                    .withExecutor(Executors.newFixedThreadPool(1))
+                    .withDeadLetterPolicy(DeadLetterPolicy.newBuilder()
+                        .setDeadLetterTopic(deadLetterTopic)
+                        .build())
+                    .withRetryTemplate(new RetryTemplate(RetryPolicy.builder()
+                            .maxRetries(10)
+                            .delay(Duration.ofMillis(100L))
+                            .maxDelay(Duration.ofMillis(10000L))
+                            .multiplier(backoffMultiplier)
+                            .build())));
+        }
         this.userExporter = userExporter;
     }
 

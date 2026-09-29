@@ -20,19 +20,17 @@ public class ChannelSummarySqsSubscriber {
     private final ChannelSummaryService channelSummaryService;
 
     public ChannelSummarySqsSubscriber(ChannelSummaryService channelSummaryService, SqsUtil sqsUtil,
-            @Value("${topic.message.name}") String messageEventTopic) {
+            @Value("${topic.message.name}") String[] messageEventTopics) {
         executor = Executors.newFixedThreadPool(1);
-        sqsUtil.subscribe(new SqsSubscriptionRequest<MessageEvent>(messageEventTopic, "channel-summary-on-message-event", MessageEvent.class, this::onMessageEvent)
-                .withExecutor(executor));
+        for (var topic : messageEventTopics) {
+            sqsUtil.subscribe(new SqsSubscriptionRequest<MessageEvent>(topic, "channel-summary-on-message-event", MessageEvent.class, this::onMessageEvent)
+                    .withExecutor(executor));
+        }
         this.channelSummaryService = channelSummaryService;
     }
 
     private void onMessageEvent(MessageEvent event) {
         log.debug("Received event {}", event);
-        switch (event) {
-            case MessageEvent.Sent e -> channelSummaryService.onUpdate(e);
-            default -> {
-            }
-        }
+        channelSummaryService.onUpdate(event);
     }
 }

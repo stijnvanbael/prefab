@@ -23,6 +23,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import static be.appify.prefab.processor.event.ConsumerWriterSupport.keyField;
+import static be.appify.prefab.processor.event.TopicExpressions.isExpression;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
 /**
@@ -92,7 +93,7 @@ public class EventTypeRegistrarWriter {
         // preserve the non-indexed name (myEventTopics) for the common single-topic case.
         boolean useIndexedNames = topics.length > 1;
 
-        if (Arrays.stream(topics).anyMatch(EventTypeRegistrarWriter::isExpression)) {
+        if (Arrays.stream(topics).anyMatch(TopicExpressions::isExpression)) {
             var constructor = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC);
             for (int i = 0; i < topics.length; i++) {
                 var topic = topics[i];
@@ -112,15 +113,6 @@ public class EventTypeRegistrarWriter {
 
         typeBuilder.addMethod(customizeMethod(topics, serialization, simpleName, eventTypeName, keyExtractor, useIndexedNames, publishTo));
         return typeBuilder.build();
-    }
-
-    /**
-     * A topic containing a property placeholder or SpEL expression is resolved by Spring at runtime.
-     * It is injected as a {@code String[]} because an expression may expand to multiple topics
-     * (an array, a collection or a comma-separated string).
-     */
-    private static boolean isExpression(String topic) {
-        return topic.contains("${") || topic.contains("#{");
     }
 
     private static MethodSpec customizeMethod(String[] topics, Event.Serialization serialization,

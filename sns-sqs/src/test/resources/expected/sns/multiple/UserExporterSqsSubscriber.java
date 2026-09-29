@@ -21,10 +21,12 @@ public class UserExporterSqsSubscriber {
 
     public UserExporterSqsSubscriber(@Value("${user-exporter.concurrency:4}") String concurrency,
             UserExporter userExporter, SqsUtil sqsUtil,
-            @Value("${topic.user.name}") String userEventTopic) {
+            @Value("${topic.user.name}") String[] userEventTopics) {
         executor = Executors.newFixedThreadPool(Integer.parseInt(concurrency));
-        sqsUtil.subscribe(new SqsSubscriptionRequest<UserEvent>(userEventTopic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
-                .withExecutor(executor));
+        for (var topic : userEventTopics) {
+            sqsUtil.subscribe(new SqsSubscriptionRequest<UserEvent>(topic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
+                    .withExecutor(executor));
+        }
         this.userExporter = userExporter;
     }
 

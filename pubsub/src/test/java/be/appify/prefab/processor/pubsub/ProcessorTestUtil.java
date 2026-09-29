@@ -7,10 +7,14 @@ import org.springframework.core.io.ClassPathResource;
 import javax.tools.JavaFileObject;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class ProcessorTestUtil {
+    private static final String CLASS_OUTPUT = "/CLASS_OUTPUT/";
+
     private ProcessorTestUtil() {
     }
 
@@ -48,5 +52,36 @@ public class ProcessorTestUtil {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * Returns a class loader that loads the classes produced by the given compilation, so generated code can be
+     * exercised at runtime.
+     */
+    public static ClassLoader classLoaderOf(Compilation compilation) {
+        var classFiles = compilation.generatedFiles().stream()
+                .filter(file -> file.getKind() == JavaFileObject.Kind.CLASS)
+                .collect(Collectors.toMap(ProcessorTestUtil::binaryName, Function.identity()));
+        return new ClassLoader(ProcessorTestUtil.class.getClassLoader()) {
+            @Override
+            protected Class<?> findClass(String name) throws ClassNotFoundException {
+                var classFile = classFiles.get(name);
+                if (classFile == null) {
+                    throw new ClassNotFoundException(name);
+                }
+                try (var input = classFile.openInputStream()) {
+                    var bytes = input.readAllBytes();
+                    return defineClass(name, bytes, 0, bytes.length);
+                } catch (IOException e) {
+                    throw new ClassNotFoundException(name, e);
+                }
+            }
+        };
+    }
+
+    private static String binaryName(JavaFileObject classFile) {
+        var path = classFile.toUri().getPath();
+        return path.substring(path.indexOf(CLASS_OUTPUT) + CLASS_OUTPUT.length(), path.length() - ".class".length())
+                .replace('/', '.');
     }
 }

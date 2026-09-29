@@ -21,13 +21,17 @@ public class DayTotalSqsSubscriber {
     private final DayTotalService dayTotalService;
 
     public DayTotalSqsSubscriber(DayTotalService dayTotalService, SqsUtil sqsUtil,
-            @Value("${topic.sale.name}") String saleCreatedTopic,
-            @Value("${topic.refund.name}") String refundCreatedTopic) {
+            @Value("${topic.sale.name}") String[] saleCreatedTopics,
+            @Value("${topic.refund.name}") String[] refundCreatedTopics) {
         executor = Executors.newFixedThreadPool(1);
-        sqsUtil.subscribe(new SqsSubscriptionRequest<Sale.Created>(saleCreatedTopic, "day-total-on-sale-created", Sale.Created.class, this::onSaleCreated)
-                .withExecutor(executor));
-        sqsUtil.subscribe(new SqsSubscriptionRequest<Refund.Created>(refundCreatedTopic, "day-total-on-refund-created", Refund.Created.class, this::onRefundCreated)
-                .withExecutor(executor));
+        for (var topic : saleCreatedTopics) {
+            sqsUtil.subscribe(new SqsSubscriptionRequest<Sale.Created>(topic, "day-total-on-sale-created", Sale.Created.class, this::onSaleCreated)
+                    .withExecutor(executor));
+        }
+        for (var topic : refundCreatedTopics) {
+            sqsUtil.subscribe(new SqsSubscriptionRequest<Refund.Created>(topic, "day-total-on-refund-created", Refund.Created.class, this::onRefundCreated)
+                    .withExecutor(executor));
+        }
         this.dayTotalService = dayTotalService;
     }
 

@@ -2,7 +2,6 @@ package pubsub.dltdisabled.infrastructure.pubsub;
 
 import be.appify.prefab.core.pubsub.PubSubUtil;
 import be.appify.prefab.core.pubsub.SubscriptionRequest;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,16 +14,15 @@ import pubsub.dltdisabled.UserExporter;
 public class UserExporterPubSubSubscriber {
     private static final Logger log = LoggerFactory.getLogger(UserExporterPubSubSubscriber.class);
 
-    private final Executor userEventExecutor;
-
     private final UserExporter userExporter;
 
     public UserExporterPubSubSubscriber(UserExporter userExporter, PubSubUtil pubSub,
-            @Value("${topic.user.name}") String userEventTopic) {
-        userEventExecutor = Executors.newFixedThreadPool(1);
-        pubSub.subscribe(new SubscriptionRequest<UserEvent>(userEventTopic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
-                .withExecutor(userEventExecutor)
-                .withDeadLetterPolicy(null));
+            @Value("${topic.user.name}") String[] userEventTopics) {
+        for (var topic : userEventTopics) {
+            pubSub.subscribe(new SubscriptionRequest<UserEvent>(topic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
+                    .withExecutor(Executors.newFixedThreadPool(1))
+                    .withDeadLetterPolicy(null));
+        }
         this.userExporter = userExporter;
     }
 

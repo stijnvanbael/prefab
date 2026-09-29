@@ -21,11 +21,11 @@ public class DayTotalPubSubSubscriber {
             @Value("${topic.sale.name}") String[] saleCreatedTopics,
             @Value("${topic.refund.name}") String[] refundCreatedTopics) {
         for (var topic : saleCreatedTopics) {
-            pubSub.subscribe(new SubscriptionRequest<Sale.Created>(topic, "day-total-on-sale-created", Sale.Created.class, this::onSaleCreated)
+            pubSub.subscribe(new SubscriptionRequest<Sale.Created>(topic, "day-total-on-sale-created-" + topic, Sale.Created.class, this::onSaleCreated)
                     .withExecutor(Executors.newFixedThreadPool(1)));
         }
         for (var topic : refundCreatedTopics) {
-            pubSub.subscribe(new SubscriptionRequest<Refund.Created>(topic, "day-total-on-refund-created", Refund.Created.class, this::onRefundCreated)
+            pubSub.subscribe(new SubscriptionRequest<Refund.Created>(topic, "day-total-on-refund-created-" + topic, Refund.Created.class, this::onRefundCreated)
                     .withExecutor(Executors.newFixedThreadPool(1)));
         }
         this.dayTotalService = dayTotalService;

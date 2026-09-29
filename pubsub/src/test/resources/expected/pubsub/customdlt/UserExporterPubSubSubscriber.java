@@ -25,7 +25,7 @@ public class UserExporterPubSubSubscriber {
             @Value("${custom.dlt.name}") String deadLetterTopic,
             @Value("${topic.user.name}") String[] userEventTopics) {
         for (var topic : userEventTopics) {
-            pubSub.subscribe(new SubscriptionRequest<UserEvent>(topic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
+            pubSub.subscribe(new SubscriptionRequest<UserEvent>(topic, "user-exporter-on-user-event-" + topic, UserEvent.class, this::onUserEvent)
                     .withExecutor(Executors.newFixedThreadPool(1))
                     .withDeadLetterPolicy(DeadLetterPolicy.newBuilder()
                         .setDeadLetterTopic(deadLetterTopic)

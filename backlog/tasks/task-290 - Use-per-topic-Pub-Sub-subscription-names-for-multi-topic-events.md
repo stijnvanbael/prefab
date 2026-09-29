@@ -1,7 +1,7 @@
 ---
 id: TASK-290
 title: Use per-topic Pub/Sub subscription names for multi-topic events
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-29 11:30'
 labels:
@@ -35,7 +35,25 @@ messages on the old one. Options:
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Every resolved topic of a multi-topic event gets its own Pub/Sub subscription
-- [ ] #2 Subscription names of existing single-topic handlers are handled per the chosen migration strategy
-- [ ] #3 Tests cover multiple static topics and an expression expanding to multiple topics
+- [x] #1 Every resolved topic of a multi-topic event gets its own Pub/Sub subscription
+- [x] #2 Subscription names of existing single-topic handlers are handled per the chosen migration strategy
+- [x] #3 Tests cover multiple static topics and an expression expanding to multiple topics
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+- Decision: always include the topic in the subscription name (option 2), for consistent naming regardless of
+  how many topics an expression resolves to. Migration documented in `backlog/docs/configuration.md`
+  ("Subscription names").
+- `PubSubSubscriberWriter.subscriptionName` generates `{owner}-on-{event}-{topic}`: a string literal for
+  literal topics, `"{owner}-on-{event}-" + topic` inside the loop for `${...}`/`#{...}` topics.
+  Pub/Sub topic and subscription names share the same character set, so the result is always valid
+  (the 255-character limit still applies).
+- `PubSubUtil` and `SubscriptionRequest` are unchanged; the public `subscribe(topic, subscription, ...)` API
+  still uses the given name as-is.
+- Tests: `PubSubSpelTopicTest` verifies at runtime that each resolved topic gets its own subscription name;
+  `PubSubSubscriberWriterTest` assertions and expected fixtures updated.
+- Not changed: the Terraform GCP output names subscriptions `{topic}-subscription`, which has never matched
+  the runtime names.
+<!-- SECTION:NOTES:END -->

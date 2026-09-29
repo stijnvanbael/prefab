@@ -20,11 +20,11 @@ public class UserServicePubSubSubscriber {
             @Value("${topic.user.primary}") String[] userEvent0Topics,
             @Value("${topic.user.secondary}") String[] userEvent1Topics) {
         for (var topic : userEvent0Topics) {
-            pubSub.subscribe(new SubscriptionRequest<UserEvent>(topic, "user-service-on-user-event", UserEvent.class, this::onUserEvent)
+            pubSub.subscribe(new SubscriptionRequest<UserEvent>(topic, "user-service-on-user-event-" + topic, UserEvent.class, this::onUserEvent)
                     .withExecutor(Executors.newFixedThreadPool(1)));
         }
         for (var topic : userEvent1Topics) {
-            pubSub.subscribe(new SubscriptionRequest<UserEvent>(topic, "user-service-on-user-event", UserEvent.class, this::onUserEvent)
+            pubSub.subscribe(new SubscriptionRequest<UserEvent>(topic, "user-service-on-user-event-" + topic, UserEvent.class, this::onUserEvent)
                     .withExecutor(Executors.newFixedThreadPool(1)));
         }
         this.userService = userService;

@@ -43,13 +43,15 @@ class PubSubSpelTopicTest {
         assertThat(source).contains("@Value(\"#{'${topic.user.names}'.split(',')}\") String[] userEvent0Topics");
         assertThat(source).contains("@Value(\"#{'${topic.prefix}' + '.dlt'}\") String deadLetterTopic");
         assertThat(source).contains("for (var topic : userEvent0Topics)");
-        assertThat(source).contains("SubscriptionRequest<UserEvent>(\"prefab.user.audit\"");
+        assertThat(source).contains("SubscriptionRequest<UserEvent>(topic, \"user-service-on-user-event-\" + topic");
+        assertThat(source).contains(
+                "SubscriptionRequest<UserEvent>(\"prefab.user.audit\", \"user-service-on-user-event-prefab.user.audit\"");
         assertThat(source).doesNotContain("SubscriptionRequest<UserEvent>(\"#{");
     }
 
     @Test
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    void spelTopicExpressionExpandingToMultipleTopicsSubscribesToEachResolvedTopic() throws Exception {
+    void spelTopicExpressionExpandingToMultipleTopicsSubscribesToEachResolvedTopicWithItsOwnSubscription() throws Exception {
         var classLoader = classLoaderOf(compilation);
         var pubSub = mock(PubSubUtil.class);
         try (var applicationContext = new AnnotationConfigApplicationContext()) {
@@ -68,6 +70,12 @@ class PubSubSpelTopicTest {
         assertThat(requests.getAllValues())
                 .extracting(request -> ((SubscriptionRequest<?>) request).topic())
                 .containsExactly("prefab.user.created", "prefab.user.updated", "prefab.user.audit");
+        assertThat(requests.getAllValues())
+                .extracting(request -> ((SubscriptionRequest<?>) request).subscription())
+                .containsExactly(
+                        "user-service-on-user-event-prefab.user.created",
+                        "user-service-on-user-event-prefab.user.updated",
+                        "user-service-on-user-event-prefab.user.audit");
         assertThat(requests.getAllValues())
                 .extracting(request -> ((SubscriptionRequest<?>) request).deadLetterPolicy().getDeadLetterTopic())
                 .containsOnly("prefab.dlt");

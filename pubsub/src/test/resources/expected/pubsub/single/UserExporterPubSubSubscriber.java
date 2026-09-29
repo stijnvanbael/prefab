@@ -16,7 +16,7 @@ public class UserExporterPubSubSubscriber {
     private final UserExporter userExporter;
 
     public UserExporterPubSubSubscriber(UserExporter userExporter, PubSubUtil pubSub) {
-        pubSub.subscribe(new SubscriptionRequest<UserCreated>("user", "user-exporter-on-user-created", UserCreated.class, this::onUserCreated)
+        pubSub.subscribe(new SubscriptionRequest<UserCreated>("user", "user-exporter-on-user-created-user", UserCreated.class, this::onUserCreated)
                 .withExecutor(Executors.newFixedThreadPool(2)));
         this.userExporter = userExporter;
     }

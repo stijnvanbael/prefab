@@ -182,12 +182,12 @@ class PubSubSubscriberWriter {
         var eventName = eventType.simpleName().replace(".", "");
         var eventHandlerConfig = owner.inheritedAnnotationsOfType(EventHandlerConfig.class).stream().findFirst().orElse(null);
         var subscribe = CodeBlock.of("""
-                        pubSub.subscribe(new $T($L, $S, $T.class, this::on$L)
+                        pubSub.subscribe(new $T($L, $L, $T.class, this::on$L)
                         .withExecutor($T.newFixedThreadPool($L))$L)""",
                 ParameterizedTypeName.get(ClassName.get(SubscriptionRequest.class),
                         eventType.asTypeName()),
                 isExpression(topic) ? "topic" : CodeBlock.of("$S", topic),
-                CaseUtil.toKebabCase(owner.simpleName()) + "-on-" + CaseUtil.toKebabCase(eventName),
+                subscriptionName(owner, eventName, topic),
                 eventType.asTypeName(),
                 eventName,
                 ClassName.get(Executors.class),
@@ -202,6 +202,15 @@ class PubSubSubscriberWriter {
         } else {
             constructor.addStatement(subscribe);
         }
+    }
+
+    /**
+     * A Pub/Sub subscription is bound to a single topic, so the topic is part of the subscription name. Otherwise
+     * every topic after the first would reuse the existing subscription of the first topic and never be consumed.
+     */
+    private static CodeBlock subscriptionName(TypeManifest owner, String eventName, String topic) {
+        var prefix = CaseUtil.toKebabCase(owner.simpleName()) + "-on-" + CaseUtil.toKebabCase(eventName) + "-";
+        return isExpression(topic) ? CodeBlock.of("$S + topic", prefix) : CodeBlock.of("$S", prefix + topic);
     }
 
     private static ParameterSpec configParameter(Class<?> type, String name, String value) {

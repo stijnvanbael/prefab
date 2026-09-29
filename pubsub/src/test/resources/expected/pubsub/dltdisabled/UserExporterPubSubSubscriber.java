@@ -19,7 +19,7 @@ public class UserExporterPubSubSubscriber {
     public UserExporterPubSubSubscriber(UserExporter userExporter, PubSubUtil pubSub,
             @Value("${topic.user.name}") String[] userEventTopics) {
         for (var topic : userEventTopics) {
-            pubSub.subscribe(new SubscriptionRequest<UserEvent>(topic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
+            pubSub.subscribe(new SubscriptionRequest<UserEvent>(topic, "user-exporter-on-user-event-" + topic, UserEvent.class, this::onUserEvent)
                     .withExecutor(Executors.newFixedThreadPool(1))
                     .withDeadLetterPolicy(null));
         }

@@ -1,12 +1,20 @@
 package be.appify.prefab.processor.kafka;
 
 import be.appify.prefab.processor.PrefabProcessor;
+import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.core.kafka.EventRegistryCustomizer;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.core.env.MapPropertySource;
 
 import java.io.IOException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import static be.appify.prefab.processor.kafka.ProcessorTestUtil.classpathOptionsWith;
@@ -47,8 +55,9 @@ class KafkaEventTypeRegistrarWriterTest {
         assertThat(source).contains("@Component(\"kafka_multiple_UserEventEventTypeRegistrar\")");
         assertThat(source).contains("implements EventRegistryCustomizer");
         // topic injected via @Value, registered dynamically
-        assertThat(source).contains("@Value(\"${topic.user.name}\")");
-        assertThat(source).contains("registry.register(userEventTopic, UserEvent.class, Event.Serialization.JSON");
+        assertThat(source).contains("@Value(\"${topic.user.name}\") String[] userEventTopics");
+        assertThat(source).contains("for (var topic : userEventTopics)");
+        assertThat(source).contains("registry.register(topic, UserEvent.class, Event.Serialization.JSON");
     }
 
     @Test
@@ -64,11 +73,11 @@ class KafkaEventTypeRegistrarWriterTest {
 
         var saleSrc = generatedSourceOf(compilation, "kafka.multitopic.infrastructure.event.SaleCreatedEventTypeRegistrar");
         assertThat(saleSrc).contains("@Component(\"kafka_multitopic_SaleCreatedEventTypeRegistrar\")");
-        assertThat(saleSrc).contains("registry.register(saleCreatedTopic, Sale.Created.class, Event.Serialization.JSON)");
+        assertThat(saleSrc).contains("registry.register(topic, Sale.Created.class, Event.Serialization.JSON)");
 
         var refundSrc = generatedSourceOf(compilation, "kafka.multitopic.infrastructure.event.RefundCreatedEventTypeRegistrar");
         assertThat(refundSrc).contains("@Component(\"kafka_multitopic_RefundCreatedEventTypeRegistrar\")");
-        assertThat(refundSrc).contains("registry.register(refundCreatedTopic, Refund.Created.class, Event.Serialization.JSON)");
+        assertThat(refundSrc).contains("registry.register(topic, Refund.Created.class, Event.Serialization.JSON)");
     }
 
     @Test
@@ -82,10 +91,53 @@ class KafkaEventTypeRegistrarWriterTest {
         var source = generatedSourceOf(compilation, "kafka.multitopicevent.infrastructure.event.UserEventEventTypeRegistrar");
         assertThat(source).contains("@Component(\"kafka_multitopicevent_UserEventEventTypeRegistrar\")");
         // two topic fields injected for the two topics
-        assertThat(source).contains("@Value(\"${topic.user.primary}\")");
-        assertThat(source).contains("@Value(\"${topic.user.secondary}\")");
-        assertThat(source).contains("registry.register(userEventTopic0, UserEvent.class, Event.Serialization.JSON)");
-        assertThat(source).contains("registry.register(userEventTopic1, UserEvent.class, Event.Serialization.JSON)");
+        assertThat(source).contains("@Value(\"${topic.user.primary}\") String[] userEventTopics0");
+        assertThat(source).contains("@Value(\"${topic.user.secondary}\") String[] userEventTopics1");
+        assertThat(source).contains("for (var topic : userEventTopics0)");
+        assertThat(source).contains("for (var topic : userEventTopics1)");
+        assertThat(source).contains("registry.register(topic, UserEvent.class, Event.Serialization.JSON)");
+    }
+
+    @Test
+    void spelTopicExpressionIsInjectedInsteadOfRegisteredLiterally() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("kafka/speltopic/UserEvent.java"));
+        assertThat(compilation).succeeded();
+        var source = generatedSourceOf(compilation, "kafka.speltopic.infrastructure.event.UserEventEventTypeRegistrar");
+        assertThat(source).contains("@Value(\"#{'${topic.user.names}'.split(',')}\") String[] userEventTopics0");
+        assertThat(source).contains("@Value(\"prefab.${topic.env}.user\") String[] userEventTopics1");
+        assertThat(source).contains("registry.register(\"prefab.user.audit\", UserEvent.class, Event.Serialization.JSON)");
+        assertThat(source).doesNotContain("registry.register(\"#{");
+        assertThat(source).doesNotContain("registry.register(\"prefab.${");
+    }
+
+    @Test
+    void spelTopicExpressionExpandingToMultipleTopicsRegistersEachResolvedTopic() throws Exception {
+        var classpath = compileDependencyClasspath(sourceOf("kafka/speltopic/UserEvent.java"));
+        try (var classLoader = new URLClassLoader(new URL[] { classpath.toUri().toURL() }, getClass().getClassLoader());
+             var applicationContext = new AnnotationConfigApplicationContext()) {
+            applicationContext.setClassLoader(classLoader);
+            applicationContext.getEnvironment().getPropertySources().addFirst(new MapPropertySource("test", Map.of(
+                    "topic.user.names", "prefab.user.created,prefab.user.updated",
+                    "topic.env", "test")));
+            applicationContext.registerBean(classLoader.loadClass(
+                    "kafka.speltopic.infrastructure.event.UserEventEventTypeRegistrar"));
+            applicationContext.refresh();
+
+            var registry = new EventRegistry();
+            applicationContext.getBeansOfType(EventRegistryCustomizer.class).values()
+                    .forEach(customizer -> customizer.customize(registry));
+
+            var eventType = classLoader.loadClass("kafka.speltopic.UserEvent");
+            assertThat(registry.topicsForType(eventType)).containsExactlyInAnyOrder(
+                    "prefab.user.created", "prefab.user.updated", "prefab.test.user", "prefab.user.audit");
+            assertThat(registry.topicsWithSerialization(Event.Serialization.JSON)).containsExactlyInAnyOrder(
+                    "prefab.user.created", "prefab.user.updated", "prefab.test.user", "prefab.user.audit");
+            assertThat(registry.typeFor("prefab.user.updated")).isEqualTo(eventType);
+        } finally {
+            deleteRecursively(classpath);
+        }
     }
 
     @Test
@@ -113,7 +165,7 @@ class KafkaEventTypeRegistrarWriterTest {
         assertThat(compilation).succeeded();
         var source = generatedSourceOf(compilation, "kafka.createorupdate.infrastructure.event.MessageEventEventTypeRegistrar");
         assertThat(source).contains("@Component(\"kafka_createorupdate_MessageEventEventTypeRegistrar\")");
-        assertThat(source).contains("registry.register(messageEventTopic, MessageEvent.class, Event.Serialization.JSON)");
+        assertThat(source).contains("registry.register(topic, MessageEvent.class, Event.Serialization.JSON)");
     }
 
     @Test

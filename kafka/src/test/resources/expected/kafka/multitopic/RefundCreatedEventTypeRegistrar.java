@@ -7,14 +7,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 @Component("kafka_multitopic_RefundCreatedEventTypeRegistrar")
 public class RefundCreatedEventTypeRegistrar implements EventRegistryCustomizer {
-    private final String refundCreatedTopic;
+    private final String[] refundCreatedTopics;
     public RefundCreatedEventTypeRegistrar(
-            @Value("${topic.refund.name}") String refundCreatedTopic) {
-        this.refundCreatedTopic = refundCreatedTopic;
+            @Value("${topic.refund.name}") String[] refundCreatedTopics) {
+        this.refundCreatedTopics = refundCreatedTopics;
     }
     @Override
     public void customize(EventRegistry registry) {
-        registry.register(refundCreatedTopic, Refund.Created.class, Event.Serialization.JSON);
+        for (var topic : refundCreatedTopics) {
+            registry.register(topic, Refund.Created.class, Event.Serialization.JSON);
+        }
     }
 }
 

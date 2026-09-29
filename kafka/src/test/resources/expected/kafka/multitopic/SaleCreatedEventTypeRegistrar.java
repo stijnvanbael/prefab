@@ -7,14 +7,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 @Component("kafka_multitopic_SaleCreatedEventTypeRegistrar")
 public class SaleCreatedEventTypeRegistrar implements EventRegistryCustomizer {
-    private final String saleCreatedTopic;
+    private final String[] saleCreatedTopics;
     public SaleCreatedEventTypeRegistrar(
-            @Value("${topic.sale.name}") String saleCreatedTopic) {
-        this.saleCreatedTopic = saleCreatedTopic;
+            @Value("${topic.sale.name}") String[] saleCreatedTopics) {
+        this.saleCreatedTopics = saleCreatedTopics;
     }
     @Override
     public void customize(EventRegistry registry) {
-        registry.register(saleCreatedTopic, Sale.Created.class, Event.Serialization.JSON);
+        for (var topic : saleCreatedTopics) {
+            registry.register(topic, Sale.Created.class, Event.Serialization.JSON);
+        }
     }
 }
 

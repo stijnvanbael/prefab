@@ -64,7 +64,7 @@ public class EventTypeRegistrarWriter {
      *
      * @param packageName the base package for the generated registrar
      * @param eventType   the generated event class name
-     * @param topics      the topic strings (may contain {@code ${...}} placeholders)
+     * @param topics      the topic strings (may contain {@code ${...}} placeholders or {@code #{...}} SpEL expressions)
      * @param publishTo   the publish-to strategy
      */
     public void writeAvscRegistrar(String packageName, ClassName eventType, String[] topics, PublishTo publishTo) {
@@ -88,22 +88,18 @@ public class EventTypeRegistrarWriter {
                 .addAnnotation(componentAnnotation(packageName, name))
                 .addSuperinterface(EventRegistryCustomizer.class);
 
-        var placeholderTopics = Arrays.stream(topics)
-                .filter(t -> t.matches("\\$\\{.+}"))
-                .toList();
-
-        // Use indexed field names (e.g. myEventTopic0, myEventTopic1) when there are multiple topics;
-        // preserve the non-indexed name (myEventTopic) for the common single-topic case.
+        // Use indexed field names (e.g. myEventTopics0, myEventTopics1) when there are multiple topics;
+        // preserve the non-indexed name (myEventTopics) for the common single-topic case.
         boolean useIndexedNames = topics.length > 1;
 
-        if (!placeholderTopics.isEmpty()) {
+        if (Arrays.stream(topics).anyMatch(EventTypeRegistrarWriter::isExpression)) {
             var constructor = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC);
             for (int i = 0; i < topics.length; i++) {
                 var topic = topics[i];
-                if (topic.matches("\\$\\{.+}")) {
+                if (isExpression(topic)) {
                     var fieldName = topicFieldName(simpleName, i, useIndexedNames);
-                    typeBuilder.addField(FieldSpec.builder(String.class, fieldName, Modifier.PRIVATE, Modifier.FINAL).build());
-                    constructor.addParameter(ParameterSpec.builder(String.class, fieldName)
+                    typeBuilder.addField(FieldSpec.builder(String[].class, fieldName, Modifier.PRIVATE, Modifier.FINAL).build());
+                    constructor.addParameter(ParameterSpec.builder(String[].class, fieldName)
                             .addAnnotation(AnnotationSpec.builder(Value.class)
                                     .addMember("value", "$S", topic)
                                     .build())
@@ -118,6 +114,15 @@ public class EventTypeRegistrarWriter {
         return typeBuilder.build();
     }
 
+    /**
+     * A topic containing a property placeholder or SpEL expression is resolved by Spring at runtime.
+     * It is injected as a {@code String[]} because an expression may expand to multiple topics
+     * (an array, a collection or a comma-separated string).
+     */
+    private static boolean isExpression(String topic) {
+        return topic.contains("${") || topic.contains("#{");
+    }
+
     private static MethodSpec customizeMethod(String[] topics, Event.Serialization serialization,
                                                String simpleName, TypeName eventTypeName,
                                                Optional<CodeBlock> keyExtractor,
@@ -129,18 +134,12 @@ public class EventTypeRegistrarWriter {
 
         for (int i = 0; i < topics.length; i++) {
             var topic = topics[i];
-            boolean isPlaceholder = topic.matches("\\$\\{.+}");
-            String topicArg = isPlaceholder
-                    ? topicFieldName(simpleName, i, useIndexedNames)
-                    : "\"" + topic + "\"";
-
-            if (keyExtractor.isPresent()) {
-                method.addStatement("registry.register($L, $T.class, $T.$L, event -> $L)",
-                        topicArg, eventTypeName, Event.Serialization.class, serialization,
-                        keyExtractor.get());
+            if (isExpression(topic)) {
+                method.beginControlFlow("for (var topic : $L)", topicFieldName(simpleName, i, useIndexedNames));
+                method.addStatement(registerStatement(CodeBlock.of("topic"), serialization, eventTypeName, keyExtractor));
+                method.endControlFlow();
             } else {
-                method.addStatement("registry.register($L, $T.class, $T.$L)",
-                        topicArg, eventTypeName, Event.Serialization.class, serialization);
+                method.addStatement(registerStatement(CodeBlock.of("$S", topic), serialization, eventTypeName, keyExtractor));
             }
         }
 
@@ -152,14 +151,23 @@ public class EventTypeRegistrarWriter {
         return method.build();
     }
 
+    private static CodeBlock registerStatement(CodeBlock topic, Event.Serialization serialization,
+                                               TypeName eventTypeName, Optional<CodeBlock> keyExtractor) {
+        return keyExtractor
+                .map(extractor -> CodeBlock.of("registry.register($L, $T.class, $T.$L, event -> $L)",
+                        topic, eventTypeName, Event.Serialization.class, serialization, extractor))
+                .orElseGet(() -> CodeBlock.of("registry.register($L, $T.class, $T.$L)",
+                        topic, eventTypeName, Event.Serialization.class, serialization));
+    }
+
     /**
-     * Derives the field name for a topic parameter.
+     * Derives the field name for an injected topic expression.
      *
-     * <p>Single topic → {@code {simpleName}Topic} (backward-compatible).
-     * Multiple topics → {@code {simpleName}Topic{index}}.
+     * <p>Single topic → {@code {simpleName}Topics}.
+     * Multiple topics → {@code {simpleName}Topics{index}}.
      */
     private static String topicFieldName(String simpleName, int index, boolean useIndexedNames) {
-        var base = uncapitalize(simpleName) + "Topic";
+        var base = uncapitalize(simpleName) + "Topics";
         return useIndexedNames ? base + index : base;
     }
 

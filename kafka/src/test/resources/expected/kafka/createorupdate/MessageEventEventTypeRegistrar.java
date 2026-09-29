@@ -7,14 +7,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 @Component("kafka_createorupdate_MessageEventEventTypeRegistrar")
 public class MessageEventEventTypeRegistrar implements EventRegistryCustomizer {
-    private final String messageEventTopic;
+    private final String[] messageEventTopics;
     public MessageEventEventTypeRegistrar(
-            @Value("${topic.message.name}") String messageEventTopic) {
-        this.messageEventTopic = messageEventTopic;
+            @Value("${topic.message.name}") String[] messageEventTopics) {
+        this.messageEventTopics = messageEventTopics;
     }
     @Override
     public void customize(EventRegistry registry) {
-        registry.register(messageEventTopic, MessageEvent.class, Event.Serialization.JSON);
+        for (var topic : messageEventTopics) {
+            registry.register(topic, MessageEvent.class, Event.Serialization.JSON);
+        }
     }
 }
 

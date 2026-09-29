@@ -21,7 +21,6 @@ import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import javax.lang.model.element.ExecutableElement;
@@ -35,6 +34,7 @@ import org.springframework.stereotype.Component;
 import static be.appify.prefab.core.annotations.EventHandlerConfig.Util.hasCustomDeadLetterTopic;
 import static be.appify.prefab.core.annotations.EventHandlerConfig.Util.hasCustomRetries;
 import static be.appify.prefab.processor.event.ConsumerWriterSupport.concurrencyExpression;
+import static be.appify.prefab.processor.event.TopicExpressions.isExpression;
 import static java.util.stream.Collectors.groupingBy;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -77,10 +77,6 @@ class PubSubSubscriberWriter {
                                 ClassName.get(packageName + ".infrastructure.pubsub", name))
                         .build());
 
-        for (int i = 0; i < topicList.size(); i++) {
-            type.addField(FieldSpec.builder(Executor.class, uniqueNames.get(i) + "Executor", PRIVATE, FINAL).build());
-        }
-
         var fields = support.addFields(eventHandlers, context, type);
         addEventHandlers(eventHandlers, type);
         type.addMethod(constructor(topicList, uniqueNames, owner, fields, eventHandlers));
@@ -88,9 +84,9 @@ class PubSubSubscriberWriter {
     }
 
     /**
-     * Computes a unique base name for each topic index. For each topic, the base is derived from
-     * the event type's simple name. If multiple topics map to the same event type, an index suffix
-     * is appended to each to ensure uniqueness.
+     * Computes a unique base name for each topic index, used to name injected topic parameters. For each
+     * topic, the base is derived from the event type's simple name. If multiple topics map to the same event
+     * type, an index suffix is appended to each to ensure uniqueness.
      */
     private List<String> buildUniqueNames(
             List<String> topics,
@@ -164,6 +160,9 @@ class PubSubSubscriberWriter {
                 constructor.addParameter(configParameter(Double.class, "backoffMultiplier", config.backoffMultiplier()));
             }
         }
+        if (hasCustomDeadLetterTopic(config) && isExpression(config.deadLetterTopic())) {
+            constructor.addParameter(configParameter(String.class, "deadLetterTopic", config.deadLetterTopic()));
+        }
         for (int i = 0; i < topics.size(); i++) {
             addTopic(owner, eventHandlers, topics.get(i), uniqueNames.get(i), constructor, concurrency);
         }
@@ -180,37 +179,38 @@ class PubSubSubscriberWriter {
             String concurrency
     ) {
         var eventType = support.eventTypeOf(eventHandlers, context, topic);
-        var topicVariableName = uniqueBaseName + "Topic";
         var eventName = eventType.simpleName().replace(".", "");
-        var executorName = uniqueBaseName + "Executor";
-        if (topic.matches("\\$\\{.+}")) {
-            constructor.addParameter(ParameterSpec.builder(String.class, topicVariableName)
-                    .addAnnotation(AnnotationSpec.builder(Value.class)
-                            .addMember("value", "$S", topic)
-                            .build())
-                    .build());
-        }
         var eventHandlerConfig = owner.inheritedAnnotationsOfType(EventHandlerConfig.class).stream().findFirst().orElse(null);
-        if (hasCustomDeadLetterTopic(eventHandlerConfig) && eventHandlerConfig.deadLetterTopic().matches("\\$\\{.+}")) {
-            constructor.addParameter(ParameterSpec.builder(String.class, "deadLetterTopic")
-                    .addAnnotation(AnnotationSpec.builder(Value.class)
-                            .addMember("value", "$S", eventHandlerConfig.deadLetterTopic())
-                            .build())
-                    .build());
-        }
-        constructor.addStatement("$L = $T.newFixedThreadPool($L)", executorName, ClassName.get(Executors.class),
-                concurrency.matches("\\$\\{.+}") ? "Integer.parseInt(concurrency)" : concurrency);
-        constructor.addStatement("""
-                        pubSub.subscribe(new $T($L, $S, $T.class, this::on$L)
-                        .withExecutor($L)$L)""",
+        var subscribe = CodeBlock.of("""
+                        pubSub.subscribe(new $T($L, $L, $T.class, this::on$L)
+                        .withExecutor($T.newFixedThreadPool($L))$L)""",
                 ParameterizedTypeName.get(ClassName.get(SubscriptionRequest.class),
                         eventType.asTypeName()),
-                topic.matches("\\$\\{.+}") ? topicVariableName : CodeBlock.of("$S", topic),
-                CaseUtil.toKebabCase(owner.simpleName()) + "-on-" + CaseUtil.toKebabCase(eventName),
+                isExpression(topic) ? "topic" : CodeBlock.of("$S", topic),
+                subscriptionName(owner, eventName, topic),
                 eventType.asTypeName(),
                 eventName,
-                executorName,
+                ClassName.get(Executors.class),
+                concurrency.matches("\\$\\{.+}") ? "Integer.parseInt(concurrency)" : concurrency,
                 deadLetterPolicy(eventHandlerConfig));
+        if (isExpression(topic)) {
+            var topicsVariableName = uniqueBaseName + "Topics";
+            constructor.addParameter(configParameter(String[].class, topicsVariableName, topic));
+            constructor.beginControlFlow("for (var topic : $L)", topicsVariableName)
+                    .addStatement(subscribe)
+                    .endControlFlow();
+        } else {
+            constructor.addStatement(subscribe);
+        }
+    }
+
+    /**
+     * A Pub/Sub subscription is bound to a single topic, so the topic is part of the subscription name. Otherwise
+     * every topic after the first would reuse the existing subscription of the first topic and never be consumed.
+     */
+    private static CodeBlock subscriptionName(TypeManifest owner, String eventName, String topic) {
+        var prefix = CaseUtil.toKebabCase(owner.simpleName()) + "-on-" + CaseUtil.toKebabCase(eventName) + "-";
+        return isExpression(topic) ? CodeBlock.of("$S + topic", prefix) : CodeBlock.of("$S", prefix + topic);
     }
 
     private static ParameterSpec configParameter(Class<?> type, String name, String value) {
@@ -231,7 +231,7 @@ class PubSubSubscriberWriter {
                                     .setDeadLetterTopic($L)
                                     .build())""",
                         DeadLetterPolicy.class,
-                        eventHandlerConfig.deadLetterTopic().matches("\\$\\{.+}")
+                        isExpression(eventHandlerConfig.deadLetterTopic())
                                 ? "deadLetterTopic"
                                 : CodeBlock.of("$S", eventHandlerConfig.deadLetterTopic())
                 ));

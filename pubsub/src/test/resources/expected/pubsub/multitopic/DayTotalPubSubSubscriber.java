@@ -2,7 +2,6 @@ package pubsub.multitopic.infrastructure.pubsub;
 
 import be.appify.prefab.core.pubsub.PubSubUtil;
 import be.appify.prefab.core.pubsub.SubscriptionRequest;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,21 +15,19 @@ import pubsub.multitopic.application.DayTotalService;
 public class DayTotalPubSubSubscriber {
     private static final Logger log = LoggerFactory.getLogger(DayTotalPubSubSubscriber.class);
 
-    private final Executor saleCreatedExecutor;
-
-    private final Executor refundCreatedExecutor;
-
     private final DayTotalService dayTotalService;
 
     public DayTotalPubSubSubscriber(DayTotalService dayTotalService, PubSubUtil pubSub,
-            @Value("${topic.sale.name}") String saleCreatedTopic,
-            @Value("${topic.refund.name}") String refundCreatedTopic) {
-        saleCreatedExecutor = Executors.newFixedThreadPool(1);
-        pubSub.subscribe(new SubscriptionRequest<Sale.Created>(saleCreatedTopic, "day-total-on-sale-created", Sale.Created.class, this::onSaleCreated)
-                .withExecutor(saleCreatedExecutor));
-        refundCreatedExecutor = Executors.newFixedThreadPool(1);
-        pubSub.subscribe(new SubscriptionRequest<Refund.Created>(refundCreatedTopic, "day-total-on-refund-created", Refund.Created.class, this::onRefundCreated)
-                .withExecutor(refundCreatedExecutor));
+            @Value("${topic.sale.name}") String[] saleCreatedTopics,
+            @Value("${topic.refund.name}") String[] refundCreatedTopics) {
+        for (var topic : saleCreatedTopics) {
+            pubSub.subscribe(new SubscriptionRequest<Sale.Created>(topic, "day-total-on-sale-created-" + topic, Sale.Created.class, this::onSaleCreated)
+                    .withExecutor(Executors.newFixedThreadPool(1)));
+        }
+        for (var topic : refundCreatedTopics) {
+            pubSub.subscribe(new SubscriptionRequest<Refund.Created>(topic, "day-total-on-refund-created-" + topic, Refund.Created.class, this::onRefundCreated)
+                    .withExecutor(Executors.newFixedThreadPool(1)));
+        }
         this.dayTotalService = dayTotalService;
     }
 

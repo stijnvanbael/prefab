@@ -24,18 +24,20 @@ public class UserExporterSqsSubscriber {
 
     public UserExporterSqsSubscriber(UserExporter userExporter, SqsUtil sqsUtil,
             @Value("${prefab.dlt.retries.backoff-multiplier:1.5}") Double backoffMultiplier,
-            @Value("${topic.user.name}") String userEventTopic,
-            @Value("${custom.dlt.name}") String deadLetterTopic) {
+            @Value("${custom.dlt.name}") String deadLetterTopic,
+            @Value("${topic.user.name}") String[] userEventTopics) {
         executor = Executors.newFixedThreadPool(1);
-        sqsUtil.subscribe(new SqsSubscriptionRequest<UserEvent>(userEventTopic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
-                .withExecutor(executor)
-                .withDeadLetterQueueName(deadLetterTopic)
-                .withRetryTemplate(new RetryTemplate(RetryPolicy.builder()
-                        .maxRetries(10)
-                        .delay(Duration.ofMillis(100L))
-                        .maxDelay(Duration.ofMillis(10000L))
-                        .multiplier(backoffMultiplier)
-                        .build())));
+        for (var topic : userEventTopics) {
+            sqsUtil.subscribe(new SqsSubscriptionRequest<UserEvent>(topic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
+                    .withExecutor(executor)
+                    .withDeadLetterQueueName(deadLetterTopic)
+                    .withRetryTemplate(new RetryTemplate(RetryPolicy.builder()
+                            .maxRetries(10)
+                            .delay(Duration.ofMillis(100L))
+                            .maxDelay(Duration.ofMillis(10000L))
+                            .multiplier(backoffMultiplier)
+                            .build())));
+        }
         this.userExporter = userExporter;
     }
 

@@ -7,14 +7,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 @Component("kafka_multiple_UserEventEventTypeRegistrar")
 public class UserEventEventTypeRegistrar implements EventRegistryCustomizer {
-    private final String userEventTopic;
+    private final String[] userEventTopics;
     public UserEventEventTypeRegistrar(
-            @Value("${topic.user.name}") String userEventTopic) {
-        this.userEventTopic = userEventTopic;
+            @Value("${topic.user.name}") String[] userEventTopics) {
+        this.userEventTopics = userEventTopics;
     }
     @Override
     public void customize(EventRegistry registry) {
-        registry.register(userEventTopic, UserEvent.class, Event.Serialization.JSON, event -> event.id());
+        for (var topic : userEventTopics) {
+            registry.register(topic, UserEvent.class, Event.Serialization.JSON, event -> event.id());
+        }
     }
 }
 

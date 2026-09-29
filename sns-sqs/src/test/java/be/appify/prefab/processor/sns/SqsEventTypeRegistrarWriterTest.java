@@ -40,8 +40,9 @@ class SqsEventTypeRegistrarWriterTest {
         assertThat(compilation).succeeded();
         var source = generatedSourceOf(compilation, "sns.supertype.infrastructure.event.UserEventEventTypeRegistrar");
         assertThat(source).contains("@Component(\"sns_supertype_UserEventEventTypeRegistrar\")");
-        assertThat(source).contains("@Value(\"${topic.user.name}\")");
-        assertThat(source).contains("registry.register(userEventTopic, UserEvent.class, Event.Serialization.JSON");
+        assertThat(source).contains("@Value(\"${topic.user.name}\") String[] userEventTopics");
+        assertThat(source).contains("for (var topic : userEventTopics)");
+        assertThat(source).contains("registry.register(topic, UserEvent.class, Event.Serialization.JSON");
     }
 
     @Test

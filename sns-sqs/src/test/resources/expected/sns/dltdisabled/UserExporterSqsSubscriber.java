@@ -20,11 +20,13 @@ public class UserExporterSqsSubscriber {
     private final UserExporter userExporter;
 
     public UserExporterSqsSubscriber(UserExporter userExporter, SqsUtil sqsUtil,
-            @Value("${topic.user.name}") String userEventTopic) {
+            @Value("${topic.user.name}") String[] userEventTopics) {
         executor = Executors.newFixedThreadPool(1);
-        sqsUtil.subscribe(new SqsSubscriptionRequest<UserEvent>(userEventTopic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
-                .withExecutor(executor)
-                .withDeadLetterQueueName(null));
+        for (var topic : userEventTopics) {
+            sqsUtil.subscribe(new SqsSubscriptionRequest<UserEvent>(topic, "user-exporter-on-user-event", UserEvent.class, this::onUserEvent)
+                    .withExecutor(executor)
+                    .withDeadLetterQueueName(null));
+        }
         this.userExporter = userExporter;
     }
 

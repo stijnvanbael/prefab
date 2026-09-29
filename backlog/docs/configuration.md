@@ -64,6 +64,24 @@ listener-level `@KafkaListener(properties = "auto.offset.reset=...")` override t
 Configure via `spring.cloud.gcp.pubsub.*` (standard Spring Cloud GCP properties). Prefab's
 `PubSubConfiguration` auto-configures subscription and publishing beans.
 
+### Subscription names
+
+Generated subscribers create one subscription per topic, named
+`{handler-class}-on-{event-type}-{topic}`, with the class names in kebab case and the topic as is, e.g. `user-exporter-on-user-created-user` for
+`UserExporter` handling `UserCreated` from topic `user`. A Pub/Sub subscription is bound to a single topic,
+so the topic is part of the name. This also holds for topics that are `${...}` placeholders or `#{...}`
+SpEL expressions resolving to several topics: every resolved topic gets its own subscription.
+
+**Migrating from 0.11.9 and earlier:** subscriptions used to be named `{handler-class}-on-{event-type}`,
+without the topic. After upgrading, the new subscriptions are created on startup. They only receive messages
+published after they exist; anything still unacknowledged on an old subscription stays there. To avoid losing
+messages:
+
+1. Start the new version alongside the old one, so both subscriptions receive messages for a while.
+   Handlers must be idempotent, because messages published in that window are processed twice.
+2. Stop the old version once its `{handler-class}-on-{event-type}` subscriptions are drained.
+3. Delete the old subscriptions once they are empty.
+
 ---
 
 ## SNS/SQS Configuration

@@ -37,7 +37,7 @@ class SqsSubscriberWriterTest {
                         sourceOf("sns/multiple/UserExporter.java"));
         assertThat(compilation).succeeded();
         var source = generatedSourceOf(compilation, "sns.multiple.infrastructure.sns.UserExporterSqsSubscriber");
-        assertThat(source).contains("SqsSubscriptionRequest<UserEvent>(userEventTopic, \"user-exporter-on-user-event\", UserEvent.class");
+        assertThat(source).contains("SqsSubscriptionRequest<UserEvent>(topic, \"user-exporter-on-user-event\", UserEvent.class");
         assertThat(source).contains("private void onUserEvent(UserEvent event)");
         assertThat(source).contains("case UserEvent.Created e -> userExporter.onUserCreated(e)");
         assertThat(source).contains("case UserEvent.Deleted e -> userExporter.onUserDeleted(e)");
@@ -66,10 +66,10 @@ class SqsSubscriberWriterTest {
                         sourceOf("sns/multitopic/DayTotalRepositoryMixin.java"));
         assertThat(compilation).succeeded();
         var source = generatedSourceOf(compilation, "sns.multitopic.infrastructure.sns.DayTotalSqsSubscriber");
-        assertThat(source).contains("SqsSubscriptionRequest<Sale.Created>(saleCreatedTopic, \"day-total-on-sale-created\", Sale.Created.class");
+        assertThat(source).contains("SqsSubscriptionRequest<Sale.Created>(topic, \"day-total-on-sale-created\", Sale.Created.class");
         assertThat(source).contains("private void onSaleCreated(Sale.Created event)");
         assertThat(source).contains("dayTotalService.onSaleCreated(event)");
-        assertThat(source).contains("SqsSubscriptionRequest<Refund.Created>(refundCreatedTopic, \"day-total-on-refund-created\", Refund.Created.class");
+        assertThat(source).contains("SqsSubscriptionRequest<Refund.Created>(topic, \"day-total-on-refund-created\", Refund.Created.class");
         assertThat(source).contains("private void onRefundCreated(Refund.Created event)");
         assertThat(source).contains("dayTotalService.onRefundCreated(event)");
     }
@@ -84,8 +84,9 @@ class SqsSubscriberWriterTest {
         assertThat(compilation).succeeded();
         var source = generatedSourceOf(compilation, "sns.multitopicevent.infrastructure.sns.UserServiceSqsSubscriber");
         // one subscription per topic, same handler method
-        assertThat(source).contains("SqsSubscriptionRequest<UserEvent>(userEvent0Topic, \"user-service-on-user-event\", UserEvent.class");
-        assertThat(source).contains("SqsSubscriptionRequest<UserEvent>(userEvent1Topic, \"user-service-on-user-event\", UserEvent.class");
+        assertThat(source).contains("for (var topic : userEvent0Topics)");
+        assertThat(source).contains("for (var topic : userEvent1Topics)");
+        assertThat(source).contains("SqsSubscriptionRequest<UserEvent>(topic, \"user-service-on-user-event\", UserEvent.class");
         assertThat(source).contains("private void onUserEvent(UserEvent event)");
         assertThat(source).contains("case UserEvent.Created e -> userService.onUserCreated(e)");
         assertThat(source).contains("case UserEvent.Updated e -> userService.onUserUpdated(e)");
@@ -131,7 +132,7 @@ class SqsSubscriberWriterTest {
                         sourceOf("sns/createorupdate/MessageEvent.java"));
         assertThat(compilation).succeeded();
         var source = generatedSourceOf(compilation, "sns.createorupdate.infrastructure.sns.ChannelSummarySqsSubscriber");
-        assertThat(source).contains("SqsSubscriptionRequest<MessageEvent>(messageEventTopic, \"channel-summary-on-message-event\", MessageEvent.class");
+        assertThat(source).contains("SqsSubscriptionRequest<MessageEvent>(topic, \"channel-summary-on-message-event\", MessageEvent.class");
         assertThat(source).contains("private void onMessageEvent(MessageEvent event)");
         assertThat(source).contains("channelSummaryService.onUpdate(event)");
         assertThat(source).doesNotContain("case MessageEvent.Sent e ->");

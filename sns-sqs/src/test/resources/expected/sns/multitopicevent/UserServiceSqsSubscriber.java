@@ -20,13 +20,17 @@ public class UserServiceSqsSubscriber {
     private final UserService userService;
 
     public UserServiceSqsSubscriber(UserService userService, SqsUtil sqsUtil,
-            @Value("${topic.user.primary}") String userEvent0Topic,
-            @Value("${topic.user.secondary}") String userEvent1Topic) {
+            @Value("${topic.user.primary}") String[] userEvent0Topics,
+            @Value("${topic.user.secondary}") String[] userEvent1Topics) {
         executor = Executors.newFixedThreadPool(1);
-        sqsUtil.subscribe(new SqsSubscriptionRequest<UserEvent>(userEvent0Topic, "user-service-on-user-event", UserEvent.class, this::onUserEvent)
-                .withExecutor(executor));
-        sqsUtil.subscribe(new SqsSubscriptionRequest<UserEvent>(userEvent1Topic, "user-service-on-user-event", UserEvent.class, this::onUserEvent)
-                .withExecutor(executor));
+        for (var topic : userEvent0Topics) {
+            sqsUtil.subscribe(new SqsSubscriptionRequest<UserEvent>(topic, "user-service-on-user-event", UserEvent.class, this::onUserEvent)
+                    .withExecutor(executor));
+        }
+        for (var topic : userEvent1Topics) {
+            sqsUtil.subscribe(new SqsSubscriptionRequest<UserEvent>(topic, "user-service-on-user-event", UserEvent.class, this::onUserEvent)
+                    .withExecutor(executor));
+        }
         this.userService = userService;
     }
 
@@ -40,4 +44,3 @@ public class UserServiceSqsSubscriber {
         }
     }
 }
-

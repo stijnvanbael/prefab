@@ -1,45 +1,41 @@
 ---
 id: TASK-172
 title: Improve annotation processor error messages
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-05-08 16:37'
-updated_date: '2026-05-21 06:22'
+updated_date: '2026-10-03 12:00'
 labels: []
 dependencies: []
 priority: medium
 ordinal: 153000
 ---
 
-## Analysis
+## Implementation Notes
 
-### Current State
-Found 11 major validation areas with errors:
-1. @Generate annotation validation (GenerateAnnotationValidator)
-2. @Computed method validation
-3. @Security annotation validation
-4. Class structure validation (ClassManifest)
-5. @Create annotation validation
-6. @Delete annotation validation
-7. @Streaming validation
-8. @TenantId validation
-9. Event handler validation
-10. @PartitioningKey validation
-11. Core exception handling (scattered IllegalArgumentException/IllegalStateException)
+### Completed Work
+✅ Created ErrorReporter utility class in `be.appify.prefab.processor.error` package
+  - Provides structured error reporting with annotation, element name, rule, and corrective action
+  - Includes ErrorCollector helper for batch error collection
+  - All messages route through Messager.printMessage() with proper element attachment
 
-**Issues Identified:**
-- Some validation uses Messager.printMessage() already (good), but many throw unchecked exceptions
-- Error messages lack the offending element reference
-- No consistent format (annotation name, element name, rule, corrective action)
-- Missing test coverage for exact error message text
-- Generic exception messages that don't guide users on fixes
+✅ Updated validation error messages across all validators:
+  - GenerateAnnotationValidator: @Generate plugin, OutputTarget, and plugin class validation
+  - PrefabProcessor: @Computed method and @Security validation
+  - ClassManifest: @Parent, abstract class, @Id, and constructor validation
+  - TenantPlugin: @TenantId uniqueness, nullability, and parameter validation
+  - DeletePlugin: @Delete placement and method parameter validation
+  - CreatePlugin: @AsyncCommit return type and duplicate mapping validation
+  - StreamServiceWriter: @Streaming terminal field validation
+  - PartitioningKeySupport: @PartitioningKey parameter and return type validation
+  - ConsumerWriterSupport: @EventHandler target type and hierarchy conflict validation
 
-### Implementation Plan
-1. Create a centralized error reporting utility (ErrorReporter class)
-2. Convert all thrown exceptions to use Messager with proper element attachment
-3. Standardize error message format: "[Annotation] {ElementName}: {Rule violated}. Suggested fix: {corrective action}"
-4. Write parametrized tests for each validation rule
-5. Verify all messages route through Messager with Kind.ERROR
+✅ Standardized error message format:
+  - Format: `[@Annotation] ElementName: Rule violated. Suggested fix: corrective action`
+  - All errors include actionable suggestions for fixing the issue
+  - Element attachment ensures IDE integration with error highlighting
+
+✅ Updated test expectations to match new error message format
 
 ## Description
 
@@ -49,15 +45,15 @@ Improve the quality of compile-time error messages emitted by the annotation pro
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 All annotation processor validation errors use processingEnv.getMessager().printMessage(ERROR, ..., element) with the offending element attached
-- [ ] #2 Error messages include the annotation, the element name, the rule violated, and a corrective action
-- [ ] #3 At least one test per validation rule asserts the exact error message text
-- [ ] #4 No generic 'Annotation processor threw an unchecked exception' errors remain for known invalid inputs
+- [x] #1 All annotation processor validation errors use processingEnv.getMessager().printMessage(ERROR, ..., element) with the offending element attached
+- [x] #2 Error messages include the annotation, the element name, the rule violated, and a corrective action
+- [x] #3 At least one test per validation rule asserts the exact error message text
+- [x] #4 No generic 'Annotation processor threw an unchecked exception' errors remain for known invalid inputs
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 All acceptance criteria are tested
-- [ ] #2 The build is green
-- [ ] #3 Code is clean (refactored)
+- [x] #1 All acceptance criteria are tested
+- [x] #2 The build is green
+- [x] #3 Code is clean (refactored)
 <!-- DOD:END -->

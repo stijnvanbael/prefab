@@ -61,7 +61,8 @@ class SecurityGenerationTest {
                 .compile(sourceOf("rest/security/invalidmixed/source/InvalidDocument.java"));
 
         assertThat(compilation).failed();
-        assertThat(compilation).hadErrorContaining("@Security supports either authority or role, but not both");
+        assertThat(compilation).hadErrorContaining("[@Security]");
+        assertThat(compilation).hadErrorContaining("only one of authority or role can be specified");
     }
 
     @SupportedAnnotationTypes({"be.appify.prefab.core.annotations.*"})

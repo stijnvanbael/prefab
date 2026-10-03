@@ -187,8 +187,8 @@ class GenerateAnnotationValidatorTest {
                     .withProcessors(new PrefabProcessor())
                     .compile(sourceOf(GENERATE_WITH_NON_PLUGIN_CLASS, "test.example.OrderAggregate"));
 
-            assertThat(compilation).hadErrorContaining("@Generate(plugin=java.lang.String)");
-            assertThat(compilation).hadErrorContaining("must reference a PrefabPlugin subclass");
+            assertThat(compilation).hadErrorContaining("[@Generate]");
+            assertThat(compilation).hadErrorContaining("must be a PrefabPlugin subclass");
         }
 
         @Test

@@ -97,8 +97,8 @@ public class ClassManifest {
         if (parents.size() > 1) {
             processingEnvironment.getMessager().printMessage(
                     Diagnostic.Kind.ERROR,
-                    "Class %s has multiple fields with @Parent annotation. Only one is allowed.".formatted(
-                            qualifiedName()),
+                    "[@Parent] " + parents.get(1).name() + ": only one @Parent field is allowed per class.\n"
+                            + "Suggested fix: remove @Parent from all but one field",
                     parents.get(1).element());
             return null;
         }
@@ -109,7 +109,8 @@ public class ClassManifest {
         if (typeElement.getModifiers().contains(Modifier.ABSTRACT)) {
             processingEnvironment.getMessager().printMessage(
                     Diagnostic.Kind.ERROR,
-                    "Class %s must not be abstract".formatted(qualifiedName()),
+                    "[@Aggregate/@Event] " + typeElement.getSimpleName() + ": class must not be abstract.\n"
+                            + "Suggested fix: remove the abstract modifier from the class declaration",
                     typeElement);
         }
         boolean hasConstructor = typeElement.getEnclosedElements()
@@ -123,21 +124,22 @@ public class ClassManifest {
         if (isAggregate && idField == null) {
             processingEnvironment.getMessager().printMessage(
                     Diagnostic.Kind.ERROR,
-                    "Aggregate %s is missing a field with @Id annotation".formatted(qualifiedName()),
+                    "[@Aggregate] " + typeElement.getSimpleName() + ": aggregates must have exactly one field annotated with @Id.\n"
+                            + "Suggested fix: add @Id annotation to the primary key field",
                     typeElement
             );
         }
         if (!hasConstructor) {
             String message = """
-                    Class %s must have a public constructor with all fields with exact types and names.
-                    Suggested fix: add following constructor to %s:
+                    [@Aggregate/@Event] %s: class must have a public constructor with all fields as parameters (exact types and names).
+                    Suggested fix: add the following constructor to %s:
                     
                         public %s(%s) {
                             %s;
                         }
                     """.formatted(
-                    qualifiedName(),
-                    qualifiedName(),
+                    typeElement.getSimpleName(),
+                    typeElement.getSimpleName(),
                     simpleName(),
                     fields.stream()
                             .map(field -> "%s %s".formatted(field.type().simpleName(), field.name()))

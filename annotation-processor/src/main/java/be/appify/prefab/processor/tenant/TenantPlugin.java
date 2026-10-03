@@ -85,8 +85,8 @@ public class TenantPlugin implements PrefabPlugin {
 
         if (tenantFields.size() > 1) {
             context.logError(
-                    "Aggregate " + manifest.qualifiedName() + " declares more than one @TenantId field. "
-                            + "Only one @TenantId field is allowed per aggregate.",
+                    "[@TenantId] " + tenantFields.get(1).name() + ": only one @TenantId field is allowed per aggregate.\n"
+                            + "Suggested fix: remove @TenantId from all but one field",
                     tenantFields.get(1).element());
             return;
         }
@@ -99,8 +99,8 @@ public class TenantPlugin implements PrefabPlugin {
 
         if (tenantFields.getFirst().hasAnnotation(Nullable.class)) {
             context.logError(
-                    "@TenantId field '" + tenantFieldName + "' must not be annotated with @Nullable. "
-                            + "The tenant ID is always required.",
+                    "[@TenantId] " + tenantFieldName + ": tenant ID field must not be nullable; it is always required by the framework.\n"
+                            + "Suggested fix: remove the @Nullable annotation from this field",
                     tenantFields.getFirst().element());
             return;
         }
@@ -110,8 +110,9 @@ public class TenantPlugin implements PrefabPlugin {
                         .filter(p -> p.getSimpleName().toString().equals(tenantFieldName))
                         .findFirst()
                         .ifPresent(p -> context.logError(
-                                "@TenantId field '" + tenantFieldName + "' must not appear in a @Create "
-                                        + "constructor. The tenant ID is populated automatically by the framework.",
+                                "[@TenantId] " + tenantFieldName + ": tenant ID field must not appear in @Create constructor. "
+                                        + "The framework automatically populates this field.\n"
+                                        + "Suggested fix: remove this parameter from the constructor",
                                 p)));
 
         manifest.methodsWith(Update.class).forEach(method ->
@@ -119,8 +120,9 @@ public class TenantPlugin implements PrefabPlugin {
                         .filter(p -> p.getSimpleName().toString().equals(tenantFieldName))
                         .findFirst()
                         .ifPresent(p -> context.logError(
-                                "@TenantId field '" + tenantFieldName + "' must not appear in an @Update "
-                                        + "method. The tenant ID is populated automatically by the framework.",
+                                "[@TenantId] " + tenantFieldName + ": tenant ID field must not appear in @Update method. "
+                                        + "The framework automatically populates this field.\n"
+                                        + "Suggested fix: remove this parameter from the method",
                                 p)));
     }
 }

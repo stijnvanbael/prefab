@@ -87,7 +87,9 @@ class ComputedFieldTest {
 
         assertThat(compilation).failed();
         assertThat(compilation)
-                .hadErrorContaining("@Computed method discounted must be public, take no arguments and return a value");
+                .hadErrorContaining("[@Computed]");
+        assertThat(compilation)
+                .hadErrorContaining("must be public, take no arguments, and return a value");
     }
 
     @Test
@@ -98,6 +100,8 @@ class ComputedFieldTest {
 
         assertThat(compilation).failed();
         assertThat(compilation)
-                .hadErrorContaining("@Computed method amount clashes with a field of the same name");
+                .hadErrorContaining("[@Computed]");
+        assertThat(compilation)
+                .hadErrorContaining("clashes with a field of the same name");
     }
 }

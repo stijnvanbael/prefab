@@ -65,8 +65,7 @@ public class GenerateAnnotationValidator {
             if (typeElement.getAnnotation(Generate.class) != null || typeElement.getAnnotation(GenerateOverrides.class) != null) {
                 warn(
                         typeElement,
-                        "@Generate on class " + typeElement.getQualifiedName()
-                                + " is ignored because it is not annotated with @Aggregate or @Event"
+                        "[@Generate] " + typeElement.getSimpleName() + ": @Generate is ignored because the class is not annotated with @Aggregate or @Event"
                 );
             }
             return new PluginOverrideRegistry();
@@ -89,8 +88,8 @@ public class GenerateAnnotationValidator {
                         if (!isPrefabPluginSubclass(pluginClass, typeElement)) {
                             error(
                                     typeElement,
-                                    "Cannot use @Generate(plugin=" + pluginClass.getName()
-                                            + "): must reference a PrefabPlugin subclass"
+                                    "[@Generate] " + typeElement.getSimpleName() + ": plugin class must be a PrefabPlugin subclass.\n"
+                                            + "Suggested fix: ensure " + pluginClass.getName() + " extends PrefabPlugin"
                             );
                             return;
                         }
@@ -99,8 +98,8 @@ public class GenerateAnnotationValidator {
                         if (overrides.containsKey(pluginClass)) {
                             warn(
                                     typeElement,
-                                    "@Generate(plugin=" + pluginClass.getSimpleName()
-                                            + ") is defined multiple times; only the first override will be used"
+                                    "[@Generate] " + typeElement.getSimpleName() + ": plugin " + pluginClass.getSimpleName()
+                                            + " is already specified. Only the first override will be used. Remove duplicate @Generate(plugin=" + pluginClass.getSimpleName() + ")"
                             );
                             return;
                         }
@@ -110,8 +109,8 @@ public class GenerateAnnotationValidator {
                         if (target == OutputTarget.TEST && !supportsTestOutput()) {
                             error(
                                     typeElement,
-                                    "Plugin " + pluginClass.getSimpleName()
-                                            + " does not support OutputTarget.TEST; use DEFAULT or MAIN instead"
+                                    "[@Generate] " + typeElement.getSimpleName() + ": OutputTarget.TEST is not supported by " + pluginClass.getSimpleName() + ".\n"
+                                            + "Suggested fix: use OutputTarget.DEFAULT or OutputTarget.MAIN instead"
                             );
                             return;
                         }
@@ -128,8 +127,8 @@ public class GenerateAnnotationValidator {
                             String pluginName = declaredType.toString();
                             error(
                                     typeElement,
-                                    "Cannot use @Generate(plugin=" + pluginName
-                                            + "): must reference a PrefabPlugin subclass"
+                                    "[@Generate] " + typeElement.getSimpleName() + ": plugin class must be a PrefabPlugin subclass.\n"
+                                            + "Suggested fix: ensure " + pluginName + " extends PrefabPlugin"
                             );
                             return;
                         }
@@ -138,8 +137,9 @@ public class GenerateAnnotationValidator {
                         if (elementUtils.getTypeElement(declaredType.toString()) == null) {
                             error(
                                     typeElement,
-                                    "@Generate references plugin " + declaredType
-                                            + ", but it is not on the annotation-processor classpath"
+                                    "[@Generate] " + typeElement.getSimpleName() + ": plugin class " + declaredType
+                                            + " is not on the annotation-processor classpath.\n"
+                                            + "Suggested fix: add the plugin module to the annotation processor dependencies"
                             );
                             return;
                         }
@@ -150,8 +150,8 @@ public class GenerateAnnotationValidator {
                         if (overrides.containsKey(resolvedPluginClass)) {
                             warn(
                                     typeElement,
-                                    "@Generate(plugin=" + resolvedPluginClass.getSimpleName()
-                                            + ") is defined multiple times; only the first override will be used"
+                                    "[@Generate] " + typeElement.getSimpleName() + ": plugin " + resolvedPluginClass.getSimpleName()
+                                            + " is already specified. Only the first override will be used. Remove duplicate @Generate(plugin=" + resolvedPluginClass.getSimpleName() + ")"
                             );
                             return;
                         }
@@ -159,8 +159,8 @@ public class GenerateAnnotationValidator {
                         if (target == OutputTarget.TEST && !supportsTestOutput()) {
                             error(
                                     typeElement,
-                                    "Plugin " + resolvedPluginClass.getSimpleName()
-                                            + " does not support OutputTarget.TEST; use DEFAULT or MAIN instead"
+                                    "[@Generate] " + typeElement.getSimpleName() + ": OutputTarget.TEST is not supported by " + resolvedPluginClass.getSimpleName() + ".\n"
+                                            + "Suggested fix: use OutputTarget.DEFAULT or OutputTarget.MAIN instead"
                             );
                             return;
                         }
@@ -187,8 +187,8 @@ public class GenerateAnnotationValidator {
         } catch (Exception e) {
             error(
                     typeElement,
-                    "Could not verify if @Generate(plugin=" + pluginClass.getSimpleName()
-                            + ") is a PrefabPlugin: " + e.getMessage()
+                    "[@Generate] " + typeElement.getSimpleName() + ": could not verify if plugin class " + pluginClass.getSimpleName()
+                            + " is a PrefabPlugin: " + e.getMessage()
             );
             return false;
         }
@@ -207,7 +207,8 @@ public class GenerateAnnotationValidator {
         if (prefabPluginElement == null) {
             error(
                     typeElement,
-                    "Could not find PrefabPlugin on the annotation-processor classpath"
+                    "[@Generate] " + typeElement.getSimpleName() + ": PrefabPlugin class not found on the annotation-processor classpath.\n"
+                            + "Suggested fix: ensure the prefab-core module is a dependency of the annotation processor"
             );
             return false;
         }

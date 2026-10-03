@@ -154,8 +154,8 @@ public class PrefabProcessor extends AbstractProcessor {
                             || !method.getParameters().isEmpty()
                             || method.getReturnType().getKind() == TypeKind.VOID) {
                         processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-                                "@Computed method %s must be public, take no arguments and return a value"
-                                        .formatted(method.getSimpleName()),
+                                "[@Computed] " + method.getSimpleName() + ": method must be public, take no arguments, and return a value.\n"
+                                        + "Suggested fix: declare the method as: public <ReturnType> " + method.getSimpleName() + "() { ... }",
                                 method);
                     }
                     var clashesWithField = method.getEnclosingElement().getEnclosedElements().stream()
@@ -163,8 +163,8 @@ public class PrefabProcessor extends AbstractProcessor {
                                     && element.getSimpleName().contentEquals(method.getSimpleName()));
                     if (clashesWithField) {
                         processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-                                "@Computed method %s clashes with a field of the same name"
-                                        .formatted(method.getSimpleName()),
+                                "[@Computed] " + method.getSimpleName() + ": method name clashes with a field of the same name.\n"
+                                        + "Suggested fix: rename either the field or the method to avoid the conflict",
                                 method);
                     }
                 });
@@ -198,7 +198,8 @@ public class PrefabProcessor extends AbstractProcessor {
         if (!security.authority().isBlank() && !security.role().isBlank()) {
             processingEnv.getMessager().printMessage(
                     Diagnostic.Kind.ERROR,
-                    "@Security supports either authority or role, but not both",
+                    "[@Security] " + element.getSimpleName() + ": only one of authority or role can be specified, not both.\n"
+                            + "Suggested fix: remove either the authority() or role() attribute from @Security",
                     element);
         }
     }

@@ -170,8 +170,10 @@ class StreamServiceWriter {
 
         if (terminalField.isEmpty()) {
             context.logError(
-                    "@Streaming terminal = \"%s\" does not exist as a field on %s".formatted(
-                            stream.terminal(), eventType.simpleName()),
+                    "[@Streaming] " + method.getSimpleName() + ": terminal field \"" + stream.terminal()
+                            + "\" does not exist on event type " + eventType.simpleName() + ".\n"
+                            + "Suggested fix: add field \"" + stream.terminal() + "\" to " + eventType.simpleName()
+                            + " or correct the terminal() attribute value.",
                     method);
             return;
         }
@@ -181,8 +183,9 @@ class StreamServiceWriter {
                 || "java.lang.Boolean".equals(fieldTypeMirror.toString());
         if (!isBooleanField) {
             context.logError(
-                    "@Streaming terminal = \"%s\" on %s must be a boolean or Boolean field".formatted(
-                            stream.terminal(), eventType.simpleName()),
+                    "[@Streaming] " + method.getSimpleName() + ": terminal field \"" + stream.terminal()
+                            + "\" on " + eventType.simpleName() + " must be boolean or Boolean.\n"
+                            + "Suggested fix: change the type of field \"" + stream.terminal() + "\" to boolean or Boolean.",
                     method);
         }
     }

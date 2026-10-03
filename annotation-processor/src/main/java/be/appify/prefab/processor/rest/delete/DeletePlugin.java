@@ -30,7 +30,8 @@ public class DeletePlugin extends RestOperationPlugin {
                 builder.addMethod(controllerWriter.deleteMethod(manifest, delete)));
         var deleteMethod = deleteMethod(manifest, context);
         if (typeDelete.isPresent() && deleteMethod.isPresent()) {
-            context.logError("Delete annotation is present on both type and method. Please choose one.",
+            context.logError("[@Delete] " + deleteMethod.get().getSimpleName() + ": @Delete cannot be present on both the class and method.\n"
+                    + "Suggested fix: place @Delete on either the class or the method, not both.",
                     deleteMethod.get());
         } else {
             deleteMethod.ifPresent(method ->
@@ -86,14 +87,16 @@ public class DeletePlugin extends RestOperationPlugin {
                 .stream()
                 .toList();
         if (deleteMethods.size() > 1) {
-            context.logError("Only one delete method is allowed per aggregate root: " +
-                    manifest.className(), deleteMethods.get(1));
+            context.logError("[@Delete] " + deleteMethods.get(1).getSimpleName() + ": only one @Delete method is allowed per aggregate.\n"
+                    + "Suggested fix: remove @Delete from all but one method.",
+                    deleteMethods.get(1));
         }
         return deleteMethods.stream()
                 .peek(method -> {
                     if (!method.getParameters().isEmpty()) {
-                        context.logError("Delete method should not have any parameters: " +
-                                manifest.className(), method);
+                        context.logError("[@Delete] " + method.getSimpleName() + ": @Delete method must not have parameters.\n"
+                                + "Suggested fix: remove all parameters from this method.",
+                                method);
                     }
                 })
                 .findFirst();

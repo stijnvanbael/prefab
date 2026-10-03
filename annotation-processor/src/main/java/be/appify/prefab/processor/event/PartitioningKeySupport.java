@@ -96,8 +96,9 @@ public final class PartitioningKeySupport {
     private static Optional<PartitioningKeyMethod> buildPartitioningKeyMethod(TypeManifest event, ExecutableElement method,
                                                                               PrefabContext context) {
         if (!method.getParameters().isEmpty()) {
-            context.logError("@PartitioningKey method '%s()' on %s must not declare parameters."
-                    .formatted(method.getSimpleName(), event.simpleName()), method);
+            context.logError("[@PartitioningKey] " + method.getSimpleName() + "(): method must not have parameters.\n"
+                    + "Suggested fix: remove all parameters from this method.",
+                    method);
             return Optional.empty();
         }
         var returnType = TypeManifest.of(method.getReturnType(), context.processingEnvironment());
@@ -113,8 +114,9 @@ public final class PartitioningKeySupport {
                         isSynthetic(method)));
             }
         }
-        context.logError("@PartitioningKey method '%s()' must return String or a single-value type backed by String."
-                .formatted(method.getSimpleName()), method);
+        context.logError("[@PartitioningKey] " + method.getSimpleName() + "(): method must return String or a single-value type backed by String.\n"
+                + "Suggested fix: change the return type to String or a single-value type wrapping String.",
+                method);
         return Optional.empty();
     }
 

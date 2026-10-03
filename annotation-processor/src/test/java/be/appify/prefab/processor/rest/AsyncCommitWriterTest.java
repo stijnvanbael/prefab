@@ -209,7 +209,8 @@ class AsyncCommitWriterTest {
                 .compile(sourceOf("rest/asyncduplicatemapping/source/Order.java"));
 
         assertThat(compilation).failed();
-        assertThat(compilation).hadErrorContaining("same HTTP method and path");
+        assertThat(compilation).hadErrorContaining("[@Create]");
+        assertThat(compilation).hadErrorContaining("multiple @Create methods share");
     }
 
     @Test

@@ -81,8 +81,9 @@ public class ConsumerWriterSupport {
                 }
             } else {
                 context.logError(
-                        "Cannot write %s consumer for %s, it is neither an Aggregate nor a Component".formatted(
-                                platform, target.simpleName()),
+                        "[@EventHandler] " + eventHandler.getSimpleName() + ": target type must be an @Aggregate or @Component, "
+                                + "but " + target.simpleName() + " is neither.\n"
+                                + "Suggested fix: annotate " + target.simpleName() + " with @Aggregate or @Component.",
                         eventHandler);
             }
         }
@@ -130,12 +131,10 @@ public class ConsumerWriterSupport {
                     var firstTypeName = TypeManifest.of(firstType, context.processingEnvironment()).simpleName();
                     var secondTypeName = TypeManifest.of(secondType, context.processingEnvironment()).simpleName();
                     return Optional.of(
-                            "Mixed @EventHandler parameter hierarchy is not supported: handler methods %s(%s) and %s(%s) overlap. Use only the shared contract type or only concrete implementations."
-                                    .formatted(
-                                            first.getSimpleName(),
-                                            firstTypeName,
-                                            second.getSimpleName(),
-                                            secondTypeName));
+                            "[@EventHandler] " + first.getSimpleName() + "() and " + second.getSimpleName() + "(): "
+                                    + "mixed type hierarchy is not supported. Handler methods with parameter types " + firstTypeName
+                                    + " and " + secondTypeName + " overlap.\n"
+                                    + "Suggested fix: use either only concrete implementations or only the shared contract type.");
                 }
             }
         }
@@ -304,12 +303,13 @@ public class ConsumerWriterSupport {
                                                String topic,
                                                Set<TypeManifest> eventTypes) {
         context.logError(
-                "Events [%s] share the same topic [%s] but have no common ancestor. Make sure they extend the same supertype and there is a single @Event annotation on the supertype.".formatted(
-                        eventTypes.stream()
-                                .map(TypeManifest::simpleName)
-                                .collect(Collectors.joining(", ")),
-                        topic
-                ), eventHandlers.getFirst());
+                "[@EventHandler] " + eventHandlers.getFirst().getSimpleName() + "(): events do not share a common ancestor. "
+                        + "Events [" + eventTypes.stream()
+                        .map(TypeManifest::simpleName)
+                        .collect(Collectors.joining(", "))
+                        + "] share topic [" + topic + "] but have no common parent.\n"
+                        + "Suggested fix: ensure all events extend the same supertype and the @Event annotation is on the supertype, not on concrete types.",
+                eventHandlers.getFirst());
     }
 
     /**

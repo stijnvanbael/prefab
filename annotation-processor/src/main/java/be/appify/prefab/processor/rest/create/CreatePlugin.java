@@ -220,10 +220,9 @@ public class CreatePlugin extends RestOperationPlugin {
         factories.stream()
                 .filter(factory -> factory.getReturnType().getKind() != TypeKind.VOID)
                 .forEach(factory -> context().logError(
-                        "@AsyncCommit @Create method must have a void return type and call "
-                                + "PublishesEvents.publishEvent(event) internally. "
-                                + "A non-void return type is silently discarded by the generated service, "
-                                + "so the event is never published.",
+                        "[@AsyncCommit @Create] " + factory.getSimpleName() + ": method must have void return type. "
+                                + "Non-void return types are silently discarded by the framework, so the event is never published.\n"
+                                + "Suggested fix: change return type to void and use PublishesEvents.publishEvent(event) to emit events.",
                         factory));
     }
 
@@ -235,11 +234,14 @@ public class CreatePlugin extends RestOperationPlugin {
                 }))
                 .values().stream()
                 .filter(group -> group.size() > 1)
-                .forEach(group -> group.stream().skip(1).forEach(duplicate ->
-                        context().logError(
-                                "Multiple async @Create methods share the same HTTP method and path. "
-                                        + "Each factory must have a unique @Create.method + @Create.path combination.",
-                                duplicate)));
+                .forEach(group -> group.stream().skip(1).forEach(duplicate -> {
+                    var create = duplicate.getAnnotation(Create.class);
+                    context().logError(
+                            "[@Create] " + duplicate.getSimpleName() + ": multiple @Create methods share the same HTTP method (" + create.method()
+                                    + ") and path (" + create.path() + ").\n"
+                                    + "Suggested fix: ensure each @Create method has a unique method + path combination.",
+                            duplicate);
+                }));
     }
 
     private Optional<ExecutableElement> createConstructorOf(ClassManifest manifest) {

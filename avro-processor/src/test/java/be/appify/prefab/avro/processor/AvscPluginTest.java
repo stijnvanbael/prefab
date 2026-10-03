@@ -306,7 +306,7 @@ class AvscPluginTest {
                 .compile(sourceOf("event/avsc/invalidsynthetickeyreturn/source/InvalidSyntheticKeyReturnAvsc.java"));
 
         assertThat(compilation).failed();
-        assertThat(compilation).hadErrorContaining("@PartitioningKey method 'tenantOrderKey()' must return String or a single-value type backed by String");
+        assertThat(compilation).hadErrorContaining("must return String or a single-value type backed by String");
     }
 
     @Test

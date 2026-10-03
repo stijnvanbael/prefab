@@ -62,7 +62,9 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/noparent/User.java"),
                         sourceOf("kafka/noparent/UserEvent.java"),
                         sourceOf("kafka/noparent/UserExporter.java"));
-        assertThat(compilation).hadErrorContaining("share the same topic [user] but have no common ancestor");
+        assertThat(compilation).hadErrorContaining("[@EventHandler]");
+        assertThat(compilation).hadErrorContaining("events do not share a common ancestor");
+        assertThat(compilation).hadErrorContaining("share topic [user] but have no common parent");
     }
 
     @Test
@@ -243,8 +245,8 @@ class KafkaConsumerWriterTest {
                         sourceOf("kafka/mixedcontractandconcrete/UserExporter.java"));
 
         assertThat(compilation).failed();
-        assertThat(compilation).hadErrorContaining(
-                "Mixed @EventHandler parameter hierarchy is not supported");
+        assertThat(compilation).hadErrorContaining("[@EventHandler]");
+        assertThat(compilation).hadErrorContaining("mixed type hierarchy is not supported");
     }
 
     @Test

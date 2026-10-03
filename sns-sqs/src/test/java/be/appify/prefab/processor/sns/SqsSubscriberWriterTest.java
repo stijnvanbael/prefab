@@ -52,7 +52,9 @@ class SqsSubscriberWriterTest {
                         sourceOf("sns/noparent/User.java"),
                         sourceOf("sns/noparent/UserEvent.java"),
                         sourceOf("sns/noparent/UserExporter.java"));
-        assertThat(compilation).hadErrorContaining("share the same topic [user] but have no common ancestor");
+        assertThat(compilation).hadErrorContaining("[@EventHandler]");
+        assertThat(compilation).hadErrorContaining("events do not share a common ancestor");
+        assertThat(compilation).hadErrorContaining("share topic [user] but have no common parent");
     }
 
     @Test

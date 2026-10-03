@@ -3,7 +3,6 @@ package be.appify.prefab.avro.processor;
 import be.appify.prefab.core.util.Streams;
 import be.appify.prefab.avro.SchemaSupport;
 import be.appify.prefab.core.annotations.Avsc;
-import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.util.Streams;
 import be.appify.prefab.processor.OutputTargetFileOutput;
@@ -150,19 +149,21 @@ class GenericRecordToEventConverterWriter {
         var fileWriter = new OutputTargetFileOutput(context, "infrastructure.avro", OutputTarget.MAIN);
         var name = "GenericRecordTo%sConverter".formatted(contractInterface.simpleName().replace(".", ""));
 
-        // Find all generated records that implement this contract interface
+        // Find all concrete records that implement this contract interface. These may be
+        // AVSC-generated or hand-written; neither necessarily carries its own @Event annotation,
+        // since it is inherited from the contract interface.
         var implementations = context.eventElementsFromCurrentCompilation()
                 .filter(e -> !e.equals(contractInterface.asElement()))
-                .filter(e -> e.getAnnotation(Event.class) != null)
+                .filter(e -> e.getKind() == ElementKind.RECORD)
                 .filter(e -> context.processingEnvironment().getTypeUtils()
                         .isSubtype(e.asType(), contractInterface.asElement().asType()))
                 .map(e -> TypeManifest.of(e.asType(), context.processingEnvironment()))
                 .toList();
 
-        // The concrete records are generated in round 1 but only compiled and available as root
-        // elements in round 2. If none are found yet, skip: the next processing round will call
-        // this method again with the records present and write the correct converter then.
-        if (implementations.isEmpty()) {
+        // Defer while concrete records are still being compiled across rounds, or — for sealed
+        // contract interfaces — until every permitted subtype has been resolved, so a partial set
+        // (e.g. hand-written records only) is never written and left stale.
+        if (!AvroPlugin.hasAllPermittedSubtypes(contractInterface, implementations)) {
             return false;
         }
 

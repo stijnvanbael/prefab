@@ -323,8 +323,10 @@ class EventSchemaFactoryWriter {
     private boolean writeAvscInterfaceSchemaFactory(TypeManifest contractInterface) {
         var implementations = resolveImplementations(contractInterface);
 
-        // Skip round 1: concrete records are compiled in round 2 and not yet available.
-        if (implementations.isEmpty()) {
+        // Defer while concrete records are still being compiled across rounds, or — for sealed
+        // contract interfaces — until every permitted subtype has been resolved, so a partial set
+        // (e.g. hand-written records only) is never written and left stale.
+        if (!AvroPlugin.hasAllPermittedSubtypes(contractInterface, implementations)) {
             return false;
         }
 

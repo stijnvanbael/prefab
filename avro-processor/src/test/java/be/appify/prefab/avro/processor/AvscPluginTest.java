@@ -330,6 +330,41 @@ class AvscPluginTest {
     }
 
     @Test
+    void sealedInterfaceMixingAvscGeneratedAndHandWrittenRecordsWiresBothIntoConverters() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/avsc/sealedmixed/source/SealedMixedAvsc.java"),
+                        sourceOf("event/avsc/sealedmixed/source/SealedMixedManual.java"),
+                        sourceOf("event/avsc/sealedmixed/source/HasReference.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.sealedmixed.infrastructure.avro.SealedMixedAvscToGenericRecordConverter")
+                .contentsAsUtf8String()
+                .contains("case SealedMixedAvscEventA e -> sealedMixedAvscEventAToGenericRecordConverter.convert(e);");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.sealedmixed.infrastructure.avro.SealedMixedAvscToGenericRecordConverter")
+                .contentsAsUtf8String()
+                .contains("case SealedMixedManual e -> sealedMixedManualToGenericRecordConverter.convert(e);");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.sealedmixed.infrastructure.avro.GenericRecordToSealedMixedAvscConverter")
+                .contentsAsUtf8String()
+                .contains("case \"SealedMixedAvscEventA\" -> genericRecordToSealedMixedAvscEventAConverter.convert(genericRecord);");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.sealedmixed.infrastructure.avro.GenericRecordToSealedMixedAvscConverter")
+                .contentsAsUtf8String()
+                .contains("case \"SealedMixedManual\" -> genericRecordToSealedMixedManualConverter.convert(genericRecord);");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.sealedmixed.infrastructure.avro.SealedMixedAvscSchemaFactory")
+                .contentsAsUtf8String()
+                .contains("sealedMixedAvscEventASchemaFactory");
+        assertThat(compilation)
+                .generatedSourceFile("event.avsc.sealedmixed.infrastructure.avro.SealedMixedAvscSchemaFactory")
+                .contentsAsUtf8String()
+                .contains("sealedMixedManualSchemaFactory");
+    }
+
+    @Test
     void sealedInterfaceCompilesWhenAvscNamespaceDiffersFromContractPackage() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

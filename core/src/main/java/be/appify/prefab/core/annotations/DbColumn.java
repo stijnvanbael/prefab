@@ -66,5 +66,19 @@ public @interface DbColumn {
      * @return the converter class, or {@code void.class} if none
      */
     Class<?> converter() default void.class;
+
+    /**
+     * The fully qualified class name of a converter, as an alternative to {@link #converter()}.
+     *
+     * <p>Use this when the domain model must not import the converter class (e.g. when it lives in an
+     * infrastructure package and ArchUnit forbids domain → infrastructure dependencies). The name is
+     * resolved by the annotation processor; compilation fails if the class cannot be found or is not a
+     * Spring {@code Converter}. The same requirements as for {@link #converter()} apply.</p>
+     *
+     * <p>Ignored when {@link #converter()} is set. Defaults to an empty string (disabled).</p>
+     *
+     * @return the fully qualified converter class name, or an empty string if none
+     */
+    String converterName() default "";
 }
 

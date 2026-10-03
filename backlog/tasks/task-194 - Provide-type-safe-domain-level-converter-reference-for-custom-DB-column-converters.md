@@ -3,7 +3,7 @@ id: TASK-194
 title: >-
   Provide type-safe domain-level converter reference for custom DB column
   converters
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-05-11 17:01'
 updated_date: '2026-05-21 06:22'
@@ -29,7 +29,11 @@ Maestro currently needs to import infrastructure converter class `FloatArrayToVe
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A domain aggregate can reference a custom converter without importing infrastructure package classes
-- [ ] #2 Generated repository/runtime still applies converter correctly
-- [ ] #3 Migration path documented for existing `@DbColumn(converter = ...)` usage
+- [x] #1 A domain aggregate can reference a custom converter without importing infrastructure package classes
+- [x] #2 Generated repository/runtime still applies converter correctly
+- [x] #3 Migration path documented for existing `@DbColumn(converter = ...)` usage
 <!-- AC:END -->
+
+## Implementation Notes
+
+Added `@DbColumn.converterName()` (fully qualified class name) resolved by the annotation processor, so domain aggregates need not import infrastructure converters. Validates existence and Spring `Converter` type; `converter()` takes precedence. Migration path documented in `DbColumn` Javadoc. Tests in `DbMigrationWriterTest`.

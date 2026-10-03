@@ -570,6 +570,30 @@ class DbMigrationWriterTest {
     }
 
     @Test
+    void dbColumnConverterNameGeneratesContributorWithoutImportingConverter() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("dbmigration/dbcolumn/source/EmbeddingByName.java"),
+                        sourceOf("dbmigration/dbcolumn/source/FloatArrayToVectorConverter.java")
+                );
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("dbmigration.dbcolumn.infrastructure.persistence.DbColumnConverterContributor")
+                .contentsAsUtf8String()
+                .contains("new FloatArrayToVectorConverter()");
+    }
+
+    @Test
+    void dbColumnConverterNameWithUnknownClassEmitsCompileError() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/dbcolumn/source/EmbeddingMissingConverter.java"));
+        assertThat(compilation).hadErrorContaining("cannot be resolved to a class");
+    }
+
+    @Test
     void dbColumnSupportsBoxedArrayByteArrayAndCustomRecord() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

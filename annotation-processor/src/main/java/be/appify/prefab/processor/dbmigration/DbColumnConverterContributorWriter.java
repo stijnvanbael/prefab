@@ -19,6 +19,7 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.tools.Diagnostic;
 import org.springframework.stereotype.Component;
 
 /**
@@ -35,8 +36,10 @@ class DbColumnConverterContributorWriter {
             "be.appify.prefab.core.spring.data.jdbc.DbColumnConverterContributor";
 
     private final FileOutput fileWriter;
+    private final PrefabContext context;
 
     DbColumnConverterContributorWriter(PrefabContext context) {
+        this.context = context;
         this.fileWriter = new OutputTargetFileOutput(context, "infrastructure.persistence", OutputTarget.MAIN);
     }
 
@@ -48,14 +51,14 @@ class DbColumnConverterContributorWriter {
      */
     void writeContributors(List<ClassManifest> manifests) {
         var byPackage = manifests.stream()
-                .filter(DbColumnConverterContributorWriter::hasDbColumnConverters)
+                .filter(this::hasDbColumnConverters)
                 .collect(Collectors.groupingBy(ClassManifest::packageName));
 
         byPackage.forEach((packageName, packageManifests) -> {
             var converterTypes = packageManifests.stream()
                     .flatMap(m -> m.fields().stream())
                     .filter(field -> field.hasAnnotation(DbColumn.class))
-                    .map(DbColumnConverterContributorWriter::resolveConverterType)
+                    .map(this::resolveConverterType)
                     .filter(type -> !isVoidOrUnresolved(type))
                     .distinct()
                     .toList();
@@ -66,27 +69,53 @@ class DbColumnConverterContributorWriter {
         });
     }
 
-    private static boolean hasDbColumnConverters(ClassManifest manifest) {
+    private boolean hasDbColumnConverters(ClassManifest manifest) {
         return manifest.fields().stream()
                 .filter(field -> field.hasAnnotation(DbColumn.class))
                 .anyMatch(field -> !isVoidOrUnresolved(resolveConverterType(field)));
     }
 
     /**
-     * Resolves the converter {@link TypeMirror} for a {@code @DbColumn}-annotated field.
+     * Resolves the converter {@link TypeMirror} for a {@code @DbColumn}-annotated field, either from
+     * {@code converter()} or, when that is void, from the fully qualified {@code converterName()}.
      * Uses the {@link MirroredTypeException} pattern because class-valued annotation attributes
      * are not directly accessible via the Java reflection proxy during annotation processing.
      */
-    private static TypeMirror resolveConverterType(VariableManifest field) {
+    private TypeMirror resolveConverterType(VariableManifest field) {
         var annotation = field.getAnnotation(DbColumn.class)
                 .orElseThrow()
                 .value();
+        TypeMirror classType;
         try {
             annotation.converter(); // always throws MirroredTypeException for class attributes
             throw new AssertionError("Expected MirroredTypeException when reading @DbColumn.converter()");
         } catch (MirroredTypeException e) {
-            return e.getTypeMirror();
+            classType = e.getTypeMirror();
         }
+        if (!isVoid(classType) || annotation.converterName().isBlank()) {
+            return classType;
+        }
+        return resolveByName(annotation.converterName(), field);
+    }
+
+    private TypeMirror resolveByName(String name, VariableManifest field) {
+        var env = context.processingEnvironment();
+        var element = env.getElementUtils().getTypeElement(name);
+        if (element == null) {
+            env.getMessager().printMessage(Diagnostic.Kind.ERROR,
+                    "@DbColumn.converterName() '%s' on field '%s' cannot be resolved to a class"
+                            .formatted(name, field.name()), field.element());
+            return env.getTypeUtils().getNoType(TypeKind.VOID);
+        }
+        var converterType = env.getElementUtils().getTypeElement("org.springframework.core.convert.converter.Converter");
+        if (converterType != null && !env.getTypeUtils().isAssignable(
+                env.getTypeUtils().erasure(element.asType()), env.getTypeUtils().erasure(converterType.asType()))) {
+            env.getMessager().printMessage(Diagnostic.Kind.ERROR,
+                    "@DbColumn.converterName() '%s' on field '%s' must implement Spring's Converter"
+                            .formatted(name, field.name()), field.element());
+            return env.getTypeUtils().getNoType(TypeKind.VOID);
+        }
+        return element.asType();
     }
 
     private static boolean isVoid(TypeMirror type) {

@@ -6,11 +6,10 @@ import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.Update;
 import javax.lang.model.type.TypeKind;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.FileOutput;
 import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
-import be.appify.prefab.processor.PrefabContext;
-import be.appify.prefab.processor.PrefabPlugin;
-import be.appify.prefab.processor.FileOutput;
+import be.appify.prefab.processor.rest.RestOperationPlugin;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
@@ -29,7 +28,7 @@ import javax.lang.model.element.ExecutableElement;
  * Plugin that handles the @Create annotation to generate controller methods, service methods, request records, and test client methods for
  * creating new instances of a class.
  */
-public class CreatePlugin implements PrefabPlugin {
+public class CreatePlugin extends RestOperationPlugin {
     private static final Pattern LEADING_PATH_VAR = Pattern.compile("^/\\{(\\w+)}(.*)$");
 
     private final CreateControllerWriter controllerWriter = new CreateControllerWriter();
@@ -42,21 +41,15 @@ public class CreatePlugin implements PrefabPlugin {
             Collections.synchronizedMap(new WeakHashMap<>());
     private final Map<ClassManifest, List<ExecutableElement>> asyncCreateFactoriesCache =
             Collections.synchronizedMap(new WeakHashMap<>());
-    private PrefabContext context;
-
-    @Override
-    public void initContext(PrefabContext context) {
-        this.context = context;
-    }
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
         var asyncFactories = asyncCreateFactoriesOf(manifest);
         asyncFactories.forEach(factory ->
-                builder.addMethod(asyncControllerWriter.createMethod(manifest, factory, context)));
+                builder.addMethod(asyncControllerWriter.createMethod(manifest, factory, context())));
         if (asyncFactories.isEmpty()) {
             createConstructorOf(manifest).ifPresent(createConstructor ->
-                    builder.addMethod(controllerWriter.createMethod(manifest, createConstructor, context)));
+                    builder.addMethod(controllerWriter.createMethod(manifest, createConstructor, context())));
         }
     }
 
@@ -64,10 +57,10 @@ public class CreatePlugin implements PrefabPlugin {
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder) {
         var asyncFactories = asyncCreateFactoriesOf(manifest);
         asyncFactories.forEach(factory ->
-                builder.addMethod(asyncServiceWriter.createMethod(manifest, factory, context)));
+                builder.addMethod(asyncServiceWriter.createMethod(manifest, factory, context())));
         if (asyncFactories.isEmpty()) {
             createConstructorOf(manifest).ifPresent(createConstructor ->
-                    builder.addMethod(serviceWriter.createMethod(manifest, createConstructor, context)));
+                    builder.addMethod(serviceWriter.createMethod(manifest, createConstructor, context())));
         }
     }
 
@@ -75,28 +68,28 @@ public class CreatePlugin implements PrefabPlugin {
     public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
         var asyncFactories = asyncCreateFactoriesOf(manifest);
         asyncFactories.forEach(factory ->
-                testClientWriter.asyncCreateMethods(manifest, factory, context).forEach(builder::addMethod));
+                testClientWriter.asyncCreateMethods(manifest, factory, context()).forEach(builder::addMethod));
         if (asyncFactories.isEmpty()) {
             createConstructorOf(manifest).ifPresent(createConstructor ->
-                    testClientWriter.createMethods(manifest, createConstructor, context).forEach(builder::addMethod));
+                    testClientWriter.createMethods(manifest, createConstructor, context()).forEach(builder::addMethod));
         }
     }
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
         if (!manifests.isEmpty()) {
-            var fileWriter = new OutputTargetFileOutput(context, "application", OutputTarget.MAIN);
+            var fileWriter = new OutputTargetFileOutput(context(), "application", OutputTarget.MAIN);
             manifests.forEach(manifest -> {
                 var asyncFactories = asyncCreateFactoriesOf(manifest);
                 asyncFactories.forEach(factory -> {
                     if (!factory.getParameters().isEmpty()) {
-                        requestRecordWriter.writeRequestRecordForFactory(fileWriter, manifest, factory, context);
+                        requestRecordWriter.writeRequestRecordForFactory(fileWriter, manifest, factory, context());
                     }
                 });
                 if (asyncFactories.isEmpty()) {
                     createConstructorOf(manifest).ifPresent(createConstructor -> {
                         if (!createConstructor.getParameters().isEmpty()) {
-                            requestRecordWriter.writeRequestRecord(fileWriter, manifest, createConstructor, context);
+                            requestRecordWriter.writeRequestRecord(fileWriter, manifest, createConstructor, context());
                         }
                     });
                 }
@@ -108,7 +101,7 @@ public class CreatePlugin implements PrefabPlugin {
     public void writeAdditionalFiles(List<ClassManifest> manifests, List<PolymorphicAggregateManifest> polymorphicManifests) {
         writeAdditionalFiles(manifests);
         if (!polymorphicManifests.isEmpty()) {
-            var fileWriter = new OutputTargetFileOutput(context, "application", OutputTarget.MAIN);
+            var fileWriter = new OutputTargetFileOutput(context(), "application", OutputTarget.MAIN);
             polymorphicManifests.forEach(polymorphic -> writePolymorphicAdditionalFiles(fileWriter, polymorphic));
         }
     }
@@ -117,12 +110,12 @@ public class CreatePlugin implements PrefabPlugin {
         var grouped = groupSubtypesByPath(polymorphic);
         grouped.forEach((pathKey, entries) -> {
             if (isUnionGroup(entries)) {
-                requestRecordWriter.writeUnionRequestInterface(fileWriter, polymorphic, entries, context);
+                requestRecordWriter.writeUnionRequestInterface(fileWriter, polymorphic, entries, context());
             } else {
                 entries.forEach(e -> {
                     if (!e.getValue().getParameters().isEmpty()) {
                         requestRecordWriter.writeRequestRecordForPolymorphic(
-                                fileWriter, polymorphic, e.getKey(), e.getValue(), context);
+                                fileWriter, polymorphic, e.getKey(), e.getValue(), context());
                     }
                 });
             }
@@ -156,7 +149,7 @@ public class CreatePlugin implements PrefabPlugin {
                 builder.addMethod(controllerWriter.createDispatchMethodForPolymorphic(manifest, entries));
             } else {
                 entries.forEach(e -> builder.addMethod(
-                        controllerWriter.createMethodForPolymorphic(manifest, e.getKey(), e.getValue(), context)));
+                        controllerWriter.createMethodForPolymorphic(manifest, e.getKey(), e.getValue(), context())));
             }
         });
     }
@@ -167,10 +160,10 @@ public class CreatePlugin implements PrefabPlugin {
         grouped.forEach((pathKey, entries) -> {
             if (isUnionGroup(entries)) {
                 entries.forEach(e -> createConstructorOf(e.getKey()).ifPresent(ctor ->
-                        builder.addMethod(serviceWriter.createMethodForPolymorphicUnion(manifest, e.getKey(), ctor, context))));
+                        builder.addMethod(serviceWriter.createMethodForPolymorphicUnion(manifest, e.getKey(), ctor, context()))));
             } else {
                 entries.forEach(e -> createConstructorOf(e.getKey()).ifPresent(ctor ->
-                        builder.addMethod(serviceWriter.createMethodForPolymorphic(manifest, e.getKey(), ctor, context))));
+                        builder.addMethod(serviceWriter.createMethodForPolymorphic(manifest, e.getKey(), ctor, context()))));
             }
         });
     }
@@ -182,10 +175,10 @@ public class CreatePlugin implements PrefabPlugin {
             if (isUnionGroup(entries)) {
                 var create = entries.getFirst().getValue().getAnnotation(Create.class);
                 builder.addMethod(testClientWriter.baseCreateMethodForPolymorphic(manifest, create));
-                entries.forEach(e -> testClientWriter.createMethodsForPolymorphicUnion(manifest, e, context)
+                entries.forEach(e -> testClientWriter.createMethodsForPolymorphicUnion(manifest, e, context())
                         .forEach(builder::addMethod));
             } else {
-                entries.forEach(e -> testClientWriter.createMethodsForPolymorphic(manifest, e.getKey(), e.getValue(), context)
+                entries.forEach(e -> testClientWriter.createMethodsForPolymorphic(manifest, e.getKey(), e.getValue(), context())
                         .forEach(builder::addMethod));
             }
         });
@@ -226,7 +219,7 @@ public class CreatePlugin implements PrefabPlugin {
     private void validateVoidReturnType(List<ExecutableElement> factories) {
         factories.stream()
                 .filter(factory -> factory.getReturnType().getKind() != TypeKind.VOID)
-                .forEach(factory -> context.logError(
+                .forEach(factory -> context().logError(
                         "@AsyncCommit @Create method must have a void return type and call "
                                 + "PublishesEvents.publishEvent(event) internally. "
                                 + "A non-void return type is silently discarded by the generated service, "
@@ -243,7 +236,7 @@ public class CreatePlugin implements PrefabPlugin {
                 .values().stream()
                 .filter(group -> group.size() > 1)
                 .forEach(group -> group.stream().skip(1).forEach(duplicate ->
-                        context.logError(
+                        context().logError(
                                 "Multiple async @Create methods share the same HTTP method and path. "
                                         + "Each factory must have a unique @Create.method + @Create.path combination.",
                                 duplicate)));
@@ -258,7 +251,7 @@ public class CreatePlugin implements PrefabPlugin {
                 return Optional.empty();
             }
             if (createConstructors.size() > 1) {
-                context.logError(
+                context().logError(
                         "Multiple constructors with @Create annotation found in " + m.qualifiedName(),
                         createConstructors.get(1));
             }

@@ -3,14 +3,14 @@ package be.appify.prefab.processor.rest.getbyid;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
-import be.appify.prefab.processor.PrefabPlugin;
+import be.appify.prefab.processor.rest.RestOperationPlugin;
 import com.palantir.javapoet.TypeSpec;
 import java.util.Optional;
 
 /**
  * Prefab plugin that generates getById controller, service, and test client methods based on the @GetById annotation.
  */
-public class GetByIdPlugin implements PrefabPlugin {
+public class GetByIdPlugin extends RestOperationPlugin {
     private final GetByIdControllerWriter controllerWriter = new GetByIdControllerWriter();
     private final GetByIdServiceWriter serviceWriter = new GetByIdServiceWriter();
     private final GetByIdTestClientWriter testClientWriter = new GetByIdTestClientWriter();

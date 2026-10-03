@@ -3,7 +3,7 @@ package be.appify.prefab.processor.rest.getlist;
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
-import be.appify.prefab.processor.PrefabPlugin;
+import be.appify.prefab.processor.rest.RestOperationPlugin;
 import com.palantir.javapoet.TypeSpec;
 import java.util.Optional;
 
@@ -11,7 +11,7 @@ import java.util.Optional;
  * Prefab plugin that generates getList controller, service, repository, and test client methods based on the @GetList
  * annotation.
  */
-public class GetListPlugin implements PrefabPlugin {
+public class GetListPlugin extends RestOperationPlugin {
     private final GetListControllerWriter controllerWriter = new GetListControllerWriter();
     private final GetListServiceWriter serviceWriter = new GetListServiceWriter();
     private final GetListRepositoryWriter repositoryWriter = new GetListRepositoryWriter();

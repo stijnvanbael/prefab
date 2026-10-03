@@ -6,13 +6,12 @@ import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.FileOutput;
 import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
-import be.appify.prefab.processor.PrefabContext;
-import be.appify.prefab.processor.PrefabPlugin;
-import be.appify.prefab.processor.FileOutput;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.rest.PathVariables;
+import be.appify.prefab.processor.rest.RestOperationPlugin;
 import com.palantir.javapoet.TypeSpec;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,24 +29,18 @@ import static org.apache.commons.text.WordUtils.capitalize;
  * Plugin responsible for generating update controller and service methods, as well as related request records and test
  * client methods.
  */
-public class UpdatePlugin implements PrefabPlugin {
+public class UpdatePlugin extends RestOperationPlugin {
     private static final Pattern LEADING_PATH_VAR = Pattern.compile("^/\\{(\\w+)}(.*)$");
 
     private final UpdateControllerWriter updateControllerWriter = new UpdateControllerWriter();
     private final UpdateServiceWriter updateServiceWriter = new UpdateServiceWriter();
     private final UpdateRequestRecordWriter updateRequestRecordWriter = new UpdateRequestRecordWriter();
     private final UpdateTestClientWriter updateTestClientWriter = new UpdateTestClientWriter();
-    private PrefabContext context;
-
-    @Override
-    public void initContext(PrefabContext context) {
-        this.context = context;
-    }
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
         updateMethodsOf(manifest).forEach(update ->
-                builder.addMethod(updateControllerWriter.updateMethod(manifest, update, context)));
+                builder.addMethod(updateControllerWriter.updateMethod(manifest, update, context())));
     }
 
     @Override
@@ -59,11 +52,11 @@ public class UpdatePlugin implements PrefabPlugin {
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
         if (!manifests.isEmpty()) {
-            var fileWriter = new OutputTargetFileOutput(context, "application", OutputTarget.MAIN);
+            var fileWriter = new OutputTargetFileOutput(context(), "application", OutputTarget.MAIN);
             manifests.forEach(manifest -> updateMethodsOf(manifest).forEach(update -> {
                 if (!update.requestParameters().isEmpty()) {
                     updateRequestRecordWriter.writeUpdateRequestRecord(fileWriter, manifest, update,
-                            context.requestParameterBuilder(), context.builderSetterPrefix());
+                            context().requestParameterBuilder(), context().builderSetterPrefix());
                 }
             }));
         }
@@ -73,7 +66,7 @@ public class UpdatePlugin implements PrefabPlugin {
     public void writeAdditionalFiles(List<ClassManifest> manifests, List<PolymorphicAggregateManifest> polymorphicManifests) {
         writeAdditionalFiles(manifests);
         if (!polymorphicManifests.isEmpty()) {
-            var fileWriter = new OutputTargetFileOutput(context, "application", OutputTarget.MAIN);
+            var fileWriter = new OutputTargetFileOutput(context(), "application", OutputTarget.MAIN);
             polymorphicManifests.forEach(polymorphic -> writePolymorphicUpdateAdditionalFiles(fileWriter, polymorphic));
         }
     }
@@ -88,7 +81,7 @@ public class UpdatePlugin implements PrefabPlugin {
                     }
                 });
                 updateRequestRecordWriter.writeUnionUpdateRequestInterface(fileWriter, polymorphic, entries,
-                        context.requestParameterBuilder());
+                        context().requestParameterBuilder());
             } else {
                 entries.forEach(e -> {
                     if (!e.getValue().requestParameters().isEmpty()) {
@@ -110,15 +103,15 @@ public class UpdatePlugin implements PrefabPlugin {
         var type = be.appify.prefab.processor.rest.ControllerUtil.writeRecord(
                 com.palantir.javapoet.ClassName.get(polymorphic.packageName() + ".application", name),
                 update.requestParameters(),
-                context.requestParameterBuilder(),
-                context.builderSetterPrefix());
+                context().requestParameterBuilder(),
+                context().builderSetterPrefix());
         fileWriter.writeFile(polymorphic.packageName(), name, type);
     }
 
     @Override
     public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
         updateMethodsOf(manifest).forEach(update ->
-                updateTestClientWriter.updateMethods(manifest, update, context).forEach(builder::addMethod));
+                updateTestClientWriter.updateMethods(manifest, update, context()).forEach(builder::addMethod));
     }
 
     @Override
@@ -129,7 +122,7 @@ public class UpdatePlugin implements PrefabPlugin {
                 builder.addMethod(updateControllerWriter.updateDispatchMethodForPolymorphic(manifest, entries));
             } else {
                 entries.forEach(e -> builder.addMethod(
-                        updateControllerWriter.updateMethodForPolymorphic(manifest, e.getKey(), e.getValue(), context)));
+                        updateControllerWriter.updateMethodForPolymorphic(manifest, e.getKey(), e.getValue(), context())));
             }
         });
     }
@@ -147,10 +140,10 @@ public class UpdatePlugin implements PrefabPlugin {
         grouped.forEach((pathKey, entries) -> {
             if (isUnionGroup(entries)) {
                 builder.addMethod(updateTestClientWriter.baseUpdateMethodForPolymorphic(manifest, entries.getFirst().getValue()));
-                entries.forEach(e -> updateTestClientWriter.updateMethodsForPolymorphicUnion(manifest, e, context)
+                entries.forEach(e -> updateTestClientWriter.updateMethodsForPolymorphicUnion(manifest, e, context())
                         .forEach(builder::addMethod));
             } else {
-                entries.forEach(e -> updateTestClientWriter.updateMethodsForPolymorphic(manifest, e.getKey(), e.getValue(), context)
+                entries.forEach(e -> updateTestClientWriter.updateMethodsForPolymorphic(manifest, e.getKey(), e.getValue(), context())
                         .forEach(builder::addMethod));
             }
         });
@@ -184,7 +177,7 @@ public class UpdatePlugin implements PrefabPlugin {
                 .filter(element -> !isPairedWithCreate(manifest, element))
                 .map(element -> {
                     var update = element.getAnnotationsByType(Update.class)[0];
-                    var allParams = getParametersOf(element, context.processingEnvironment());
+                    var allParams = getParametersOf(element, context().processingEnvironment());
                     var pathVarNames = PathVariables.extractFrom(update.path());
                     var pathParameters = allParams.stream()
                             .filter(p -> pathVarNames.contains(p.name()))

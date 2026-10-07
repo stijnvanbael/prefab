@@ -1,7 +1,7 @@
 ---
 id: TASK-260
 title: Support global state stores in Prefab Streams
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-07-02 06:32'
 updated_date: '2026-07-03 05:31'
@@ -30,12 +30,12 @@ Add support for globally shared state stores in Prefab Streams so stream process
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Streams DSL exposes a clear way to declare and use a global state store.
-- [ ] #2 Kafka backend materializes the global store once per topology and makes it available to the relevant processors.
-- [ ] #3 Multiple stream branches or processors that share the same store definition observe consistent read/write behaviour.
-- [ ] #4 Invalid or missing store bindings fail fast with actionable errors.
-- [ ] #5 Tests cover shared access, lifecycle behaviour, and failure scenarios.
-- [ ] #6 Developer documentation and examples explain when to use a global state store versus a local per-processor store.
+- [x] #1 Streams DSL exposes a clear way to declare and use a global state store.
+- [x] #2 Kafka backend materializes the global store once per topology and makes it available to the relevant processors.
+- [x] #3 Multiple stream branches or processors that share the same store definition observe consistent read/write behaviour.
+- [x] #4 Invalid or missing store bindings fail fast with actionable errors.
+- [x] #5 Tests cover shared access, lifecycle behaviour, and failure scenarios.
+- [x] #6 Developer documentation and examples explain when to use a global state store versus a local per-processor store.
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -78,4 +78,6 @@ Extended topology tests with shared-store scenarios: cross-branch shared read/wr
 Updated `backlog/docs/feature-guides.md` Streams section with shared-store usage guidance, when to choose shared vs local stores, and failure semantics.
 
 Verification: `mvn -pl streams -am test -Dtest=KafkaPrefabStreamsTopologyTest -Dsurefire.failIfNoSpecifiedTests=false` (pass), `mvn -pl test -am test -DskipTests` (pass compile for dependent modules).
+
+Backlog audit confirmed the implementation, acceptance criteria, tests, and developer guide are complete.
 <!-- SECTION:NOTES:END -->

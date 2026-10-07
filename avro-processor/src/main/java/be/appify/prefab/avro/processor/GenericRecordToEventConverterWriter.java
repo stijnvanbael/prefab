@@ -17,6 +17,7 @@ import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import com.palantir.javapoet.WildcardTypeName;
+import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.springframework.core.convert.converter.Converter;
@@ -42,9 +43,11 @@ import static be.appify.prefab.avro.processor.EventSchemaFactoryWriter.avroSchem
 
 class GenericRecordToEventConverterWriter {
     private final PrefabContext context;
+    private final EventSchemaFactoryWriter schemaFactoryWriter;
 
     GenericRecordToEventConverterWriter(PrefabContext context) {
         this.context = context;
+        this.schemaFactoryWriter = new EventSchemaFactoryWriter(context);
     }
 
     boolean writeConverter(TypeManifest event) {
@@ -68,8 +71,9 @@ class GenericRecordToEventConverterWriter {
                 .addAnnotation(componentAnnotation(event, name))
                 .addSuperinterface(
                         ParameterizedTypeName.get(ClassName.get(Converter.class), ClassName.get(GenericRecord.class), event.asTypeName()));
-        type.addMethod(constructor(event, type))
-                .addMethod(convertMethod(event));
+        var avscBacked = schemaFactoryWriter.hasAvscReaderSchema(event);
+        type.addMethod(constructor(event, type, avscBacked))
+                .addMethod(convertMethod(event, avscBacked));
 
         fileWriter.writeFile(event.packageName(), name, type.build());
         return true;
@@ -204,9 +208,16 @@ class GenericRecordToEventConverterWriter {
         return true;
     }
 
-    private static MethodSpec constructor(TypeManifest event, TypeSpec.Builder type) {
+    private static MethodSpec constructor(TypeManifest event, TypeSpec.Builder type, boolean avscBacked) {
         var constructor = MethodSpec.constructorBuilder()
                 .addModifiers(Modifier.PUBLIC);
+        if (avscBacked) {
+            var factoryType = ClassName.get(event.packageName() + ".infrastructure.avro",
+                    "%sSchemaFactory".formatted(event.simpleName().replace(".", "")));
+            type.addField(Schema.class, "readerSchema", Modifier.PRIVATE, Modifier.FINAL);
+            constructor.addParameter(factoryType, "schemaFactory")
+                    .addStatement("this.readerSchema = schemaFactory.createSchema()");
+        }
         nestedTypes(List.of(event)).forEach(nestedType -> {
             if (isAvroUnion(nestedType)) {
                 avroUnionRecordBranches(nestedType).forEach(componentType -> addConverter(type, componentType, constructor));
@@ -227,12 +238,16 @@ class GenericRecordToEventConverterWriter {
                 .addStatement("this.$L = $L", converterName, converterName);
     }
 
-    private MethodSpec convertMethod(TypeManifest event) {
+    private MethodSpec convertMethod(TypeManifest event, boolean avscBacked) {
         var method = MethodSpec.methodBuilder("convert")
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(Override.class)
-                .addParameter(GenericRecord.class, "genericRecord")
+                .addParameter(GenericRecord.class, avscBacked ? "writtenRecord" : "genericRecord")
                 .returns(event.asTypeName());
+        if (avscBacked) {
+            // Apply the AVSC defaults to fields that older messages did not carry
+            method.addStatement("var genericRecord = $T.resolve(writtenRecord, readerSchema)", SchemaSupport.class);
+        }
         if (event.isSealed()) {
             method.addStatement(CodeBlock.of("return $L", sealedType(CodeBlock.of("genericRecord"), event)));
         } else {

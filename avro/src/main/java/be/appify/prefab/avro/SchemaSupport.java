@@ -1,5 +1,8 @@
 package be.appify.prefab.avro;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -16,7 +19,11 @@ import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.Conversions;
 import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.io.EncoderFactory;
 
 /**
  * Utility class for creating Avro schemas with logical types.
@@ -299,6 +306,37 @@ public class SchemaSupport {
      */
     public static Object getField(GenericRecord record, String fieldName) {
         return record.getSchema().getField(fieldName) != null ? record.get(fieldName) : null;
+    }
+
+    /**
+     * Resolves a record written with an older or newer schema against the reader schema, applying Avro's
+     * schema resolution rules: defaults fill fields that the writer did not know, fields unknown to the
+     * reader are dropped, and aliases and type promotions are honoured.
+     *
+     * <p>The record is returned unchanged when the schemas are already equal or when the record does not
+     * describe the same named type as the reader schema (e.g. a polymorphic dispatch to another subtype).</p>
+     *
+     * @param record       the record as decoded with its writer schema
+     * @param readerSchema the schema the consumer expects
+     * @return the record resolved to the reader schema
+     * @throws org.apache.avro.AvroTypeException when the two schemas are incompatible
+     */
+    public static GenericRecord resolve(GenericRecord record, Schema readerSchema) {
+        var writerSchema = record.getSchema();
+        if (writerSchema.equals(readerSchema) || !writerSchema.getFullName().equals(readerSchema.getFullName())) {
+            return record;
+        }
+        try {
+            var bytes = new ByteArrayOutputStream();
+            var encoder = EncoderFactory.get().binaryEncoder(bytes, null);
+            new GenericDatumWriter<GenericRecord>(writerSchema).write(record, encoder);
+            encoder.flush();
+            var decoder = DecoderFactory.get().binaryDecoder(bytes.toByteArray(), null);
+            return new GenericDatumReader<GenericRecord>(writerSchema, readerSchema).read(null, decoder);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Could not resolve record '%s' against the reader schema"
+                    .formatted(writerSchema.getFullName()), e);
+        }
     }
 
     /**

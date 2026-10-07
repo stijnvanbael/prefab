@@ -39,6 +39,14 @@ class AvscPluginTest {
             .compile(sourceOf("event/avsc/decimal/source/DecimalAvsc.java"));
 
     @Test
+    void avscConverterResolvesWrittenRecordAgainstReaderSchema() {
+        assertThat(simpleCompilation).succeeded();
+        assertThat(simpleCompilation).generatedSourceFile("event.avsc.infrastructure.avro.GenericRecordToSimpleAvscEventConverter")
+                .contentsAsUtf8String()
+                .contains("SchemaSupport.resolve(writtenRecord, readerSchema)");
+    }
+
+    @Test
     void simpleAvscEvent() {
         assertThat(simpleCompilation).succeeded();
         assertThat(simpleCompilation).generatedSourceFile("event.avsc.SimpleAvscEvent")

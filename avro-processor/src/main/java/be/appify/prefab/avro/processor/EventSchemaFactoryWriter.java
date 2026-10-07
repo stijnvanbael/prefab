@@ -86,6 +86,11 @@ class EventSchemaFactoryWriter {
         return true;
     }
 
+    /** Returns {@code true} when the schema factory of {@code event} is backed by an AVSC file that carries field defaults. */
+    boolean hasAvscReaderSchema(TypeManifest event) {
+        return !isAvscContractInterface(event) && findDirectAvscPath(event).isPresent();
+    }
+
     private Optional<String> findAvscPath(TypeManifest event) {
         var directMatch = findDirectAvscPath(event);
         if (directMatch.isPresent()) {

@@ -39,3 +39,16 @@ Out of scope: Avro payloads on Pub/Sub and SNS/SQS carry no writer schema or sch
 - [ ] #6 Regression tests cover reading old-format and new-format messages for JSON and Avro, for code-first and AVSC-generated events, and confirm that contracts without evolution declarations behave exactly as today.
 - [ ] #7 backlog/docs/ documents the evolution annotations, the guarantees per serialization format and transport, and the known limitation for Avro over Pub/Sub and SNS/SQS.
 <!-- AC:END -->
+
+## Implementation Notes
+
+### Investigation: newly added defaulted non-null field fails on older messages (forward-compat reports)
+- Path: `DynamicDeserializer` -> `GenericAvroDeserializer` (writer schema only) -> generated `GenericRecordTo*Converter` -> `SchemaSupport.getX` returns `null` for absent field -> generated record constructor does `requireNonNull` / unboxes null primitive -> NPE.
+- AVSC `default` is only applied by `AvscEventWriter.defaultsFor` (builder seeding); never at read time.
+- Options: (A) reader-schema resolution (writer->reader via generated schema, recommended, fixes AC#3/#4); (B) converter-level default fallback for AVSC fields; (C) constructor substitution (rejected, hides nulls).
+- Reproduction: any converter test whose GenericRecord schema omits a defaulted non-null field (e.g. String or int) -> NPE in constructor.
+
+### Implemented (option A, AVSC-backed events)
+- `SchemaSupport.resolve(record, readerSchema)` re-encodes the writer-schema record and decodes it with Avro schema resolution (defaults, aliases, promotion); no-op for equal schemas or different named type.
+- Generated `GenericRecordTo*Converter` for AVSC-backed events now injects the event's `SchemaFactory` and resolves the incoming record first, so defaults apply on older messages.
+- Not covered yet: code-first events (generated schemas still have no defaults; needs the default-annotation work in this task) and JSON.

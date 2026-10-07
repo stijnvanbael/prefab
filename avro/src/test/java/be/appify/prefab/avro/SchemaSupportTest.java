@@ -889,4 +889,45 @@ class SchemaSupportTest {
             assertThat((Object) result).isNull();
         }
     }
-}
+
+    @Nested
+    @DisplayName("resolve")
+    class ResolveTest {
+        private static final Schema WRITER = new Schema.Parser().parse("""
+                {"type":"record","name":"Evt","namespace":"x","fields":[{"name":"id","type":"string"}]}""");
+        private static final Schema READER = new Schema.Parser().parse("""
+                {"type":"record","name":"Evt","namespace":"x","fields":[
+                  {"name":"id","type":"string"},
+                  {"name":"count","type":"int","default":7},
+                  {"name":"label","type":"string","default":"none"}]}""");
+
+        @Test
+        @DisplayName("should apply reader defaults for fields missing in the writer schema")
+        void shouldApplyDefaults() {
+            var record = new GenericData.Record(WRITER);
+            record.put("id", "a");
+
+            var resolved = SchemaSupport.resolve(record, READER);
+
+            assertThat(SchemaSupport.getString(resolved, "id")).isEqualTo("a");
+            assertThat(SchemaSupport.getInteger(resolved, "count")).isEqualTo(7);
+            assertThat(SchemaSupport.getString(resolved, "label")).isEqualTo("none");
+        }
+
+        @Test
+        @DisplayName("should return the same record when schemas are equal")
+        void shouldReturnSameRecordWhenEqual() {
+            var record = new GenericData.Record(READER);
+            assertThat(SchemaSupport.resolve(record, READER)).isSameAs(record);
+        }
+
+        @Test
+        @DisplayName("should return the record unchanged when it is a different named type")
+        void shouldIgnoreOtherNamedType() {
+            var other = new Schema.Parser().parse("""
+                    {"type":"record","name":"Other","namespace":"x","fields":[{"name":"id","type":"string"}]}""");
+            var record = new GenericData.Record(other);
+            assertThat(SchemaSupport.resolve(record, READER)).isSameAs(record);
+        }
+    }}
+

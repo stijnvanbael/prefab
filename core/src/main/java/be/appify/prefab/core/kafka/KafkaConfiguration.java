@@ -1,5 +1,6 @@
 package be.appify.prefab.core.kafka;
 
+import be.appify.prefab.core.spring.PrefabCoreConfiguration;
 import be.appify.prefab.core.util.Classes;
 import com.google.common.collect.Streams;
 import java.time.Duration;
@@ -26,7 +27,6 @@ import org.springframework.boot.kafka.autoconfigure.DefaultKafkaProducerFactoryC
 import org.springframework.boot.kafka.autoconfigure.KafkaConnectionDetails;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.ContainerCustomizer;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
@@ -54,7 +54,7 @@ import static org.apache.commons.lang3.StringUtils.isEmpty;
  */
 @AutoConfiguration
 @ConditionalOnClass(KafkaListenerContainerFactory.class)
-@ConditionalOnBean(EventRegistry.class)
+@ConditionalOnBean({PrefabCoreConfiguration.class, PrefabRegistryConfiguration.class})
 public class KafkaConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaConfiguration.class);

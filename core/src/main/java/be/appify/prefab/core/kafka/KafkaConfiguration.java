@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.kafka.autoconfigure.ConcurrentKafkaListenerContainerFactoryConfigurer;
@@ -24,7 +25,6 @@ import org.springframework.boot.kafka.autoconfigure.DefaultKafkaProducerFactoryC
 import org.springframework.boot.kafka.autoconfigure.KafkaConnectionDetails;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.ContainerCustomizer;
@@ -51,7 +51,7 @@ import static org.apache.commons.lang3.StringUtils.isEmpty;
  * Configuration class for setting up Kafka producer and consumer factories, listener container factory, and error handling with dead-letter
  * publishing.
  */
-@Configuration
+@AutoConfiguration
 @ConditionalOnClass(KafkaListenerContainerFactory.class)
 public class KafkaConfiguration {
 
@@ -163,7 +163,6 @@ public class KafkaConfiguration {
     }
 
     @Bean
-    @Primary
     @ConditionalOnMissingBean(name = "defaultKafkaErrorHandler")
     @SuppressWarnings("unchecked")
     CommonErrorHandler defaultKafkaErrorHandler(
@@ -212,7 +211,6 @@ public class KafkaConfiguration {
     }
 
     @Bean
-    @Primary
     @ConditionalOnMissingBean
     DeadLetterPublishingRecoverer deadLetterPublishingRecoverer(
             KafkaTemplate<?, ?> kafkaTemplate,
@@ -226,9 +224,13 @@ public class KafkaConfiguration {
         ) {
             @Override
             public void accept(ConsumerRecord<?, ?> record, Consumer<?, ?> consumer, Exception exception) {
-                super.accept(record, consumer, exception);
-                log.error("Exception processing consumer record with key [{}] and value [{}]. Sent to DLT topic [{}].",
+                log.error("Exception processing consumer record with key [{}] and value [{}]. Sending to DLT topic [{}].",
                         record.key(), record.value(), deadLetterTopic, exception);
+                try {
+                    super.accept(record, consumer, exception);
+                } catch (Exception e) {
+                    log.error("Failed to send record to DLT topic [{}].", deadLetterTopic, e);
+                }
             }
         };
     }

@@ -1,11 +1,14 @@
 package be.appify.prefab.test.sns;
 
+import be.appify.prefab.core.spring.PrefabCoreConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import be.appify.prefab.core.sns.SnsConfiguration;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Import;
 import org.springframework.core.env.PropertyResolver;
 import org.springframework.test.context.DynamicPropertyRegistrar;
 import org.testcontainers.containers.localstack.LocalStackContainer;
@@ -18,9 +21,10 @@ import static org.testcontainers.containers.localstack.LocalStackContainer.Servi
 /**
  * Autoconfiguration for SNS/SQS tests using LocalStack.
  */
-@TestConfiguration(proxyBeanMethods = false)
+@AutoConfiguration(after = SnsConfiguration.class)
 @ConditionalOnClass(SnsTemplate.class)
-@ComponentScan(basePackageClasses = SnsTestLifecycle.class)
+@ConditionalOnBean(PrefabCoreConfiguration.class)
+@Import(SnsTestLifecycle.class)
 public class SnsTestAutoConfiguration {
 
     /**

@@ -1,8 +1,10 @@
 package be.appify.prefab.test.persistence;
 
+import be.appify.prefab.core.spring.PrefabCoreConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.PropertyResolver;
 import org.springframework.data.relational.core.mapping.Table;
@@ -17,8 +19,9 @@ import be.appify.prefab.test.TestContainerNameResolver;
  * This replaces the legacy JDBC URL approach (TC_REUSABLE=true) with a full Spring bean that
  * integrates with Testcontainers' Docker name and reuse capabilities.
  */
-@TestConfiguration(proxyBeanMethods = false)
+@AutoConfiguration
 @ConditionalOnClass(Table.class)
+@ConditionalOnBean(PrefabCoreConfiguration.class)
 public class PostgresTestAutoConfiguration {
 
     /**

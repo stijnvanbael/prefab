@@ -1,5 +1,7 @@
 package be.appify.prefab.test.kafka;
 
+import be.appify.prefab.core.spring.PrefabCoreConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.EventRegistry;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -10,7 +12,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.kafka.autoconfigure.DefaultKafkaConsumerFactoryCustomizer;
 import org.springframework.boot.kafka.autoconfigure.KafkaConnectionDetails;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnectionAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.convert.ConversionService;
@@ -25,9 +26,9 @@ import java.util.Map;
 /**
  * Autoconfiguration for Kafka test support.
  */
-@TestConfiguration(proxyBeanMethods = false)
 @AutoConfiguration(before = ServiceConnectionAutoConfiguration.class)
 @ConditionalOnClass(KafkaTemplate.class)
+@ConditionalOnBean(PrefabCoreConfiguration.class)
 public class KafkaTestAutoConfiguration {
 
     private final KafkaProperties properties;

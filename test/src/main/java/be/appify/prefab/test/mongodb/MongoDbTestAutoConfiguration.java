@@ -1,9 +1,10 @@
 package be.appify.prefab.test.mongodb;
 
+import be.appify.prefab.core.spring.PrefabCoreConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnectionAutoConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -19,9 +20,9 @@ import org.testcontainers.utility.DockerImageName;
  * {@link ServiceConnection}. Tests no longer need to import a custom {@code MongoDbContainerConfiguration}.
  * </p>
  */
-@TestConfiguration(proxyBeanMethods = false)
 @AutoConfiguration(before = ServiceConnectionAutoConfiguration.class)
 @ConditionalOnClass(MongoTemplate.class)
+@ConditionalOnBean(PrefabCoreConfiguration.class)
 public class MongoDbTestAutoConfiguration {
 
     /**

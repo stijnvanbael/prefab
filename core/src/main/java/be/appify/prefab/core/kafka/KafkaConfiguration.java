@@ -52,7 +52,7 @@ import static org.apache.commons.lang3.StringUtils.isEmpty;
  * Configuration class for setting up Kafka producer and consumer factories, listener container factory, and error handling with dead-letter
  * publishing.
  */
-@AutoConfiguration
+@AutoConfiguration(after = PrefabRegistryConfiguration.class)
 @ConditionalOnClass(KafkaListenerContainerFactory.class)
 @ConditionalOnBean({PrefabCoreConfiguration.class, PrefabRegistryConfiguration.class})
 public class KafkaConfiguration {

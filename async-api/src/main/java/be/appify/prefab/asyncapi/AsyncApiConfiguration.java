@@ -1,16 +1,18 @@
 package be.appify.prefab.asyncapi;
 
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Configuration;
+import be.appify.prefab.core.spring.PrefabCoreConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.context.annotation.Import;
 
 /**
  * Spring configuration for Prefab AsyncAPI documentation support.
  *
- * <p>Adds the module to a Spring Boot application by importing this configuration or by adding
- * {@code prefab-async-api} as a dependency (which triggers component scanning via
- * {@code META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports}).
+ * <p>Activates when {@code prefab-async-api} is on the classpath and {@link PrefabCoreConfiguration} is present,
+ * via {@code META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports}.
  */
-@Configuration
-@ComponentScan
+@AutoConfiguration
+@ConditionalOnBean(PrefabCoreConfiguration.class)
+@Import(AsyncApiController.class)
 public class AsyncApiConfiguration {
 }

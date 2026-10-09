@@ -1,9 +1,10 @@
 package be.appify.prefab.test.security;
 
+import be.appify.prefab.core.spring.PrefabCoreConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 import org.springframework.test.web.servlet.setup.MockMvcConfigurer;
@@ -21,8 +22,9 @@ import org.springframework.test.web.servlet.setup.MockMvcConfigurer;
  * security wiring (e.g. a custom {@code SecurityContextRepository}) can override it entirely by declaring their own
  * {@code @Bean("securityMockMvcConfigurer") MockMvcConfigurer securityMockMvcConfigurer()}.
  */
-@TestConfiguration(proxyBeanMethods = false)
+@AutoConfiguration
 @ConditionalOnClass(SecurityMockMvcConfigurers.class)
+@ConditionalOnBean(PrefabCoreConfiguration.class)
 public class SecurityMockMvcTestAutoConfiguration {
 
     /**

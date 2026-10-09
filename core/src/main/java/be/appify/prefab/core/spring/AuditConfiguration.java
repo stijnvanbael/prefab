@@ -2,9 +2,10 @@ package be.appify.prefab.core.spring;
 
 import be.appify.prefab.core.audit.AuditContextProvider;
 import be.appify.prefab.core.audit.SystemAuditContextProvider;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * Auto-configuration for Prefab audit support.
@@ -20,7 +21,8 @@ import org.springframework.context.annotation.Configuration;
  * }
  * }</pre>
  */
-@Configuration
+@AutoConfiguration
+@ConditionalOnBean(PrefabCoreConfiguration.class)
 public class AuditConfiguration {
 
     /** Constructs a new {@code AuditConfiguration}. */

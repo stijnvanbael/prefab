@@ -1,11 +1,14 @@
 package be.appify.prefab.mongodb.spring;
 
+import be.appify.prefab.core.spring.PrefabCoreConfiguration;
 import be.appify.prefab.mongodb.spring.data.mongodb.PrefabMongoMappingContext;
 import be.appify.prefab.mongodb.spring.data.mongodb.ReferenceToStringConverter;
 import be.appify.prefab.mongodb.spring.data.mongodb.StringToReferenceConverter;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.data.mongodb.MongoDatabaseFactory;
 import org.springframework.data.mongodb.core.convert.DbRefResolver;
 import org.springframework.data.mongodb.core.convert.DefaultDbRefResolver;
@@ -26,7 +29,9 @@ import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
  * entity types (e.g. polymorphic aggregate roots).
  * </p>
  */
-@Configuration
+@AutoConfiguration(beforeName = "org.springframework.boot.data.mongodb.autoconfigure.DataMongoAutoConfiguration")
+@ConditionalOnClass(MongoMappingContext.class)
+@ConditionalOnBean(PrefabCoreConfiguration.class)
 public class PrefabMongoConfiguration {
 
     /**

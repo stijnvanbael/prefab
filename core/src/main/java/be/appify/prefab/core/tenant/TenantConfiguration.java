@@ -2,7 +2,9 @@ package be.appify.prefab.core.tenant;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import be.appify.prefab.core.spring.PrefabCoreConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 
@@ -18,6 +20,7 @@ import org.springframework.context.annotation.Bean;
  * from the incoming request (e.g. a JWT claim or a request header).</p>
  */
 @AutoConfiguration
+@ConditionalOnBean(PrefabCoreConfiguration.class)
 public class TenantConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(TenantConfiguration.class);

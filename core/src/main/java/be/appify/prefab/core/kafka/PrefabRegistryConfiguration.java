@@ -1,10 +1,10 @@
 package be.appify.prefab.core.kafka;
 
-import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * Spring configuration that creates the single {@link EventRegistry} bean for the application.
@@ -16,7 +16,8 @@ import org.springframework.context.annotation.Configuration;
  * <p>Annotating the bean with {@link ConditionalOnMissingBean} allows test configurations to
  * supply a pre-populated {@link EventRegistry} stub without conflicting with this factory.
  */
-@Configuration(proxyBeanMethods = false)
+@AutoConfiguration
+@ConditionalOnBean(EventRegistryCustomizer.class)
 public class PrefabRegistryConfiguration {
 
     /** Constructs a new PrefabRegistryConfiguration. */

@@ -1,5 +1,6 @@
 package be.appify.prefab.test.kafka;
 
+import be.appify.prefab.core.spring.PrefabCoreConfiguration;
 import be.appify.prefab.test.TestContainerNameResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,7 +9,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.PropertyResolver;
@@ -26,9 +26,9 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Optional;
 
-@TestConfiguration(proxyBeanMethods = false)
 @AutoConfiguration(before = KafkaTestAutoConfiguration.class)
 @ConditionalOnClass(KafkaTemplate.class)
+@ConditionalOnBean(PrefabCoreConfiguration.class)
 public class KafkaTestcontainerAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaTestcontainerAutoConfiguration.class);

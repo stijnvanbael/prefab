@@ -1,11 +1,13 @@
 package be.appify.prefab.postgres.spring;
 
+import be.appify.prefab.core.spring.PrefabCoreConfiguration;
 import be.appify.prefab.core.spring.data.jdbc.DbColumnConverterContributor;
 import be.appify.prefab.core.spring.data.jdbc.PolymorphicReadingConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.ByteArrayToFileConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.FileToByteArrayConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabDataAccessStrategy;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabJdbcAggregateTemplate;
+import be.appify.prefab.postgres.spring.data.jdbc.PrefabJdbcDialect;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabJdbcMappingContext;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabMappingJdbcConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabNamingStrategy;
@@ -13,10 +15,12 @@ import be.appify.prefab.postgres.spring.data.jdbc.SingleValueRecordSimpleTypeHol
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.jdbc.core.JdbcAggregateTemplate;
 import org.springframework.data.jdbc.core.convert.DataAccessStrategy;
@@ -39,8 +43,10 @@ import tools.jackson.databind.json.JsonMapper;
  * automatically applied via Spring Boot's auto-configuration mechanism.
  * </p>
  */
-@Configuration
-@ComponentScan("be.appify.prefab.postgres.spring.data.jdbc")
+@AutoConfiguration(beforeName = "org.springframework.boot.data.jdbc.autoconfigure.DataJdbcRepositoriesAutoConfiguration")
+@ConditionalOnClass(JdbcAggregateTemplate.class)
+@ConditionalOnBean(PrefabCoreConfiguration.class)
+@Import(PrefabJdbcDialect.class)
 public class PrefabJdbcConfiguration extends AbstractJdbcConfiguration {
 
     private final List<PolymorphicReadingConverter> polymorphicReadingConverters;

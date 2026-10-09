@@ -1,5 +1,6 @@
 package be.appify.prefab.test.security;
 
+import be.appify.prefab.core.spring.PrefabCoreConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
@@ -14,22 +15,36 @@ class SecurityMockMvcTestAutoConfigurationTest {
 
     @Test
     void securityMockMvcConfigurerIsAbsentWithoutSecurityFilterChainBean() {
-        contextRunner.withUserConfiguration(SecurityMockMvcTestAutoConfiguration.class)
+        contextRunner.withUserConfiguration(CoreMarker.class, SecurityMockMvcTestAutoConfiguration.class)
                 .run(context -> assertThat(context).doesNotHaveBean("securityMockMvcConfigurer"));
     }
 
     @Test
     void securityMockMvcConfigurerIsRegisteredWhenFilterChainBeanIsPresent() {
-        contextRunner.withUserConfiguration(FilterChainConfiguration.class, SecurityMockMvcTestAutoConfiguration.class)
+        contextRunner.withUserConfiguration(CoreMarker.class, FilterChainConfiguration.class, SecurityMockMvcTestAutoConfiguration.class)
                 .run(context -> assertThat(context).hasBean("securityMockMvcConfigurer"));
     }
 
     @Test
     void userSuppliedConfigurerOverridesTheDefault() {
-        contextRunner.withUserConfiguration(FilterChainConfiguration.class, CustomConfigurerConfiguration.class,
+        contextRunner.withUserConfiguration(CoreMarker.class, FilterChainConfiguration.class, CustomConfigurerConfiguration.class,
                         SecurityMockMvcTestAutoConfiguration.class)
                 .run(context -> assertThat(context.getBean("securityMockMvcConfigurer"))
                         .isSameAs(context.getBean(CustomConfigurerConfiguration.class).customConfigurer));
+    }
+
+    @Test
+    void securityMockMvcConfigurerIsAbsentWithoutPrefabCore() {
+        contextRunner.withUserConfiguration(FilterChainConfiguration.class, SecurityMockMvcTestAutoConfiguration.class)
+                .run(context -> assertThat(context).doesNotHaveBean("securityMockMvcConfigurer"));
+    }
+
+    @Configuration
+    static class CoreMarker {
+        @Bean
+        PrefabCoreConfiguration prefabCoreConfiguration() {
+            return new PrefabCoreConfiguration();
+        }
     }
 
     @Configuration

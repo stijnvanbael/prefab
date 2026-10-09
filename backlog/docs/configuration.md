@@ -95,13 +95,16 @@ auto-configures SNS publisher and SQS listener beans.
 
 Add to your main application class. Imports all Prefab core beans. No attributes.
 
-`@EnablePrefab` imports:
-- `PrefabCoreConfiguration` – component scan for core beans
+`@EnablePrefab` imports `PrefabCoreConfiguration` (component scan for core beans). It is the single opt-in switch: every other Prefab configuration is a Spring Boot auto-configuration that only activates when `PrefabCoreConfiguration` is present, the relevant library is on the classpath and any required beans exist. This includes the test auto-configurations of `prefab-test`.
+
+Auto-configurations (all gated on `PrefabCoreConfiguration`):
 - `AuditConfiguration` – registers default `AuditContextProvider`
+- `PrefabRegistryConfiguration` – `EventRegistry` populated from `EventRegistryCustomizer` beans
+- `TenantConfiguration` – default no-op `TenantContextProvider`
 - `KafkaConfiguration` – Kafka serializer/deserializer (if Kafka is on classpath)
 - `PubSubConfiguration` – Pub/Sub support (if GCP library is on classpath)
 - `SnsConfiguration` – SNS/SQS support (if AWS library is on classpath)
-- `SerializationRegistry` – topic-to-serialization-format registry
+- `PrefabJdbcConfiguration`, `PrefabMongoConfiguration`, `OpenApiAutoConfiguration`, `AsyncApiConfiguration`, `WebSecurityConfiguration`, `StreamsConfiguration` – activated by adding the matching module
 
 ---
 

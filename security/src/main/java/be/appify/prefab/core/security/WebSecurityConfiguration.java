@@ -1,9 +1,12 @@
 package be.appify.prefab.core.security;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -17,7 +20,10 @@ import static org.springframework.security.config.Customizer.withDefaults;
 /**
  * Configuration class for web security settings.
  */
-@Configuration
+@AutoConfiguration(beforeName = "org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration")
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+@ConditionalOnClass(SecurityFilterChain.class)
+@ConditionalOnBean(type = "be.appify.prefab.core.spring.PrefabCoreConfiguration")
 @EnableWebSecurity
 @EnableMethodSecurity
 public class WebSecurityConfiguration {

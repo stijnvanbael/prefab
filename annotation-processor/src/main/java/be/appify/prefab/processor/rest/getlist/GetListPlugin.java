@@ -3,13 +3,16 @@ package be.appify.prefab.processor.rest.getlist;
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.annotations.rest.SortOrder;
 import be.appify.prefab.core.spring.data.RangeQueryExecutor;
+import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.rest.RestOperationPlugin;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -25,6 +28,7 @@ import static be.appify.prefab.processor.rest.getlist.GetListUtil.rangeFiltersOf
 public class GetListPlugin extends RestOperationPlugin {
     private final GetListControllerWriter controllerWriter = new GetListControllerWriter();
     private final GetListServiceWriter serviceWriter = new GetListServiceWriter();
+    private final GetListQueryWriter queryWriter = new GetListQueryWriter();
     private final GetListRepositoryWriter repositoryWriter = new GetListRepositoryWriter();
     private final GetListTestClientWriter testClientWriter = new GetListTestClientWriter();
 
@@ -62,8 +66,22 @@ public class GetListPlugin extends RestOperationPlugin {
         getListAnnotation(manifest).ifPresent(getList -> {
             if (rangeFiltersAreValid(manifest)) {
                 builder.addMethod(serviceWriter.getListMethod(manifest));
+                builder.addMethod(serviceWriter.getListByQueryMethod(manifest, getList));
             }
         });
+    }
+
+    @Override
+    public void writeAdditionalFiles(List<ClassManifest> manifests) {
+        var queryManifests = manifests.stream()
+                .filter(manifest -> getListAnnotation(manifest).isPresent())
+                .filter(manifest -> rangeFiltersOf(filterPropertiesOf(manifest)).stream()
+                        .allMatch(filter -> GetListUtil.isRangeComparable(filter.field().type())))
+                .toList();
+        if (!queryManifests.isEmpty()) {
+            var fileWriter = new OutputTargetFileOutput(context(), "application", OutputTarget.MAIN);
+            queryManifests.forEach(manifest -> queryWriter.writeQuery(fileWriter, manifest));
+        }
     }
 
     private boolean rangeFiltersAreValid(ClassManifest manifest) {

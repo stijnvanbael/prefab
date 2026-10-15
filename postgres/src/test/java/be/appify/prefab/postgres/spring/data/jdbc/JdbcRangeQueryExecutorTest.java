@@ -34,7 +34,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @SpringBootTest(classes = JdbcRangeQueryExecutorTest.TestConfig.class)
 class JdbcRangeQueryExecutorTest {
 
-    static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18.3-alpine");
+    static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18.6-alpine");
 
     @DynamicPropertySource
     static void datasource(DynamicPropertyRegistry registry) {

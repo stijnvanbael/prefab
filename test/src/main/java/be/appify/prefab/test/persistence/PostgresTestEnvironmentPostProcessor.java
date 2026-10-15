@@ -60,7 +60,7 @@ public class PostgresTestEnvironmentPostProcessor implements EnvironmentPostProc
     }
 
     private String tcUrl(String appName) {
-        return "jdbc:tc:postgresql:18.3:///" + appName + "?TC_REUSABLE=true&currentSchema=" + appName;
+        return "jdbc:tc:postgresql:18.6:///" + appName + "?TC_REUSABLE=true&currentSchema=" + appName;
     }
 
     private boolean isSpringDataJdbcPresent() {

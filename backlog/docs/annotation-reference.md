@@ -428,6 +428,19 @@ public record Order(
 **Generated endpoint:** `GET /orders?page=0&size=20&customerName=foo` → returns `Page<OrderResponse>`.
 Without `sort`, results are ordered by `customerName` ascending, then `id` descending. `?sort=version,desc` ignores the default.
 
+**Programmatic queries:** for every `@GetList` aggregate Prefab also generates an `<Aggregate>Query` class (in the
+`application` package) and a `getList(<Aggregate>Query)` overload on the service. The builder has `page` (zero-based,
+default `0`), `pageSize` (default `20`) and `sort` (default: the `@GetList(sorted = …)` order), plus one method per
+`@Filter`, named like the REST parameter (`amountGreaterThanOrEqual`, …) and typed with the field type. Filters that
+are not set are ignored. For aggregates with a `@Parent`, set the parent with `<parent>Id(String)` (required).
+
+```java
+orderService.getList(OrderQuery.newQuery()
+        .pageSize(50)
+        .sort(Sort.by(Sort.Direction.DESC, "id"))
+        .customerName("foo"));
+```
+
 ---
 
 ### `@Filter`

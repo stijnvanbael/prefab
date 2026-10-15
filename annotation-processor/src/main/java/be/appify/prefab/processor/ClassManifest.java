@@ -228,6 +228,10 @@ public class ClassManifest {
         return type;
     }
 
+    public Element element() {
+        return typeElement;
+    }
+
     public Optional<VariableManifest> parent() {
         return Optional.ofNullable(parent);
     }

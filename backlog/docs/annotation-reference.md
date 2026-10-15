@@ -404,16 +404,19 @@ public record Order(...) {
 
 Exposes a paginated list endpoint. Combine with `@Filter` on fields to enable filtering.
 
-| Attribute  | Type        | Default     | Description                                       |
-|------------|-------------|-------------|---------------------------------------------------|
-| `method`   | `String`    | `"GET"`     | HTTP method.                                      |
-| `path`     | `String`    | `""`        | Path suffix (defaults to base path of aggregate). |
-| `security` | `@Security` | `@Security` | Security settings.                                |
+| Attribute     | Type          | Default     | Description                                                                                          |
+|---------------|---------------|-------------|------------------------------------------------------------------------------------------------------|
+| `method`      | `String`      | `"GET"`     | HTTP method.                                                                                         |
+| `path`        | `String`      | `""`        | Path suffix (defaults to base path of aggregate).                                                    |
+| `security`    | `@Security`   | `@Security` | Security settings.                                                                                   |
+| `defaultSort` | `SortOrder[]` | `{}`        | Sort applied when the request has no `sort` parameter. An explicit `sort` parameter replaces it entirely. Unknown fields are a compile error. |
 
 ```java
 
 @Aggregate
-@GetList
+@GetList(defaultSort = {
+        @SortOrder(field = "customerName"),
+        @SortOrder(field = "id", direction = SortOrder.Direction.DESC)})
 public record Order(
         @Id Reference<Order> id,
         @Version long version,
@@ -423,6 +426,7 @@ public record Order(
 ```
 
 **Generated endpoint:** `GET /orders?page=0&size=20&customerName=foo` → returns `Page<OrderResponse>`.
+Without `sort`, results are ordered by `customerName` ascending, then `id` descending. `?sort=version,desc` ignores the default.
 
 ---
 

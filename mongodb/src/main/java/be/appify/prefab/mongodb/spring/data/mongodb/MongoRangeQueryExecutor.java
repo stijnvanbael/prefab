@@ -3,6 +3,7 @@ package be.appify.prefab.mongodb.spring.data.mongodb;
 import be.appify.prefab.core.spring.data.RangeCondition;
 import be.appify.prefab.core.spring.data.RangeQueryExecutor;
 import java.util.List;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,29 +18,30 @@ import org.springframework.data.support.PageableExecutionUtils;
  */
 public class MongoRangeQueryExecutor implements RangeQueryExecutor {
 
-    private final MongoOperations operations;
+    private final ObjectProvider<MongoOperations> operations;
 
     /**
      * Constructs a new MongoRangeQueryExecutor.
      *
      * @param operations
-     *         the MongoDB operations used to execute the query
+     *         provider of the MongoDB operations, resolved when a query is executed
      */
-    public MongoRangeQueryExecutor(MongoOperations operations) {
+    public MongoRangeQueryExecutor(ObjectProvider<MongoOperations> operations) {
         this.operations = operations;
     }
 
     @Override
     public <T> Page<T> findAll(Example<T> example, List<RangeCondition> ranges, Pageable pageable) {
+        var mongo = operations.getObject();
         var type = example.getProbeType();
         var query = new Query(new Criteria().alike(example));
         ranges.stream()
                 .filter(RangeCondition::isActive)
                 .map(MongoRangeQueryExecutor::criteriaOf)
                 .forEach(query::addCriteria);
-        var results = operations.find(Query.of(query).with(pageable), type);
+        var results = mongo.find(Query.of(query).with(pageable), type);
         return PageableExecutionUtils.getPage(results, pageable,
-                () -> operations.count(Query.of(query).limit(-1).skip(-1), type));
+                () -> mongo.count(Query.of(query).limit(-1).skip(-1), type));
     }
 
     private static Criteria criteriaOf(RangeCondition condition) {

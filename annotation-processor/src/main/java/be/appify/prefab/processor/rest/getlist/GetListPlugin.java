@@ -1,15 +1,19 @@
 package be.appify.prefab.processor.rest.getlist;
 
 import be.appify.prefab.core.annotations.rest.GetList;
+import be.appify.prefab.core.annotations.rest.SortOrder;
 import be.appify.prefab.core.spring.data.RangeQueryExecutor;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
+import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.rest.RestOperationPlugin;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static be.appify.prefab.processor.rest.getlist.GetListUtil.filterPropertiesOf;
 import static be.appify.prefab.processor.rest.getlist.GetListUtil.rangeFiltersOf;
@@ -27,8 +31,23 @@ public class GetListPlugin extends RestOperationPlugin {
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
-        getListAnnotation(manifest).ifPresent(getList ->
-                builder.addMethod(controllerWriter.getListMethod(manifest, getList)));
+        getListAnnotation(manifest).ifPresent(getList -> {
+            if (defaultSortIsValid(manifest, getList)) {
+                builder.addMethod(controllerWriter.getListMethod(manifest, getList));
+            }
+        });
+    }
+
+    private boolean defaultSortIsValid(ClassManifest manifest, GetList getList) {
+        var fieldNames = manifest.fields().stream().map(VariableManifest::name).collect(Collectors.toSet());
+        var unknown = Stream.of(getList.sorted())
+                .map(SortOrder::property)
+                .filter(field -> !fieldNames.contains(field))
+                .toList();
+        unknown.forEach(field -> context().logError(
+                "[@GetList] sorted: unknown property '%s' on %s".formatted(field, manifest.simpleName()),
+                manifest.element()));
+        return unknown.isEmpty();
     }
 
     @Override

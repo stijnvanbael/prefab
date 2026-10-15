@@ -32,4 +32,12 @@ public @interface GetList {
      * @return Security settings for this endpoint.
      */
     Security security() default @Security;
+
+    /**
+     * The sort order applied when the request has no <code>sort</code> parameter. An explicit <code>sort</code>
+     * request parameter overrides it completely. Default is empty, meaning no default sorting.
+     *
+     * @return The default sort criteria, in order of precedence.
+     */
+    SortOrder[] sorted() default {};
 }

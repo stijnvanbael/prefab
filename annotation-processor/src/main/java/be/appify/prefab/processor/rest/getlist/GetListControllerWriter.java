@@ -1,21 +1,27 @@
 package be.appify.prefab.processor.rest.getlist;
 
 import be.appify.prefab.core.annotations.rest.GetList;
+import be.appify.prefab.core.annotations.rest.SortOrder;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.VariableManifest;
+import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PagedModel;
+import org.springframework.data.web.SortDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static be.appify.prefab.processor.rest.ControllerUtil.operationAnnotation;
 import static be.appify.prefab.processor.rest.ControllerUtil.requestMapping;
@@ -43,7 +49,7 @@ class GetListControllerWriter {
         securedAnnotation(getList.security()).ifPresent(method::addAnnotation);
         manifest.parent().ifPresent(parent -> method.addParameter(parentParameter(parent)));
         var parameters = getListParameters(manifest);
-        method.addParameter(Pageable.class, "pageable");
+        method.addParameter(pageableParameter(getList));
         if (!filters.isEmpty()) {
             for (var filter : filters) {
                 method.addParameter(ParameterSpec.builder(
@@ -60,6 +66,31 @@ class GetListControllerWriter {
                             ResponseEntity.class, PagedModel.class, parameters, responseType)
                     .build();
         }
+    }
+
+    private static ParameterSpec pageableParameter(GetList getList) {
+        var parameter = ParameterSpec.builder(Pageable.class, "pageable");
+        var defaultSort = getList.sorted();
+        if (defaultSort.length > 0) {
+            var sortDefaults = Stream.of(defaultSort)
+                    .map(order -> AnnotationSpec.builder(SortDefault.class)
+                            .addMember("sort", "$S", order.property())
+                            .addMember("direction", "$T.$L", Sort.Direction.class, springDirection(order.direction()))
+                            .build())
+                    .map(annotation -> CodeBlock.of("$L", annotation))
+                    .collect(CodeBlock.joining(", "));
+            parameter.addAnnotation(AnnotationSpec.builder(SortDefault.SortDefaults.class)
+                    .addMember("value", "{$L}", sortDefaults)
+                    .build());
+        }
+        return parameter.build();
+    }
+
+    private static Sort.Direction springDirection(SortOrder.Direction direction) {
+        return switch (direction) {
+            case ASCENDING -> Sort.Direction.ASC;
+            case DESCENDING -> Sort.Direction.DESC;
+        };
     }
 
     private ParameterSpec parentParameter(VariableManifest parent) {
@@ -95,7 +126,7 @@ class GetListControllerWriter {
         operationAnnotation("List " + manifest.plural()).ifPresent(method::addAnnotation);
         securedAnnotation(getList.security()).ifPresent(method::addAnnotation);
         manifest.parent().ifPresent(parent -> method.addParameter(parentParameter(parent)));
-        method.addParameter(Pageable.class, "pageable");
+        method.addParameter(pageableParameter(getList));
         var serviceArgs = manifest.parent()
                 .map(parent -> uncapitalize(parent.name()) + "Id, pageable")
                 .orElse("pageable");

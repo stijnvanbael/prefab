@@ -38,6 +38,26 @@ public @interface Filter {
         /** Starts with operator. */
         STARTS_WITH,
         /** Ends with operator. */
-        ENDS_WITH
+        ENDS_WITH,
+        /**
+         * Greater than operator. Exposed as request parameter <code>&lt;field&gt;GreaterThan</code>. Only
+         * supported on numeric and <code>java.time</code> fields; {@link #ignoreCase()} has no effect.
+         */
+        GREATER_THAN,
+        /**
+         * Greater than or equal operator. Exposed as request parameter <code>&lt;field&gt;GreaterThanOrEqual</code>.
+         * Only supported on numeric and <code>java.time</code> fields; {@link #ignoreCase()} has no effect.
+         */
+        GREATER_THAN_OR_EQUAL,
+        /**
+         * Less than operator. Exposed as request parameter <code>&lt;field&gt;LessThan</code>. Only supported on
+         * numeric and <code>java.time</code> fields; {@link #ignoreCase()} has no effect.
+         */
+        LESS_THAN,
+        /**
+         * Less than or equal operator. Exposed as request parameter <code>&lt;field&gt;LessThanOrEqual</code>.
+         * Only supported on numeric and <code>java.time</code> fields; {@link #ignoreCase()} has no effect.
+         */
+        LESS_THAN_OR_EQUAL
     }
 }

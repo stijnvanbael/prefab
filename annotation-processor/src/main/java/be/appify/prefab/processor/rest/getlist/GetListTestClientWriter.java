@@ -1,15 +1,14 @@
 package be.appify.prefab.processor.rest.getlist;
 
-import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.spring.Page;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
-import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.rest.ControllerUtil;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
+import com.palantir.javapoet.TypeName;
 import java.util.List;
 import javax.lang.model.element.Modifier;
 import org.springframework.data.domain.Pageable;
@@ -18,14 +17,12 @@ import tools.jackson.core.type.TypeReference;
 
 import static be.appify.prefab.processor.TestClasses.MOCK_MVC_REQUEST_BUILDERS;
 import static be.appify.prefab.processor.TestClasses.MOCK_MVC_RESULT_MATCHERS;
+import static be.appify.prefab.processor.rest.getlist.GetListUtil.filterPropertiesOf;
 
 class GetListTestClientWriter {
     MethodSpec getListMethod(ClassManifest manifest) {
         var search = manifest.annotationsOfType(GetList.class).stream().findFirst().orElseThrow();
-        var filterProperties = manifest.fields().stream()
-                .filter(field -> field.hasAnnotation(Filter.class))
-                .map(field -> field.type().isSingleValueType() ? field.withType(String.class) : field)
-                .toList();
+        var filterProperties = filterPropertiesOf(manifest);
         var returnType = returnType(manifest);
         var method = methodSignature(manifest, returnType, filterProperties);
         createRequest(manifest, method, search);
@@ -77,21 +74,26 @@ class GetListTestClientWriter {
     private static MethodSpec.Builder methodSignature(
             ClassManifest manifest,
             ParameterizedTypeName returnType,
-            List<VariableManifest> filterProperties
+            List<GetListUtil.FilterManifest> filterProperties
     ) {
         var method = MethodSpec.methodBuilder("find" + manifest.plural())
                 .addModifiers(Modifier.PUBLIC)
                 .returns(returnType)
                 .addParameter(Pageable.class, "pageable");
 
-        for (VariableManifest filterProperty : filterProperties) {
-            method.addParameter(
-                    ClassName.get(filterProperty.type().packageName(), filterProperty.type().simpleName()),
-                    filterProperty.name());
+        for (var filterProperty : filterProperties) {
+            method.addParameter(parameterType(filterProperty), filterProperty.parameterName());
         }
         manifest.parent().ifPresent(parent -> method.addParameter(String.class, parent.name()));
         method.addException(Exception.class);
         return method;
+    }
+
+    private static TypeName parameterType(GetListUtil.FilterManifest filter) {
+        var type = filter.field().type();
+        return filter.isRange()
+                ? type.asBoxed().asTypeName()
+                : ClassName.get(type.packageName(), type.simpleName());
     }
 
     private static void createRequest(ClassManifest manifest, MethodSpec.Builder method, GetList getList) {
@@ -127,12 +129,9 @@ class GetListTestClientWriter {
                 ControllerUtil.class);
     }
 
-    private static void addFilterParam(VariableManifest property, MethodSpec.Builder method) {
-        if (property == null) {
-            return;
-        }
-        var name = property.name();
-        if (property.type().is(String.class)) {
+    private static void addFilterParam(GetListUtil.FilterManifest filter, MethodSpec.Builder method) {
+        var name = filter.parameterName();
+        if (filter.field().type().is(String.class)) {
             method.addCode("""
                     if ($N != null) {
                         request.queryParam($S, $N);

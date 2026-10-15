@@ -1,0 +1,64 @@
+package be.appify.prefab.mongodb.spring.data.mongodb;
+
+import be.appify.prefab.core.spring.data.RangeCondition;
+import be.appify.prefab.core.spring.data.RangeQueryExecutor;
+import java.util.LinkedHashMap;
+import java.util.List;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.domain.Example;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.support.PageableExecutionUtils;
+
+/**
+ * {@link RangeQueryExecutor} for Spring Data MongoDB. Combines the example criteria with range criteria on the
+ * same {@link Query}.
+ */
+public class MongoRangeQueryExecutor implements RangeQueryExecutor {
+
+    private final ObjectProvider<MongoOperations> operations;
+
+    /**
+     * Constructs a new MongoRangeQueryExecutor.
+     *
+     * @param operations
+     *         provider of the MongoDB operations, resolved when a query is executed
+     */
+    public MongoRangeQueryExecutor(ObjectProvider<MongoOperations> operations) {
+        this.operations = operations;
+    }
+
+    @Override
+    public <T> Page<T> findAll(Example<T> example, List<RangeCondition> ranges, Pageable pageable) {
+        var mongo = operations.getObject();
+        var type = example.getProbeType();
+        var query = new Query(new Criteria().alike(example));
+        criteriaByProperty(ranges).forEach(query::addCriteria);
+        var results = mongo.find(Query.of(query).with(pageable), type);
+        return PageableExecutionUtils.getPage(results, pageable,
+                () -> mongo.count(Query.of(query).limit(-1).skip(-1), type));
+    }
+
+    // Mongo rejects two criteria on the same key, so all operators of a property are chained on one Criteria
+    private static List<Criteria> criteriaByProperty(List<RangeCondition> ranges) {
+        var byProperty = new LinkedHashMap<String, Criteria>();
+        ranges.stream()
+                .filter(RangeCondition::isActive)
+                .forEach(condition -> apply(
+                        byProperty.computeIfAbsent(condition.property(), Criteria::where), condition));
+        return List.copyOf(byProperty.values());
+    }
+
+    private static void apply(Criteria criteria, RangeCondition condition) {
+        switch (condition.operator()) {
+            case GREATER_THAN -> criteria.gt(condition.value());
+            case GREATER_THAN_OR_EQUAL -> criteria.gte(condition.value());
+            case LESS_THAN -> criteria.lt(condition.value());
+            case LESS_THAN_OR_EQUAL -> criteria.lte(condition.value());
+            default -> throw new IllegalArgumentException("Not a range operator: " + condition.operator());
+        }
+    }
+}

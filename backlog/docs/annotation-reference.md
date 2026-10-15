@@ -448,6 +448,32 @@ Enables filtering on a field in the `@GetList` endpoint.
 | `ENDS_WITH`     | `ILIKE '%:value'`  | Ends with              |
 | `MATCHES_REGEX` | `~ :value`         | PostgreSQL regex match |
 
+**Range operators:**
+
+| Operator                | SQL equivalent | Request parameter            |
+|-------------------------|----------------|------------------------------|
+| `GREATER_THAN`          | `> :value`     | `<field>GreaterThan`         |
+| `GREATER_THAN_OR_EQUAL` | `>= :value`    | `<field>GreaterThanOrEqual`  |
+| `LESS_THAN`             | `< :value`     | `<field>LessThan`            |
+| `LESS_THAN_OR_EQUAL`    | `<= :value`    | `<field>LessThanOrEqual`     |
+
+Range operators are supported on numeric (`int`, `long`, `BigDecimal`, ...) and `java.time` fields
+(`Instant`, `LocalDate`, `LocalDateTime`, `OffsetDateTime`, ...); other field types are a compile error.
+`ignoreCase` has no effect. The request parameter is typed as the field type, and all conditions (including
+the text filters, tenant and parent) are combined with AND. Combine two operators for a between-style filter:
+
+```java
+@Filter(operator = Filter.Operator.GREATER_THAN_OR_EQUAL)
+@Filter(operator = Filter.Operator.LESS_THAN_OR_EQUAL)
+BigDecimal amount;
+```
+
+`GET /invoices?amountGreaterThanOrEqual=10&amountLessThanOrEqual=50`
+
+Range filters are executed through a `RangeQueryExecutor` bean provided by `prefab-postgres` and
+`prefab-mongodb`, because Spring Data Query by Example cannot express ranges. Filters without range operators
+keep using Query by Example unchanged.
+
 ```java
 
 @Filter(operator = Filter.Operator.EQUAL)

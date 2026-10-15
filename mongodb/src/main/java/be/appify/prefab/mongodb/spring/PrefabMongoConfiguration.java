@@ -1,15 +1,19 @@
 package be.appify.prefab.mongodb.spring;
 
 import be.appify.prefab.core.spring.PrefabCoreConfiguration;
+import be.appify.prefab.core.spring.data.RangeQueryExecutor;
+import be.appify.prefab.mongodb.spring.data.mongodb.MongoRangeQueryExecutor;
 import be.appify.prefab.mongodb.spring.data.mongodb.PrefabMongoMappingContext;
 import be.appify.prefab.mongodb.spring.data.mongodb.ReferenceToStringConverter;
 import be.appify.prefab.mongodb.spring.data.mongodb.StringToReferenceConverter;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.mongodb.MongoDatabaseFactory;
+import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.convert.DbRefResolver;
 import org.springframework.data.mongodb.core.convert.DefaultDbRefResolver;
 import org.springframework.data.mongodb.core.convert.MappingMongoConverter;
@@ -96,5 +100,18 @@ public class PrefabMongoConfiguration {
         mappingContext.afterPropertiesSet();
         converter.afterPropertiesSet();
         return converter;
+    }
+
+    /**
+     * Provides the {@link RangeQueryExecutor} used by generated services for range filters.
+     *
+     * @param operations
+     *         provider of the MongoDB operations
+     * @return the range query executor
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public RangeQueryExecutor rangeQueryExecutor(ObjectProvider<MongoOperations> operations) {
+        return new MongoRangeQueryExecutor(operations);
     }
 }

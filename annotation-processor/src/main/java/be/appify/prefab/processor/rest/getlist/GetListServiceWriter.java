@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.rest.getlist;
 
 import be.appify.prefab.core.annotations.rest.Filter;
+import be.appify.prefab.core.spring.data.RangeCondition;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.TypeManifest;
@@ -11,6 +12,7 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Modifier;
 import org.springframework.data.domain.Example;
@@ -18,7 +20,9 @@ import org.springframework.data.domain.ExampleMatcher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import static be.appify.prefab.processor.rest.getlist.GetListUtil.exampleFiltersOf;
 import static be.appify.prefab.processor.rest.getlist.GetListUtil.filterPropertiesOf;
+import static be.appify.prefab.processor.rest.getlist.GetListUtil.rangeFiltersOf;
 import static org.apache.commons.text.WordUtils.capitalize;
 import static org.apache.commons.text.WordUtils.uncapitalize;
 
@@ -31,7 +35,7 @@ class GetListServiceWriter {
                 uncapitalize(parent.name()) + "Id"));
         var filterProperties = filterPropertiesOf(manifest);
         filterProperties.forEach(filter ->
-                method.addParameter(filterParamType(filter.field()), filter.field().name()));
+                method.addParameter(filterParamType(filter), filter.parameterName()));
         TypeName typeName = manifest.type().asTypeName();
         method.returns(ParameterizedTypeName.get(ClassName.get(Page.class), typeName));
         var tenantField = manifest.tenantIdField();
@@ -46,7 +50,9 @@ class GetListServiceWriter {
             method.addStatement("log.debug($S, $T.class.getSimpleName())", "Getting {}", manifest.className());
         }
         var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
-        if (tenantField.isPresent()) {
+        if (!rangeFiltersOf(filterProperties).isEmpty()) {
+            findWithRanges(manifest, method, filterProperties, tenantField);
+        } else if (tenantField.isPresent()) {
             findWithTenant(manifest, method, repositoryName, filterProperties, tenantField.get());
         } else if (filterProperties.isEmpty()) {
             method.addStatement("return $N.find$N($L)",
@@ -57,6 +63,51 @@ class GetListServiceWriter {
             findWithFilters(manifest, method, repositoryName, filterProperties);
         }
         return method.build();
+    }
+
+    private void findWithRanges(
+            ClassManifest manifest,
+            MethodSpec.Builder method,
+            List<GetListUtil.FilterManifest> filters,
+            Optional<VariableManifest> tenantField
+    ) {
+        var exampleFilters = exampleFiltersOf(filters);
+        var fields = tenantField
+                .map(tenant -> fieldsWithTenant(manifest, exampleFilters, tenant))
+                .orElseGet(() -> fields(manifest, exampleFilters));
+        var ignorePaths = tenantField
+                .map(tenant -> ignorePathsWithTenant(manifest, exampleFilters, tenant))
+                .orElseGet(() -> ignorePaths(manifest, exampleFilters));
+        method.addStatement("""
+                        return rangeQueryExecutor.findAll(
+                            $T.of(new $T($L),
+                                $T.matchingAll()
+                                    $L
+                                    $L
+                                    $L
+                                    $L),
+                            $L,
+                            pageable)""",
+                Example.class,
+                manifest.className(),
+                fields,
+                ExampleMatcher.class,
+                ignorePaths,
+                filterMatchers(exampleFilters),
+                tenantField.map(GetListServiceWriter::tenantMatcher).orElse(CodeBlock.of("")),
+                parentMatcher(manifest),
+                rangeConditions(rangeFiltersOf(filters)));
+    }
+
+    private static CodeBlock rangeConditions(List<GetListUtil.FilterManifest> ranges) {
+        return CodeBlock.of("$T.of($L)", List.class, ranges.stream()
+                .map(range -> CodeBlock.of("new $T($S, $T.$N, $N)",
+                        RangeCondition.class,
+                        range.field().name(),
+                        Filter.Operator.class,
+                        range.operator().name(),
+                        range.parameterName()))
+                .collect(CodeBlock.joining(", ")));
     }
 
     private void findWithTenant(
@@ -177,7 +228,11 @@ class GetListServiceWriter {
                 : CodeBlock.of(field.name());
     }
 
-    private static TypeName filterParamType(VariableManifest field) {
+    private static TypeName filterParamType(GetListUtil.FilterManifest filter) {
+        var field = filter.field();
+        if (filter.isRange()) {
+            return field.type().asBoxed().asTypeName();
+        }
         return field.type().isSingleValueType()
                 ? field.type().fields().getFirst().type().asBoxed().asTypeName()
                 : field.type().asTypeName();
@@ -244,6 +299,8 @@ class GetListServiceWriter {
             case STARTS_WITH -> "startsWith";
             case ENDS_WITH -> "endsWith";
             case MATCHES_REGEX -> "regex";
+            case GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL ->
+                    throw new IllegalArgumentException("Range operator %s has no example matcher".formatted(operator));
         };
     }
 
@@ -262,7 +319,7 @@ class GetListServiceWriter {
             List<GetListUtil.FilterManifest> filters
     ) {
         var filterFieldNames = filters.stream()
-                .map(filter -> filter.field().name())
+                .map(GetListUtil.FilterManifest::parameterName)
                 .toList();
         method.addStatement("log.debug($S, $T.class.getSimpleName(), $L)",
                 "Getting %s by %s".formatted(

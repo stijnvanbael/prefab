@@ -47,13 +47,13 @@ class GetListControllerWriter {
         if (!filters.isEmpty()) {
             for (var filter : filters) {
                 method.addParameter(ParameterSpec.builder(
-                                filterParamType(filter.field()),
-                                filter.field().name())
+                                filterParamType(filter),
+                                filter.parameterName())
                         .build());
             }
             method.addStatement("return $T.ok(new $T(service.getList($L, $L).map($T::from)))",
                     ResponseEntity.class, PagedModel.class, parameters, String.join(", ",
-                            filters.stream().map(filter -> filter.field().name()).toList()), responseType);
+                            filters.stream().map(GetListUtil.FilterManifest::parameterName).toList()), responseType);
             return method.build();
         } else {
             return method.addStatement("return $T.ok(new $T(service.getList($L).map($T::from)))",
@@ -68,7 +68,11 @@ class GetListControllerWriter {
                 .build();
     }
 
-    private static TypeName filterParamType(VariableManifest field) {
+    private static TypeName filterParamType(GetListUtil.FilterManifest filter) {
+        var field = filter.field();
+        if (filter.isRange()) {
+            return field.type().asBoxed().asTypeName();
+        }
         return field.type().isSingleValueType()
                 ? field.type().fields().getFirst().type().asBoxed().asTypeName()
                 : ClassName.get(field.type().packageName(), field.type().simpleName());

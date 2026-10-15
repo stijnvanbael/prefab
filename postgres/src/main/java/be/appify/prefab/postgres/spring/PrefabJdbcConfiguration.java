@@ -2,9 +2,11 @@ package be.appify.prefab.postgres.spring;
 
 import be.appify.prefab.core.spring.PrefabCoreConfiguration;
 import be.appify.prefab.core.spring.data.jdbc.DbColumnConverterContributor;
+import be.appify.prefab.core.spring.data.RangeQueryExecutor;
 import be.appify.prefab.core.spring.data.jdbc.PolymorphicReadingConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.ByteArrayToFileConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.FileToByteArrayConverter;
+import be.appify.prefab.postgres.spring.data.jdbc.JdbcRangeQueryExecutor;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabDataAccessStrategy;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabJdbcAggregateTemplate;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabJdbcDialect;
@@ -18,10 +20,12 @@ import java.util.Optional;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.data.jdbc.core.JdbcAggregateOperations;
 import org.springframework.data.jdbc.core.JdbcAggregateTemplate;
 import org.springframework.data.jdbc.core.convert.DataAccessStrategy;
 import org.springframework.data.jdbc.core.convert.DefaultJdbcTypeFactory;
@@ -127,5 +131,20 @@ public class PrefabJdbcConfiguration extends AbstractJdbcConfiguration {
             DataAccessStrategy dataAccessStrategy
     ) {
         return new PrefabJdbcAggregateTemplate(applicationContext, mappingContext, converter, dataAccessStrategy);
+    }
+
+    /**
+     * Provides the {@link RangeQueryExecutor} used by generated services for range filters.
+     *
+     * @param operations
+     *         the JDBC aggregate operations
+     * @param mappingContext
+     *         the JDBC mapping context
+     * @return the range query executor
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public RangeQueryExecutor rangeQueryExecutor(JdbcAggregateOperations operations, JdbcMappingContext mappingContext) {
+        return new JdbcRangeQueryExecutor(operations, mappingContext);
     }
 }

@@ -99,12 +99,30 @@ interface DatabaseChange {
     record AlterTable(String tableName, List<TableModification> modifications) implements DatabaseChange {
         @Override
         public String toSql() {
-            var modificationsSql = modifications.stream()
-                    .map(TableModification::toSql)
-                    .collect(joining(",\n"));
-            return "ALTER TABLE " + tableName + "\n" +
-                    modificationsSql +
-                    ";\n";
+            var sql = new StringBuilder();
+            var batch = new ArrayList<TableModification>();
+            for (var modification : modifications) {
+                if (modification instanceof TableModification.RenameColumn) {
+                    appendStatement(sql, batch);
+                    batch.add(modification);
+                    appendStatement(sql, batch);
+                } else {
+                    batch.add(modification);
+                }
+            }
+            appendStatement(sql, batch);
+            return sql.toString();
+        }
+
+        // PostgreSQL does not allow RENAME COLUMN to be combined with other actions in one ALTER TABLE
+        private void appendStatement(StringBuilder sql, List<TableModification> batch) {
+            if (batch.isEmpty()) {
+                return;
+            }
+            sql.append("ALTER TABLE ").append(tableName).append("\n")
+                    .append(batch.stream().map(TableModification::toSql).collect(joining(",\n")))
+                    .append(";\n");
+            batch.clear();
         }
 
         @Override
@@ -130,7 +148,18 @@ interface DatabaseChange {
 
             var modifications = new ArrayList<TableModification>();
 
-            // Handle renames first (and any type/nullability changes on the renamed column)
+            // Drop columns first so that a rename may reuse the name of a removed column
+            for (var existingColumn : existing.columns()) {
+                var replacedByRename = renamedNewNames.contains(existingColumn.name())
+                        && !renamedOldNames.contains(existingColumn.name());
+                var removed = desired.getColumn(existingColumn.name()).isEmpty()
+                        && !renamedOldNames.contains(existingColumn.name());
+                if (replacedByRename || removed) {
+                    modifications.add(new TableModification.DropColumn(existingColumn.name()));
+                }
+            }
+
+            // Handle renames (and any type/nullability changes on the renamed column)
             for (var entry : renames.entrySet()) {
                 var oldName = entry.getKey();
                 var desiredColumn = entry.getValue();
@@ -146,11 +175,12 @@ interface DatabaseChange {
 
             // Handle existing columns that are not being renamed
             for (var existingColumn : existing.columns()) {
-                if (renamedOldNames.contains(existingColumn.name())) {
+                if (renamedOldNames.contains(existingColumn.name())
+                        || renamedNewNames.contains(existingColumn.name())) {
                     continue;
                 }
                 var desiredColumn = desired.getColumn(existingColumn.name()).orElse(null);
-                if (!Objects.equals(existingColumn, desiredColumn)) {
+                if (desiredColumn != null && !Objects.equals(existingColumn, desiredColumn)) {
                     modifications.addAll(TableModification.from(desired.name(), existingColumn, desiredColumn));
                 }
             }

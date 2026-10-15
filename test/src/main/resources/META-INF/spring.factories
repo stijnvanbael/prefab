@@ -3,7 +3,8 @@ org.springframework.test.context.TestExecutionListener=\
   be.appify.prefab.test.pubsub.TestSubscriberExecutionListener,\
   be.appify.prefab.test.sns.TestSqsSubscriberExecutionListener,\
   be.appify.prefab.test.persistence.PersistenceTestExecutionListener,\
-  be.appify.prefab.test.mongodb.MongoDbTestExecutionListener
+  be.appify.prefab.test.mongodb.MongoDbTestExecutionListener,\
+  be.appify.prefab.test.domain.DomainEventPublisherTestExecutionListener
 org.springframework.boot.autoconfigure.service.connection.ConnectionDetailsFactory=\
   be.appify.prefab.test.pubsub.PubSubContainerConnectionDetailsFactory
 org.springframework.boot.EnvironmentPostProcessor=\

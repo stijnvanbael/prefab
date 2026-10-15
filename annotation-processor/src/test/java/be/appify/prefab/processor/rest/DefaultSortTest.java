@@ -33,6 +33,6 @@ class DefaultSortTest {
                 .compile(sourceOf("rest/defaultsort/invalid/source/Note.java"));
 
         assertThat(compilation).failed();
-        assertThat(compilation).hadErrorContaining("defaultSort: unknown field 'missing'");
+        assertThat(compilation).hadErrorContaining("sorted: unknown property 'missing'");
     }
 }

@@ -13,9 +13,9 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 
 @Aggregate
-@GetList(defaultSort = {
-        @SortOrder(field = "author"),
-        @SortOrder(field = "title", direction = SortOrder.Direction.DESC)})
+@GetList(sorted = {
+        @SortOrder(property = "author"),
+        @SortOrder(property = "title", direction = SortOrder.Direction.DESCENDING)})
 @Generate(plugin = MotherPlugin.class, enabled = false)
 @Generate(plugin = AssertionPlugin.class, enabled = false)
 @Generate(plugin = DbMigrationPlugin.class, enabled = false)

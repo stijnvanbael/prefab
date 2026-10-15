@@ -40,12 +40,12 @@ public class GetListPlugin extends RestOperationPlugin {
 
     private boolean defaultSortIsValid(ClassManifest manifest, GetList getList) {
         var fieldNames = manifest.fields().stream().map(VariableManifest::name).collect(Collectors.toSet());
-        var unknown = Stream.of(getList.defaultSort())
-                .map(SortOrder::field)
+        var unknown = Stream.of(getList.sorted())
+                .map(SortOrder::property)
                 .filter(field -> !fieldNames.contains(field))
                 .toList();
         unknown.forEach(field -> context().logError(
-                "[@GetList] defaultSort: unknown field '%s' on %s".formatted(field, manifest.simpleName()),
+                "[@GetList] sorted: unknown property '%s' on %s".formatted(field, manifest.simpleName()),
                 manifest.element()));
         return unknown.isEmpty();
     }

@@ -409,14 +409,14 @@ Exposes a paginated list endpoint. Combine with `@Filter` on fields to enable fi
 | `method`      | `String`      | `"GET"`     | HTTP method.                                                                                         |
 | `path`        | `String`      | `""`        | Path suffix (defaults to base path of aggregate).                                                    |
 | `security`    | `@Security`   | `@Security` | Security settings.                                                                                   |
-| `defaultSort` | `SortOrder[]` | `{}`        | Sort applied when the request has no `sort` parameter. An explicit `sort` parameter replaces it entirely. Unknown fields are a compile error. |
+| `sorted` | `SortOrder[]` | `{}`        | Sort applied when the request has no `sort` parameter. An explicit `sort` parameter replaces it entirely. Unknown properties are a compile error. |
 
 ```java
 
 @Aggregate
-@GetList(defaultSort = {
-        @SortOrder(field = "customerName"),
-        @SortOrder(field = "id", direction = SortOrder.Direction.DESC)})
+@GetList(sorted = {
+        @SortOrder(property = "customerName"),
+        @SortOrder(property = "id", direction = SortOrder.Direction.DESCENDING)})
 public record Order(
         @Id Reference<Order> id,
         @Version long version,

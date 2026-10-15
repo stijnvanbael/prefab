@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.rest.getlist;
 
 import be.appify.prefab.core.annotations.rest.GetList;
+import be.appify.prefab.core.annotations.rest.SortOrder;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.VariableManifest;
@@ -69,12 +70,12 @@ class GetListControllerWriter {
 
     private static ParameterSpec pageableParameter(GetList getList) {
         var parameter = ParameterSpec.builder(Pageable.class, "pageable");
-        var defaultSort = getList.defaultSort();
+        var defaultSort = getList.sorted();
         if (defaultSort.length > 0) {
             var sortDefaults = Stream.of(defaultSort)
                     .map(order -> AnnotationSpec.builder(SortDefault.class)
-                            .addMember("sort", "$S", order.field())
-                            .addMember("direction", "$T.$L", Sort.Direction.class, order.direction().name())
+                            .addMember("sort", "$S", order.property())
+                            .addMember("direction", "$T.$L", Sort.Direction.class, springDirection(order.direction()))
                             .build())
                     .map(annotation -> CodeBlock.of("$L", annotation))
                     .collect(CodeBlock.joining(", "));
@@ -83,6 +84,13 @@ class GetListControllerWriter {
                     .build());
         }
         return parameter.build();
+    }
+
+    private static Sort.Direction springDirection(SortOrder.Direction direction) {
+        return switch (direction) {
+            case ASCENDING -> Sort.Direction.ASC;
+            case DESCENDING -> Sort.Direction.DESC;
+        };
     }
 
     private ParameterSpec parentParameter(VariableManifest parent) {

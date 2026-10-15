@@ -72,8 +72,8 @@ Generated endpoints:
 - `PUT    /products/{id}/description` — update description
 - `DELETE /products/{id}`        — delete
 
-To get a stable order (and stable paging), declare a default sort on `@GetList`:
-`@GetList(defaultSort = @SortOrder(field = "name"))`. It applies only when the request has no `sort` parameter;
+To get a stable order (and stable paging), declare a default sort order on `@GetList`:
+`@GetList(sorted = @SortOrder(property = "name"))`. It applies only when the request has no `sort` parameter;
 an explicit `?sort=price,desc` replaces it entirely. It combines with filters, paging, tenant and parent.
 
 ---

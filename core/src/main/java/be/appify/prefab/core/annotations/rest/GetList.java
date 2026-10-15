@@ -39,5 +39,5 @@ public @interface GetList {
      *
      * @return The default sort criteria, in order of precedence.
      */
-    SortOrder[] defaultSort() default {};
+    SortOrder[] sorted() default {};
 }

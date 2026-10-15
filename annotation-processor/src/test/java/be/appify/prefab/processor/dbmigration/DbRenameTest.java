@@ -58,6 +58,69 @@ class DbRenameTest {
     }
 
     @Test
+    void removeAndRenameColumnGeneratesSeparateValidStatements() {
+        var existing = new Table("user", List.of(
+                new Column("first_name", new DataType.Varchar(255), false, null, null, null),
+                new Column("nickname", new DataType.Varchar(255), true, null, null, null)
+        ), List.of("id"));
+        var desired = new Table("user", List.of(
+                new Column("given_name", new DataType.Varchar(255), false, null, null, "first_name")
+        ), List.of("id"));
+
+        var sql = DatabaseChange.AlterTable.from(existing, desired).toSql();
+
+        assertThat(sql).isEqualTo("""
+                ALTER TABLE user
+                DROP COLUMN nickname;
+                ALTER TABLE user
+                RENAME COLUMN "first_name" TO "given_name";
+                """);
+    }
+
+    @Test
+    void removeRenameAndAddColumnGeneratesSeparateStatements() {
+        var existing = new Table("user", List.of(
+                new Column("first_name", new DataType.Varchar(255), false, null, null, null),
+                new Column("nickname", new DataType.Varchar(255), true, null, null, null)
+        ), List.of("id"));
+        var desired = new Table("user", List.of(
+                new Column("given_name", new DataType.Varchar(255), false, null, null, "first_name"),
+                new Column("email", new DataType.Varchar(255), true, null, null, null)
+        ), List.of("id"));
+
+        var sql = DatabaseChange.AlterTable.from(existing, desired).toSql();
+
+        assertThat(sql).isEqualTo("""
+                ALTER TABLE user
+                DROP COLUMN nickname;
+                ALTER TABLE user
+                RENAME COLUMN "first_name" TO "given_name";
+                ALTER TABLE user
+                ADD COLUMN "email" VARCHAR (255);
+                """);
+    }
+
+    @Test
+    void renameToNameOfRemovedColumnDropsBeforeRenaming() {
+        var existing = new Table("user", List.of(
+                new Column("name", new DataType.Varchar(255), true, null, null, null),
+                new Column("full_name", new DataType.Varchar(255), true, null, null, null)
+        ), List.of("id"));
+        var desired = new Table("user", List.of(
+                new Column("name", new DataType.Varchar(255), true, null, null, "full_name")
+        ), List.of("id"));
+
+        var sql = DatabaseChange.AlterTable.from(existing, desired).toSql();
+
+        assertThat(sql).isEqualTo("""
+                ALTER TABLE user
+                DROP COLUMN name;
+                ALTER TABLE user
+                RENAME COLUMN "full_name" TO "name";
+                """);
+    }
+
+    @Test
     void renameTableGeneratesRenameTableSql() {
         var currentTables = List.of(
                 new Table("old_user", List.of(

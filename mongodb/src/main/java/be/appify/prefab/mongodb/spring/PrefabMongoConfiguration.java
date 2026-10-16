@@ -1,7 +1,9 @@
 package be.appify.prefab.mongodb.spring;
 
 import be.appify.prefab.core.spring.PrefabCoreConfiguration;
+import be.appify.prefab.core.spring.data.FullTextQueryExecutor;
 import be.appify.prefab.core.spring.data.RangeQueryExecutor;
+import be.appify.prefab.mongodb.spring.data.mongodb.MongoFullTextQueryExecutor;
 import be.appify.prefab.mongodb.spring.data.mongodb.MongoRangeQueryExecutor;
 import be.appify.prefab.mongodb.spring.data.mongodb.PrefabMongoMappingContext;
 import be.appify.prefab.mongodb.spring.data.mongodb.ReferenceToStringConverter;
@@ -113,5 +115,18 @@ public class PrefabMongoConfiguration {
     @ConditionalOnMissingBean
     public RangeQueryExecutor rangeQueryExecutor(ObjectProvider<MongoOperations> operations) {
         return new MongoRangeQueryExecutor(operations);
+    }
+
+    /**
+     * Provides the {@link FullTextQueryExecutor} used by generated services for full-text filters.
+     *
+     * @param operations
+     *         provider of the MongoDB operations
+     * @return the full-text query executor
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public FullTextQueryExecutor fullTextQueryExecutor(ObjectProvider<MongoOperations> operations) {
+        return new MongoFullTextQueryExecutor(operations);
     }
 }

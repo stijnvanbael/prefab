@@ -32,7 +32,7 @@ public record RangeCondition(String property, Filter.Operator operator, @Nullabl
     public static boolean isRange(Filter.Operator operator) {
         return switch (operator) {
             case GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> true;
-            case EQUAL, CONTAINS, MATCHES_REGEX, STARTS_WITH, ENDS_WITH -> false;
+            case EQUAL, CONTAINS, MATCHES_REGEX, STARTS_WITH, ENDS_WITH, FULL_TEXT -> false;
         };
     }
 

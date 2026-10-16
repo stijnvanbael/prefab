@@ -39,6 +39,13 @@ record Index(
         return new Index(name, List.of(expression), false, "GIN");
     }
 
+    static Index fullText(String tableName, List<String> columnNames) {
+        var name = shorten(tableName + "_" + String.join("_", columnNames) + "_fts", POSTGRES_MAX_IDENTIFIER_LENGTH);
+        var columns = columnNames.stream().map(column -> "\"" + column + "\"").collect(joining(", "));
+        var expression = "to_tsvector('simple', concat_ws(' ', %s))".formatted(columns);
+        return new Index(name, List.of(expression), false, "GIN");
+    }
+
     static Index jsonbPath(String tableName, String jsonbColumn, String fieldName, boolean unique) {
         var name = IdentifierShortener.indexName(tableName, jsonbColumn + "_" + fieldName, unique);
         var expression = "(\"%s\"->>'%s')".formatted(jsonbColumn, fieldName);
@@ -80,6 +87,6 @@ record Index(
     }
 
     private static boolean isExpression(String column) {
-        return column.startsWith("(");
+        return column.contains("(");
     }
 }

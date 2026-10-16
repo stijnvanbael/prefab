@@ -1,7 +1,7 @@
 ---
 id: task-030
 title: Full text filter
-status: To Do
+status: Done
 assignee: []
 created_date: '2025-10-10 13:39'
 updated_date: '2025-12-23 14:59'
@@ -21,16 +21,16 @@ Multiple fields can be searched on with the same request parameter
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `Filter.Operator.FULL_TEXT` exists and `@Filter` has a `parameter()` attribute (default: field name) that names the request parameter
-- [ ] #2 Several fields annotated with `@Filter(operator = FULL_TEXT, parameter = "query")` share one request parameter `query` and a single match is OR-ed across all of those fields
-- [ ] #3 Only a `String` request parameter is exposed (also in the `<Aggregate>Query` fluent API and `getList` signature); when absent, the filter is ignored
-- [ ] #4 FULL_TEXT is combined (AND) with other filters (EQUAL, CONTAINS, ranges), tenant and parent filters
-- [ ] #5 PostgreSQL: matches through `to_tsvector(...) @@ websearch_to_tsquery(...)` over the concatenated annotated columns; a GIN index is generated in the Flyway/Liquibase migration
-- [ ] #6 MongoDB: matches through `$text` with a text index generated on the annotated fields
-- [ ] #7 Compile error when FULL_TEXT is used on a non-String field, when fields sharing a `parameter` mix FULL_TEXT with another operator, when `parameter` clashes with another filter/request parameter name, or when an aggregate declares more than one distinct FULL_TEXT parameter
-- [ ] #8 `ignoreCase` has no effect for FULL_TEXT (documented); the language-neutral `simple` text search configuration is used (TASK-298 makes it configurable)
-- [ ] #9 Fuzziness (TASK-296), relevance scoring (TASK-297), language configuration (TASK-298) and prefix matching (TASK-299) are out of scope, but the design leaves room for them
-- [ ] #10 Tested with processor tests plus PostgreSQL and MongoDB integration tests; Developer Guide updated
+- [x] #1 `Filter.Operator.FULL_TEXT` exists and `@Filter` has a `parameter()` attribute (default: field name) that names the request parameter
+- [x] #2 Several fields annotated with `@Filter(operator = FULL_TEXT, parameter = "query")` share one request parameter `query` and a single match is OR-ed across all of those fields
+- [x] #3 Only a `String` request parameter is exposed (also in the `<Aggregate>Query` fluent API and `getList` signature); when absent, the filter is ignored
+- [x] #4 FULL_TEXT is combined (AND) with other filters (EQUAL, CONTAINS, ranges), tenant and parent filters
+- [x] #5 PostgreSQL: matches through `to_tsvector(...) @@ websearch_to_tsquery(...)` over the concatenated annotated columns; a GIN index is generated in the Flyway/Liquibase migration
+- [x] #6 MongoDB: matches through `$text` with a text index generated on the annotated fields
+- [x] #7 Compile error when FULL_TEXT is used on a non-String field, when fields sharing a `parameter` mix FULL_TEXT with another operator, when `parameter` clashes with another filter/request parameter name, or when an aggregate declares more than one distinct FULL_TEXT parameter
+- [x] #8 `ignoreCase` has no effect for FULL_TEXT (documented); the language-neutral `simple` text search configuration is used (TASK-298 makes it configurable)
+- [x] #9 Fuzziness (TASK-296), relevance scoring (TASK-297), language configuration (TASK-298) and prefix matching (TASK-299) are out of scope, but the design leaves room for them
+- [x] #10 Tested with processor tests plus PostgreSQL and MongoDB integration tests; Developer Guide updated
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -85,3 +85,11 @@ Multiple fields can be searched on with the same request parameter
 5. Example module usage + Developer Guide.
 
 **Follow-up stories to create (out of scope)**: fuzzy matching (pg_trgm / Atlas Search), relevance scoring and sort-by-rank, per-filter language/config, prefix/type-ahead search.
+
+- `Filter.Operator.FULL_TEXT` + `Filter.parameter()`; `GetListUtil` collapses FULL_TEXT filters into one `FilterManifest` per parameter, so controller, query, and test-client writers needed no changes.
+- `GetListServiceWriter` calls `FullTextQueryExecutor.findAll(example, FullTextCondition, ranges, pageable)`; `GetListPlugin` validates (non-String, >1 parameter, parameter clash).
+- Postgres: `JdbcFullTextQueryExecutor` (registered in `PrefabJdbcConfiguration`), GIN index `<table>_<cols>_fts` on `to_tsvector('simple', concat_ws(' ', cols))`; no btree index for full-text-only fields. `SqlStatementParser` got a regex path because JSqlParser cannot parse function-call index expressions when reading back existing migrations.
+- MongoDB: `MongoFullTextQueryExecutor` (`TextCriteria`) + generated text index (`default_language none`). Covered by processor tests only; no Mongo integration test was run.
+- Example: `Article` in `examples/kafka` with `ArticleFullTextIntegrationTest` (compiles, but could not be run locally because the Kafka Testcontainers image could not be pulled). Postgres behaviour is verified by `JdbcFullTextQueryExecutorTest`.
+- Docs: `backlog/docs/annotation-reference.md`.
+- Known limitation: the Postgres executor uses `EntityRowMapper`, so child collections of aggregates load through the relation resolver (N+1); untested with aggregates that have children.

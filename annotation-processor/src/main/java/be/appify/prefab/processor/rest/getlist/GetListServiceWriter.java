@@ -3,6 +3,7 @@ package be.appify.prefab.processor.rest.getlist;
 import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.annotations.rest.SortOrder;
+import be.appify.prefab.core.spring.data.FullTextCondition;
 import be.appify.prefab.core.spring.data.RangeCondition;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
@@ -27,6 +28,7 @@ import org.springframework.data.domain.Sort;
 
 import static be.appify.prefab.processor.rest.getlist.GetListUtil.exampleFiltersOf;
 import static be.appify.prefab.processor.rest.getlist.GetListUtil.filterPropertiesOf;
+import static be.appify.prefab.processor.rest.getlist.GetListUtil.fullTextFiltersOf;
 import static be.appify.prefab.processor.rest.getlist.GetListUtil.rangeFiltersOf;
 import static org.apache.commons.text.WordUtils.capitalize;
 import static org.apache.commons.text.WordUtils.uncapitalize;
@@ -55,8 +57,8 @@ class GetListServiceWriter {
             method.addStatement("log.debug($S, $T.class.getSimpleName())", "Getting {}", manifest.className());
         }
         var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
-        if (!rangeFiltersOf(filterProperties).isEmpty()) {
-            findWithRanges(manifest, method, filterProperties, tenantField);
+        if (!rangeFiltersOf(filterProperties).isEmpty() || !fullTextFiltersOf(filterProperties).isEmpty()) {
+            findWithExecutor(manifest, method, filterProperties, tenantField);
         } else if (tenantField.isPresent()) {
             findWithTenant(manifest, method, repositoryName, filterProperties, tenantField.get());
         } else if (filterProperties.isEmpty()) {
@@ -70,7 +72,7 @@ class GetListServiceWriter {
         return method.build();
     }
 
-    private void findWithRanges(
+    private void findWithExecutor(
             ClassManifest manifest,
             MethodSpec.Builder method,
             List<GetListUtil.FilterManifest> filters,
@@ -83,8 +85,9 @@ class GetListServiceWriter {
         var ignorePaths = tenantField
                 .map(tenant -> ignorePathsWithTenant(manifest, exampleFilters, tenant))
                 .orElseGet(() -> ignorePaths(manifest, exampleFilters));
+        var fullText = fullTextFiltersOf(filters).stream().findFirst();
         method.addStatement("""
-                        return rangeQueryExecutor.findAll(
+                        return $N.findAll(
                             $T.of(new $T($L),
                                 $T.matchingAll()
                                     $L
@@ -93,6 +96,7 @@ class GetListServiceWriter {
                                     $L),
                             $L,
                             pageable)""",
+                fullText.isPresent() ? "fullTextQueryExecutor" : "rangeQueryExecutor",
                 Example.class,
                 manifest.className(),
                 fields,
@@ -101,7 +105,18 @@ class GetListServiceWriter {
                 filterMatchers(exampleFilters),
                 tenantField.map(GetListServiceWriter::tenantMatcher).orElse(CodeBlock.of("")),
                 parentMatcher(manifest),
-                rangeConditions(rangeFiltersOf(filters)));
+                fullText.map(filter -> CodeBlock.of("$L, $L", fullTextCondition(filter),
+                                rangeConditions(rangeFiltersOf(filters))))
+                        .orElseGet(() -> rangeConditions(rangeFiltersOf(filters))));
+    }
+
+    private static CodeBlock fullTextCondition(GetListUtil.FilterManifest filter) {
+        return CodeBlock.of("new $T($T.of($L), $N)",
+                FullTextCondition.class,
+                List.class,
+                filter.searchedProperties().stream().map(property -> CodeBlock.of("$S", property))
+                        .collect(CodeBlock.joining(", ")),
+                filter.parameterName());
     }
 
     private static CodeBlock rangeConditions(List<GetListUtil.FilterManifest> ranges) {
@@ -340,8 +355,8 @@ class GetListServiceWriter {
             case STARTS_WITH -> "startsWith";
             case ENDS_WITH -> "endsWith";
             case MATCHES_REGEX -> "regex";
-            case GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL ->
-                    throw new IllegalArgumentException("Range operator %s has no example matcher".formatted(operator));
+            case GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, FULL_TEXT ->
+                    throw new IllegalArgumentException("Operator %s has no example matcher".formatted(operator));
         };
     }
 

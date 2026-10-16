@@ -7,6 +7,7 @@ import be.appify.prefab.core.spring.data.RangeQueryExecutor;
 import be.appify.prefab.core.spring.data.jdbc.PolymorphicReadingConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.ByteArrayToFileConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.FileToByteArrayConverter;
+import be.appify.prefab.postgres.spring.data.jdbc.JdbcFullTextQueryExecutor;
 import be.appify.prefab.postgres.spring.data.jdbc.JdbcRangeQueryExecutor;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabDataAccessStrategy;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabJdbcAggregateTemplate;

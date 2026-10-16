@@ -20,13 +20,26 @@ class GetListUtil {
             "java.time.ZonedDateTime");
 
     static List<FilterManifest> filterPropertiesOf(ClassManifest manifest) {
-        return manifest.fields().stream()
-                .filter(field -> field.hasAnnotation(Filter.class) || field.hasAnnotation(Filters.class))
-                .flatMap(GetListUtil::filtersOn)
+        var declared = declaredFiltersOf(manifest);
+        var fullText = fullTextFiltersOf(declared);
+        return declared.stream()
+                .filter(filter -> !filter.isFullText() || filter == fullText.getFirst())
+                .map(filter -> filter.isFullText() ? FilterManifest.combined(fullText) : filter)
                 .toList();
     }
 
-    private static Stream<FilterManifest> filtersOn(VariableManifest field) {
+    static List<FilterManifest> declaredFiltersOf(ClassManifest manifest) {
+        return manifest.fields().stream()
+                .filter(field -> field.hasAnnotation(Filter.class) || field.hasAnnotation(Filters.class))
+                .flatMap(GetListUtil::filtersOf)
+                .toList();
+    }
+
+    static List<FilterManifest> fullTextFiltersOf(List<FilterManifest> filters) {
+        return filters.stream().filter(FilterManifest::isFullText).toList();
+    }
+
+    static Stream<FilterManifest> filtersOf(VariableManifest field) {
         if (field.hasAnnotation(Filters.class)) {
             return multipleFilters(field);
         } else {
@@ -37,28 +50,51 @@ class GetListUtil {
     private static Stream<FilterManifest> multipleFilters(VariableManifest field) {
         return field.getAnnotation(Filters.class).stream().flatMap(filtersAnnotation ->
                         Stream.of(filtersAnnotation.value().value()))
-                .map(filter -> FilterManifest.of(field, filter.operator(), filter.ignoreCase()));
+                .map(filter -> FilterManifest.of(field, filter));
     }
 
     private static Stream<FilterManifest> singleFilter(VariableManifest field) {
         return field.getAnnotation(Filter.class)
                 .map(AnnotationManifest::value)
-                .map(filter ->
-                        FilterManifest.of(field, filter.operator(), filter.ignoreCase()))
+                .map(filter -> FilterManifest.of(field, filter))
                 .stream();
     }
 
-    record FilterManifest(VariableManifest field, Filter.Operator operator, boolean ignoreCase) {
+    record FilterManifest(
+            VariableManifest field,
+            Filter.Operator operator,
+            boolean ignoreCase,
+            List<String> searchedProperties
+    ) {
 
-        static FilterManifest of(VariableManifest field, Filter.Operator operator, boolean ignoreCase) {
-            var exposedField = !RangeCondition.isRange(operator) && field.type().isSingleValueType()
+        static FilterManifest of(VariableManifest field, Filter filter) {
+            if (filter.operator() == Filter.Operator.FULL_TEXT) {
+                var parameter = filter.parameter().isBlank() ? field.name() : filter.parameter();
+                return new FilterManifest(field.withName(parameter).withType(String.class), filter.operator(),
+                        filter.ignoreCase(), List.of(field.name()));
+            }
+            var exposedField = !RangeCondition.isRange(filter.operator()) && field.type().isSingleValueType()
                     ? field.withType(String.class)
                     : field;
-            return new FilterManifest(exposedField, operator, ignoreCase);
+            return new FilterManifest(exposedField, filter.operator(), filter.ignoreCase(), List.of());
+        }
+
+        // Merges the declarations of a full-text parameter into one filter that searches all declared fields
+        static FilterManifest combined(List<FilterManifest> fullTextFilters) {
+            var first = fullTextFilters.getFirst();
+            return new FilterManifest(
+                    first.field(),
+                    first.operator(),
+                    first.ignoreCase(),
+                    fullTextFilters.stream().flatMap(filter -> filter.searchedProperties().stream()).toList());
         }
 
         boolean isRange() {
             return RangeCondition.isRange(operator);
+        }
+
+        boolean isFullText() {
+            return operator == Filter.Operator.FULL_TEXT;
         }
 
         String parameterName() {
@@ -71,14 +107,13 @@ class GetListUtil {
             };
         }
     }
-
     static boolean isRangeComparable(TypeManifest type) {
         var boxed = type.asBoxed();
         return RANGE_COMPARABLE_TYPES.contains(boxed.packageName() + "." + boxed.simpleName());
     }
 
     static List<FilterManifest> exampleFiltersOf(List<FilterManifest> filters) {
-        return filters.stream().filter(filter -> !filter.isRange()).toList();
+        return filters.stream().filter(filter -> !filter.isRange() && !filter.isFullText()).toList();
     }
 
     static List<FilterManifest> rangeFiltersOf(List<FilterManifest> filters) {

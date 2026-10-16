@@ -454,6 +454,7 @@ Enables filtering on a field in the `@GetList` endpoint.
 |--------------|-------------------|------------|------------------------------------------------|
 | `operator`   | `Filter.Operator` | `CONTAINS` | Filter comparison operator.                    |
 | `ignoreCase` | `boolean`         | `true`     | Whether to ignore case for string comparisons. |
+| `parameter`  | `String`          | `"`       | Request parameter name; only used by `FULL_TEXT`, where several fields share one parameter. |
 
 **Operators:**
 
@@ -491,8 +492,29 @@ Range filters are executed through a `RangeQueryExecutor` bean provided by `pref
 `prefab-mongodb`, because Spring Data Query by Example cannot express ranges. Filters without range operators
 keep using Query by Example unchanged.
 
-```java
+**Full-text operator:**
 
+`FULL_TEXT` searches several `String` fields with one request parameter, using the database's own full-text
+capability (PostgreSQL `to_tsvector` / `websearch_to_tsquery` backed by a generated GIN index, MongoDB `$text`
+backed by a generated text index). A match on any of the fields counts as a match.
+
+```java
+@Filter(operator = Filter.Operator.FULL_TEXT, parameter = "query") String title;
+@Filter(operator = Filter.Operator.FULL_TEXT, parameter = "query") String body;
+```
+
+`GET /articles?query=spring -boot`
+
+- Fields sharing the same `parameter` form one search; the parameter defaults to the field name.
+- Only one full-text parameter per aggregate is supported (MongoDB allows a single text index per collection),
+  and the fields must be `String`. Violations are a compile error.
+- The search text uses web-search syntax: words are ANDed, `"quoted phrases"`, `or` and `-excluded` words.
+- Text is matched with the `simple` configuration (no stemming or stop words) and results are not ranked.
+  Fuzzy matching, relevance scoring, language support and prefix matching are planned as separate features.
+- Full-text filters combine with all other filters (equality, range, tenant, parent) using AND. The generated
+  query uses a `FullTextQueryExecutor` bean provided by `prefab-postgres` and `prefab-mongodb`.
+- Full-text fields get no plain index; a single GIN (PostgreSQL) or text (MongoDB) index covers them together.
+```java
 @Filter(operator = Filter.Operator.EQUAL)
 @Filter(operator = Filter.Operator.CONTAINS)
 String name;

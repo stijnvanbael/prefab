@@ -681,6 +681,42 @@ class DbMigrationWriterTest {
     }
 
     @Test
+    void fullTextFieldsGetOneGinIndexOnTheCombinedExpression() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/fulltext/source/Manual.java"));
+        assertThat(compilation).succeeded();
+        var sql = assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String();
+        sql.contains("CREATE INDEX \"manual_title_body_text_fts\" ON \"manual\" USING GIN "
+                + "(to_tsvector('simple', concat_ws(' ', \"title\", \"body_text\")));");
+        sql.contains("CREATE INDEX \"manual_category_ix\" ON \"manual\" (\"category\")");
+        sql.doesNotContain("\"manual_title_ix\"");
+        sql.doesNotContain("\"manual_body_text_ix\"");
+    }
+
+    @Test
+    void fullTextIndexSurvivesARoundTripThroughTheExistingMigration() throws IOException {
+        var baseline = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/fulltext/source/Manual.java"));
+        assertThat(baseline).succeeded();
+        var baselineSql = generatedMigrationContent(baseline, "db/migration/V1__generated.sql");
+
+        var recompilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .withOptions(classpathOptionsWith(classpathWithMigration("V1__initial_schema.sql", baselineSql)))
+                .compile(sourceOf("dbmigration/fulltext/source/Manual.java"));
+
+        assertThat(recompilation).succeeded();
+        Truth.assertThat(recompilation.generatedFiles().stream()
+                .map(file -> file.getName())
+                .filter(name -> name.contains("db/migration/") && name.endsWith("__generated.sql"))
+                .toList()).isEmpty();
+    }
+
+    @Test
     void renamedMigrationOnClasspathDoesNotGenerateDuplicateMigration() throws IOException {
         var baselineCompilation = javac()
                 .withProcessors(new PrefabProcessor())

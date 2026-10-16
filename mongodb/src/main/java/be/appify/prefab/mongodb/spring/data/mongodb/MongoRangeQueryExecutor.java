@@ -43,7 +43,7 @@ public class MongoRangeQueryExecutor implements RangeQueryExecutor {
     }
 
     // Mongo rejects two criteria on the same key, so all operators of a property are chained on one Criteria
-    private static List<Criteria> criteriaByProperty(List<RangeCondition> ranges) {
+    static List<Criteria> criteriaByProperty(List<RangeCondition> ranges) {
         var byProperty = new LinkedHashMap<String, Criteria>();
         ranges.stream()
                 .filter(RangeCondition::isActive)

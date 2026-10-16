@@ -28,7 +28,7 @@ class PostgresTestEnvironmentPostProcessorTest {
         processor.postProcessEnvironment(environment, new SpringApplication());
 
         assertThat(environment.getProperty("spring.datasource.url"))
-                .isEqualTo("jdbc:tc:postgresql:18.3:///myapp?TC_REUSABLE=true&currentSchema=myapp");
+                .isEqualTo("jdbc:tc:postgresql:18.6:///myapp?TC_REUSABLE=true&currentSchema=myapp");
     }
 
     @Test
@@ -38,7 +38,7 @@ class PostgresTestEnvironmentPostProcessorTest {
         processor.postProcessEnvironment(environment, new SpringApplication());
 
         assertThat(environment.getProperty("spring.datasource.url"))
-                .isEqualTo("jdbc:tc:postgresql:18.3:///myapp?TC_REUSABLE=true&currentSchema=myapp");
+                .isEqualTo("jdbc:tc:postgresql:18.6:///myapp?TC_REUSABLE=true&currentSchema=myapp");
     }
 
     @Test
@@ -48,7 +48,7 @@ class PostgresTestEnvironmentPostProcessorTest {
         processor.postProcessEnvironment(environment, new SpringApplication());
 
         assertThat(environment.getProperty("spring.datasource.url"))
-                .isEqualTo("jdbc:tc:postgresql:18.3:///prefab_kafka_example?TC_REUSABLE=true&currentSchema=prefab_kafka_example");
+                .isEqualTo("jdbc:tc:postgresql:18.6:///prefab_kafka_example?TC_REUSABLE=true&currentSchema=prefab_kafka_example");
     }
 
     @Test
@@ -80,7 +80,7 @@ class PostgresTestEnvironmentPostProcessorTest {
         processor.postProcessEnvironment(environment, new SpringApplication());
 
         assertThat(environment.getProperty("spring.datasource.url"))
-                .isEqualTo("jdbc:tc:postgresql:18.3:///application?TC_REUSABLE=true&currentSchema=application");
+                .isEqualTo("jdbc:tc:postgresql:18.6:///application?TC_REUSABLE=true&currentSchema=application");
     }
 
     @Test

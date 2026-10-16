@@ -1,6 +1,8 @@
 package be.appify.prefab.processor.rest.getlist;
 
 import be.appify.prefab.core.annotations.rest.Filter;
+import be.appify.prefab.core.annotations.rest.GetList;
+import be.appify.prefab.core.annotations.rest.SortOrder;
 import be.appify.prefab.core.spring.data.RangeCondition;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
@@ -14,11 +16,14 @@ import com.palantir.javapoet.TypeName;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.lang.model.element.Modifier;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.ExampleMatcher;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import static be.appify.prefab.processor.rest.getlist.GetListUtil.exampleFiltersOf;
 import static be.appify.prefab.processor.rest.getlist.GetListUtil.filterPropertiesOf;
@@ -228,7 +233,43 @@ class GetListServiceWriter {
                 : CodeBlock.of(field.name());
     }
 
-    private static TypeName filterParamType(GetListUtil.FilterManifest filter) {
+    MethodSpec getListByQueryMethod(ClassManifest manifest, GetList getList) {
+        var queryType = GetListQueryWriter.queryType(manifest);
+        var method = MethodSpec.methodBuilder("getList")
+                .addModifiers(Modifier.PUBLIC)
+                .addParameter(queryType, "query")
+                .returns(ParameterizedTypeName.get(ClassName.get(Page.class), manifest.type().asTypeName()));
+        method.addStatement("var pageable = $T.of(query.page(), query.pageSize(), query.sort().orElse($L))",
+                PageRequest.class, defaultSort(getList));
+        var arguments = Stream.concat(
+                        manifest.parent().stream().map(parent -> CodeBlock.of(
+                                "query.$N().orElseThrow(() -> new $T($S))",
+                                GetListQueryWriter.parentIdName(manifest),
+                                IllegalArgumentException.class,
+                                "%s is required".formatted(GetListQueryWriter.parentIdName(manifest)))),
+                        filterPropertiesOf(manifest).stream()
+                                .map(filter -> CodeBlock.of("query.$N().orElse(null)", filter.parameterName())))
+                .collect(CodeBlock.joining(", "));
+        method.addStatement(arguments.isEmpty()
+                ? CodeBlock.of("return getList(pageable)")
+                : CodeBlock.of("return getList(pageable, $L)", arguments));
+        return method.build();
+    }
+
+    private static CodeBlock defaultSort(GetList getList) {
+        if (getList.sorted().length == 0) {
+            return CodeBlock.of("$T.unsorted()", Sort.class);
+        }
+        return CodeBlock.of("$T.by($L)", Sort.class, Stream.of(getList.sorted())
+                .map(order -> CodeBlock.of("new $T($T.$L, $S)",
+                        Sort.Order.class,
+                        Sort.Direction.class,
+                        order.direction() == SortOrder.Direction.ASCENDING ? "ASC" : "DESC",
+                        order.property()))
+                .collect(CodeBlock.joining(", ")));
+    }
+
+    static TypeName filterParamType(GetListUtil.FilterManifest filter) {
         var field = filter.field();
         if (filter.isRange()) {
             return field.type().asBoxed().asTypeName();

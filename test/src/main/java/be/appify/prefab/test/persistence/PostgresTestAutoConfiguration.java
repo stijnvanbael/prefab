@@ -38,7 +38,7 @@ public class PostgresTestAutoConfiguration {
         var containerName = TestContainerNameResolver.resolveContainerName(
                 propertyResolver, "postgres", "prefab.test.postgres.container-name");
         TestContainerNameResolver.removeConflictingContainer(containerName);
-        var container = new PostgreSQLContainer("postgres:18.3-alpine")
+        var container = new PostgreSQLContainer("postgres:18.6-alpine")
                 .withDatabaseName(sanitisedName)
                 .withUsername("postgres")
                 .withPassword("postgres")

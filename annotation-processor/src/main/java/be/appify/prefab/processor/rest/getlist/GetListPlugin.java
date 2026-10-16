@@ -121,7 +121,14 @@ public class GetListPlugin extends RestOperationPlugin {
                 "[@Filter] %s: FULL_TEXT parameter '%s' clashes with another filter parameter"
                         .formatted(manifest.simpleName(), parameter),
                 manifest.element()));
-        return nonString.isEmpty() && !tooMany && clashes.isEmpty();
+        var invalidThreshold = fullText.stream()
+                .filter(filter -> filter.fuzzy() && (filter.similarityThreshold() <= 0 || filter.similarityThreshold() > 1))
+                .toList();
+        invalidThreshold.forEach(filter -> context().logError(
+                "[@Filter] %s: similarityThreshold must be between 0 (exclusive) and 1"
+                        .formatted(filter.searchedProperties().getFirst()),
+                manifest.element()));
+        return nonString.isEmpty() && !tooMany && clashes.isEmpty() && invalidThreshold.isEmpty();
     }
 
     private boolean rangeFiltersAreValid(ClassManifest manifest) {

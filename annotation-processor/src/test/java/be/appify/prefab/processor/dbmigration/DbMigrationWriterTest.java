@@ -697,6 +697,38 @@ class DbMigrationWriterTest {
     }
 
     @Test
+    void fuzzyFullTextGetsTrigramIndexesAndEnablesTheExtension() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/fulltextfuzzy/source/Handbook.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("CREATE EXTENSION IF NOT EXISTS \"pg_trgm\"");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"handbook_title_trgm\" ON \"handbook\" USING GIN ((\"title\" gin_trgm_ops))");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"handbook_body_trgm\" ON \"handbook\" USING GIN ((\"body\" gin_trgm_ops))");
+    }
+
+    @Test
+    void exactFullTextDoesNotEnableTheTrigramExtension() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/fulltext/source/Manual.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .doesNotContain("pg_trgm");
+    }
+
+    @Test
     void fullTextIndexSurvivesARoundTripThroughTheExistingMigration() throws IOException {
         var baseline = javac()
                 .withProcessors(new PrefabProcessor())

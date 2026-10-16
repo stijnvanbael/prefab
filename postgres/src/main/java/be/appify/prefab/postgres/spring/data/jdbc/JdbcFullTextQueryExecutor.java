@@ -16,6 +16,7 @@ import org.springframework.data.jdbc.core.convert.JdbcConverter;
 import org.springframework.data.jdbc.core.convert.QueryMapper;
 import org.springframework.data.jdbc.core.dialect.JdbcDialect;
 import org.springframework.data.jdbc.core.mapping.JdbcMappingContext;
+import org.springframework.data.relational.core.dialect.Escaper;
 import org.springframework.data.relational.core.dialect.RenderContextFactory;
 import org.springframework.data.relational.core.mapping.RelationalPersistentEntity;
 import org.springframework.data.relational.core.sql.Comparison;
@@ -53,6 +54,7 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
     private final RelationalExampleMapper exampleMapper;
     private final SqlRenderer renderer;
     private final String configuration;
+    private final Escaper likeEscaper;
 
     /**
      * Constructs a new JdbcFullTextQueryExecutor.
@@ -82,6 +84,7 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
         this.exampleMapper = new RelationalExampleMapper(mappingContext);
         this.renderer = SqlRenderer.create(new RenderContextFactory(dialect).createRenderContext());
         this.configuration = configuration;
+        this.likeEscaper = dialect.getLikeEscaper();
     }
 
     @Override
@@ -113,6 +116,7 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
     ) {
         var conditions = new ArrayList<Condition>();
         Optional.of(JdbcRangeQueryExecutor.criteriaOf(exampleMapper, example, ranges)).filter(criteria -> !criteria.isEmpty())
+                .map(criteria -> ValueFunctionResolvingCriteria.wrap(criteria, likeEscaper))
                 .map(criteria -> queryMapper.getMappedObject(parameters, criteria, table, entity))
                 .ifPresent(conditions::add);
         if (fullText.isActive()) {

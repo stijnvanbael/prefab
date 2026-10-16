@@ -95,7 +95,7 @@ class JdbcFullTextQueryExecutorTest {
     private static Example<Article> example(String category) {
         var matcher = ExampleMatcher.matchingAll()
                 .withIgnorePaths("id", "title", "body", "price")
-                .withMatcher("category", ExampleMatcher.GenericPropertyMatchers.ignoreCase().exact());
+                .withMatcher("category", ExampleMatcher.GenericPropertyMatchers.ignoreCase().contains());
         return Example.of(new Article(null, null, null, category, null), matcher);
     }
 
@@ -146,7 +146,7 @@ class JdbcFullTextQueryExecutorTest {
 
     @Test
     void isCombinedWithExampleAndRangeConditions() {
-        assertThat(titles("spring", "database", Pageable.unpaged())).containsExactly("Postgres tuning");
+        assertThat(titles("spring", "DATAB", Pageable.unpaged())).containsExactly("Postgres tuning");
         assertThat(titles("database", null, Pageable.unpaged(),
                 new RangeCondition("price", Operator.GREATER_THAN, new BigDecimal("25.00"))))
                 .containsExactly("Mongo notes");

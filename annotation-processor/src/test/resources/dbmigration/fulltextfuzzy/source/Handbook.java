@@ -19,7 +19,7 @@ public record Handbook(
         @Id String id,
         @Version long version,
         @Filter(operator = Filter.Operator.FULL_TEXT, parameter = "query", fuzzy = true) String title,
-        @Filter(operator = Filter.Operator.FULL_TEXT, parameter = "query") String body) {
+        @Filter(operator = Filter.Operator.FULL_TEXT, parameter = "query", fuzzy = true) String body) {
 
     @Create
     public Handbook(String title, String body) {

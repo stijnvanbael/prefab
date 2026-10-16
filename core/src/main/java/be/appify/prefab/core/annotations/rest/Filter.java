@@ -37,8 +37,8 @@ public @interface Filter {
     /**
      * Whether a {@link Operator#FULL_TEXT} search also tolerates typos, by additionally matching words that are
      * similar to the search text (PostgreSQL pg_trgm word similarity). Default is false, which keeps exact full-text
-     * matching. MongoDB has no fuzzy text search: the attribute is ignored there and the search stays exact. When
-     * several fields share a parameter, fuzzy matching applies to the whole search as soon as one of them enables it.
+     * matching. MongoDB has no fuzzy text search: the attribute is ignored there and the search stays exact.      All
+          * fields sharing a parameter must use the same fuzzy settings, otherwise compilation fails.
      * @return Whether to match fuzzily.
      */
     boolean fuzzy() default false;

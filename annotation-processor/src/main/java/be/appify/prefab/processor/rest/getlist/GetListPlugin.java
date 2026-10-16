@@ -128,7 +128,24 @@ public class GetListPlugin extends RestOperationPlugin {
                 "[@Filter] %s: similarityThreshold must be between 0 (exclusive) and 1"
                         .formatted(filter.searchedProperties().getFirst()),
                 manifest.element()));
-        return nonString.isEmpty() && !tooMany && clashes.isEmpty() && invalidThreshold.isEmpty();
+        var consistentFuzziness = fuzzinessIsConsistent(manifest, fullText);
+        return nonString.isEmpty() && !tooMany && clashes.isEmpty() && invalidThreshold.isEmpty()
+                && consistentFuzziness;
+    }
+
+    // Fuzziness applies to the whole search, so fields sharing a parameter cannot disagree about it
+    private boolean fuzzinessIsConsistent(ClassManifest manifest, List<GetListUtil.FilterManifest> fullText) {
+        var settings = fullText.stream()
+                .map(filter -> filter.fuzzy() ? filter.similarityThreshold() : null)
+                .distinct()
+                .toList();
+        if (settings.size() > 1) {
+            context().logError(
+                    "[@Filter] %s: all FULL_TEXT fields sharing a parameter must use the same fuzzy and similarityThreshold settings"
+                            .formatted(manifest.simpleName()),
+                    manifest.element());
+        }
+        return settings.size() <= 1;
     }
 
     private boolean rangeFiltersAreValid(ClassManifest manifest) {

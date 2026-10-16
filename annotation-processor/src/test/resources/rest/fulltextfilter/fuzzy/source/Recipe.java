@@ -19,7 +19,7 @@ public record Recipe(
         @Id String id,
         @Version long version,
         @Filter(operator = Filter.Operator.FULL_TEXT, parameter = "query", fuzzy = true, similarityThreshold = 0.4) String title,
-        @Filter(operator = Filter.Operator.FULL_TEXT, parameter = "query") String body) {
+        @Filter(operator = Filter.Operator.FULL_TEXT, parameter = "query", fuzzy = true, similarityThreshold = 0.4) String body) {
 
     @Create
     public Recipe(String title, String body) {

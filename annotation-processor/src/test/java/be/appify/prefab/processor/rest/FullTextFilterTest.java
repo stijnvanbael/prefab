@@ -123,6 +123,14 @@ class FullTextFilterTest {
     }
 
     @Test
+    void fieldsSharingAParameterMustAgreeOnFuzziness() {
+        var compilation = compile("rest/fulltextfilter/invalid/mixedfuzzy/source/Manual.java");
+
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("must use the same fuzzy and similarityThreshold settings");
+    }
+
+    @Test
     void similarityThresholdOutOfRangeIsRejected() {
         var compilation = compile("rest/fulltextfilter/invalid/threshold/source/Guide.java");
 

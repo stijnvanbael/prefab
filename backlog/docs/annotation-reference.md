@@ -519,7 +519,8 @@ backed by a generated text index). A match on any of the fields counts as a matc
 - **Fuzzy matching:** `fuzzy = true` makes a row match when the exact full-text match succeeds *or* when any searched
   field contains a word similar to the search text (`pg_trgm` `word_similarity(query, field) >= similarityThreshold`).
   Exact matching stays the default. The search text is compared as a whole, so web-search operators only apply to the exact part.
-  If any field of the shared parameter sets `fuzzy`, the whole search is fuzzy. The migration enables the `pg_trgm`
+  Fuzziness applies to the whole search, so all fields sharing the parameter must declare the same `fuzzy` and
+  `similarityThreshold`; a mismatch is a compile error. The migration enables the `pg_trgm`
   extension and adds a trigram GIN index per searched field. The similarity check is evaluated as a function call,
   so the trigram indexes are provided for the operators but not used by this predicate; the exact part stays indexed.
 - **MongoDB:** `$text` has no fuzziness, so `fuzzy` and `similarityThreshold` are ignored and the search stays exact

@@ -43,11 +43,15 @@ public class JdbcRangeQueryExecutor implements RangeQueryExecutor {
 
     @Override
     public <T> Page<T> findAll(Example<T> example, List<RangeCondition> ranges, Pageable pageable) {
-        var criteria = Stream.concat(
+        return operations.findAll(Query.query(criteriaOf(exampleMapper, example, ranges)),
+                example.getProbeType(), pageable);
+    }
+
+    static Criteria criteriaOf(RelationalExampleMapper exampleMapper, Example<?> example, List<RangeCondition> ranges) {
+        return Stream.concat(
                         exampleMapper.getMappedExample(example).getCriteria().stream(),
                         ranges.stream().filter(RangeCondition::isActive).map(JdbcRangeQueryExecutor::criteriaOf))
                 .reduce(Criteria.empty(), (all, next) -> all.and(next), (left, right) -> left.and(right));
-        return operations.findAll(Query.query(criteria), example.getProbeType(), pageable);
     }
 
     private static Criteria criteriaOf(RangeCondition condition) {

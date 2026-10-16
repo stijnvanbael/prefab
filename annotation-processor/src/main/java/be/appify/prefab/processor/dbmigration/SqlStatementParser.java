@@ -9,6 +9,7 @@ import net.sf.jsqlparser.statement.drop.Drop;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 class SqlStatementParser {
@@ -16,6 +17,12 @@ class SqlStatementParser {
     private static final Pattern DROP_CONSTRAINT_PATTERN = Pattern.compile(
             "ALTER\\s+TABLE\\s+\"?(\\w+)\"?\\s+DROP\\s+CONSTRAINT\\s+\"?(\\w+)\"?",
             Pattern.CASE_INSENSITIVE
+    );
+
+    // JSqlParser cannot parse a function call as index expression
+    private static final Pattern FULL_TEXT_INDEX_PATTERN = Pattern.compile(
+            "CREATE\\s+INDEX\\s+\"?(\\w+)\"?\\s+ON\\s+\"?(\\w+)\"?\\s+USING\\s+GIN\\s+\\((to_tsvector\\(.*\\))\\)",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL
     );
 
     void parse(String content, Map<String, Table> tables) {
@@ -35,7 +42,20 @@ class SqlStatementParser {
             applyDropConstraint(dropConstraintMatcher.group(1), dropConstraintMatcher.group(2), tables);
             return;
         }
+        var fullTextIndexMatcher = FULL_TEXT_INDEX_PATTERN.matcher(sql);
+        if (fullTextIndexMatcher.matches()) {
+            applyFullTextIndex(fullTextIndexMatcher, tables);
+            return;
+        }
         parseWithJsqlparser(sql, tables);
+    }
+
+    private void applyFullTextIndex(Matcher matcher, Map<String, Table> tables) {
+        var table = tables.get(matcher.group(2));
+        if (table != null) {
+            var index = new Index(matcher.group(1), List.of(matcher.group(3)), false, "GIN");
+            tables.put(table.name(), table.withAddedIndex(index));
+        }
     }
 
     private void applyDropConstraint(String tableName, String constraintName, Map<String, Table> tables) {

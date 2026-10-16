@@ -2,6 +2,7 @@ package be.appify.prefab.processor.rest.getlist;
 
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.annotations.rest.SortOrder;
+import be.appify.prefab.core.spring.data.FullTextQueryExecutor;
 import be.appify.prefab.core.spring.data.RangeQueryExecutor;
 import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.processor.ClassManifest;
@@ -18,7 +19,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static be.appify.prefab.processor.rest.getlist.GetListUtil.declaredFiltersOf;
 import static be.appify.prefab.processor.rest.getlist.GetListUtil.filterPropertiesOf;
+import static be.appify.prefab.processor.rest.getlist.GetListUtil.fullTextFiltersOf;
 import static be.appify.prefab.processor.rest.getlist.GetListUtil.rangeFiltersOf;
 
 /**
@@ -56,15 +59,20 @@ public class GetListPlugin extends RestOperationPlugin {
 
     @Override
     public Set<TypeName> getServiceDependencies(ClassManifest manifest) {
-        var hasRangeFilters = getListAnnotation(manifest).isPresent()
-                && !rangeFiltersOf(filterPropertiesOf(manifest)).isEmpty();
-        return hasRangeFilters ? Set.of(ClassName.get(RangeQueryExecutor.class)) : Set.of();
+        if (getListAnnotation(manifest).isEmpty()) {
+            return Set.of();
+        }
+        var filters = filterPropertiesOf(manifest);
+        if (!fullTextFiltersOf(filters).isEmpty()) {
+            return Set.of(ClassName.get(FullTextQueryExecutor.class));
+        }
+        return rangeFiltersOf(filters).isEmpty() ? Set.of() : Set.of(ClassName.get(RangeQueryExecutor.class));
     }
 
     @Override
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder) {
         getListAnnotation(manifest).ifPresent(getList -> {
-            if (rangeFiltersAreValid(manifest)) {
+            if (filtersAreValid(manifest)) {
                 builder.addMethod(serviceWriter.getListMethod(manifest));
                 builder.addMethod(serviceWriter.getListByQueryMethod(manifest, getList));
             }
@@ -75,13 +83,45 @@ public class GetListPlugin extends RestOperationPlugin {
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
         var queryManifests = manifests.stream()
                 .filter(manifest -> getListAnnotation(manifest).isPresent())
-                .filter(manifest -> rangeFiltersOf(filterPropertiesOf(manifest)).stream()
-                        .allMatch(filter -> GetListUtil.isRangeComparable(filter.field().type())))
+                .filter(this::filtersAreValid)
                 .toList();
         if (!queryManifests.isEmpty()) {
             var fileWriter = new OutputTargetFileOutput(context(), "application", OutputTarget.MAIN);
             queryManifests.forEach(manifest -> queryWriter.writeQuery(fileWriter, manifest));
         }
+    }
+
+    private boolean filtersAreValid(ClassManifest manifest) {
+        return rangeFiltersAreValid(manifest) & fullTextFiltersAreValid(manifest);
+    }
+
+    private boolean fullTextFiltersAreValid(ClassManifest manifest) {
+        var declared = declaredFiltersOf(manifest);
+        var fullText = fullTextFiltersOf(declared);
+        var searched = fullText.stream().map(filter -> filter.searchedProperties().getFirst()).toList();
+        var nonString = manifest.fields().stream()
+                .filter(field -> searched.contains(field.name()) && !field.type().is(String.class))
+                .toList();
+        nonString.forEach(field -> context().logError(
+                "[@Filter] %s: operator FULL_TEXT is only supported on String fields".formatted(field.name()),
+                field.element()));
+        var parameters = fullText.stream().map(GetListUtil.FilterManifest::parameterName).distinct().toList();
+        var tooMany = parameters.size() > 1;
+        if (tooMany) {
+            context().logError(
+                    "[@Filter] %s: only one FULL_TEXT request parameter is supported per aggregate, but found %s"
+                            .formatted(manifest.simpleName(), parameters),
+                    manifest.element());
+        }
+        var clashes = parameters.stream()
+                .filter(parameter -> declared.stream().filter(filter -> !filter.isFullText())
+                        .anyMatch(filter -> filter.parameterName().equals(parameter)))
+                .toList();
+        clashes.forEach(parameter -> context().logError(
+                "[@Filter] %s: FULL_TEXT parameter '%s' clashes with another filter parameter"
+                        .formatted(manifest.simpleName(), parameter),
+                manifest.element()));
+        return nonString.isEmpty() && !tooMany && clashes.isEmpty();
     }
 
     private boolean rangeFiltersAreValid(ClassManifest manifest) {

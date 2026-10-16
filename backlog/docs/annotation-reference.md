@@ -455,6 +455,8 @@ Enables filtering on a field in the `@GetList` endpoint.
 | `operator`   | `Filter.Operator` | `CONTAINS` | Filter comparison operator.                    |
 | `ignoreCase` | `boolean`         | `true`     | Whether to ignore case for string comparisons. |
 | `parameter`  | `String`          | `"`       | Request parameter name; only used by `FULL_TEXT`, where several fields share one parameter. |
+| `fuzzy`      | `boolean`         | `false`    | Only `FULL_TEXT`: also match words similar to the search text, tolerating typos (PostgreSQL only). |
+| `similarityThreshold` | `double` | `0.3`      | Only `FULL_TEXT` with `fuzzy`: minimum word similarity, above 0 and at most 1. Lower tolerates more typos. |
 
 **Operators:**
 
@@ -514,6 +516,15 @@ backed by a generated text index). A match on any of the fields counts as a matc
 - Full-text filters combine with all other filters (equality, range, tenant, parent) using AND. The generated
   query uses a `FullTextQueryExecutor` bean provided by `prefab-postgres` and `prefab-mongodb`.
 - Full-text fields get no plain index; a single GIN (PostgreSQL) or text (MongoDB) index covers them together.
+- **Fuzzy matching:** `fuzzy = true` makes a row match when the exact full-text match succeeds *or* when any searched
+  field contains a word similar to the search text (`pg_trgm` `word_similarity(query, field) >= similarityThreshold`).
+  Exact matching stays the default. The search text is compared as a whole, so web-search operators only apply to the exact part.
+  Fuzziness applies to the whole search, so all fields sharing the parameter must declare the same `fuzzy` and
+  `similarityThreshold`; a mismatch is a compile error. The migration enables the `pg_trgm`
+  extension and adds a trigram GIN index per searched field. The similarity check is evaluated as a function call,
+  so the trigram indexes are provided for the operators but not used by this predicate; the exact part stays indexed.
+- **MongoDB:** `$text` has no fuzziness, so `fuzzy` and `similarityThreshold` are ignored and the search stays exact
+  (degraded, not a compile error, so one model works on both databases). Use Atlas Search if you need typo tolerance.
 ```java
 @Filter(operator = Filter.Operator.EQUAL)
 @Filter(operator = Filter.Operator.CONTAINS)

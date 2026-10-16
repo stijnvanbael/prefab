@@ -26,6 +26,18 @@ public final class FullTextFields {
     }
 
     /**
+     * Names of the fields that are searched fuzzily, which need a trigram index.
+     *
+     * @param manifest
+     *         the aggregate
+     * @return the field names, empty when the aggregate has no fuzzy FULL_TEXT filter
+     */
+    public static List<String> fuzzyNamesOf(ClassManifest manifest) {
+        var filters = GetListUtil.fullTextFiltersOf(GetListUtil.declaredFiltersOf(manifest));
+        return GetListUtil.isFuzzy(filters) ? namesOf(manifest) : List.of();
+    }
+
+    /**
      * Whether the field is only filtered with FULL_TEXT, in which case a regular index on the field is useless.
      *
      * @param field

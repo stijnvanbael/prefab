@@ -35,6 +35,10 @@ class GetListUtil {
                 .toList();
     }
 
+    static boolean isFuzzy(List<FilterManifest> fullTextFilters) {
+        return fullTextFilters.stream().anyMatch(FilterManifest::fuzzy);
+    }
+
     static List<FilterManifest> fullTextFiltersOf(List<FilterManifest> filters) {
         return filters.stream().filter(FilterManifest::isFullText).toList();
     }
@@ -64,29 +68,35 @@ class GetListUtil {
             VariableManifest field,
             Filter.Operator operator,
             boolean ignoreCase,
-            List<String> searchedProperties
+            List<String> searchedProperties,
+            boolean fuzzy,
+            double similarityThreshold
     ) {
 
         static FilterManifest of(VariableManifest field, Filter filter) {
             if (filter.operator() == Filter.Operator.FULL_TEXT) {
                 var parameter = filter.parameter().isBlank() ? field.name() : filter.parameter();
                 return new FilterManifest(field.withName(parameter).withType(String.class), filter.operator(),
-                        filter.ignoreCase(), List.of(field.name()));
+                        filter.ignoreCase(), List.of(field.name()), filter.fuzzy(), filter.similarityThreshold());
             }
             var exposedField = !RangeCondition.isRange(filter.operator()) && field.type().isSingleValueType()
                     ? field.withType(String.class)
                     : field;
-            return new FilterManifest(exposedField, filter.operator(), filter.ignoreCase(), List.of());
+            return new FilterManifest(exposedField, filter.operator(), filter.ignoreCase(), List.of(), false,
+                    filter.similarityThreshold());
         }
 
         // Merges the declarations of a full-text parameter into one filter that searches all declared fields
         static FilterManifest combined(List<FilterManifest> fullTextFilters) {
             var first = fullTextFilters.getFirst();
+            var fuzzy = fullTextFilters.stream().filter(FilterManifest::fuzzy).findFirst();
             return new FilterManifest(
                     first.field(),
                     first.operator(),
                     first.ignoreCase(),
-                    fullTextFilters.stream().flatMap(filter -> filter.searchedProperties().stream()).toList());
+                    fullTextFilters.stream().flatMap(filter -> filter.searchedProperties().stream()).toList(),
+                    fuzzy.isPresent(),
+                    fuzzy.map(FilterManifest::similarityThreshold).orElse(first.similarityThreshold()));
         }
 
         boolean isRange() {

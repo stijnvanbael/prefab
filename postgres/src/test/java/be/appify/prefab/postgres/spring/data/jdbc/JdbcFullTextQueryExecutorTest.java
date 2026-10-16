@@ -72,6 +72,7 @@ class JdbcFullTextQueryExecutorTest {
 
     @BeforeEach
     void setUp() {
+        jdbcTemplate.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm");
         jdbcTemplate.execute("DROP TABLE IF EXISTS article");
         jdbcTemplate.execute("""
                 CREATE TABLE article (
@@ -167,4 +168,41 @@ class JdbcFullTextQueryExecutorTest {
         assertThat(all.getContent()).extracting(Article::title).containsExactly("Spring Boot guide", "Postgres tuning");
         assertThat(second.getContent()).extracting(Article::title).containsExactly("Mongo notes");
     }
-}
+
+    private List<String> fuzzyTitles(String query, double threshold, String category, RangeCondition... ranges) {
+        var condition = new FullTextCondition(List.of("title", "body"), query, true, threshold);
+        return executor.findAll(example(category), condition, List.of(ranges), Pageable.unpaged())
+                .getContent().stream().map(Article::title).sorted().toList();
+    }
+
+    @Test
+    void exactSearchDoesNotTolerateTypos() {
+        assertThat(titles("kafak")).isEmpty();
+    }
+
+    @Test
+    void fuzzySearchToleratesTypos() {
+        assertThat(fuzzyTitles("kafak", 0.3, null)).containsExactly("Kafka basics");
+        assertThat(fuzzyTitles("postgers", 0.3, null)).containsExactly("Postgres tuning");
+        assertThat(fuzzyTitles("framwork", 0.3, null)).containsExactly("Spring Boot guide");
+    }
+
+    @Test
+    void fuzzySearchStillFindsExactMatchesAndWebSearchSyntax() {
+        assertThat(fuzzyTitles("kafka", 0.3, null)).containsExactly("Kafka basics");
+        assertThat(fuzzyTitles("\"query plans\"", 0.9, null)).containsExactly("Postgres tuning");
+    }
+
+    @Test
+    void higherSimilarityThresholdIsStricter() {
+        assertThat(fuzzyTitles("kafak", 0.3, null)).isNotEmpty();
+        assertThat(fuzzyTitles("kafak", 1.0, null)).isEmpty();
+    }
+
+    @Test
+    void fuzzySearchCombinesWithExampleAndRangeConditions() {
+        assertThat(fuzzyTitles("postgers", 0.3, "database")).containsExactly("Postgres tuning");
+        assertThat(fuzzyTitles("postgers", 0.3, "java")).isEmpty();
+        assertThat(fuzzyTitles("postgers", 0.3, null,
+                new RangeCondition("price", Operator.GREATER_THAN, new BigDecimal("25.00")))).isEmpty();
+    }}

@@ -67,8 +67,8 @@ class DbMigrationWriter {
         var desiredDatabaseState = desiredDatabaseState(classManifests, polymorphicManifests);
         var changes = detectChanges(currentDatabaseState.tables(), desiredDatabaseState);
 
-        // Add extension enabling if there are fuzzy autocomplete fields
-        if (hasFuzzyAutocompleteFields(classManifests, polymorphicManifests)) {
+        // Add extension enabling if there are fuzzy autocomplete or fuzzy full-text fields
+        if (hasFuzzyAutocompleteFields(classManifests, polymorphicManifests) || hasFuzzyFullText(classManifests)) {
             changes.add(0, new DatabaseChange.EnableExtension("pg_trgm"));
         }
 
@@ -326,7 +326,7 @@ class DbMigrationWriter {
             var fkIndexes = fkIndexesOf(aggregateRootTable, columns);
             var fieldIndexes = ListUtil.concat(
                     fieldIndexesOf(aggregateRootTable, manifest, null),
-                    fullTextIndexOf(aggregateRootTable, manifest));
+                    fullTextIndexOf(aggregateRootTable, manifest)).stream().distinct().toList();
             var idColumnName = idColumnNameOf(manifest);
             tables.add(new Table(aggregateRootTable, columns, List.of(idColumnName), oldTableName,
                     ListUtil.concat(fkIndexes, fieldIndexes)));
@@ -437,7 +437,16 @@ class DbMigrationWriter {
         var columns = FullTextFields.namesOf(manifest).stream()
                 .map(name -> columnNameOf(null, name))
                 .toList();
-        return columns.isEmpty() ? List.of() : List.of(Index.fullText(tableName, columns));
+        var fuzzyColumns = FullTextFields.fuzzyNamesOf(manifest).stream()
+                .map(name -> columnNameOf(null, name))
+                .toList();
+        return columns.isEmpty() ? List.of() : ListUtil.concat(
+                List.of(Index.fullText(tableName, columns)),
+                fuzzyColumns.stream().map(column -> Index.trgm(tableName, column)).toList());
+    }
+
+    private static boolean hasFuzzyFullText(List<ClassManifest> classManifests) {
+        return classManifests.stream().anyMatch(manifest -> !FullTextFields.fuzzyNamesOf(manifest).isEmpty());
     }
 
     private List<Index> jsonbIndexesFor(String tableName, String jsonbColumn, VariableManifest field) {

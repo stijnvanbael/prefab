@@ -42,10 +42,12 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
  * mapped to SQL conditions with Spring Data's own {@link QueryMapper}, combined with the full-text predicate in a
  * select built with the Spring Data SQL DSL, and executed through {@link NamedParameterJdbcOperations}. The search
  * text is always bound as a parameter and interpreted by {@code websearch_to_tsquery}, which never fails on user
- * input.
+ * input. A fuzzy condition additionally matches rows where {@code word_similarity} (pg_trgm) between the search text
+ * and any searched column reaches the similarity threshold.
  */
 public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
     private static final String BIND_NAME = "fullTextQuery";
+    private static final String THRESHOLD_BIND_NAME = "fullTextSimilarityThreshold";
 
     private final NamedParameterJdbcOperations jdbc;
     private final JdbcMappingContext mappingContext;
@@ -121,6 +123,7 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
                 .ifPresent(conditions::add);
         if (fullText.isActive()) {
             parameters.addValue(BIND_NAME, fullText.query());
+            parameters.addValue(THRESHOLD_BIND_NAME, fullText.similarityThreshold());
             conditions.add(matches(fullText, entity, table));
         }
         return conditions.toArray(Condition[]::new);
@@ -129,13 +132,30 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
     private Condition matches(FullTextCondition fullText, RelationalPersistentEntity<?> entity, Table table) {
         // concat_ws is not IMMUTABLE and cannot be used in an index; the || form matches the generated GIN index
         var text = fullText.properties().stream()
-                .map(property -> "coalesce(\"%s\", '')".formatted(entity.getRequiredPersistentProperty(property)
-                        .getColumnName().getReference()))
-                .collect(Collectors.joining(" || ' ' || "));        return Comparison.create(
+                .map(property -> "coalesce(\"%s\", '')".formatted(columnOf(entity, property)))
+                .collect(Collectors.joining(" || ' ' || "));
+        var exact = Comparison.create(
                 SimpleFunction.create("to_tsvector", List.of(SQL.literalOf(configuration), Expressions.just(text))),
                 "@@",
                 SimpleFunction.create("websearch_to_tsquery",
                         List.of(SQL.literalOf(configuration), SQL.bindMarker(":" + BIND_NAME))));
+        return fullText.fuzzy() ? Conditions.nest(exact.or(similarTo(fullText, entity))) : exact;
+    }
+
+    private Condition similarTo(FullTextCondition fullText, RelationalPersistentEntity<?> entity) {
+        return fullText.properties().stream()
+                .map(property -> (Condition) Comparison.create(
+                        SimpleFunction.create("word_similarity", List.of(
+                                SQL.bindMarker(":" + BIND_NAME),
+                                Expressions.just("\"%s\"".formatted(columnOf(entity, property))))),
+                        ">=",
+                        SQL.bindMarker(":" + THRESHOLD_BIND_NAME)))
+                .reduce(Condition::or)
+                .orElseThrow();
+    }
+
+    private static String columnOf(RelationalPersistentEntity<?> entity, String property) {
+        return entity.getRequiredPersistentProperty(property).getColumnName().getReference();
     }
 
     private Select selectOf(

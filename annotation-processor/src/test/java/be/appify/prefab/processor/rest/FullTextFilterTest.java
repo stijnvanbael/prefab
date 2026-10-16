@@ -108,6 +108,37 @@ class FullTextFilterTest {
     }
 
     @Test
+    void fuzzyFilterPassesFuzzinessAndThresholdToTheCondition() throws Exception {
+        var service = source(compile("rest/fulltextfilter/fuzzy/source/Recipe.java"),
+                "rest.fulltextfilter.fuzzy.application.RecipeService");
+
+        assertContains(service, "new FullTextCondition(List.of(\"title\", \"body\"), query, true, 0.4)");
+    }
+
+    @Test
+    void exactFilterKeepsTheExactCondition() throws Exception {
+        var service = source(articleCompilation, "rest.fulltextfilter.application.ArticleService");
+
+        assertDoesNotContain(service, ", true,");
+    }
+
+    @Test
+    void fieldsSharingAParameterMustAgreeOnFuzziness() {
+        var compilation = compile("rest/fulltextfilter/invalid/mixedfuzzy/source/Manual.java");
+
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("must use the same fuzzy and similarityThreshold settings");
+    }
+
+    @Test
+    void similarityThresholdOutOfRangeIsRejected() {
+        var compilation = compile("rest/fulltextfilter/invalid/threshold/source/Guide.java");
+
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("similarityThreshold must be between 0 (exclusive) and 1");
+    }
+
+    @Test
     void nonStringFieldIsRejected() {
         var compilation = compile("rest/fulltextfilter/invalid/nonstring/source/Memo.java");
 

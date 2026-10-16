@@ -111,12 +111,15 @@ class GetListServiceWriter {
     }
 
     private static CodeBlock fullTextCondition(GetListUtil.FilterManifest filter) {
+        var properties = filter.searchedProperties().stream().map(property -> CodeBlock.of("$S", property))
+                .collect(CodeBlock.joining(", "));
+        if (filter.fuzzy()) {
+            return CodeBlock.of("new $T($T.of($L), $N, true, $L)",
+                    FullTextCondition.class, List.class, properties, filter.parameterName(),
+                    filter.similarityThreshold());
+        }
         return CodeBlock.of("new $T($T.of($L), $N)",
-                FullTextCondition.class,
-                List.class,
-                filter.searchedProperties().stream().map(property -> CodeBlock.of("$S", property))
-                        .collect(CodeBlock.joining(", ")),
-                filter.parameterName());
+                FullTextCondition.class, List.class, properties, filter.parameterName());
     }
 
     private static CodeBlock rangeConditions(List<GetListUtil.FilterManifest> ranges) {

@@ -76,6 +76,9 @@ class JdbcFullTextQueryExecutorTest {
         jdbcTemplate.execute("""
                 CREATE TABLE article (
                     id BIGSERIAL PRIMARY KEY, title TEXT, body TEXT, category TEXT, price NUMERIC)""");
+        jdbcTemplate.execute("""
+                CREATE INDEX article_title_body_fts ON article USING GIN (
+                    to_tsvector('simple', coalesce("title", '') || ' ' || coalesce("body", '')))""");
         var strategy = new PrefabDataAccessStrategy(dataAccessStrategy, dialect.getLikeEscaper());
         operations = new PrefabJdbcAggregateTemplate(applicationContext, mappingContext, jdbcConverter, strategy);
         executor = new JdbcFullTextQueryExecutor(namedJdbc, mappingContext, jdbcConverter, dialect, "simple");

@@ -690,7 +690,7 @@ class DbMigrationWriterTest {
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String();
         sql.contains("CREATE INDEX \"manual_title_body_text_fts\" ON \"manual\" USING GIN "
-                + "(to_tsvector('simple', concat_ws(' ', \"title\", \"body_text\")));");
+                + "(to_tsvector('simple', coalesce(\"title\", '') || ' ' || coalesce(\"body_text\", '')));");
         sql.contains("CREATE INDEX \"manual_category_ix\" ON \"manual\" (\"category\")");
         sql.doesNotContain("\"manual_title_ix\"");
         sql.doesNotContain("\"manual_body_text_ix\"");

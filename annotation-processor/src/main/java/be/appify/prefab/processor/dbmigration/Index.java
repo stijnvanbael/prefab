@@ -41,8 +41,8 @@ record Index(
 
     static Index fullText(String tableName, List<String> columnNames) {
         var name = shorten(tableName + "_" + String.join("_", columnNames) + "_fts", POSTGRES_MAX_IDENTIFIER_LENGTH);
-        var columns = columnNames.stream().map(column -> "\"" + column + "\"").collect(joining(", "));
-        var expression = "to_tsvector('simple', concat_ws(' ', %s))".formatted(columns);
+        var columns = columnNames.stream().map(column -> "coalesce(\"" + column + "\", '')").collect(joining(" || ' ' || "));
+        var expression = "to_tsvector('simple', %s)".formatted(columns);
         return new Index(name, List.of(expression), false, "GIN");
     }
 

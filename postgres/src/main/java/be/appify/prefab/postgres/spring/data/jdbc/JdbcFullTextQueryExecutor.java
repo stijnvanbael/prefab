@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
+import java.util.stream.Collectors;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,7 +21,6 @@ import org.springframework.data.relational.core.mapping.RelationalPersistentEnti
 import org.springframework.data.relational.core.sql.Comparison;
 import org.springframework.data.relational.core.sql.Condition;
 import org.springframework.data.relational.core.sql.Conditions;
-import org.springframework.data.relational.core.sql.Expression;
 import org.springframework.data.relational.core.sql.Expressions;
 import org.springframework.data.relational.core.sql.Functions;
 import org.springframework.data.relational.core.sql.SQL;
@@ -124,14 +123,12 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
     }
 
     private Condition matches(FullTextCondition fullText, RelationalPersistentEntity<?> entity, Table table) {
-        var columns = fullText.properties().stream()
-                .<Expression>map(property -> table.column(
-                        entity.getRequiredPersistentProperty(property).getColumnName()))
-                .toList();
-        var text = SimpleFunction.create("concat_ws", Stream.concat(Stream.of(SQL.literalOf(" ")), columns.stream())
-                .toList());
-        return Comparison.create(
-                SimpleFunction.create("to_tsvector", List.of(SQL.literalOf(configuration), text)),
+        // concat_ws is not IMMUTABLE and cannot be used in an index; the || form matches the generated GIN index
+        var text = fullText.properties().stream()
+                .map(property -> "coalesce(\"%s\", '')".formatted(entity.getRequiredPersistentProperty(property)
+                        .getColumnName().getReference()))
+                .collect(Collectors.joining(" || ' ' || "));        return Comparison.create(
+                SimpleFunction.create("to_tsvector", List.of(SQL.literalOf(configuration), Expressions.just(text))),
                 "@@",
                 SimpleFunction.create("websearch_to_tsquery",
                         List.of(SQL.literalOf(configuration), SQL.bindMarker(":" + BIND_NAME))));

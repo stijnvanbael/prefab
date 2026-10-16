@@ -8,12 +8,14 @@ import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.rest.getlist.FullTextFields;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeSpec;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.lang.model.element.Modifier;
 
 import org.springframework.context.annotation.Configuration;
@@ -25,6 +27,8 @@ class MongoIndexWriter {
             ClassName.get("org.springframework.data.mongodb.core", "MongoTemplate");
     private static final ClassName INDEX =
             ClassName.get("org.springframework.data.mongodb.core.index", "Index");
+    private static final ClassName TEXT_INDEX = ClassName.get(
+            "org.springframework.data.mongodb.core.index", "TextIndexDefinition");
     private static final ClassName SORT_DIRECTION =
             ClassName.get("org.springframework.data.domain.Sort", "Direction");
 
@@ -53,6 +57,7 @@ class MongoIndexWriter {
                             index.unique() ? ".unique()" : ""
                     )
             );
+            textIndexOf(constructor, manifest);
         }
 
         var type = TypeSpec.classBuilder("MongoIndexConfiguration")
@@ -62,6 +67,24 @@ class MongoIndexWriter {
                 .build();
 
         fileWriter.writeFile(rootPackage, "MongoIndexConfiguration", type);
+    }
+
+    // MongoDB allows one text index per collection, which is why an aggregate has at most one FULL_TEXT parameter.
+    // The language is "none" (no stemming) to match the PostgreSQL 'simple' configuration, and a language override
+    // field that no document has prevents a property called "language" from being read as a text language.
+    private static void textIndexOf(MethodSpec.Builder constructor, ClassManifest manifest) {
+        var fields = FullTextFields.namesOf(manifest);
+        if (!fields.isEmpty()) {
+            constructor.addStatement("""
+                            mongoTemplate.indexOps($T.class).createIndex($T.builder()
+                                .onFields($L)
+                                .withDefaultLanguage("none")
+                                .withLanguageOverride("_prefabLanguage")
+                                .build())""",
+                    manifest.type().asTypeName(),
+                    TEXT_INDEX,
+                    fields.stream().map(field -> "\"" + field + "\"").collect(Collectors.joining(", ")));
+        }
     }
 
     private List<MongoIndex> fieldIndexesOf(ClassManifest manifest, String prefix) {
@@ -84,6 +107,8 @@ class MongoIndexWriter {
                     .map(a -> a.value().unique())
                     .orElse(false);
             return java.util.Optional.of(new MongoIndex(fieldPath, unique));
+        } else if (FullTextFields.isOnlyFullText(field)) {
+            return java.util.Optional.empty();
         } else if (field.hasAnnotation(Filter.class) || field.hasAnnotation(Filters.class)) {
             return java.util.Optional.of(new MongoIndex(fieldPath, false));
         }

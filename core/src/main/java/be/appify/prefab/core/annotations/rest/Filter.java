@@ -27,6 +27,13 @@ public @interface Filter {
      */
     boolean ignoreCase() default true;
 
+    /**
+     * The name of the request parameter. Only used by {@link Operator#FULL_TEXT}, where several fields can share
+     * the same parameter so that one search text is matched against all of them. Defaults to the field name.
+     * @return The name of the request parameter.
+     */
+    String parameter() default "";
+
     /** The supported filter operators. */
     enum Operator {
         /** Equal operator. */
@@ -58,6 +65,16 @@ public @interface Filter {
          * Less than or equal operator. Exposed as request parameter <code>&lt;field&gt;LessThanOrEqual</code>.
          * Only supported on numeric and <code>java.time</code> fields; {@link #ignoreCase()} has no effect.
          */
-        LESS_THAN_OR_EQUAL
+        LESS_THAN_OR_EQUAL,
+        /**
+         * Full-text search operator. Only supported on <code>String</code> fields. All fields of an aggregate that
+         * use this operator share a single request parameter (see {@link Filter#parameter()}, default is the name of the
+         * field) holding the search text; a row matches when the text matches any of those fields. The search text
+         * supports web search syntax: multiple words must all match, <code>OR</code> matches either word, a leading
+         * <code>-</code> excludes a word and double quotes match a phrase. Only one full-text request parameter is
+         * supported per aggregate and {@link #ignoreCase()} has no effect. Backed by PostgreSQL text search (a GIN
+         * index is generated) and MongoDB text indexes.
+         */
+        FULL_TEXT
     }
 }

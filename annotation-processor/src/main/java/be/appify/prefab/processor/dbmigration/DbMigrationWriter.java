@@ -4,6 +4,7 @@ import be.appify.prefab.core.annotations.DbColumn;
 import be.appify.prefab.core.annotations.DbDocument;
 import be.appify.prefab.core.annotations.DbRename;
 import be.appify.prefab.core.annotations.Indexed;
+import be.appify.prefab.processor.rest.getlist.FullTextFields;
 import be.appify.prefab.core.annotations.TenantId;
 import be.appify.prefab.core.annotations.rest.Autocomplete;
 import be.appify.prefab.core.annotations.rest.Filter;
@@ -323,7 +324,9 @@ class DbMigrationWriter {
                     .orElse(null);
             var columns = columnsOf(manifest, null, false);
             var fkIndexes = fkIndexesOf(aggregateRootTable, columns);
-            var fieldIndexes = fieldIndexesOf(aggregateRootTable, manifest, null);
+            var fieldIndexes = ListUtil.concat(
+                    fieldIndexesOf(aggregateRootTable, manifest, null),
+                    fullTextIndexOf(aggregateRootTable, manifest));
             var idColumnName = idColumnNameOf(manifest);
             tables.add(new Table(aggregateRootTable, columns, List.of(idColumnName), oldTableName,
                     ListUtil.concat(fkIndexes, fieldIndexes)));
@@ -430,6 +433,13 @@ class DbMigrationWriter {
                 .toList();
     }
 
+    private static List<Index> fullTextIndexOf(String tableName, ClassManifest manifest) {
+        var columns = FullTextFields.namesOf(manifest).stream()
+                .map(name -> columnNameOf(null, name))
+                .toList();
+        return columns.isEmpty() ? List.of() : List.of(Index.fullText(tableName, columns));
+    }
+
     private List<Index> jsonbIndexesFor(String tableName, String jsonbColumn, VariableManifest field) {
         var indexes = new ArrayList<Index>();
         if (field.hasAnnotation(Indexed.class)) {
@@ -487,6 +497,8 @@ class DbMigrationWriter {
                     .map(a -> a.value().unique())
                     .orElse(false);
             return List.of(Index.of(tableName, columnName, isUnique));
+        } else if (FullTextFields.isOnlyFullText(field)) {
+            return List.of();
         } else if (field.hasAnnotation(Filter.class) || field.hasAnnotation(Filters.class)
                 || field.hasAnnotation(TenantId.class)) {
             return List.of(Index.of(tableName, columnName, false));

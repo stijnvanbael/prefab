@@ -2,10 +2,12 @@ package be.appify.prefab.postgres.spring;
 
 import be.appify.prefab.core.spring.PrefabCoreConfiguration;
 import be.appify.prefab.core.spring.data.jdbc.DbColumnConverterContributor;
+import be.appify.prefab.core.spring.data.FullTextQueryExecutor;
 import be.appify.prefab.core.spring.data.RangeQueryExecutor;
 import be.appify.prefab.core.spring.data.jdbc.PolymorphicReadingConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.ByteArrayToFileConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.FileToByteArrayConverter;
+import be.appify.prefab.postgres.spring.data.jdbc.JdbcFullTextQueryExecutor;
 import be.appify.prefab.postgres.spring.data.jdbc.JdbcRangeQueryExecutor;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabDataAccessStrategy;
 import be.appify.prefab.postgres.spring.data.jdbc.PrefabJdbcAggregateTemplate;
@@ -146,5 +148,29 @@ public class PrefabJdbcConfiguration extends AbstractJdbcConfiguration {
     @ConditionalOnMissingBean
     public RangeQueryExecutor rangeQueryExecutor(JdbcAggregateOperations operations, JdbcMappingContext mappingContext) {
         return new JdbcRangeQueryExecutor(operations, mappingContext);
+    }
+
+    /**
+     * Provides the {@link FullTextQueryExecutor} used by generated services for full-text filters.
+     *
+     * @param jdbc
+     *         the JDBC operations
+     * @param mappingContext
+     *         the JDBC mapping context
+     * @param converter
+     *         the JDBC converter
+     * @param dialect
+     *         the JDBC dialect
+     * @return the full-text query executor
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public FullTextQueryExecutor fullTextQueryExecutor(
+            NamedParameterJdbcOperations jdbc,
+            JdbcMappingContext mappingContext,
+            JdbcConverter converter,
+            JdbcDialect dialect
+    ) {
+        return new JdbcFullTextQueryExecutor(jdbc, mappingContext, converter, dialect, "simple");
     }
 }

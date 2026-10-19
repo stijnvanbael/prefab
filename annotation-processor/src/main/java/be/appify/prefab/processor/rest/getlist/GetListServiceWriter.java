@@ -112,6 +112,11 @@ class GetListServiceWriter {
     }
 
     private static CodeBlock fullTextCondition(GetListUtil.FilterManifest filter) {
+        var condition = exactFullTextCondition(filter);
+        return filter.typeahead() ? CodeBlock.of("$L.withTypeahead()", condition) : condition;
+    }
+
+    private static CodeBlock exactFullTextCondition(GetListUtil.FilterManifest filter) {
         var properties = filter.searchedProperties().stream().map(property -> CodeBlock.of("$S", property))
                 .collect(CodeBlock.joining(", "));
         var weights = filter.weights().entrySet().stream()

@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.dbmigration;
 
 import be.appify.prefab.core.util.IdentifierShortener;
+import be.appify.prefab.core.util.InitialsExpression;
 import be.appify.prefab.processor.PrefabProcessor;
 import com.google.common.truth.Truth;
 import com.google.testing.compile.Compilation;
@@ -630,6 +631,19 @@ class DbMigrationWriterTest {
     }
 
     @Test
+    void fullTextAutocompleteFieldGeneratesAGinIndexOnTheTsvectorTheQueryUses() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/autocomplete_fulltext/source/FullTextProduct.java"));
+        assertThat(compilation).succeeded();
+        var sql = assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String();
+        sql.contains("USING GIN (to_tsvector('simple', coalesce(\"name\", '')))");
+        sql.doesNotContain("pg_trgm");
+    }
+
+    @Test
     void fuzzyAutocompleteFieldGeneratesCorrectIndexWithOperators() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
@@ -707,6 +721,37 @@ class DbMigrationWriterTest {
                 .contentsAsUtf8String()
                 .contains("USING GIN (setweight(to_tsvector('simple', coalesce(\"title\", '')), 'A') || "
                         + "setweight(to_tsvector('simple', coalesce(\"body_text\", '')), 'C'));");
+    }
+
+    @Test
+    void typeaheadFullTextGetsAnIndexOnTheInitialsOfEachSearchedColumn() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/fulltext/source/Manual.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("CREATE INDEX \"manual_title_initials\" ON \"manual\" ("
+                        + InitialsExpression.indexColumn("title") + ");");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("CREATE INDEX \"manual_body_text_initials\" ON \"manual\" ("
+                        + InitialsExpression.indexColumn("body_text") + ");");
+    }
+
+    @Test
+    void fullTextAutocompleteFieldAlsoGetsAnInitialsIndex() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/autocomplete_fulltext/source/FullTextProduct.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"full_text_product_name_initials\" ON \"full_text_product\" ("
+                        + InitialsExpression.indexColumn("name") + ");");
     }
 
     @Test

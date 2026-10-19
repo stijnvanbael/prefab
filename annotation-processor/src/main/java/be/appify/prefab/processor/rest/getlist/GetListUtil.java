@@ -73,7 +73,8 @@ class GetListUtil {
             List<String> searchedProperties,
             boolean fuzzy,
             double similarityThreshold,
-            Map<String, Filter.Weight> weights
+            Map<String, Filter.Weight> weights,
+            boolean typeahead
     ) {
 
         static FilterManifest of(VariableManifest field, Filter filter) {
@@ -81,13 +82,13 @@ class GetListUtil {
                 var parameter = filter.parameter().isBlank() ? field.name() : filter.parameter();
                 return new FilterManifest(field.withName(parameter).withType(String.class), filter.operator(),
                         filter.ignoreCase(), List.of(field.name()), filter.fuzzy(), filter.similarityThreshold(),
-                        Map.of(field.name(), filter.weight()));
+                        Map.of(field.name(), filter.weight()), filter.typeahead());
             }
             var exposedField = !RangeCondition.isRange(filter.operator()) && field.type().isSingleValueType()
                     ? field.withType(String.class)
                     : field;
             return new FilterManifest(exposedField, filter.operator(), filter.ignoreCase(), List.of(), false,
-                    filter.similarityThreshold(), Map.of());
+                    filter.similarityThreshold(), Map.of(), false);
         }
 
         // Merges the declarations of a full-text parameter into one filter that searches all declared fields
@@ -103,7 +104,8 @@ class GetListUtil {
                     fullTextFilters.stream().flatMap(filter -> filter.searchedProperties().stream()).toList(),
                     fuzzy.isPresent(),
                     fuzzy.map(FilterManifest::similarityThreshold).orElse(first.similarityThreshold()),
-                    weights);
+                    weights,
+                    first.typeahead());
         }
 
         boolean isRange() {

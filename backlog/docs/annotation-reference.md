@@ -457,6 +457,7 @@ Enables filtering on a field in the `@GetList` endpoint.
 | `parameter`  | `String`          | `"`       | Request parameter name; only used by `FULL_TEXT`, where several fields share one parameter. |
 | `fuzzy`      | `boolean`         | `false`    | Only `FULL_TEXT`: also match words similar to the search text, tolerating typos (PostgreSQL only). |
 | `similarityThreshold` | `double` | `0.3`      | Only `FULL_TEXT` with `fuzzy`: minimum word similarity, above 0 and at most 1. Lower tolerates more typos. |
+| `typeahead`  | `boolean`         | `true`     | Only `FULL_TEXT`: also match every word of the search text as a prefix and a single word as initials; `false` matches whole words only. |
 | `weight`     | `Filter.Weight`   | `D`        | Only `FULL_TEXT`: relevance weight of the field, from `A` (most important) to `D` (default). |
 
 **Operators:**
@@ -513,13 +514,33 @@ backed by a generated text index). A match on any of the fields counts as a matc
   and the fields must be `String`. Violations are a compile error.
 - The search text uses web-search syntax: words are ANDed, `"quoted phrases"`, `or` and `-excluded` words.
 - Text is matched with the `simple` configuration (no stemming or stop words).
-  Language support and prefix matching are planned as separate features.
+  Language support is planned as a separate feature.
+- **Type-ahead (default):** every word of a plain search text (no quotes, `-word` or `OR`) matches as a prefix, in any
+  order, so `query=spr bo g` finds "Spring Boot guide" while the user is still typing. A single word of two or more
+  letters also matches the initials of the words of a field: `query=SBG` finds "Spring Boot guide". Set
+  `typeahead = false` to match whole words only. A text with web-search operators keeps web-search semantics and only
+  its last word is a prefix, and only when the text does not end in whitespace or punctuation, the word is not excluded
+  (`-word`), not inside an unclosed quote and not `OR`. Prefixes consist of letters and digits only and are bound as
+  parameters: PostgreSQL uses `to_tsquery('spr:* & bo:* & g:*')` (combined with `websearch_to_tsquery(<rest>)` for
+  operator texts), so no user input can break or alter the tsquery. Initials match a btree index on
+  `regexp_replace(lower(col), ...)` that the migration generates per searched field. Fields sharing a parameter must
+  declare the same `typeahead`; a mismatch is a compile error. The ranking, example, range, tenant and parent filters
+  apply as usual. Typeahead and `fuzzy` combine.
+  Every word must match some searched field, not necessarily the same one: `spring post` also finds an article whose
+  title starts with "Postgres" and whose body mentions "Spring". Rank such rows lower with `weight` and the `relevance`
+  sort.
+- **MongoDB typeahead:** `$text` only matches whole words, so each prefix is a case-insensitive word-start regular
+  expression (`\b`) on each searched field, and initials are matched with a regular expression too; neither can use
+  the text index. `$text` is only used for the web-search part, so a plain text has no relevance score.
 - Full-text filters combine with all other filters (equality, range, tenant, parent) using AND. The generated
   query uses a `FullTextQueryExecutor` bean provided by `prefab-postgres` and `prefab-mongodb`.
 - Full-text fields get no plain index; a single GIN (PostgreSQL) or text (MongoDB) index covers them together.
 - **Fuzzy matching:** `fuzzy = true` makes a row match when the exact full-text match succeeds *or* when any searched
   field contains a word similar to the search text (`pg_trgm` `word_similarity(query, field) >= similarityThreshold`).
-  Exact matching stays the default. The search text is compared as a whole, so web-search operators only apply to the exact part.
+  Exact matching stays the default. Fuzzy matching is per word: every plain word of the search text (not an `OR`
+  operator or an `-excluded` word) must be similar to a word in some searched field, and with typeahead the last word may
+  alternatively be a prefix. So `sprint boo` finds "Spring Boot", while `spring post` does not. The web-search operators
+  only apply to the exact part.
   Fuzziness applies to the whole search, so all fields sharing the parameter must declare the same `fuzzy` and
   `similarityThreshold`; a mismatch is a compile error. The migration enables the `pg_trgm`
   extension and adds a trigram GIN index per searched field. The similarity check is evaluated as a function call,
@@ -576,6 +597,8 @@ suitable for powering autocomplete widgets.
 | `EXACT`       | No wrapping — byte-for-byte comparison.                                                | Regex without options.                                                 |
 | `IGNORE_CASE` | Wraps column in `LOWER()`.                                                             | Adds `'$options': 'i'` to regex.                                       |
 | `FUZZY`       | `PREFIX` → `LOWER(:query) <% LOWER(col)` — pg_trgm `<%` operator; true only when the query is similar to a prefix/word of the value (e.g. `"foo"` matches `"foebar"` but not `"barfoo"`). Requires `pg_trgm`. `CONTAINS` → `similarity(LOWER(col), LOWER(:query)) > 0.3` — whole-string similarity. | Falls back to `IGNORE_CASE` regex — Mongo has no native fuzzy support. |
+| `FULL_TEXT`   | Type-ahead full-text match; `scanMode` has no effect. Every word of the query must be the start of a word of the value, in any order (`"spr bo g"` finds `"Spring Boot guide"`); a single word of two or more letters also matches the initials of the words (`"sbg"`). Uses `to_tsvector('simple', col) @@ to_tsquery(...)`; the query is reduced to letters and digits, so it can never break the tsquery. A blank query matches all values. A GIN index on the same tsvector expression and a btree index on the initials are generated. | `$text` cannot match prefixes, so the service turns the query into a case-insensitive regex with the same semantics. |
+| `FULL_TEXT_FUZZY` | `FULL_TEXT` that also accepts typos: every word must be similar to a word of the value (`word_similarity >= 0.3`) or the start of one, so `"sprint boo"` finds `"Spring Boot"` but `"spring post"` does not. Requires `pg_trgm`; a trigram index is generated. | Behaves like `FULL_TEXT`. |
 
 > **Note:** `FUZZY` on PostgreSQL requires the `pg_trgm` extension to be enabled
 > (`CREATE EXTENSION IF NOT EXISTS pg_trgm`). The similarity threshold is fixed at `0.3`.

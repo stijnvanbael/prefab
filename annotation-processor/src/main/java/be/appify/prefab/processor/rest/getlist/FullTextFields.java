@@ -43,6 +43,18 @@ public final class FullTextFields {
     }
 
     /**
+     * Names of the fields that are searched as type-ahead, which need an index on the initials of their words.
+     *
+     * @param manifest
+     *         the aggregate
+     * @return the field names, empty when the aggregate has no type-ahead FULL_TEXT filter
+     */
+    public static List<String> typeaheadNamesOf(ClassManifest manifest) {
+        var filters = GetListUtil.fullTextFiltersOf(GetListUtil.declaredFiltersOf(manifest));
+        return filters.stream().anyMatch(GetListUtil.FilterManifest::typeahead) ? namesOf(manifest) : List.of();
+    }
+
+    /**
      * Names of the fields that are searched fuzzily, which need a trigram index.
      *
      * @param manifest

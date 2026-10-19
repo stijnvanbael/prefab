@@ -25,6 +25,11 @@ class SqlStatementParser {
             Pattern.CASE_INSENSITIVE | Pattern.DOTALL
     );
 
+    private static final Pattern INITIALS_INDEX_PATTERN = Pattern.compile(
+            "CREATE\\s+INDEX\\s+\"?(\\w+)\"?\\s+ON\\s+\"?(\\w+)\"?\\s+\\((regexp_replace\\(.*\\s+text_pattern_ops)\\)",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+    );
+
     void parse(String content, Map<String, Table> tables) {
         splitStatements(content).forEach(sql -> parseStatement(sql, tables));
     }
@@ -47,13 +52,22 @@ class SqlStatementParser {
             applyFullTextIndex(fullTextIndexMatcher, tables);
             return;
         }
+        var initialsIndexMatcher = INITIALS_INDEX_PATTERN.matcher(sql);
+        if (initialsIndexMatcher.matches()) {
+            applyExpressionIndex(initialsIndexMatcher, null, tables);
+            return;
+        }
         parseWithJsqlparser(sql, tables);
     }
 
     private void applyFullTextIndex(Matcher matcher, Map<String, Table> tables) {
+        applyExpressionIndex(matcher, "GIN", tables);
+    }
+
+    private void applyExpressionIndex(Matcher matcher, String using, Map<String, Table> tables) {
         var table = tables.get(matcher.group(2));
         if (table != null) {
-            var index = new Index(matcher.group(1), List.of(matcher.group(3)), false, "GIN");
+            var index = new Index(matcher.group(1), List.of(matcher.group(3)), false, using);
             tables.put(table.name(), table.withAddedIndex(index));
         }
     }

@@ -211,6 +211,79 @@ class JdbcFullTextQueryExecutorTest {
                 new RangeCondition("price", Operator.GREATER_THAN, new BigDecimal("25.00")))).isEmpty();
     }
 
+    private List<String> typeaheadTitles(String query, String category, RangeCondition... ranges) {
+        var condition = fullText(query).withTypeahead();
+        return executor.findAll(example(category), condition, List.of(ranges), Pageable.unpaged())
+                .getContent().stream().map(Article::title).sorted().toList();
+    }
+
+    @Test
+    void typeaheadMatchesTheLastWordAsPrefix() {
+        assertThat(typeaheadTitles("spri", null)).containsExactly("Postgres tuning", "Spring Boot guide");
+        assertThat(typeaheadTitles("kaf", null)).containsExactly("Kafka basics");
+        assertThat(titles("kaf")).isEmpty();
+    }
+
+    @Test
+    void typeaheadMatchesEarlierWordsAsWholeWords() {
+        assertThat(typeaheadTitles("spring pos", null)).containsExactly("Postgres tuning");
+        assertThat(typeaheadTitles("\"spring\" pos", null)).containsExactly("Postgres tuning");
+        assertThat(typeaheadTitles("sprin boot", null)).containsExactly("Spring Boot guide");
+        assertThat(typeaheadTitles("spring -pos", null)).containsExactly("Postgres tuning", "Spring Boot guide");
+    }
+
+    @Test
+    void typeaheadDoesNotApplyToCompletedWebSearchWords() {
+        assertThat(typeaheadTitles("\"kafka\" ", null)).containsExactly("Kafka basics");
+        assertThat(typeaheadTitles("\"query pla", null)).isEmpty();
+    }
+
+    @Test
+    void typeaheadNeverBreaksOnSpecialCharacters() {
+        assertThat(typeaheadTitles("'; DROP TABLE article; --", null)).isEmpty();
+        assertThat(typeaheadTitles("spring & | ! ( ) :* <-> kaf", null)).isEmpty();
+        assertThat(typeaheadTitles("spring :*", null)).containsExactly("Postgres tuning", "Spring Boot guide");
+        assertThat(typeaheadTitles("(((", null)).isEmpty();
+    }
+
+    @Test
+    void typeaheadIsCombinedWithExampleAndRangeConditions() {
+        assertThat(typeaheadTitles("spri", "DATAB")).containsExactly("Postgres tuning");
+        assertThat(typeaheadTitles("spri", null,
+                new RangeCondition("price", Operator.GREATER_THAN, new BigDecimal("15.00"))))
+                .containsExactly("Postgres tuning");
+    }
+
+    @Test
+    void typeaheadRanksByRelevance() {
+        save("Spring Spring Spring", "Spring everywhere", "java", "50.00");
+
+        assertThat(rankedTitles(fullText("spri").withTypeahead(), Sort.by(FullTextCondition.RELEVANCE)))
+                .first().isEqualTo("Spring Spring Spring");
+    }
+
+    @Test
+    void typeaheadCombinesWithFuzzy() {
+        var typo = new FullTextCondition(List.of("title", "body"), "kafak", true, 0.3).withTypeahead();
+        var prefix = fullText("kaf").withTypeahead();
+
+        assertThat(executor.findAll(example(null), typo, List.of(), Pageable.unpaged()).getContent())
+                .extracting(Article::title).containsExactly("Kafka basics");
+        assertThat(executor.findAll(example(null), prefix, List.of(), Pageable.unpaged()).getContent())
+                .extracting(Article::title).containsExactly("Kafka basics");
+    }
+
+    @Test
+    void fuzzyTypeaheadMatchesEveryWordFuzzilyWithTheLastOneAsPrefix() {
+        var sprintBoo = new FullTextCondition(List.of("title", "body"), "sprint boo", true, 0.3).withTypeahead();
+        var springPost = new FullTextCondition(List.of("title", "body"), "spring post", true, 0.3).withTypeahead();
+
+        assertThat(executor.findAll(example(null), sprintBoo, List.of(), Pageable.unpaged()).getContent())
+                .extracting(Article::title).containsExactly("Spring Boot guide");
+        assertThat(executor.findAll(example(null), springPost, List.of(), Pageable.unpaged()).getContent())
+                .extracting(Article::title).containsExactly("Postgres tuning");
+    }
+
     private List<String> rankedTitles(FullTextCondition condition, Sort sort) {
         return executor.findAll(example(null), condition, List.of(), PageRequest.of(0, 10, sort))
                 .getContent().stream().map(Article::title).toList();

@@ -119,4 +119,47 @@ class MongoFullTextQueryExecutorTest {
 
         assertThat(query.getSortObject()).isEmpty();
     }
+
+    @Test
+    void typeaheadMatchesTheLastWordOfAWebSearchAsWordStartRegexOnEverySearchedProperty() {
+        var query = queryOf(new FullTextCondition(List.of("title", "body"), "kafka OR spri").withTypeahead());
+
+        assertThat(query.get("$text", Document.class).getString("$search")).isEqualTo("kafka OR");
+        assertThat(patternsOf(query.getList("$and", Document.class).get(1))).containsExactly("\\bspri", "\\bspri");
+    }
+
+    @Test
+    void typeaheadMatchesEveryWordOfAPlainTextAndItsInitials() {
+        var query = queryOf(new FullTextCondition(List.of("title"), "spr bo").withTypeahead());
+        var initials = queryOf(new FullTextCondition(List.of("title"), "sbg").withTypeahead());
+
+        assertThat(query).doesNotContainKey("$text");
+        assertThat(patternsOf(query)).containsExactly("\\bspr", "\\bbo");
+        assertThat(patternsOf(initials)).containsExactly("\\bsbg", "^\\W*s\\w*\\W+b\\w*\\W+g\\w*");
+    }
+
+    @Test
+    void typeaheadWithASingleWordUsesNoTextSearchAndNoScore() {
+        var query = findQueryOf(new FullTextCondition(List.of("title"), "spri").withTypeahead(),
+                PageRequest.of(0, 10, Sort.by(FullTextCondition.RELEVANCE)));
+
+        assertThat(query.getQueryObject()).doesNotContainKey("$text").containsKey("$and");
+        assertThat(query.getSortObject()).isEmpty();
+    }
+
+    @Test
+    void typeaheadIgnoresACompletedLastWordOfAWebSearch() {
+        var query = queryOf(new FullTextCondition(List.of("title"), "\"spri\" ").withTypeahead());
+
+        assertThat(query).containsKey("$text").doesNotContainKey("$and");
+    }
+
+    private static List<String> patternsOf(Object node) {
+        return switch (node) {
+            case java.util.regex.Pattern pattern -> List.of(pattern.pattern());
+            case Document document -> document.values().stream().flatMap(value -> patternsOf(value).stream()).toList();
+            case List<?> list -> list.stream().flatMap(value -> patternsOf(value).stream()).toList();
+            default -> List.of();
+        };
+    }
 }

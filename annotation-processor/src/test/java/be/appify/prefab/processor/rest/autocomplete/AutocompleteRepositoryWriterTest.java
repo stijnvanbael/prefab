@@ -2,6 +2,7 @@ package be.appify.prefab.processor.rest.autocomplete;
 
 import be.appify.prefab.core.annotations.rest.MatchStrategy;
 import be.appify.prefab.core.annotations.rest.ScanMode;
+import be.appify.prefab.core.util.InitialsExpression;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -159,6 +160,45 @@ class AutocompleteRepositoryWriterTest {
 
         assertTrue(source.contains("'$regex': '?0'"));
         assertTrue(source.contains("'$options': 'i'"));
+    }
+
+    @Test
+    @DisplayName("JDBC FULL_TEXT matches every word as prefix and the initials, on the indexed expressions")
+    void jdbcFullText() {
+        var source = AutocompleteRepositoryWriter
+                .autocompleteJdbcMethod("brand", "product", ScanMode.PREFIX, MatchStrategy.FULL_TEXT)
+                .toString();
+
+        assertTrue(source.contains("to_tsvector('simple', coalesce(\\\"brand\\\", ''))"));
+        assertTrue(source.contains("to_tsquery('simple', regexp_replace("));
+        assertTrue(source.contains("':* & '"));
+        assertTrue(source.contains("regexp_replace(:query, '[^[:alnum:]]+', ' ', 'g')"));
+        assertTrue(source.contains(InitialsExpression.of("brand").replace("\\", "\\\\").replace("\"", "\\\"") + " LIKE lower("));
+        assertFalse(source.contains("word_similarity"));
+    }
+
+    @Test
+    @DisplayName("JDBC FULL_TEXT_FUZZY also accepts words that are similar or a prefix")
+    void jdbcFullTextFuzzy() {
+        var source = AutocompleteRepositoryWriter
+                .autocompleteJdbcMethod("brand", "product", ScanMode.PREFIX, MatchStrategy.FULL_TEXT_FUZZY)
+                .toString();
+
+        assertTrue(source.contains("NOT EXISTS (SELECT 1 FROM regexp_split_to_table("));
+        assertTrue(source.contains("word_similarity(word, \\\"brand\\\") >= 0.3"));
+        assertTrue(source.contains("to_tsquery('simple', word || ':*')"));
+    }
+
+    @Test
+    @DisplayName("Mongo FULL_TEXT matches the complete regular expression built by the service, ignoring case")
+    void mongoFullText() {
+        var source = AutocompleteRepositoryWriter
+                .autocompleteMongoMethod("name", ScanMode.PREFIX, MatchStrategy.FULL_TEXT)
+                .toString();
+
+        assertTrue(source.contains("'$regex': '?0'"));
+        assertTrue(source.contains("'$options': 'i'"));
+        assertFalse(source.contains("^?0"));
     }
 
     // -------------------------------------------------------------------------

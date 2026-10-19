@@ -131,6 +131,30 @@ class FullTextFilterTest {
     }
 
     @Test
+    void typeaheadIsTheDefault() throws Exception {
+        var service = source(articleCompilation, "rest.fulltextfilter.application.ArticleService");
+
+        assertContains(service, "new FullTextCondition(List.of(\"title\", \"body\"), query).withTypeahead()");
+    }
+
+    @Test
+    void typeaheadCanBeSwitchedOff() throws Exception {
+        var service = source(compile("rest/fulltextfilter/wholewords/source/Handout.java"),
+                "rest.fulltextfilter.wholewords.application.HandoutService");
+
+        assertContains(service, "new FullTextCondition(List.of(\"title\", \"body\"), query)");
+        assertDoesNotContain(service, "withTypeahead");
+    }
+
+    @Test
+    void fieldsSharingAParameterMustAgreeOnTypeahead() {
+        var compilation = compile("rest/fulltextfilter/invalid/mixedtypeahead/source/Manual.java");
+
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("must use the same typeahead setting");
+    }
+
+    @Test
     void fieldsSharingAParameterMustAgreeOnFuzziness() {
         var compilation = compile("rest/fulltextfilter/invalid/mixedfuzzy/source/Manual.java");
 

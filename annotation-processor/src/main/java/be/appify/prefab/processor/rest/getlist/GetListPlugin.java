@@ -129,8 +129,20 @@ public class GetListPlugin extends RestOperationPlugin {
                         .formatted(filter.searchedProperties().getFirst()),
                 manifest.element()));
         var consistentFuzziness = fuzzinessIsConsistent(manifest, fullText);
+        var consistentTypeahead = typeaheadIsConsistent(manifest, fullText);
         return nonString.isEmpty() && !tooMany && clashes.isEmpty() && invalidThreshold.isEmpty()
-                && consistentFuzziness;
+                && consistentFuzziness && consistentTypeahead;
+    }
+
+    private boolean typeaheadIsConsistent(ClassManifest manifest, List<GetListUtil.FilterManifest> fullText) {
+        var consistent = fullText.stream().map(GetListUtil.FilterManifest::typeahead).distinct().count() <= 1;
+        if (!consistent) {
+            context().logError(
+                    "[@Filter] %s: all FULL_TEXT fields sharing a parameter must use the same typeahead setting"
+                            .formatted(manifest.simpleName()),
+                    manifest.element());
+        }
+        return consistent;
     }
 
     // Fuzziness applies to the whole search, so fields sharing a parameter cannot disagree about it

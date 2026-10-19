@@ -1,6 +1,7 @@
 package be.appify.prefab.core.spring.data;
 
 import be.appify.prefab.core.annotations.rest.Filter.Weight;
+import be.appify.prefab.core.util.TypeaheadQuery;
 import java.util.List;
 import java.util.Map;
 import org.springframework.data.domain.Sort;
@@ -21,13 +22,17 @@ import org.jspecify.annotations.Nullable;
  *         the minimum word similarity between 0 (exclusive) and 1 for a fuzzy match
  * @param weights
  *         the relevance weight per property; properties without an entry have the default weight {@link Weight#D}
+ * @param typeahead
+ *         whether the last word of the search text also matches as a prefix, so that a partially typed word finds
+ *         its completions
  */
 public record FullTextCondition(
         List<String> properties,
         @Nullable String query,
         boolean fuzzy,
         double similarityThreshold,
-        Map<String, Weight> weights
+        Map<String, Weight> weights,
+        boolean typeahead
 ) {
     /** The sort property that orders results by relevance, always from most to least relevant. */
     public static final String RELEVANCE = "relevance";
@@ -66,6 +71,50 @@ public record FullTextCondition(
             double similarityThreshold
     ) {
         this(properties, query, fuzzy, similarityThreshold, Map.of());
+    }
+
+    /**
+     * Creates a full-text condition that matches whole words only.
+     *
+     * @param properties
+     *         the names of the text properties to search in
+     * @param query
+     *         the user supplied search text
+     * @param fuzzy
+     *         whether similar words also match
+     * @param similarityThreshold
+     *         the minimum word similarity for a fuzzy match
+     * @param weights
+     *         the relevance weight per property
+     */
+    public FullTextCondition(
+            List<String> properties,
+            @Nullable String query,
+            boolean fuzzy,
+            double similarityThreshold,
+            Map<String, Weight> weights
+    ) {
+        this(properties, query, fuzzy, similarityThreshold, weights, false);
+    }
+
+    /**
+     * Returns a copy of this condition that also matches the last word of the search text as a prefix.
+     *
+     * @return the type-ahead condition
+     */
+    public FullTextCondition withTypeahead() {
+        return new FullTextCondition(properties, query, fuzzy, similarityThreshold, weights, true);
+    }
+
+    /**
+     * The search text split in the words to match as prefix and the part to match as web search syntax, when this is
+     * a type-ahead search.
+     *
+     * @return the split search text; without prefixes when type-ahead is off
+     */
+    public TypeaheadQuery typeaheadQuery() {
+        var text = query == null ? "" : query;
+        return typeahead ? TypeaheadQuery.of(text) : new TypeaheadQuery(text, List.of());
     }
 
     /** Validates that at least one property is given and makes the property list immutable. */

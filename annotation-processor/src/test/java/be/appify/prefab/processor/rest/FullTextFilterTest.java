@@ -116,6 +116,14 @@ class FullTextFilterTest {
     }
 
     @Test
+    void weightedFilterPassesTheWeightsToTheCondition() throws Exception {
+        var service = source(compile("rest/fulltextfilter/weighted/source/Essay.java"),
+                "rest.fulltextfilter.weighted.application.EssayService");
+
+        assertContains(service, "Map.of(\"title\", Filter.Weight.A)");
+    }
+
+    @Test
     void exactFilterKeepsTheExactCondition() throws Exception {
         var service = source(articleCompilation, "rest.fulltextfilter.application.ArticleService");
 

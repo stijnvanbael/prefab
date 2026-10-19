@@ -2,15 +2,18 @@ package be.appify.prefab.postgres.spring.data.jdbc;
 
 import be.appify.prefab.core.spring.data.FullTextCondition;
 import be.appify.prefab.core.spring.data.FullTextQueryExecutor;
+import be.appify.prefab.core.annotations.rest.Filter.Weight;
 import be.appify.prefab.core.spring.data.RangeCondition;
+import be.appify.prefab.core.util.TsVectorExpression;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jdbc.core.convert.EntityRowMapper;
 import org.springframework.data.jdbc.core.convert.JdbcConverter;
 import org.springframework.data.jdbc.core.convert.QueryMapper;
@@ -22,9 +25,11 @@ import org.springframework.data.relational.core.mapping.RelationalPersistentEnti
 import org.springframework.data.relational.core.sql.Comparison;
 import org.springframework.data.relational.core.sql.Condition;
 import org.springframework.data.relational.core.sql.Conditions;
+import org.springframework.data.relational.core.sql.Expression;
 import org.springframework.data.relational.core.sql.Expressions;
 import org.springframework.data.relational.core.sql.Functions;
 import org.springframework.data.relational.core.sql.SQL;
+import org.springframework.data.relational.core.sql.OrderByField;
 import org.springframework.data.relational.core.sql.Select;
 import org.springframework.data.relational.core.sql.SelectBuilder;
 import org.springframework.data.relational.core.sql.SimpleFunction;
@@ -42,7 +47,8 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
  * mapped to SQL conditions with Spring Data's own {@link QueryMapper}, combined with the full-text predicate in a
  * select built with the Spring Data SQL DSL, and executed through {@link NamedParameterJdbcOperations}. The search
  * text is always bound as a parameter and interpreted by {@code websearch_to_tsquery}, which never fails on user
- * input. A fuzzy condition additionally matches rows where {@code word_similarity} (pg_trgm) between the search text
+ * input. Results are ordered by {@code ts_rank_cd} over the same weighted tsvector expression as the generated index
+ * when the sort asks for {@link FullTextCondition#RELEVANCE} or is empty. A fuzzy condition additionally matches rows where {@code word_similarity} (pg_trgm) between the search text
  * and any searched column reaches the similarity threshold.
  */
 public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
@@ -102,7 +108,7 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
         var parameters = new MapSqlParameterSource();
         var where = whereOf(example, fullText, ranges, entity, table, parameters);
         var rows = jdbc.query(
-                renderer.render(selectOf(table, where, pageable, entity)),
+                renderer.render(selectOf(table, where, fullText, pageable, entity)),
                 parameters,
                 new EntityRowMapper<>(entity, converter));
         return PageableExecutionUtils.getPage(rows, pageable, () -> count(table, where, parameters));
@@ -130,16 +136,20 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
     }
 
     private Condition matches(FullTextCondition fullText, RelationalPersistentEntity<?> entity, Table table) {
-        // concat_ws is not IMMUTABLE and cannot be used in an index; the || form matches the generated GIN index
-        var text = fullText.properties().stream()
-                .map(property -> "coalesce(\"%s\", '')".formatted(columnOf(entity, property)))
-                .collect(Collectors.joining(" || ' ' || "));
-        var exact = Comparison.create(
-                SimpleFunction.create("to_tsvector", List.of(SQL.literalOf(configuration), Expressions.just(text))),
-                "@@",
-                SimpleFunction.create("websearch_to_tsquery",
-                        List.of(SQL.literalOf(configuration), SQL.bindMarker(":" + BIND_NAME))));
+        var exact = Comparison.create(tsVector(fullText, entity), "@@", tsQuery());
         return fullText.fuzzy() ? Conditions.nest(exact.or(similarTo(fullText, entity))) : exact;
+    }
+
+    private Expression tsVector(FullTextCondition fullText, RelationalPersistentEntity<?> entity) {
+        var weightByColumn = new LinkedHashMap<String, Weight>();
+        fullText.properties().forEach(property ->
+                weightByColumn.put(columnOf(entity, property), fullText.weightOf(property)));
+        return Expressions.just(TsVectorExpression.of(configuration, weightByColumn));
+    }
+
+    private Expression tsQuery() {
+        return SimpleFunction.create("websearch_to_tsquery",
+                List.of(SQL.literalOf(configuration), SQL.bindMarker(":" + BIND_NAME)));
     }
 
     private Condition similarTo(FullTextCondition fullText, RelationalPersistentEntity<?> entity) {
@@ -161,6 +171,7 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
     private Select selectOf(
             Table table,
             Condition[] where,
+            FullTextCondition fullText,
             Pageable pageable,
             RelationalPersistentEntity<?> entity
     ) {
@@ -169,7 +180,22 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
             select = (SelectBuilder.SelectOrdered) ((SelectBuilder.SelectLimitOffset) select)
                     .limitOffset(pageable.getPageSize(), pageable.getOffset());
         }
-        return select.orderBy(queryMapper.getMappedSort(table, pageable.getSort(), entity)).build();
+        return select.orderBy(orderOf(table, fullText, pageable.getSort(), entity)).build();
+    }
+
+    private List<OrderByField> orderOf(
+            Table table,
+            FullTextCondition fullText,
+            Sort sort,
+            RelationalPersistentEntity<?> entity
+    ) {
+        var orders = new ArrayList<OrderByField>();
+        if (fullText.ranksByRelevance(sort)) {
+            var rank = SimpleFunction.create("ts_rank_cd", List.of(tsVector(fullText, entity), tsQuery()));
+            orders.add(OrderByField.from(rank).desc());
+        }
+        orders.addAll(queryMapper.getMappedSort(table, FullTextCondition.withoutRelevance(sort), entity));
+        return orders;
     }
 
     private long count(Table table, Condition[] where, MapSqlParameterSource parameters) {

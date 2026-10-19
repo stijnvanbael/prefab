@@ -697,6 +697,19 @@ class DbMigrationWriterTest {
     }
 
     @Test
+    void weightedFullTextFieldsGetAWeightedIndexExpressionMatchingTheQuery() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/fulltextweighted/source/Booklet.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("USING GIN (setweight(to_tsvector('simple', coalesce(\"title\", '')), 'A') || "
+                        + "setweight(to_tsvector('simple', coalesce(\"body_text\", '')), 'C'));");
+    }
+
+    @Test
     void fuzzyFullTextGetsTrigramIndexesAndEnablesTheExtension() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

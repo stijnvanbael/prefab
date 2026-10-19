@@ -15,6 +15,7 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -113,6 +114,16 @@ class GetListServiceWriter {
     private static CodeBlock fullTextCondition(GetListUtil.FilterManifest filter) {
         var properties = filter.searchedProperties().stream().map(property -> CodeBlock.of("$S", property))
                 .collect(CodeBlock.joining(", "));
+        var weights = filter.weights().entrySet().stream()
+                .filter(entry -> entry.getValue() != Filter.Weight.D)
+                .map(entry -> CodeBlock.of("$S, $T.$N", entry.getKey(), Filter.Weight.class, entry.getValue().name()))
+                .collect(CodeBlock.joining(", "));
+        if (!weights.isEmpty()) {
+            return CodeBlock.of("new $T($T.of($L), $N, $L, $L, $T.of($L))",
+                    FullTextCondition.class, List.class, properties, filter.parameterName(), filter.fuzzy(),
+                    filter.fuzzy() ? filter.similarityThreshold() : FullTextCondition.DEFAULT_SIMILARITY_THRESHOLD,
+                    Map.class, weights);
+        }
         if (filter.fuzzy()) {
             return CodeBlock.of("new $T($T.of($L), $N, true, $L)",
                     FullTextCondition.class, List.class, properties, filter.parameterName(),

@@ -2,7 +2,10 @@ package be.appify.prefab.processor.rest.getlist;
 
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.core.annotations.rest.Filter.Weight;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Exposes the fields that take part in the full-text filter of an aggregate, for plugins that need to create the
@@ -23,6 +26,20 @@ public final class FullTextFields {
         return GetListUtil.fullTextFiltersOf(GetListUtil.declaredFiltersOf(manifest)).stream()
                 .flatMap(filter -> filter.searchedProperties().stream())
                 .toList();
+    }
+
+    /**
+     * The relevance weight of each field that is searched by the FULL_TEXT filter, in declaration order.
+     *
+     * @param manifest
+     *         the aggregate
+     * @return the weight by field name, empty when the aggregate has no FULL_TEXT filter
+     */
+    public static Map<String, Weight> weightsOf(ClassManifest manifest) {
+        var weights = new LinkedHashMap<String, Weight>();
+        GetListUtil.fullTextFiltersOf(GetListUtil.declaredFiltersOf(manifest))
+                .forEach(filter -> weights.putAll(filter.weights()));
+        return weights;
     }
 
     /**

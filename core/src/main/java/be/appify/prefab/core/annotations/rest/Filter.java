@@ -50,6 +50,42 @@ public @interface Filter {
      */
     double similarityThreshold() default 0.3;
 
+    /**
+     * The weight of this field in the relevance score of a {@link Operator#FULL_TEXT} search, so that for example a
+     * title counts for more than a body. On PostgreSQL this is the <code>setweight</code> label of the field in the
+     * generated index and in the ranking, on MongoDB it is the weight of the field in the text index. Default is
+     * {@link Weight#D}, the lowest weight. Only used by {@link Operator#FULL_TEXT}.
+     * @return The weight of the field.
+     */
+    Weight weight() default Weight.D;
+
+    /** The weight of a field in the relevance score of a full-text search, from most to least important. */
+    enum Weight {
+        /** Highest weight. */
+        A(10f),
+        /** High weight. */
+        B(4f),
+        /** Medium weight. */
+        C(2f),
+        /** Default and lowest weight. */
+        D(1f);
+
+        private final float textIndexWeight;
+
+        Weight(float textIndexWeight) {
+            this.textIndexWeight = textIndexWeight;
+        }
+
+        /**
+         * The weight of the field in a MongoDB text index, proportional to the default PostgreSQL ranking weights.
+         *
+         * @return the text index weight
+         */
+        public float textIndexWeight() {
+            return textIndexWeight;
+        }
+    }
+
     /** The supported filter operators. */
     enum Operator {
         /** Equal operator. */
@@ -88,7 +124,9 @@ public @interface Filter {
          * field) holding the search text; a row matches when the text matches any of those fields. The search text
          * supports web search syntax: multiple words must all match, <code>OR</code> matches either word, a leading
          * <code>-</code> excludes a word and double quotes match a phrase. Only one full-text request parameter is
-         * supported per aggregate and {@link #ignoreCase()} has no effect. Backed by PostgreSQL text search (a GIN
+         * supported per aggregate and {@link #ignoreCase()} has no effect. Results can be ordered by relevance with the
+         * sort property <code>relevance</code>, which is also the default order when a search text is given and no
+         * sort was requested; see {@link #weight()} for weighting fields. Backed by PostgreSQL text search (a GIN
          * index is generated) and MongoDB text indexes.
          */
         FULL_TEXT

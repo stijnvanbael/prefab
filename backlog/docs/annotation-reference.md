@@ -457,6 +457,7 @@ Enables filtering on a field in the `@GetList` endpoint.
 | `parameter`  | `String`          | `"`       | Request parameter name; only used by `FULL_TEXT`, where several fields share one parameter. |
 | `fuzzy`      | `boolean`         | `false`    | Only `FULL_TEXT`: also match words similar to the search text, tolerating typos (PostgreSQL only). |
 | `similarityThreshold` | `double` | `0.3`      | Only `FULL_TEXT` with `fuzzy`: minimum word similarity, above 0 and at most 1. Lower tolerates more typos. |
+| `weight`     | `Filter.Weight`   | `D`        | Only `FULL_TEXT`: relevance weight of the field, from `A` (most important) to `D` (default). |
 
 **Operators:**
 
@@ -511,8 +512,8 @@ backed by a generated text index). A match on any of the fields counts as a matc
 - Only one full-text parameter per aggregate is supported (MongoDB allows a single text index per collection),
   and the fields must be `String`. Violations are a compile error.
 - The search text uses web-search syntax: words are ANDed, `"quoted phrases"`, `or` and `-excluded` words.
-- Text is matched with the `simple` configuration (no stemming or stop words) and results are not ranked.
-  Fuzzy matching, relevance scoring, language support and prefix matching are planned as separate features.
+- Text is matched with the `simple` configuration (no stemming or stop words).
+  Language support and prefix matching are planned as separate features.
 - Full-text filters combine with all other filters (equality, range, tenant, parent) using AND. The generated
   query uses a `FullTextQueryExecutor` bean provided by `prefab-postgres` and `prefab-mongodb`.
 - Full-text fields get no plain index; a single GIN (PostgreSQL) or text (MongoDB) index covers them together.
@@ -525,6 +526,15 @@ backed by a generated text index). A match on any of the fields counts as a matc
   so the trigram indexes are provided for the operators but not used by this predicate; the exact part stays indexed.
 - **MongoDB:** `$text` has no fuzziness, so `fuzzy` and `similarityThreshold` are ignored and the search stays exact
   (degraded, not a compile error, so one model works on both databases). Use Atlas Search if you need typo tolerance.
+- **Relevance ranking:** results are ordered by relevance (PostgreSQL `ts_rank_cd` over the same tsvector expression as
+  the index, MongoDB `{$meta: "textScore"}`) when the `Pageable` sort contains the reserved property `relevance`
+  (`GET /articles?query=spring&sort=relevance`), always from most to least relevant. When a search text is given and
+  no sort was requested, relevance is the default order; any explicit sort wins. Other sort properties can follow
+  `relevance` as tie-breakers. Without a search text `relevance` is ignored. The score itself is not part of the response.
+- **Weights:** `@Filter(weight = Filter.Weight.A)` makes a field count more in the relevance score, for example a title
+  over a body. PostgreSQL labels the field with `setweight` (A-D) in both the generated GIN index and the query, so
+  the index stays usable; MongoDB uses text index weights (A=10, B=4, C=2, D=1). Without weights the index expression
+  is unchanged.
 ```java
 @Filter(operator = Filter.Operator.EQUAL)
 @Filter(operator = Filter.Operator.CONTAINS)

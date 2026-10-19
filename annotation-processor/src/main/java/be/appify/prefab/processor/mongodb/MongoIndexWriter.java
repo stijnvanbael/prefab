@@ -73,18 +73,26 @@ class MongoIndexWriter {
     // The language is "none" (no stemming) to match the PostgreSQL 'simple' configuration, and a language override
     // field that no document has prevents a property called "language" from being read as a text language.
     private static void textIndexOf(MethodSpec.Builder constructor, ClassManifest manifest) {
-        var fields = FullTextFields.namesOf(manifest);
-        if (!fields.isEmpty()) {
-            constructor.addStatement("""
-                            mongoTemplate.indexOps($T.class).createIndex($T.builder()
-                                .onFields($L)
-                                .withDefaultLanguage("none")
-                                .withLanguageOverride("_prefabLanguage")
-                                .build())""",
-                    manifest.type().asTypeName(),
-                    TEXT_INDEX,
-                    fields.stream().map(field -> "\"" + field + "\"").collect(Collectors.joining(", ")));
+        var weights = FullTextFields.weightsOf(manifest);
+        if (weights.isEmpty()) {
+            return;
         }
+        var fields = weights.entrySet().stream().allMatch(entry -> entry.getValue() == Filter.Weight.D)
+                ? ".onFields(" + weights.keySet().stream().map(field -> "\"" + field + "\"")
+                .collect(Collectors.joining(", ")) + ")"
+                : weights.entrySet().stream()
+                        .map(entry -> ".onField(\"%s\", %sf)".formatted(entry.getKey(),
+                                entry.getValue().textIndexWeight()))
+                        .collect(Collectors.joining("\n"));
+        constructor.addStatement("""
+                        mongoTemplate.indexOps($T.class).createIndex($T.builder()
+                            $L
+                            .withDefaultLanguage("none")
+                            .withLanguageOverride("_prefabLanguage")
+                            .build())""",
+                manifest.type().asTypeName(),
+                TEXT_INDEX,
+                fields);
     }
 
     private List<MongoIndex> fieldIndexesOf(ClassManifest manifest, String prefix) {

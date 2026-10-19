@@ -2,9 +2,13 @@ package be.appify.prefab.postgres.spring.data.jdbc;
 
 import be.appify.prefab.core.annotations.rest.Filter.Operator;
 import be.appify.prefab.core.spring.data.FullTextCondition;
+import be.appify.prefab.core.annotations.rest.Filter.Weight;
 import be.appify.prefab.core.spring.data.RangeCondition;
+
 import java.math.BigDecimal;
+
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -205,4 +209,57 @@ class JdbcFullTextQueryExecutorTest {
         assertThat(fuzzyTitles("postgers", 0.3, "java")).isEmpty();
         assertThat(fuzzyTitles("postgers", 0.3, null,
                 new RangeCondition("price", Operator.GREATER_THAN, new BigDecimal("25.00")))).isEmpty();
-    }}
+    }
+
+    private List<String> rankedTitles(FullTextCondition condition, Sort sort) {
+        return executor.findAll(example(null), condition, List.of(), PageRequest.of(0, 10, sort))
+                .getContent().stream().map(Article::title).toList();
+    }
+
+    private static FullTextCondition weighted(Weight title, Weight body) {
+        return new FullTextCondition(List.of("title", "body"), "spring", false,
+                FullTextCondition.DEFAULT_SIMILARITY_THRESHOLD, Map.of("title", title, "body", body));
+    }
+
+    @Test
+    void ordersByRelevanceWhenTheSortAsksForIt() {
+        save("Spring Spring Spring", "Spring everywhere", "java", "50.00");
+
+        assertThat(rankedTitles(fullText("spring"), Sort.by(FullTextCondition.RELEVANCE)))
+                .first().isEqualTo("Spring Spring Spring");
+    }
+
+    @Test
+    void ordersByRelevanceByDefaultWhenNoSortIsGiven() {
+        save("Spring Spring Spring", "Spring everywhere", "java", "50.00");
+
+        assertThat(rankedTitles(fullText("spring"), Sort.unsorted())).first().isEqualTo("Spring Spring Spring");
+    }
+
+    @Test
+    void explicitSortOverridesTheDefaultRelevanceOrder() {
+        save("Spring Spring Spring", "Spring everywhere", "java", "50.00");
+
+        assertThat(rankedTitles(fullText("spring"), Sort.by("title")))
+                .containsExactly("Postgres tuning", "Spring Boot guide", "Spring Spring Spring");
+    }
+
+    @Test
+    void relevanceCanBeCombinedWithAnotherSortProperty() {
+        assertThat(rankedTitles(fullText("spring"), Sort.by(FullTextCondition.RELEVANCE).and(Sort.by("title"))))
+                .hasSize(2);
+    }
+
+    @Test
+    void relevanceSortIsIgnoredWithoutSearchText() {
+        assertThat(rankedTitles(fullText(null), Sort.by(FullTextCondition.RELEVANCE))).hasSize(4);
+    }
+
+    @Test
+    void weightsDecideWhichPropertyCountsMore() {
+        assertThat(rankedTitles(weighted(Weight.A, Weight.D), Sort.unsorted()))
+                .containsExactly("Spring Boot guide", "Postgres tuning");
+        assertThat(rankedTitles(weighted(Weight.D, Weight.A), Sort.unsorted()))
+                .containsExactly("Postgres tuning", "Spring Boot guide");
+    }
+}

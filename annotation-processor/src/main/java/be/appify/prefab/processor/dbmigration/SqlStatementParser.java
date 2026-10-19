@@ -21,7 +21,7 @@ class SqlStatementParser {
 
     // JSqlParser cannot parse a function call as index expression
     private static final Pattern FULL_TEXT_INDEX_PATTERN = Pattern.compile(
-            "CREATE\\s+INDEX\\s+\"?(\\w+)\"?\\s+ON\\s+\"?(\\w+)\"?\\s+USING\\s+GIN\\s+\\((to_tsvector\\(.*\\))\\)",
+            "CREATE\\s+INDEX\\s+\"?(\\w+)\"?\\s+ON\\s+\"?(\\w+)\"?\\s+USING\\s+GIN\\s+\\(((?:to_tsvector|setweight)\\(.*\\))\\)",
             Pattern.CASE_INSENSITIVE | Pattern.DOTALL
     );
 

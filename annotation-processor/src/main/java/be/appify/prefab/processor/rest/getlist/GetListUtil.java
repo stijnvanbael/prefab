@@ -8,7 +8,9 @@ import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -70,33 +72,38 @@ class GetListUtil {
             boolean ignoreCase,
             List<String> searchedProperties,
             boolean fuzzy,
-            double similarityThreshold
+            double similarityThreshold,
+            Map<String, Filter.Weight> weights
     ) {
 
         static FilterManifest of(VariableManifest field, Filter filter) {
             if (filter.operator() == Filter.Operator.FULL_TEXT) {
                 var parameter = filter.parameter().isBlank() ? field.name() : filter.parameter();
                 return new FilterManifest(field.withName(parameter).withType(String.class), filter.operator(),
-                        filter.ignoreCase(), List.of(field.name()), filter.fuzzy(), filter.similarityThreshold());
+                        filter.ignoreCase(), List.of(field.name()), filter.fuzzy(), filter.similarityThreshold(),
+                        Map.of(field.name(), filter.weight()));
             }
             var exposedField = !RangeCondition.isRange(filter.operator()) && field.type().isSingleValueType()
                     ? field.withType(String.class)
                     : field;
             return new FilterManifest(exposedField, filter.operator(), filter.ignoreCase(), List.of(), false,
-                    filter.similarityThreshold());
+                    filter.similarityThreshold(), Map.of());
         }
 
         // Merges the declarations of a full-text parameter into one filter that searches all declared fields
         static FilterManifest combined(List<FilterManifest> fullTextFilters) {
             var first = fullTextFilters.getFirst();
             var fuzzy = fullTextFilters.stream().filter(FilterManifest::fuzzy).findFirst();
+            var weights = new LinkedHashMap<String, Filter.Weight>();
+            fullTextFilters.forEach(filter -> weights.putAll(filter.weights()));
             return new FilterManifest(
                     first.field(),
                     first.operator(),
                     first.ignoreCase(),
                     fullTextFilters.stream().flatMap(filter -> filter.searchedProperties().stream()).toList(),
                     fuzzy.isPresent(),
-                    fuzzy.map(FilterManifest::similarityThreshold).orElse(first.similarityThreshold()));
+                    fuzzy.map(FilterManifest::similarityThreshold).orElse(first.similarityThreshold()),
+                    weights);
         }
 
         boolean isRange() {

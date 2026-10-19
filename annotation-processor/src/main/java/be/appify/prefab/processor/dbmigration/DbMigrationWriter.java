@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -434,9 +435,8 @@ class DbMigrationWriter {
     }
 
     private static List<Index> fullTextIndexOf(String tableName, ClassManifest manifest) {
-        var columns = FullTextFields.namesOf(manifest).stream()
-                .map(name -> columnNameOf(null, name))
-                .toList();
+        var columns = new LinkedHashMap<String, Filter.Weight>();
+        FullTextFields.weightsOf(manifest).forEach((name, weight) -> columns.put(columnNameOf(null, name), weight));
         var fuzzyColumns = FullTextFields.fuzzyNamesOf(manifest).stream()
                 .map(name -> columnNameOf(null, name))
                 .toList();

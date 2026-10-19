@@ -1,9 +1,12 @@
 package be.appify.prefab.processor.dbmigration;
 
+import be.appify.prefab.core.annotations.rest.Filter.Weight;
 import be.appify.prefab.core.util.IdentifierShortener;
+import be.appify.prefab.core.util.TsVectorExpression;
 import net.sf.jsqlparser.statement.create.index.CreateIndex;
 
 import java.util.List;
+import java.util.Map;
 
 import static be.appify.prefab.core.util.IdentifierShortener.POSTGRES_MAX_IDENTIFIER_LENGTH;
 import static be.appify.prefab.core.util.IdentifierShortener.shorten;
@@ -39,10 +42,10 @@ record Index(
         return new Index(name, List.of(expression), false, "GIN");
     }
 
-    static Index fullText(String tableName, List<String> columnNames) {
-        var name = shorten(tableName + "_" + String.join("_", columnNames) + "_fts", POSTGRES_MAX_IDENTIFIER_LENGTH);
-        var columns = columnNames.stream().map(column -> "coalesce(\"" + column + "\", '')").collect(joining(" || ' ' || "));
-        var expression = "to_tsvector('simple', %s)".formatted(columns);
+    static Index fullText(String tableName, Map<String, Weight> weightByColumn) {
+        var name = shorten(tableName + "_" + String.join("_", weightByColumn.keySet()) + "_fts",
+                POSTGRES_MAX_IDENTIFIER_LENGTH);
+        var expression = TsVectorExpression.of("simple", weightByColumn);
         return new Index(name, List.of(expression), false, "GIN");
     }
 

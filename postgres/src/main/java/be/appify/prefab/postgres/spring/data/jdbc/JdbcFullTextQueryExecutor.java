@@ -10,6 +10,8 @@ import java.util.LinkedHashMap;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -48,12 +50,14 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
  * select built with the Spring Data SQL DSL, and executed through {@link NamedParameterJdbcOperations}. The search
  * text is always bound as a parameter and interpreted by {@code websearch_to_tsquery}, which never fails on user
  * input. Results are ordered by {@code ts_rank_cd} over the same weighted tsvector expression as the generated index
- * when the sort asks for {@link FullTextCondition#RELEVANCE} or is empty. A fuzzy condition additionally matches rows where {@code word_similarity} (pg_trgm) between the search text
- * and any searched column reaches the similarity threshold.
+ * when the sort asks for {@link FullTextCondition#RELEVANCE} or is empty. A fuzzy condition additionally matches rows
+ * where every plain word of the search text has a {@code word_similarity} (pg_trgm) to a searched column that reaches
+ * the similarity threshold; with type-ahead the last word may alternatively be a prefix.
  */
 public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
     private static final String BIND_NAME = "fullTextQuery";
-    private static final String FUZZY_BIND_NAME = "fullTextFuzzyQuery";
+    private static final String FUZZY_WORD_BIND_PREFIX = "fullTextFuzzyWord";
+    private static final Pattern WORD = Pattern.compile("[\\p{L}\\p{N}]+");
     private static final String PREFIX_BIND_NAME = "fullTextPrefix";
     private static final String THRESHOLD_BIND_NAME = "fullTextSimilarityThreshold";
 
@@ -132,7 +136,8 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
         if (fullText.isActive()) {
             var typeahead = fullText.typeaheadQuery();
             parameters.addValue(BIND_NAME, typeahead.wholeWords());
-            parameters.addValue(FUZZY_BIND_NAME, fullText.query());
+            var words = fuzzyWordsOf(fullText.query());
+            IntStream.range(0, words.size()).forEach(index -> parameters.addValue(fuzzyWordBind(index), words.get(index)));
             typeahead.prefix().ifPresent(prefix -> parameters.addValue(PREFIX_BIND_NAME, prefix + ":*"));
             parameters.addValue(THRESHOLD_BIND_NAME, fullText.similarityThreshold());
             conditions.add(matches(fullText, entity, table));
@@ -142,7 +147,11 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
 
     private Condition matches(FullTextCondition fullText, RelationalPersistentEntity<?> entity, Table table) {
         var exact = Comparison.create(tsVector(fullText, entity), "@@", tsQuery(fullText));
-        return fullText.fuzzy() ? Conditions.nest(exact.or(similarTo(fullText, entity))) : exact;
+        if (!fullText.fuzzy()) {
+            return exact;
+        }
+        return similarTo(fullText, entity).<Condition>map(similar -> Conditions.nest(exact.or(similar)))
+                .orElse(exact);
     }
 
     private Expression tsVector(FullTextCondition fullText, RelationalPersistentEntity<?> entity) {
@@ -164,16 +173,48 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
                 .formatted(literal, BIND_NAME, PREFIX_BIND_NAME));
     }
 
-    private Condition similarTo(FullTextCondition fullText, RelationalPersistentEntity<?> entity) {
-        return fullText.properties().stream()
-                .map(property -> (Condition) Comparison.create(
-                        SimpleFunction.create("word_similarity", List.of(
-                                SQL.bindMarker(":" + FUZZY_BIND_NAME),
-                                Expressions.just("\"%s\"".formatted(columnOf(entity, property))))),
-                        ">=",
-                        SQL.bindMarker(":" + THRESHOLD_BIND_NAME)))
-                .reduce(Condition::or)
-                .orElseThrow();
+    // Every word must match some searched column, so "sprint boo" finds "Spring Boot" but "spring post" does not
+    private Optional<Condition> similarTo(FullTextCondition fullText, RelationalPersistentEntity<?> entity) {
+        var words = fuzzyWordsOf(fullText.query());
+        var prefix = fullText.typeaheadQuery().prefix();
+        return IntStream.range(0, words.size())
+                .mapToObj(index -> {
+                    var similar = fullText.properties().stream()
+                            .map(property -> (Condition) Comparison.create(
+                                    SimpleFunction.create("word_similarity", List.of(
+                                            SQL.bindMarker(":" + fuzzyWordBind(index)),
+                                            Expressions.just("\"%s\"".formatted(columnOf(entity, property))))),
+                                    ">=",
+                                    SQL.bindMarker(":" + THRESHOLD_BIND_NAME)))
+                            .reduce(Condition::or)
+                            .orElseThrow();
+                    var isLastWord = prefix.isPresent() && index == words.size() - 1;
+                    return Conditions.nest(isLastWord ? similar.or(prefixMatch(fullText, entity)) : similar);
+                })
+                .reduce(Condition::and);
+    }
+
+    private Condition prefixMatch(FullTextCondition fullText, RelationalPersistentEntity<?> entity) {
+        var literal = "'" + configuration.replace("'", "''") + "'";
+        return Comparison.create(tsVector(fullText, entity), "@@",
+                Expressions.just("to_tsquery(%s, :%s)".formatted(literal, PREFIX_BIND_NAME)));
+    }
+
+    private static String fuzzyWordBind(int index) {
+        return FUZZY_WORD_BIND_PREFIX + index;
+    }
+
+    // Words of the search text that are plain terms: not negated and not the OR operator
+    private static List<String> fuzzyWordsOf(String query) {
+        var words = new ArrayList<String>();
+        var matcher = WORD.matcher(query);
+        while (matcher.find()) {
+            var negated = matcher.start() > 0 && query.charAt(matcher.start() - 1) == '-';
+            if (!negated && !"OR".equalsIgnoreCase(matcher.group())) {
+                words.add(matcher.group());
+            }
+        }
+        return words;
     }
 
     private static String columnOf(RelationalPersistentEntity<?> entity, String property) {

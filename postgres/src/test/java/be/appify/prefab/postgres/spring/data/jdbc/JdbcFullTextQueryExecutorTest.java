@@ -272,6 +272,17 @@ class JdbcFullTextQueryExecutorTest {
                 .extracting(Article::title).containsExactly("Kafka basics");
     }
 
+    @Test
+    void fuzzyTypeaheadMatchesEveryWordFuzzilyWithTheLastOneAsPrefix() {
+        var sprintBoo = new FullTextCondition(List.of("title", "body"), "sprint boo", true, 0.3).withTypeahead();
+        var springPost = new FullTextCondition(List.of("title", "body"), "spring post", true, 0.3).withTypeahead();
+
+        assertThat(executor.findAll(example(null), sprintBoo, List.of(), Pageable.unpaged()).getContent())
+                .extracting(Article::title).containsExactly("Spring Boot guide");
+        assertThat(executor.findAll(example(null), springPost, List.of(), Pageable.unpaged()).getContent())
+                .extracting(Article::title).containsExactly("Postgres tuning");
+    }
+
     private List<String> rankedTitles(FullTextCondition condition, Sort sort) {
         return executor.findAll(example(null), condition, List.of(), PageRequest.of(0, 10, sort))
                 .getContent().stream().map(Article::title).toList();

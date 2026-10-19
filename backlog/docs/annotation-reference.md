@@ -531,7 +531,10 @@ backed by a generated text index). A match on any of the fields counts as a matc
 - Full-text fields get no plain index; a single GIN (PostgreSQL) or text (MongoDB) index covers them together.
 - **Fuzzy matching:** `fuzzy = true` makes a row match when the exact full-text match succeeds *or* when any searched
   field contains a word similar to the search text (`pg_trgm` `word_similarity(query, field) >= similarityThreshold`).
-  Exact matching stays the default. The search text is compared as a whole, so web-search operators only apply to the exact part.
+  Exact matching stays the default. Fuzzy matching is per word: every plain word of the search text (not an `OR`
+  operator or an `-excluded` word) must be similar to a word in some searched field, and with typeahead the last word may
+  alternatively be a prefix. So `sprint boo` finds "Spring Boot", while `spring post` does not. The web-search operators
+  only apply to the exact part.
   Fuzziness applies to the whole search, so all fields sharing the parameter must declare the same `fuzzy` and
   `similarityThreshold`; a mismatch is a compile error. The migration enables the `pg_trgm`
   extension and adds a trigram GIN index per searched field. The similarity check is evaluated as a function call,

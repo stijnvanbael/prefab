@@ -1,8 +1,10 @@
 package be.appify.prefab.processor.rest.autocomplete;
 
 import be.appify.prefab.core.annotations.rest.Autocomplete;
+import be.appify.prefab.core.annotations.rest.Filter.Weight;
 import be.appify.prefab.core.annotations.rest.MatchStrategy;
 import be.appify.prefab.core.annotations.rest.ScanMode;
+import be.appify.prefab.core.util.TsVectorExpression;
 import be.appify.prefab.processor.ClassManifest;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
@@ -13,6 +15,7 @@ import org.springframework.data.repository.query.Param;
 
 import javax.lang.model.element.Modifier;
 import java.util.List;
+import java.util.Map;
 
 import static be.appify.prefab.processor.CaseUtil.toPascalCase;
 import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
@@ -100,7 +103,16 @@ class AutocompleteRepositoryWriter {
             case FUZZY -> scanMode == ScanMode.PREFIX
                     ? "LOWER(:query) <% LOWER(" + columnName + ")"
                     : "similarity(LOWER(" + columnName + "), LOWER(:query)) > 0.3";
+            case FULL_TEXT -> fullTextJdbc(columnName);
         };
+    }
+
+    // The query is reduced to alphanumeric words joined with &, the last one as prefix, so it cannot break the tsquery
+    private static String fullTextJdbc(String columnName) {
+        var words = "btrim(regexp_replace(:query, '[^[:alnum:]]+', ' ', 'g'))";
+        return "(" + words + " = '' OR "
+                + TsVectorExpression.of("simple", Map.of(unquoted(columnName), Weight.D))
+                + " @@ to_tsquery('simple', regexp_replace(" + words + ", '\\s+', ' & ', 'g') || ':*'))";
     }
 
     private static String concatJdbc(ScanMode scanMode) {
@@ -111,7 +123,7 @@ class AutocompleteRepositoryWriter {
     }
 
     private static String buildMongoMatchStage(String fieldName, ScanMode scanMode, MatchStrategy matchStrategy) {
-        var pattern = switch (scanMode) {
+        var pattern = matchStrategy == MatchStrategy.FULL_TEXT ? "\\\\b?0" : switch (scanMode) {
             case PREFIX -> "^?0";
             case CONTAINS -> "?0";
         };
@@ -139,6 +151,10 @@ class AutocompleteRepositoryWriter {
 
     private static String methodNameFor(String fieldName) {
         return "autocompleteBy" + toPascalCase(fieldName);
+    }
+
+    private static String unquoted(String quotedValue) {
+        return quotedValue.replace("\"", "");
     }
 
     private static String quoted(String value) {

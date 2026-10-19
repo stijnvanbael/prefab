@@ -119,4 +119,33 @@ class MongoFullTextQueryExecutorTest {
 
         assertThat(query.getSortObject()).isEmpty();
     }
+
+    @Test
+    void typeaheadMatchesTheLastWordAsWordStartRegexOnEverySearchedProperty() {
+        var query = queryOf(new FullTextCondition(List.of("title", "body"), "kafka spri").withTypeahead());
+
+        assertThat(query.get("$text", Document.class).getString("$search")).isEqualTo("kafka");
+        var orClauses = query.getList("$and", Document.class).get(1).getList("$or", Document.class);
+        assertThat(orClauses.stream().map(Document::keySet).toList())
+                .containsExactly(java.util.Set.of("title"), java.util.Set.of("body"));
+        assertThat(orClauses.stream().flatMap(or -> or.values().stream()).toList())
+                .allSatisfy(value -> assertThat(value).isInstanceOfSatisfying(java.util.regex.Pattern.class,
+                        pattern -> assertThat(pattern.pattern()).isEqualTo("\\bspri")));
+    }
+
+    @Test
+    void typeaheadWithASingleWordUsesNoTextSearchAndNoScore() {
+        var query = findQueryOf(new FullTextCondition(List.of("title"), "spri").withTypeahead(),
+                PageRequest.of(0, 10, Sort.by(FullTextCondition.RELEVANCE)));
+
+        assertThat(query.getQueryObject()).doesNotContainKey("$text").containsKey("$and");
+        assertThat(query.getSortObject()).isEmpty();
+    }
+
+    @Test
+    void typeaheadIgnoresACompletedLastWord() {
+        var query = queryOf(new FullTextCondition(List.of("title"), "spri ").withTypeahead());
+
+        assertThat(query).containsKey("$text").doesNotContainKey("$and");
+    }
 }

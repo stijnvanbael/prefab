@@ -51,6 +51,21 @@ public @interface Filter {
     double similarityThreshold() default 0.3;
 
     /**
+     * Whether a {@link Operator#FULL_TEXT} search works as a type-ahead search: the last word of the search text also
+     * matches as a prefix, so that "spri" finds "Spring" while the user is still typing. Earlier words are matched as
+     * whole words. Default is true; set it to false to match whole words only. No prefix is applied when the search
+     * text ends in whitespace or punctuation, when the last word is excluded with <code>-</code>, when it is inside
+     * an open double quote or when it is <code>OR</code>. The prefix only consists of letters and digits, so the
+     * search text can never break the query. On PostgreSQL the prefix is matched with <code>to_tsquery</code> and
+     * <code>:*</code>. On MongoDB, <code>$text</code> only matches whole words, so the earlier words use
+     * <code>$text</code> and the last word is matched as an anchored, case-insensitive word-start regular expression
+     * on the searched fields; the result is not ranked by relevance when the search text is a single word. All
+     * fields sharing a parameter must use the same setting, otherwise compilation fails.
+     * @return Whether the last word is matched as a prefix.
+     */
+    boolean typeahead() default true;
+
+    /**
      * The weight of this field in the relevance score of a {@link Operator#FULL_TEXT} search, so that for example a
      * title counts for more than a body. On PostgreSQL this is the <code>setweight</code> label of the field in the
      * generated index and in the ranking, on MongoDB it is the weight of the field in the text index. Default is

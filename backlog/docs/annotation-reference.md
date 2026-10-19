@@ -457,6 +457,7 @@ Enables filtering on a field in the `@GetList` endpoint.
 | `parameter`  | `String`          | `"`       | Request parameter name; only used by `FULL_TEXT`, where several fields share one parameter. |
 | `fuzzy`      | `boolean`         | `false`    | Only `FULL_TEXT`: also match words similar to the search text, tolerating typos (PostgreSQL only). |
 | `similarityThreshold` | `double` | `0.3`      | Only `FULL_TEXT` with `fuzzy`: minimum word similarity, above 0 and at most 1. Lower tolerates more typos. |
+| `typeahead`  | `boolean`         | `true`     | Only `FULL_TEXT`: also match the last word of the search text as a prefix; `false` matches whole words only. |
 | `weight`     | `Filter.Weight`   | `D`        | Only `FULL_TEXT`: relevance weight of the field, from `A` (most important) to `D` (default). |
 
 **Operators:**
@@ -513,7 +514,18 @@ backed by a generated text index). A match on any of the fields counts as a matc
   and the fields must be `String`. Violations are a compile error.
 - The search text uses web-search syntax: words are ANDed, `"quoted phrases"`, `or` and `-excluded` words.
 - Text is matched with the `simple` configuration (no stemming or stop words).
-  Language support and prefix matching are planned as separate features.
+  Language support is planned as a separate feature.
+- **Type-ahead (default):** the last word of the search text also matches as a prefix, so `query=spri` finds
+  "Spring" while the user is still typing; earlier words are matched as whole words. Set `typeahead = false` to match
+  whole words only. No prefix is applied when the text ends in whitespace or punctuation, when the last word is
+  excluded (`-word`), is inside an unclosed quote or is `OR`. The prefix consists of letters and digits only and is
+  bound as a parameter: PostgreSQL combines `websearch_to_tsquery(<rest>) && to_tsquery('<prefix>:*')`, so no
+  user input can break or alter the tsquery. Fields sharing a parameter must declare the same `typeahead`; a mismatch
+  is a compile error. The prefix keeps using the GIN index, and the ranking, example, range, tenant and parent
+  filters apply as usual. Typeahead and `fuzzy` combine.
+- **MongoDB typeahead:** `$text` only matches whole words, so the earlier words use `$text` and the last word is an
+  anchored (`\b`), case-insensitive regular expression on each searched field, which cannot use the text index. A search
+  text of a single word therefore has no relevance score.
 - Full-text filters combine with all other filters (equality, range, tenant, parent) using AND. The generated
   query uses a `FullTextQueryExecutor` bean provided by `prefab-postgres` and `prefab-mongodb`.
 - Full-text fields get no plain index; a single GIN (PostgreSQL) or text (MongoDB) index covers them together.
@@ -576,6 +588,7 @@ suitable for powering autocomplete widgets.
 | `EXACT`       | No wrapping — byte-for-byte comparison.                                                | Regex without options.                                                 |
 | `IGNORE_CASE` | Wraps column in `LOWER()`.                                                             | Adds `'$options': 'i'` to regex.                                       |
 | `FUZZY`       | `PREFIX` → `LOWER(:query) <% LOWER(col)` — pg_trgm `<%` operator; true only when the query is similar to a prefix/word of the value (e.g. `"foo"` matches `"foebar"` but not `"barfoo"`). Requires `pg_trgm`. `CONTAINS` → `similarity(LOWER(col), LOWER(:query)) > 0.3` — whole-string similarity. | Falls back to `IGNORE_CASE` regex — Mongo has no native fuzzy support. |
+| `FULL_TEXT`   | Type-ahead full-text match; `scanMode` has no effect. Every word must occur in the value in any order, the last word may be a prefix (`"spring boo"` finds `"Spring Boot Handbook"`). Uses `to_tsvector('simple', col) @@ to_tsquery(...)`; the query is reduced to letters and digits, so it can never break the tsquery. A blank query matches all values. A GIN index on the same tsvector expression is generated. | `$text` cannot match prefixes, so it falls back to a case-insensitive regex anchored at a word boundary (`\bquery`): the whole query must start at a word start, words are not matched independently. |
 
 > **Note:** `FUZZY` on PostgreSQL requires the `pg_trgm` extension to be enabled
 > (`CREATE EXTENSION IF NOT EXISTS pg_trgm`). The similarity threshold is fixed at `0.3`.

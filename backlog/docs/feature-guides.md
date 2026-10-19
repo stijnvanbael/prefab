@@ -1273,7 +1273,17 @@ String name;
 // FUZZY — requires pg_trgm on PostgreSQL
 @Autocomplete(matchStrategy = MatchStrategy.FUZZY)
 String description;
+
+// FULL_TEXT — type-ahead over the words of the value
+@Autocomplete(matchStrategy = MatchStrategy.FULL_TEXT)
+String title;
 ```
+
+> **FULL_TEXT** matches values containing every word of the query, in any order, with the last word as a prefix:
+> `spring boo` finds `Spring Boot Handbook`. `scanMode` has no effect. On PostgreSQL the query is reduced to letters
+> and digits before it is turned into a `to_tsquery`, so no input can break it, and a GIN index on the same
+> `to_tsvector('simple', ...)` expression is generated. On MongoDB `$text` cannot match prefixes, so it falls back to a
+> case-insensitive regex at a word boundary (`\bquery`): the whole query must start at a word start of the value.
 
 > **FUZZY on PostgreSQL** requires the `pg_trgm` extension:
 > ```

@@ -501,6 +501,14 @@ class DbMigrationWriter {
             return List.of(fuzzyAutocompleteIndex.get());
         }
 
+        var isFullTextAutocomplete = field.getAnnotation(Autocomplete.class)
+                .map(ann -> ann.value().matchStrategy())
+                .filter(strategy -> strategy == MatchStrategy.FULL_TEXT)
+                .isPresent();
+        if (isFullTextAutocomplete) {
+            return List.of(Index.fullText(tableName, Map.of(columnName, Filter.Weight.D)));
+        }
+
         if (field.hasAnnotation(Indexed.class)) {
             var isUnique = field.getAnnotation(Indexed.class)
                     .map(a -> a.value().unique())

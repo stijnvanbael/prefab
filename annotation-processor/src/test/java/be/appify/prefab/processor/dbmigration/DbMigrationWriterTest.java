@@ -630,6 +630,19 @@ class DbMigrationWriterTest {
     }
 
     @Test
+    void fullTextAutocompleteFieldGeneratesAGinIndexOnTheTsvectorTheQueryUses() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/autocomplete_fulltext/source/FullTextProduct.java"));
+        assertThat(compilation).succeeded();
+        var sql = assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String();
+        sql.contains("USING GIN (to_tsvector('simple', coalesce(\"name\", '')))");
+        sql.doesNotContain("pg_trgm");
+    }
+
+    @Test
     void fuzzyAutocompleteFieldGeneratesCorrectIndexWithOperators() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

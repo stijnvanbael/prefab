@@ -211,6 +211,56 @@ class JdbcFullTextQueryExecutorTest {
                 new RangeCondition("price", Operator.GREATER_THAN, new BigDecimal("25.00")))).isEmpty();
     }
 
+    private List<String> typeaheadTitles(String query, String category, RangeCondition... ranges) {
+        var condition = fullText(query).withTypeahead();
+        return executor.findAll(example(category), condition, List.of(ranges), Pageable.unpaged())
+                .getContent().stream().map(Article::title).sorted().toList();
+    }
+
+    @Test
+    void typeaheadMatchesTheLastWordAsPrefix() {
+        assertThat(typeaheadTitles("spri", null)).containsExactly("Postgres tuning", "Spring Boot guide");
+        assertThat(typeaheadTitles("kaf", null)).containsExactly("Kafka basics");
+        assertThat(titles("kaf")).isEmpty();
+    }
+
+    @Test
+    void typeaheadMatchesEarlierWordsAsWholeWords() {
+        assertThat(typeaheadTitles("spring pos", null)).containsExactly("Postgres tuning");
+        assertThat(typeaheadTitles("sprin boot", null)).isEmpty();
+        assertThat(typeaheadTitles("spring -pos", null)).containsExactly("Postgres tuning", "Spring Boot guide");
+    }
+
+    @Test
+    void typeaheadDoesNotApplyToCompletedWords() {
+        assertThat(typeaheadTitles("kaf ", null)).isEmpty();
+        assertThat(typeaheadTitles("\"query pla", null)).isEmpty();
+    }
+
+    @Test
+    void typeaheadNeverBreaksOnSpecialCharacters() {
+        assertThat(typeaheadTitles("'; DROP TABLE article; --", null)).isEmpty();
+        assertThat(typeaheadTitles("spring & | ! ( ) :* <-> kaf", null)).isEmpty();
+        assertThat(typeaheadTitles("spring :*", null)).containsExactly("Postgres tuning", "Spring Boot guide");
+        assertThat(typeaheadTitles("(((", null)).isEmpty();
+    }
+
+    @Test
+    void typeaheadIsCombinedWithExampleAndRangeConditions() {
+        assertThat(typeaheadTitles("spri", "DATAB")).containsExactly("Postgres tuning");
+        assertThat(typeaheadTitles("spri", null,
+                new RangeCondition("price", Operator.GREATER_THAN, new BigDecimal("15.00"))))
+                .containsExactly("Postgres tuning");
+    }
+
+    @Test
+    void typeaheadRanksByRelevance() {
+        save("Spring Spring Spring", "Spring everywhere", "java", "50.00");
+
+        assertThat(rankedTitles(fullText("spri").withTypeahead(), Sort.by(FullTextCondition.RELEVANCE)))
+                .first().isEqualTo("Spring Spring Spring");
+    }
+
     private List<String> rankedTitles(FullTextCondition condition, Sort sort) {
         return executor.findAll(example(null), condition, List.of(), PageRequest.of(0, 10, sort))
                 .getContent().stream().map(Article::title).toList();

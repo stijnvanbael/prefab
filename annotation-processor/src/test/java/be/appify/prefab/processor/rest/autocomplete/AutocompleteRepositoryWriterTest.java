@@ -161,6 +161,31 @@ class AutocompleteRepositoryWriterTest {
         assertTrue(source.contains("'$options': 'i'"));
     }
 
+    @Test
+    @DisplayName("JDBC FULL_TEXT matches every word with the last one as prefix, on the indexed tsvector expression")
+    void jdbcFullText() {
+        var source = AutocompleteRepositoryWriter
+                .autocompleteJdbcMethod("brand", "product", ScanMode.PREFIX, MatchStrategy.FULL_TEXT)
+                .toString();
+
+        assertTrue(source.contains("to_tsvector('simple', coalesce(\\\"brand\\\", ''))"));
+        assertTrue(source.contains("to_tsquery('simple', regexp_replace("));
+        assertTrue(source.contains("|| ':*'"));
+        assertTrue(source.contains("regexp_replace(:query, '[^[:alnum:]]+', ' ', 'g')"));
+        assertFalse(source.contains("LIKE"));
+    }
+
+    @Test
+    @DisplayName("Mongo FULL_TEXT falls back to a case-insensitive word-start regex")
+    void mongoFullText() {
+        var source = AutocompleteRepositoryWriter
+                .autocompleteMongoMethod("name", ScanMode.PREFIX, MatchStrategy.FULL_TEXT)
+                .toString();
+
+        assertTrue(source.contains("'$regex': '\\\\\\\\b?0'"));
+        assertTrue(source.contains("'$options': 'i'"));
+    }
+
     // -------------------------------------------------------------------------
     // Common structure assertions
     // -------------------------------------------------------------------------

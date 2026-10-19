@@ -53,6 +53,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
  */
 public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
     private static final String BIND_NAME = "fullTextQuery";
+    private static final String PREFIX_BIND_NAME = "fullTextPrefix";
     private static final String THRESHOLD_BIND_NAME = "fullTextSimilarityThreshold";
 
     private final NamedParameterJdbcOperations jdbc;
@@ -128,7 +129,9 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
                 .map(criteria -> queryMapper.getMappedObject(parameters, criteria, table, entity))
                 .ifPresent(conditions::add);
         if (fullText.isActive()) {
-            parameters.addValue(BIND_NAME, fullText.query());
+            var typeahead = fullText.typeaheadQuery();
+            parameters.addValue(BIND_NAME, typeahead.wholeWords());
+            typeahead.prefix().ifPresent(prefix -> parameters.addValue(PREFIX_BIND_NAME, prefix + ":*"));
             parameters.addValue(THRESHOLD_BIND_NAME, fullText.similarityThreshold());
             conditions.add(matches(fullText, entity, table));
         }
@@ -136,7 +139,7 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
     }
 
     private Condition matches(FullTextCondition fullText, RelationalPersistentEntity<?> entity, Table table) {
-        var exact = Comparison.create(tsVector(fullText, entity), "@@", tsQuery());
+        var exact = Comparison.create(tsVector(fullText, entity), "@@", tsQuery(fullText));
         return fullText.fuzzy() ? Conditions.nest(exact.or(similarTo(fullText, entity))) : exact;
     }
 
@@ -147,9 +150,16 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
         return Expressions.just(TsVectorExpression.of(configuration, weightByColumn));
     }
 
-    private Expression tsQuery() {
-        return SimpleFunction.create("websearch_to_tsquery",
+    private Expression tsQuery(FullTextCondition fullText) {
+        var webSearch = SimpleFunction.create("websearch_to_tsquery",
                 List.of(SQL.literalOf(configuration), SQL.bindMarker(":" + BIND_NAME)));
+        if (fullText.typeaheadQuery().prefix().isEmpty()) {
+            return webSearch;
+        }
+        // The prefix bind only holds letters and digits followed by :*, so to_tsquery cannot fail on it
+        var literal = "'" + configuration.replace("'", "''") + "'";
+        return Expressions.just("(websearch_to_tsquery(%1$s, :%2$s) && to_tsquery(%1$s, :%3$s))"
+                .formatted(literal, BIND_NAME, PREFIX_BIND_NAME));
     }
 
     private Condition similarTo(FullTextCondition fullText, RelationalPersistentEntity<?> entity) {
@@ -191,7 +201,7 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
     ) {
         var orders = new ArrayList<OrderByField>();
         if (fullText.ranksByRelevance(sort)) {
-            var rank = SimpleFunction.create("ts_rank_cd", List.of(tsVector(fullText, entity), tsQuery()));
+            var rank = SimpleFunction.create("ts_rank_cd", List.of(tsVector(fullText, entity), tsQuery(fullText)));
             orders.add(OrderByField.from(rank).desc());
         }
         orders.addAll(queryMapper.getMappedSort(table, FullTextCondition.withoutRelevance(sort), entity));

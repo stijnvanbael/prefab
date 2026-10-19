@@ -53,6 +53,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
  */
 public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
     private static final String BIND_NAME = "fullTextQuery";
+    private static final String FUZZY_BIND_NAME = "fullTextFuzzyQuery";
     private static final String PREFIX_BIND_NAME = "fullTextPrefix";
     private static final String THRESHOLD_BIND_NAME = "fullTextSimilarityThreshold";
 
@@ -131,6 +132,7 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
         if (fullText.isActive()) {
             var typeahead = fullText.typeaheadQuery();
             parameters.addValue(BIND_NAME, typeahead.wholeWords());
+            parameters.addValue(FUZZY_BIND_NAME, fullText.query());
             typeahead.prefix().ifPresent(prefix -> parameters.addValue(PREFIX_BIND_NAME, prefix + ":*"));
             parameters.addValue(THRESHOLD_BIND_NAME, fullText.similarityThreshold());
             conditions.add(matches(fullText, entity, table));
@@ -166,7 +168,7 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
         return fullText.properties().stream()
                 .map(property -> (Condition) Comparison.create(
                         SimpleFunction.create("word_similarity", List.of(
-                                SQL.bindMarker(":" + BIND_NAME),
+                                SQL.bindMarker(":" + FUZZY_BIND_NAME),
                                 Expressions.just("\"%s\"".formatted(columnOf(entity, property))))),
                         ">=",
                         SQL.bindMarker(":" + THRESHOLD_BIND_NAME)))

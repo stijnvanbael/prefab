@@ -261,6 +261,17 @@ class JdbcFullTextQueryExecutorTest {
                 .first().isEqualTo("Spring Spring Spring");
     }
 
+    @Test
+    void typeaheadCombinesWithFuzzy() {
+        var typo = new FullTextCondition(List.of("title", "body"), "kafak", true, 0.3).withTypeahead();
+        var prefix = fullText("kaf").withTypeahead();
+
+        assertThat(executor.findAll(example(null), typo, List.of(), Pageable.unpaged()).getContent())
+                .extracting(Article::title).containsExactly("Kafka basics");
+        assertThat(executor.findAll(example(null), prefix, List.of(), Pageable.unpaged()).getContent())
+                .extracting(Article::title).containsExactly("Kafka basics");
+    }
+
     private List<String> rankedTitles(FullTextCondition condition, Sort sort) {
         return executor.findAll(example(null), condition, List.of(), PageRequest.of(0, 10, sort))
                 .getContent().stream().map(Article::title).toList();

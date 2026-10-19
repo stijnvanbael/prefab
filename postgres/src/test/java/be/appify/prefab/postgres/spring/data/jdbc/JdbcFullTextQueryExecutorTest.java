@@ -227,13 +227,14 @@ class JdbcFullTextQueryExecutorTest {
     @Test
     void typeaheadMatchesEarlierWordsAsWholeWords() {
         assertThat(typeaheadTitles("spring pos", null)).containsExactly("Postgres tuning");
-        assertThat(typeaheadTitles("sprin boot", null)).isEmpty();
+        assertThat(typeaheadTitles("\"spring\" pos", null)).containsExactly("Postgres tuning");
+        assertThat(typeaheadTitles("sprin boot", null)).containsExactly("Spring Boot guide");
         assertThat(typeaheadTitles("spring -pos", null)).containsExactly("Postgres tuning", "Spring Boot guide");
     }
 
     @Test
-    void typeaheadDoesNotApplyToCompletedWords() {
-        assertThat(typeaheadTitles("kaf ", null)).isEmpty();
+    void typeaheadDoesNotApplyToCompletedWebSearchWords() {
+        assertThat(typeaheadTitles("\"kafka\" ", null)).containsExactly("Kafka basics");
         assertThat(typeaheadTitles("\"query pla", null)).isEmpty();
     }
 

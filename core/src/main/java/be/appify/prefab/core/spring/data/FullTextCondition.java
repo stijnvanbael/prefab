@@ -4,7 +4,6 @@ import be.appify.prefab.core.annotations.rest.Filter.Weight;
 import be.appify.prefab.core.util.TypeaheadQuery;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import org.springframework.data.domain.Sort;
 import org.jspecify.annotations.Nullable;
 
@@ -108,14 +107,14 @@ public record FullTextCondition(
     }
 
     /**
-     * The search text split in the words to match as a whole and the prefix to match, when this is a type-ahead
-     * search.
+     * The search text split in the words to match as prefix and the part to match as web search syntax, when this is
+     * a type-ahead search.
      *
-     * @return the split search text; without a prefix when type-ahead is off
+     * @return the split search text; without prefixes when type-ahead is off
      */
     public TypeaheadQuery typeaheadQuery() {
         var text = query == null ? "" : query;
-        return typeahead ? TypeaheadQuery.of(text) : new TypeaheadQuery(text, Optional.empty());
+        return typeahead ? TypeaheadQuery.of(text) : new TypeaheadQuery(text, List.of());
     }
 
     /** Validates that at least one property is given and makes the property list immutable. */

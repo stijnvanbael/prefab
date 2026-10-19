@@ -29,13 +29,22 @@ public enum MatchStrategy {
     FUZZY,
 
     /**
-     * Full-text type-ahead match: every word of the query must occur in the value, in any order and position, and the
-     * last word may be a prefix, so "spring boo" finds "Spring Boot Handbook". {@link ScanMode} has no effect.
+     * Full-text type-ahead match: every word of the query is the start of a word in the value, in any order, so
+     * "spr bo g" finds "Spring Boot guide". A single word of two or more letters also matches the initials of the
+     * words of the value, so "sbg" finds "Spring Boot guide". {@link ScanMode} has no effect.
      * <p>For JDBC, uses a PostgreSQL {@code to_tsvector} / {@code to_tsquery} match over the same expression as the
-     * generated GIN index. The query is reduced to letters and digits, so it can never break the tsquery. For MongoDB,
-     * {@code $text} cannot match prefixes, so it falls back to a case-insensitive regex that requires the whole query
-     * to start at a word boundary of the value — words are not matched independently or in any order.</p>
+     * generated GIN index, and the initials of the value as generated btree index. The query is reduced to letters and
+     * digits, so it can never break the tsquery. For MongoDB, {@code $text} cannot match prefixes, so it uses a
+     * case-insensitive regex with the same semantics.</p>
      */
-    FULL_TEXT
-}
+    FULL_TEXT,
 
+    /**
+     * {@link #FULL_TEXT}, and additionally tolerates typos: a value also matches when every word of the query is
+     * similar to a word of the value or the start of one, so "sprint boo" finds "Spring Boot" but "spring post" does
+     * not.
+     * <p>For JDBC, requires the {@code pg_trgm} PostgreSQL extension and uses {@code word_similarity}. For MongoDB
+     * there is no fuzzy support, so it behaves like {@link #FULL_TEXT}.</p>
+     */
+    FULL_TEXT_FUZZY
+}

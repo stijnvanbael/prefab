@@ -4,6 +4,7 @@ import be.appify.prefab.core.annotations.rest.Autocomplete;
 import be.appify.prefab.core.annotations.rest.Filter.Weight;
 import be.appify.prefab.core.annotations.rest.MatchStrategy;
 import be.appify.prefab.core.annotations.rest.ScanMode;
+import be.appify.prefab.core.util.InitialsExpression;
 import be.appify.prefab.core.util.TsVectorExpression;
 import be.appify.prefab.processor.ClassManifest;
 import com.palantir.javapoet.AnnotationSpec;
@@ -14,6 +15,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
 
 import javax.lang.model.element.Modifier;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -103,16 +105,33 @@ class AutocompleteRepositoryWriter {
             case FUZZY -> scanMode == ScanMode.PREFIX
                     ? "LOWER(:query) <% LOWER(" + columnName + ")"
                     : "similarity(LOWER(" + columnName + "), LOWER(:query)) > 0.3";
-            case FULL_TEXT -> fullTextJdbc(columnName);
+            case FULL_TEXT -> fullTextJdbc(columnName, false);
+            case FULL_TEXT_FUZZY -> fullTextJdbc(columnName, true);
         };
     }
 
-    // The query is reduced to alphanumeric words joined with &, the last one as prefix, so it cannot break the tsquery
-    private static String fullTextJdbc(String columnName) {
+    // The query is reduced to alphanumeric words that are all matched as prefix, so it cannot break the tsquery. A
+    // single word also matches the initials of the value, and a fuzzy match requires every word to be similar or a prefix.
+    private static String fullTextJdbc(String columnName, boolean fuzzy) {
+        var column = unquoted(columnName);
         var words = "btrim(regexp_replace(:query, '[^[:alnum:]]+', ' ', 'g'))";
-        return "(" + words + " = '' OR "
-                + TsVectorExpression.of("simple", Map.of(unquoted(columnName), Weight.D))
-                + " @@ to_tsquery('simple', regexp_replace(" + words + ", '\\s+', ' & ', 'g') || ':*'))";
+        var vector = TsVectorExpression.of("simple", Map.of(column, Weight.D));
+        var alternatives = new ArrayList<String>();
+        alternatives.add(words + " = ''");
+        alternatives.add(vector + " @@ to_tsquery('simple', regexp_replace(" + words
+                + ", '\\s+', ':* & ', 'g') || ':*')");
+        alternatives.add("(" + words + " NOT LIKE '% %' AND length(" + words + ") >= 2 AND "
+                + InitialsExpression.of(column) + " LIKE lower(regexp_replace(:query, '[^[:alnum:]]+', '', 'g')) || '%')");
+        if (fuzzy) {
+            alternatives.add("NOT EXISTS (SELECT 1 FROM regexp_split_to_table(" + words + ", ' ') AS word"
+                    + " WHERE NOT (word_similarity(word, " + columnName + ") >= 0.3"
+                    + " OR " + vector + " @@ to_tsquery('simple', word || ':*')))");
+        }
+        return "(" + String.join(" OR ", alternatives) + ")";
+    }
+
+    static boolean isFullText(MatchStrategy matchStrategy) {
+        return matchStrategy == MatchStrategy.FULL_TEXT || matchStrategy == MatchStrategy.FULL_TEXT_FUZZY;
     }
 
     private static String concatJdbc(ScanMode scanMode) {
@@ -123,7 +142,8 @@ class AutocompleteRepositoryWriter {
     }
 
     private static String buildMongoMatchStage(String fieldName, ScanMode scanMode, MatchStrategy matchStrategy) {
-        var pattern = matchStrategy == MatchStrategy.FULL_TEXT ? "\\\\b?0" : switch (scanMode) {
+        // The service turns the query of a full-text strategy into a complete regular expression
+        var pattern = isFullText(matchStrategy) ? "?0" : switch (scanMode) {
             case PREFIX -> "^?0";
             case CONTAINS -> "?0";
         };

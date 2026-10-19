@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.rest.autocomplete;
 
 import be.appify.prefab.core.annotations.rest.Autocomplete;
+import be.appify.prefab.core.annotations.rest.MatchStrategy;
 import be.appify.prefab.processor.ClassManifest;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
@@ -24,7 +25,7 @@ class AutocompleteServiceWriter {
                                 manifest,
                                 field.name(),
                                 repositoryName,
-                                annotation.value().limit())))
+                                annotation.value())))
                 .flatMap(java.util.Optional::stream)
                 .flatMap(List::stream)
                 .toList();
@@ -34,8 +35,9 @@ class AutocompleteServiceWriter {
             ClassManifest manifest,
             String fieldName,
             String repositoryName,
-            int defaultLimit
+            Autocomplete annotation
     ) {
+        var defaultLimit = annotation.limit();
         var methodName = "autocompleteBy" + toPascalCase(fieldName);
         var returnType = ParameterizedTypeName.get(ClassName.get(List.class), ClassName.get(String.class));
         return List.of(
@@ -55,16 +57,19 @@ class AutocompleteServiceWriter {
                                 "Autocompleting {} by {}", manifest.className(), fieldName)
                         .addStatement("$T offset = (long) page * limit", long.class)
                         .addStatement("return $L",
-                                repositoryCall(repositoryName, methodName))
+                                repositoryCall(repositoryName, methodName, annotation.matchStrategy()))
                         .build());
     }
 
-    private String repositoryCall(String repositoryName, String methodName) {
+    private String repositoryCall(String repositoryName, String methodName, MatchStrategy matchStrategy) {
         if (JDBC_INCLUDED) {
             return repositoryName + "." + methodName + "(query, limit, offset)";
         }
         if (MONGO_INCLUDED) {
-            return repositoryName + "." + methodName + "(query, "
+            var regexQuery = AutocompleteRepositoryWriter.isFullText(matchStrategy)
+                    ? "be.appify.prefab.core.util.TypeaheadQuery.valueRegex(query)"
+                    : "query";
+            return repositoryName + "." + methodName + "(" + regexQuery + ", "
                     + "org.springframework.data.domain.PageRequest.of(page, limit))";
         }
         return repositoryName + "." + methodName + "(query, "

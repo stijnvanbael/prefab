@@ -43,3 +43,5 @@ priority: low
 - MongoDB (decision): `` for the earlier words, anchored `\b` case-insensitive regex `` over the searched properties for the last word; single-word queries have no relevance score.
 - `@Autocomplete`: new `MatchStrategy.FULL_TEXT` (PostgreSQL tsvector/tsquery on a generated GIN index, MongoDB word-boundary regex fallback). Docs updated in annotation-reference.md and feature-guides.md.
 <!-- SECTION:NOTES:END -->
+
+- Follow-up: plain search text now matches every word as prefix (any order) and a single word as initials ("SBG" finds "Spring Boot guide"); web-search texts keep last-word-only prefix. Initials use a generated btree index on a lower/regexp_replace expression (`InitialsExpression`). Fuzzy is per word with a prefix alternative. `@Autocomplete` has the same behaviour via `FULL_TEXT` and the new `FULL_TEXT_FUZZY`; MongoDB uses `TypeaheadQuery.valueRegex` built in the service.

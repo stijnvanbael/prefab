@@ -2,6 +2,7 @@ package be.appify.prefab.processor.dbmigration;
 
 import be.appify.prefab.core.annotations.rest.Filter.Weight;
 import be.appify.prefab.core.util.IdentifierShortener;
+import be.appify.prefab.core.util.InitialsExpression;
 import be.appify.prefab.core.util.TsVectorExpression;
 import net.sf.jsqlparser.statement.create.index.CreateIndex;
 
@@ -40,6 +41,11 @@ record Index(
         var name = shorten(tableName + "_" + columnName + "_trgm", POSTGRES_MAX_IDENTIFIER_LENGTH);
         var expression = "(\"%s\" gin_trgm_ops)".formatted(columnName);
         return new Index(name, List.of(expression), false, "GIN");
+    }
+
+    static Index initials(String tableName, String columnName) {
+        var name = shorten(tableName + "_" + columnName + "_initials", POSTGRES_MAX_IDENTIFIER_LENGTH);
+        return new Index(name, List.of(InitialsExpression.indexColumn(columnName)), false, null);
     }
 
     static Index fullText(String tableName, Map<String, Weight> weightByColumn) {

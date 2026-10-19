@@ -51,17 +51,20 @@ public @interface Filter {
     double similarityThreshold() default 0.3;
 
     /**
-     * Whether a {@link Operator#FULL_TEXT} search works as a type-ahead search: the last word of the search text also
-     * matches as a prefix, so that "spri" finds "Spring" while the user is still typing. Earlier words are matched as
-     * whole words. Default is true; set it to false to match whole words only. No prefix is applied when the search
-     * text ends in whitespace or punctuation, when the last word is excluded with <code>-</code>, when it is inside
-     * an open double quote or when it is <code>OR</code>. The prefix only consists of letters and digits, so the
-     * search text can never break the query. On PostgreSQL the prefix is matched with <code>to_tsquery</code> and
-     * <code>:*</code>. On MongoDB, <code>$text</code> only matches whole words, so the earlier words use
-     * <code>$text</code> and the last word is matched as an anchored, case-insensitive word-start regular expression
-     * on the searched fields; the result is not ranked by relevance when the search text is a single word. All
-     * fields sharing a parameter must use the same setting, otherwise compilation fails.
-     * @return Whether the last word is matched as a prefix.
+     * Whether a {@link Operator#FULL_TEXT} search works as a type-ahead search: every word of a plain search text
+     * (without double quotes, excluded words or <code>OR</code>) also matches as a prefix, in any order, so that
+     * "spr bo g" finds "Spring Boot guide" while the user is still typing. A single word of two or more letters
+     * also matches the initials of the words of a field, so "sbg" finds "Spring Boot guide". Default is true; set it
+     * to false to match whole words only. A search text with web search operators keeps web search semantics and only
+     * its last word is a prefix, and only when the text does not end in whitespace or punctuation, the word is not
+     * excluded with <code>-</code>, not inside an open double quote and not <code>OR</code>. Prefixes only consist of
+     * letters and digits, so the search text can never break the query. On PostgreSQL prefixes are matched with
+     * <code>to_tsquery</code> and <code>:*</code>, initials with a generated btree index. On MongoDB,
+     * <code>$text</code> only matches whole words, so prefixes and initials are case-insensitive regular expressions
+     * on the searched fields and the result is not ranked by relevance unless the text has web search words. Every
+     * word must match some searched field. All fields sharing a parameter must use the same setting, otherwise
+     * compilation fails.
+     * @return Whether the words are matched as prefix.
      */
     boolean typeahead() default true;
 

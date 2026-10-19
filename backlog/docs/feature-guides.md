@@ -1274,16 +1274,25 @@ String name;
 @Autocomplete(matchStrategy = MatchStrategy.FUZZY)
 String description;
 
-// FULL_TEXT — type-ahead over the words of the value
+// FULL_TEXT — type-ahead over the words and initials of the value
 @Autocomplete(matchStrategy = MatchStrategy.FULL_TEXT)
 String title;
+
+// FULL_TEXT_FUZZY — the same, tolerating typos (requires pg_trgm on PostgreSQL)
+@Autocomplete(matchStrategy = MatchStrategy.FULL_TEXT_FUZZY)
+String summary;
 ```
 
-> **FULL_TEXT** matches values containing every word of the query, in any order, with the last word as a prefix:
-> `spring boo` finds `Spring Boot Handbook`. `scanMode` has no effect. On PostgreSQL the query is reduced to letters
-> and digits before it is turned into a `to_tsquery`, so no input can break it, and a GIN index on the same
-> `to_tsvector('simple', ...)` expression is generated. On MongoDB `$text` cannot match prefixes, so it falls back to a
-> case-insensitive regex at a word boundary (`\bquery`): the whole query must start at a word start of the value.
+> **FULL_TEXT** matches values in which every word of the query is the start of a word, in any order: `spr bo g`
+> finds `Spring Boot guide`. A single word of two or more letters also matches the initials of the words: `sbg` finds
+> `Spring Boot guide`. `scanMode` has no effect. On PostgreSQL the query is reduced to letters and digits before it is
+> turned into a `to_tsquery`, so no input can break it, and a GIN index on the same `to_tsvector('simple', ...)`
+> expression plus a btree index on the initials of the value are generated. On MongoDB `$text` cannot match prefixes,
+> so the service turns the query into a case-insensitive regular expression with the same semantics.
+>
+> **FULL_TEXT_FUZZY** is `FULL_TEXT` that also accepts typos: every word must be similar to a word of the value (or be
+> the start of one), so `sprint boo` finds `Spring Boot` but `spring post` does not. It requires `pg_trgm` and
+> generates a trigram index; MongoDB behaves like `FULL_TEXT`.
 
 > **FUZZY on PostgreSQL** requires the `pg_trgm` extension:
 > ```

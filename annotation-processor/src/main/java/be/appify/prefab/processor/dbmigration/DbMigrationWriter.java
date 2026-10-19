@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -440,9 +441,15 @@ class DbMigrationWriter {
         var fuzzyColumns = FullTextFields.fuzzyNamesOf(manifest).stream()
                 .map(name -> columnNameOf(null, name))
                 .toList();
-        return columns.isEmpty() ? List.of() : ListUtil.concat(
-                List.of(Index.fullText(tableName, columns)),
-                fuzzyColumns.stream().map(column -> Index.trgm(tableName, column)).toList());
+        var typeaheadColumns = FullTextFields.typeaheadNamesOf(manifest).stream()
+                .map(name -> columnNameOf(null, name))
+                .toList();
+        return columns.isEmpty() ? List.of() : Stream.of(
+                        Stream.of(Index.fullText(tableName, columns)),
+                        fuzzyColumns.stream().map(column -> Index.trgm(tableName, column)),
+                        typeaheadColumns.stream().map(column -> Index.initials(tableName, column)))
+                .flatMap(Function.identity())
+                .toList();
     }
 
     private static boolean hasFuzzyFullText(List<ClassManifest> classManifests) {
@@ -491,22 +498,20 @@ class DbMigrationWriter {
     }
 
     private static List<Index> indexFor(String tableName, String columnName, VariableManifest field) {
-        // Check if this field is an @Autocomplete with fuzzy match strategy
-        var fuzzyAutocompleteIndex = field.getAnnotation(Autocomplete.class)
-                .map(ann -> ann.value().matchStrategy())
-                .filter(strategy -> strategy == MatchStrategy.FUZZY)
-                .map(ignored -> Index.trgm(tableName, columnName));
-
-        if (fuzzyAutocompleteIndex.isPresent()) {
-            return List.of(fuzzyAutocompleteIndex.get());
+        var autocompleteStrategy = field.getAnnotation(Autocomplete.class).map(ann -> ann.value().matchStrategy());
+        if (autocompleteStrategy.filter(strategy -> strategy == MatchStrategy.FUZZY).isPresent()) {
+            return List.of(Index.trgm(tableName, columnName));
         }
-
-        var isFullTextAutocomplete = field.getAnnotation(Autocomplete.class)
-                .map(ann -> ann.value().matchStrategy())
-                .filter(strategy -> strategy == MatchStrategy.FULL_TEXT)
-                .isPresent();
-        if (isFullTextAutocomplete) {
-            return List.of(Index.fullText(tableName, Map.of(columnName, Filter.Weight.D)));
+        if (autocompleteStrategy.filter(strategy -> strategy == MatchStrategy.FULL_TEXT).isPresent()) {
+            return List.of(
+                    Index.fullText(tableName, Map.of(columnName, Filter.Weight.D)),
+                    Index.initials(tableName, columnName));
+        }
+        if (autocompleteStrategy.filter(strategy -> strategy == MatchStrategy.FULL_TEXT_FUZZY).isPresent()) {
+            return List.of(
+                    Index.fullText(tableName, Map.of(columnName, Filter.Weight.D)),
+                    Index.trgm(tableName, columnName),
+                    Index.initials(tableName, columnName));
         }
 
         if (field.hasAnnotation(Indexed.class)) {
@@ -543,7 +548,7 @@ class DbMigrationWriter {
     private boolean isFuzzyAutocompleteField(VariableManifest field) {
         return field.getAnnotation(Autocomplete.class)
                 .map(ann -> ann.value().matchStrategy())
-                .filter(strategy -> strategy == MatchStrategy.FUZZY)
+                .filter(strategy -> strategy == MatchStrategy.FUZZY || strategy == MatchStrategy.FULL_TEXT_FUZZY)
                 .isPresent();
     }
 

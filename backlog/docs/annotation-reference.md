@@ -459,6 +459,7 @@ Enables filtering on a field in the `@GetList` endpoint.
 | `similarityThreshold` | `double` | `0.3`      | Only `FULL_TEXT` with `fuzzy`: minimum word similarity, above 0 and at most 1. Lower tolerates more typos. |
 | `typeahead`  | `boolean`         | `true`     | Only `FULL_TEXT`: also match every word of the search text as a prefix and a single word as initials; `false` matches whole words only. |
 | `weight`     | `Filter.Weight`   | `D`        | Only `FULL_TEXT`: relevance weight of the field, from `A` (most important) to `D` (default). |
+| `language`   | `String`          | `""`       | Only `FULL_TEXT`: text search language such as `english` or `dutch`; empty uses the application-wide default. |
 
 **Operators:**
 
@@ -513,8 +514,17 @@ backed by a generated text index). A match on any of the fields counts as a matc
 - Only one full-text parameter per aggregate is supported (MongoDB allows a single text index per collection),
   and the fields must be `String`. Violations are a compile error.
 - The search text uses web-search syntax: words are ANDed, `"quoted phrases"`, `or` and `-excluded` words.
-- Text is matched with the `simple` configuration (no stemming or stop words).
-  Language support is planned as a separate feature.
+- **Language:** by default text is matched with the language-neutral `simple` configuration (no stemming or stop words).
+  Set `@Filter(language = "english")` per filter, or an application-wide default with the Spring property
+  `prefab.full-text.language`. The language is the name of a built-in PostgreSQL text search configuration (`english`,
+  `dutch`, `german`, ...); an unknown name is a compile error, and fields sharing a parameter must use the same language.
+  An unknown default property fails the application at startup on PostgreSQL. On PostgreSQL the language is used in the
+  query and in the generated GIN index (`to_tsvector('english', ...)`; the index is named `<table>_<columns>_fts_english`).
+  On MongoDB it is the `default_language` of the text index and the `$language` of the `$text` query (`simple` maps to
+  `none`). Because the index is generated at compile time on PostgreSQL, pass the same default to the annotation
+  processor with `-Aprefab.fullText.language=english` (Maven `compilerArgs`) as well as to the Spring property;
+  filters with an explicit `language` need neither. Changing the language generates a migration that drops the old index
+  and creates the new one; on MongoDB the text index is dropped and recreated at startup. Autocomplete keeps using `simple`.
 - **Type-ahead (default):** every word of a plain search text (no quotes, `-word` or `OR`) matches as a prefix, in any
   order, so `query=spr bo g` finds "Spring Boot guide" while the user is still typing. A single word of two or more
   letters also matches the initials of the words of a field: `query=SBG` finds "Spring Boot guide". Set

@@ -75,6 +75,11 @@
             <version>${jsqlparser.version}</version>
         </dependency>
         <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-mongodb</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>com.google.testing.compile</groupId>
             <artifactId>compile-testing</artifactId>
             <version>${compile-testing.version}</version>

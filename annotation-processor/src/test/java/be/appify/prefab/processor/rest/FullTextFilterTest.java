@@ -147,6 +147,30 @@ class FullTextFilterTest {
     }
 
     @Test
+    void languageOfTheFilterIsPassedToTheCondition() throws Exception {
+        var compilation = compile("dbmigration/fulltextlanguage/source/Pamphlet.java");
+        var service = source(compilation, "dbmigration.fulltextlanguage.application.PamphletService");
+
+        assertContains(service, ".withTypeahead().withLanguage(\"english\")");
+    }
+
+    @Test
+    void unknownLanguageIsACompileError() {
+        var compilation = compile("dbmigration/fulltextlanguageunknown/source/Leaflet.java");
+
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("unknown full-text language 'klingon'");
+    }
+
+    @Test
+    void fieldsSharingAParameterMustAgreeOnLanguage() {
+        var compilation = compile("dbmigration/fulltextlanguagemixed/source/Flyer.java");
+
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("must use the same language");
+    }
+
+    @Test
     void fieldsSharingAParameterMustAgreeOnTypeahead() {
         var compilation = compile("rest/fulltextfilter/invalid/mixedtypeahead/source/Manual.java");
 

@@ -26,6 +26,10 @@ class MongoFullTextQueryExecutorTest {
     }
 
     private Document queryOf(FullTextCondition condition) {
+        return queryOf(condition, "simple");
+    }
+
+    private Document queryOf(FullTextCondition condition, String defaultLanguage) {
         var operations = mock(MongoOperations.class);
         @SuppressWarnings("unchecked")
         ObjectProvider<MongoOperations> provider = mock(ObjectProvider.class);

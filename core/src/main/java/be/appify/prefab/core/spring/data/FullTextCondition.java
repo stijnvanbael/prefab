@@ -25,6 +25,8 @@ import org.jspecify.annotations.Nullable;
  * @param typeahead
  *         whether the last word of the search text also matches as a prefix, so that a partially typed word finds
  *         its completions
+ * @param language
+ *         the text search language, or {@code null} for the default of the executor
  */
 public record FullTextCondition(
         List<String> properties,
@@ -32,7 +34,8 @@ public record FullTextCondition(
         boolean fuzzy,
         double similarityThreshold,
         Map<String, Weight> weights,
-        boolean typeahead
+        boolean typeahead,
+        @Nullable String language
 ) {
     /** The sort property that orders results by relevance, always from most to least relevant. */
     public static final String RELEVANCE = "relevance";
@@ -98,12 +101,50 @@ public record FullTextCondition(
     }
 
     /**
+     * Creates a full-text condition in the default language.
+     *
+     * @param properties
+     *         the names of the text properties to search in
+     * @param query
+     *         the user supplied search text
+     * @param fuzzy
+     *         whether similar words also match
+     * @param similarityThreshold
+     *         the minimum word similarity for a fuzzy match
+     * @param weights
+     *         the relevance weight per property
+     * @param typeahead
+     *         whether the last word also matches as a prefix
+     */
+    public FullTextCondition(
+            List<String> properties,
+            @Nullable String query,
+            boolean fuzzy,
+            double similarityThreshold,
+            Map<String, Weight> weights,
+            boolean typeahead
+    ) {
+        this(properties, query, fuzzy, similarityThreshold, weights, typeahead, null);
+    }
+
+    /**
      * Returns a copy of this condition that also matches the last word of the search text as a prefix.
      *
      * @return the type-ahead condition
      */
     public FullTextCondition withTypeahead() {
-        return new FullTextCondition(properties, query, fuzzy, similarityThreshold, weights, true);
+        return new FullTextCondition(properties, query, fuzzy, similarityThreshold, weights, true, language);
+    }
+
+    /**
+     * Returns a copy of this condition that searches in the given language.
+     *
+     * @param language
+     *         the text search language, for example {@code english}
+     * @return the condition in that language
+     */
+    public FullTextCondition withLanguage(String language) {
+        return new FullTextCondition(properties, query, fuzzy, similarityThreshold, weights, typeahead, language);
     }
 
     /**

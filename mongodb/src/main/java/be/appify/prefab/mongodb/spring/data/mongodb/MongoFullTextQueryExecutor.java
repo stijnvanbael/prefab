@@ -3,6 +3,7 @@ package be.appify.prefab.mongodb.spring.data.mongodb;
 import be.appify.prefab.core.spring.data.FullTextCondition;
 import be.appify.prefab.core.spring.data.FullTextQueryExecutor;
 import be.appify.prefab.core.spring.data.RangeCondition;
+import be.appify.prefab.core.util.FullTextLanguages;
 import be.appify.prefab.core.util.TypeaheadQuery;
 import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
@@ -30,15 +31,29 @@ import org.springframework.data.support.PageableExecutionUtils;
 public class MongoFullTextQueryExecutor implements FullTextQueryExecutor {
 
     private final ObjectProvider<MongoOperations> operations;
+    private final String defaultLanguage;
+
+    /**
+     * Constructs a new MongoFullTextQueryExecutor that uses the language-neutral text search by default.
+     *
+     * @param operations
+     *         provider of the MongoDB operations, resolved when a query is executed
+     */
+    public MongoFullTextQueryExecutor(ObjectProvider<MongoOperations> operations) {
+        this(operations, FullTextLanguages.NEUTRAL);
+    }
 
     /**
      * Constructs a new MongoFullTextQueryExecutor.
      *
      * @param operations
      *         provider of the MongoDB operations, resolved when a query is executed
+     * @param defaultLanguage
+     *         the text search language of conditions without a language, for example {@code english}
      */
-    public MongoFullTextQueryExecutor(ObjectProvider<MongoOperations> operations) {
+    public MongoFullTextQueryExecutor(ObjectProvider<MongoOperations> operations, String defaultLanguage) {
         this.operations = operations;
+        this.defaultLanguage = defaultLanguage;
     }
 
     @Override
@@ -52,7 +67,7 @@ public class MongoFullTextQueryExecutor implements FullTextQueryExecutor {
         var type = example.getProbeType();
         var typeahead = fullText.typeaheadQuery();
         var textCriteria = typeahead.wholeWords().isBlank() ? null
-                : TextCriteria.forDefaultLanguage().matching(typeahead.wholeWords());
+                : TextCriteria.forLanguage(languageOf(fullText)).matching(typeahead.wholeWords());
         var prefixCriteria = typeahead.prefixes().isEmpty() ? null : prefixCriteria(fullText, typeahead);
         var countQuery = new Query();
         var findQuery = textCriteria != null && fullText.ranksByRelevance(pageable.getSort())
@@ -70,6 +85,11 @@ public class MongoFullTextQueryExecutor implements FullTextQueryExecutor {
         }
         var results = mongo.find(findQuery.with(withoutRelevance(pageable)), type);
         return PageableExecutionUtils.getPage(results, pageable, () -> mongo.count(countQuery, type));
+    }
+
+    private String languageOf(FullTextCondition fullText) {
+        var language = fullText.language();
+        return FullTextLanguages.mongoNameOf(language == null || language.isBlank() ? defaultLanguage : language);
     }
 
     // A query takes only one criteria without a key, so the prefix criteria must be ANDed into the example criteria

@@ -2,6 +2,7 @@ package be.appify.prefab.processor.dbmigration;
 
 import be.appify.prefab.core.annotations.rest.Filter.Weight;
 import be.appify.prefab.core.util.IdentifierShortener;
+import be.appify.prefab.core.util.FullTextLanguages;
 import be.appify.prefab.core.util.InitialsExpression;
 import be.appify.prefab.core.util.TsVectorExpression;
 import net.sf.jsqlparser.statement.create.index.CreateIndex;
@@ -49,9 +50,15 @@ record Index(
     }
 
     static Index fullText(String tableName, Map<String, Weight> weightByColumn) {
-        var name = shorten(tableName + "_" + String.join("_", weightByColumn.keySet()) + "_fts",
+        return fullText(tableName, FullTextLanguages.NEUTRAL, weightByColumn);
+    }
+
+    // The name carries the language, so that changing the language drops the old index and creates a new one
+    static Index fullText(String tableName, String language, Map<String, Weight> weightByColumn) {
+        var languageSuffix = FullTextLanguages.NEUTRAL.equals(language) ? "" : "_" + language;
+        var name = shorten(tableName + "_" + String.join("_", weightByColumn.keySet()) + "_fts" + languageSuffix,
                 POSTGRES_MAX_IDENTIFIER_LENGTH);
-        var expression = TsVectorExpression.of("simple", weightByColumn);
+        var expression = TsVectorExpression.of(language, weightByColumn);
         return new Index(name, List.of(expression), false, "GIN");
     }
 

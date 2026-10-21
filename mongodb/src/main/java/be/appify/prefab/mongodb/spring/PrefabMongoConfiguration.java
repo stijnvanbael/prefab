@@ -3,12 +3,14 @@ package be.appify.prefab.mongodb.spring;
 import be.appify.prefab.core.spring.PrefabCoreConfiguration;
 import be.appify.prefab.core.spring.data.FullTextQueryExecutor;
 import be.appify.prefab.core.spring.data.RangeQueryExecutor;
+import be.appify.prefab.core.util.FullTextLanguages;
 import be.appify.prefab.mongodb.spring.data.mongodb.MongoFullTextQueryExecutor;
 import be.appify.prefab.mongodb.spring.data.mongodb.MongoRangeQueryExecutor;
 import be.appify.prefab.mongodb.spring.data.mongodb.PrefabMongoMappingContext;
 import be.appify.prefab.mongodb.spring.data.mongodb.ReferenceToStringConverter;
 import be.appify.prefab.mongodb.spring.data.mongodb.StringToReferenceConverter;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -122,11 +124,16 @@ public class PrefabMongoConfiguration {
      *
      * @param operations
      *         provider of the MongoDB operations
+     * @param language
+     *         the application-wide default text search language, property {@code prefab.full-text.language}
      * @return the full-text query executor
      */
     @Bean
     @ConditionalOnMissingBean
-    public FullTextQueryExecutor fullTextQueryExecutor(ObjectProvider<MongoOperations> operations) {
-        return new MongoFullTextQueryExecutor(operations);
+    public FullTextQueryExecutor fullTextQueryExecutor(
+            ObjectProvider<MongoOperations> operations,
+            @Value("${" + FullTextLanguages.PROPERTY + ":" + FullTextLanguages.NEUTRAL + "}") String language
+    ) {
+        return new MongoFullTextQueryExecutor(operations, language);
     }
 }

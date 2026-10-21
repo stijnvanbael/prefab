@@ -12,6 +12,7 @@ import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.annotations.rest.Security;
 import be.appify.prefab.core.annotations.rest.Streaming;
 import be.appify.prefab.core.annotations.rest.Update;
+import be.appify.prefab.core.util.FullTextLanguages;
 import com.google.auto.service.AutoService;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
@@ -44,7 +45,7 @@ import javax.tools.Diagnostic;
 @SupportedAnnotationTypes({
         "be.appify.prefab.core.annotations.*",
 })
-@SupportedOptions("prefab.builder.setterPrefix")
+@SupportedOptions({"prefab.builder.setterPrefix", FullTextLanguages.OPTION})
 @AutoService(Processor.class)
 @SuppressWarnings("unused")
 public class PrefabProcessor extends AbstractProcessor {

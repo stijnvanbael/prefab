@@ -4,6 +4,7 @@ import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.annotations.OutputTarget;
+import be.appify.prefab.core.util.FullTextLanguages;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -442,6 +443,20 @@ public class PrefabContext {
      */
     public String builderSetterPrefix() {
         return processingEnvironment.getOptions().getOrDefault("prefab.builder.setterPrefix", "");
+    }
+
+    /**
+     * Returns the application-wide default language of full-text filters, used in the generated PostgreSQL index of
+     * filters without a language.
+     *
+     * <p>Read from the {@code prefab.fullText.language} annotation-processor option. It must equal the Spring
+     * property {@code prefab.full-text.language}, which sets the language of the queries. Defaults to {@code simple}.
+     *
+     * @return the default full-text language, never {@code null}
+     */
+    public String fullTextLanguage() {
+        var language = processingEnvironment.getOptions().get(FullTextLanguages.OPTION);
+        return language == null || language.isBlank() ? FullTextLanguages.NEUTRAL : language.trim();
     }
 
     /**

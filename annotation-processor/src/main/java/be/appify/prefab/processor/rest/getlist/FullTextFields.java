@@ -6,6 +6,7 @@ import be.appify.prefab.core.annotations.rest.Filter.Weight;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Exposes the fields that take part in the full-text filter of an aggregate, for plugins that need to create the
@@ -40,6 +41,20 @@ public final class FullTextFields {
         GetListUtil.fullTextFiltersOf(GetListUtil.declaredFiltersOf(manifest))
                 .forEach(filter -> weights.putAll(filter.weights()));
         return weights;
+    }
+
+    /**
+     * The language of the FULL_TEXT filter, when one of its fields declares it.
+     *
+     * @param manifest
+     *         the aggregate
+     * @return the language, empty when the application-wide default applies
+     */
+    public static Optional<String> languageOf(ClassManifest manifest) {
+        return GetListUtil.fullTextFiltersOf(GetListUtil.declaredFiltersOf(manifest)).stream()
+                .map(GetListUtil.FilterManifest::language)
+                .filter(language -> !language.isBlank())
+                .findFirst();
     }
 
     /**

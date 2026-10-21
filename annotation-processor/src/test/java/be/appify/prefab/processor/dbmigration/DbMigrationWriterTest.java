@@ -8,6 +8,7 @@ import com.google.testing.compile.Compilation;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import javax.tools.StandardLocation;
 import org.junit.jupiter.api.BeforeAll;
@@ -724,8 +725,61 @@ class DbMigrationWriterTest {
     }
 
     @Test
-    void typeaheadFullTextGetsAnIndexOnTheInitialsOfEachSearchedColumn() {
+    void fullTextFilterLanguageIsUsedInTheNamedIndexExpression() {
         var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/fulltextlanguage/source/Pamphlet.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("CREATE INDEX \"pamphlet_title_body_text_fts_english\" ON \"pamphlet\" USING GIN "
+                        + "(setweight(to_tsvector('english', coalesce(\"title\", '')), 'A') || "
+                        + "setweight(to_tsvector('english', coalesce(\"body_text\", '')), 'C'));");
+    }
+
+    @Test
+    void fullTextIndexUsesTheDefaultLanguageOption() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .withOptions("-Aprefab.fullText.language=dutch")
+                .compile(sourceOf("dbmigration/fulltextweighted/source/Booklet.java"));
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
+                .contentsAsUtf8String()
+                .contains("\"booklet_title_body_text_fts_dutch\" ON \"booklet\" USING GIN "
+                        + "(setweight(to_tsvector('dutch', coalesce(\"title\", '')), 'A')");
+    }
+
+    @Test
+    void changingTheFullTextLanguageRebuildsTheIndex() throws IOException {
+        var baseline = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/fulltextweighted/source/Booklet.java"));
+        assertThat(baseline).succeeded();
+        var baselineSql = generatedMigrationContent(baseline, "db/migration/V1__generated.sql");
+        var options = new ArrayList<>(classpathOptionsWith(classpathWithMigration("V1__initial_schema.sql", baselineSql)));
+        options.add("-Aprefab.fullText.language=english");
+
+        var recompilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .withOptions(options)
+                .compile(sourceOf("dbmigration/fulltextweighted/source/Booklet.java"));
+
+        assertThat(recompilation).succeeded();
+        assertThat(recompilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V2__generated.sql")
+                .contentsAsUtf8String()
+                .contains("CREATE INDEX \"booklet_title_body_text_fts_english\"");
+        assertThat(recompilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V2__generated.sql")
+                .contentsAsUtf8String()
+                .contains("DROP INDEX \"booklet_title_body_text_fts\";");
+    }
+
+    @Test
+    void typeaheadFullTextGetsAnIndexOnTheInitialsOfEachSearchedColumn() {        var compilation = javac()
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("dbmigration/fulltext/source/Manual.java"));
         assertThat(compilation).succeeded();

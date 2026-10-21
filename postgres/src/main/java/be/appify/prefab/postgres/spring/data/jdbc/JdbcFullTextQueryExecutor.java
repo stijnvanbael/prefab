@@ -105,6 +105,24 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
         this.likeEscaper = dialect.getLikeEscaper();
     }
 
+    /**
+     * Verifies that the default text search configuration exists in the database, so that a misconfigured
+     * application fails at startup instead of on the first search.
+     *
+     * @throws IllegalStateException
+     *         if the database has no such text search configuration
+     */
+    public void validateConfiguration() {
+        var exists = jdbc.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM pg_ts_config WHERE cfgname = :configuration)",
+                new MapSqlParameterSource("configuration", configuration), Boolean.class);
+        if (!Boolean.TRUE.equals(exists)) {
+            throw new IllegalStateException(
+                    "Unknown PostgreSQL text search configuration '%s' in property prefab.full-text.language"
+                            .formatted(configuration));
+        }
+    }
+
     @Override
     @SuppressWarnings("unchecked")
     public <T> Page<T> findAll(
@@ -181,30 +199,35 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
         var weightByColumn = new LinkedHashMap<String, Weight>();
         fullText.properties().forEach(property ->
                 weightByColumn.put(columnOf(entity, property), fullText.weightOf(property)));
-        return Expressions.just(TsVectorExpression.of(configuration, weightByColumn));
+        return Expressions.just(TsVectorExpression.of(configurationOf(fullText), weightByColumn));
     }
 
     private Expression tsQuery(FullTextCondition fullText) {
         var typeahead = fullText.typeaheadQuery();
         if (typeahead.prefixes().isEmpty()) {
-            return webSearch();
+            return webSearch(fullText);
         }
-        var prefixes = "to_tsquery(%s, :%s)".formatted(literal(), PREFIX_BIND_NAME);
+        var prefixes = "to_tsquery(%s, :%s)".formatted(literal(fullText), PREFIX_BIND_NAME);
         return typeahead.wholeWords().isEmpty()
                 ? Expressions.just(prefixes)
-                : Expressions.just("(%s && %s)".formatted(webSearchSql(), prefixes));
+                : Expressions.just("(%s && %s)".formatted(webSearchSql(fullText), prefixes));
     }
 
-    private Expression webSearch() {
-        return Expressions.just(webSearchSql());
+    private Expression webSearch(FullTextCondition fullText) {
+        return Expressions.just(webSearchSql(fullText));
     }
 
-    private String webSearchSql() {
-        return "websearch_to_tsquery(%s, :%s)".formatted(literal(), BIND_NAME);
+    private String webSearchSql(FullTextCondition fullText) {
+        return "websearch_to_tsquery(%s, :%s)".formatted(literal(fullText), BIND_NAME);
     }
 
-    private String literal() {
-        return "'" + configuration.replace("'", "''") + "'";
+    private String configurationOf(FullTextCondition fullText) {
+        var language = fullText.language();
+        return language == null || language.isBlank() ? configuration : language;
+    }
+
+    private String literal(FullTextCondition fullText) {
+        return "'" + configurationOf(fullText).replace("'", "''") + "'";
     }
 
     // The first letters of the words of any searched column start with the search text, so "sbg" finds "Spring Boot"
@@ -241,7 +264,7 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
 
     private Condition wordPrefixMatch(FullTextCondition fullText, RelationalPersistentEntity<?> entity, int index) {
         return Comparison.create(tsVector(fullText, entity), "@@",
-                Expressions.just("to_tsquery(%s, :%s)".formatted(literal(), WORD_PREFIX_BIND_PREFIX + index)));
+                Expressions.just("to_tsquery(%s, :%s)".formatted(literal(fullText), WORD_PREFIX_BIND_PREFIX + index)));
     }
 
     // Words of the search text that are plain terms: not negated and not the OR operator

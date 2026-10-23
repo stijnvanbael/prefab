@@ -4,13 +4,17 @@ import be.appify.prefab.core.annotations.Indexed;
 import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.Filters;
+import be.appify.prefab.core.util.FullTextLanguages;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.rest.getlist.FullTextFields;
+import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
+import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeSpec;
 
 import java.util.ArrayList;
@@ -18,6 +22,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Modifier;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
 import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
@@ -29,6 +34,8 @@ class MongoIndexWriter {
             ClassName.get("org.springframework.data.mongodb.core.index", "Index");
     private static final ClassName TEXT_INDEX = ClassName.get(
             "org.springframework.data.mongodb.core.index", "TextIndexDefinition");
+    private static final ClassName MONGO_TEXT_INDEXES = ClassName.get(
+            "be.appify.prefab.mongodb.spring.data.mongodb", "MongoTextIndexes");
     private static final ClassName SORT_DIRECTION =
             ClassName.get("org.springframework.data.domain.Sort", "Direction");
 
@@ -45,6 +52,14 @@ class MongoIndexWriter {
         var constructor = MethodSpec.constructorBuilder()
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(MONGO_TEMPLATE, "mongoTemplate");
+        if (manifests.stream().anyMatch(manifest -> !FullTextFields.weightsOf(manifest).isEmpty())) {
+            constructor.addParameter(ParameterSpec.builder(String.class, "fullTextLanguage")
+                    .addAnnotation(AnnotationSpec.builder(Value.class)
+                            .addMember("value", "$S", "${%s:%s}".formatted(
+                                    FullTextLanguages.PROPERTY, FullTextLanguages.NEUTRAL))
+                            .build())
+                    .build());
+        }
 
         for (ClassManifest manifest : manifests) {
             fieldIndexesOf(manifest, null).forEach(index ->
@@ -70,8 +85,9 @@ class MongoIndexWriter {
     }
 
     // MongoDB allows one text index per collection, which is why an aggregate has at most one FULL_TEXT parameter.
-    // The language is "none" (no stemming) to match the PostgreSQL 'simple' configuration, and a language override
-    // field that no document has prevents a property called "language" from being read as a text language.
+    // The language defaults to the application-wide property and is "none" (no stemming) for the PostgreSQL 'simple'
+    // configuration. A language override field that no document has prevents a property called "language" from
+    // being read as a text language. A changed language rebuilds the index.
     private static void textIndexOf(MethodSpec.Builder constructor, ClassManifest manifest) {
         var weights = FullTextFields.weightsOf(manifest);
         if (weights.isEmpty()) {
@@ -84,15 +100,21 @@ class MongoIndexWriter {
                         .map(entry -> ".onField(\"%s\", %sf)".formatted(entry.getKey(),
                                 entry.getValue().textIndexWeight()))
                         .collect(Collectors.joining("\n"));
+        var language = CodeBlock.of("$T.mongoNameOf($L)", FullTextLanguages.class,
+                FullTextFields.languageOf(manifest).map(name -> CodeBlock.of("$S", name))
+                        .orElse(CodeBlock.of("fullTextLanguage")));
         constructor.addStatement("""
-                        mongoTemplate.indexOps($T.class).createIndex($T.builder()
+                        $T.createOrRebuild(mongoTemplate.indexOps($T.class), $T.builder()
                             $L
-                            .withDefaultLanguage("none")
+                            .withDefaultLanguage($L)
                             .withLanguageOverride("_prefabLanguage")
-                            .build())""",
+                            .build(), $L)""",
+                MONGO_TEXT_INDEXES,
                 manifest.type().asTypeName(),
                 TEXT_INDEX,
-                fields);
+                fields,
+                language,
+                language);
     }
 
     private List<MongoIndex> fieldIndexesOf(ClassManifest manifest, String prefix) {

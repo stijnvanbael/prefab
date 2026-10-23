@@ -435,7 +435,7 @@ class DbMigrationWriter {
                 .toList();
     }
 
-    private static List<Index> fullTextIndexOf(String tableName, ClassManifest manifest) {
+    private List<Index> fullTextIndexOf(String tableName, ClassManifest manifest) {
         var columns = new LinkedHashMap<String, Filter.Weight>();
         FullTextFields.weightsOf(manifest).forEach((name, weight) -> columns.put(columnNameOf(null, name), weight));
         var fuzzyColumns = FullTextFields.fuzzyNamesOf(manifest).stream()
@@ -444,8 +444,9 @@ class DbMigrationWriter {
         var typeaheadColumns = FullTextFields.typeaheadNamesOf(manifest).stream()
                 .map(name -> columnNameOf(null, name))
                 .toList();
+        var language = FullTextFields.languageOf(manifest).orElseGet(context::fullTextLanguage);
         return columns.isEmpty() ? List.of() : Stream.of(
-                        Stream.of(Index.fullText(tableName, columns)),
+                        Stream.of(Index.fullText(tableName, language, columns)),
                         fuzzyColumns.stream().map(column -> Index.trgm(tableName, column)),
                         typeaheadColumns.stream().map(column -> Index.initials(tableName, column)))
                 .flatMap(Function.identity())

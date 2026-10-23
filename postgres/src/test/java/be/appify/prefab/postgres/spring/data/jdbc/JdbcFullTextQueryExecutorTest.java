@@ -34,6 +34,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest(classes = JdbcFullTextQueryExecutorTest.TestConfig.class)
 class JdbcFullTextQueryExecutorTest {
@@ -118,8 +119,36 @@ class JdbcFullTextQueryExecutorTest {
     }
 
     @Test
-    void matchesAnyOfTheSearchedProperties() {
-        assertThat(titles("kafka")).containsExactly("Kafka basics");
+    void languageOfTheConditionAppliesStemmingAndStopWords() {
+        var english = fullText("indexing").withLanguage("english");
+
+        assertThat(titles("indexing")).isEmpty();
+        assertThat(executor.findAll(example(null), english, List.of(), Pageable.unpaged()).getContent())
+                .extracting(Article::title).containsExactly("Postgres tuning");
+        assertThat(executor.findAll(example(null), fullText("the kafka").withLanguage("english"), List.of(),
+                Pageable.unpaged()).getContent()).extracting(Article::title).containsExactly("Kafka basics");
+    }
+
+    @Test
+    void defaultLanguageOfTheExecutorAppliesWhenTheConditionHasNone() {
+        var english = new JdbcFullTextQueryExecutor(namedJdbc, mappingContext, jdbcConverter, dialect, "english");
+
+        assertThat(english.findAll(example(null), fullText("indexing"), List.of(), Pageable.unpaged()).getContent())
+                .extracting(Article::title).containsExactly("Postgres tuning");
+    }
+
+    @Test
+    void validateConfiguration_givenUnknownConfiguration_failsFast() {
+        var unknown = new JdbcFullTextQueryExecutor(namedJdbc, mappingContext, jdbcConverter, dialect, "klingon");
+
+        assertThatThrownBy(unknown::validateConfiguration)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("klingon");
+        executor.validateConfiguration();
+    }
+
+    @Test
+    void matchesAnyOfTheSearchedProperties() {        assertThat(titles("kafka")).containsExactly("Kafka basics");
         assertThat(titles("framework")).containsExactly("Spring Boot guide");
         assertThat(titles("spring")).containsExactly("Postgres tuning", "Spring Boot guide");
     }

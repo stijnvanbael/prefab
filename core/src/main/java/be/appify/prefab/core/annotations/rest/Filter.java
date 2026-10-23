@@ -77,6 +77,19 @@ public @interface Filter {
      */
     Weight weight() default Weight.D;
 
+    /**
+     * The language of a {@link Operator#FULL_TEXT} search, so that stemming and stop words apply, for example
+     * <code>english</code> or <code>dutch</code>. Use the name of a built-in PostgreSQL text search configuration;
+     * an unknown name fails compilation. Empty (the default) uses the application-wide default of the Spring
+     * property <code>prefab.full-text.language</code>, which is <code>simple</code>, without stemming or stop words,
+     * when absent. On PostgreSQL the language is used in the query and in the generated GIN index, and changing it
+     * generates a migration that rebuilds the index. On MongoDB it is the language of the text index and the
+     * <code>$text</code> query. All fields sharing a parameter must use the same language, otherwise compilation
+     * fails.
+     * @return The language, or empty for the default.
+     */
+    String language() default "";
+
     /** The weight of a field in the relevance score of a full-text search, from most to least important. */
     enum Weight {
         /** Highest weight. */

@@ -113,7 +113,8 @@ class GetListServiceWriter {
 
     private static CodeBlock fullTextCondition(GetListUtil.FilterManifest filter) {
         var condition = exactFullTextCondition(filter);
-        return filter.typeahead() ? CodeBlock.of("$L.withTypeahead()", condition) : condition;
+        var typeahead = filter.typeahead() ? CodeBlock.of("$L.withTypeahead()", condition) : condition;
+        return filter.language().isBlank() ? typeahead : CodeBlock.of("$L.withLanguage($S)", typeahead, filter.language());
     }
 
     private static CodeBlock exactFullTextCondition(GetListUtil.FilterManifest filter) {

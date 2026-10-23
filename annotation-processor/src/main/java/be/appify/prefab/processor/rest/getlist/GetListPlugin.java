@@ -4,6 +4,7 @@ import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.annotations.rest.SortOrder;
 import be.appify.prefab.core.spring.data.FullTextQueryExecutor;
 import be.appify.prefab.core.spring.data.RangeQueryExecutor;
+import be.appify.prefab.core.util.FullTextLanguages;
 import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.OutputTargetFileOutput;
@@ -130,8 +131,32 @@ public class GetListPlugin extends RestOperationPlugin {
                 manifest.element()));
         var consistentFuzziness = fuzzinessIsConsistent(manifest, fullText);
         var consistentTypeahead = typeaheadIsConsistent(manifest, fullText);
+        var validLanguage = languageIsValid(manifest, fullText);
         return nonString.isEmpty() && !tooMany && clashes.isEmpty() && invalidThreshold.isEmpty()
-                && consistentFuzziness && consistentTypeahead;
+                && consistentFuzziness && consistentTypeahead && validLanguage;
+    }
+
+    private boolean languageIsValid(ClassManifest manifest, List<GetListUtil.FilterManifest> fullText) {
+        if (fullText.isEmpty()) {
+            return true;
+        }
+        var languages = fullText.stream().map(GetListUtil.FilterManifest::language).distinct().toList();
+        if (languages.size() > 1) {
+            context().logError(
+                    "[@Filter] %s: all FULL_TEXT fields sharing a parameter must use the same language"
+                            .formatted(manifest.simpleName()),
+                    manifest.element());
+        }
+        var unknown = Stream.concat(languages.stream().filter(language -> !language.isBlank()),
+                        Stream.of(context().fullTextLanguage()))
+                .filter(language -> !FullTextLanguages.isKnown(language))
+                .distinct()
+                .toList();
+        unknown.forEach(language -> context().logError(
+                "[@Filter] %s: unknown full-text language '%s'; use the name of a built-in PostgreSQL text search configuration"
+                        .formatted(manifest.simpleName(), language),
+                manifest.element()));
+        return languages.size() <= 1 && unknown.isEmpty();
     }
 
     private boolean typeaheadIsConsistent(ClassManifest manifest, List<GetListUtil.FilterManifest> fullText) {

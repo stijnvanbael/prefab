@@ -4,6 +4,7 @@ import be.appify.prefab.core.spring.PrefabCoreConfiguration;
 import be.appify.prefab.core.spring.data.jdbc.DbColumnConverterContributor;
 import be.appify.prefab.core.spring.data.FullTextQueryExecutor;
 import be.appify.prefab.core.spring.data.RangeQueryExecutor;
+import be.appify.prefab.core.util.FullTextLanguages;
 import be.appify.prefab.core.spring.data.jdbc.PolymorphicReadingConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.ByteArrayToFileConverter;
 import be.appify.prefab.postgres.spring.data.jdbc.FileToByteArrayConverter;
@@ -19,6 +20,7 @@ import be.appify.prefab.postgres.spring.data.jdbc.SingleValueRecordSimpleTypeHol
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -161,6 +163,8 @@ public class PrefabJdbcConfiguration extends AbstractJdbcConfiguration {
      *         the JDBC converter
      * @param dialect
      *         the JDBC dialect
+     * @param language
+     *         the application-wide default text search language, property {@code prefab.full-text.language}
      * @return the full-text query executor
      */
     @Bean
@@ -169,8 +173,11 @@ public class PrefabJdbcConfiguration extends AbstractJdbcConfiguration {
             NamedParameterJdbcOperations jdbc,
             JdbcMappingContext mappingContext,
             JdbcConverter converter,
-            JdbcDialect dialect
+            JdbcDialect dialect,
+            @Value("${" + FullTextLanguages.PROPERTY + ":" + FullTextLanguages.NEUTRAL + "}") String language
     ) {
-        return new JdbcFullTextQueryExecutor(jdbc, mappingContext, converter, dialect, "simple");
+        var executor = new JdbcFullTextQueryExecutor(jdbc, mappingContext, converter, dialect, language);
+        executor.validateConfiguration();
+        return executor;
     }
 }

@@ -6,6 +6,7 @@ import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.streams.JoinWindow;
+import be.appify.prefab.streams.PrefabGroupedStream;
 import be.appify.prefab.streams.PrefabStream;
 import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.Store;
@@ -19,16 +20,23 @@ import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
+import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.Branched;
+import org.apache.kafka.streams.kstream.Grouped;
 import org.apache.kafka.streams.kstream.JoinWindows;
+import org.apache.kafka.streams.kstream.KGroupedStream;
 import org.apache.kafka.streams.kstream.KStream;
+import org.apache.kafka.streams.kstream.KTable;
+import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Named;
 import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.kstream.StreamJoined;
+import org.apache.kafka.streams.state.KeyValueStore;
 import org.springframework.core.convert.ConversionService;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -175,6 +183,51 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
                 ValueTypeHint.unknown(),
                 keySerde
         );
+    }
+
+    @Override
+    public <KO> PrefabGroupedStream<KO, V> groupBy(Class<KO> keyType, Function<V, KO> keyExtractor) {
+        Objects.requireNonNull(keyType, "keyType must not be null");
+        Objects.requireNonNull(keyExtractor, "keyExtractor must not be null");
+        var groupKeySerde = new StringKeySerde<>(keyType);
+        var groupName = stepNames.nextGroupByName(inputTypeOrNull());
+        var grouped = stream.groupBy(
+                (key, value) -> keyExtractor.apply(value),
+                Grouped.with(groupName, groupKeySerde, joinSerde(valueType))
+        );
+        return new KafkaGroupedStream<>(grouped, groupKeySerde);
+    }
+
+    private final class KafkaGroupedStream<KO> implements PrefabGroupedStream<KO, V> {
+        private final KGroupedStream<KO, V> grouped;
+        private final Serde<KO> groupKeySerde;
+
+        private KafkaGroupedStream(KGroupedStream<KO, V> grouped, Serde<KO> groupKeySerde) {
+            this.grouped = grouped;
+            this.groupKeySerde = groupKeySerde;
+        }
+
+        @Override
+        public <VR extends Keyed<KO>> PrefabStream<KO, VR> aggregate(
+                Class<VR> resultType,
+                Supplier<VR> initializer,
+                BiFunction<? super V, ? super VR, ? extends VR> aggregator
+        ) {
+            Objects.requireNonNull(resultType, "resultType must not be null");
+            Objects.requireNonNull(initializer, "initializer must not be null");
+            Objects.requireNonNull(aggregator, "aggregator must not be null");
+            var name = stepNames.nextAggregateName(inputTypeOrNull(), resultType);
+            var resultHint = ValueTypeHint.known(resultType);
+            KTable<KO, VR> table = grouped.aggregate(
+                    initializer::get,
+                    (key, value, aggregate) -> aggregator.apply(value, aggregate),
+                    Named.as(name),
+                    Materialized.<KO, VR, KeyValueStore<Bytes, byte[]>>as(name)
+                            .withKeySerde(groupKeySerde)
+                            .withValueSerde(joinSerde(resultHint))
+            );
+            return wrap(table.toStream(), resultHint, groupKeySerde);
+        }
     }
 
     static <K, VO extends Keyed<K>> KafkaPrefabStream<K, VO> mergeStreams(

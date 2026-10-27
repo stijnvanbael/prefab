@@ -19,6 +19,12 @@ This module defines two topologies:
 - both streams use deterministic Kafka keys via `@PartitioningKey` on `id`
 - `join(right, JoinWindow.of(...), joiner)` emits `JoinedStreamEvent` to `${topics.streams.joined}` when keys match inside the window
 
+3) Sales totals topology that demonstrates `groupBy` followed by a non-windowed `aggregate`:
+
+- `from(EnergySale.class)` reads `energy-sales`
+- `groupBy(BiddingZoneId.class, EnergySale::biddingZone)` re-keys records per bidding zone (native Kafka Streams repartition)
+- `aggregate(ZoneSalesTotal.class, initializer, aggregator)` keeps a running total per zone in a native state store and emits the updated `ZoneSalesTotal` to `zone-sales-total` after every sale
+
 ## Commands
 
 ```bash

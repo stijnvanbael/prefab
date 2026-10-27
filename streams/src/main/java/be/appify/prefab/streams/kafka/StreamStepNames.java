@@ -34,6 +34,14 @@ public final class StreamStepNames {
         return reserveName("flat-map", inputType);
     }
 
+    String nextGroupByName(Class<?> inputType) {
+        return reserveName("group-by", inputType);
+    }
+
+    String nextAggregateName(Class<?> inputType, Class<?> resultType) {
+        return reserveName("aggregate", inputType, resultType);
+    }
+
     String nextJoinName(Class<?> leftType, Class<?> rightType) {
         return reserveName("join", leftType, rightType);
     }

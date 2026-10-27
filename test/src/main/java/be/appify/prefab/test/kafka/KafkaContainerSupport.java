@@ -14,7 +14,7 @@ public interface KafkaContainerSupport {
     /** The Kafka container. */
     @ServiceConnection
     KafkaContainer kafkaContainer = new KafkaContainer(
-            DockerImageName.parse("apache/kafka-native:3.9.1"))
+            DockerImageName.parse("apache/kafka-native:4.4.0"))
             .withReuse(true)
             .withExposedPorts(9092, 9093);
 

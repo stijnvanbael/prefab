@@ -1,10 +1,11 @@
 package be.appify.prefab.test.sns;
 
+import be.appify.prefab.core.sns.SnsConfiguration;
 import be.appify.prefab.core.spring.PrefabCoreConfiguration;
+import be.appify.prefab.test.TestContainerNameResolver;
+import io.awspring.cloud.sns.core.SnsTemplate;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import be.appify.prefab.core.sns.SnsConfiguration;
-import io.awspring.cloud.sns.core.SnsTemplate;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -13,7 +14,6 @@ import org.springframework.core.env.PropertyResolver;
 import org.springframework.test.context.DynamicPropertyRegistrar;
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.utility.DockerImageName;
-import be.appify.prefab.test.TestContainerNameResolver;
 
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.SNS;
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.SQS;
@@ -26,6 +26,7 @@ import static org.testcontainers.containers.localstack.LocalStackContainer.Servi
 @ConditionalOnBean(PrefabCoreConfiguration.class)
 @Import(SnsTestLifecycle.class)
 public class SnsTestAutoConfiguration {
+    private static final String LOCALSTACK_IMAGE = "localstack/localstack:4";
 
     /**
      * Constructs a new SnsTestAutoConfiguration.
@@ -36,11 +37,11 @@ public class SnsTestAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = "localStackContainer")
     LocalStackContainer localStackContainer(PropertyResolver propertyResolver) {
-        var containerName = TestContainerNameResolver.resolveContainerName(
+        var containerName = TestContainerNameResolver.resolveSharedContainerName(
                 propertyResolver, "localstack", "prefab.test.localstack.container-name");
-        TestContainerNameResolver.removeConflictingContainer(containerName);
+        TestContainerNameResolver.removeStaleContainer(containerName, LOCALSTACK_IMAGE);
         var container = new LocalStackContainer(
-                DockerImageName.parse("localstack/localstack:3"))
+                DockerImageName.parse(LOCALSTACK_IMAGE))
                 .withServices(SNS, SQS)
                 .withReuse(true)
                 .withCreateContainerCmdModifier(cmd -> cmd.withName(containerName));

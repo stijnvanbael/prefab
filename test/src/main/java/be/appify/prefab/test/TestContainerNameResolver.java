@@ -41,6 +41,39 @@ public final class TestContainerNameResolver {
     }
 
     /**
+     * Resolves the name of a container that is shared by all modules and applications.
+     *
+     * <p>Unlike {@link #resolveContainerName}, the default name does not depend on the application, so that
+     * every module reuses the same running container (provided Testcontainers reuse is enabled).
+     *
+     * @param propertyResolver the property resolver to fetch configuration values
+     * @param containerType the type of container (e.g. "postgres", "kafka")
+     * @param customNameProperty the property key to check for a custom name
+     * @return the custom name if configured, otherwise {@code prefab_<containerType>}
+     */
+    public static String resolveSharedContainerName(
+            PropertyResolver propertyResolver,
+            String containerType,
+            String customNameProperty) {
+        var customName = propertyResolver.getProperty(customNameProperty);
+        if (customName != null && !customName.isBlank()) {
+            return customName;
+        }
+        return "prefab_" + containerType;
+    }
+
+    /**
+     * Converts the application name into an identifier that is safe to use as a database name.
+     *
+     * @param propertyResolver the property resolver to fetch the application name
+     * @return the sanitised application name
+     */
+    public static String resolveApplicationIdentifier(PropertyResolver propertyResolver) {
+        var appName = propertyResolver.getProperty("spring.application.name", "application");
+        return appName.toLowerCase().replaceAll("[.\\-]", "_");
+    }
+
+    /**
      * Removes an existing Docker container that already uses the target name.
      *
      * <p>When fixed names are used, Testcontainers may try to create a new container whose configuration
@@ -63,6 +96,29 @@ public final class TestContainerNameResolver {
         existingContainerId.ifPresent(containerId -> dockerClient.removeContainerCmd(containerId)
                 .withForce(true)
                 .exec());
+    }
+
+    /**
+     * Removes an existing Docker container with the target name unless it can be reused as-is.
+     *
+     * <p>A running container that was created from the expected image is kept so that it can be shared
+     * across contexts and modules; anything else (stopped, or created from another image) is removed to
+     * avoid a Docker 409 conflict.</p>
+     *
+     * @param containerName the container name without leading slash
+     * @param image the image the container is expected to run
+     */
+    public static void removeStaleContainer(String containerName, String image) {
+        var dockerClient = DockerClientFactory.instance().client();
+        var dockerName = "/" + containerName;
+        dockerClient.listContainersCmd()
+                .withShowAll(true)
+                .exec()
+                .stream()
+                .filter(container -> container.getNames() != null
+                        && Arrays.asList(container.getNames()).contains(dockerName))
+                .filter(container -> !"running".equals(container.getState()) || !image.equals(container.getImage()))
+                .forEach(container -> dockerClient.removeContainerCmd(container.getId()).withForce(true).exec());
     }
 
     /**

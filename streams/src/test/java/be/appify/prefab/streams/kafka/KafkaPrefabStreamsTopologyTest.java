@@ -642,6 +642,62 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     @Test
+    void groupByAggregate_shouldEvolveStateForMultipleEventsOnTheSameKey() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        var definition = test.streams().from(IncomingOrder.class)
+                .groupBy(customerKeyType(), IncomingOrder::customer)
+                .aggregate(
+                        OrderCount.class,
+                        () -> new OrderCount(null, 0),
+                        (order, count) -> new OrderCount(order.customer(), count.numberOfOrders() + 1)
+                )
+                .to(OrderCount.class);
+
+        try (var topologyTest = test.run(definition)) {
+            var input = topologyTest.input(IncomingOrder.class);
+            var output = topologyTest.output(OrderCount.class);
+
+            input.pipeInput(Reference.fromId("o-1"), new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("alice")));
+            input.pipeInput(Reference.fromId("o-2"), new IncomingOrder(Reference.fromId("o-2"), Reference.fromId("bob")));
+            input.pipeInput(Reference.fromId("o-3"), new IncomingOrder(Reference.fromId("o-3"), Reference.fromId("alice")));
+            input.pipeInput(Reference.fromId("o-4"), new IncomingOrder(Reference.fromId("o-4"), Reference.fromId("alice")));
+
+            assertThat(output.readValuesToList())
+                    .containsExactly(
+                            new OrderCount(Reference.fromId("alice"), 1),
+                            new OrderCount(Reference.fromId("bob"), 1),
+                            new OrderCount(Reference.fromId("alice"), 2),
+                            new OrderCount(Reference.fromId("alice"), 3)
+                    );
+        }
+    }
+
+    @Test
+    void groupByAggregate_shouldMapToNativeKafkaStreamsGroupedAggregate() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        var definition = test.streams().from(IncomingOrder.class)
+                .groupBy(customerKeyType(), IncomingOrder::customer)
+                .aggregate(
+                        OrderCount.class,
+                        () -> new OrderCount(null, 0),
+                        (order, count) -> new OrderCount(order.customer(), count.numberOfOrders() + 1)
+                )
+                .to(OrderCount.class);
+
+        assertThat(definition.nativeTopology().describe().toString())
+                .contains("KTABLE-TOSTREAM")
+                .contains("stores: [aggregate-incoming-order-order-count]")
+                .contains("group-by-incoming-order-repartition");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Class<Reference<Customer>> customerKeyType() {
+        return (Class<Reference<Customer>>) (Class<?>) Reference.class;
+    }
+
+    @Test
     void multipleStreams_shouldBeJoinedInOneTopology() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
         var streams = test.streams();

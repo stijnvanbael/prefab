@@ -32,6 +32,8 @@ import java.util.Optional;
 public class KafkaTestcontainerAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaTestcontainerAutoConfiguration.class);
+    private static final String KAFKA_IMAGE = "apache/kafka:4.4.0";
+    private static final String SCHEMA_REGISTRY_IMAGE = "confluentinc/cp-schema-registry:8.4.0";
 
     @Bean
     @ConditionalOnMissingBean(name = "kafkaNetwork")
@@ -40,7 +42,7 @@ public class KafkaTestcontainerAutoConfiguration {
     }
 
     static String kafkaNetworkName(PropertyResolver propertyResolver) {
-        return TestContainerNameResolver.resolveContainerName(
+        return TestContainerNameResolver.resolveSharedContainerName(
                 propertyResolver, "kafka", "prefab.test.kafka.network-name");
     }
 
@@ -48,10 +50,10 @@ public class KafkaTestcontainerAutoConfiguration {
     @ServiceConnection
     @ConditionalOnMissingBean(name = "kafkaContainer")
     KafkaContainer kafkaContainer(Network kafkaNetwork, PropertyResolver propertyResolver) {
-        var containerName = TestContainerNameResolver.resolveContainerName(
+        var containerName = TestContainerNameResolver.resolveSharedContainerName(
                 propertyResolver, "kafka", "prefab.test.kafka.container-name");
-        TestContainerNameResolver.removeConflictingContainer(containerName);
-        return new KafkaContainer("apache/kafka:4.0.2")
+        TestContainerNameResolver.removeStaleContainer(containerName, KAFKA_IMAGE);
+        return new KafkaContainer(KAFKA_IMAGE)
                 .withNetwork(kafkaNetwork)
                 .withNetworkAliases("kafka")
                 .withListener("0.0.0.0:9095", () -> "kafka:9095")
@@ -64,10 +66,10 @@ public class KafkaTestcontainerAutoConfiguration {
     @ConditionalOnProperty(name = "prefab.test.schema-registry.enabled", havingValue = "true")
     GenericContainer<?> kafkaSchemaRegistryContainer(
             GenericContainer<?> kafkaContainer, Network kafkaNetwork, PropertyResolver propertyResolver) {
-        var containerName = TestContainerNameResolver.resolveContainerName(
+        var containerName = TestContainerNameResolver.resolveSharedContainerName(
                 propertyResolver, "schema-registry", "prefab.test.schema-registry.container-name");
-        TestContainerNameResolver.removeConflictingContainer(containerName);
-        return new GenericContainer<>("confluentinc/cp-schema-registry:8.1.2")
+        TestContainerNameResolver.removeStaleContainer(containerName, SCHEMA_REGISTRY_IMAGE);
+        return new GenericContainer<>(SCHEMA_REGISTRY_IMAGE)
                 .withExposedPorts(8081)
                 .withNetwork(kafkaNetwork)
                 .dependsOn(kafkaContainer)

@@ -1,6 +1,7 @@
 package be.appify.prefab.test.mongodb;
 
 import be.appify.prefab.core.spring.PrefabCoreConfiguration;
+import be.appify.prefab.test.TestContainerNameResolver;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -8,9 +9,13 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnectionAutoConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.env.PropertyResolver;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.test.context.DynamicPropertyRegistrar;
 import org.testcontainers.mongodb.MongoDBContainer;
 import org.testcontainers.utility.DockerImageName;
+
+import java.util.Optional;
 
 /**
  * Autoconfiguration for MongoDB test support.
@@ -24,6 +29,7 @@ import org.testcontainers.utility.DockerImageName;
 @ConditionalOnClass(MongoTemplate.class)
 @ConditionalOnBean(PrefabCoreConfiguration.class)
 public class MongoDbTestAutoConfiguration {
+    private static final String MONGO_IMAGE = "mongo:9";
 
     /**
      * Constructs a new MongoDbTestAutoConfiguration.
@@ -40,7 +46,25 @@ public class MongoDbTestAutoConfiguration {
     @Bean
     @ServiceConnection
     @ConditionalOnMissingBean(MongoDBContainer.class)
-    MongoDBContainer mongoDBContainer() {
-        return new MongoDBContainer(DockerImageName.parse("mongo:8"));
+    MongoDBContainer mongoDBContainer(PropertyResolver propertyResolver) {
+        var containerName = TestContainerNameResolver.resolveSharedContainerName(
+                propertyResolver, "mongodb", "prefab.test.mongodb.container-name");
+        TestContainerNameResolver.removeStaleContainer(containerName, MONGO_IMAGE);
+        return new MongoDBContainer(DockerImageName.parse(MONGO_IMAGE))
+                .withReuse(true)
+                .withCreateContainerCmdModifier(cmd -> cmd.withName(containerName));
+    }
+
+    /**
+     * Gives every application its own database on the shared container unless one is configured explicitly.
+     *
+     * @param propertyResolver the property resolver to fetch the application name
+     * @return a registrar defaulting {@code spring.data.mongodb.database} to the application name
+     */
+    @Bean
+    DynamicPropertyRegistrar mongoDatabaseRegistrar(PropertyResolver propertyResolver) {
+        return registry -> registry.add("spring.data.mongodb.database", () ->
+                Optional.ofNullable(propertyResolver.getProperty("spring.data.mongodb.database"))
+                        .orElseGet(() -> TestContainerNameResolver.resolveApplicationIdentifier(propertyResolver)));
     }
 }

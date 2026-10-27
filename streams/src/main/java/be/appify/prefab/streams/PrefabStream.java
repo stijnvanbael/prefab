@@ -28,6 +28,19 @@ public interface PrefabStream<K, V extends Keyed<K>> {
             BiFunction<? super V, ? super VO, ? extends VR> joiner
     );
 
+    /**
+     * Groups the records by a key derived from the value, re-partitioning when the key differs.
+     *
+     * @param keyType
+     *         the type of the group key
+     * @param keyExtractor
+     *         derives the group key from a value
+     * @param <KO>
+     *         the group key type
+     * @return a grouped stream on which a non-windowed aggregation can be defined
+     */
+    <KO> PrefabGroupedStream<KO, V> groupBy(Class<KO> keyType, Function<V, KO> keyExtractor);
+
     <NI, NO, KO, VO extends Keyed<KO>> PrefabStream<KO, VO> breakout(
             StreamBreakoutAdapter<K, V, KO, VO, NI, NO> adapter
     );

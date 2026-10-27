@@ -4,6 +4,7 @@ import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.streams.JoinWindow;
+import be.appify.prefab.streams.PrefabGroupedStream;
 import be.appify.prefab.streams.PrefabStream;
 import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.StreamBreakoutAdapter;
@@ -13,6 +14,7 @@ import be.appify.prefab.streams.StreamProcessor;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import static be.appify.prefab.streams.kafka.KafkaPrefabStreams.toKebabCase;
 
@@ -82,6 +84,21 @@ public class AutoRegisterPrefabStreamTestDecorator<K, V extends Keyed<K>> implem
             BiFunction<? super V, ? super VO, ? extends VR> joiner
     ) {
         return wrap(delegate.join(unwrap(other), window, joiner));
+    }
+
+    @Override
+    public <KO> PrefabGroupedStream<KO, V> groupBy(Class<KO> keyType, Function<V, KO> keyExtractor) {
+        var grouped = delegate.groupBy(keyType, keyExtractor);
+        return new PrefabGroupedStream<>() {
+            @Override
+            public <VR extends Keyed<KO>> PrefabStream<KO, VR> aggregate(
+                    Class<VR> resultType,
+                    Supplier<VR> initializer,
+                    BiFunction<? super V, ? super VR, ? extends VR> aggregator
+            ) {
+                return wrap(grouped.aggregate(resultType, initializer, aggregator));
+            }
+        };
     }
 
     @Override

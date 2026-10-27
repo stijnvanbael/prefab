@@ -81,10 +81,10 @@ class KafkaTestAutoConfigurationTest {
     }
 
     @Test
-    void kafkaNetworkNameDefaultsToApplicationScopedName() {
+    void kafkaNetworkNameDefaultsToSharedName() {
         var environment = new MockEnvironment().withProperty("spring.application.name", "my-chat-app");
 
-        assertEquals("kafka_my_chat_app", KafkaTestcontainerAutoConfiguration.kafkaNetworkName(environment));
+        assertEquals("prefab_kafka", KafkaTestcontainerAutoConfiguration.kafkaNetworkName(environment));
     }
 
     @Test

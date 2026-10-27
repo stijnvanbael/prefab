@@ -22,4 +22,6 @@ jobs:
           cache: 'maven'
 
       - name: Run Maven verify
+        env:
+          TESTCONTAINERS_REUSE_ENABLE: 'true'
         run: mvn --batch-mode verify -Dgpg.skip=true

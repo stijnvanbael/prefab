@@ -5,6 +5,7 @@ import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.streams.AggregationWindow;
 import be.appify.prefab.streams.JoinWindow;
 import be.appify.prefab.streams.PrefabGroupedStream;
 import be.appify.prefab.streams.PrefabStream;
@@ -36,7 +37,10 @@ import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Named;
 import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.kstream.StreamJoined;
+import org.apache.kafka.streams.kstream.TimeWindows;
+import org.apache.kafka.streams.kstream.Windowed;
 import org.apache.kafka.streams.state.KeyValueStore;
+import org.apache.kafka.streams.state.WindowStore;
 import org.springframework.core.convert.ConversionService;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -227,6 +231,31 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
                             .withValueSerde(joinSerde(resultHint))
             );
             return wrap(table.toStream(), resultHint, groupKeySerde);
+        }
+
+        @Override
+        public <VR extends Keyed<KO>> PrefabStream<KO, VR> windowedAggregate(
+                AggregationWindow window,
+                Class<VR> resultType,
+                Supplier<VR> initializer,
+                BiFunction<? super V, ? super VR, ? extends VR> aggregator
+        ) {
+            Objects.requireNonNull(window, "window must not be null");
+            Objects.requireNonNull(resultType, "resultType must not be null");
+            Objects.requireNonNull(initializer, "initializer must not be null");
+            Objects.requireNonNull(aggregator, "aggregator must not be null");
+            var name = stepNames.nextWindowedAggregateName(inputTypeOrNull(), resultType);
+            var resultHint = ValueTypeHint.known(resultType);
+            var windows = TimeWindows.ofSizeAndGrace(window.size(), window.grace()).advanceBy(window.advance());
+            KTable<Windowed<KO>, VR> table = grouped.windowedBy(windows).aggregate(
+                    initializer::get,
+                    (key, value, aggregate) -> aggregator.apply(value, aggregate),
+                    Named.as(name),
+                    Materialized.<KO, VR, WindowStore<Bytes, byte[]>>as(name)
+                            .withKeySerde(groupKeySerde)
+                            .withValueSerde(joinSerde(resultHint))
+            );
+            return wrap(table.toStream((windowedKey, value) -> windowedKey.key()), resultHint, groupKeySerde);
         }
     }
 

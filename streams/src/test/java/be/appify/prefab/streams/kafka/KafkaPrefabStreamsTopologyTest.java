@@ -2,15 +2,18 @@ package be.appify.prefab.streams.kafka;
 
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.service.Reference;
+import be.appify.prefab.streams.AggregationWindow;
 import be.appify.prefab.streams.ContextualStreamProcessor;
 import be.appify.prefab.streams.JoinWindow;
 import be.appify.prefab.streams.StatefulStreamProcessor;
 import be.appify.prefab.streams.Store;
 import be.appify.prefab.streams.StreamBackend;
 import be.appify.prefab.streams.StreamBreakoutAdapter;
+import be.appify.prefab.streams.StreamDefinition;
 import be.appify.prefab.streams.StreamRecord;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import tools.jackson.databind.json.JsonMapper;
+import org.apache.kafka.streams.TestInputTopic;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Named;
 import org.junit.jupiter.api.Test;
@@ -692,6 +695,126 @@ class KafkaPrefabStreamsTopologyTest {
                 .contains("group-by-incoming-order-repartition");
     }
 
+    @Test
+    void windowedAggregate_shouldAggregateWithinWindowWithoutLeakingAcrossWindows() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        var definition = countOrdersPerCustomer(test, AggregationWindow.tumbling(Duration.ofSeconds(10), Duration.ZERO));
+
+        try (var topologyTest = test.run(definition)) {
+            var input = topologyTest.input(IncomingOrder.class);
+            var output = topologyTest.output(OrderCount.class);
+
+            pipeOrder(input, "o-1", "alice", 1_000L);
+            pipeOrder(input, "o-2", "alice", 4_000L);
+            pipeOrder(input, "o-3", "bob", 5_000L);
+            pipeOrder(input, "o-4", "alice", 11_000L);
+            pipeOrder(input, "o-5", "alice", 12_000L);
+
+            assertThat(output.readValuesToList())
+                    .containsExactly(
+                            new OrderCount(Reference.fromId("alice"), 1),
+                            new OrderCount(Reference.fromId("alice"), 2),
+                            new OrderCount(Reference.fromId("bob"), 1),
+                            new OrderCount(Reference.fromId("alice"), 1),
+                            new OrderCount(Reference.fromId("alice"), 2)
+                    );
+        }
+    }
+
+    @Test
+    void windowedAggregate_shouldDropRecordsArrivingAfterWindowAndGraceHaveClosed() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        var definition = countOrdersPerCustomer(test, AggregationWindow.tumbling(Duration.ofSeconds(10), Duration.ZERO));
+
+        try (var topologyTest = test.run(definition)) {
+            var input = topologyTest.input(IncomingOrder.class);
+            var output = topologyTest.output(OrderCount.class);
+
+            pipeOrder(input, "o-1", "alice", 1_000L);
+            pipeOrder(input, "o-2", "alice", 25_000L);
+            pipeOrder(input, "o-3", "alice", 2_000L);
+
+            assertThat(output.readValuesToList())
+                    .containsExactly(
+                            new OrderCount(Reference.fromId("alice"), 1),
+                            new OrderCount(Reference.fromId("alice"), 1)
+                    );
+        }
+    }
+
+    @Test
+    void windowedAggregate_withHoppingWindow_shouldAggregateRecordIntoEveryOverlappingWindow() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        var definition = countOrdersPerCustomer(
+                test,
+                AggregationWindow.hopping(Duration.ofSeconds(10), Duration.ofSeconds(5), Duration.ZERO));
+
+        try (var topologyTest = test.run(definition)) {
+            var input = topologyTest.input(IncomingOrder.class);
+            var output = topologyTest.output(OrderCount.class);
+
+            pipeOrder(input, "o-1", "alice", 7_000L);
+            pipeOrder(input, "o-2", "alice", 8_000L);
+
+            assertThat(output.readValuesToList())
+                    .containsExactlyInAnyOrder(
+                            new OrderCount(Reference.fromId("alice"), 1),
+                            new OrderCount(Reference.fromId("alice"), 1),
+                            new OrderCount(Reference.fromId("alice"), 2),
+                            new OrderCount(Reference.fromId("alice"), 2)
+                    );
+        }
+    }
+
+    @Test
+    void windowedAggregate_shouldUseNativeWindowStore() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        var definition = countOrdersPerCustomer(test, AggregationWindow.tumbling(Duration.ofSeconds(10), Duration.ZERO));
+
+        assertThat(definition.nativeTopology().describe().toString())
+                .contains("stores: [windowed-aggregate-incoming-order-order-count]");
+    }
+
+    @Test
+    void aggregationWindow_shouldRejectInvalidConfiguration() {
+        assertThatThrownBy(() -> AggregationWindow.tumbling(Duration.ZERO, Duration.ZERO))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> AggregationWindow.hopping(Duration.ofSeconds(5), Duration.ofSeconds(10), Duration.ZERO))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> AggregationWindow.tumbling(Duration.ofSeconds(5), Duration.ofSeconds(-1)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    private static StreamDefinition countOrdersPerCustomer(
+            KafkaTopologyTestBootstrap test,
+            AggregationWindow window
+    ) {
+        return test.streams().from(IncomingOrder.class)
+                .groupBy(customerKeyType(), IncomingOrder::customer)
+                .windowedAggregate(
+                        window,
+                        OrderCount.class,
+                        () -> new OrderCount(null, 0),
+                        (order, count) -> new OrderCount(order.customer(), count.numberOfOrders() + 1)
+                )
+                .to(OrderCount.class);
+    }
+
+    private static void pipeOrder(
+            TestInputTopic<Reference<Order>, IncomingOrder> input,
+            String orderId,
+            String customer,
+            long timestampMillis
+    ) {
+        input.pipeInput(
+                Reference.fromId(orderId),
+                new IncomingOrder(Reference.fromId(orderId), Reference.fromId(customer)),
+                Instant.ofEpochMilli(timestampMillis));
+    }
     @SuppressWarnings("unchecked")
     private static Class<Reference<Customer>> customerKeyType() {
         return (Class<Reference<Customer>>) (Class<?>) Reference.class;

@@ -42,6 +42,10 @@ public final class StreamStepNames {
         return reserveName("aggregate", inputType, resultType);
     }
 
+    String nextWindowedAggregateName(Class<?> inputType, Class<?> resultType) {
+        return reserveName("windowed-aggregate", inputType, resultType);
+    }
+
     String nextJoinName(Class<?> leftType, Class<?> rightType) {
         return reserveName("join", leftType, rightType);
     }

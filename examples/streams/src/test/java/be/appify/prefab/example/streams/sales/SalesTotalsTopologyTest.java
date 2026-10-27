@@ -4,6 +4,8 @@ import be.appify.prefab.example.streams.BiddingZoneId;
 import be.appify.prefab.test.streams.kafka.KafkaTopologyTestBootstrap;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SalesTotalsTopologyTest {
@@ -30,6 +32,28 @@ class SalesTotalsTopologyTest {
                             new ZoneSalesTotal(netherlands, 5.0, 1),
                             new ZoneSalesTotal(belgium, 12.5, 2),
                             new ZoneSalesTotal(belgium, 14.0, 3)
+                    );
+        }
+    }
+    @Test
+    void shouldKeepSeparateHourlyTotalsPerBiddingZone() {
+        var topology = new SalesTotalsTopology().salesTotalsTopology(bootstrap.streams());
+
+        try (var test = bootstrap.run(topology)) {
+            var input = test.input(EnergySale.class);
+            var output = test.output(HourlyZoneSalesTotal.class);
+
+            var firstHour = Instant.parse("2026-01-01T10:05:00Z");
+            var secondHour = Instant.parse("2026-01-01T11:05:00Z");
+            input.pipeInput("s-1", new EnergySale("s-1", belgium, 10.0), firstHour);
+            input.pipeInput("s-2", new EnergySale("s-2", belgium, 2.5), firstHour.plusSeconds(600));
+            input.pipeInput("s-3", new EnergySale("s-3", belgium, 4.0), secondHour);
+
+            assertThat(output.readValuesToList())
+                    .containsExactly(
+                            new HourlyZoneSalesTotal(belgium, 10.0, 1),
+                            new HourlyZoneSalesTotal(belgium, 12.5, 2),
+                            new HourlyZoneSalesTotal(belgium, 4.0, 1)
                     );
         }
     }

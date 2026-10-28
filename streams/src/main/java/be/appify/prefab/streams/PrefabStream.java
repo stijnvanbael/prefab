@@ -41,6 +41,67 @@ public interface PrefabStream<K, V extends Keyed<K>> {
      */
     <KO> PrefabGroupedStream<KO, V> groupBy(Class<KO> keyType, Function<V, KO> keyExtractor);
 
+    /**
+     * Re-keys the stream: every value is mapped to a value whose {@link Keyed#key()} becomes the new record key,
+     * and the records are re-partitioned on a generated repartition topic name.
+     *
+     * @param keyType
+     *         the type of the new key
+     * @param mapper
+     *         maps a value to the re-keyed value
+     * @param <KO>
+     *         the new key type
+     * @param <VO>
+     *         the re-keyed value type
+     * @return the re-keyed stream
+     */
+    <KO, VO extends Keyed<KO>> PrefabStream<KO, VO> keyBy(Class<KO> keyType, Function<V, VO> mapper);
+
+    /**
+     * Re-keys the stream like {@link #keyBy(Class, Function)}, using an explicit repartition topic name.
+     *
+     * @param keyType
+     *         the type of the new key
+     * @param mapper
+     *         maps a value to the re-keyed value
+     * @param repartitionName
+     *         the user-chosen name of the repartition topic, see {@link #repartition(String)}
+     * @param <KO>
+     *         the new key type
+     * @param <VO>
+     *         the re-keyed value type
+     * @return the re-keyed stream
+     * @throws IllegalArgumentException
+     *         if the name is invalid or already used in the topology
+     */
+    <KO, VO extends Keyed<KO>> PrefabStream<KO, VO> keyBy(
+            Class<KO> keyType,
+            Function<V, VO> mapper,
+            String repartitionName
+    );
+
+    /**
+     * Redistributes the records over the partitions of a repartition topic with a generated name, keeping the key.
+     *
+     * @return the repartitioned stream
+     */
+    PrefabStream<K, V> repartition();
+
+    /**
+     * Redistributes the records over the partitions of a repartition topic with an explicit name, keeping the key.
+     *
+     * <p>The name is used as the repartition topic name in the topology. On Kafka the application id is prefixed and
+     * {@code -repartition} is appended by Kafka Streams. The name may contain only letters, digits, {@code .},
+     * {@code _} and {@code -}, and must be unique within the topology.
+     *
+     * @param name
+     *         the repartition topic name
+     * @return the repartitioned stream
+     * @throws IllegalArgumentException
+     *         if the name is invalid or already used in the topology
+     */
+    PrefabStream<K, V> repartition(String name);
+
     <NI, NO, KO, VO extends Keyed<KO>> PrefabStream<KO, VO> breakout(
             StreamBreakoutAdapter<K, V, KO, VO, NI, NO> adapter
     );

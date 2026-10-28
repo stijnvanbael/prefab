@@ -88,6 +88,29 @@ public class AutoRegisterPrefabStreamTestDecorator<K, V extends Keyed<K>> implem
     }
 
     @Override
+    public <KO, VO extends Keyed<KO>> PrefabStream<KO, VO> keyBy(Class<KO> keyType, Function<V, VO> mapper) {
+        return wrap(delegate.keyBy(keyType, mapper));
+    }
+
+    @Override
+    public <KO, VO extends Keyed<KO>> PrefabStream<KO, VO> keyBy(
+            Class<KO> keyType,
+            Function<V, VO> mapper,
+            String repartitionName
+    ) {
+        return wrap(delegate.keyBy(keyType, mapper, repartitionName));
+    }
+
+    @Override
+    public PrefabStream<K, V> repartition() {
+        return wrap(delegate.repartition());
+    }
+
+    @Override
+    public PrefabStream<K, V> repartition(String name) {
+        return wrap(delegate.repartition(name));
+    }
+    @Override
     public <KO> PrefabGroupedStream<KO, V> groupBy(Class<KO> keyType, Function<V, KO> keyExtractor) {
         var grouped = delegate.groupBy(keyType, keyExtractor);
         return new PrefabGroupedStream<>() {

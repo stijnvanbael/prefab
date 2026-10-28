@@ -27,6 +27,7 @@ import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.streams.StreamsBuilder;
+import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.kstream.Branched;
 import org.apache.kafka.streams.kstream.Grouped;
 import org.apache.kafka.streams.kstream.JoinWindows;
@@ -36,6 +37,7 @@ import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Named;
 import org.apache.kafka.streams.kstream.Produced;
+import org.apache.kafka.streams.kstream.Repartitioned;
 import org.apache.kafka.streams.kstream.StreamJoined;
 import org.apache.kafka.streams.kstream.TimeWindows;
 import org.apache.kafka.streams.kstream.Windowed;
@@ -200,6 +202,54 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
                 Grouped.with(groupName, groupKeySerde, joinSerde(valueType))
         );
         return new KafkaGroupedStream<>(grouped, groupKeySerde);
+    }
+
+    @Override
+    public <KO, VO extends Keyed<KO>> PrefabStream<KO, VO> keyBy(Class<KO> keyType, Function<V, VO> mapper) {
+        return rekey(keyType, mapper, stepNames.nextRepartitionName(inputTypeOrNull()));
+    }
+
+    @Override
+    public <KO, VO extends Keyed<KO>> PrefabStream<KO, VO> keyBy(
+            Class<KO> keyType,
+            Function<V, VO> mapper,
+            String repartitionName
+    ) {
+        return rekey(keyType, mapper, stepNames.reserveExplicitName(repartitionName));
+    }
+
+    private <KO, VO extends Keyed<KO>> PrefabStream<KO, VO> rekey(
+            Class<KO> keyType,
+            Function<V, VO> mapper,
+            String repartitionName
+    ) {
+        Objects.requireNonNull(keyType, "keyType must not be null");
+        Objects.requireNonNull(mapper, "mapper must not be null");
+        var newKeySerde = new StringKeySerde<>(keyType);
+        KStream<KO, VO> rekeyed = stream.map((key, value) -> {
+            var mapped = mapper.apply(value);
+            return KeyValue.pair(mapped.key(), mapped);
+        });
+        var repartitioned = rekeyed.repartition(
+                Repartitioned.<KO, VO>with(newKeySerde, joinSerde(ValueTypeHint.<VO>unknown()))
+                        .withName(repartitionName));
+        return wrapUnknown(repartitioned, newKeySerde);
+    }
+
+    @Override
+    public PrefabStream<K, V> repartition() {
+        return repartitionAs(stepNames.nextRepartitionName(inputTypeOrNull()));
+    }
+
+    @Override
+    public PrefabStream<K, V> repartition(String name) {
+        return repartitionAs(stepNames.reserveExplicitName(name));
+    }
+
+    private PrefabStream<K, V> repartitionAs(String name) {
+        var repartitioned = stream.repartition(
+                Repartitioned.<K, V>with(keySerde, joinSerde(valueType)).withName(name));
+        return wrap(repartitioned, valueType, keySerde);
     }
 
     private final class KafkaGroupedStream<KO> implements PrefabGroupedStream<KO, V> {

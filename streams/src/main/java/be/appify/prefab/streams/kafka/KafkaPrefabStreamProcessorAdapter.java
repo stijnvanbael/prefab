@@ -17,7 +17,9 @@ public class KafkaPrefabStreamProcessorAdapter<KI, VI extends Keyed<KI>, KO, VO 
     @Override
     public void init(ProcessorContext<KO, VO> context) {
         super.init(context);
-        processor.initContext(new KafkaPrefabProcessorContext<>(context));
+        var processorContext = new KafkaPrefabProcessorContext<>(context);
+        processor.initContext(processorContext);
+        processor.globalStores().forEach(store -> store.init(processorContext));
     }
 
     @Override

@@ -34,7 +34,8 @@ public interface StreamProcessor<KI, VI extends Keyed<KI>, KO, VO extends Keyed<
 
     /**
      * Returns the global stores this processor reads from. Global stores are read-only and fully replicated, so
-     * they are looked up by name rather than co-partitioned with the input.
+     * they are looked up by name rather than co-partitioned with the input. The framework binds them to the processor
+     * context; implementations do not need to initialise them.
      *
      * @return A collection of global stores used by this processor.
      */

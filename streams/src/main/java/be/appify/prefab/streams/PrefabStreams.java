@@ -64,7 +64,7 @@ public interface PrefabStreams {
      * {@code null}, removes the key. Kafka allows only one global store per source topic, so every source type can
      * back at most one global store; declaring a second store on the same source type fails with an
      * {@link IllegalArgumentException}. Declaring the same name again with the same source and store type returns
-     * the existing store. Bind the store to processors with {@link PrefabStream#process(StreamProcessor, ReadableStore[])}.
+     * the existing store. Processors read it by returning it from {@link StreamProcessor#globalStores()}.
      *
      * @param name
      *         the unique store name

@@ -1023,12 +1023,32 @@ class StreamTopologyConfiguration {
         var customerProfiles = streams.globalStore(CustomerProfile.class);
 
         return streams.from(OrderPlaced.class)
-                .process(new EnrichOrderProcessor(customerProfiles), customerProfiles)
+                .process(new EnrichOrderProcessor(customerProfiles))
                 .to(OrderEnriched.class);
     }
 }
 ```
 
+```java
+class EnrichOrderProcessor extends ContextualStreamProcessor<OrderId, OrderPlaced, OrderId, OrderEnriched> {
+    private final GlobalStore<CustomerId, CustomerProfile> customerProfiles;
+
+    EnrichOrderProcessor(GlobalStore<CustomerId, CustomerProfile> customerProfiles) {
+        this.customerProfiles = customerProfiles;
+    }
+
+    @Override
+    public Collection<GlobalStore<?, ?>> globalStores() {
+        return List.of(customerProfiles);
+    }
+
+    @Override
+    public void process(StreamRecord<OrderId, OrderPlaced> record) {
+        var profile = customerProfiles.get(record.value().customerId());
+        // ...
+    }
+}
+```
 Behaviour and constraints:
 
 - The store is keyed by `Keyed.key()` and populated only from the source topic of the value type; processors can read
@@ -1042,8 +1062,9 @@ Behaviour and constraints:
   `globalStore(String name, Class<S> sourceType, Class<V> storeType, Function<S, V> mapper)`. A mapper result of
   `null` removes the key. Stores whose type differs from the source type are serialised as JSON.
 - The store has no changelog topic; on restart it is restored from the source topic. Use a compacted topic.
-- Bind the store with `process(processor, store)`, or return it from `StreamProcessor.globalStores()`. Binding a store
-  that was not declared via `globalStore(...)` fails fast with an `IllegalArgumentException`.
+- A processor reads a global store by returning it from `StreamProcessor.globalStores()`; the framework binds it to the
+  processor context. Returning a store
+  that was not declared via `globalStore(...)` or `globalStoreFrom(...)` fails fast with an `IllegalArgumentException`.
 - A global store is read from the processing thread, so a lookup may not yet see a record that was just published to the
   source topic.
 
@@ -1075,7 +1096,7 @@ class SnapshotCounterUpdater
 
 - The updater only consumes: it cannot forward records, has no processor context and cannot bind other stores.
 - Tombstones (`null` values) are not passed to the updater.
-- The returned `GlobalStore` is read-only; bind it to processors with `process(processor, store)`. It is registered on
+- The returned `GlobalStore` is read-only; return it from `StreamProcessor.globalStores()` to read it. It is registered on
   the shared `StreamsBuilder`, so no `StreamDefinition` is involved.
 - The same constraints apply as for other global stores: one global store per source type, unique names (a name can
   only be declared once). The stored type is serialised as JSON when it differs from the source type.
@@ -1088,7 +1109,7 @@ class SnapshotCounterUpdater
 
 ```java
 return streams.from(OrderPlaced.class)
-        .process(new AuditProcessor(customerProfiles), customerProfiles)
+        .process(new AuditProcessor(customerProfiles))
         .end();
 ```
 ### Key Serialization Wire Format (JSON + AVRO)

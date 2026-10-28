@@ -67,3 +67,5 @@ Follow-up: stores can be named explicitly (`globalStore(name, type)`), and `glob
 Follow-up 2: `globalStoreFrom(sourceType).updatedBy(GlobalStoreUpdater).as([name,] storeType)` for stores computed from source records (a processor can never write a global store; the updater is the single consume-only writer, passed a writable `Store` per record, no forwarding/context). Returns only the read-only `GlobalStore`; backed by `addGlobalStore` with a writer processor. Verified in Kafka 4.2.1 that `addGlobalStore` sets reprocessOnRestore=true, so restores replay through the updater; side effects therefore repeat on restore and run on every instance (documented).
 
 Verification: `mvn -pl streams,test,examples/streams -am test` passes.<!-- SECTION:NOTES:END -->
+
+- Follow-up: removed the process(processor, stores...) overload. Processors declare the global stores they read via StreamProcessor.globalStores(); KafkaPrefabStreamProcessorAdapter.init binds them.

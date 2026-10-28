@@ -21,6 +21,8 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
 import java.util.stream.Stream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -417,7 +419,7 @@ class KafkaPrefabStreamsTopologyTest {
         var customerProfiles = streams.globalStore(CustomerProfile.class);
 
         var topology = streams.from(IncomingOrder.class)
-                .process(new EnrichOrderWithProfileProcessor(customerProfiles), customerProfiles)
+                .process(new EnrichOrderWithProfileProcessor(customerProfiles))
                 .end();
 
         assertThat(topology.nativeTopology().describe().globalStores()).hasSize(1);
@@ -430,7 +432,7 @@ class KafkaPrefabStreamsTopologyTest {
         var customerProfiles = streams.globalStore(CustomerProfile.class);
 
         var topology = streams.from(IncomingOrder.class)
-                .process(new EnrichOrderWithProfileProcessor(customerProfiles), customerProfiles)
+                .process(new EnrichOrderWithProfileProcessor(customerProfiles))
                 .to(OrderProfileView.class);
 
         try (var topologyTest = test.run(topology)) {
@@ -460,7 +462,7 @@ class KafkaPrefabStreamsTopologyTest {
         var customerProfiles = streams.globalStore(CustomerProfile.class);
 
         var topology = streams.from(IncomingOrder.class)
-                .process(new EnrichOrderWithProfileProcessor(customerProfiles), customerProfiles)
+                .process(new EnrichOrderWithProfileProcessor(customerProfiles))
                 .to(OrderProfileView.class);
 
         try (var topologyTest = test.run(topology)) {
@@ -497,7 +499,7 @@ class KafkaPrefabStreamsTopologyTest {
                 updated -> new CustomerProfile(updated.customerId(), updated.tier()));
 
         var topology = streams.from(IncomingOrder.class)
-                .process(new EnrichOrderWithProfileProcessor(customerProfiles), customerProfiles)
+                .process(new EnrichOrderWithProfileProcessor(customerProfiles))
                 .to(OrderProfileView.class);
 
         try (var topologyTest = test.run(topology)) {
@@ -527,7 +529,7 @@ class KafkaPrefabStreamsTopologyTest {
         assertThat(fromProfiles.name()).isEqualTo("global-profiles-a");
         assertThat(fromUpdates.name()).isEqualTo("global-profiles-b");
         var topology = streams.from(IncomingOrder.class)
-                .process(new EnrichOrderWithProfileProcessor(fromProfiles), fromProfiles, fromUpdates)
+                .process(new EnrichOrderWithProfileProcessor(fromProfiles, fromUpdates))
                 .end();
         assertThat(topology.nativeTopology().describe().globalStores()).hasSize(2);
     }
@@ -562,7 +564,7 @@ class KafkaPrefabStreamsTopologyTest {
                 .as(CustomerProfile.class);
 
         var topology = streams.from(IncomingOrder.class)
-                .process(new EnrichOrderWithProfileProcessor(customerProfiles), customerProfiles)
+                .process(new EnrichOrderWithProfileProcessor(customerProfiles))
                 .to(OrderProfileView.class);
 
         try (var topologyTest = test.run(topology)) {
@@ -609,13 +611,14 @@ class KafkaPrefabStreamsTopologyTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("already feeds global store 'global-profiles'");
     }
+
     @Test
     void process_shouldFailFastForUndeclaredGlobalStoreBinding() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
         var undeclared = new KafkaPrefabGlobalStoreAdapter<Reference<Customer>, CustomerProfile>("global-undeclared");
 
         assertThatThrownBy(() -> test.streams().from(IncomingOrder.class)
-                .process(new EnrichOrderWithProfileProcessor(undeclared), undeclared))
+                .process(new EnrichOrderWithProfileProcessor(undeclared)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Global store 'global-undeclared' is not declared");
     }
@@ -630,26 +633,18 @@ class KafkaPrefabStreamsTopologyTest {
 
         assertThat(topology.nativeTopology().describe().subtopologies()).isNotEmpty();
     }
-    @Test
-    void process_shouldFailFastForConflictingStoreBindings() {
-        var test = KafkaTopologyTestBootstrap.bootstrap();
-
-        assertThatThrownBy(() -> test.streams().from(IncomingOrder.class)
-                .process(
-                        new CountOrderProcessor(),
-                        new KafkaPrefabStoreAdapter<>("duplicate-store"),
-                        new KafkaPrefabStoreAdapter<>("duplicate-store")
-                ))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Duplicate store binding 'duplicate-store'");
-    }
 
     @Test
     void process_shouldFailFastForUndeclaredStoreBinding() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
 
         assertThatThrownBy(() -> test.streams().from(IncomingOrder.class)
-                .process(new CountOrderProcessor(), new KafkaPrefabStoreAdapter<>("undeclared-store")))
+                .process(new CountOrderProcessor() {
+                    @Override
+                    public Collection<Store<?, ?>> stateStores() {
+                        return List.of(new KafkaPrefabStoreAdapter<>("undeclared-store"));
+                    }
+                }))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Store 'undeclared-store' is not declared");
     }
@@ -1525,11 +1520,20 @@ class KafkaPrefabStreamsTopologyTest {
     private static final class EnrichOrderWithProfileProcessor
             extends ContextualStreamProcessor<Reference<Order>, IncomingOrder, Reference<Order>, OrderProfileView> {
         private final GlobalStore<Reference<Customer>, CustomerProfile> customerProfiles;
+        private final List<GlobalStore<?, ?>> globalStores;
 
-        private EnrichOrderWithProfileProcessor(GlobalStore<Reference<Customer>, CustomerProfile> customerProfiles) {
+        private EnrichOrderWithProfileProcessor(
+                GlobalStore<Reference<Customer>, CustomerProfile> customerProfiles,
+                GlobalStore<?, ?>... otherStores
+        ) {
             this.customerProfiles = customerProfiles;
+            this.globalStores = Stream.concat(Stream.of(customerProfiles), Stream.of(otherStores)).toList();
         }
 
+        @Override
+        public Collection<GlobalStore<?, ?>> globalStores() {
+            return globalStores;
+        }
         @Override
         public void process(StreamRecord<Reference<Order>, IncomingOrder> streamRecord) {
             var tier = customerProfiles.get(streamRecord.value().customer())

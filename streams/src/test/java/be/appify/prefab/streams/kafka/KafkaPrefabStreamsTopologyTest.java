@@ -696,6 +696,107 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     @Test
+    void keyBy_shouldRekeyRecordsByTheMappedValueKey() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        var definition = test.streams().from(IncomingOrder.class)
+                .keyBy(customerKeyType(), order -> new OrderCount(order.customer(), 1))
+                .to(OrderCount.class);
+
+        try (var topologyTest = test.run(definition)) {
+            topologyTest.input(IncomingOrder.class)
+                    .pipeInput(Reference.fromId("o-1"), new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("alice")));
+
+            var output = topologyTest.driver().createOutputTopic(
+                    "test-order-count",
+                    new StringKeySerde<>(customerKeyType()).deserializer(),
+                    topologyTest.deserializer().<OrderCount>adapt());
+            var record = output.readRecord();
+            assertThat(record.key()).isEqualTo(Reference.fromId("alice"));
+            assertThat(record.value()).isEqualTo(new OrderCount(Reference.fromId("alice"), 1));
+        }
+    }
+
+    @Test
+    void keyBy_withExplicitName_shouldUseTheGivenRepartitionTopicName() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        var definition = test.streams().from(IncomingOrder.class)
+                .keyBy(customerKeyType(), order -> new OrderCount(order.customer(), 1), "orders-by-customer")
+                .to(OrderCount.class);
+
+        assertThat(definition.nativeTopology().describe().toString()).contains("orders-by-customer-repartition");
+    }
+
+    @Test
+    void repartition_withExplicitName_shouldUseTheGivenNameAndKeepKeyAndValue() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        var definition = test.streams().from(IncomingOrder.class)
+                .repartition("incoming-orders")
+                .to("processed-sink");
+
+        assertThat(definition.nativeTopology().describe().toString()).contains("incoming-orders-repartition");
+    }
+
+    @Test
+    void repartition_withoutName_shouldGenerateAName() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        var definition = test.streams().from(IncomingOrder.class)
+                .repartition()
+                .to("processed-sink");
+
+        assertThat(definition.nativeTopology().describe().toString()).contains("repartition-incoming-order-repartition");
+    }
+
+    @Test
+    void repartition_shouldPassRecordsThrough() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        var definition = test.streams().from(IncomingOrder.class)
+                .repartition("incoming-orders")
+                .map(order -> new ProcessedOrder(order.orderId(), order.customer()))
+                .to(ProcessedOrder.class);
+
+        try (var topologyTest = test.run(definition)) {
+            topologyTest.input(IncomingOrder.class)
+                    .pipeInput(Reference.fromId("o-1"), new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("alice")));
+
+            assertThat(topologyTest.output(ProcessedOrder.class).readValuesToList())
+                    .containsExactly(new ProcessedOrder(Reference.fromId("o-1"), Reference.fromId("alice")));
+        }
+    }
+
+    @Test
+    void repartition_withInvalidName_shouldBeRejectedWithActionableMessage() {
+        var stream = KafkaTopologyTestBootstrap.bootstrap().streams().from(IncomingOrder.class);
+
+        assertThatThrownBy(() -> stream.repartition("bad name!"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid repartition topic name 'bad name!'")
+                .hasMessageContaining("letters, digits");
+        assertThatThrownBy(() -> stream.repartition(" "))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must not be null or blank");
+        assertThatThrownBy(() -> stream.repartition(".."))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> stream.repartition(null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void repartition_withDuplicateName_shouldBeRejected() {
+        var stream = KafkaTopologyTestBootstrap.bootstrap().streams().from(IncomingOrder.class);
+        stream.repartition("shared-name");
+
+        assertThatThrownBy(() -> stream.repartition("shared-name"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("'shared-name' conflicts")
+                .hasMessageContaining("Choose a unique name");
+    }
+
+    @Test
     void windowedAggregate_shouldAggregateWithinWindowWithoutLeakingAcrossWindows() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
 

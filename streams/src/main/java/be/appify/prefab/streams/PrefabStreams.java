@@ -84,6 +84,46 @@ public interface PrefabStreams {
     );
 
     /**
+     * Starts the declaration of a global store that is maintained by a {@link GlobalStoreUpdater}, for stores whose
+     * content is computed from the source records rather than mapped one-to-one.
+     *
+     * <pre>{@code
+     * var counters = streams.globalStoreFrom(LifecycleEvent.class)
+     *         .updatedBy(new SnapshotCounterUpdater())
+     *         .as(SnapshotCounter.class);
+     * }</pre>
+     *
+     * @param sourceType
+     *         the value type of the source topic
+     * @return the first declaration step
+     */
+    default <KS, S extends Keyed<KS>> GlobalStoreSource<KS, S> globalStoreFrom(Class<S> sourceType) {
+        return new GlobalStoreSource<>(this, sourceType);
+    }
+
+    /**
+     * Declares a global store maintained by an updater. Prefer {@link #globalStoreFrom(Class)}.
+     *
+     * <p>Kafka allows one global store per source topic and one writer per store, so declaring a name or a source
+     * type that is already in use fails with an {@link IllegalArgumentException}.
+     *
+     * @param name
+     *         the unique store name
+     * @param sourceType
+     *         the value type of the source topic
+     * @param storeType
+     *         the value type kept in the store
+     * @param updater
+     *         the single writer of the store
+     * @return the read-only global store
+     */
+    <KS, S extends Keyed<KS>, K, V extends Keyed<K>> GlobalStore<K, V> declareGlobalStore(
+            String name,
+            Class<S> sourceType,
+            Class<V> storeType,
+            GlobalStoreUpdater<KS, S, K, V> updater
+    );
+    /**
      * Returns the default global store name for a store type.
      *
      * @param storeType

@@ -922,7 +922,7 @@ Supported operations:
 - `PrefabStreams.merge(PrefabStream<? extends M>, PrefabStream<? extends M>)`
 - `deduplicate(Function<?, String>, Duration)`
 - `breakout(StreamBreakoutAdapter<?, ?, ?, ?>)`
-- `globalStore(Class<?>)`, `globalStore(String, Class<?>)`, `globalStore(Class<S>, Class<V>, Function<S, V>)`
+- `globalStore(Class<?>)`, `globalStore(String, Class<?>)`, `globalStore(Class<S>, Class<V>, Function<S, V>)`, `globalStoreFrom(Class<S>).updatedBy(...).as(Class<V>)`
 - `to(Class<?>)`
 - `to(String)`
 - `end()`
@@ -1047,6 +1047,40 @@ Behaviour and constraints:
 - A global store is read from the processing thread, so a lookup may not yet see a record that was just published to the
   source topic.
 
+#### Stores computed from the source records
+
+A processor cannot write to a global store, because Kafka allows exactly one writer: the processor attached to the
+store's source topic. When the store content is computed (counters, aggregates) rather than mapped one-to-one, declare it
+with a `GlobalStoreUpdater`:
+
+```java
+@Bean
+GlobalStore<String, SnapshotCounter> snapshotCounters(PrefabStreams streams, ApplicationEventPublisher publisher) {
+    return streams.globalStoreFrom(MeteringconfigLifecycleEvent.class)
+            .updatedBy(new SnapshotCounterUpdater(publisher))
+            .as(SnapshotCounter.class); // or .as("snapshot-counters", SnapshotCounter.class)
+}
+```
+
+```java
+class SnapshotCounterUpdater
+        implements GlobalStoreUpdater<String, MeteringconfigLifecycleEvent, String, SnapshotCounter> {
+    @Override
+    public void update(StreamRecord<String, MeteringconfigLifecycleEvent> record, Store<String, SnapshotCounter> store) {
+        var counter = store.get(record.key()).orElseGet(() -> SnapshotCounter.init(record.key()));
+        store.put(record.key(), counter.apply(record.value()));
+    }
+}
+```
+
+- The updater only consumes: it cannot forward records, has no processor context and cannot bind other stores.
+- Tombstones (`null` values) are not passed to the updater.
+- The returned `GlobalStore` is read-only; bind it to processors with `process(processor, store)`. It is registered on
+  the shared `StreamsBuilder`, so no `StreamDefinition` is involved.
+- The same constraints apply as for other global stores: one global store per source type, unique names (a name can
+  only be declared once). The stored type is serialised as JSON when it differs from the source type.
+- The updater runs on every application instance, and Kafka replays the source topic through it when the store is
+  restored, so side effects in an updater (for example publishing application events) can repeat. Keep them idempotent.
 ### Ending a topology without a sink
 
 `to(...)` returns the `StreamDefinition`. When a branch ends in a `process(...)` step that has no output topic, call

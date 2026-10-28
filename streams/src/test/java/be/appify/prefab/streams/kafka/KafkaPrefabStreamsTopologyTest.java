@@ -554,6 +554,62 @@ class KafkaPrefabStreamsTopologyTest {
                 .hasMessageContaining("already declared");
     }
     @Test
+    void globalStoreFrom_shouldLetUpdaterReadAndWriteTheStoreFromSourceRecords() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+        var customerProfiles = streams.globalStoreFrom(CustomerProfileUpdated.class)
+                .updatedBy(UpdateCustomerProfileUpdater::update)
+                .as(CustomerProfile.class);
+
+        var topology = streams.from(IncomingOrder.class)
+                .process(new EnrichOrderWithProfileProcessor(customerProfiles), customerProfiles)
+                .to(OrderProfileView.class);
+
+        try (var topologyTest = test.run(topology)) {
+            var updates = topologyTest.input(CustomerProfileUpdated.class);
+            var orders = topologyTest.input(IncomingOrder.class);
+            var output = topologyTest.output(OrderProfileView.class);
+
+            updates.pipeInput(Reference.fromId("alice"), new CustomerProfileUpdated(Reference.fromId("alice"), "SILVER"));
+            updates.pipeInput(Reference.fromId("alice"), new CustomerProfileUpdated(Reference.fromId("alice"), "GOLD"));
+            updates.pipeInput(Reference.fromId("alice"), null);
+            orders.pipeInput(Reference.fromId("o-1"), new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("alice")));
+
+            assertThat(output.readValue().tier()).isEqualTo("GOLD (2 updates)");
+        }
+    }
+
+    @Test
+    void globalStoreFrom_shouldRegisterGlobalStoreWithoutAStream() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+
+        streams.globalStoreFrom(CustomerProfileUpdated.class)
+                .updatedBy(UpdateCustomerProfileUpdater::update)
+                .as("profiles", CustomerProfile.class);
+        var definition = streams.from(IncomingOrder.class).end();
+
+        assertThat(definition.nativeTopology().describe().globalStores()).hasSize(1);
+    }
+
+    @Test
+    void globalStoreFrom_shouldFailFastWhenNameOrSourceTopicIsAlreadyUsed() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+        streams.globalStoreFrom(CustomerProfileUpdated.class)
+                .updatedBy(UpdateCustomerProfileUpdater::update)
+                .as("profiles", CustomerProfile.class);
+        var declaration = streams.globalStoreFrom(CustomerProfileUpdated.class)
+                .updatedBy(UpdateCustomerProfileUpdater::update);
+
+        assertThatThrownBy(() -> declaration.as("profiles", CustomerProfile.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("already declared");
+        assertThatThrownBy(() -> declaration.as("other-profiles", CustomerProfile.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("already feeds global store 'global-profiles'");
+    }
+    @Test
     void process_shouldFailFastForUndeclaredGlobalStoreBinding() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
         var undeclared = new KafkaPrefabGlobalStoreAdapter<Reference<Customer>, CustomerProfile>("global-undeclared");
@@ -1453,6 +1509,19 @@ class KafkaPrefabStreamsTopologyTest {
         }
     }
 
+    private static final class UpdateCustomerProfileUpdater {
+        private static void update(
+                StreamRecord<Reference<Customer>, CustomerProfileUpdated> streamRecord,
+                Store<Reference<Customer>, CustomerProfile> store
+        ) {
+            var updates = store.get(streamRecord.key())
+                    .map(existing -> Integer.parseInt(existing.tier().replaceAll("\\D", "")) + 1)
+                    .orElse(1);
+            store.put(
+                    streamRecord.key(),
+                    new CustomerProfile(streamRecord.key(), "%s (%d updates)".formatted(streamRecord.value().tier(), updates)));
+        }
+    }
     private static final class EnrichOrderWithProfileProcessor
             extends ContextualStreamProcessor<Reference<Order>, IncomingOrder, Reference<Order>, OrderProfileView> {
         private final GlobalStore<Reference<Customer>, CustomerProfile> customerProfiles;

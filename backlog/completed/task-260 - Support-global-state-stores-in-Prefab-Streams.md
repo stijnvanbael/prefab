@@ -64,4 +64,6 @@ Implementation:
 
 Follow-up: stores can be named explicitly (`globalStore(name, type)`), and `globalStore(name, sourceType, storeType, mapper)` decouples the stored type from the source topic's type, since Kafka allows one global store per source topic (duplicate source topics, duplicate names with other types fail fast). Differing store types use a registry-independent JSON serde.
 
+Follow-up 2: `globalStoreFrom(sourceType).updatedBy(GlobalStoreUpdater).as([name,] storeType)` for stores computed from source records (a processor can never write a global store; the updater is the single consume-only writer, passed a writable `Store` per record, no forwarding/context). Returns only the read-only `GlobalStore`; backed by `addGlobalStore` with a writer processor. Verified in Kafka 4.2.1 that `addGlobalStore` sets reprocessOnRestore=true, so restores replay through the updater; side effects therefore repeat on restore and run on every instance (documented).
+
 Verification: `mvn -pl streams,test,examples/streams -am test` passes.<!-- SECTION:NOTES:END -->

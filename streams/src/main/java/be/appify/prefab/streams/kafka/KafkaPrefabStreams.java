@@ -5,6 +5,7 @@ import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.streams.GlobalStore;
+import be.appify.prefab.streams.GlobalStoreUpdater;
 import be.appify.prefab.streams.PrefabStream;
 import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.Store;
@@ -23,6 +24,7 @@ import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.KStream;
+import org.apache.kafka.streams.processor.api.ProcessorSupplier;
 import org.apache.kafka.streams.state.Stores;
 import org.springframework.core.convert.ConversionService;
 import tools.jackson.databind.json.JsonMapper;
@@ -191,18 +193,50 @@ public class KafkaPrefabStreams implements PrefabStreams {
             Class<VS> storeType,
             Function<S, VS> mapper
     ) {
-        Objects.requireNonNull(sourceType, "sourceType must not be null");
-        Objects.requireNonNull(storeType, "storeType must not be null");
         Objects.requireNonNull(mapper, "mapper must not be null");
-        if (name == null || name.isBlank()) {
-            throw new IllegalArgumentException("global store name must not be blank");
-        }
-        var storeName = "global-" + toStoreName(name);
-        var topic = topicResolver.topicForType(sourceType);
+        var storeName = globalStoreName(name);
         var existing = globalStores.get(storeName);
         if (existing != null) {
             return (GlobalStore<KS, VS>) existing.reuse(sourceType, storeType);
         }
+        return registerGlobalStore(storeName, sourceType, storeType,
+                () -> new GlobalStoreUpdateProcessor<>(storeName, mapper));
+    }
+
+    @Override
+    public <KS, S extends Keyed<KS>, K, V extends Keyed<K>> GlobalStore<K, V> declareGlobalStore(
+            String name,
+            Class<S> sourceType,
+            Class<V> storeType,
+            GlobalStoreUpdater<KS, S, K, V> updater
+    ) {
+        Objects.requireNonNull(updater, "updater must not be null");
+        var storeName = globalStoreName(name);
+        if (globalStores.containsKey(storeName)) {
+            throw new IllegalArgumentException(
+                    "Global store '%s' is already declared; a store maintained by an updater can only be declared once"
+                            .formatted(storeName));
+        }
+        return registerGlobalStore(storeName, sourceType, storeType,
+                () -> new GlobalStoreWriterProcessor<>(storeName, updater));
+    }
+
+    private static String globalStoreName(String name) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("global store name must not be blank");
+        }
+        return "global-" + toStoreName(name);
+    }
+
+    private <KS, S extends Keyed<KS>, K, V extends Keyed<K>> GlobalStore<K, V> registerGlobalStore(
+            String storeName,
+            Class<S> sourceType,
+            Class<V> storeType,
+            ProcessorSupplier<KS, S, Void, Void> updateSupplier
+    ) {
+        Objects.requireNonNull(sourceType, "sourceType must not be null");
+        Objects.requireNonNull(storeType, "storeType must not be null");
+        var topic = topicResolver.topicForType(sourceType);
         var topicOwner = globalStoreNamesByTopic.get(topic);
         if (topicOwner != null) {
             throw new IllegalArgumentException(
@@ -215,22 +249,21 @@ public class KafkaPrefabStreams implements PrefabStreams {
         streamsBuilder.addGlobalStore(
                 Stores.keyValueStoreBuilder(
                         Stores.persistentKeyValueStore(storeName),
-                        this.<KS, VS>keySerde(typeReference),
+                        this.<K, V>keySerde(typeReference),
                         globalValueSerde(sourceType, typeReference)).withLoggingDisabled(),
                 topic,
                 Consumed.with(sourceKeySerde, sourceValueSerde),
-                () -> new GlobalStoreUpdateProcessor<>(storeName, mapper));
-        var store = new KafkaPrefabGlobalStoreAdapter<KS, VS>(storeName);
+                updateSupplier);
+        var store = new KafkaPrefabGlobalStoreAdapter<K, V>(storeName);
         globalStores.put(storeName, new GlobalStoreDefinition(sourceType, storeType, store));
         globalStoreNamesByTopic.put(topic, storeName);
         return store;
     }
-
     /**
      * Resolves the value serde of a global store. When the stored type equals the source type the topic-based
      * serde is used; otherwise the registry cannot know the stored type, so it is serialised as JSON.
      */
-    private <KS, VS extends Keyed<KS>> Serde<VS> globalValueSerde(Class<?> sourceType, TypeReference<VS> storeType) {
+    private <K, V extends Keyed<K>> Serde<V> globalValueSerde(Class<?> sourceType, TypeReference<V> storeType) {
         if (sourceType == storeType.rawType()) {
             return valueSerde(storeType);
         }

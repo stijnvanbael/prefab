@@ -26,7 +26,7 @@ Goal: tests are written against a backend-neutral API with minimal setup, so the
 ### Target test shape
 
 ```java
-@TopologyTest
+@ExtendWith(TopologyTestExtension.class)
 class FilterTest {
     @TestStreams PrefabStreams streams;
     @TestStreams TopologySession topology;
@@ -67,19 +67,21 @@ class FilterTest {
 ```
 
 Key points of the example:
-- No base class and no explicit bootstrap. `@TopologyTest` is a meta-annotation that registers a Spring `TestExecutionListener` (`TopologyTestExecutionListener`, with `inheritListeners = false` so no application context is loaded for plain unit tests). The listener injects fields annotated `@TestStreams` (`PrefabStreams` and `TopologySession`) in `prepareTestInstance`, with a fresh harness per test.
-- No try-with-resources: the `TopologySession` is lazy. The driver is created on the first `input()`/`output()`/`inspect()` call from everything declared on the injected `streams`, and the listener closes it in `afterTestExecution` (also on failure). No elements are passed to `run(...)`.
+- No base class and no explicit bootstrap. `TopologyTestExtension` is a JUnit 5 extension (`TestInstancePostProcessor` + `AfterEachCallback`; no Spring dependency). It injects fields annotated `@TestStreams` (`PrefabStreams` and `TopologySession`) with a fresh harness per test. The same types can also be injected as test method parameters (`ParameterResolver`).
+- No try-with-resources: the `TopologySession` is lazy. The driver is created on the first `input()`/`output()`/`inspect()` call from everything declared on the injected `streams`. The harness is kept as an `AutoCloseable` resource in the per-test `ExtensionContext.Store`, so JUnit closes it after each test, also on failure.
 - Declaring more topology after the session has started fails fast with a clear message.
 - `Input.send(value[, Instant])` is fluent and takes the key from `Keyed.key()`; `at(millis)` is a shared helper.
 - `Output.values()` reads all pending records; no `TestOutputTopic`.
 - `topology.inspect()` returns a neutral `TopologyInspection` with AssertJ-style assertions (`hasStep`, `hasStore`, `hasGlobalStores(n)`, `hasRepartition`), replacing `describe().toString().contains(..)`.
-- Tests needing a non-default app id or custom config use `@TopologyTest(appId = "...")`.
+- Tests needing a non-default app id or custom config use `@RegisterExtension` with `TopologyTestExtension.withAppId("...")`.
+- Fixtures (`IncomingOrder`, `OrderCount`, `order(..)`, `count(..)`) live in a shared `TopologyFixtures`.
+- No `org.apache.kafka` import in tests that are not Kafka-specific.
 - Fixtures (`IncomingOrder`, `OrderCount`, `order(..)`, `count(..)`) live in a shared `TopologyFixtures`.
 - No `org.apache.kafka` import in tests that are not Kafka-specific.
 - Where the application context is used (Spring Boot example tests), the listener can additionally be used together with `@SpringBootTest`; to be verified during implementation.
 ### Scope
 1. Neutral API in the `test` module: `TopologyTestHarness`, `TopologySession`, `Input`, `Output`, `RawOutput`, `TopologyInspection`; Kafka implementation wraps `TopologyTestDriver`. Remove duplicate bootstrap in `streams/src/test`.
-2. `@TopologyTest`, `@TestStreams` and `TopologyTestExecutionListener` (field injection, lazy session start, automatic close), plus `TopologyFixtures`.
+2. `TopologyTestExtension` and `@TestStreams` (JUnit 5 field and parameter injection, lazy session start, automatic close via the `ExtensionContext` store), plus `TopologyFixtures`.
 3. Remove Kafka types from `TopologyElement` / `StreamDefinition`; native access moves to a Kafka sub-interface (breaking change to be called out).
 4. Split `KafkaPrefabStreamsTopologyTest` by operator; parameterize the repeated "stable step names" tests; keep Kafka-only tests (breakout adapters with `KStream`, wire-format byte checks, `StreamsConfigurationBootstrapTest`) in `streams/.../kafka`.
 5. Backend-neutral tests form an abstract contract suite reusable by other backends.
@@ -89,7 +91,7 @@ Key points of the example:
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Neutral test API exposes no `org.apache.kafka` types in its public signatures.
-- [ ] #2 A typical topology test needs no base class, no explicit harness bootstrap, no try-with-resources and no manual key duplication when piping input; harness and session are injected and closed by a `TestExecutionListener`.
+- [ ] #2 A typical topology test needs no base class, no explicit harness bootstrap, no try-with-resources and no manual key duplication when piping input; harness and session are injected and closed by a JUnit 5 extension (`TopologyTestExtension`) without a Spring dependency.
 - [ ] #3 Topology structure assertions use `TopologyInspection` instead of `describe().toString()`.
 - [ ] #4 `TopologyElement` and `StreamDefinition` in the `streams` package no longer reference Kafka types.
 - [ ] #5 `KafkaPrefabStreamsTopologyTest` is split into focused classes; repeated naming tests are parameterized; no test coverage is lost.

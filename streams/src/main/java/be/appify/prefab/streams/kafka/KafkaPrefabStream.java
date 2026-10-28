@@ -454,7 +454,7 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
 
     @Override
     public StreamDefinition end() {
-        return new StreamDefinition(streamsBuilder::build);
+        return new KafkaStreamDefinition(streamsBuilder::build);
     }
 
     @Override
@@ -623,3 +623,4 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
         }
     }
 }
+

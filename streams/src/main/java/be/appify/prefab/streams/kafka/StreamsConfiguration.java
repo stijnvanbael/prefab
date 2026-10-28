@@ -92,7 +92,15 @@ public class StreamsConfiguration {
 
     @Bean
     SmartInitializingSingleton streamTopologyBootstrap(ObjectProvider<StreamDefinition> streamDefinitions) {
-        return () -> streamDefinitions.orderedStream().forEach(StreamDefinition::buildTopology);
+        return () -> streamDefinitions.orderedStream().forEach(this::buildTopology);
+    }
+
+    private void buildTopology(StreamDefinition definition) {
+        if (definition instanceof KafkaStreamDefinition kafkaDefinition) {
+            kafkaDefinition.buildTopology();
+        }
     }
 }
+
+
 

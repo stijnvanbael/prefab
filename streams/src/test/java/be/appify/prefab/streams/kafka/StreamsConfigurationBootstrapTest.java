@@ -18,11 +18,11 @@ class StreamsConfigurationBootstrapTest {
         var builds = new AtomicInteger();
         var topology = new Topology();
 
-        var firstDefinition = new StreamDefinition(() -> {
+        var firstDefinition = new KafkaStreamDefinition(() -> {
             builds.incrementAndGet();
             return topology;
         });
-        var secondDefinition = new StreamDefinition(() -> {
+        var secondDefinition = new KafkaStreamDefinition(() -> {
             builds.incrementAndGet();
             return topology;
         });

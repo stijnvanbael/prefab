@@ -1,20 +1,19 @@
 package be.appify.prefab.streams.kafka;
 
 import be.appify.prefab.streams.GlobalStore;
-import be.appify.prefab.streams.StreamDefinition;
 import be.appify.prefab.streams.StreamProcessorContext;
 import java.util.Optional;
 import java.util.function.Supplier;
 import org.apache.kafka.streams.Topology;
 
 /** Read-only view on a Kafka Streams global store. */
-final class KafkaPrefabGlobalStoreAdapter<K, V> implements GlobalStore<K, V> {
+final class KafkaPrefabGlobalStoreAdapter<K, V> implements GlobalStore<K, V>, KafkaTopologyElement {
     private final KafkaPrefabStoreAdapter<K, V> delegate;
-    private final StreamDefinition topology;
+    private final KafkaStreamDefinition topology;
 
     KafkaPrefabGlobalStoreAdapter(String name, Supplier<Topology> topologySupplier) {
         this.delegate = new KafkaPrefabStoreAdapter<>(name);
-        this.topology = new StreamDefinition(topologySupplier);
+        this.topology = new KafkaStreamDefinition(topologySupplier);
     }
 
     @Override
@@ -37,3 +36,4 @@ final class KafkaPrefabGlobalStoreAdapter<K, V> implements GlobalStore<K, V> {
         delegate.init(context);
     }
 }
+

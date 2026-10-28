@@ -14,13 +14,23 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class SalesTotalsTopology {
+    static final Duration HOURLY_GRACE = Duration.ofMinutes(5);
+
     @Bean
     public StreamDefinition salesTotalsTopology(PrefabStreams streams) {
+        return salesTotalsTopology(streams, HOURLY_GRACE);
+    }
+
+    /**
+     * Builds the topology with a configurable grace period for the hourly totals: sales arriving later than
+     * {@code grace} after their hour has ended are dropped from the hourly totals.
+     */
+    StreamDefinition salesTotalsTopology(PrefabStreams streams, Duration grace) {
         var salesPerZone = streams.from(EnergySale.class)
                 .groupBy(BiddingZoneId.class, EnergySale::biddingZone);
         salesPerZone
                 .windowedAggregate(
-                        AggregationWindow.tumbling(Duration.ofHours(1), Duration.ofMinutes(5)),
+                        AggregationWindow.tumbling(Duration.ofHours(1), grace),
                         HourlyZoneSalesTotal.class,
                         HourlyZoneSalesTotal::empty,
                         (sale, total) -> total.add(sale))

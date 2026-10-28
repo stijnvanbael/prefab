@@ -595,6 +595,47 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     @Test
+    void run_shouldExposeGlobalStoreContentAndAcceptMultipleDefinitions() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+        var customerProfiles = streams.globalStoreFrom(CustomerProfileUpdated.class)
+                .updatedBy(UpdateCustomerProfileUpdater::update)
+                .as(CustomerProfile.class);
+        var enriching = streams.from(IncomingOrder.class)
+                .process(new EnrichOrderWithProfileProcessor(customerProfiles))
+                .to(OrderProfileView.class);
+        var counting = streams.from(OrderProfileView.class).end();
+
+        try (var topologyTest = test.run(List.of(enriching, counting), List.of(customerProfiles))) {
+            topologyTest.input(CustomerProfileUpdated.class).pipeInput(
+                    Reference.fromId("alice"), new CustomerProfileUpdated(Reference.fromId("alice"), "SILVER"));
+
+            assertThat(topologyTest.store(customerProfiles).get(Reference.fromId("alice"))).isNotNull();
+        }
+    }
+
+    @Test
+    void run_shouldFailFastWhenGlobalStoreIsNotPartOfTheTopology() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var other = test.streams().globalStore(CustomerProfile.class);
+        var definition = test.streams().from(IncomingOrder.class).end();
+
+        assertThatThrownBy(() -> test.run(List.of(definition), List.of(other)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("not part of the topology");
+    }
+
+    @Test
+    void run_shouldFailFastWhenDefinitionsComeFromDifferentStreams() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var first = test.streams().from(IncomingOrder.class).end();
+        var second = test.streams().from(OrderProfileView.class).end();
+
+        assertThatThrownBy(() -> test.run(first, second))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("same PrefabStreams");
+    }
+    @Test
     void globalStoreFrom_shouldFailFastWhenNameOrSourceTopicIsAlreadyUsed() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
         var streams = test.streams();

@@ -1102,6 +1102,10 @@ class SnapshotCounterUpdater
   only be declared once). The stored type is serialised as JSON when it differs from the source type.
 - The updater runs on every application instance, and Kafka replays the source topic through it when the store is
   restored, so side effects in an updater (for example publishing application events) can repeat. Keep them idempotent.
+### Testing global stores
+
+All stream definitions and global stores declared on one `PrefabStreams` share a single topology. Run several definitions together with `bootstrap.run(definitionA, definitionB)`, or pass the stores you want to inspect: `bootstrap.run(List.of(definition), List.of(customerProfiles))` (fails fast when a store is not part of the topology). Pipe records into the source topic with `session.input(...)` and assert on the store with `session.store(customerProfiles).get(key)`.
+
 ### Ending a topology without a sink
 
 `to(...)` returns the `StreamDefinition`. When a branch ends in a `process(...)` step that has no output topic, call

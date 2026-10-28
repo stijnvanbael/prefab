@@ -4,6 +4,7 @@ import be.appify.prefab.example.streams.BiddingZoneId;
 import be.appify.prefab.test.streams.kafka.KafkaTopologyTestBootstrap;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,6 +54,67 @@ class SalesTotalsTopologyTest {
                     .containsExactly(
                             new HourlyZoneSalesTotal(belgium, 10.0, 1),
                             new HourlyZoneSalesTotal(belgium, 12.5, 2),
+                            new HourlyZoneSalesTotal(belgium, 4.0, 1)
+                    );
+        }
+    }
+
+    @Test
+    void shouldAcceptLateSaleWithinGracePeriod() {
+        var topology = new SalesTotalsTopology().salesTotalsTopology(bootstrap.streams(), Duration.ofMinutes(5));
+
+        try (var test = bootstrap.run(topology)) {
+            var input = test.input(EnergySale.class);
+            var output = test.output(HourlyZoneSalesTotal.class);
+
+            input.pipeInput("s-1", new EnergySale("s-1", belgium, 10.0), Instant.parse("2026-01-01T10:05:00Z"));
+            input.pipeInput("s-2", new EnergySale("s-2", belgium, 4.0), Instant.parse("2026-01-01T11:02:00Z"));
+            input.pipeInput("s-3", new EnergySale("s-3", belgium, 2.0), Instant.parse("2026-01-01T10:59:00Z"));
+
+            assertThat(output.readValuesToList())
+                    .containsExactly(
+                            new HourlyZoneSalesTotal(belgium, 10.0, 1),
+                            new HourlyZoneSalesTotal(belgium, 4.0, 1),
+                            new HourlyZoneSalesTotal(belgium, 12.0, 2)
+                    );
+        }
+    }
+
+    @Test
+    void shouldDropLateSaleBeyondGracePeriod() {
+        var topology = new SalesTotalsTopology().salesTotalsTopology(bootstrap.streams(), Duration.ofMinutes(5));
+
+        try (var test = bootstrap.run(topology)) {
+            var input = test.input(EnergySale.class);
+            var output = test.output(HourlyZoneSalesTotal.class);
+
+            input.pipeInput("s-1", new EnergySale("s-1", belgium, 10.0), Instant.parse("2026-01-01T10:05:00Z"));
+            input.pipeInput("s-2", new EnergySale("s-2", belgium, 4.0), Instant.parse("2026-01-01T11:10:00Z"));
+            input.pipeInput("s-3", new EnergySale("s-3", belgium, 2.0), Instant.parse("2026-01-01T10:59:00Z"));
+
+            assertThat(output.readValuesToList())
+                    .containsExactly(
+                            new HourlyZoneSalesTotal(belgium, 10.0, 1),
+                            new HourlyZoneSalesTotal(belgium, 4.0, 1)
+                    );
+        }
+    }
+
+    @Test
+    void shouldDropAnyLateSaleWhenGraceIsZero() {
+        var topology = new SalesTotalsTopology().salesTotalsTopology(bootstrap.streams(), Duration.ZERO);
+
+        try (var test = bootstrap.run(topology)) {
+            var input = test.input(EnergySale.class);
+            var output = test.output(HourlyZoneSalesTotal.class);
+
+            input.pipeInput("s-1", new EnergySale("s-1", belgium, 10.0), Instant.parse("2026-01-01T10:05:00Z"));
+            input.pipeInput("s-2", new EnergySale("s-2", belgium, 4.0), Instant.parse("2026-01-01T11:02:00Z"));
+            input.pipeInput("s-3", new EnergySale("s-3", belgium, 2.0), Instant.parse("2026-01-01T10:59:00Z"));
+
+            assertThat(output.readValuesToList())
+                    .containsExactly(
+                            new HourlyZoneSalesTotal(belgium, 10.0, 1),
                             new HourlyZoneSalesTotal(belgium, 4.0, 1)
                     );
         }

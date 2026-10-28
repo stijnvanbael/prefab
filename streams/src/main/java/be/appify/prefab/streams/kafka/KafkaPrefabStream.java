@@ -16,6 +16,7 @@ import be.appify.prefab.streams.StreamBreakoutAdapter;
 import be.appify.prefab.streams.StreamDefinition;
 import be.appify.prefab.streams.StreamProcessor;
 import jakarta.validation.constraints.NotNull;
+import java.time.Duration;
 import java.util.Objects;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -25,6 +26,7 @@ import java.util.function.Supplier;
 import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serde;
+import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.KeyValue;
@@ -42,6 +44,7 @@ import org.apache.kafka.streams.kstream.StreamJoined;
 import org.apache.kafka.streams.kstream.TimeWindows;
 import org.apache.kafka.streams.kstream.Windowed;
 import org.apache.kafka.streams.state.KeyValueStore;
+import org.apache.kafka.streams.state.Stores;
 import org.apache.kafka.streams.state.WindowStore;
 import org.springframework.core.convert.ConversionService;
 import tools.jackson.databind.json.JsonMapper;
@@ -336,6 +339,25 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
         );
     }
 
+    @Override
+    public PrefabStream<K, V> deduplicate(Function<V, String> idExtractor, Duration retention) {
+        Objects.requireNonNull(idExtractor, "idExtractor must not be null");
+        Objects.requireNonNull(retention, "retention must not be null");
+        if (retention.isZero() || retention.isNegative()) {
+            throw new IllegalArgumentException("retention must be positive");
+        }
+        var name = stepNames.nextDeduplicateName(inputTypeOrNull());
+        // A window store keyed by event identity; its retention covers the look-back and look-ahead of the check.
+        streamsBuilder.addStateStore(Stores.windowStoreBuilder(
+                Stores.persistentWindowStore(name, retention.multipliedBy(2), Duration.ofMillis(1), false),
+                Serdes.String(),
+                Serdes.Long()));
+        var deduplicated = stream.process(
+                () -> new DeduplicationProcessor<>(name, idExtractor, retention),
+                Named.as(name),
+                name);
+        return wrap(deduplicated, valueType, keySerde);
+    }
     @Override
     @SuppressWarnings("unchecked")
     public <NI, NO, KO, VO extends Keyed<KO>> PrefabStream<KO, VO> breakout(

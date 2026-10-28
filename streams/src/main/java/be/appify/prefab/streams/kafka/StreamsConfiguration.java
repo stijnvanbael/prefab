@@ -39,16 +39,32 @@ public class StreamsConfiguration {
     @Bean(name = KafkaStreamsDefaultConfiguration.DEFAULT_STREAMS_CONFIG_BEAN_NAME)
     KafkaStreamsConfiguration defaultStreamsConfig(
             KafkaConnectionDetails connectionDetails,
-            @Value("${spring.kafka.streams.application-id:${spring.application.name}}") String applicationId
+            @Value("${spring.kafka.streams.application-id:${spring.application.name}}") String applicationId,
+            @Value("${prefab.streams.processing-guarantee:at_least_once}") String processingGuarantee
     ) {
         var properties = new HashMap<String, Object>();
         properties.put(StreamsConfig.APPLICATION_ID_CONFIG, applicationId);
         properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, connectionDetails.getProducer().getBootstrapServers());
         properties.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, "org.apache.kafka.common.serialization.Serdes$StringSerde");
         properties.put(StreamsConfig.STATE_DIR_CONFIG, "target/kafka-streams-state");
+        properties.put(StreamsConfig.PROCESSING_GUARANTEE_CONFIG, resolveProcessingGuarantee(processingGuarantee));
         return new KafkaStreamsConfiguration(properties);
     }
 
+    /**
+     * Resolves the Kafka Streams processing guarantee from the {@code prefab.streams.processing-guarantee} property.
+     * Accepted values are {@code at_least_once} (default) and {@code exactly_once_v2}; hyphens are accepted too.
+     */
+    static String resolveProcessingGuarantee(String configured) {
+        var normalized = configured == null ? "" : configured.trim().toLowerCase().replace('-', '_');
+        return switch (normalized) {
+            case "", StreamsConfig.AT_LEAST_ONCE -> StreamsConfig.AT_LEAST_ONCE;
+            case StreamsConfig.EXACTLY_ONCE_V2 -> StreamsConfig.EXACTLY_ONCE_V2;
+            default -> throw new IllegalArgumentException(
+                    "Unsupported prefab.streams.processing-guarantee '%s'; use '%s' or '%s'"
+                            .formatted(configured, StreamsConfig.AT_LEAST_ONCE, StreamsConfig.EXACTLY_ONCE_V2));
+        };
+    }
     @Bean
     KafkaTopicResolver kafkaTopicResolver(EventRegistry eventRegistry) {
         return new KafkaTopicResolver(eventRegistry);

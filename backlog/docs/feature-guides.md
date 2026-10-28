@@ -920,6 +920,7 @@ Supported operations:
 - `join(PrefabStream<VO>, JoinWindow, BiFunction<V, VO, VR>)`
 - `merge(PrefabStream<? extends V>)`
 - `PrefabStreams.merge(PrefabStream<? extends M>, PrefabStream<? extends M>)`
+- `deduplicate(Function<?, String>, Duration)`
 - `breakout(StreamBreakoutAdapter<?, ?, ?, ?>)`
 - `sharedStore(String, Class<?>)`
 - `to(Class<?>)`
@@ -973,6 +974,35 @@ Use instance `merge(...)` when the current stream type already represents the ta
 
 Use `join(...)` for KStream-KStream **inner join** composition with explicit windowing via `JoinWindow`.
 
+### Exactly-once processing and event deduplication
+
+**Exactly-once processing.** Set `prefab.streams.processing-guarantee=exactly_once_v2` to run Kafka Streams with
+transactional processing (default: `at_least_once`; hyphenated values such as `exactly-once-v2` are accepted, any other
+value fails at startup). Prerequisites and limitations:
+
+- Brokers must be Kafka 2.5+; transaction state topic replication should be 3 in production.
+- The guarantee covers read-process-write cycles between Kafka topics and Kafka Streams state stores. Side effects
+  outside Kafka (HTTP calls, database writes in a `process(...)` step) are not covered and can run more than once.
+- Throughput and end-to-end latency are affected by the commit interval (transactions are committed on every commit).
+
+**Deduplication.** `deduplicate(...)` suppresses records whose event identity was already seen:
+
+```java
+streams.from(OrderPlaced.class)
+        .deduplicate(order -> order.eventId(), Duration.ofHours(1))
+        .to(OrderAccepted.class);
+```
+
+- `deduplicate(Function<V, String> idExtractor, Duration retention)` uses a custom identity;
+  `deduplicate(Duration retention)` uses the string form of `Keyed.key()`.
+- The first record per identity is forwarded unchanged; later records with the same identity within `retention` (event
+  time, from the record timestamp) are dropped. After the retention period the identity is forgotten and a repeated
+  event is emitted again. Records without an identity (extractor returns `null`) are always forwarded.
+- State lives in a persistent, changelog-backed window store named `deduplicate-{input-type}`; retention bounds its size.
+- Identities are tracked per partition: records sharing an identity must share a record key, otherwise re-key first
+  with `keyBy(...)`.
+- Deduplication only guarantees idempotent output when upstream duplicates fall within the retention window. Combine it
+  with exactly-once processing to avoid duplicates introduced by the application itself.
 ### Topology-scoped shared state stores
 
 `sharedStore(...)` declares one state store at topology scope and allows multiple processors to bind to the same logical

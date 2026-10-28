@@ -12,6 +12,7 @@ import be.appify.prefab.streams.StreamBreakoutAdapter;
 import be.appify.prefab.streams.StreamDefinition;
 import be.appify.prefab.streams.StreamProcessor;
 
+import java.time.Duration;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -133,6 +134,11 @@ public class AutoRegisterPrefabStreamTestDecorator<K, V extends Keyed<K>> implem
                 return wrap(grouped.windowedAggregate(window, resultType, initializer, aggregator));
             }
         };
+    }
+
+    @Override
+    public PrefabStream<K, V> deduplicate(Function<V, String> idExtractor, Duration retention) {
+        return wrap(delegate.deduplicate(idExtractor, retention));
     }
 
     @Override

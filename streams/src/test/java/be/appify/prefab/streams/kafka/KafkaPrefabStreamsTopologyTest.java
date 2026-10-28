@@ -976,6 +976,87 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     @Test
+    void deduplicate_shouldSuppressRepeatedEventIdentitiesAndEmitUniqueEvents() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        var definition = test.streams().from(IncomingOrder.class)
+                .deduplicate(order -> order.orderId().id(), Duration.ofMinutes(1))
+                .to("orders.deduplicated");
+
+        try (var topologyTest = test.run(definition)) {
+            var input = topologyTest.input(IncomingOrder.class);
+            var output = topologyTest.rawOutput("orders.deduplicated");
+
+            pipeOrder(input, "o-1", "alice", 1_000L);
+            pipeOrder(input, "o-1", "alice", 2_000L);
+            pipeOrder(input, "o-2", "bob", 3_000L);
+            pipeOrder(input, "o-1", "alice", 4_000L);
+
+            assertThat(output.readValuesToList()).hasSize(2);
+        }
+    }
+
+    @Test
+    void deduplicate_shouldEmitAgainOnceRetentionHasPassed() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        var definition = test.streams().from(IncomingOrder.class)
+                .deduplicate(order -> order.orderId().id(), Duration.ofSeconds(10))
+                .to("orders.deduplicated");
+
+        try (var topologyTest = test.run(definition)) {
+            var input = topologyTest.input(IncomingOrder.class);
+            var output = topologyTest.rawOutput("orders.deduplicated");
+
+            pipeOrder(input, "o-1", "alice", 1_000L);
+            pipeOrder(input, "o-1", "alice", 5_000L);
+            pipeOrder(input, "o-1", "alice", 60_000L);
+
+            assertThat(output.readValuesToList()).hasSize(2);
+        }
+    }
+
+    @Test
+    void deduplicate_withoutExtractor_shouldUseRecordKeyAsIdentity() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        var definition = test.streams().from(IncomingOrder.class)
+                .deduplicate(Duration.ofMinutes(1))
+                .to("orders.deduplicated");
+
+        try (var topologyTest = test.run(definition)) {
+            var input = topologyTest.input(IncomingOrder.class);
+            var output = topologyTest.rawOutput("orders.deduplicated");
+
+            pipeOrder(input, "o-1", "alice", 1_000L);
+            pipeOrder(input, "o-1", "bob", 2_000L);
+            pipeOrder(input, "o-2", "alice", 3_000L);
+
+            assertThat(output.readValuesToList()).hasSize(2);
+        }
+    }
+
+    @Test
+    void deduplicate_shouldUseNativeWindowStore() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        var definition = test.streams().from(IncomingOrder.class)
+                .deduplicate(order -> order.orderId().id(), Duration.ofMinutes(1))
+                .to("orders.deduplicated");
+
+        assertThat(definition.nativeTopology().describe().toString())
+                .contains("stores: [deduplicate-incoming-order]");
+    }
+
+    @Test
+    void deduplicate_shouldRejectNonPositiveRetention() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var stream = test.streams().from(IncomingOrder.class);
+
+        assertThatThrownBy(() -> stream.deduplicate(Duration.ZERO))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+    @Test
     void aggregationWindow_shouldRejectInvalidConfiguration() {
         assertThatThrownBy(() -> AggregationWindow.tumbling(Duration.ZERO, Duration.ZERO))
                 .isInstanceOf(IllegalArgumentException.class);

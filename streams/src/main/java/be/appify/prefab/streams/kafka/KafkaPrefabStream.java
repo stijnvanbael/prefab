@@ -401,6 +401,7 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
         var stateStoreNames = stores.stream()
                 .map(Store::name)
                 .toArray(String[]::new);
+        requireDeclared(stateStoreNames);
         var output = stream.process(
                 () -> new KafkaPrefabStreamProcessorAdapter<>(processor),
                 Named.as(stepNames.nextProcessName(inputTypeOrNull())),
@@ -408,6 +409,18 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
         );
 
         return wrapUnknown(output, new DeferredStringKeySerde<>());
+    }
+
+    private void requireDeclared(String[] storeNames) {
+        if (streams instanceof KafkaPrefabStreams kafkaStreams) {
+            for (var name : storeNames) {
+                if (!kafkaStreams.isStoreDeclared(name)) {
+                    throw new IllegalArgumentException(
+                            "Store '%s' is not declared; create it with createStore(...) or sharedStore(...) before binding it to a processor"
+                                    .formatted(name));
+                }
+            }
+        }
     }
 
     @Override

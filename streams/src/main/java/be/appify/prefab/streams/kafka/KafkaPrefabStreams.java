@@ -11,6 +11,8 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -35,6 +37,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
     private final Map<String, Object> kafkaClientProperties;
     private final StreamStepNames stepNames;
     private final Map<String, SharedStoreDefinition> sharedStores;
+    private final Set<String> declaredStores = new HashSet<>();
 
     /**
      * Constructs a new KafkaPrefabStreams.
@@ -171,7 +174,12 @@ public class KafkaPrefabStreams implements PrefabStreams {
                 Stores.persistentKeyValueStore(name),
                 keySerde(type),
                 valueSerde(type)));
+        declaredStores.add(name);
         return new KafkaPrefabStoreAdapter<>(name);
+    }
+
+    boolean isStoreDeclared(String name) {
+        return declaredStores.contains(name);
     }
 
     @Override
@@ -222,6 +230,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
                 Stores.persistentKeyValueStore(normalizedName),
                 keySerde(valueType),
                 valueSerde(valueType)));
+        declaredStores.add(normalizedName);
         var definition = new SharedStoreDefinition(requestedKeyType, requestedValueType, store);
         sharedStores.put(normalizedName, definition);
         return definition;

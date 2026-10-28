@@ -62,4 +62,6 @@ Implementation:
 - Tests in `KafkaPrefabStreamsTopologyTest`: global store present in the topology description, reads from source topic, tombstone removal, repeated declaration, undeclared binding failure, `end()`.
 - Docs: `backlog/docs/feature-guides.md` (Global state stores, Ending a topology without a sink).
 
+Follow-up: stores can be named explicitly (`globalStore(name, type)`), and `globalStore(name, sourceType, storeType, mapper)` decouples the stored type from the source topic's type, since Kafka allows one global store per source topic (duplicate source topics, duplicate names with other types fail fast). Differing store types use a registry-independent JSON serde.
+
 Verification: `mvn -pl streams,test,examples/streams -am test` passes.<!-- SECTION:NOTES:END -->

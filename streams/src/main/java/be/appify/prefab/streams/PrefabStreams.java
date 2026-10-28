@@ -1,6 +1,7 @@
 package be.appify.prefab.streams;
 
 import be.appify.prefab.core.domain.Keyed;
+import java.util.function.Function;
 
 /**
  * Entry point for the Prefab streams DSL.
@@ -19,13 +20,77 @@ public interface PrefabStreams {
     /**
      * Declares a global store that is populated from the topic registered for {@code type}.
      *
-     * <p>Every application instance materialises all records of the topic, keyed by {@link Keyed#key()}. A record
-     * with a {@code null} value removes the key. Declaring the same type more than once returns the same store.
-     * Bind the store to processors with {@link PrefabStream#process(StreamProcessor, ReadableStore[])}.
-     *
      * @param type
+     *         the value type of both the source topic and the store
+     * @return the read-only global store
+     * @see #globalStore(String, Class, Class, Function)
+     */
+    default <KS, VS extends Keyed<KS>> GlobalStore<KS, VS> globalStore(Class<VS> type) {
+        return globalStore(defaultGlobalStoreName(type), type, type, Function.identity());
+    }
+
+    /**
+     * Declares a global store with an explicit name, populated from the topic registered for {@code type}.
+     *
+     * @param name
+     *         the unique store name
+     * @param type
+     *         the value type of both the source topic and the store
+     * @return the read-only global store
+     * @see #globalStore(String, Class, Class, Function)
+     */
+    default <KS, VS extends Keyed<KS>> GlobalStore<KS, VS> globalStore(String name, Class<VS> type) {
+        return globalStore(name, type, type, Function.identity());
+    }
+
+    /**
+     * Declares a global store whose content differs from the records of its source topic.
+     *
+     * @see #globalStore(String, Class, Class, Function)
+     */
+    default <KS, S extends Keyed<KS>, VS extends Keyed<KS>> GlobalStore<KS, VS> globalStore(
+            Class<S> sourceType,
+            Class<VS> storeType,
+            Function<S, VS> mapper
+    ) {
+        return globalStore(defaultGlobalStoreName(storeType), sourceType, storeType, mapper);
+    }
+
+    /**
+     * Declares a global store, a read-only store that is fed from the topic registered for {@code sourceType} and
+     * fully replicated to every application instance.
+     *
+     * <p>Records are keyed by their record key. A record with a {@code null} value, or one that the mapper maps to
+     * {@code null}, removes the key. Kafka allows only one global store per source topic, so every source type can
+     * back at most one global store; declaring a second store on the same source type fails with an
+     * {@link IllegalArgumentException}. Declaring the same name again with the same source and store type returns
+     * the existing store. Bind the store to processors with {@link PrefabStream#process(StreamProcessor, ReadableStore[])}.
+     *
+     * @param name
+     *         the unique store name
+     * @param sourceType
      *         the value type of the source topic
+     * @param storeType
+     *         the value type kept in the store
+     * @param mapper
+     *         converts a source record to the stored value
      * @return the read-only global store
      */
-    <KS, VS extends Keyed<KS>> GlobalStore<KS, VS> globalStore(Class<VS> type);
+    <KS, S extends Keyed<KS>, VS extends Keyed<KS>> GlobalStore<KS, VS> globalStore(
+            String name,
+            Class<S> sourceType,
+            Class<VS> storeType,
+            Function<S, VS> mapper
+    );
+
+    /**
+     * Returns the default global store name for a store type.
+     *
+     * @param storeType
+     *         the value type kept in the store
+     * @return the default store name
+     */
+    static String defaultGlobalStoreName(Class<?> storeType) {
+        return TypeReference.of(storeType).name();
+    }
 }

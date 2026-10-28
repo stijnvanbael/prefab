@@ -488,6 +488,72 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     @Test
+    void globalStore_shouldMapSourceRecordsToStoreType() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+        var customerProfiles = streams.globalStore(
+                CustomerProfileUpdated.class,
+                CustomerProfile.class,
+                updated -> new CustomerProfile(updated.customerId(), updated.tier()));
+
+        var topology = streams.from(IncomingOrder.class)
+                .process(new EnrichOrderWithProfileProcessor(customerProfiles), customerProfiles)
+                .to(OrderProfileView.class);
+
+        try (var topologyTest = test.run(topology)) {
+            var updates = topologyTest.input(CustomerProfileUpdated.class);
+            var orders = topologyTest.input(IncomingOrder.class);
+            var output = topologyTest.output(OrderProfileView.class);
+
+            updates.pipeInput(Reference.fromId("alice"), new CustomerProfileUpdated(Reference.fromId("alice"), "GOLD"));
+            orders.pipeInput(Reference.fromId("o-1"), new IncomingOrder(Reference.fromId("o-1"), Reference.fromId("alice")));
+
+            assertThat(output.readValue().tier()).isEqualTo("GOLD");
+        }
+    }
+
+    @Test
+    void globalStore_shouldAllowMultipleStoresOfTheSameStoreTypeWithDifferentNames() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+
+        var fromProfiles = streams.globalStore("profiles-a", CustomerProfile.class);
+        var fromUpdates = streams.globalStore(
+                "profiles-b",
+                CustomerProfileUpdated.class,
+                CustomerProfile.class,
+                updated -> new CustomerProfile(updated.customerId(), updated.tier()));
+
+        assertThat(fromProfiles.name()).isEqualTo("global-profiles-a");
+        assertThat(fromUpdates.name()).isEqualTo("global-profiles-b");
+        var topology = streams.from(IncomingOrder.class)
+                .process(new EnrichOrderWithProfileProcessor(fromProfiles), fromProfiles, fromUpdates)
+                .end();
+        assertThat(topology.nativeTopology().describe().globalStores()).hasSize(2);
+    }
+
+    @Test
+    void globalStore_shouldFailFastWhenSourceTopicAlreadyFeedsAnotherStore() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+        streams.globalStore("profiles-a", CustomerProfile.class);
+
+        assertThatThrownBy(() -> streams.globalStore("profiles-b", CustomerProfile.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("already feeds global store 'global-profiles-a'");
+    }
+
+    @Test
+    void globalStore_shouldFailFastWhenNameIsReusedForOtherTypes() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+        var streams = test.streams();
+        streams.globalStore("profiles", CustomerProfile.class);
+
+        assertThatThrownBy(() -> streams.globalStore("profiles", OrderCount.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("already declared");
+    }
+    @Test
     void process_shouldFailFastForUndeclaredGlobalStoreBinding() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
         var undeclared = new KafkaPrefabGlobalStoreAdapter<Reference<Customer>, CustomerProfile>("global-undeclared");
@@ -1276,6 +1342,13 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     record CustomerProfile(Reference<Customer> customerId, String tier) implements Keyed<Reference<Customer>> {
+        @Override
+        public Reference<Customer> key() {
+            return customerId;
+        }
+    }
+
+    record CustomerProfileUpdated(Reference<Customer> customerId, String tier) implements Keyed<Reference<Customer>> {
         @Override
         public Reference<Customer> key() {
             return customerId;

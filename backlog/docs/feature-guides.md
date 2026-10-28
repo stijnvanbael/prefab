@@ -922,7 +922,7 @@ Supported operations:
 - `PrefabStreams.merge(PrefabStream<? extends M>, PrefabStream<? extends M>)`
 - `deduplicate(Function<?, String>, Duration)`
 - `breakout(StreamBreakoutAdapter<?, ?, ?, ?>)`
-- `globalStore(Class<?>)`
+- `globalStore(Class<?>)`, `globalStore(String, Class<?>)`, `globalStore(Class<S>, Class<V>, Function<S, V>)`
 - `to(Class<?>)`
 - `to(String)`
 - `end()`
@@ -1034,7 +1034,13 @@ Behaviour and constraints:
 - The store is keyed by `Keyed.key()` and populated only from the source topic of the value type; processors can read
   (`GlobalStore.get`) but not write. Publish changes to the topic instead.
 - A record with a `null` value removes the key.
-- Declaring the same type again returns the same store. The state store is named `global-{type}`.
+- The state store is named `global-{name}`; the name defaults to the simple name of the store type and can be overridden
+  with `globalStore(String name, Class<V>)`. Declaring the same name again with the same types returns the same store.
+- Kafka allows **one global store per source topic**, so each source type can back at most one global store; a second
+  declaration on the same source type fails fast. To keep several stores of the same store type, or a store whose type
+  differs from the topic's records, use a distinct source type and a mapper:
+  `globalStore(String name, Class<S> sourceType, Class<V> storeType, Function<S, V> mapper)`. A mapper result of
+  `null` removes the key. Stores whose type differs from the source type are serialised as JSON.
 - The store has no changelog topic; on restart it is restored from the source topic. Use a compacted topic.
 - Bind the store with `process(processor, store)`, or return it from `StreamProcessor.globalStores()`. Binding a store
   that was not declared via `globalStore(...)` fails fast with an `IllegalArgumentException`.

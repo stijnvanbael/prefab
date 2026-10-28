@@ -4,7 +4,8 @@ import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
-public interface Store<K, V> {
+public interface Store<K, V> extends ReadableStore<K, V> {
+    @Override
     Optional<V> get(K key);
 
     void put(K key, V value);
@@ -14,8 +15,4 @@ public interface Store<K, V> {
         put(key, newValue);
         return newValue;
     }
-
-    String name();
-
-    void init(StreamProcessorContext<?, ?> context);
 }

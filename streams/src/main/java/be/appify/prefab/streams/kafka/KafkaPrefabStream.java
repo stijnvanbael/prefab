@@ -10,6 +10,7 @@ import be.appify.prefab.streams.JoinWindow;
 import be.appify.prefab.streams.PrefabGroupedStream;
 import be.appify.prefab.streams.PrefabStream;
 import be.appify.prefab.streams.PrefabStreams;
+import be.appify.prefab.streams.GlobalStore;
 import be.appify.prefab.streams.Store;
 import be.appify.prefab.streams.StreamBackend;
 import be.appify.prefab.streams.StreamBreakoutAdapter;
@@ -17,6 +18,7 @@ import be.appify.prefab.streams.StreamDefinition;
 import be.appify.prefab.streams.StreamProcessor;
 import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -402,6 +404,7 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
                 .map(Store::name)
                 .toArray(String[]::new);
         requireDeclared(stateStoreNames);
+        requireGlobalDeclared(processor.globalStores().stream().map(GlobalStore::name).toList());
         var output = stream.process(
                 () -> new KafkaPrefabStreamProcessorAdapter<>(processor),
                 Named.as(stepNames.nextProcessName(inputTypeOrNull())),
@@ -416,7 +419,19 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
             for (var name : storeNames) {
                 if (!kafkaStreams.isStoreDeclared(name)) {
                     throw new IllegalArgumentException(
-                            "Store '%s' is not declared; create it with createStore(...) or sharedStore(...) before binding it to a processor"
+                            "Store '%s' is not declared; create it with createStore(...) before binding it to a processor"
+                                    .formatted(name));
+                }
+            }
+        }
+    }
+
+    private void requireGlobalDeclared(Collection<String> storeNames) {
+        if (streams instanceof KafkaPrefabStreams kafkaStreams) {
+            for (var name : storeNames) {
+                if (!kafkaStreams.isGlobalStoreDeclared(name)) {
+                    throw new IllegalArgumentException(
+                            "Global store '%s' is not declared; create it with globalStore(...) before binding it to a processor"
                                     .formatted(name));
                 }
             }
@@ -434,6 +449,11 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
         // because the backend selects serialization by topic, not by the generic type parameter.
         var valueSerde = new SerdeAdapter<V>(serializer.adapt(), deserializer.adapt());
         stream.to(topic, Produced.with(keySerde, valueSerde));
+        return end();
+    }
+
+    @Override
+    public StreamDefinition end() {
         return new StreamDefinition(streamsBuilder::build);
     }
 

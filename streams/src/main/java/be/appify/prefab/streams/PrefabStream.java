@@ -4,7 +4,6 @@ import be.appify.prefab.core.domain.Keyed;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Arrays;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -138,16 +137,17 @@ public interface PrefabStream<K, V extends Keyed<K>> {
             StreamProcessor<K, V, KO, VO> processor
     );
 
-    default <KO, VO extends Keyed<KO>> PrefabStream<KO, VO> process(
-            StreamProcessor<K, V, KO, VO> processor,
-            Store<?, ?>... stores
-    ) {
-        return process(new StoreBindingStreamProcessor<>(processor, Arrays.asList(stores)));
-    }
-
     StreamDefinition to(Class<? super V> type);
 
     StreamDefinition to(String topic);
+
+    /**
+     * Ends this branch of the topology without writing to a topic, for example after a {@link #process} step that
+     * only has side effects.
+     *
+     * @return the definition of the topology built so far
+     */
+    StreamDefinition end();
 
     PrefabStream<K, V> unwrap();
 

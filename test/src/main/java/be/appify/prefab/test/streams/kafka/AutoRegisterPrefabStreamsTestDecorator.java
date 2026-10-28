@@ -3,10 +3,13 @@ package be.appify.prefab.test.streams.kafka;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.streams.GlobalStore;
+import be.appify.prefab.streams.GlobalStoreUpdater;
 import be.appify.prefab.streams.PrefabStream;
 import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.Store;
 import be.appify.prefab.streams.TypeReference;
+import java.util.function.Function;
 
 import static be.appify.prefab.streams.kafka.KafkaPrefabStreams.toKebabCase;
 import static be.appify.prefab.streams.kafka.KafkaPrefabStreams.toStoreName;
@@ -41,8 +44,24 @@ public class AutoRegisterPrefabStreamsTestDecorator implements PrefabStreams {
     }
 
     @Override
-    public <KS, VS extends Keyed<KS>> Store<KS, VS> sharedStore(String name, TypeReference<VS> type) {
-        eventRegistry.register(appId + "-" + toStoreName(name) + "-changelog", type.rawType(), Event.Serialization.JSON);
-        return delegate.sharedStore(name, type);
+    public <KS, S extends Keyed<KS>, VS extends Keyed<KS>> GlobalStore<KS, VS> globalStore(
+            String name,
+            Class<S> sourceType,
+            Class<VS> storeType,
+            Function<S, VS> mapper
+    ) {
+        eventRegistry.register(appId + "-" + toKebabCase(sourceType.getSimpleName()), sourceType, Event.Serialization.JSON);
+        return delegate.globalStore(name, sourceType, storeType, mapper);
+    }
+
+    @Override
+    public <KS, S extends Keyed<KS>, K, V extends Keyed<K>> GlobalStore<K, V> declareGlobalStore(
+            String name,
+            Class<S> sourceType,
+            Class<V> storeType,
+            GlobalStoreUpdater<KS, S, K, V> updater
+    ) {
+        eventRegistry.register(appId + "-" + toKebabCase(sourceType.getSimpleName()), sourceType, Event.Serialization.JSON);
+        return delegate.declareGlobalStore(name, sourceType, storeType, updater);
     }
 }

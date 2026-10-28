@@ -922,9 +922,10 @@ Supported operations:
 - `PrefabStreams.merge(PrefabStream<? extends M>, PrefabStream<? extends M>)`
 - `deduplicate(Function<?, String>, Duration)`
 - `breakout(StreamBreakoutAdapter<?, ?, ?, ?>)`
-- `sharedStore(String, Class<?>)`
+- `globalStore(Class<?>)`, `globalStore(String, Class<?>)`, `globalStore(Class<S>, Class<V>, Function<S, V>)`, `globalStoreFrom(Class<S>).updatedBy(...).as(Class<V>)`
 - `to(Class<?>)`
 - `to(String)`
+- `end()`
 
 Serialization and deserialization reuse the existing Kafka dynamic serde infrastructure:
 
@@ -1003,40 +1004,118 @@ streams.from(OrderPlaced.class)
   with `keyBy(...)`.
 - Deduplication only guarantees idempotent output when upstream duplicates fall within the retention window. Combine it
   with exactly-once processing to avoid duplicates introduced by the application itself.
-### Topology-scoped shared state stores
+### Global state stores
 
-`sharedStore(...)` declares one state store at topology scope and allows multiple processors to bind to the same logical
-store instance.
+`globalStore(Class<V>)` declares a Kafka Streams **global store**: a read-only store that is fed from the topic
+registered for `V` and fully replicated to every application instance. Processors can look up any key regardless of
+the partition of the record being processed, which makes it suited for reference data such as customer profiles.
 
-Use shared stores when multiple branches or processors must observe the same state (for example command updates on one
-branch and read-enrichment on another branch). Use local per-processor stores (`StatefulStreamProcessor` with
-`createStore(...)`) when state should remain private to a single processor.
+Use a global store when many processors or branches need to read the same, relatively small reference data set. Use a
+local per-processor store (`StatefulStreamProcessor` with `createStore(...)`) when state is private to one processor and
+partitioned by the input key; local stores are **not** shared between instances.
 
 ```java
 @Configuration
 class StreamTopologyConfiguration {
 
     @Bean
-    StreamDefinition customerEnrichment(PrefabStreams streams) {
-        var customerProfiles = streams.sharedStore("customer-profiles", CustomerProfile.class);
-
-        streams.from(CustomerProfileUpdated.class)
-                .process(new UpdateCustomerProfileProcessor(customerProfiles), customerProfiles)
-                .to("customer-profiles.audit");
+    StreamDefinition orderEnrichment(PrefabStreams streams) {
+        var customerProfiles = streams.globalStore(CustomerProfile.class);
 
         return streams.from(OrderPlaced.class)
-                .process(new EnrichOrderProcessor(customerProfiles), customerProfiles)
+                .process(new EnrichOrderProcessor(customerProfiles))
                 .to(OrderEnriched.class);
     }
 }
 ```
 
-Validation and failure behavior:
+```java
+class EnrichOrderProcessor extends ContextualStreamProcessor<OrderId, OrderPlaced, OrderId, OrderEnriched> {
+    private final GlobalStore<CustomerId, CustomerProfile> customerProfiles;
 
-- Shared store declarations are keyed by name and value type.
-- Re-declaring the same name with a different type fails fast with an actionable `IllegalArgumentException`.
-- Binding conflicting store instances with the same name to one processor step fails fast before topology execution.
+    EnrichOrderProcessor(GlobalStore<CustomerId, CustomerProfile> customerProfiles) {
+        this.customerProfiles = customerProfiles;
+    }
 
+    @Override
+    public Collection<GlobalStore<?, ?>> globalStores() {
+        return List.of(customerProfiles);
+    }
+
+    @Override
+    public void process(StreamRecord<OrderId, OrderPlaced> record) {
+        var profile = customerProfiles.get(record.value().customerId());
+        // ...
+    }
+}
+```
+Behaviour and constraints:
+
+- The store is keyed by `Keyed.key()` and populated only from the source topic of the value type; processors can read
+  (`GlobalStore.get`) but not write. Publish changes to the topic instead.
+- A record with a `null` value removes the key.
+- The state store is named `global-{name}`; the name defaults to the simple name of the store type and can be overridden
+  with `globalStore(String name, Class<V>)`. Declaring the same name again with the same types returns the same store.
+- Kafka allows **one global store per source topic**, so each source type can back at most one global store; a second
+  declaration on the same source type fails fast. To keep several stores of the same store type, or a store whose type
+  differs from the topic's records, use a distinct source type and a mapper:
+  `globalStore(String name, Class<S> sourceType, Class<V> storeType, Function<S, V> mapper)`. A mapper result of
+  `null` removes the key. Stores whose type differs from the source type are serialised as JSON.
+- The store has no changelog topic; on restart it is restored from the source topic. Use a compacted topic.
+- A processor reads a global store by returning it from `StreamProcessor.globalStores()`; the framework binds it to the
+  processor context. Returning a store
+  that was not declared via `globalStore(...)` or `globalStoreFrom(...)` fails fast with an `IllegalArgumentException`.
+- A global store is read from the processing thread, so a lookup may not yet see a record that was just published to the
+  source topic.
+
+#### Stores computed from the source records
+
+A processor cannot write to a global store, because Kafka allows exactly one writer: the processor attached to the
+store's source topic. When the store content is computed (counters, aggregates) rather than mapped one-to-one, declare it
+with a `GlobalStoreUpdater`:
+
+```java
+@Bean
+GlobalStore<String, SnapshotCounter> snapshotCounters(PrefabStreams streams, ApplicationEventPublisher publisher) {
+    return streams.globalStoreFrom(MeteringconfigLifecycleEvent.class)
+            .updatedBy(new SnapshotCounterUpdater(publisher))
+            .as(SnapshotCounter.class); // or .as("snapshot-counters", SnapshotCounter.class)
+}
+```
+
+```java
+class SnapshotCounterUpdater
+        implements GlobalStoreUpdater<String, MeteringconfigLifecycleEvent, String, SnapshotCounter> {
+    @Override
+    public void update(StreamRecord<String, MeteringconfigLifecycleEvent> record, Store<String, SnapshotCounter> store) {
+        var counter = store.get(record.key()).orElseGet(() -> SnapshotCounter.init(record.key()));
+        store.put(record.key(), counter.apply(record.value()));
+    }
+}
+```
+
+- The updater only consumes: it cannot forward records, has no processor context and cannot bind other stores.
+- Tombstones (`null` values) are not passed to the updater.
+- The returned `GlobalStore` is read-only; return it from `StreamProcessor.globalStores()` to read it. It is registered on
+  the shared `StreamsBuilder`, so no `StreamDefinition` is involved.
+- The same constraints apply as for other global stores: one global store per source type, unique names (a name can
+  only be declared once). The stored type is serialised as JSON when it differs from the source type.
+- The updater runs on every application instance, and Kafka replays the source topic through it when the store is
+  restored, so side effects in an updater (for example publishing application events) can repeat. Keep them idempotent.
+### Testing global stores
+
+All stream definitions and global stores declared on one `PrefabStreams` share a single topology, and both are `TopologyElement`s. Pass any of them to `bootstrap.run(...)`, for example `bootstrap.run(definition, customerProfiles)` or just `bootstrap.run(customerProfiles)` for a topology of global stores only. All elements must come from the same `PrefabStreams`. Pipe records into the source topic with `session.input(...)` and assert on the store with `session.store(customerProfiles).get(key)`.
+
+### Ending a topology without a sink
+
+`to(...)` returns the `StreamDefinition`. When a branch ends in a `process(...)` step that has no output topic, call
+`end()` to obtain the `StreamDefinition`:
+
+```java
+return streams.from(OrderPlaced.class)
+        .process(new AuditProcessor(customerProfiles))
+        .end();
+```
 ### Key Serialization Wire Format (JSON + AVRO)
 
 Kafka stream keys are automatically serialized without manual `parse(String)` / `toString()` plumbing.

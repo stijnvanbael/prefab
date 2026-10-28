@@ -168,6 +168,11 @@ public class AutoRegisterPrefabStreamTestDecorator<K, V extends Keyed<K>> implem
     }
 
     @Override
+    public StreamDefinition end() {
+        return delegate.end();
+    }
+
+    @Override
     public PrefabStream<K, V> unwrap() {
         return delegate;
     }

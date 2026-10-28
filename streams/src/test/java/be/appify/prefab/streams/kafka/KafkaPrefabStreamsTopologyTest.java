@@ -745,6 +745,101 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     @Test
+    void windowedAggregate_shouldAcceptLateRecordsWithinGrace() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        var definition = countOrdersPerCustomer(test, AggregationWindow.tumbling(Duration.ofSeconds(10), Duration.ofSeconds(5)));
+
+        try (var topologyTest = test.run(definition)) {
+            var input = topologyTest.input(IncomingOrder.class);
+            var output = topologyTest.output(OrderCount.class);
+
+            pipeOrder(input, "o-1", "alice", 1_000L);
+            pipeOrder(input, "o-2", "alice", 12_000L);
+            pipeOrder(input, "o-3", "alice", 2_000L);
+
+            assertThat(output.readValuesToList())
+                    .containsExactly(
+                            new OrderCount(Reference.fromId("alice"), 1),
+                            new OrderCount(Reference.fromId("alice"), 1),
+                            new OrderCount(Reference.fromId("alice"), 2)
+                    );
+        }
+    }
+
+    @Test
+    void windowedAggregate_shouldDropLateRecordsBeyondGrace() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        var definition = countOrdersPerCustomer(test, AggregationWindow.tumbling(Duration.ofSeconds(10), Duration.ofSeconds(5)));
+
+        try (var topologyTest = test.run(definition)) {
+            var input = topologyTest.input(IncomingOrder.class);
+            var output = topologyTest.output(OrderCount.class);
+
+            pipeOrder(input, "o-1", "alice", 1_000L);
+            pipeOrder(input, "o-2", "alice", 16_000L);
+            pipeOrder(input, "o-3", "alice", 2_000L);
+
+            assertThat(output.readValuesToList())
+                    .containsExactly(
+                            new OrderCount(Reference.fromId("alice"), 1),
+                            new OrderCount(Reference.fromId("alice"), 1)
+                    );
+        }
+    }
+
+    @Test
+    void join_shouldJoinLateRecordWithinGrace() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        try (var topologyTest = test.run(joinOrdersWithShipping(test, Duration.ofSeconds(10)))) {
+            var orders = topologyTest.input(IncomingOrder.class);
+            var shipments = topologyTest.input(ShippingUpdate.class);
+            var output = topologyTest.output(JoinedOrder.class);
+
+            orders.pipeInput(orderKey("o-1"), new IncomingOrder(orderKey("o-1"), Reference.fromId("Alice")), Instant.ofEpochMilli(1_000L));
+            shipments.pipeInput(orderKey("o-2"), new ShippingUpdate(orderKey("o-2"), "SHIPPED"), Instant.ofEpochMilli(20_000L));
+            shipments.pipeInput(orderKey("o-1"), new ShippingUpdate(orderKey("o-1"), "SHIPPED"), Instant.ofEpochMilli(5_000L));
+
+            assertThat(output.readValuesToList())
+                    .containsExactly(new JoinedOrder(orderKey("o-1"), Reference.fromId("Alice"), "SHIPPED"));
+        }
+    }
+
+    @Test
+    void join_shouldDropLateRecordBeyondGrace() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        try (var topologyTest = test.run(joinOrdersWithShipping(test, Duration.ofSeconds(1)))) {
+            var orders = topologyTest.input(IncomingOrder.class);
+            var shipments = topologyTest.input(ShippingUpdate.class);
+            var output = topologyTest.output(JoinedOrder.class);
+
+            orders.pipeInput(orderKey("o-1"), new IncomingOrder(orderKey("o-1"), Reference.fromId("Alice")), Instant.ofEpochMilli(1_000L));
+            shipments.pipeInput(orderKey("o-2"), new ShippingUpdate(orderKey("o-2"), "SHIPPED"), Instant.ofEpochMilli(20_000L));
+            shipments.pipeInput(orderKey("o-1"), new ShippingUpdate(orderKey("o-1"), "SHIPPED"), Instant.ofEpochMilli(5_000L));
+
+            assertThat(output.readValuesToList()).isEmpty();
+        }
+    }
+
+    private static StreamDefinition joinOrdersWithShipping(KafkaTopologyTestBootstrap test, Duration grace) {
+        var streams = test.streams();
+        return streams.from(IncomingOrder.class)
+                .join(
+                        streams.from(ShippingUpdate.class),
+                        JoinWindow.of(Duration.ofSeconds(10), grace),
+                        (order, shipping) -> new JoinedOrder(order.orderId(), order.customer(), shipping.status())
+                )
+                .to(JoinedOrder.class);
+    }
+
+    private static Reference<Order> orderKey(String id) {
+        return Reference.fromId(id);
+    }
+
+    @Test
     void windowedAggregate_withHoppingWindow_shouldAggregateRecordIntoEveryOverlappingWindow() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
 

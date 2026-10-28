@@ -4,6 +4,7 @@ import be.appify.prefab.streams.Aggregation;
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
+import be.appify.prefab.streams.GlobalStore;
 import be.appify.prefab.streams.PrefabStream;
 import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.Store;
@@ -13,7 +14,6 @@ import java.lang.reflect.TypeVariable;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -36,7 +36,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
     private final ConversionService conversionService;
     private final Map<String, Object> kafkaClientProperties;
     private final StreamStepNames stepNames;
-    private final Map<String, SharedStoreDefinition> sharedStores;
+    private final Map<String, GlobalStore<?, ?>> globalStores = new HashMap<>();
     private final Set<String> declaredStores = new HashSet<>();
 
     /**
@@ -59,7 +59,6 @@ public class KafkaPrefabStreams implements PrefabStreams {
         this.conversionService = conversionService;
         this.kafkaClientProperties = Map.copyOf(kafkaClientProperties);
         this.stepNames = new StreamStepNames();
-        this.sharedStores = new LinkedHashMap<>();
     }
 
     @Override
@@ -183,79 +182,33 @@ public class KafkaPrefabStreams implements PrefabStreams {
     }
 
     @Override
-    public <KS, VS extends Keyed<KS>> Store<KS, VS> sharedStore(String name, Class<KS> keyType, Class<VS> valueType) {
-        Objects.requireNonNull(keyType, "keyType must not be null");
-        var store = registerSharedStore(name, TypeReference.of(valueType), keyType);
-        return castStore(store);
-    }
-
-    @Override
-    public <KS, VS extends Keyed<KS>> Store<KS, VS> sharedStore(String name, TypeReference<VS> type) {
-        var inferredKeyType = keyTypeOrObject(type);
-        var store = registerSharedStore(name, type, inferredKeyType);
-        return castStore(store);
-    }
-
-    private <KS, VS extends Keyed<KS>> SharedStoreDefinition registerSharedStore(
-            String requestedName,
-            TypeReference<VS> valueType,
-            Class<?> requestedKeyType
-    ) {
-        Objects.requireNonNull(valueType, "type must not be null");
-        if (requestedName == null || requestedName.isBlank()) {
-            throw new IllegalArgumentException("shared store name must not be blank");
-        }
-
-        var normalizedName = toStoreName(requestedName);
-        var existing = sharedStores.get(normalizedName);
-        var requestedValueType = valueType.rawType();
-        if (existing != null) {
-            if (isCompatible(existing, requestedKeyType, requestedValueType)) {
-                return existing;
-            }
-            throw new IllegalArgumentException(
-                    "Shared store '%s' was already declared with key=%s, value=%s but received key=%s, value=%s"
-                            .formatted(
-                                    normalizedName,
-                                    existing.keyType().getName(),
-                                    existing.valueType().getName(),
-                                    requestedKeyType.getName(),
-                                    requestedValueType.getName()
-                            )
-            );
-        }
-
-        var store = new KafkaPrefabStoreAdapter<>(normalizedName);
-        streamsBuilder.addStateStore(Stores.keyValueStoreBuilder(
-                Stores.persistentKeyValueStore(normalizedName),
-                keySerde(valueType),
-                valueSerde(valueType)));
-        declaredStores.add(normalizedName);
-        var definition = new SharedStoreDefinition(requestedKeyType, requestedValueType, store);
-        sharedStores.put(normalizedName, definition);
-        return definition;
-    }
-
-    private static boolean isCompatible(SharedStoreDefinition existing, Class<?> requestedKeyType, Class<?> requestedValueType) {
-        var keyCompatible = existing.keyType() == Object.class
-                || requestedKeyType == Object.class
-                || existing.keyType().equals(requestedKeyType);
-        return keyCompatible && existing.valueType().equals(requestedValueType);
-    }
-
     @SuppressWarnings("unchecked")
-    private static <KS, VS extends Keyed<KS>> Store<KS, VS> castStore(SharedStoreDefinition definition) {
-        return (Store<KS, VS>) definition.store();
+    public <KS, VS extends Keyed<KS>> GlobalStore<KS, VS> globalStore(Class<VS> type) {
+        Objects.requireNonNull(type, "type must not be null");
+        var typeReference = TypeReference.of(type);
+        var name = "global-" + toStoreName(typeReference.name());
+        var existing = globalStores.get(name);
+        if (existing != null) {
+            return (GlobalStore<KS, VS>) existing;
+        }
+        var topic = topicResolver.topicForType(type);
+        var sourceKeySerde = new StringKeySerde<KS>(keyTypeOf(type));
+        var sourceValueSerde = new SerdeAdapter<VS>(serializer.adapt(), deserializer.adapt());
+        streamsBuilder.addGlobalStore(
+                Stores.keyValueStoreBuilder(
+                        Stores.persistentKeyValueStore(name),
+                        this.<KS, VS>keySerde(typeReference),
+                        valueSerde(typeReference)).withLoggingDisabled(),
+                topic,
+                Consumed.with(sourceKeySerde, sourceValueSerde),
+                () -> new GlobalStoreUpdateProcessor<KS, VS>(name));
+        var store = new KafkaPrefabGlobalStoreAdapter<KS, VS>(name);
+        globalStores.put(name, store);
+        return store;
     }
 
-    private static Class<?> keyTypeOrObject(TypeReference<?> type) {
-        try {
-            @SuppressWarnings("rawtypes")
-            var keyedValueType = (Class) type.rawType();
-            return keyTypeOf(keyedValueType);
-        } catch (IllegalArgumentException ignored) {
-            return Object.class;
-        }
+    boolean isGlobalStoreDeclared(String name) {
+        return globalStores.containsKey(name);
     }
 
     /**
@@ -314,8 +267,5 @@ public class KafkaPrefabStreams implements PrefabStreams {
                 .replaceAll("\\W", "-")
                 .replaceAll("-{2,}", "-")
                 .replaceAll("[-.]+$", "");
-    }
-
-    private record SharedStoreDefinition(Class<?> keyType, Class<?> valueType, Store<?, ?> store) {
     }
 }

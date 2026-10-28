@@ -33,6 +33,16 @@ public interface StreamProcessor<KI, VI extends Keyed<KI>, KO, VO extends Keyed<
     }
 
     /**
+     * Returns the global stores this processor reads from. Global stores are read-only and fully replicated, so
+     * they are looked up by name rather than co-partitioned with the input.
+     *
+     * @return A collection of global stores used by this processor.
+     */
+    default Collection<GlobalStore<?, ?>> globalStores() {
+        return Collections.emptyList();
+    }
+
+    /**
      * Initializes the streams for this processor. This method is called during the initialization phase of the stream processing topology. Implementations can override this method to perform any necessary setup or configuration for the streams.
      *
      * @param streams The PrefabStreams instance that provides access to the stream processing environment.

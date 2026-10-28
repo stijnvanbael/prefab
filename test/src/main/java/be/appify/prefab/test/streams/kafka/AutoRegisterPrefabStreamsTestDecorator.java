@@ -3,6 +3,7 @@ package be.appify.prefab.test.streams.kafka;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.streams.GlobalStore;
 import be.appify.prefab.streams.PrefabStream;
 import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.Store;
@@ -41,8 +42,8 @@ public class AutoRegisterPrefabStreamsTestDecorator implements PrefabStreams {
     }
 
     @Override
-    public <KS, VS extends Keyed<KS>> Store<KS, VS> sharedStore(String name, TypeReference<VS> type) {
-        eventRegistry.register(appId + "-" + toStoreName(name) + "-changelog", type.rawType(), Event.Serialization.JSON);
-        return delegate.sharedStore(name, type);
+    public <KS, VS extends Keyed<KS>> GlobalStore<KS, VS> globalStore(Class<VS> type) {
+        eventRegistry.register(appId + "-" + toKebabCase(type.getSimpleName()), type, Event.Serialization.JSON);
+        return delegate.globalStore(type);
     }
 }

@@ -922,9 +922,10 @@ Supported operations:
 - `PrefabStreams.merge(PrefabStream<? extends M>, PrefabStream<? extends M>)`
 - `deduplicate(Function<?, String>, Duration)`
 - `breakout(StreamBreakoutAdapter<?, ?, ?, ?>)`
-- `sharedStore(String, Class<?>)`
+- `globalStore(Class<?>)`
 - `to(Class<?>)`
 - `to(String)`
+- `end()`
 
 Serialization and deserialization reuse the existing Kafka dynamic serde infrastructure:
 
@@ -1003,26 +1004,23 @@ streams.from(OrderPlaced.class)
   with `keyBy(...)`.
 - Deduplication only guarantees idempotent output when upstream duplicates fall within the retention window. Combine it
   with exactly-once processing to avoid duplicates introduced by the application itself.
-### Topology-scoped shared state stores
+### Global state stores
 
-`sharedStore(...)` declares one state store at topology scope and allows multiple processors to bind to the same logical
-store instance.
+`globalStore(Class<V>)` declares a Kafka Streams **global store**: a read-only store that is fed from the topic
+registered for `V` and fully replicated to every application instance. Processors can look up any key regardless of
+the partition of the record being processed, which makes it suited for reference data such as customer profiles.
 
-Use shared stores when multiple branches or processors must observe the same state (for example command updates on one
-branch and read-enrichment on another branch). Use local per-processor stores (`StatefulStreamProcessor` with
-`createStore(...)`) when state should remain private to a single processor.
+Use a global store when many processors or branches need to read the same, relatively small reference data set. Use a
+local per-processor store (`StatefulStreamProcessor` with `createStore(...)`) when state is private to one processor and
+partitioned by the input key; local stores are **not** shared between instances.
 
 ```java
 @Configuration
 class StreamTopologyConfiguration {
 
     @Bean
-    StreamDefinition customerEnrichment(PrefabStreams streams) {
-        var customerProfiles = streams.sharedStore("customer-profiles", CustomerProfile.class);
-
-        streams.from(CustomerProfileUpdated.class)
-                .process(new UpdateCustomerProfileProcessor(customerProfiles), customerProfiles)
-                .to("customer-profiles.audit");
+    StreamDefinition orderEnrichment(PrefabStreams streams) {
+        var customerProfiles = streams.globalStore(CustomerProfile.class);
 
         return streams.from(OrderPlaced.class)
                 .process(new EnrichOrderProcessor(customerProfiles), customerProfiles)
@@ -1031,12 +1029,28 @@ class StreamTopologyConfiguration {
 }
 ```
 
-Validation and failure behavior:
+Behaviour and constraints:
 
-- Shared store declarations are keyed by name and value type.
-- Re-declaring the same name with a different type fails fast with an actionable `IllegalArgumentException`.
-- Binding conflicting store instances with the same name to one processor step fails fast before topology execution.
+- The store is keyed by `Keyed.key()` and populated only from the source topic of the value type; processors can read
+  (`GlobalStore.get`) but not write. Publish changes to the topic instead.
+- A record with a `null` value removes the key.
+- Declaring the same type again returns the same store. The state store is named `global-{type}`.
+- The store has no changelog topic; on restart it is restored from the source topic. Use a compacted topic.
+- Bind the store with `process(processor, store)`, or return it from `StreamProcessor.globalStores()`. Binding a store
+  that was not declared via `globalStore(...)` fails fast with an `IllegalArgumentException`.
+- A global store is read from the processing thread, so a lookup may not yet see a record that was just published to the
+  source topic.
 
+### Ending a topology without a sink
+
+`to(...)` returns the `StreamDefinition`. When a branch ends in a `process(...)` step that has no output topic, call
+`end()` to obtain the `StreamDefinition`:
+
+```java
+return streams.from(OrderPlaced.class)
+        .process(new AuditProcessor(customerProfiles), customerProfiles)
+        .end();
+```
 ### Key Serialization Wire Format (JSON + AVRO)
 
 Kafka stream keys are automatically serialized without manual `parse(String)` / `toString()` plumbing.

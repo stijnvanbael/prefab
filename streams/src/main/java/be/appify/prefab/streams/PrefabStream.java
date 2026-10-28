@@ -140,7 +140,7 @@ public interface PrefabStream<K, V extends Keyed<K>> {
 
     default <KO, VO extends Keyed<KO>> PrefabStream<KO, VO> process(
             StreamProcessor<K, V, KO, VO> processor,
-            Store<?, ?>... stores
+            ReadableStore<?, ?>... stores
     ) {
         return process(new StoreBindingStreamProcessor<>(processor, Arrays.asList(stores)));
     }
@@ -148,6 +148,14 @@ public interface PrefabStream<K, V extends Keyed<K>> {
     StreamDefinition to(Class<? super V> type);
 
     StreamDefinition to(String topic);
+
+    /**
+     * Ends this branch of the topology without writing to a topic, for example after a {@link #process} step that
+     * only has side effects.
+     *
+     * @return the definition of the topology built so far
+     */
+    StreamDefinition end();
 
     PrefabStream<K, V> unwrap();
 

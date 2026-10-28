@@ -1,7 +1,6 @@
 package be.appify.prefab.streams;
 
 import be.appify.prefab.core.domain.Keyed;
-import java.util.Objects;
 
 /**
  * Entry point for the Prefab streams DSL.
@@ -17,14 +16,16 @@ public interface PrefabStreams {
 
     <KS, VS extends Keyed<KS>> Store<KS, VS> createStore(TypeReference<VS> type);
 
-    default <KS, VS extends Keyed<KS>> Store<KS, VS> sharedStore(String name, Class<VS> type) {
-        return sharedStore(name, TypeReference.of(type));
-    }
-
-    default <KS, VS extends Keyed<KS>> Store<KS, VS> sharedStore(String name, Class<KS> keyType, Class<VS> valueType) {
-        Objects.requireNonNull(keyType, "keyType must not be null");
-        return sharedStore(name, TypeReference.of(valueType));
-    }
-
-    <KS, VS extends Keyed<KS>> Store<KS, VS> sharedStore(String name, TypeReference<VS> type);
+    /**
+     * Declares a global store that is populated from the topic registered for {@code type}.
+     *
+     * <p>Every application instance materialises all records of the topic, keyed by {@link Keyed#key()}. A record
+     * with a {@code null} value removes the key. Declaring the same type more than once returns the same store.
+     * Bind the store to processors with {@link PrefabStream#process(StreamProcessor, ReadableStore[])}.
+     *
+     * @param type
+     *         the value type of the source topic
+     * @return the read-only global store
+     */
+    <KS, VS extends Keyed<KS>> GlobalStore<KS, VS> globalStore(Class<VS> type);
 }

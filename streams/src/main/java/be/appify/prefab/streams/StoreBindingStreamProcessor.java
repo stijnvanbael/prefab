@@ -13,10 +13,11 @@ import java.util.Objects;
 final class StoreBindingStreamProcessor<KI, VI extends Keyed<KI>, KO, VO extends Keyed<KO>>
         implements StreamProcessor<KI, VI, KO, VO> {
     private final StreamProcessor<KI, VI, KO, VO> delegate;
-    private final Collection<Store<?, ?>> explicitStores;
-    private List<Store<?, ?>> stores;
+    private final Collection<ReadableStore<?, ?>> explicitStores;
+    private Collection<Store<?, ?>> localStores;
+    private Collection<GlobalStore<?, ?>> globalStores;
 
-    StoreBindingStreamProcessor(StreamProcessor<KI, VI, KO, VO> delegate, Collection<Store<?, ?>> explicitStores) {
+    StoreBindingStreamProcessor(StreamProcessor<KI, VI, KO, VO> delegate, Collection<ReadableStore<?, ?>> explicitStores) {
         this.delegate = Objects.requireNonNull(delegate, "processor must not be null");
         this.explicitStores = List.copyOf(explicitStores);
     }
@@ -28,37 +29,54 @@ final class StoreBindingStreamProcessor<KI, VI extends Keyed<KI>, KO, VO extends
 
     @Override
     public Collection<Store<?, ?>> stateStores() {
-        if (stores == null) {
-            throw new IllegalStateException("Store bindings are not initialized; initStreams must run before stateStores()");
-        }
-        return stores;
+        requireInitialized();
+        return localStores;
+    }
+
+    @Override
+    public Collection<GlobalStore<?, ?>> globalStores() {
+        requireInitialized();
+        return globalStores;
     }
 
     @Override
     public void initStreams(PrefabStreams streams) {
         delegate.initStreams(streams);
-        this.stores = mergeStores(delegate.stateStores(), explicitStores);
+        var merged = new LinkedHashMap<String, ReadableStore<?, ?>>();
+        addStores(merged, delegate.stateStores(), "processor");
+        addStores(merged, delegate.globalStores(), "processor");
+        addStores(merged, explicitStores, "explicit");
+        this.localStores = merged.values().stream()
+                .<Store<?, ?>>mapMulti((store, sink) -> {
+                    if (store instanceof Store<?, ?> local) {
+                        sink.accept(local);
+                    }
+                })
+                .toList();
+        this.globalStores = merged.values().stream()
+                .<GlobalStore<?, ?>>mapMulti((store, sink) -> {
+                    if (store instanceof GlobalStore<?, ?> global) {
+                        sink.accept(global);
+                    }
+                })
+                .toList();
     }
-
     @Override
     public void initContext(StreamProcessorContext<KO, VO> context) {
         delegate.initContext(context);
-        stores.forEach(store -> store.init(context));
+        localStores.forEach(store -> store.init(context));
+        globalStores.forEach(store -> store.init(context));
     }
 
-    private static List<Store<?, ?>> mergeStores(
-            Collection<Store<?, ?>> processorStores,
-            Collection<Store<?, ?>> explicitStores
-    ) {
-        var storesByName = new LinkedHashMap<String, Store<?, ?>>();
-        addStores(storesByName, processorStores, "processor");
-        addStores(storesByName, explicitStores, "explicit");
-        return List.copyOf(storesByName.values());
+    private void requireInitialized() {
+        if (localStores == null) {
+            throw new IllegalStateException("Store bindings are not initialized; initStreams must run before stateStores()");
+        }
     }
 
     private static void addStores(
-            Map<String, Store<?, ?>> storesByName,
-            Collection<Store<?, ?>> stores,
+            Map<String, ReadableStore<?, ?>> storesByName,
+            Collection<? extends ReadableStore<?, ?>> stores,
             String origin
     ) {
         for (var store : stores) {
@@ -72,13 +90,10 @@ final class StoreBindingStreamProcessor<KI, VI extends Keyed<KI>, KO, VO extends
             var existing = storesByName.putIfAbsent(name, store);
             if (existing != null && existing != store) {
                 throw new IllegalArgumentException(
-                        "Duplicate store binding '%s' uses different store instances; reuse a single shared declaration"
+                        "Duplicate store binding '%s' uses different store instances; reuse a single declaration"
                                 .formatted(name)
                 );
             }
         }
     }
 }
-
-
-

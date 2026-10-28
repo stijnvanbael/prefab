@@ -78,7 +78,6 @@ Key points of the example:
 - No `org.apache.kafka` import in tests that are not Kafka-specific.
 - Fixtures (`IncomingOrder`, `OrderCount`, `order(..)`, `count(..)`) live in a shared `TopologyFixtures`.
 - No `org.apache.kafka` import in tests that are not Kafka-specific.
-- Where the application context is used (Spring Boot example tests), the listener can additionally be used together with `@SpringBootTest`; to be verified during implementation.
 ### Scope
 1. Neutral API in the `test` module: `TopologyTestHarness`, `TopologySession`, `Input`, `Output`, `RawOutput`, `TopologyInspection`; Kafka implementation wraps `TopologyTestDriver`. Remove duplicate bootstrap in `streams/src/test`.
 2. `TopologyTestExtension` and `@TestStreams` (JUnit 5 field and parameter injection, lazy session start, automatic close via the `ExtensionContext` store), plus `TopologyFixtures`.

@@ -491,6 +491,16 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     @Test
+    void process_shouldFailFastForUndeclaredStoreBinding() {
+        var test = KafkaTopologyTestBootstrap.bootstrap();
+
+        assertThatThrownBy(() -> test.streams().from(IncomingOrder.class)
+                .process(new CountOrderProcessor(), new KafkaPrefabStoreAdapter<>("undeclared-store")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Store 'undeclared-store' is not declared");
+    }
+
+    @Test
     void to_shouldEmitPlainUtf8KeyBytesForSingleFieldRecordKeys() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
 

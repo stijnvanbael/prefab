@@ -24,6 +24,7 @@ This module defines two topologies:
 - `from(EnergySale.class)` reads `energy-sales`
 - `groupBy(BiddingZoneId.class, EnergySale::biddingZone)` re-keys records per bidding zone (native Kafka Streams repartition)
 - `aggregate(ZoneSalesTotal.class, initializer, aggregator)` keeps a running total per zone in a native state store and emits the updated `ZoneSalesTotal` to `zone-sales-total` after every sale
+- `windowedAggregate(AggregationWindow.tumbling(1h, grace 5m), ...)` additionally keeps hourly totals per zone in a native window store; sales in different hours never mix. Updates are emitted to `hourly-zone-sales-total`
 
 ## Commands
 

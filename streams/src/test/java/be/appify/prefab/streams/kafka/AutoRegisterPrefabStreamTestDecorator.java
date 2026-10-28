@@ -3,6 +3,7 @@ package be.appify.prefab.streams.kafka;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.streams.AggregationWindow;
 import be.appify.prefab.streams.JoinWindow;
 import be.appify.prefab.streams.PrefabGroupedStream;
 import be.appify.prefab.streams.PrefabStream;
@@ -97,6 +98,16 @@ public class AutoRegisterPrefabStreamTestDecorator<K, V extends Keyed<K>> implem
                     BiFunction<? super V, ? super VR, ? extends VR> aggregator
             ) {
                 return wrap(grouped.aggregate(resultType, initializer, aggregator));
+            }
+
+            @Override
+            public <VR extends Keyed<KO>> PrefabStream<KO, VR> windowedAggregate(
+                    AggregationWindow window,
+                    Class<VR> resultType,
+                    Supplier<VR> initializer,
+                    BiFunction<? super V, ? super VR, ? extends VR> aggregator
+            ) {
+                return wrap(grouped.windowedAggregate(window, resultType, initializer, aggregator));
             }
         };
     }

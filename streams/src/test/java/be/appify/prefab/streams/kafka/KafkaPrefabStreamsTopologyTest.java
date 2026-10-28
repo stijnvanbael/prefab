@@ -14,6 +14,7 @@ import be.appify.prefab.streams.StreamDefinition;
 import be.appify.prefab.streams.StreamRecord;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import tools.jackson.databind.json.JsonMapper;
+import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.TestInputTopic;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Named;
@@ -606,7 +607,7 @@ class KafkaPrefabStreamsTopologyTest {
                 .to(OrderProfileView.class);
         var counting = streams.from(OrderProfileView.class).end();
 
-        try (var topologyTest = test.run(List.of(enriching, counting), List.of(customerProfiles))) {
+        try (var topologyTest = test.run(enriching, counting, customerProfiles)) {
             topologyTest.input(CustomerProfileUpdated.class).pipeInput(
                     Reference.fromId("alice"), new CustomerProfileUpdated(Reference.fromId("alice"), "SILVER"));
 
@@ -615,16 +616,24 @@ class KafkaPrefabStreamsTopologyTest {
     }
 
     @Test
-    void run_shouldFailFastWhenGlobalStoreIsNotPartOfTheTopology() {
+    void run_shouldAcceptTopologyConsistingOfGlobalStoresOnly() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
-        var other = test.streams().globalStore(CustomerProfile.class);
-        var definition = test.streams().from(IncomingOrder.class).end();
+        var customerProfiles = test.streams().globalStore(CustomerProfile.class);
 
-        assertThatThrownBy(() -> test.run(List.of(definition), List.of(other)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not part of the topology");
+        try (var topologyTest = test.run(customerProfiles)) {
+            topologyTest.input(CustomerProfile.class).pipeInput(
+                    Reference.fromId("alice"), new CustomerProfile(Reference.fromId("alice"), "GOLD"));
+
+            assertThat(topologyTest.store(customerProfiles).get(Reference.fromId("alice"))).isNotNull();
+        }
     }
 
+    @Test
+    void run_shouldFailFastWhenNoElementIsGiven() {
+        assertThatThrownBy(() -> KafkaTopologyTestBootstrap.bootstrap().run())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("At least one");
+    }
     @Test
     void run_shouldFailFastWhenDefinitionsComeFromDifferentStreams() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
@@ -656,7 +665,8 @@ class KafkaPrefabStreamsTopologyTest {
     @Test
     void process_shouldFailFastForUndeclaredGlobalStoreBinding() {
         var test = KafkaTopologyTestBootstrap.bootstrap();
-        var undeclared = new KafkaPrefabGlobalStoreAdapter<Reference<Customer>, CustomerProfile>("global-undeclared");
+        var undeclared = new KafkaPrefabGlobalStoreAdapter<Reference<Customer>, CustomerProfile>(
+                "global-undeclared", new StreamsBuilder()::build);
 
         assertThatThrownBy(() -> test.streams().from(IncomingOrder.class)
                 .process(new EnrichOrderWithProfileProcessor(undeclared)))

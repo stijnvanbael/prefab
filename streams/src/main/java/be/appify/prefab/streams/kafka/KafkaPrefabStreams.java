@@ -254,7 +254,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
                 topic,
                 Consumed.with(sourceKeySerde, sourceValueSerde),
                 updateSupplier);
-        var store = new KafkaPrefabGlobalStoreAdapter<K, V>(storeName);
+        var store = new KafkaPrefabGlobalStoreAdapter<K, V>(storeName, streamsBuilder::build);
         globalStores.put(storeName, new GlobalStoreDefinition(sourceType, storeType, store));
         globalStoreNamesByTopic.put(topic, storeName);
         return store;

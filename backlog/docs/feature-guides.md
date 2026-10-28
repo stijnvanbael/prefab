@@ -1104,7 +1104,7 @@ class SnapshotCounterUpdater
   restored, so side effects in an updater (for example publishing application events) can repeat. Keep them idempotent.
 ### Testing global stores
 
-All stream definitions and global stores declared on one `PrefabStreams` share a single topology. Run several definitions together with `bootstrap.run(definitionA, definitionB)`, or pass the stores you want to inspect: `bootstrap.run(List.of(definition), List.of(customerProfiles))` (fails fast when a store is not part of the topology). Pipe records into the source topic with `session.input(...)` and assert on the store with `session.store(customerProfiles).get(key)`.
+All stream definitions and global stores declared on one `PrefabStreams` share a single topology, and both are `TopologyElement`s. Pass any of them to `bootstrap.run(...)`, for example `bootstrap.run(definition, customerProfiles)` or just `bootstrap.run(customerProfiles)` for a topology of global stores only. All elements must come from the same `PrefabStreams`. Pipe records into the source topic with `session.input(...)` and assert on the store with `session.store(customerProfiles).get(key)`.
 
 ### Ending a topology without a sink
 

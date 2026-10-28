@@ -7,7 +7,7 @@ import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.kafka.KafkaSchemaRegistrySupport;
 import be.appify.prefab.streams.GlobalStore;
 import be.appify.prefab.streams.PrefabStreams;
-import be.appify.prefab.streams.StreamDefinition;
+import be.appify.prefab.streams.TopologyElement;
 import be.appify.prefab.streams.kafka.KafkaPrefabStreams;
 import be.appify.prefab.streams.kafka.KafkaTopicResolver;
 import be.appify.prefab.streams.kafka.StringKeySerde;
@@ -27,10 +27,8 @@ import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.core.convert.support.DefaultConversionService;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.util.Collection;
-import java.util.List;
+import java.util.Arrays;
 import java.util.Properties;
-import java.util.stream.Collectors;
 
 import static be.appify.prefab.streams.kafka.KafkaPrefabStreams.keyTypeOf;
 
@@ -74,54 +72,36 @@ public final class KafkaTopologyTestBootstrap {
                 appId);
     }
 
-    public TopologyTestSession run(StreamDefinition... streamDefinitions) {
-        return run(List.of(streamDefinitions), List.of());
-    }
-
     /**
-     * Starts a test session for streams that share one {@link PrefabStreams} instance.
+     * Starts a test session for a topology made of stream definitions and/or global stores.
      *
-     * @param streamDefinitions the definitions to run; they must originate from the same {@link PrefabStreams}
-     * @param globalStores global stores that must be part of the topology, so they can be inspected in the session
+     * <p>All elements must originate from the same {@link PrefabStreams} instance. A topology that consists of
+     * global stores only is allowed.
+     *
+     * @param elements the stream definitions and global stores that make up the topology
      * @return the test session
      */
-    public TopologyTestSession run(
-            Collection<StreamDefinition> streamDefinitions,
-            Collection<GlobalStore<?, ?>> globalStores
-    ) {
-        var topology = sharedTopology(streamDefinitions);
-        var declared = topology.describe().globalStores().stream()
-                .flatMap(store -> store.processor().stores().stream())
-                .collect(Collectors.toSet());
-        globalStores.stream()
-                .filter(store -> !declared.contains(store.name()))
-                .findFirst()
-                .ifPresent(store -> {
-                    throw new IllegalArgumentException(
-                            "Global store '%s' is not part of the topology; declare it on the PrefabStreams that created the stream definitions"
-                                    .formatted(store.name()));
-                });
+    public TopologyTestSession run(TopologyElement... elements) {
         var properties = new Properties();
         properties.put(StreamsConfig.APPLICATION_ID_CONFIG, appId);
         properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "dummy:9092");
         return new TopologyTestSession(
-                new TopologyTestDriver(topology, properties),
+                new TopologyTestDriver(sharedTopology(elements), properties),
                 eventRegistry,
                 serializer,
                 deserializer,
                 jsonMapper);
     }
 
-    private static Topology sharedTopology(Collection<StreamDefinition> streamDefinitions) {
-        if (streamDefinitions.isEmpty()) {
-            throw new IllegalArgumentException("At least one stream definition is required");
+    private static Topology sharedTopology(TopologyElement[] elements) {
+        if (elements.length == 0) {
+            throw new IllegalArgumentException("At least one stream definition or global store is required");
         }
-        var topologies = streamDefinitions.stream().map(StreamDefinition::nativeTopology).toList();
-        var first = topologies.getFirst();
+        var first = elements[0].nativeTopology();
         var description = first.describe().toString();
-        if (topologies.stream().anyMatch(topology -> !topology.describe().toString().equals(description))) {
+        if (Arrays.stream(elements).anyMatch(element -> !element.nativeTopology().describe().toString().equals(description))) {
             throw new IllegalArgumentException(
-                    "Stream definitions must originate from the same PrefabStreams instance to run in one topology");
+                    "Topology elements must originate from the same PrefabStreams instance to run in one topology");
         }
         return first;
     }

@@ -10,5 +10,5 @@ package be.appify.prefab.streams;
  * @param <K> the key type
  * @param <V> the value type
  */
-public interface GlobalStore<K, V> extends ReadableStore<K, V> {
+public interface GlobalStore<K, V> extends ReadableStore<K, V>, TopologyElement {
 }

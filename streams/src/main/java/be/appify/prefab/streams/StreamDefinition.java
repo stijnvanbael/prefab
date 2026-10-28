@@ -5,7 +5,7 @@ import java.util.function.Supplier;
 import org.apache.kafka.streams.Topology;
 
 /** Prefab wrapper around a backend-native stream topology definition. */
-public final class StreamDefinition {
+public final class StreamDefinition implements TopologyElement {
     private final Supplier<Topology> topologySupplier;
     private volatile Topology nativeTopology;
 
@@ -30,6 +30,7 @@ public final class StreamDefinition {
     }
 
     /** Returns the native Kafka topology for runtime wiring and tests. */
+    @Override
     public Topology nativeTopology() {
         return buildTopology();
     }

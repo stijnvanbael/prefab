@@ -1104,7 +1104,7 @@ class SnapshotCounterUpdater
   restored, so side effects in an updater (for example publishing application events) can repeat. Keep them idempotent.
 ### Testing global stores
 
-All stream definitions and global stores declared on one `PrefabStreams` share a single topology, and both are `TopologyElement`s. Pass any of them to `bootstrap.run(...)`, for example `bootstrap.run(definition, customerProfiles)` or just `bootstrap.run(customerProfiles)` for a topology of global stores only. All elements must come from the same `PrefabStreams`. Pipe records into the source topic with `session.input(...)` and assert on the store with `session.store(customerProfiles).get(key)`.
+All stream definitions and global stores declared on one `PrefabStreams` share a single topology, so the session of a test runs all of them. Pipe records into the source topic with `topology.input(...)` and assert on the store with `topology.lookup(customerProfiles, key)`.
 
 ### Ending a topology without a sink
 
@@ -1237,31 +1237,39 @@ Portability note:
 `StreamDefinition` beans are auto-discovered by Prefab Streams at startup. Their DSL wiring is bootstrapped into one
 Kafka Streams topology automatically, so no extra manual topology startup code is required.
 
-Topology tests can use the lightweight `KafkaTopologyTestBootstrap` helper to avoid repetitive
-`TopologyTestDriver` and serde setup code.
-
-Example:
+Topology tests use the backend-neutral `TopologyTestExtension` (package `be.appify.prefab.streams.testing`). It injects
+a fresh `PrefabStreams` to declare the topology on and a `TopologySession` to run it. The session starts on first use
+and is closed after the test, so no set-up code and no try-with-resources are needed.
 
 ```java
+@ExtendWith(TopologyTestExtension.class)
+class OrderTopologyTest {
+    @TestStreams PrefabStreams streams;
+    @TestStreams TopologySession topology;
 
-@Test
-void shouldForwardOrder() {
-    var test = KafkaTopologyTestBootstrap.bootstrap();
-    test.registerJson("orders.in", IncomingOrder.class);
-    test.registerJson("orders.out", ProcessedOrder.class);
+    @Test
+    void shouldForwardOrder() {
+        streams.from(IncomingOrder.class)
+                .map(order -> new ProcessedOrder(order.orderId(), order.customer()))
+                .to(ProcessedOrder.class);
 
-    var topology = test.streams(new StreamsBuilder())
-            .from(IncomingOrder.class)
-            .to(ProcessedOrder.class);
+        topology.input(IncomingOrder.class).send(new IncomingOrder("o-1", "Alice"));
 
-    try (var topologyTest = test.run(topology)) {
-        topologyTest.input("orders.in").pipeInput("o-1", new IncomingOrder("o-1", "Alice"));
-        assertThat(topologyTest.output("orders.out").readValue())
-                .isEqualTo(new ProcessedOrder("o-1", "Alice"));
+        assertThat(topology.output(ProcessedOrder.class).values())
+                .containsExactly(new ProcessedOrder("o-1", "Alice"));
     }
 }
 ```
 
+- `input(...).send(value[, timestamp])` takes the key from `Keyed.key()`; use `send(key, value)` for another key and
+  `sendTombstone(key)` for a record without a value.
+- `output(...)` reads typed records, `output(topic)` reads the serialised values of a named topic.
+- `topology.inspect()` describes the structure (step names, stores, global stores) without exposing the backend.
+- `topology.unwrap(...)` gives access to the backend facility, for example Kafka's `TopologyTestDriver`.
+- `TopologyTestExtension.withAppId("...")` (with `@RegisterExtension`) changes the application id used for topic names.
+- `@TestStreams` also works on test method parameters.
+- The extension picks the backend from the classpath, so the same tests run against every backend that registers a
+  `TopologyTestHarness.Factory`. The Kafka implementation needs `kafka-streams-test-utils` on the test classpath.
 ---
 
 ## 7.16 Per-aggregate Plugin Overrides

@@ -798,9 +798,9 @@ class KafkaPrefabStreamsTopologyTest {
             var shipments = topologyTest.input(ShippingUpdate.class);
             var output = topologyTest.output(JoinedOrder.class);
 
-            orders.pipeInput(orderKey("o-1"), new IncomingOrder(orderKey("o-1"), Reference.fromId("Alice")), Instant.ofEpochMilli(1_000L));
-            shipments.pipeInput(orderKey("o-2"), new ShippingUpdate(orderKey("o-2"), "SHIPPED"), Instant.ofEpochMilli(20_000L));
-            shipments.pipeInput(orderKey("o-1"), new ShippingUpdate(orderKey("o-1"), "SHIPPED"), Instant.ofEpochMilli(5_000L));
+            orders.pipeInput(orderKey("o-2"), new IncomingOrder(orderKey("o-2"), Reference.fromId("Bob")), Instant.ofEpochMilli(40_000L));
+            orders.pipeInput(orderKey("o-1"), new IncomingOrder(orderKey("o-1"), Reference.fromId("Alice")), Instant.ofEpochMilli(15_000L));
+            shipments.pipeInput(orderKey("o-1"), new ShippingUpdate(orderKey("o-1"), "SHIPPED"), Instant.ofEpochMilli(24_000L));
 
             assertThat(output.readValuesToList())
                     .containsExactly(new JoinedOrder(orderKey("o-1"), Reference.fromId("Alice"), "SHIPPED"));
@@ -816,9 +816,9 @@ class KafkaPrefabStreamsTopologyTest {
             var shipments = topologyTest.input(ShippingUpdate.class);
             var output = topologyTest.output(JoinedOrder.class);
 
-            orders.pipeInput(orderKey("o-1"), new IncomingOrder(orderKey("o-1"), Reference.fromId("Alice")), Instant.ofEpochMilli(1_000L));
-            shipments.pipeInput(orderKey("o-2"), new ShippingUpdate(orderKey("o-2"), "SHIPPED"), Instant.ofEpochMilli(20_000L));
-            shipments.pipeInput(orderKey("o-1"), new ShippingUpdate(orderKey("o-1"), "SHIPPED"), Instant.ofEpochMilli(5_000L));
+            orders.pipeInput(orderKey("o-2"), new IncomingOrder(orderKey("o-2"), Reference.fromId("Bob")), Instant.ofEpochMilli(40_000L));
+            orders.pipeInput(orderKey("o-1"), new IncomingOrder(orderKey("o-1"), Reference.fromId("Alice")), Instant.ofEpochMilli(15_000L));
+            shipments.pipeInput(orderKey("o-1"), new ShippingUpdate(orderKey("o-1"), "SHIPPED"), Instant.ofEpochMilli(24_000L));
 
             assertThat(output.readValuesToList()).isEmpty();
         }

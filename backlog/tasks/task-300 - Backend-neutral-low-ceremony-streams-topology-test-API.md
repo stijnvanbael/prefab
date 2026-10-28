@@ -26,56 +26,60 @@ Goal: tests are written against a backend-neutral API with minimal setup, so the
 ### Target test shape
 
 ```java
-class FilterTest extends TopologyTest {
+@TopologyTest
+class FilterTest {
+    @TestStreams PrefabStreams streams;
+    @TestStreams TopologySession topology;
 
     @Test
     void filter_shouldDropRecordsNotMatchingPredicate() {
-        var topology = streams.from(IncomingOrder.class)
+        streams.from(IncomingOrder.class)
                 .filter(order -> order.customer().id().startsWith("A"))
                 .to(ProcessedOrder.class);
 
-        try (var session = run(topology)) {
-            session.input(IncomingOrder.class)
-                    .send(new IncomingOrder(orderId("o-1"), customer("Alice")))
-                    .send(new IncomingOrder(orderId("o-2"), customer("Bob")))
-                    .send(new IncomingOrder(orderId("o-3"), customer("Anna")));
+        topology.input(IncomingOrder.class)
+                .send(new IncomingOrder(orderId("o-1"), customer("Alice")))
+                .send(new IncomingOrder(orderId("o-2"), customer("Bob")))
+                .send(new IncomingOrder(orderId("o-3"), customer("Anna")));
 
-            assertThat(session.output(ProcessedOrder.class).values()).hasSize(2);
-        }
+        assertThat(topology.output(ProcessedOrder.class).values()).hasSize(2);
     }
 
     @Test
     void windowedAggregate_shouldUseStore() {
-        var topology = countOrdersPerCustomer(AggregationWindow.tumbling(Duration.ofSeconds(10), Duration.ZERO));
+        countOrdersPerCustomer(streams, AggregationWindow.tumbling(Duration.ofSeconds(10), Duration.ZERO));
 
-        assertThat(inspect(topology)).hasStore("windowed-aggregate-incoming-order-order-count");
+        assertThat(topology.inspect()).hasStore("windowed-aggregate-incoming-order-order-count");
     }
 
     @Test
     void windowedAggregate_withHoppingWindow_shouldEmitForEveryOverlappingWindow() {
-        try (var session = run(countOrdersPerCustomer(hopping10s5s()))) {
-            session.input(IncomingOrder.class)
-                    .send(order("o-1", "alice"), at(7_000))
-                    .send(order("o-2", "alice"), at(8_000));
+        countOrdersPerCustomer(streams, hopping10s5s());
 
-            assertThat(session.output(OrderCount.class).values())
-                    .containsExactlyInAnyOrder(count("alice", 1), count("alice", 1), count("alice", 2), count("alice", 2));
-        }
+        topology.input(IncomingOrder.class)
+                .send(order("o-1", "alice"), at(7_000))
+                .send(order("o-2", "alice"), at(8_000));
+
+        assertThat(topology.output(OrderCount.class).values())
+                .containsExactlyInAnyOrder(count("alice", 1), count("alice", 1), count("alice", 2), count("alice", 2));
     }
 }
 ```
 
 Key points of the example:
-- `TopologyTest` base class (or JUnit extension) supplies a fresh `streams` and `run(...)`/`inspect(...)` per test; no `bootstrap()` line.
+- No base class and no explicit bootstrap. `@TopologyTest` is a meta-annotation that registers a Spring `TestExecutionListener` (`TopologyTestExecutionListener`, with `inheritListeners = false` so no application context is loaded for plain unit tests). The listener injects fields annotated `@TestStreams` (`PrefabStreams` and `TopologySession`) in `prepareTestInstance`, with a fresh harness per test.
+- No try-with-resources: the `TopologySession` is lazy. The driver is created on the first `input()`/`output()`/`inspect()` call from everything declared on the injected `streams`, and the listener closes it in `afterTestExecution` (also on failure). No elements are passed to `run(...)`.
+- Declaring more topology after the session has started fails fast with a clear message.
 - `Input.send(value[, Instant])` is fluent and takes the key from `Keyed.key()`; `at(millis)` is a shared helper.
 - `Output.values()` reads all pending records; no `TestOutputTopic`.
-- `inspect(topology)` returns a neutral `TopologyInspection` with AssertJ-style assertions (`hasStep`, `hasStore`, `hasGlobalStores(n)`, `hasRepartition`), replacing `describe().toString().contains(..)`.
+- `topology.inspect()` returns a neutral `TopologyInspection` with AssertJ-style assertions (`hasStep`, `hasStore`, `hasGlobalStores(n)`, `hasRepartition`), replacing `describe().toString().contains(..)`.
+- Tests needing a non-default app id or custom config use `@TopologyTest(appId = "...")`.
 - Fixtures (`IncomingOrder`, `OrderCount`, `order(..)`, `count(..)`) live in a shared `TopologyFixtures`.
 - No `org.apache.kafka` import in tests that are not Kafka-specific.
-
+- Where the application context is used (Spring Boot example tests), the listener can additionally be used together with `@SpringBootTest`; to be verified during implementation.
 ### Scope
 1. Neutral API in the `test` module: `TopologyTestHarness`, `TopologySession`, `Input`, `Output`, `RawOutput`, `TopologyInspection`; Kafka implementation wraps `TopologyTestDriver`. Remove duplicate bootstrap in `streams/src/test`.
-2. `TopologyTest` base class / JUnit extension and `TopologyFixtures`.
+2. `@TopologyTest`, `@TestStreams` and `TopologyTestExecutionListener` (field injection, lazy session start, automatic close), plus `TopologyFixtures`.
 3. Remove Kafka types from `TopologyElement` / `StreamDefinition`; native access moves to a Kafka sub-interface (breaking change to be called out).
 4. Split `KafkaPrefabStreamsTopologyTest` by operator; parameterize the repeated "stable step names" tests; keep Kafka-only tests (breakout adapters with `KStream`, wire-format byte checks, `StreamsConfigurationBootstrapTest`) in `streams/.../kafka`.
 5. Backend-neutral tests form an abstract contract suite reusable by other backends.
@@ -85,7 +89,7 @@ Key points of the example:
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Neutral test API exposes no `org.apache.kafka` types in its public signatures.
-- [ ] #2 A typical topology test needs no explicit harness bootstrap and no manual key duplication when piping input.
+- [ ] #2 A typical topology test needs no base class, no explicit harness bootstrap, no try-with-resources and no manual key duplication when piping input; harness and session are injected and closed by a `TestExecutionListener`.
 - [ ] #3 Topology structure assertions use `TopologyInspection` instead of `describe().toString()`.
 - [ ] #4 `TopologyElement` and `StreamDefinition` in the `streams` package no longer reference Kafka types.
 - [ ] #5 `KafkaPrefabStreamsTopologyTest` is split into focused classes; repeated naming tests are parameterized; no test coverage is lost.

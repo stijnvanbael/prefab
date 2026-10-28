@@ -2,6 +2,7 @@ package be.appify.prefab.streams;
 
 import be.appify.prefab.core.domain.Keyed;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Arrays;
 import java.util.function.BiFunction;
@@ -102,6 +103,33 @@ public interface PrefabStream<K, V extends Keyed<K>> {
      */
     PrefabStream<K, V> repartition(String name);
 
+    /**
+     * Suppresses duplicate records, using the string form of the value's {@link Keyed#key()} as event identity.
+     *
+     * @param retention
+     *         how long an event identity is remembered, measured in event time
+     * @return the stream without duplicates
+     * @see #deduplicate(Function, Duration)
+     */
+    default PrefabStream<K, V> deduplicate(Duration retention) {
+        return deduplicate(value -> String.valueOf(value.key()), retention);
+    }
+
+    /**
+     * Suppresses records whose event identity was already seen within the retention period.
+     *
+     * <p>The first record per identity is forwarded unchanged, later records with the same identity whose event
+     * time lies within {@code retention} of an earlier one are dropped. Records for which the extractor returns
+     * {@code null} are always forwarded. Identities are tracked per partition, so all records sharing an identity
+     * must share a record key (re-key with {@link #keyBy(Class, Function)} if needed).
+     *
+     * @param idExtractor
+     *         derives the event identity from a value
+     * @param retention
+     *         how long an event identity is remembered, measured in event time; must be positive
+     * @return the stream without duplicates
+     */
+    PrefabStream<K, V> deduplicate(Function<V, String> idExtractor, Duration retention);
     <NI, NO, KO, VO extends Keyed<KO>> PrefabStream<KO, VO> breakout(
             StreamBreakoutAdapter<K, V, KO, VO, NI, NO> adapter
     );

@@ -30,6 +30,10 @@ public final class StreamStepNames {
         return reserveName("branch-subtype", subtype);
     }
 
+    String nextDeduplicateName(Class<?> inputType) {
+        return reserveName("deduplicate", inputType);
+    }
+
     String nextFilterName(Class<?> inputType) {
         return reserveName("filter", inputType);
     }

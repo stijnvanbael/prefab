@@ -9,6 +9,7 @@ import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class StreamsConfigurationBootstrapTest {
 
@@ -41,5 +42,23 @@ class StreamsConfigurationBootstrapTest {
         assertThat(firstDefinition.nativeTopology()).isSameAs(topology);
         assertThat(secondDefinition.nativeTopology()).isSameAs(topology);
     }
-}
 
+    @Test
+    void resolveProcessingGuarantee_shouldDefaultToAtLeastOnce() {
+        assertThat(StreamsConfiguration.resolveProcessingGuarantee(null)).isEqualTo("at_least_once");
+        assertThat(StreamsConfiguration.resolveProcessingGuarantee("at_least_once")).isEqualTo("at_least_once");
+    }
+
+    @Test
+    void resolveProcessingGuarantee_shouldEnableExactlyOnceV2() {
+        assertThat(StreamsConfiguration.resolveProcessingGuarantee("exactly_once_v2")).isEqualTo("exactly_once_v2");
+        assertThat(StreamsConfiguration.resolveProcessingGuarantee("exactly-once-v2")).isEqualTo("exactly_once_v2");
+    }
+
+    @Test
+    void resolveProcessingGuarantee_shouldRejectUnsupportedValues() {
+        assertThatThrownBy(() -> StreamsConfiguration.resolveProcessingGuarantee("exactly_once"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("exactly_once_v2");
+    }
+}

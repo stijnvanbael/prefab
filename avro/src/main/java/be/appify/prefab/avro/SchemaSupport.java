@@ -135,6 +135,40 @@ public class SchemaSupport {
     }
 
     /**
+     * Adds aliases to the given Avro field and returns it. Avro's schema resolution reads data written under any of
+     * the aliases into this field.
+     *
+     * @param field
+     *         the Avro field to annotate
+     * @param aliases
+     *         the previous names of the field
+     * @return the same field instance with the aliases added
+     */
+    public static Schema.Field withAliases(Schema.Field field, String... aliases) {
+        for (var alias : aliases) {
+            field.addAlias(alias);
+        }
+        return field;
+    }
+
+    /**
+     * Adds aliases to the given named Avro schema and returns it. Avro's schema resolution reads data written under
+     * any of the aliases into this schema.
+     *
+     * @param schema
+     *         the named Avro schema to annotate
+     * @param aliases
+     *         the previous names of the schema, qualified or relative to the namespace of the schema
+     * @return the same schema instance with the aliases added
+     */
+    public static Schema withAliases(Schema schema, String... aliases) {
+        for (var alias : aliases) {
+            schema.addAlias(alias);
+        }
+        return schema;
+    }
+
+    /**
      * Finds the first schema with the given simple name within the given schema tree.
      *
      * @param schema    the root schema to search

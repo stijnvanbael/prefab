@@ -889,4 +889,60 @@ class SchemaSupportTest {
             assertThat((Object) result).isNull();
         }
     }
-}
+
+    @Nested
+    @DisplayName("schema evolution")
+    class SchemaEvolution {
+
+        private Schema writerSchema() {
+            return Schema.createRecord("Old", null, "legacy", false, List.of(
+                    new Schema.Field("fullName", Schema.create(Schema.Type.STRING)),
+                    new Schema.Field("count", Schema.create(Schema.Type.INT))));
+        }
+
+        private Schema readerSchema() {
+            var status = Schema.createEnum("Status", null, "ns", List.of("PENDING", "ACTIVE"), "PENDING");
+            return SchemaSupport.withAliases(Schema.createRecord("Current", null, "ns", false, List.of(
+                    SchemaSupport.withAliases(new Schema.Field("name", Schema.create(Schema.Type.STRING)), "fullName"),
+                    new Schema.Field("count", Schema.create(Schema.Type.LONG)),
+                    new Schema.Field("label", Schema.create(Schema.Type.STRING), null, "unknown"),
+                    new Schema.Field("total", Schema.create(Schema.Type.LONG), null, 2L),
+                    new Schema.Field("factor", Schema.create(Schema.Type.FLOAT), null, 0.5F),
+                    new Schema.Field("status", status, null, "PENDING"),
+                    new Schema.Field("tags", Schema.createArray(Schema.create(Schema.Type.STRING)), null, List.of()))),
+                    "legacy.Old");
+        }
+
+        @Test
+        @DisplayName("generated-style schemas resolve aliases, defaults and type promotion")
+        void resolvesOldRecord() throws Exception {
+            var written = new GenericData.Record(writerSchema());
+            written.put("fullName", "Ada");
+            written.put("count", 3);
+            var output = new java.io.ByteArrayOutputStream();
+            var encoder = org.apache.avro.io.EncoderFactory.get().binaryEncoder(output, null);
+            new org.apache.avro.generic.GenericDatumWriter<GenericRecord>(writerSchema()).write(written, encoder);
+            encoder.flush();
+
+            var decoder = org.apache.avro.io.DecoderFactory.get().binaryDecoder(output.toByteArray(), null);
+            var read = new org.apache.avro.generic.GenericDatumReader<GenericRecord>(writerSchema(), readerSchema())
+                    .read(null, decoder);
+
+            assertThat(read.get("name").toString()).isEqualTo("Ada");
+            assertThat(read.get("count")).isEqualTo(3L);
+            assertThat(read.get("label").toString()).isEqualTo("unknown");
+            assertThat(read.get("total")).isEqualTo(2L);
+            assertThat(read.get("factor")).isEqualTo(0.5F);
+            assertThat(read.get("status").toString()).isEqualTo("PENDING");
+            assertThat((List<?>) read.get("tags")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("withAliases returns the instance it was given")
+        void returnsSameInstance() {
+            var field = new Schema.Field("a", Schema.create(Schema.Type.STRING));
+
+            assertThat(SchemaSupport.withAliases(field, "b", "c")).isSameAs(field);
+            assertThat(field.aliases()).containsExactlyInAnyOrder("b", "c");
+        }
+    }}

@@ -1,6 +1,7 @@
 package be.appify.prefab.core.kafka;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.annotations.PreviousName;
 import be.appify.prefab.core.annotations.PublishTo;
 import java.util.ArrayDeque;
 import java.util.HashMap;
@@ -11,6 +12,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import org.apache.avro.Schema;
 
 /**
  * Central registry for event types, their associated topics/channels, partitioning key extractors,
@@ -33,6 +35,7 @@ public class EventRegistry {
     private final Map<Class<?>, Function<Object, String>> keyExtractors = new ConcurrentHashMap<>();
     private final Map<String, Event.Serialization> serializations = new ConcurrentHashMap<>();
     private final Map<Class<?>, PublishTo> publishToStrategies = new ConcurrentHashMap<>();
+    private final Map<Class<?>, Schema> readerSchemas = new ConcurrentHashMap<>();
 
     /** Constructs a new EventRegistry. */
     public EventRegistry() {
@@ -378,6 +381,7 @@ public class EventRegistry {
     private void addToAllowedClassNames(Class<?> type) {
         allowedClassNames.add(type.getName());
         classNameToType.put(type.getName(), type);
+        previousClassNames(type).forEach(previousName -> classNameToType.putIfAbsent(previousName, type));
         if(type.isInterface()) {
             if (type.isSealed()) {
                 for (Class<?> subtype : type.getPermittedSubclasses()) {
@@ -387,6 +391,45 @@ public class EventRegistry {
                 throw new IllegalArgumentException("Only sealed interfaces are supported for event types: " + type.getName());
             }
         }
+    }
+
+    private static Set<String> previousClassNames(Class<?> type) {
+        var annotation = type.getAnnotation(PreviousName.class);
+        if (annotation == null) {
+            return Set.of();
+        }
+        var names = new LinkedHashSet<String>();
+        for (var name : annotation.value()) {
+            names.add(name);
+            if (!name.contains(".")) {
+                names.add(type.getPackageName() + "." + name);
+            }
+        }
+        return names;
+    }
+
+    /**
+     * Registers the Avro schema that events of the given type are read with. Kafka consumers resolve the schema a
+     * message was written with against this reader schema, so defaults, aliases and type promotion apply.
+     * Schemas that are not records (for example unions) are ignored.
+     *
+     * @param type   the event type
+     * @param schema the reader schema of the event type
+     */
+    public void registerReaderSchema(Class<?> type, Schema schema) {
+        if (schema.getType() == Schema.Type.RECORD) {
+            readerSchemas.put(type, schema);
+        }
+    }
+
+    /**
+     * Returns the Avro reader schema registered for the given event type.
+     *
+     * @param type the event type
+     * @return an {@link Optional} containing the reader schema, or empty if none is registered
+     */
+    public Optional<Schema> readerSchemaFor(Class<?> type) {
+        return Optional.ofNullable(readerSchemas.get(type));
     }
 
     /**

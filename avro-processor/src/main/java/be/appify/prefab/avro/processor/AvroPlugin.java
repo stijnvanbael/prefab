@@ -28,6 +28,8 @@ public class AvroPlugin implements PrefabPlugin {
     private EventToGenericRecordConverterWriter toGenericRecordConverterWriter;
     private GenericRecordToEventConverterWriter toEventConverterWriter;
     private EventSchemaFactoryWriter eventSchemaFactoryWriter;
+    private ReaderSchemaRegistrarWriter readerSchemaRegistrarWriter;
+    private final Set<String> writtenRegistrarNames = new LinkedHashSet<>();
     private PrefabContext context;
     private final Set<String> writtenTypeNames = new LinkedHashSet<>();
     private final Set<String> writtenToEventOnlyTypeNames = new LinkedHashSet<>();
@@ -38,6 +40,7 @@ public class AvroPlugin implements PrefabPlugin {
         toGenericRecordConverterWriter = new EventToGenericRecordConverterWriter(context);
         toEventConverterWriter = new GenericRecordToEventConverterWriter(context);
         eventSchemaFactoryWriter = new EventSchemaFactoryWriter(context);
+        readerSchemaRegistrarWriter = new ReaderSchemaRegistrarWriter(context);
     }
 
     @Override
@@ -50,6 +53,7 @@ public class AvroPlugin implements PrefabPlugin {
         events.forEach(this::writeConvertersIfNotWritten);
         allNestedTypes(events).forEach(this::writeNestedTypeIfNotWritten);
         sealedSubtypes(events).forEach(this::writeConvertersIfNotWritten);
+        Stream.concat(events.stream(), sealedSubtypes(events).stream()).forEach(this::writeReaderSchemaRegistrarIfNotWritten);
         var supertypes = avroEventSupertypes(events);
         supertypes.stream()
                 .filter(AvroPlugin::isAvscContract)
@@ -85,6 +89,15 @@ public class AvroPlugin implements PrefabPlugin {
                 && eventSchemaFactoryWriter.writeSchemaFactory(type);
         if (wroteAll) {
             writtenTypeNames.add(key);
+        }
+    }
+
+    /** Only concrete records are read with a reader schema; sealed interfaces and contracts have union schemas. */
+    private void writeReaderSchemaRegistrarIfNotWritten(TypeManifest type) {
+        var key = type.packageName() + "." + type.simpleName();
+        var concrete = type.asElement() != null && type.asElement().getKind().isClass() && !type.isSealed();
+        if (concrete && writtenTypeNames.contains(key) && writtenRegistrarNames.add(key)) {
+            readerSchemaRegistrarWriter.writeRegistrar(type);
         }
     }
 

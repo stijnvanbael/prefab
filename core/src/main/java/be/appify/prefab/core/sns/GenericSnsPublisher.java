@@ -1,8 +1,11 @@
 package be.appify.prefab.core.sns;
 
 import be.appify.prefab.core.domain.DomainEventDispatcher;
+import be.appify.prefab.core.versioning.EventVersions;
+import io.awspring.cloud.sns.core.SnsNotification;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -50,10 +53,18 @@ public class GenericSnsPublisher implements DomainEventDispatcher {
         for (var resolvedTopic : topics) {
             var topicArn = topicArnCache.computeIfAbsent(resolvedTopic, sqsUtil::ensureTopicExists);
             log.debug("Publishing event {} on topic {}", event, topicArn);
-            CompletableFuture.runAsync(() ->
-                    snsTemplate.sendNotification(topicArn, snsSerializer.serialize(resolvedTopic, event),
-                            event.getClass().getName())
-            ).join();
+            var payload = snsSerializer.serialize(resolvedTopic, event);
+            var versionHeaders = EventVersions.headersFor(event);
+            CompletableFuture.runAsync(() -> {
+                if (versionHeaders.isEmpty()) {
+                    snsTemplate.sendNotification(topicArn, payload, event.getClass().getName());
+                } else {
+                    snsTemplate.sendNotification(topicArn, SnsNotification.builder(payload)
+                            .subject(event.getClass().getName())
+                            .headers(Map.copyOf(versionHeaders))
+                            .build());
+                }
+            }).join();
         }
     }
 }

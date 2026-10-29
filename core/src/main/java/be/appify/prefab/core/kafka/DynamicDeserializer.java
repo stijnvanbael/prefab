@@ -3,13 +3,19 @@ package be.appify.prefab.core.kafka;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.PreviousName;
 import be.appify.prefab.core.evolution.EventEvolutionModule;
+import be.appify.prefab.core.versioning.AvroTrees;
+import be.appify.prefab.core.versioning.EventMigrator;
+import be.appify.prefab.core.versioning.MessageVersions;
+import be.appify.prefab.core.versioning.UnsupportedEventVersionException;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroDeserializer;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
@@ -20,6 +26,7 @@ import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.EncoderFactory;
+import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,8 +44,11 @@ import tools.jackson.databind.type.TypeFactory;
  */
 public class DynamicDeserializer implements Deserializer<Object> {
     private static final Logger log = LoggerFactory.getLogger(DynamicDeserializer.class);
+    private static final String DEFAULT_TYPE_ID_HEADER = "__TypeId__";
 
-    private final JacksonJsonDeserializer<Object> jsonDeserializer = new JacksonJsonDeserializer<>(evolutionAwareMapper());
+    private final JsonMapper mapper = evolutionAwareMapper();
+    private final JacksonJsonDeserializer<Object> jsonDeserializer = new JacksonJsonDeserializer<>(mapper);
+    private final EventMigrator eventMigrator;
     private final ConversionService conversionService;
     private final EventRegistry eventRegistry;
     private final Map<String, Object> consumerProperties;
@@ -57,6 +67,24 @@ public class DynamicDeserializer implements Deserializer<Object> {
             ConversionService conversionService,
             EventRegistry eventRegistry
     ) {
+        this(kafkaProperties, conversionService, eventRegistry, EventMigrator.none());
+    }
+
+    /**
+     * Constructs a DynamicDeserializer that migrates messages written with an older version of the event contract.
+     *
+     * @param kafkaProperties   the Kafka properties to configure the deserializers
+     * @param conversionService the ConversionService to convert GenericRecord to the target event class
+     * @param eventRegistry     the EventRegistry for type resolution and serialization-format lookup
+     * @param eventMigrator     the migrator that reads messages written with an older version
+     */
+    public DynamicDeserializer(
+            KafkaProperties kafkaProperties,
+            ConversionService conversionService,
+            EventRegistry eventRegistry,
+            EventMigrator eventMigrator
+    ) {
+        this.eventMigrator = eventMigrator;
         this.conversionService = conversionService;
         this.eventRegistry = eventRegistry;
         this.consumerProperties = kafkaProperties.buildConsumerProperties();
@@ -79,24 +107,58 @@ public class DynamicDeserializer implements Deserializer<Object> {
      */
     @Override
     public Object deserialize(String topic, byte[] data) {
+        return deserialize(topic, null, data);
+    }
+
+    /**
+     * Deserialize the given byte array, reading the version headers of the record to migrate older messages.
+     *
+     * @param topic   the topic from which the data is being deserialized
+     * @param headers the headers of the record, may be {@code null}
+     * @param data    the byte array to deserialize
+     * @return the deserialized object
+     */
+    @Override
+    public Object deserialize(String topic, Headers headers, byte[] data) {
         if (data == null) {
             return null;
-        } else {
-            try {
-                return switch (eventRegistry.serialization(topic)) {
-                    case AVRO -> toEvent(topic, avroDeserializer().deserialize(topic, data));
-                    case JSON -> jsonDeserializer.deserialize(topic, data);
-                };
-            } catch (UnknownEventTypeException e) {
-                throw e;
-            } catch (RuntimeException e) {
-                if (isUnknownTypeIdException(e)) {
-                    throw new UnknownEventTypeException(extractTypeId(e));
-                }
-                log.error("Failed to deserialize message from topic [{}]", topic, e);
-                throw e;
-            }
         }
+        try {
+            var versions = MessageVersions.from(name -> headerValue(headers, name));
+            return switch (eventRegistry.serialization(topic)) {
+                case AVRO -> toEvent(topic, avroDeserializer().deserialize(topic, data), versions);
+                case JSON -> deserializeJson(topic, headers, data, versions);
+            };
+        } catch (UnknownEventTypeException | UnsupportedEventVersionException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            if (isUnknownTypeIdException(e)) {
+                throw new UnknownEventTypeException(extractTypeId(e));
+            }
+            log.error("Failed to deserialize message from topic [{}]", topic, e);
+            throw e;
+        }
+    }
+
+    private Object deserializeJson(String topic, Headers headers, byte[] data, MessageVersions versions) {
+        var plan = eventMigrator.plan(jsonEventType(topic, headers), versions);
+        if (!plan.isRequired()) {
+            return jsonDeserializer.deserialize(topic, data);
+        }
+        return plan.apply(mapper.readTree(data), mapper);
+    }
+
+    private Class<?> jsonEventType(String topic, Headers headers) {
+        var topicType = eventRegistry.typeFor(topic);
+        return Optional.ofNullable(headerValue(headers, DEFAULT_TYPE_ID_HEADER))
+                .flatMap(eventRegistry::typeByClassName)
+                .filter(topicType::isAssignableFrom)
+                .orElse(topicType);
+    }
+
+    private static String headerValue(Headers headers, String name) {
+        var header = headers == null ? null : headers.lastHeader(name);
+        return header == null || header.value() == null ? null : new String(header.value(), StandardCharsets.UTF_8);
     }
 
     private static JsonMapper evolutionAwareMapper() {
@@ -126,8 +188,16 @@ public class DynamicDeserializer implements Deserializer<Object> {
     }
 
     private Object toEvent(String topic, GenericRecord genericRecord) {
+        return toEvent(topic, genericRecord, MessageVersions.initial());
+    }
+
+    private Object toEvent(String topic, GenericRecord genericRecord, MessageVersions versions) {
         var schema = genericRecord.getSchema();
         var targetClass = resolveTargetClass(topic, schema.getName(), schema.getFullName());
+        var plan = eventMigrator.plan(targetClass, versions);
+        if (plan.isRequired()) {
+            return plan.apply(AvroTrees.toTree(genericRecord, mapper), mapper);
+        }
         if (!conversionService.canConvert(GenericRecord.class, targetClass)) {
             throw new IllegalArgumentException("No converter registered for GenericRecord to " + targetClass);
         }
@@ -191,8 +261,9 @@ public class DynamicDeserializer implements Deserializer<Object> {
                 .flatMap(annotation -> Arrays.stream(annotation.value()))
                 .toList();
         var readerAliases = eventRegistry.readerSchemaFor(type).map(Schema::getAliases).orElseGet(Set::of);
+        var declaredAlias = eventRegistry.typeByClassName(schemaFullName).filter(type::equals).isPresent();
         return previousNames.stream().anyMatch(name -> name.equals(schemaFullName) || name.equals(schemaName))
-                || readerAliases.contains(schemaFullName);
+                || readerAliases.contains(schemaFullName) || declaredAlias;
     }
     public <T> Deserializer<T> adapt() {
         return (Deserializer<T>) this;

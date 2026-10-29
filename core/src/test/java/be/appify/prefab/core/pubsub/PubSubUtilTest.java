@@ -75,7 +75,7 @@ class PubSubUtilTest {
 
         var knownEvent = new KnownEvent("test");
         var deserializer = mock(PubSubDeserializer.class);
-        when(deserializer.deserialize(eq("test-topic"), any(), eq(KnownEvent.class))).thenReturn(knownEvent);
+        when(deserializer.deserialize(eq("test-topic"), any(), eq(KnownEvent.class), any())).thenReturn(knownEvent);
 
         var received = new ArrayList<KnownEvent>();
         var subscriptionRequest = new SubscriptionRequest<>("test-topic", "sub", KnownEvent.class, received::add)

@@ -1,7 +1,7 @@
 ---
 id: TASK-301
 title: Event versioning with typed migrations and compatibility modes
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-29 10:15'
 labels:
@@ -54,16 +54,16 @@ Out of scope: Avro writer-schema resolution on Pub/Sub and SNS/SQS (TASK-275); m
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `@Event(version)` accepts a semantic version; producers add the `prefab-event-version` header on Kafka, Pub/Sub and SNS/SQS; a missing header is read as 1.0.0 and contracts without a version behave exactly as today.
-- [ ] #2 `@EventMigration` on a `Migration<Old, New>` Spring bean migrates messages of an older major to the current one for JSON and Avro events, chaining multiple majors, with Old being a hand-written snapshot type.
-- [ ] #3 A snapshot for Avro events can be generated from a separate AVSC file; hand-written snapshots work for both formats.
-- [ ] #4 A migration declared on a nested component type is applied at any nesting depth (including lists, optionals and maps) without the event-level migration traversing the structure, and runs before the enclosing event migration.
-- [ ] #5 Removing old snapshots/migrations after retention is supported: versions with no remaining chain are rejected explicitly (DLT) rather than mis-deserialized, and the processor allows declaring a minimum supported version.
-- [ ] #6 Compatibility mode (BACKWARD, FORWARD, FULL, NONE) is configurable per event with a global default; the processor compares against a committed baseline contract and fails the build for changes violating the mode, MINOR bumps containing breaking changes, MAJOR bumps without a migration, non-contiguous chains, or decreasing versions.
-- [ ] #7 Forward compatibility works at runtime: a consumer reads messages with a higher minor/patch of the same major, ignoring unknown fields; a higher major is routed to the DLT with a descriptive error.
-- [ ] #8 Migrations can be unit-tested without a broker.
-- [ ] #9 Regression tests cover JSON and Avro, code-first and AVSC-generated events, multi-step chains, nested migrations, and each compatibility mode.
-- [ ] #10 backlog/docs/ documents versioning, migrations, snapshots, nested migrations, compatibility modes and the Pub/Sub / SNS/SQS Avro limitation, and an ADR in backlog/decisions/ records the typed-snapshot decision.
+- [x] #1 `@Event(version)` accepts a semantic version; producers add the `prefab-event-version` header on Kafka, Pub/Sub and SNS/SQS; a missing header is read as 1.0.0 and contracts without a version behave exactly as today.
+- [x] #2 `@EventMigration` on a `Migration<Old, New>` Spring bean migrates messages of an older major to the current one for JSON and Avro events, chaining multiple majors, with Old being a hand-written snapshot type.
+- [x] #3 A snapshot for Avro events can be generated from a separate AVSC file; hand-written snapshots work for both formats.
+- [x] #4 A migration declared on a nested component type is applied at any nesting depth (including lists, optionals and maps) without the event-level migration traversing the structure, and runs before the enclosing event migration.
+- [x] #5 Removing old snapshots/migrations after retention is supported: versions with no remaining chain are rejected explicitly (DLT) rather than mis-deserialized, and the processor allows declaring a minimum supported version.
+- [x] #6 Compatibility mode (BACKWARD, FORWARD, FULL, NONE) is configurable per event with a global default; the processor compares against a committed baseline contract and fails the build for changes violating the mode, MINOR bumps containing breaking changes, MAJOR bumps without a migration, non-contiguous chains, or decreasing versions.
+- [x] #7 Forward compatibility works at runtime: a consumer reads messages with a higher minor/patch of the same major, ignoring unknown fields; a higher major is routed to the DLT with a descriptive error.
+- [x] #8 Migrations can be unit-tested without a broker.
+- [x] #9 Regression tests cover JSON and Avro, code-first and AVSC-generated events, multi-step chains, nested migrations, and each compatibility mode.
+- [x] #10 backlog/docs/ documents versioning, migrations, snapshots, nested migrations, compatibility modes and the Pub/Sub / SNS/SQS Avro limitation, and an ADR in backlog/decisions/ records the typed-snapshot decision.
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -78,3 +78,7 @@ Out of scope: Avro writer-schema resolution on Pub/Sub and SNS/SQS (TASK-275); m
 7. Tests, docs, example.
 <!-- SECTION:PLAN:END -->
 
+
+## Implementation Notes
+
+Implemented in core (versioning package, Kafka/Pub/Sub/SNS-SQS transports), annotation-processor (EventVersioningValidator with baseline contracts) and avro-processor (@EventSnapshot). See decision-003 and docs/annotation-reference.md. Full build: all unit tests pass; Testcontainers-based example integration tests could not start Kafka containers locally (environmental timeouts).

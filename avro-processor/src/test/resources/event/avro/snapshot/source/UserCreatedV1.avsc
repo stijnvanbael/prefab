@@ -1,0 +1,6 @@
+{"type":"record","name":"UserCreated","namespace":"event.avro.snapshot","fields":[
+  {"name":"firstName","type":"string"},
+  {"name":"age","type":["null","int"],"default":null},
+  {"name":"tags","type":{"type":"array","items":"string"}},
+  {"name":"address","type":{"type":"record","name":"AddressV1","fields":[{"name":"line","type":"string"}]}}
+]}

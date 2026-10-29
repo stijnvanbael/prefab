@@ -2,7 +2,10 @@ package be.appify.prefab.core.kafka;
 
 import be.appify.prefab.core.annotations.Event;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroSerializer;
+import be.appify.prefab.core.versioning.EventVersions;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import org.apache.kafka.common.header.Headers;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.common.serialization.Serializer;
@@ -79,7 +82,26 @@ public class DynamicSerializer implements Serializer<Object> {
         }
     }
 
-    private GenericAvroSerializer avroSerializer() {
+    /**
+     * Serialize the given data and stamp the version headers of the event on the record.
+     *
+     * @param topic   the topic to which the data is being serialized
+     * @param headers the headers of the record
+     * @param data    the data to serialize
+     * @return the serialized byte array
+     */
+    @Override
+    public byte[] serialize(String topic, Headers headers, Object data) {
+        if (headers != null && data != null && !(data instanceof String) && !(data instanceof byte[])) {
+            EventVersions.headersFor(data).forEach((name, value) -> {
+                headers.remove(name);
+                headers.add(name, value.getBytes(StandardCharsets.UTF_8));
+            });
+        }
+        return serialize(topic, data);
+    }
+
+        private GenericAvroSerializer avroSerializer() {
         var serializer = avroSerializer;
         if (serializer != null) {
             return serializer;

@@ -1,5 +1,6 @@
 package be.appify.prefab.core.kafka;
 
+import be.appify.prefab.core.versioning.EventMigrator;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -32,9 +33,11 @@ public class PrefabRegistryConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean(EventRegistry.class)
-    public EventRegistry eventRegistry(ObjectProvider<EventRegistryCustomizer> customizers) {
+    public EventRegistry eventRegistry(ObjectProvider<EventRegistryCustomizer> customizers,
+            ObjectProvider<EventMigrator> eventMigrator) {
         var registry = new EventRegistry();
         customizers.orderedStream().forEach(c -> c.customize(registry));
+        eventMigrator.ifAvailable(migrator -> migrator.typeAliases().forEach(registry::registerTypeAlias));
         return registry;
     }
 }

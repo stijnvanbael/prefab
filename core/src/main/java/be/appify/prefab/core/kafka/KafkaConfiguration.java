@@ -1,6 +1,7 @@
 package be.appify.prefab.core.kafka;
 
 import be.appify.prefab.core.spring.PrefabCoreConfiguration;
+import be.appify.prefab.core.versioning.EventMigrator;
 import be.appify.prefab.core.util.Classes;
 import com.google.common.collect.Streams;
 import java.time.Duration;

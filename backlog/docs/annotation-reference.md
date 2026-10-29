@@ -1561,3 +1561,40 @@ See [Feature Guides — Repository Mixins](feature-guides.md#710-repository-mixi
 | `@ContentType`        | Field                     | —         | Allowed MIME types for `Binary` uploads                                                                                                                                                                                                                               |
 | `@FileSize`           | Field                     | —         | Maximum file size for `Binary` uploads                                                                                                                                                                                                                                |
 
+
+## Event versioning and migrations
+
+`@Event(version = "2.1.0")` declares the semantic version (default `1.0.0`). PATCH = no contract change, MINOR = backward-compatible change, MAJOR = breaking change requiring a migration.
+
+### Migrations
+
+```java
+@EventMigration(from = "1", to = "2")
+class UserCreatedMigration implements Migration<UserCreatedV1, UserCreated> {
+    public UserCreated migrate(UserCreatedV1 old) { ... }
+}
+```
+
+- Snapshots (`UserCreatedV1`) are hand-written records of the historic shape; for Avro events they can be generated with `@EventSnapshot(avsc = "...", name = "UserCreatedV1")`.
+- Migrations are Spring beans (dependency injection allowed) and are chained per major (1 → 2 → 3). `@EventMigration(fromType = "OldName")` resolves renamed event types.
+- A migration on a `@Versioned` nested type (`Migration<AddressV1, Address>`) applies wherever the type occurs (collections, optionals, maps) and runs before enclosing event migrations. Event snapshots must contain the current nested types.
+- Unit-test a migration by calling `migrate` directly.
+
+### Transport headers
+
+Producers stamp `prefab-event-version` and `prefab-component-versions` (`fqcn=version,...`) on Kafka headers, Pub/Sub attributes and SNS/SQS message attributes. A missing header means `1.0.0`.
+
+### Runtime routing
+
+| Message major vs. current | Behaviour |
+|---|---|
+| equal | read directly (unknown fields ignored) |
+| lower, chain available | migrate through the chain |
+| lower without chain, below `minSupportedVersion`, or higher | `UnsupportedEventVersionException` → DLT / nack / redrive |
+
+Avro on Pub/Sub and SNS/SQS is limited by TASK-275, but migrations run from the version header.
+
+### Compatibility and baselines
+
+`@Event(compatibility = BACKWARD|FORWARD|FULL|NONE)`; the default is `BACKWARD`, overridable with `-Aprefab.events.compatibility`. The processor compares each event with the baseline `prefab/event-baseline/<fqcn>.properties` (on `src/main/resources`, or the directory in `-Aprefab.events.baselineDir`). A missing baseline is written (or generated as a candidate under `prefab/event-baseline-generated/`). Compile errors: version decrease, major bump without a migration chain, mode violation within a major, changed contract without a minor bump. Fields count as optional when `Optional<>`, `@Nullable` or `@Default`; `@PreviousName` renames are backward but not forward compatible.
+

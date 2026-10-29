@@ -1,2 +1,3 @@
 be.appify.prefab.avro.processor.AvscPlugin
 be.appify.prefab.avro.processor.AvroPlugin
+be.appify.prefab.avro.processor.AvscSnapshotPlugin

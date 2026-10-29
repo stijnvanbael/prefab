@@ -6,6 +6,7 @@ import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.kafka.KafkaSchemaRegistrySupport;
 import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.kafka.KafkaPrefabStreams;
+import be.appify.prefab.streams.kafka.KafkaStateStoreAccess;
 import be.appify.prefab.streams.kafka.KafkaTopicResolver;
 import be.appify.prefab.streams.testing.TopologySession;
 import be.appify.prefab.streams.testing.TopologyTestHarness;
@@ -23,7 +24,7 @@ public final class KafkaTopologyTestHarness implements TopologyTestHarness {
     private final StreamsBuilder streamsBuilder = new StreamsBuilder();
     private final DynamicSerializer serializer;
     private final DynamicDeserializer deserializer;
-    private final PrefabStreams streams;
+    private final AutoRegisterPrefabStreamsTestDecorator streams;
     private final String appId;
 
     /**
@@ -63,6 +64,10 @@ public final class KafkaTopologyTestHarness implements TopologyTestHarness {
         properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "dummy:9092");
         var topology = streamsBuilder.build();
         var driver = new TopologyTestDriver(topology, properties);
+        streams.globalStores().stream()
+                .filter(KafkaStateStoreAccess.class::isInstance)
+                .map(KafkaStateStoreAccess.class::cast)
+                .forEach(store -> store.attach(driver.getKeyValueStore(store.storeName())));
         return new KafkaTopologySession(topology, driver, eventRegistry, serializer, deserializer);
     }
 

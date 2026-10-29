@@ -8,6 +8,7 @@ import org.apache.kafka.streams.state.KeyValueStore;
 public class KafkaPrefabStoreAdapter<K, V> implements Store<K, V> {
     private final String name;
     private final ThreadLocal<KeyValueStore<K, V>> store = new ThreadLocal<>();
+    private volatile KeyValueStore<K, V> attached;
 
     public KafkaPrefabStoreAdapter(String name) {
         this.name = name;
@@ -26,9 +27,17 @@ public class KafkaPrefabStoreAdapter<K, V> implements Store<K, V> {
     private KeyValueStore<K, V> store() {
         var store = this.store.get();
         if (store == null) {
+            store = attached;
+        }
+        if (store == null) {
             throw new IllegalStateException("Store is not initialized, call init() first");
         }
         return store;
+    }
+
+    @SuppressWarnings("unchecked")
+    void attach(KeyValueStore<?, ?> store) {
+        attached = (KeyValueStore<K, V>) store;
     }
 
     @Override

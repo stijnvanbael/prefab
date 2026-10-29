@@ -5,9 +5,10 @@ import be.appify.prefab.streams.StreamProcessorContext;
 import java.util.Optional;
 import java.util.function.Supplier;
 import org.apache.kafka.streams.Topology;
+import org.apache.kafka.streams.state.KeyValueStore;
 
 /** Read-only view on a Kafka Streams global store. */
-final class KafkaPrefabGlobalStoreAdapter<K, V> implements GlobalStore<K, V>, KafkaTopologyElement {
+final class KafkaPrefabGlobalStoreAdapter<K, V> implements GlobalStore<K, V>, KafkaTopologyElement, KafkaStateStoreAccess {
     private final KafkaPrefabStoreAdapter<K, V> delegate;
     private final KafkaStreamDefinition topology;
 
@@ -24,6 +25,16 @@ final class KafkaPrefabGlobalStoreAdapter<K, V> implements GlobalStore<K, V>, Ka
     @Override
     public Topology nativeTopology() {
         return topology.nativeTopology();
+    }
+
+    @Override
+    public String storeName() {
+        return delegate.name();
+    }
+
+    @Override
+    public void attach(KeyValueStore<?, ?> store) {
+        delegate.attach(store);
     }
 
     @Override

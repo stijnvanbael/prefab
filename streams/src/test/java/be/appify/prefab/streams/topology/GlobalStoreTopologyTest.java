@@ -37,6 +37,14 @@ class GlobalStoreTopologyTest {
     }
 
     @Test
+    void globalStore_shouldBeReadableDirectlyFromTest() {
+        var customerProfiles = streams.globalStore(CustomerProfile.class);
+        topology.input(CustomerProfile.class).send(new CustomerProfile(Reference.fromId("alice"), "GOLD"));
+
+        assertThat(customerProfiles.get(Reference.fromId("alice")))
+                .hasValueSatisfying(profile -> assertThat(profile.tier()).isEqualTo("GOLD"));
+    }
+    @Test
     void globalStore_shouldServeRecordsFromSourceTopicToProcessors() {
         var customerProfiles = streams.globalStore(CustomerProfile.class);
 

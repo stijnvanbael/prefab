@@ -1,5 +1,6 @@
 package be.appify.prefab.core.kafka;
 
+import be.appify.prefab.core.annotations.PreviousName;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -103,4 +104,18 @@ class EventRegistryTest {
 
         record Concrete(String id) implements MySealedEvent {}
     }
-}
+
+    @Test
+    void typeByClassNameResolvesPreviousNames() {
+        registry.registerType("my-topic", RenamedEvent.class);
+
+        assertEquals(Optional.of(RenamedEvent.class), registry.typeByClassName(RenamedEvent.class.getName()));
+        assertEquals(Optional.of(RenamedEvent.class), registry.typeByClassName("legacy.OldEvent"));
+        assertEquals(Optional.of(RenamedEvent.class),
+                registry.typeByClassName(RenamedEvent.class.getPackageName() + ".SamePackageOld"));
+        assertEquals(Optional.empty(), registry.typeByClassName("legacy.Other"));
+    }
+
+    @PreviousName({"legacy.OldEvent", "SamePackageOld"})
+    record RenamedEvent(String id) {
+    }}

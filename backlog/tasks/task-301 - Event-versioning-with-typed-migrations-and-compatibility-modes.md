@@ -61,7 +61,7 @@ Out of scope: Avro writer-schema resolution on Pub/Sub and SNS/SQS (TASK-275); m
 - [ ] #5 Removing old snapshots/migrations after retention is supported: versions with no remaining chain are rejected explicitly (DLT) rather than mis-deserialized, and the processor allows declaring a minimum supported version.
 - [ ] #6 Compatibility mode (BACKWARD, FORWARD, FULL, NONE) is configurable per event with a global default; the processor compares against a committed baseline contract and fails the build for changes violating the mode, MINOR bumps containing breaking changes, MAJOR bumps without a migration, non-contiguous chains, or decreasing versions.
 - [ ] #7 Forward compatibility works at runtime: a consumer reads messages with a higher minor/patch of the same major, ignoring unknown fields; a higher major is routed to the DLT with a descriptive error.
-- [ ] #8 Event type renames resolve to the current type on Kafka, Pub/Sub and SNS/SQS, and migrations can be unit-tested without a broker.
+- [ ] #8 Migrations can be unit-tested without a broker.
 - [ ] #9 Regression tests cover JSON and Avro, code-first and AVSC-generated events, multi-step chains, nested migrations, and each compatibility mode.
 - [ ] #10 backlog/docs/ documents versioning, migrations, snapshots, nested migrations, compatibility modes and the Pub/Sub / SNS/SQS Avro limitation, and an ADR in backlog/decisions/ records the typed-snapshot decision.
 <!-- AC:END -->
@@ -77,3 +77,4 @@ Out of scope: Avro writer-schema resolution on Pub/Sub and SNS/SQS (TASK-275); m
 6. Processor: discovery, generated migration registry, validation, baseline comparison and compatibility modes.
 7. Tests, docs, example.
 <!-- SECTION:PLAN:END -->
+

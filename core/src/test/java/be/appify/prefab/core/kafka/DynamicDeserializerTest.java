@@ -1,6 +1,7 @@
 package be.appify.prefab.core.kafka;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.annotations.PreviousName;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
@@ -100,6 +101,90 @@ class DynamicDeserializerTest {
         assertEquals("No type registered for topic: json-topic", exception.getMessage());
     }
 
+    @Test
+    void avroToEventAppliesReaderSchemaDefaultsToOlderMessages() {
+        var eventRegistry = registryWithReaderSchema(EvolvedEvent.class, """
+                {"type":"record","name":"DynamicDeserializerTest_EvolvedEvent","namespace":"be.appify.prefab.core.kafka",
+                 "fields":[{"name":"value","type":"string"},{"name":"label","type":"string","default":"unknown"}]}""");
+        var deserializer = createDeserializer(evolvedConverters(), eventRegistry);
+
+        var event = invokeToEvent(deserializer, recordWithSchema("be.appify.prefab.core.kafka",
+                "DynamicDeserializerTest_EvolvedEvent", "v"));
+
+        assertEquals(new EvolvedEvent("v", "unknown"), event);
+    }
+
+    @Test
+    void avroToEventAppliesFieldAliasesAndTypePromotion() {
+        var eventRegistry = registryWithReaderSchema(EvolvedEvent.class, """
+                {"type":"record","name":"DynamicDeserializerTest_EvolvedEvent","namespace":"be.appify.prefab.core.kafka",
+                 "fields":[{"name":"value","type":"string","aliases":["oldValue"]}]}""");
+        var deserializer = createDeserializer(evolvedConverters(), eventRegistry);
+        var writer = new Schema.Parser().parse("""
+                {"type":"record","name":"DynamicDeserializerTest_EvolvedEvent","namespace":"be.appify.prefab.core.kafka",
+                 "fields":[{"name":"oldValue","type":"string"}]}""");
+        var written = new GenericData.Record(writer);
+        written.put("oldValue", "legacy");
+
+        var event = (EvolvedEvent) invokeToEvent(deserializer, written);
+
+        assertEquals("legacy", event.value());
+    }
+
+    @Test
+    void avroToEventRoutesRenamedRecordThroughReaderSchemaAlias() {
+        var eventRegistry = registryWithReaderSchema(EvolvedEvent.class, """
+                {"type":"record","name":"DynamicDeserializerTest_EvolvedEvent","namespace":"be.appify.prefab.core.kafka",
+                 "aliases":["legacy.OldEvent"],
+                 "fields":[{"name":"value","type":"string"}]}""");
+        var deserializer = createDeserializer(evolvedConverters(), eventRegistry);
+
+        var event = (EvolvedEvent) invokeToEvent(deserializer, recordWithSchema("legacy", "OldEvent", "v"));
+
+        assertEquals("v", event.value());
+    }
+
+    @Test
+    void avroToEventRoutesRenamedRecordThroughPreviousNameAnnotation() {
+        var eventRegistry = new EventRegistry();
+        eventRegistry.register("avro-topic", RenamedAvroEvent.class, Event.Serialization.AVRO);
+        var conversionService = new GenericConversionService();
+        conversionService.addConverter(GenericRecord.class, RenamedAvroEvent.class,
+                source -> new RenamedAvroEvent(source.get("value").toString()));
+        var deserializer = createDeserializer(conversionService, eventRegistry);
+
+        assertInstanceOf(RenamedAvroEvent.class, invokeToEvent(deserializer, recordWithSchema("legacy", "OldName", "v")));
+        assertInstanceOf(RenamedAvroEvent.class,
+                invokeToEvent(deserializer, recordWithSchema("legacy", "Retired", "v")));
+    }
+
+    @Test
+    void avroToEventConvertsIncompatibleMessageAsWritten() {
+        var eventRegistry = registryWithReaderSchema(EvolvedEvent.class, """
+                {"type":"record","name":"DynamicDeserializerTest_EvolvedEvent","namespace":"be.appify.prefab.core.kafka",
+                 "fields":[{"name":"value","type":"string"},{"name":"required","type":"string"}]}""");
+        var deserializer = createDeserializer(evolvedConverters(), eventRegistry);
+
+        var event = (EvolvedEvent) invokeToEvent(deserializer, recordWithSchema("be.appify.prefab.core.kafka",
+                "DynamicDeserializerTest_EvolvedEvent", "v"));
+
+        assertEquals("v", event.value());
+    }
+
+    private static EventRegistry registryWithReaderSchema(Class<?> type, String schema) {
+        var eventRegistry = new EventRegistry();
+        eventRegistry.register("avro-topic", type, Event.Serialization.AVRO);
+        eventRegistry.registerReaderSchema(type, new Schema.Parser().parse(schema));
+        return eventRegistry;
+    }
+
+    private static GenericConversionService evolvedConverters() {
+        var conversionService = new GenericConversionService();
+        conversionService.addConverter(GenericRecord.class, EvolvedEvent.class, source -> new EvolvedEvent(
+                source.get("value").toString(),
+                source.hasField("label") ? source.get("label").toString() : null));
+        return conversionService;
+    }
     private static DynamicDeserializer createDeserializer(
             GenericConversionService conversionService,
             EventRegistry eventRegistry
@@ -142,6 +227,11 @@ class DynamicDeserializerTest {
     }
 
     private record AvroEvent(String value) {}
+
+    private record EvolvedEvent(String value, String label) {}
+
+    @PreviousName({"OldName", "legacy.Retired"})
+    private record RenamedAvroEvent(String value) {}
 
     private sealed interface SealedAvroEvents permits ConcreteAvroEvent {}
 

@@ -37,6 +37,8 @@ import static be.appify.prefab.avro.processor.AvroPlugin.isNestedRecord;
 import static be.appify.prefab.avro.processor.AvroPlugin.nestedTypes;
 import static be.appify.prefab.avro.processor.AvroPlugin.sealedSubtypes;
 import static be.appify.prefab.avro.processor.AvroSupport.componentAnnotation;
+import static be.appify.prefab.processor.event.EventEvolutionSupport.defaultValueOf;
+import static be.appify.prefab.processor.event.EventEvolutionSupport.previousNamesOf;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
@@ -650,6 +652,10 @@ class EventSchemaFactoryWriter {
     }
 
     private CodeBlock createFlatRecordSchema(TypeManifest type, boolean preserveSingleValueRecords, @Nullable Schema avscSchema) {
+        return withAliases(createRecordBlock(type, preserveSingleValueRecords, avscSchema), previousNamesOf(type));
+    }
+
+    private CodeBlock createRecordBlock(TypeManifest type, boolean preserveSingleValueRecords, @Nullable Schema avscSchema) {
         return CodeBlock.of("""
                         $T.createRecord($S, $S, $S, false, $T.of(
                                 $L
@@ -686,7 +692,7 @@ class EventSchemaFactoryWriter {
         var schema = maybeArray(field, preserveSingleValueRecords, avscSchema);
         var doc = field.getAnnotation(Doc.class).map(d -> d.value().value()).orElse(null);
         var fieldBlock = buildFieldBlock(field, schema, doc);
-        return wrapWithSampleIfPresent(field, fieldBlock);
+        return wrapWithSampleIfPresent(field, wrapWithAliasesIfPresent(field, fieldBlock));
     }
 
     private CodeBlock buildFieldBlock(VariableManifest field, CodeBlock schema, @Nullable String doc) {
@@ -701,9 +707,38 @@ class EventSchemaFactoryWriter {
             return CodeBlock.of("new $T($S, $L, $S, $T.NULL_DEFAULT_VALUE)",
                     Schema.Field.class, field.name(), nullableSchema, doc, Schema.Field.class);
         }
+        var defaultValue = defaultValueOf(field);
+        if (defaultValue.isPresent()) {
+            return CodeBlock.of("new $T($S, $L, $S, $L)", Schema.Field.class, field.name(), schema, doc,
+                    defaultLiteral(defaultValue.get()));
+        }
         return doc != null
                 ? CodeBlock.of("new $T($S, $L, $S, null)", Schema.Field.class, field.name(), schema, doc)
                 : CodeBlock.of("new $T($S, $L)", Schema.Field.class, field.name(), schema);
+    }
+
+    private static CodeBlock defaultLiteral(Object value) {
+        return switch (value) {
+            case String string -> CodeBlock.of("$S", string);
+            case Long number -> CodeBlock.of("$LL", number);
+            case Float number -> CodeBlock.of("$LF", number);
+            case Double number -> CodeBlock.of("$LD", number);
+            case List<?> ignored -> CodeBlock.of("$T.of()", List.class);
+            default -> CodeBlock.of("$L", value);
+        };
+    }
+
+    private static CodeBlock wrapWithAliasesIfPresent(VariableManifest field, CodeBlock fieldBlock) {
+        return withAliases(fieldBlock, previousNamesOf(field));
+    }
+
+    private static CodeBlock withAliases(CodeBlock schemaOrField, List<String> previousNames) {
+        var aliases = previousNames.stream().filter(AvroSupport::isAvroName).toList();
+        if (aliases.isEmpty()) {
+            return schemaOrField;
+        }
+        return CodeBlock.of("$T.withAliases($L, $L)", SchemaSupport.class, schemaOrField,
+                aliases.stream().map(alias -> CodeBlock.of("$S", alias)).collect(CodeBlock.joining(", ")));
     }
 
     private static CodeBlock wrapWithSampleIfPresent(VariableManifest field, CodeBlock fieldBlock) {
@@ -773,7 +808,7 @@ class EventSchemaFactoryWriter {
         return uncapitalize(schemaFactorySimpleName(type));
     }
 
-    private static ClassName schemaFactoryClassName(TypeManifest type) {
+    static ClassName schemaFactoryClassName(TypeManifest type) {
         return ClassName.get(type.packageName() + "." + AVRO_PACKAGE_SUFFIX, capitalize(schemaFactoryFieldName(type)));
     }
 }

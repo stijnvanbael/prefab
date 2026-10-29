@@ -1,7 +1,7 @@
 ---
 id: TASK-274
 title: Support schema evolution for JSON and Avro events
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-07 06:34'
 labels:
@@ -26,16 +26,24 @@ On the Avro path `DynamicDeserializer` decodes with Confluent's `GenericAvroDese
 
 Introduce first-class schema evolution: a declarative annotation vocabulary on the event contract that both serializations honour (previous names for a field or event type, and a default value for a field added later), plus reader-schema-driven resolution on the Avro path so Avro's native evolution rules actually apply.
 
-Out of scope: Avro payloads on Pub/Sub and SNS/SQS carry no writer schema or schema id and cannot participate in Avro schema resolution at all - tracked separately. Build-time backward-compatibility gating of schema changes is also out of scope.
+Out of scope: Avro payloads on Pub/Sub and SNS/SQS carry no writer schema or schema id and cannot participate in Avro schema resolution at all - tracked separately. Build-time backward-compatibility gating of schema changes is out of scope (see TASK-301).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A field added to an event contract can declare a default value that is applied when consuming messages written before that field existed, for JSON and for Avro, on both code-first and AVSC-generated events.
-- [ ] #2 A renamed field or renamed event type can declare its previous name(s), and messages written under the old name still deserialize into the current contract - covering JSON property names, Avro field names, and event-type resolution on Kafka, Pub/Sub and SNS/SQS.
-- [ ] #3 Generated Avro schemas carry the field defaults and aliases declared on the contract, and default and aliases declared in an AVSC file are honoured at read time rather than only when seeding generated builders.
-- [ ] #4 Avro deserialization on Kafka performs real reader/writer schema resolution against the generated schema for the target event type, so defaults, aliases and Avro type promotion apply.
-- [ ] #5 Compile-time validation rejects evolution declarations that cannot be satisfied - for example a default literal that does not match the component type, a previous name that collides with a current field or event type name, or a default on a component whose Avro schema cannot express one.
-- [ ] #6 Regression tests cover reading old-format and new-format messages for JSON and Avro, for code-first and AVSC-generated events, and confirm that contracts without evolution declarations behave exactly as today.
-- [ ] #7 backlog/docs/ documents the evolution annotations, the guarantees per serialization format and transport, and the known limitation for Avro over Pub/Sub and SNS/SQS.
+- [x] #1 A field added to an event contract can declare a default value that is applied when consuming messages written before that field existed, for JSON and for Avro, on both code-first and AVSC-generated events.
+- [x] #2 A renamed field or renamed event type can declare its previous name(s), and messages written under the old name still deserialize into the current contract - covering JSON property names, Avro field names, and event-type resolution on Kafka, Pub/Sub and SNS/SQS.
+- [x] #3 Generated Avro schemas carry the field defaults and aliases declared on the contract, and default and aliases declared in an AVSC file are honoured at read time rather than only when seeding generated builders.
+- [x] #4 Avro deserialization on Kafka performs real reader/writer schema resolution against the generated schema for the target event type, so defaults, aliases and Avro type promotion apply.
+- [x] #5 Compile-time validation rejects evolution declarations that cannot be satisfied - for example a default literal that does not match the component type, a previous name that collides with a current field or event type name, or a default on a component whose Avro schema cannot express one.
+- [x] #6 Regression tests cover reading old-format and new-format messages for JSON and Avro, for code-first and AVSC-generated events, and confirm that contracts without evolution declarations behave exactly as today.
+- [x] #7 backlog/docs/ documents the evolution annotations, the guarantees per serialization format and transport, and the known limitation for Avro over Pub/Sub and SNS/SQS.
 <!-- AC:END -->
+
+## Implementation Notes
+
+- Annotations `@PreviousName` / `@Default` in core (runtime retention). JSON: `EventEvolutionModule` rewrites the tree before binding and resolves previous type ids.
+- Avro: generated schemas carry defaults and aliases; `<Event>ReaderSchemaRegistrar` registers reader schemas; `DynamicDeserializer` resolves writer to reader schema, falling back to as-written with a warning.
+- `EventRegistry` maps previous class names for SNS/SQS.
+- Compile-time validation in `EventEvolutionValidator`. Docs in annotation-reference.md.
+

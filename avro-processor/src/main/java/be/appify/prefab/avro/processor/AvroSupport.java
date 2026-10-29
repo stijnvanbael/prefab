@@ -13,4 +13,9 @@ class AvroSupport {
                 .addMember("value", "$S", event.packageName().replace('.', '_') + "_" + name)
                 .build();
     }
+
+    /** Returns whether every dot-separated segment of the name is a valid Avro name, so that it can be an alias. */
+    static boolean isAvroName(String name) {
+        return name.matches("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*");
+    }
 }

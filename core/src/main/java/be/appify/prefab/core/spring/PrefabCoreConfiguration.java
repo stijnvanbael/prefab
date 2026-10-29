@@ -1,5 +1,7 @@
 package be.appify.prefab.core.spring;
 
+import be.appify.prefab.core.evolution.EventEvolutionModule;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
@@ -19,5 +21,15 @@ public class PrefabCoreConfiguration {
      * Constructs a new PrefabCoreConfiguration.
      */
     public PrefabCoreConfiguration() {
+    }
+
+    /**
+     * Registers JSON support for event evolution annotations with the application's {@code JsonMapper}.
+     *
+     * @return the evolution module
+     */
+    @Bean
+    public EventEvolutionModule eventEvolutionModule() {
+        return new EventEvolutionModule();
     }
 }

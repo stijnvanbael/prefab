@@ -985,6 +985,41 @@ physical field.
 
 ---
 
+### `@PreviousName`
+
+Declares former names of an event type or event field so that messages written under the old contract still deserialize.
+
+```java
+@Event(topic = "orders")
+public record OrderPlaced(
+        @PreviousName("customer") String customerId,
+        @Default("EUR") String currency) {}
+```
+
+- On a record component: JSON property names and Avro field names (emitted as Avro aliases).
+- On an event type or sealed subtype: resolves the old type id (JSON) / record name (Avro) / `Subject` (SNS/SQS) to the current type.
+- Compile-time errors: blank or duplicate names, a previous name equal to a current name, the same previous name claimed twice.
+- Names that are not valid Avro names (e.g. containing `$`) are not emitted as Avro aliases.
+
+### `@Default`
+
+Declares a literal default for a field added later. It is applied when a message lacks the field.
+
+- Supported types: `String`, numeric primitives and wrappers, `boolean`, enums (constant name) and `List` (`"[]"` only).
+- JSON: applied when the property is absent (an explicit `null` is not replaced).
+- Avro: emitted as the schema field default; on Kafka it is applied through reader/writer schema resolution.
+- Not allowed on nullable components (they already default to `null`) or when the literal does not match the type.
+
+#### Guarantees per format and transport
+
+| Format / transport | Previous names | Defaults |
+|---|---|---|
+| JSON (Kafka, Pub/Sub, SNS/SQS) | fields and types | yes |
+| Avro on Kafka | fields (aliases) and types | yes, plus type promotion |
+| Avro on Pub/Sub, SNS/SQS | not supported: no writer schema is carried (TASK-275) | not supported |
+
+On Kafka, if a writer schema is incompatible with the reader schema, the record is converted as written and a warning is logged.
+Build-time compatibility gating is tracked in TASK-301.
 ## 4.4 Event Handler Annotations
 
 ### `@EventHandler`
@@ -1525,3 +1560,4 @@ See [Feature Guides — Repository Mixins](feature-guides.md#710-repository-mixi
 | `@RepositoryMixin`    | Type                      | RUNTIME   | Add custom query methods to repository                                                                                                                                                                                                                                |
 | `@ContentType`        | Field                     | —         | Allowed MIME types for `Binary` uploads                                                                                                                                                                                                                               |
 | `@FileSize`           | Field                     | —         | Maximum file size for `Binary` uploads                                                                                                                                                                                                                                |
+

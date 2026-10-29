@@ -1,16 +1,33 @@
 package be.appify.prefab.core.kafka;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.annotations.PreviousName;
+import be.appify.prefab.core.evolution.EventEvolutionModule;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroDeserializer;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Predicate;
+import org.apache.avro.AvroRuntimeException;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.io.EncoderFactory;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.core.convert.ConversionService;
+import org.springframework.kafka.support.JacksonMapperUtils;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
+import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.type.TypeFactory;
 
 /**
@@ -21,7 +38,7 @@ import tools.jackson.databind.type.TypeFactory;
 public class DynamicDeserializer implements Deserializer<Object> {
     private static final Logger log = LoggerFactory.getLogger(DynamicDeserializer.class);
 
-    private final JacksonJsonDeserializer<Object> jsonDeserializer = new JacksonJsonDeserializer<>();
+    private final JacksonJsonDeserializer<Object> jsonDeserializer = new JacksonJsonDeserializer<>(evolutionAwareMapper());
     private final ConversionService conversionService;
     private final EventRegistry eventRegistry;
     private final Map<String, Object> consumerProperties;
@@ -82,6 +99,10 @@ public class DynamicDeserializer implements Deserializer<Object> {
         }
     }
 
+    private static JsonMapper evolutionAwareMapper() {
+        return JacksonMapperUtils.enhancedJsonMapper().rebuild().addModule(new EventEvolutionModule()).build();
+    }
+
     private GenericAvroDeserializer avroDeserializer() {
         var deserializer = avroDeserializer;
         if (deserializer != null) {
@@ -110,13 +131,40 @@ public class DynamicDeserializer implements Deserializer<Object> {
         if (!conversionService.canConvert(GenericRecord.class, targetClass)) {
             throw new IllegalArgumentException("No converter registered for GenericRecord to " + targetClass);
         }
-        return conversionService.convert(genericRecord, targetClass);
+        return conversionService.convert(resolveAgainstReaderSchema(targetClass, genericRecord), targetClass);
+    }
+
+    /**
+     * Applies Avro's reader/writer schema resolution so that defaults, aliases and type promotion declared on the
+     * reader schema of the event type apply to messages written with another version of the schema. A message that
+     * cannot be resolved is converted as written.
+     */
+    private GenericRecord resolveAgainstReaderSchema(Class<?> targetClass, GenericRecord genericRecord) {
+        var writerSchema = genericRecord.getSchema();
+        var readerSchema = eventRegistry.readerSchemaFor(targetClass).orElse(null);
+        if (readerSchema == null || readerSchema.equals(writerSchema)) {
+            return genericRecord;
+        }
+        try {
+            var output = new ByteArrayOutputStream();
+            var encoder = EncoderFactory.get().binaryEncoder(output, null);
+            new GenericDatumWriter<GenericRecord>(writerSchema).write(genericRecord, encoder);
+            encoder.flush();
+            var decoder = DecoderFactory.get().binaryDecoder(output.toByteArray(), null);
+            return new GenericDatumReader<GenericRecord>(writerSchema, readerSchema).read(null, decoder);
+        } catch (IOException | AvroRuntimeException e) {
+            log.warn("Schema [{}] could not be resolved against the schema of {}; converting the message as written",
+                    writerSchema.getFullName(), targetClass.getName(), e);
+            return genericRecord;
+        }
     }
 
     private Class<?> resolveTargetClass(String topic, String schemaName, String schemaFullName) {
-        var candidates = eventRegistry.registeredTypesForTopic(topic).stream()
-                .filter(type -> typeNameMatchesSchema(type, schemaName))
-                .toList();
+        var registeredTypes = eventRegistry.registeredTypesForTopic(topic);
+        var candidates = matching(registeredTypes, type -> typeNameMatchesSchema(type, schemaName));
+        if (candidates.isEmpty()) {
+            candidates = matching(registeredTypes, type -> previousNameMatchesSchema(type, schemaName, schemaFullName));
+        }
 
         if (candidates.isEmpty()) {
             throw new UnknownEventTypeException(schemaFullName);
@@ -129,11 +177,23 @@ public class DynamicDeserializer implements Deserializer<Object> {
         return candidates.getFirst();
     }
 
+    private static List<Class<?>> matching(Collection<Class<?>> types, Predicate<Class<?>> predicate) {
+        return types.stream().filter(predicate).toList();
+    }
+
     private boolean typeNameMatchesSchema(Class<?> type, String schemaName) {
         var normalizedSchemaName = schemaName.replace('_', '$');
         return type.getName().endsWith("." + normalizedSchemaName);
     }
 
+    private boolean previousNameMatchesSchema(Class<?> type, String schemaName, String schemaFullName) {
+        var previousNames = Arrays.stream(type.getAnnotationsByType(PreviousName.class))
+                .flatMap(annotation -> Arrays.stream(annotation.value()))
+                .toList();
+        var readerAliases = eventRegistry.readerSchemaFor(type).map(Schema::getAliases).orElseGet(Set::of);
+        return previousNames.stream().anyMatch(name -> name.equals(schemaFullName) || name.equals(schemaName))
+                || readerAliases.contains(schemaFullName);
+    }
     public <T> Deserializer<T> adapt() {
         return (Deserializer<T>) this;
     }

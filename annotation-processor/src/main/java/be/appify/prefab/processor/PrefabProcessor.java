@@ -1,6 +1,7 @@
 package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.EventSnapshot;
 import be.appify.prefab.core.annotations.Computed;
 import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.annotations.rest.Autocomplete;
@@ -207,7 +208,8 @@ public class PrefabProcessor extends AbstractProcessor {
     }
 
     private boolean hasAvscAnnotations(PrefabContext context) {
-        return context.avscElementsFromCurrentCompilation().findAny().isPresent();
+        return context.avscElementsFromCurrentCompilation().findAny().isPresent()
+                || !context.roundEnvironment().getElementsAnnotatedWith(EventSnapshot.class).isEmpty();
     }
 
     private List<ClassManifest> resolveAggregates(RoundEnvironment environment) {

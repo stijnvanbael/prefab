@@ -19,4 +19,12 @@ public @interface EventSnapshot {
      * @return the AVSC file location
      */
     String avsc();
+
+    /**
+     * The name of the generated record for the root schema. Defaults to the record name in the AVSC file, which clashes
+     * with the current event when both live in the same package.
+     *
+     * @return the name of the generated record, empty to use the name in the AVSC file
+     */
+    String name() default "";
 }

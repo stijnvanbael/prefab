@@ -75,11 +75,11 @@ class DynamicDeserializerVersioningTest {
     }
 
     @Test
-    void readsJsonMessagesOfTheCurrentMajorWithoutHeader() {
+    void readsJsonMessagesWithoutHeaderAsVersionOne() {
         var result = deserializer(Event.Serialization.JSON, new GenericConversionService()).deserialize("users",
-                version(null), json("{\"fullName\":\"Ada\"}"));
+                version(null), json("{\"firstName\":\"Ada\",\"lastName\":\"Lovelace\"}"));
 
-        assertThat(result).isEqualTo(new UserCreated("Ada"));
+        assertThat(result).isEqualTo(new UserCreated("Ada Lovelace"));
     }
 
     @Test

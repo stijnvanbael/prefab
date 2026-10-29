@@ -18,6 +18,7 @@ import java.util.stream.Stream;
 public class SerializationPlugin implements PrefabPlugin {
     private EventTypeRegistrarWriter eventTypeRegistrarWriter;
     private EventEvolutionValidator evolutionValidator;
+    private EventVersioningValidator versioningValidator;
     private PrefabContext context;
     private final Set<String> writtenTypes = new HashSet<>();
 
@@ -26,11 +27,13 @@ public class SerializationPlugin implements PrefabPlugin {
         this.context = context;
         eventTypeRegistrarWriter = new EventTypeRegistrarWriter(context);
         evolutionValidator = new EventEvolutionValidator(context);
+        versioningValidator = new EventVersioningValidator(context);
     }
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
         validateEvolution();
+        versioningValidator.validate();
         context.eventElementsFromCurrentCompilation()
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .map(EventPlatformPluginSupport::publisherEventType)

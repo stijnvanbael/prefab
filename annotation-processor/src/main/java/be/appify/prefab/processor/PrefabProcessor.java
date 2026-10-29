@@ -45,7 +45,8 @@ import javax.tools.Diagnostic;
 @SupportedAnnotationTypes({
         "be.appify.prefab.core.annotations.*",
 })
-@SupportedOptions({"prefab.builder.setterPrefix", FullTextLanguages.OPTION})
+@SupportedOptions({"prefab.builder.setterPrefix", FullTextLanguages.OPTION, "prefab.events.baselineDir",
+        "prefab.events.compatibility"})
 @AutoService(Processor.class)
 @SuppressWarnings("unused")
 public class PrefabProcessor extends AbstractProcessor {

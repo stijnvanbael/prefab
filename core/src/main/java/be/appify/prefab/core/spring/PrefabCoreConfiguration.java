@@ -1,6 +1,9 @@
 package be.appify.prefab.core.spring;
 
 import be.appify.prefab.core.evolution.EventEvolutionModule;
+import be.appify.prefab.core.versioning.EventMigrator;
+import be.appify.prefab.core.versioning.Migration;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -31,5 +34,16 @@ public class PrefabCoreConfiguration {
     @Bean
     public EventEvolutionModule eventEvolutionModule() {
         return new EventEvolutionModule();
+    }
+
+    /**
+     * Collects the {@link Migration} beans into the migrator that reads messages written with older versions.
+     *
+     * @param migrations the migration beans
+     * @return the event migrator
+     */
+    @Bean
+    public EventMigrator eventMigrator(ObjectProvider<Migration<?, ?>> migrations) {
+        return new EventMigrator(migrations.orderedStream().toList());
     }
 }

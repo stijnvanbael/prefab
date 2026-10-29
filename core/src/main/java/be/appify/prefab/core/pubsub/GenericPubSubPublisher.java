@@ -1,6 +1,7 @@
 package be.appify.prefab.core.pubsub;
 
 import be.appify.prefab.core.domain.DomainEventDispatcher;
+import be.appify.prefab.core.versioning.EventVersions;
 import com.google.cloud.spring.pubsub.PubSubAdmin;
 import com.google.cloud.spring.pubsub.core.PubSubTemplate;
 import com.google.protobuf.ByteString;
@@ -55,7 +56,8 @@ public class GenericPubSubPublisher implements DomainEventDispatcher {
             var data = ByteString.copyFrom(serializer.serialize(PubSubUtil.simpleTopicName(qualifiedTopic), event));
             var messageBuilder = PubsubMessage.newBuilder()
                     .setData(data)
-                    .putAttributes("type", event.getClass().getName());
+                    .putAttributes("type", event.getClass().getName())
+                    .putAllAttributes(EventVersions.headersFor(event));
             pubSubUtil.keyFor(event).ifPresent(messageBuilder::setOrderingKey);
             pubSubTemplate.publish(qualifiedTopic, messageBuilder.build()).join();
         }

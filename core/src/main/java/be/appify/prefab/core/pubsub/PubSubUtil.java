@@ -224,7 +224,7 @@ public class PubSubUtil {
                     if (pubsubMessage.containsAttributes("type")) {
                         consumeTyped(request, pubsubMessage);
                     } else {
-                        request.consumer().accept(deserializer.deserialize(request.topic(), pubsubMessage.getData(), request.type()));
+                        request.consumer().accept(deserializer.deserialize(request.topic(), pubsubMessage.getData(), request.type(), pubsubMessage.getAttributesMap()));
                     }
                     message.ack();
                 } catch (Exception e) {
@@ -250,7 +250,7 @@ public class PubSubUtil {
             return;
         }
         if (request.type().isAssignableFrom(consumedType.get())) {
-            request.consumer().accept(deserializer.deserialize(request.topic(), pubsubMessage.getData(), request.type()));
+            request.consumer().accept(deserializer.deserialize(request.topic(), pubsubMessage.getData(), request.type(), pubsubMessage.getAttributesMap()));
         }
     }
 

@@ -433,6 +433,19 @@ public class EventRegistry {
     }
 
     /**
+     * Registers a previous name of an event type, so that messages that name the old type resolve to the current one.
+     *
+     * @param name the previous fully-qualified or simple type name
+     * @param type the current event type
+     */
+    public void registerTypeAlias(String name, Class<?> type) {
+        classNameToType.putIfAbsent(name, type);
+        if (!name.contains(".")) {
+            classNameToType.putIfAbsent(type.getPackageName() + "." + name, type);
+        }
+    }
+
+    /**
      * Looks up the registered Java class for the given fully-qualified class name.
      *
      * <p>Only classes that have been registered via {@link #registerType} are resolvable.

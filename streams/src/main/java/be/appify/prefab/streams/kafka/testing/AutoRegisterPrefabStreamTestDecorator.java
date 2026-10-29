@@ -1,4 +1,4 @@
-package be.appify.prefab.test.streams.kafka;
+package be.appify.prefab.streams.kafka.testing;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.Keyed;
@@ -182,3 +182,4 @@ public class AutoRegisterPrefabStreamTestDecorator<K, V extends Keyed<K>> implem
         return delegate.knownValueType();
     }
 }
+

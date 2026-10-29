@@ -1,4 +1,4 @@
-package be.appify.prefab.streams.kafka;
+package be.appify.prefab.streams.kafka.testing;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.Keyed;
@@ -9,6 +9,8 @@ import be.appify.prefab.streams.PrefabStream;
 import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.Store;
 import be.appify.prefab.streams.TypeReference;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Function;
 
 import static be.appify.prefab.streams.kafka.KafkaPrefabStreams.toKebabCase;
@@ -18,6 +20,7 @@ public class AutoRegisterPrefabStreamsTestDecorator implements PrefabStreams {
     private final PrefabStreams delegate;
     private final EventRegistry eventRegistry;
     private final String appId;
+    private final List<GlobalStore<?, ?>> globalStores = new ArrayList<>();
 
     public AutoRegisterPrefabStreamsTestDecorator(PrefabStreams delegate, EventRegistry eventRegistry, String appId) {
         this.delegate = delegate;
@@ -51,7 +54,7 @@ public class AutoRegisterPrefabStreamsTestDecorator implements PrefabStreams {
             Function<S, VS> mapper
     ) {
         eventRegistry.register(appId + "-" + toKebabCase(sourceType.getSimpleName()), sourceType, Event.Serialization.JSON);
-        return delegate.globalStore(name, sourceType, storeType, mapper);
+        return track(delegate.globalStore(name, sourceType, storeType, mapper));
     }
 
     @Override
@@ -62,6 +65,16 @@ public class AutoRegisterPrefabStreamsTestDecorator implements PrefabStreams {
             GlobalStoreUpdater<KS, S, K, V> updater
     ) {
         eventRegistry.register(appId + "-" + toKebabCase(sourceType.getSimpleName()), sourceType, Event.Serialization.JSON);
-        return delegate.declareGlobalStore(name, sourceType, storeType, updater);
+        return track(delegate.declareGlobalStore(name, sourceType, storeType, updater));
+    }
+
+    /** Global stores declared through this decorator. */
+    public List<GlobalStore<?, ?>> globalStores() {
+        return List.copyOf(globalStores);
+    }
+
+    private <K, V> GlobalStore<K, V> track(GlobalStore<K, V> store) {
+        globalStores.add(store);
+        return store;
     }
 }

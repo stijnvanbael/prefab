@@ -1,7 +1,7 @@
 ---
 id: TASK-304
 title: Correlate processor-based aggregate results to all folded messages
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-30 14:25'
 labels:
@@ -21,6 +21,10 @@ priority: low
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The result correlates to all messages folded into the aggregation, capped at max-correlation-ids.
-- [ ] #2 Existing Aggregation state stays readable after enabling and disabling tracing.
+- [x] #1 The result correlates to all messages folded into the aggregation, capped at max-correlation-ids.
+- [x] #2 Existing Aggregation state stays readable after enabling and disabling tracing.
 <!-- AC:END -->
+
+## Implementation Notes
+
+`Aggregation` gained an optional `correlationIds` component (omitted from JSON when empty, null read as empty), so state stays byte-identical without tracing and legacy state stays readable. `AggregationProcessor` merges the record's correlation IDs (capped via the new `StreamProcessorContext.maxCorrelationIds()`) and forwards them on the result. Tests: `AggregationTest`, `MessageTracingAggregationTopologyTest`.

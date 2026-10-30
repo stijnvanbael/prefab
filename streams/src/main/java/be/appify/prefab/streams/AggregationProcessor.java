@@ -1,7 +1,10 @@
 package be.appify.prefab.streams;
 
 import be.appify.prefab.core.domain.Keyed;
+import be.appify.prefab.streams.tracing.MessageTracing;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -68,12 +71,19 @@ public class AggregationProcessor<K, V extends Keyed<K>, KO, VO extends Keyed<KO
         var key = groupBy.apply(value);
         var aggregation = store.get(key)
                 .map(a -> a.append(value))
-                .orElseGet(() -> Aggregation.create(key, value));
+                .orElseGet(() -> Aggregation.create(key, value))
+                .withCorrelation(streamRecord.correlationIds(), maxCorrelationIds());
         store.put(key, aggregation);
         var output = aggregator.apply(aggregation.values());
         if (egressCondition.test(output)) {
-            forward(key, output);
+            forward(new StreamRecord<>(key, output, Instant.now(), correlationHeaders(aggregation)));
         }
+    }
+
+    private static Map<String, String> correlationHeaders(Aggregation<?, ?> aggregation) {
+        return aggregation.correlationIds().isEmpty()
+                ? Map.of()
+                : Map.of(MessageTracing.CORRELATION_IDS_HEADER, MessageTracing.encode(aggregation.correlationIds()));
     }
 
     /**

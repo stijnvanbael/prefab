@@ -4,6 +4,7 @@ import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.streams.StreamProcessorContext;
 import be.appify.prefab.streams.StreamRecord;
 import be.appify.prefab.streams.tracing.MessageTracing;
+import be.appify.prefab.streams.tracing.TracingConfig;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -21,10 +22,21 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class KafkaPrefabProcessorContext<K, V extends Keyed<K>> implements StreamProcessorContext<K, V> {
     private final ProcessorContext<K, V> context;
+    private final int maxCorrelationIds;
     private String currentCorrelationIds;
 
     public KafkaPrefabProcessorContext(ProcessorContext<K, V> context) {
+        this(context, TracingConfig.DEFAULT_MAX_CORRELATION_IDS);
+    }
+
+    public KafkaPrefabProcessorContext(ProcessorContext<K, V> context, int maxCorrelationIds) {
         this.context = context;
+        this.maxCorrelationIds = maxCorrelationIds;
+    }
+
+    @Override
+    public int maxCorrelationIds() {
+        return maxCorrelationIds;
     }
 
     @Override

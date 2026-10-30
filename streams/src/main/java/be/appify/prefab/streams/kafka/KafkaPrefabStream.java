@@ -516,7 +516,7 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
         requireDeclared(stateStoreNames);
         requireGlobalDeclared(processor.globalStores().stream().map(GlobalStore::name).toList());
         var output = stream.process(
-                () -> new KafkaPrefabStreamProcessorAdapter<>(processor),
+                () -> new KafkaPrefabStreamProcessorAdapter<>(processor, tracing.maxCorrelationIds()),
                 Named.as(stepNames.nextProcessName(inputTypeOrNull())),
                 stateStoreNames
         );

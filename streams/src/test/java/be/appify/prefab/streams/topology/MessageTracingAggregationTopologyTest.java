@@ -64,6 +64,25 @@ class MessageTracingAggregationTopologyTest {
         assertThat(messages.get(1).correlationIds()).containsExactly("m-1", "m-2");
     }
 
+    @Test
+    void processorAggregate_shouldCorrelateResultToAllFoldedMessages() {
+        streams.from(IncomingOrder.class)
+                .aggregate(
+                        IncomingOrder::customer,
+                        orders -> new OrderCount(orders.getFirst().customer(), orders.size()),
+                        count -> true)
+                .to(OrderCount.class);
+        var input = topology.input(IncomingOrder.class);
+        var output = topology.output(OrderCount.class);
+
+        input.sendWithMessageId(order("o-1", "alice"), "m-1");
+        input.sendWithMessageId(order("o-2", "bob"), "m-2");
+        input.sendWithMessageId(order("o-3", "alice"), "m-3");
+
+        assertThat(output.messages()).extracting(message -> message.correlationIds())
+                .containsExactly(List.of("m-1"), List.of("m-2"), List.of("m-1", "m-3"));
+    }
+
     private static IncomingOrder order(String id, String customer) {
         return new IncomingOrder(Reference.fromId(id), Reference.fromId(customer));
     }

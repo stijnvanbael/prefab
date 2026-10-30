@@ -147,9 +147,14 @@ final class KafkaTopologySession implements TopologySession {
         }
         @Override
         public TopologyInput<K, V> sendWithMessageId(V value, String messageId) {
+            return sendWithMessageId(value, messageId, Instant.now());
+        }
+
+        @Override
+        public TopologyInput<K, V> sendWithMessageId(V value, String messageId, Instant timestamp) {
             var headers = new RecordHeaders()
                     .add(MessageTracing.MESSAGE_ID_HEADER, messageId.getBytes(StandardCharsets.UTF_8));
-            topic.pipeInput(new TestRecord<>(value.key(), value, headers, Instant.now()));
+            topic.pipeInput(new TestRecord<>(value.key(), value, headers, timestamp));
             return this;
         }
     }

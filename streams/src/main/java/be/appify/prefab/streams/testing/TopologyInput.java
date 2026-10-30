@@ -67,4 +67,14 @@ public interface TopologyInput<K, V extends Keyed<K>> {
      * @return this input, to chain further records
      */
     TopologyInput<K, V> sendWithMessageId(V value, String messageId);
+
+    /**
+     * Sends a record with a timestamp that already carries a message ID.
+     *
+     * @param value     the record value, its key is used
+     * @param messageId the ID of the message
+     * @param timestamp the record timestamp
+     * @return this input, to chain further records
+     */
+    TopologyInput<K, V> sendWithMessageId(V value, String messageId, Instant timestamp);
 }

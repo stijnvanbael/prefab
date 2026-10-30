@@ -4,11 +4,20 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.lang.annotation.Repeatable;
 
 /** Annotate an event class to specify its messaging topic, platform, producer, and serialization format. */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
+@Repeatable(Events.class)
 public @interface Event {
+    /**
+     * Concrete class arguments bound positionally to the event's type parameters.
+     *
+     * @return the concrete arguments; empty for non-generic events
+     */
+    Class<?>[] typeArguments() default {};
+
     /**
      * The topic(s) the event is published to or should be consumed from.
      *

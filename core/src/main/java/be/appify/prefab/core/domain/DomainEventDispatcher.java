@@ -42,11 +42,12 @@ public interface DomainEventDispatcher {
      * is non-null and {@link #canDispatch} returns {@code true}.
      *
      * @param event the domain event to publish
+     * @deprecated Application code should use a bound {@link EventPublisher}.
      */
+    @Deprecated(since = "0.12.2")
     default void publish(Object event, String... topicOverrides) {
-        if (event != null && canDispatch(event.getClass())) {
+        if (event != null && canDispatch(TypedEvent.payload(event).getClass())) {
             dispatch(event, topicOverrides);
         }
     }
 }
-

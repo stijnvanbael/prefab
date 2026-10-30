@@ -2,6 +2,7 @@ package be.appify.prefab.core.spring;
 
 import be.appify.prefab.core.domain.DomainEventDispatcher;
 import be.appify.prefab.core.domain.DomainEventPublisher;
+import be.appify.prefab.core.domain.TypedEvent;
 import jakarta.annotation.PreDestroy;
 import java.util.List;
 import org.springframework.context.ApplicationEventPublisher;
@@ -34,12 +35,16 @@ public class SpringDomainEventPublisher extends DomainEventPublisher {
     }
 
     @Override
+    @Deprecated(since = "0.12.2")
     public void publish(Object event) {
         var matched = dispatchers.stream()
-                .filter(d -> d.canDispatch(event.getClass()))
+                .filter(d -> d.canDispatch(TypedEvent.payload(event).getClass()))
                 .toList();
 
         if (matched.isEmpty()) {
+            if (event instanceof TypedEvent<?> typed) {
+                throw new IllegalArgumentException("No dispatcher registered for concrete event type: " + typed.type());
+            }
             applicationEventPublisher.publishEvent(event);
         } else {
             matched.forEach(d -> d.dispatch(event));

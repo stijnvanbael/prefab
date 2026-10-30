@@ -3,6 +3,8 @@ package be.appify.prefab.core.kafka;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.PreviousName;
 import be.appify.prefab.core.annotations.PublishTo;
+import be.appify.prefab.core.domain.EventType;
+import be.appify.prefab.core.domain.TypedEvent;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -27,6 +29,11 @@ import org.apache.avro.Schema;
  * {@code EventRegistry} via constructor injection is guaranteed to see a fully-populated registry.
  */
 public class EventRegistry {
+    private final Map<EventType<?>, Set<String>> concreteTopics = new ConcurrentHashMap<>();
+    private final Map<String, EventType<?>> concreteTypes = new ConcurrentHashMap<>();
+    private final Map<EventType<?>, PublishTo> concretePublishTo = new ConcurrentHashMap<>();
+    private final Map<EventType<?>, Function<Object, String>> concreteKeys = new ConcurrentHashMap<>();
+    private final Map<EventType<?>, Schema> concreteSchemas = new ConcurrentHashMap<>();
     private final Map<String, Class<?>> types = new ConcurrentHashMap<>();
     private final Map<String, Set<Class<?>>> topicTypes = new ConcurrentHashMap<>();
     private final Map<Class<?>, Set<String>> typeTopics = new ConcurrentHashMap<>();
@@ -39,6 +46,119 @@ public class EventRegistry {
 
     /** Constructs a new EventRegistry. */
     public EventRegistry() {
+    }
+
+    /**
+     * Registers an explicit concrete event binding.
+     *
+     * @param topic topic name
+     * @param type concrete event token
+     * @param serialization payload format
+     * @param <E> event type
+     */
+    public <E> void register(String topic, EventType<E> type, Event.Serialization serialization) {
+        var existing = serializations.putIfAbsent(topic, serialization);
+        if (existing != null && existing != serialization) {
+            throw new IllegalArgumentException("Conflicting serialization formats for topic: " + topic);
+        }
+        concreteTypes.putIfAbsent(type.id(), type);
+        concreteTopics.computeIfAbsent(type, ignored -> new LinkedHashSet<>()).add(topic);
+        addToAllowedClassNames(type.rawType());
+    }
+
+    /**
+     * Registers a concrete binding with a partitioning key extractor.
+     *
+     * @param topic topic name
+     * @param type concrete event token
+     * @param serialization payload format
+     * @param extractor partitioning key extractor
+     * @param <E> event type
+     */
+    @SuppressWarnings("unchecked")
+    public <E> void register(String topic, EventType<E> type, Event.Serialization serialization,
+                             Function<E, String> extractor) {
+        register(topic, type, serialization);
+        concreteKeys.put(type, value -> extractor.apply((E) value));
+    }
+
+    /**
+     * Registers the fan-out strategy of one concrete binding.
+     *
+     * @param type concrete event token
+     * @param strategy fan-out strategy
+     */
+    public void registerPublishTo(EventType<?> type, PublishTo strategy) {
+        concretePublishTo.put(type, strategy);
+    }
+
+    /**
+     * Resolves the topics of a concrete event binding.
+     *
+     * @param type concrete event token
+     * @return the configured topics
+     */
+    public Set<String> topicsForType(EventType<?> type) {
+        return Set.copyOf(concreteTopics.getOrDefault(type, Set.of()));
+    }
+
+    /**
+     * Resolves a concrete binding with exactly one topic.
+     *
+     * @param type concrete event token
+     * @return its topic
+     */
+    public String topicForType(EventType<?> type) {
+        var topics = topicsForType(type);
+        if (topics.size() != 1) {
+            throw new IllegalArgumentException("Expected one topic for " + type + ", found " + topics);
+        }
+        return topics.iterator().next();
+    }
+
+    /**
+     * Resolves only locally registered concrete identities; never loads classes from message metadata.
+     *
+     * @param topic source topic
+     * @param id canonical message identity
+     * @return a registered concrete token
+     */
+    public EventType<?> concreteTypeFor(String topic, String id) {
+        var type = concreteTypes.get(id);
+        if (type == null || !topicsForType(type).contains(topic)) {
+            throw new UnknownEventTypeException(id);
+        }
+        return type;
+    }
+
+    /**
+     * Returns whether a topic contains concrete generic bindings.
+     *
+     * @param topic topic name
+     * @return whether the topic has generic bindings
+     */
+    public boolean hasConcreteTypes(String topic) {
+        return concreteTopics.values().stream().anyMatch(topics -> topics.contains(topic));
+    }
+
+    /**
+     * Registers the reader schema for one concrete event binding.
+     *
+     * @param type concrete token
+     * @param schema reader schema
+     */
+    public void registerReaderSchema(EventType<?> type, Schema schema) {
+        concreteSchemas.put(type, schema);
+    }
+
+    /**
+     * Looks up the reader schema of a concrete binding.
+     *
+     * @param type concrete token
+     * @return the reader schema, if registered
+     */
+    public Optional<Schema> readerSchemaFor(EventType<?> type) {
+        return Optional.ofNullable(concreteSchemas.get(type));
     }
 
     /**
@@ -188,6 +308,10 @@ public class EventRegistry {
      * @return an {@link Optional} containing the partitioning key, or empty if no extractor is registered
      */
     public Optional<String> keyFor(Object event) {
+        if (event instanceof TypedEvent<?> typed) {
+            var extractor = concreteKeys.get(typed.type());
+            return extractor == null ? Optional.empty() : Optional.ofNullable(extractor.apply(typed.value()));
+        }
         return findExtractor(event.getClass()).map(extractor -> extractor.apply(event));
     }
 
@@ -292,7 +416,8 @@ public class EventRegistry {
      * @return {@code true} if a topic has been registered for the type
      */
     public boolean hasTopicForType(Class<?> type) {
-        return !typeTopics.getOrDefault(type, Set.of()).isEmpty();
+        return !typeTopics.getOrDefault(type, Set.of()).isEmpty()
+                || concreteTopics.keySet().stream().anyMatch(token -> token.rawType().equals(type));
     }
 
     /**
@@ -325,6 +450,18 @@ public class EventRegistry {
      * @throws IllegalArgumentException if no topics are registered for the event type
      */
     public List<String> topicsForDispatch(Object event) {
+        if (event instanceof TypedEvent<?> typed) {
+            var topics = concreteTopics.getOrDefault(typed.type(), Set.of());
+            if (topics.isEmpty()) {
+                throw new IllegalArgumentException("No topics registered for concrete event type: " + typed.type());
+            }
+            return concretePublishTo.getOrDefault(typed.type(), PublishTo.FIRST) == PublishTo.ALL
+                    ? List.copyOf(topics) : List.of(topics.iterator().next());
+        }
+        if (event.getClass().getTypeParameters().length > 0) {
+            throw new IllegalArgumentException("Generic event publication requires an explicit EventType: "
+                    + event.getClass().getName());
+        }
         var type = event.getClass();
         var topics = typeTopics.getOrDefault(type, Set.of());
         if (topics.isEmpty()) {

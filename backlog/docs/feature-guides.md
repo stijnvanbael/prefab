@@ -80,7 +80,14 @@ an explicit `?sort=price,desc` replaces it entirely. It combines with filters, p
 
 ## 7.2 Event Publishing
 
-Any aggregate that `implements PublishesEvents` can call `publish(event)` from constructors or update methods.
+Bind an `EventPublisher<E>` once in a `static final` aggregate field, then call its
+`publish(event)` method from constructors or update methods. For non-generic events,
+use `EventPublisher.bind(OrderCreated.class)`. A bound handle does not require the
+aggregate to implement `PublishesEvents`.
+
+The legacy `PublishesEvents.publish(...)`, `PublishesEvents.publishEvent(...)` and
+direct `DomainEventPublisher.publish(...)` entry points are deprecated since 0.12.2.
+They remain available during migration; deprecation does not prohibit compilation.
 
 When an event subtype extends or implements a supertype annotated with `@Event`, Prefab generates a publisher for the
 annotated supertype only. It does not generate one publisher class per concrete subtype.
@@ -92,12 +99,14 @@ public record Order(
         @Id Reference<Order> id,
         @Version long version,
         String customerName
-) implements PublishesEvents {
+) {
+    private static final EventPublisher<OrderCreated> CREATED =
+            EventPublisher.bind(OrderCreated.class);
 
     @Create
     public Order(String customerName) {
         this(Reference.create(), 0L, customerName);
-        publish(new OrderCreated(id, customerName));  // publish event
+        CREATED.publish(new OrderCreated(id, customerName));
     }
 }
 
@@ -111,6 +120,27 @@ public record OrderCreated(
 
 To assert that the correct events are published in a **unit test** (without a Spring context), see
 [7.12 Unit Testing Domain Events](#712-unit-testing-domain-events).
+
+Binding captures only immutable type information, not a Spring bean or broker connection.
+Every publication resolves the currently registered infrastructure publisher, including a
+test replacement. Binding before application startup is safe; publishing without a
+registered publisher throws `IllegalStateException` instead of dropping the event.
+Non-generic payloads are passed through unchanged, preserving their topics and wire format.
+
+The `EventPublisher.bind(EventType<E>)` overload captures concrete generic arguments once:
+
+```java
+private static final EventPublisher<Changed<Customer>> CHANGES =
+        EventPublisher.bind(new EventType<Changed<Customer>>() {});
+
+// Inside an aggregate method:
+CHANGES.publish(new Changed<>(id, updated));
+```
+
+`bind(Changed.class)` rejects the raw generic class. Wildcards and unresolved type variables
+are rejected by `EventType`; the publisher cannot infer concrete arguments from a payload.
+The generic handle API is a foundation for TASK-303: transport serialization and generated
+generic bindings are not yet supported end to end.
 
 ---
 
@@ -671,9 +701,12 @@ Prefab generates:
 
 ## 7.12 Unit Testing Domain Events
 
-Aggregate roots that `implement PublishesEvents` call `publish()` inside constructors or update
-methods. In a plain JUnit 5 unit test there is no Spring context, so events would silently be
-discarded. `prefab-test` provides two classes to make unit-testing event publishing easy and safe.
+Aggregate roots publish through bound `EventPublisher` handles inside constructors or update
+methods. In a plain JUnit 5 unit test there is no Spring context: install the
+`PublishedEventsExtension` below to provide a capturing publisher. A bound handle throws
+when no publisher is registered; only the deprecated `PublishesEvents` helper retains its
+legacy no-op behavior. `prefab-test` provides two classes to make unit-testing event publishing
+easy and safe.
 
 ### `CapturingDomainEventPublisher`
 

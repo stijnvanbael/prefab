@@ -1,10 +1,10 @@
 ---
 id: TASK-303
 title: Support generic event types in all event related features
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-30 14:08'
-updated_date: '2026-10-30 14:27'
+updated_date: '2026-10-30 14:53'
 labels:
   - events
   - generics
@@ -37,7 +37,7 @@ Today event handling is keyed on the raw `Class` of the event. Parameterised eve
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 An analysis documents how generic events are identified (topic, schema name, registry key) and records the decisions as an ADR.
+- [x] #1 An analysis documents how generic events are identified (topic, schema name, registry key) and records the decisions as an ADR.
 - [ ] #2 A parameterised event can be declared, published and handled for a concrete parameterisation with JSON serialization.
 - [ ] #3 Avro schemas are generated and registered for parameterised events with deterministic, collision-free names.
 - [ ] #4 Event handlers for different parameterisations of the same event type receive only their own events.
@@ -48,11 +48,17 @@ Today event handling is keyed on the raw `Class` of the event. Parameterised eve
 - [ ] #9 Non-generic events keep their current behaviour, topics and wire format.
 - [ ] #10 Documentation and feature guides describe generic events and their limits.
 - [ ] #11 Repeatable `@Event` declarations bind ordered concrete `typeArguments` to their own topics: `Changed<Customer>` routes only to its customer topics and `Changed<Product>` only to its product topics, with separate registry entries, generated registrations and provisioning.
+- [x] #12 `EventPublisher.bind(Class<E>)` supports non-generic events and `bind(EventType<E>)` captures generic bindings once; handles resolve the active publisher per call, legacy direct publishing is deprecated, and test capture exposes payloads rather than infrastructure envelopes.
 <!-- AC:END -->
 
 ## Implementation Plan
 
 <!-- SECTION:PLAN:BEGIN -->
+### Implementation progress
+- Publication API revised with user approval: bind once with `EventPublisher.bind(CustomerCreated.class)` or `EventPublisher.bind(new EventType<Changed<Customer>>() {})`, then call `publisher.publish(event)`. Handles retain only immutable type information and resolve the active infrastructure publisher on each call. Deprecate legacy direct publication entry points without removing them; deprecation is a migration warning, not a compile-time prohibition.
+- Initial inspection confirms repeatable annotations must be handled in processor discovery, per-binding generation, runtime version lookup and provisioning; changing `@Event` alone would silently hide repeated declarations from existing single-annotation readers.
+- Bound-publisher implementation covers both overloads, immutable handles, null/raw-type rejection, explicit missing-infrastructure errors, deprecated legacy entry points, payload-preserving test capture and Spring dispatcher selection by payload class. Generic transport serialization and processor binding generation remain unfinished; the new handle alone does not complete AC #2-8 or #11.
+
 ### Analysis (current state)
 - Event identity is currently erased to `Class<?>`: `EventRegistry` registers topics, serializers, reader schemas and dispatch strategies by raw classes; generated event registrars and consumers also resolve raw types.
 - Annotation processing already receives generic `TypeMirror` values, but event handler discovery compares `asElement()` (the raw declaration), and generated event serializers/registrars are built from `TypeManifest`. Generic event declarations and parameterized handler signatures therefore need end-to-end type handling, not only a runtime registry change.
@@ -63,7 +69,7 @@ Today event handling is keyed on the raw `Class` of the event. Parameterised eve
 ### Design direction for the ADR
 - Introduce one canonical, immutable event type key that represents the raw event declaration plus recursively canonicalised concrete type arguments. Use this key for parameterised registry entries, reader schemas, handler routing and version/migration lookup; keep the existing raw-class path for non-generic events.
 - Make `@Event` repeatable and add `Class<?>[] typeArguments() default {}`. Each declaration explicitly binds one concrete parameterisation to its declared topics; never combine topic sets across different parameterisations or derive broker names from Java type names. Retain the existing declaration shape for non-generic events.
-- Capture generic handler signatures from annotation-processing `TypeMirror`s. Generic publication must carry an explicit type token when the runtime event instance cannot reveal its erased type arguments; define the exact source API and generated publisher shape in the ADR before implementation. Do not guess from payload field values.
+- Capture generic handler signatures from annotation-processing `TypeMirror`s. Generic publication binds an explicit type token once in an `EventPublisher`; non-generic publication can bind a class. Do not guess type arguments from payload field values.
 - Generate deterministic Avro schema names from the raw schema identity plus a stable encoding/hash of the canonical type key. Detect collisions at processing time; do not rename schemas or alter wire formats for existing non-generic events.
 - Initially support concrete class arguments expressible through `typeArguments`, including generic field types resolved from those bindings. Reject raw generic events, unresolved type variables, wildcard bindings and unsupported bounds with element-specific processor errors; direct nested-argument bindings are outside this declaration API.
 - The ADR must also decide how the type key appears in JSON/Avro payload metadata and transport headers/attributes, how Avro-on-Pub/Sub and SNS/SQS behave given TASK-275's lack of writer schemas, and whether event-version baselines/migrations are tracked per raw generic declaration or per concrete specialisation.
@@ -109,9 +115,47 @@ class ChangeHandlers {
 - Each annotation's `typeArguments` is positional: for `Changed<K, V>`, use `typeArguments = {CustomerId.class, Customer.class}` to bind `K` and `V`. Validate argument count and declared bounds at build time.
 - A binding can itself declare multiple topics using the existing `topic = {"primary", "audit"}` and `publishTo = PublishTo.ALL` syntax. That fan-out applies only to that parameterisation, never to another annotation's topics.
 - The processor discovers both bindings even when the module has no handlers, generates separate typed registrations and provisions both configured topics. Handlers and registry lookups use the full concrete type, not `Changed.class`.
-- Publishing must explicitly retain `Changed<Customer>` or `Changed<Product>` identity through the type-token/publication API still to be specified in the ADR. `new Changed<Customer>(...)` alone does not preserve that identity at runtime; do not infer it from the payload or fan out to both bindings.
+- Publishing retains `Changed<Customer>` or `Changed<Product>` identity through `EventPublisher.bind(new EventType<Changed<Customer>>() {})`. `new Changed<Customer>(...)` alone does not preserve that identity at runtime; do not infer it from the payload or fan out to both bindings. Non-generic events use `EventPublisher.bind(CustomerCreated.class)`. Both handles expose `publish(event)`; legacy unbound publication is deprecated.
 - Reject missing/incorrect argument counts, bound violations, raw generic arguments, conflicting duplicate bindings and publications without a registered concrete binding explicitly. Preserve existing non-generic multi-topic semantics.
 - Java annotation class literals cannot express `List<Customer>.class`. Consequently, this declaration API supports concrete non-generic class arguments, not direct bindings such as `Changed<List<Customer>>`; nested parameterized fields inside an otherwise concrete binding can still be resolved. Explicit nested-argument bindings require a future type-token declaration API rather than a string-based workaround.
+
+### Agreed bound-publisher usage in aggregates
+
+```java
+@Aggregate
+public record Customer(
+        @Id Reference<Customer> id,
+        @Version long version,
+        String name
+) {
+    private static final EventPublisher<CustomerCreated> CREATED =
+            EventPublisher.bind(CustomerCreated.class);
+    private static final EventPublisher<Changed<Customer>> CHANGES =
+            EventPublisher.bind(new EventType<Changed<Customer>>() {});
+
+    @Create
+    public Customer(String name) {
+        this(Reference.create(), 0L, name);
+        CREATED.publish(new CustomerCreated(id, name));
+    }
+
+    @Update
+    public Customer rename(String name) {
+        var updated = new Customer(id, version, name);
+        CHANGES.publish(new Changed<>(id.toString(), updated));
+        return updated;
+    }
+}
+```
+
+`CustomerCreated` is an ordinary non-generic event. No `PublishesEvents` implementation or
+publisher dependency is needed in aggregate state. Binding is safe before startup and
+requires no registry/broker access. Publishing requires an active `DomainEventPublisher`
+(or the capturing test publisher) and fails explicitly if none is registered.
+`CHANGES.publish(new Changed<Product>(...))` is a compile-time type error.
+Legacy direct `publish(...)` calls remain available with deprecation warnings during
+migration; this is not a compile-time ban. Generic routing in this example still depends
+on the remaining TASK-303 transport and processor work.
 
 ### Implementation steps
 1. **Settle contract and record ADR.** Record the agreed repeatable `@Event(typeArguments)` declaration and its class-literal limits. Confirm explicit publication/type-token API, metadata encoding, deterministic schema naming, duplicate/collision handling, version/evolution baseline identity, and transport limitations. Map each decision to acceptance criteria and retain current non-generic topic names and bytes.
@@ -131,3 +175,12 @@ class ChangeHandlers {
 - Gate 4: transport and stream contract tests pass for each supported path; generated artefacts for existing non-generic events and their topics/wire formats remain unchanged.
 - Gate 5: unsupported forms fail at compile time with clear diagnostics, documentation/examples match supported behavior, and the complete Maven test suite passes.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+- Implemented the agreed bound-publisher API in `core/domain/EventPublisher`, with concrete reflective tokens in `EventType` and infrastructure-only `TypedEvent` envelopes. Non-generic bindings publish their original payloads unchanged; generic handles retain their concrete token.
+- Deprecated legacy `PublishesEvents`, `DomainEventPublisher` and dispatcher publication methods (since 0.12.2), preserving legacy helper behavior. Handles require an active infrastructure publisher and resolve it at call time, allowing static aggregate fields and publisher replacement between tests.
+- `CapturingDomainEventPublisher` unwraps typed publications so existing payload assertions remain useful. Spring dispatcher selection inspects payload classes; unclaimed generic envelopes fail explicitly rather than leaking onto the Spring event bus.
+- Added runtime tests for lifecycle/rebinding, raw and wildcard rejection, token identity, payload capture and registry isolation; compiler tests verify generic payload mismatches, deprecation warnings and aggregate generation with a static bound publisher.
+- Added repeatable annotation and concrete-key registry foundations. These are not yet wired through all processor discovery, serializers, transport consumers, Avro converters, streams or versioning. TASK-303 remains In Progress; only AC #1 and #12 are complete.
+- Focused publication/compiler/test-infrastructure checks pass. The first full `mvn test` run stopped on an `EventConsumerWhereStepTest.customAssertClassPropagatesAssertionFailures` timeout; the same test passed on isolated retry. A complete fail-at-end reactor run is being used to inspect the remaining modules.

@@ -95,6 +95,19 @@ class MessageTracingTopologyTest {
                 .isEqualTo(List.of("m-1"));
     }
 
+    @Test
+    void process_shouldInheritCorrelationOfProcessedMessage() {
+        streams.from(IncomingOrder.class)
+                .process(new TopologyFixtures.CountOrderProcessor())
+                .to("prefab-streams-test-order-count");
+
+        topology.input(IncomingOrder.class).sendWithMessageId(order("o-1"), "m-1");
+
+        var message = topology.output(TopologyFixtures.OrderCount.class).messages().getFirst();
+        assertThat(message.correlationIds()).containsExactly("m-1");
+        assertThat(message.messageId()).isPresent().isNotEqualTo(java.util.Optional.of("m-1"));
+    }
+
     private static ProcessedOrder processed(IncomingOrder order) {
         return new ProcessedOrder(order.orderId(), order.customer());
     }

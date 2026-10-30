@@ -2,13 +2,17 @@ package be.appify.prefab.streams.kafka;
 
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.streams.StreamProcessor;
+import be.appify.prefab.streams.tracing.MessageTracing;
 import org.apache.kafka.streams.processor.api.ContextualProcessor;
 import org.apache.kafka.streams.processor.api.ProcessorContext;
 import org.apache.kafka.streams.processor.api.Record;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 public class KafkaPrefabStreamProcessorAdapter<KI, VI extends Keyed<KI>, KO, VO extends Keyed<KO>>
         extends ContextualProcessor<KI, VI, KO, VO> {
     private final StreamProcessor<KI, VI, KO, VO> processor;
+    private KafkaPrefabProcessorContext<KO, VO> processorContext;
 
     public KafkaPrefabStreamProcessorAdapter(StreamProcessor<KI, VI, KO,  VO> processor) {
         this.processor = processor;
@@ -17,13 +21,19 @@ public class KafkaPrefabStreamProcessorAdapter<KI, VI extends Keyed<KI>, KO, VO 
     @Override
     public void init(ProcessorContext<KO, VO> context) {
         super.init(context);
-        var processorContext = new KafkaPrefabProcessorContext<>(context);
+        this.processorContext = new KafkaPrefabProcessorContext<>(context);
         processor.initContext(processorContext);
         processor.globalStores().forEach(store -> store.init(processorContext));
     }
 
     @Override
     public void process(Record<KI, VI> input) {
-        processor.process(KafkaRecords.toStreamRecord(input));
+        var header = input.headers().lastHeader(MessageTracing.CORRELATION_IDS_HEADER);
+        processorContext.currentCorrelationIds(header == null ? null : new String(header.value(), UTF_8));
+        try {
+            processor.process(KafkaRecords.toStreamRecord(input));
+        } finally {
+            processorContext.currentCorrelationIds(null);
+        }
     }
 }

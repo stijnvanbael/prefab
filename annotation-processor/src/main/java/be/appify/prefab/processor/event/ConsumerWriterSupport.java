@@ -246,6 +246,9 @@ public class ConsumerWriterSupport {
                         .anyMatch(event -> List.of(event.topic()).contains(topic)))
                 .collect(Collectors.toSet());
         if (eventTypes.size() > 1) {
+            if (eventTypes.stream().map(TypeManifest::asElement).distinct().count() == 1) {
+                return eventTypes.iterator().next();
+            }
             var sharedAncestor = findSharedEventAncestor(new ArrayList<>(eventTypes), topic, context);
             if (sharedAncestor.isPresent()) {
                 return sharedAncestor.get();

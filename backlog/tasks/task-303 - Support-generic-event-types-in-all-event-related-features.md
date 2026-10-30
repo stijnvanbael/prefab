@@ -4,7 +4,7 @@ title: Support generic event types in all event related features
 status: In Progress
 assignee: []
 created_date: '2026-10-30 14:08'
-updated_date: '2026-10-30 14:53'
+updated_date: '2026-10-30 18:50'
 labels:
   - events
   - generics
@@ -55,6 +55,9 @@ Today event handling is keyed on the raw `Class` of the event. Parameterised eve
 
 <!-- SECTION:PLAN:BEGIN -->
 ### Implementation progress
+- Kafka JSON slice: repeated declarations are discovered without handlers; concrete registrars, resolved member types, binding-specific object mothers and AsyncAPI components are generated. Kafka listeners use each binding's topics and canonical identity guard. JSON serialization writes only the payload plus identity/version headers, and deserialization resolves only topic-registered concrete tokens.
+- Validation now runs before generation, with diagnostics for wrong argument counts, duplicate bindings, raw/primitive/array arguments and undeclared/raw/wildcard/type-variable handler bindings. Bound substitution handles dependent and self-referential bounds without recursive raw manifest expansion. Generic Avro and migration remain unsupported and must not be mistaken for completed support.
+- Resuming with processor binding discovery/validation and Kafka JSON routing. Verify publisher-only repeated declarations, generated concrete registrations and handler topic isolation before extending the remaining Avro/transport/streams surfaces.
 - Publication API revised with user approval: bind once with `EventPublisher.bind(CustomerCreated.class)` or `EventPublisher.bind(new EventType<Changed<Customer>>() {})`, then call `publisher.publish(event)`. Handles retain only immutable type information and resolve the active infrastructure publisher on each call. Deprecate legacy direct publication entry points without removing them; deprecation is a migration warning, not a compile-time prohibition.
 - Initial inspection confirms repeatable annotations must be handled in processor discovery, per-binding generation, runtime version lookup and provisioning; changing `@Event` alone would silently hide repeated declarations from existing single-annotation readers.
 - Bound-publisher implementation covers both overloads, immutable handles, null/raw-type rejection, explicit missing-infrastructure errors, deprecated legacy entry points, payload-preserving test capture and Spring dispatcher selection by payload class. Generic transport serialization and processor binding generation remain unfinished; the new handle alone does not complete AC #2-8 or #11.
@@ -76,7 +79,7 @@ Today event handling is keyed on the raw `Class` of the event. Parameterised eve
 
 ### Agreed declaration shape: one generic event, different topics per parameterisation
 
-The following is the target API for TASK-303, not syntax supported by the current implementation. The user selected repeatable `@Event` declarations with `typeArguments` rather than annotated type-token fields.
+The following is the agreed API for TASK-303, now implemented for concrete Kafka JSON bindings. The other transports, provisioning and Avro remain in progress. The user selected repeatable `@Event` declarations with `typeArguments` rather than annotated type-token fields.
 
 ```java
 import be.appify.prefab.core.annotations.Event;
@@ -154,8 +157,8 @@ requires no registry/broker access. Publishing requires an active `DomainEventPu
 (or the capturing test publisher) and fails explicitly if none is registered.
 `CHANGES.publish(new Changed<Product>(...))` is a compile-time type error.
 Legacy direct `publish(...)` calls remain available with deprecation warnings during
-migration; this is not a compile-time ban. Generic routing in this example still depends
-on the remaining TASK-303 transport and processor work.
+migration; this is not a compile-time ban. Concrete Kafka JSON routing is implemented;
+generic routing on other transports still depends on the remaining TASK-303 work.
 
 ### Implementation steps
 1. **Settle contract and record ADR.** Record the agreed repeatable `@Event(typeArguments)` declaration and its class-literal limits. Confirm explicit publication/type-token API, metadata encoding, deterministic schema naming, duplicate/collision handling, version/evolution baseline identity, and transport limitations. Map each decision to acceptance criteria and retain current non-generic topic names and bytes.
@@ -183,4 +186,9 @@ on the remaining TASK-303 transport and processor work.
 - `CapturingDomainEventPublisher` unwraps typed publications so existing payload assertions remain useful. Spring dispatcher selection inspects payload classes; unclaimed generic envelopes fail explicitly rather than leaking onto the Spring event bus.
 - Added runtime tests for lifecycle/rebinding, raw and wildcard rejection, token identity, payload capture and registry isolation; compiler tests verify generic payload mismatches, deprecation warnings and aggregate generation with a static bound publisher.
 - Added repeatable annotation and concrete-key registry foundations. These are not yet wired through all processor discovery, serializers, transport consumers, Avro converters, streams or versioning. TASK-303 remains In Progress; only AC #1 and #12 are complete.
+- Extended the foundation with repeatable declaration/dependency discovery, early binding diagnostics, resolved generic member fields, separate typed registrars, fixture builders and AsyncAPI component identities. Dependent/self-referential bounds are substituted safely; unsupported handler bindings fail before generation.
+- Kafka JSON now stamps the concrete identity and binding version, serializes only the payload, resolves Jackson's full concrete target type from a topic-local registry allowlist, and checks minimum/event/component major versions. Generated listeners select their binding's topics/platform and guard by concrete identity before invoking a handler. Generic Avro currently fails with an explicit compiler diagnostic; generic event/component migrations are explicitly rejected when required.
+- Added compiler tests for binding discovery, invalid argument forms, duplicate bindings and bounds; runtime JSON tests for shared topics, spoofed/missing identity, payload wire shape, component metadata and version rejection; tests invoke the actual compiled generated listeners to verify shared-topic isolation. Documentation describes this partial integration and its remaining limits.
+- Verification of the Kafka JSON slice: the full `mvn -q -pl kafka -am test` reactor passed. Final focused checks including `GenericKafkaBindingTest`, `GenericEventBindingTest`, `GenericJsonEventTest`, `EventSchemaDocumentationWriterTest`, `EventVersionsTest` and `EventMigratorTest` passed after fixing a test fixture's `PUBSUB`/`PUB_SUB` enum spelling. The subsequent full `mvn -q --fail-at-end test` attempt reached the Pub/Sub example but stalled pulling `gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators`; its 120-second pull watchdog aborted and retried. Stopped the stalled owned Maven process. This attempt is not a full green reactor; its earlier Kafka fixture failure was corrected and independently rerun. Logs are retained in the session's `files/task-303-kafka-reactor.log`, `task-303-bindings-final.log` and `task-303-reactor-current.log`.
+- Remaining work: concrete Avro schemas/converters/reader registration; Pub/Sub and SNS/SQS runtime/generation plus provisioning; stream and topology APIs; per-binding evolution baselines and event/component migrations. Leave TASK-303 In Progress and do not infer completion of AC #2-11 from this Kafka-only slice.
 - Focused publication/compiler/test-infrastructure checks pass. The first full `mvn test` run stopped on an `EventConsumerWhereStepTest.customAssertClassPropagatesAssertionFailures` timeout; the same test passed on isolated retry. A second `mvn --fail-at-end test` run reached `SaleIntegrationTest` but could not fetch `confluentinc/cp-schema-registry:8.4.0` (connection reset / HTTP 416); the Kafka example then stalled pulling the same image and hit the 120-second pull watchdog. Stopped the repeated image pulls. The complete reactor is not green and later modules were not all verified; do not treat this as full TASK-303 completion.

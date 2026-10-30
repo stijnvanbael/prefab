@@ -139,8 +139,33 @@ CHANGES.publish(new Changed<>(id, updated));
 
 `bind(Changed.class)` rejects the raw generic class. Wildcards and unresolved type variables
 are rejected by `EventType`; the publisher cannot infer concrete arguments from a payload.
-The generic handle API is a foundation for TASK-303: transport serialization and generated
-generic bindings are not yet supported end to end.
+For Kafka JSON, repeat `@Event` on the generic declaration to bind each concrete argument
+set to its own topics:
+
+```java
+@Event(topic = "customer-changes", typeArguments = Customer.class,
+        platform = Event.Platform.KAFKA)
+@Event(topic = "product-changes", typeArguments = Product.class,
+        platform = Event.Platform.KAFKA)
+public record Changed<T>(@PartitioningKey String id, T payload) {}
+```
+
+Each binding generates a separate typed registry registration, object mother and AsyncAPI
+component. Kafka listeners for `Changed<Customer>` and `Changed<Product>` subscribe to
+their binding's topics and check the `prefab-event-type` header before invoking a handler,
+including when both bindings share a topic. JSON contains the original event, not the
+publication envelope; the header supplies the registered concrete Jackson target type.
+Unknown identities and identities registered only on another topic are rejected without
+loading classes named by message metadata. `PublishTo.ALL` applies only within one binding.
+
+`typeArguments` are positional, concrete non-generic class literals. Incorrect counts,
+duplicate bindings, violated bounds, raw arguments and handlers without a declared concrete
+binding are compiler errors. Wildcard handlers are not supported in this initial integration.
+
+TASK-303 remains in progress: generic Avro, Pub/Sub, SNS/SQS, provisioning, streams and
+per-binding evolution/migration integration are not complete. Kafka JSON stamps the exact
+binding's version and enforces its minimum supported version; generic major-version or
+component migration is explicitly rejected rather than processed as an erased event.
 
 ---
 

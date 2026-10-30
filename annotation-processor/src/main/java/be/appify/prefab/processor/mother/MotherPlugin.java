@@ -11,6 +11,7 @@ import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.event.EventBindings;
 import be.appify.prefab.processor.event.EventPlatformPluginSupport;
 import be.appify.prefab.processor.rest.PathVariables;
 import java.util.Collections;
@@ -55,6 +56,11 @@ public class MotherPlugin implements PrefabPlugin {
     }
 
     private void writeEventMother(TypeElement element, TypeElement preferredElement, boolean isAvscGenerated, MotherWriter writer) {
+        if (!element.getTypeParameters().isEmpty()) {
+            EventBindings.typesOf(element, context)
+                    .forEach(type -> writer.writeEventMother(type, preferredElement, isAvscGenerated));
+            return;
+        }
         var type = TypeManifest.of(element.asType(), context.processingEnvironment());
         if (type.isSealed()) {
             type.permittedSubtypes().forEach(subtype -> {

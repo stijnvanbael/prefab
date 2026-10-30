@@ -3,6 +3,7 @@ package be.appify.prefab.processor.event;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.annotations.PublishTo;
+import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.kafka.EventRegistryCustomizer;
 import be.appify.prefab.processor.OutputTargetFileOutput;
@@ -16,6 +17,7 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
+import com.palantir.javapoet.ParameterizedTypeName;
 import java.util.Arrays;
 import java.util.Optional;
 import javax.lang.model.element.Modifier;
@@ -50,14 +52,14 @@ public class EventTypeRegistrarWriter {
      * @param event the event type manifest
      */
     public void writeRegistrar(TypeManifest event) {
-        var annotation = event.annotationsOfType(Event.class).stream()
-                .findFirst()
-                .orElseThrow();
-        var simpleName = event.simpleName().replace(".", "");
-        var name = registrarName(simpleName);
-        var type = buildRegistrarType(event.packageName(), name, annotation.topic(), annotation.serialization(),
-                annotation.publishTo(), simpleName, event.asTypeName(), keyField(event, context));
-        fileOutput.writeFile(event.packageName(), name, type);
+        for (var annotation : event.asElement().getAnnotationsByType(Event.class)) {
+            var binding = EventBindings.typeOf(event.asElement(), annotation, context);
+            var simpleName = event.simpleName().replace(".", "") + EventBindings.suffix(binding);
+            var name = registrarName(simpleName);
+            var type = buildRegistrarType(event.packageName(), name, annotation.topic(), annotation.serialization(),
+                    annotation.publishTo(), simpleName, binding.asTypeName(), keyField(binding, context));
+            fileOutput.writeFile(event.packageName(), name, type);
+        }
     }
 
     /**
@@ -136,8 +138,8 @@ public class EventTypeRegistrarWriter {
         }
 
         if (publishTo != PublishTo.FIRST) {
-            method.addStatement("registry.registerPublishTo($T.class, $T.$L)",
-                    eventTypeName, PublishTo.class, publishTo.name());
+            method.addStatement("registry.registerPublishTo($L, $T.$L)",
+                    typeReference(eventTypeName), PublishTo.class, publishTo.name());
         }
 
         return method.build();
@@ -146,10 +148,16 @@ public class EventTypeRegistrarWriter {
     private static CodeBlock registerStatement(CodeBlock topic, Event.Serialization serialization,
                                                TypeName eventTypeName, Optional<CodeBlock> keyExtractor) {
         return keyExtractor
-                .map(extractor -> CodeBlock.of("registry.register($L, $T.class, $T.$L, event -> $L)",
-                        topic, eventTypeName, Event.Serialization.class, serialization, extractor))
-                .orElseGet(() -> CodeBlock.of("registry.register($L, $T.class, $T.$L)",
-                        topic, eventTypeName, Event.Serialization.class, serialization));
+                .map(extractor -> CodeBlock.of("registry.register($L, $L, $T.$L, event -> $L)",
+                        topic, typeReference(eventTypeName), Event.Serialization.class, serialization, extractor))
+                .orElseGet(() -> CodeBlock.of("registry.register($L, $L, $T.$L)",
+                        topic, typeReference(eventTypeName), Event.Serialization.class, serialization));
+    }
+
+    private static CodeBlock typeReference(TypeName eventTypeName) {
+        return eventTypeName instanceof ParameterizedTypeName
+                ? CodeBlock.of("new $T<$T>() {}", EventType.class, eventTypeName)
+                : CodeBlock.of("$T.class", eventTypeName);
     }
 
     /**

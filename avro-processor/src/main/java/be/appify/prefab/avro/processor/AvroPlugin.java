@@ -14,9 +14,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.math.BigDecimal;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -47,7 +47,8 @@ public class AvroPlugin implements PrefabPlugin {
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
         var events = context.eventElements()
                 .filter(e -> EventPlatformPluginSupport.isAvscGeneratedRecord(e)
-                        || Objects.requireNonNull(e.getAnnotation(Event.class)).serialization() == Event.Serialization.AVRO)
+                        || Arrays.stream(e.getAnnotationsByType(Event.class))
+                                .anyMatch(annotation -> annotation.serialization() == Event.Serialization.AVRO))
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .toList();
         events.forEach(this::writeConvertersIfNotWritten);

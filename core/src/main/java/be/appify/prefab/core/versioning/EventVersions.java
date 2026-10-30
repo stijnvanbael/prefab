@@ -2,7 +2,12 @@ package be.appify.prefab.core.versioning;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.Versioned;
+import be.appify.prefab.core.domain.EventType;
+import be.appify.prefab.core.domain.TypedEvent;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -63,6 +68,20 @@ public final class EventVersions {
      * @return the version headers, empty if the event type does not declare {@link Event}
      */
     public static Map<String, String> headersFor(Object event) {
+        if (event instanceof TypedEvent<?> typed) {
+            var declaration = declarationFor(typed.type());
+            var headers = new LinkedHashMap<String, String>();
+            headers.put(EVENT_VERSION_HEADER, EventVersion.parse(declaration.version()).toString());
+            var components = componentVersionsFor(typed.type()).entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .map(component -> component.getKey() + "=" + component.getValue())
+                    .collect(Collectors.joining(","));
+            if (!components.isEmpty()) {
+                headers.put(COMPONENT_VERSIONS_HEADER, components);
+            }
+            return headers;
+        }
+
         var type = event.getClass();
         if (declaredEvent(type).isEmpty()) {
             return Map.of();
@@ -76,6 +95,33 @@ public final class EventVersions {
             headers.put(COMPONENT_VERSIONS_HEADER, components);
         }
         return headers;
+    }
+
+    /**
+     * Finds the declaration of a concrete event binding without choosing another parameterisation.
+     *
+     * @param type concrete event token
+     * @return the matching declaration
+     */
+    public static Event declarationFor(EventType<?> type) {
+        var arguments = type.type() instanceof ParameterizedType parameterized
+                ? parameterized.getActualTypeArguments() : new Type[0];
+        return Arrays.stream(type.rawType().getAnnotationsByType(Event.class))
+                .filter(annotation -> Arrays.equals(annotation.typeArguments(), arguments))
+                .findFirst().orElseThrow(() -> new IllegalArgumentException(
+                        "No @Event declaration for concrete event type: " + type));
+    }
+
+    /**
+     * Resolves the versions of nested components using the concrete event's type arguments.
+     *
+     * @param type concrete event token
+     * @return declared component versions by their qualified class names
+     */
+    public static Map<String, EventVersion> componentVersionsFor(EventType<?> type) {
+        var found = new LinkedHashSet<Class<?>>();
+        collectVersionedComponents(ResolvableType.forType(type.type()), found, new LinkedHashSet<>());
+        return found.stream().collect(Collectors.toMap(Class::getName, EventVersions::current));
     }
 
     private static Optional<Event> declaredEvent(Class<?> type) {
@@ -110,21 +156,21 @@ public final class EventVersions {
         return found;
     }
 
-    private static void collectVersionedComponents(ResolvableType type, Set<Class<?>> found, Set<Class<?>> visited) {
+    private static void collectVersionedComponents(ResolvableType type, Set<Class<?>> found, Set<String> visited) {
         var element = TypeStructure.elementType(type);
         if (element.isPresent()) {
             collectVersionedComponents(element.get(), found, visited);
             return;
         }
         var raw = type.resolve(Object.class);
-        if (!raw.isRecord() || Modifier.isAbstract(raw.getModifiers()) || !visited.add(raw)) {
+        if (!raw.isRecord() || Modifier.isAbstract(raw.getModifiers()) || !visited.add(type.toString())) {
             return;
         }
         if (versioned(raw).isPresent()) {
             found.add(raw);
         }
         for (var component : raw.getRecordComponents()) {
-            collectVersionedComponents(ResolvableType.forType(component.getGenericType()), found, visited);
+            collectVersionedComponents(ResolvableType.forType(component.getGenericType(), type), found, visited);
         }
     }
 }

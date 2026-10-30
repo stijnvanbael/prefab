@@ -37,6 +37,7 @@ import org.apache.kafka.streams.kstream.Branched;
 import org.apache.kafka.streams.kstream.Grouped;
 import org.apache.kafka.streams.kstream.JoinWindows;
 import org.apache.kafka.streams.kstream.KGroupedStream;
+import be.appify.prefab.streams.tracing.MessageTracing;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.Materialized;
@@ -209,6 +210,9 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
 
         validateSameContext(otherKafkaStream);
 
+        if (tracing.enabled()) {
+            return tracedJoin(otherKafkaStream, window, joiner);
+        }
         return wrap(
                 stream.join(
                         otherKafkaStream.stream,
@@ -220,6 +224,30 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
                 ValueTypeHint.unknown(),
                 keySerde
         );
+    }
+
+    private <VO extends Keyed<K>, VR extends Keyed<K>> PrefabStream<K, VR> tracedJoin(
+            KafkaPrefabStream<K, VO> other,
+            JoinWindow window,
+            BiFunction<? super V, ? super VO, ? extends VR> joiner
+    ) {
+        var joinName = stepNames.nextJoinName(inputTypeOrNull(), other.inputTypeOrNull());
+        KStream<K, TracedValue<V>> left = stream.processValues(KafkaMessageTracing.<K, V>wrap(),
+                Named.as(stepNames.nextTraceWrapName(inputTypeOrNull())));
+        KStream<K, TracedValue<VO>> right = other.stream.processValues(KafkaMessageTracing.<K, VO>wrap(),
+                Named.as(stepNames.nextTraceWrapName(other.inputTypeOrNull())));
+        KStream<K, TracedValue<VR>> joined = left.join(
+                right,
+                (l, r) -> new TracedValue<VR>(
+                        joiner.apply(l.value(), r.value()),
+                        MessageTracing.union(l.origins(), r.origins(), tracing.maxCorrelationIds())),
+                JoinWindows.ofTimeDifferenceAndGrace(window.timeDifference(), window.grace()),
+                StreamJoined.with(keySerde,
+                        TracedValueSerde.writing(joinSerde(valueType)),
+                        TracedValueSerde.writing(joinSerde(other.valueType))).withName(joinName));
+        KStream<K, VR> unwrapped = joined.processValues(KafkaMessageTracing.<K, VR>unwrap(),
+                Named.as(stepNames.nextTraceUnwrapName(null)));
+        return wrap(unwrapped, ValueTypeHint.unknown(), keySerde);
     }
 
     @Override
@@ -540,7 +568,7 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
     private <T> Serde<T> joinSerde(ValueTypeHint<T> runtimeType) {
         Serializer<T> joinSerializer = (topic, data) -> serializeForJoin(topic, data, runtimeType);
         Deserializer<T> joinDeserializer = (topic, data) -> deserializeForJoin(topic, data, runtimeType);
-        return new SerdeAdapter<>(joinSerializer, joinDeserializer);
+        return TracedValueSerde.tolerant(new SerdeAdapter<>(joinSerializer, joinDeserializer));
     }
 
     @SuppressWarnings("unchecked")

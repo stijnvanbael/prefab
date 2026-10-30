@@ -70,6 +70,14 @@ public final class StreamStepNames {
         return reserveName("trace-ingress", inputType);
     }
 
+    String nextTraceWrapName(Class<?> inputType) {
+        return reserveName("trace-wrap", inputType);
+    }
+
+    String nextTraceUnwrapName(Class<?> inputType) {
+        return reserveName("trace-unwrap", inputType);
+    }
+
     String nextTracePublishName(Class<?> inputType) {
         return reserveName("trace-publish", inputType);
     }

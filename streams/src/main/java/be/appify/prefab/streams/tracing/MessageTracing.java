@@ -2,6 +2,7 @@ package be.appify.prefab.streams.tracing;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * Names and encoding of the record headers that carry message tracing information.
@@ -42,5 +43,18 @@ public final class MessageTracing {
             return List.of();
         }
         return Arrays.stream(headerValue.split(SEPARATOR)).map(String::strip).filter(id -> !id.isEmpty()).toList();
+    }
+
+    /**
+     * Merges correlation IDs, dropping duplicates and keeping the most recent IDs when the result exceeds the cap.
+     *
+     * @param first  IDs, oldest first
+     * @param second IDs that come after the first ones
+     * @param max    the maximum number of IDs to keep
+     * @return the merged IDs, oldest first
+     */
+    public static List<String> union(List<String> first, List<String> second, int max) {
+        var merged = Stream.concat(first.stream(), second.stream()).distinct().toList();
+        return merged.size() <= max ? merged : merged.subList(merged.size() - max, merged.size());
     }
 }

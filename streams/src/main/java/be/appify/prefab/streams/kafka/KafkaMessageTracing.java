@@ -43,6 +43,34 @@ final class KafkaMessageTracing {
         });
     }
 
+    /** Stage before a state-hiding operator: moves the correlation IDs from the record header into the value. */
+    static <K, V> FixedKeyProcessorSupplier<K, V, TracedValue<V>> wrap() {
+        return () -> new ContextualFixedKeyProcessor<>() {
+            @Override
+            public void process(FixedKeyRecord<K, V> record) {
+                var origins = MessageTracing.decode(lastValue(record.headers(), MessageTracing.CORRELATION_IDS_HEADER));
+                context().forward(record.withValue(new TracedValue<>(record.value(), origins)));
+            }
+        };
+    }
+
+    /** Stage after a state-hiding operator: moves the correlation IDs from the value back into the header. */
+    static <K, V> FixedKeyProcessorSupplier<K, TracedValue<V>, V> unwrap() {
+        return () -> new ContextualFixedKeyProcessor<>() {
+            @Override
+            public void process(FixedKeyRecord<K, TracedValue<V>> record) {
+                var headers = new RecordHeaders(record.headers().toArray());
+                headers.remove(MessageTracing.CORRELATION_IDS_HEADER);
+                var origins = record.value().origins();
+                if (!origins.isEmpty()) {
+                    headers.add(MessageTracing.CORRELATION_IDS_HEADER,
+                            MessageTracing.encode(origins).getBytes(StandardCharsets.UTF_8));
+                }
+                context().forward(record.withValue(record.value().value()).withHeaders(headers));
+            }
+        };
+    }
+
     private static String newMessageId() {
         return UUID.randomUUID().toString();
     }

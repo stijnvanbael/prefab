@@ -8,6 +8,7 @@ import be.appify.prefab.streams.testing.TopologyTestExtension;
 import be.appify.prefab.streams.topology.TopologyFixtures.IncomingOrder;
 import be.appify.prefab.streams.topology.TopologyFixtures.ProcessedOrder;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -103,9 +104,9 @@ class MessageTracingTopologyTest {
 
         topology.input(IncomingOrder.class).sendWithMessageId(order("o-1"), "m-1");
 
-        var message = topology.output(TopologyFixtures.OrderCount.class).messages().getFirst();
+        var message = topology.output("prefab-streams-test-order-count").messages().getFirst();
         assertThat(message.correlationIds()).containsExactly("m-1");
-        assertThat(message.messageId()).isPresent().isNotEqualTo(java.util.Optional.of("m-1"));
+        assertThat(message.messageId()).isPresent().isNotEqualTo(Optional.of("m-1"));
     }
 
     private static ProcessedOrder processed(IncomingOrder order) {

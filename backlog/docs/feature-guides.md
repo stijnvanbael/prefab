@@ -1270,6 +1270,61 @@ class OrderTopologyTest {
 - `@TestStreams` also works on test method parameters.
 - The extension picks the backend from the classpath, so the same tests run against every backend that registers a
   `TopologyTestHarness.Factory`. The Kafka implementation needs `kafka-streams-test-utils` on the test classpath.
+
+### Message and correlation IDs (opt-in)
+
+Prefab streams can trace which consumed messages contributed to every published message. Tracing is off by default;
+when off, the topology, state store names and the bytes written to state stores and internal topics are unchanged.
+
+```yaml
+prefab:
+  streams:
+    tracing:
+      enabled: true            # default: false, applies to all streams of the application
+      max-correlation-ids: 100 # default: 100
+```
+
+Semantics:
+
+- Every message published by `to(...)` gets a fresh **message ID** in the `prefab-message-id` header.
+- A message consumed by `from(...)` without a message ID is assigned a random one.
+- The **correlation IDs** of a published message are the message IDs of all consumed messages it derives from, in the
+  `prefab-correlation-ids` header (comma-separated, so it also works for systems that only support one value per
+  header). The header is absent when a message does not originate from another message, for example one emitted by a
+  scheduled punctuator.
+- IDs are minted when publishing, not on every operator. Chains of `map`, `filter`, `flatMap`, `repartition`,
+  `process` and so on therefore keep the lineage of the consumed message, also without an intermediary topic.
+- `join` correlates to both contributing messages. `aggregate` and `windowedAggregate` keep the union of the folded
+  messages in the state store (per window for windowed aggregates).
+- Custom processors inherit the correlation IDs of the record being processed. Records forwarded outside `process`
+  have none, unless set explicitly.
+
+Limitations:
+
+- A union is capped at `max-correlation-ids`; when exceeded, the oldest IDs are dropped first.
+- `breakout` hides records from Prefab, so lineage is lost across a native fragment.
+- The processor based `aggregate(groupBy, aggregation, egressCondition)` only correlates to the message that triggered
+  the output (TASK-304).
+
+Test with `@RegisterExtension static final TopologyTestExtension EXTENSION = TopologyTestExtension.withTracing();`,
+send with `input(...).sendWithMessageId(value, "m-1")` and assert on `output(...).messages()`, which expose
+`messageId()` and `correlationIds()`.
+
+#### Enabling tracing on a running application
+
+Joins and aggregations keep correlation IDs inside their state stores and repartition topics, wrapped in a small
+envelope that starts with the bytes `0xFF 'P' 'T'`. Every version that contains this feature can **read** both the
+old and the new format, whether or not tracing is enabled; only the writer depends on the setting. Information that
+was never recorded cannot be recovered: state written before enabling reads as "no correlation IDs" until it is
+updated. To roll out without breaking running instances:
+
+1. Deploy the new version with `prefab.streams.tracing.enabled=false`. All instances can now read the envelope.
+2. Once no old instance is running, set `prefab.streams.tracing.enabled=true` and deploy again.
+
+To turn tracing off again, first disable it and finish the rollout; stored envelopes are still read and are rewritten
+in the plain format as state is updated. Do not roll back to a version without this feature after enabling tracing, as
+it cannot read the envelope. Tracing steps have fixed names (`trace-*`) and never change the names of existing steps,
+stores or topics.
 ---
 
 ## 7.16 Per-aggregate Plugin Overrides

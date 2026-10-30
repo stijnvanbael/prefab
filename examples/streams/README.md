@@ -27,6 +27,13 @@ This module defines two topologies:
 - `windowedAggregate(AggregationWindow.tumbling(1h, grace 5m), ...)` additionally keeps hourly totals per zone in a native window store; sales in different hours never mix. Updates are emitted to `hourly-zone-sales-total`
 - late-event behaviour follows the configured grace: a sale arriving up to 5 minutes after its hour ended is still added to that hour, a later one is dropped. `SalesTotalsTopologyTest` shows this for a 5-minute and a zero grace period
 
+## Message and correlation IDs
+
+Set `prefab.streams.tracing.enabled=true` to trace messages through the topologies above. `SalesTracingTopologyTest`
+shows that every `ZoneSalesTotal` published by the sales topology carries its own message ID and the IDs of all sales
+folded into it as correlation IDs. See the streams section of the feature guides for semantics and the rolling-upgrade
+procedure.
+
 ## Commands
 
 ```bash

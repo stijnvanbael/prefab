@@ -46,6 +46,15 @@ public abstract class ContextualStreamProcessor<KI, VI extends Keyed<KI>, KO, VO
         context().schedule(interval, task);
     }
 
+    /**
+     * The maximum number of correlation IDs kept on a message when tracing is enabled.
+     *
+     * @return the cap, oldest IDs are evicted first
+     */
+    protected int maxCorrelationIds() {
+        return context().maxCorrelationIds();
+    }
+
     private StreamProcessorContext<KO, VO> context() {
         var processorContext = context.get();
         if (processorContext == null) {

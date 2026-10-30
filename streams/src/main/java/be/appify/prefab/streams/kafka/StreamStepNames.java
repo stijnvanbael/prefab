@@ -66,6 +66,22 @@ public final class StreamStepNames {
         return reserveName("merge", leftType, rightType);
     }
 
+    String nextTraceIngressName(Class<?> inputType) {
+        return reserveName("trace-ingress", inputType);
+    }
+
+    String nextTraceWrapName(Class<?> inputType) {
+        return reserveName("trace-wrap", inputType);
+    }
+
+    String nextTraceUnwrapName(Class<?> inputType) {
+        return reserveName("trace-unwrap", inputType);
+    }
+
+    String nextTracePublishName(Class<?> inputType) {
+        return reserveName("trace-publish", inputType);
+    }
+
     String nextProcessName(Class<?> inputType) {
         return reserveName("process", inputType);
     }

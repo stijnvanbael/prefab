@@ -16,9 +16,11 @@ import be.appify.prefab.streams.StreamBackend;
 import be.appify.prefab.streams.StreamBreakoutAdapter;
 import be.appify.prefab.streams.StreamDefinition;
 import be.appify.prefab.streams.StreamProcessor;
+import be.appify.prefab.streams.tracing.TracingConfig;
 import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -36,6 +38,7 @@ import org.apache.kafka.streams.kstream.Branched;
 import org.apache.kafka.streams.kstream.Grouped;
 import org.apache.kafka.streams.kstream.JoinWindows;
 import org.apache.kafka.streams.kstream.KGroupedStream;
+import be.appify.prefab.streams.tracing.MessageTracing;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.Materialized;
@@ -73,9 +76,10 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
     private final Serde<K> keySerde;
     private final PrefabStreams streams;
     private final StreamStepNames stepNames;
+    private final TracingConfig tracing;
 
     /**
-     * Constructs a new KafkaPrefabStream.
+     * Constructs a new KafkaPrefabStream with message tracing disabled.
      */
     public KafkaPrefabStream(
             StreamsBuilder streamsBuilder,
@@ -92,8 +96,30 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
             StreamStepNames stepNames
     ) {
         this(streamsBuilder, stream, topicResolver, serializer, deserializer, jsonMapper, conversionService, kafkaClientProperties,
+                valueType, streams, keySerde, stepNames, TracingConfig.disabled());
+    }
+
+    /**
+     * Constructs a new KafkaPrefabStream.
+     */
+    public KafkaPrefabStream(
+            StreamsBuilder streamsBuilder,
+            KStream<K, V> stream,
+            KafkaTopicResolver topicResolver,
+            DynamicSerializer serializer,
+            DynamicDeserializer deserializer,
+            JsonMapper jsonMapper,
+            ConversionService conversionService,
+            Map<String, Object> kafkaClientProperties,
+            @NotNull Class<V> valueType,
+            PrefabStreams streams,
+            Serde<K> keySerde,
+            StreamStepNames stepNames,
+            TracingConfig tracing
+    ) {
+        this(streamsBuilder, stream, topicResolver, serializer, deserializer, jsonMapper, conversionService, kafkaClientProperties,
                 ValueTypeHint.known(Objects.requireNonNull(valueType, "valueType must not be null")), streams, keySerde,
-                stepNames);
+                stepNames, tracing);
     }
 
     private KafkaPrefabStream(
@@ -108,8 +134,10 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
             ValueTypeHint<V> valueType,
             PrefabStreams streams,
             Serde<K> keySerde,
-            StreamStepNames stepNames
+            StreamStepNames stepNames,
+            TracingConfig tracing
     ) {
+        this.tracing = Objects.requireNonNull(tracing, "tracing must not be null");
         this.streamsBuilder = streamsBuilder;
         this.stream = stream;
         this.topicResolver = topicResolver;
@@ -183,6 +211,9 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
 
         validateSameContext(otherKafkaStream);
 
+        if (tracing.enabled()) {
+            return tracedJoin(otherKafkaStream, window, joiner);
+        }
         return wrap(
                 stream.join(
                         otherKafkaStream.stream,
@@ -196,17 +227,50 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
         );
     }
 
+    private <VO extends Keyed<K>, VR extends Keyed<K>> PrefabStream<K, VR> tracedJoin(
+            KafkaPrefabStream<K, VO> other,
+            JoinWindow window,
+            BiFunction<? super V, ? super VO, ? extends VR> joiner
+    ) {
+        var joinName = stepNames.nextJoinName(inputTypeOrNull(), other.inputTypeOrNull());
+        KStream<K, TracedValue<V>> left = stream.processValues(KafkaMessageTracing.<K, V>wrap(),
+                Named.as(stepNames.nextTraceWrapName(inputTypeOrNull())));
+        KStream<K, TracedValue<VO>> right = other.stream.processValues(KafkaMessageTracing.<K, VO>wrap(),
+                Named.as(stepNames.nextTraceWrapName(other.inputTypeOrNull())));
+        KStream<K, TracedValue<VR>> joined = left.join(
+                right,
+                (l, r) -> new TracedValue<VR>(
+                        joiner.apply(l.value(), r.value()),
+                        MessageTracing.union(l.origins(), r.origins(), tracing.maxCorrelationIds())),
+                JoinWindows.ofTimeDifferenceAndGrace(window.timeDifference(), window.grace()),
+                StreamJoined.with(keySerde,
+                        TracedValueSerde.writing(joinSerde(valueType)),
+                        TracedValueSerde.writing(joinSerde(other.valueType))).withName(joinName));
+        KStream<K, VR> unwrapped = joined.processValues(KafkaMessageTracing.<K, VR>unwrap(),
+                Named.as(stepNames.nextTraceUnwrapName(null)));
+        return wrap(unwrapped, ValueTypeHint.unknown(), keySerde);
+    }
+
     @Override
     public <KO> PrefabGroupedStream<KO, V> groupBy(Class<KO> keyType, Function<V, KO> keyExtractor) {
         Objects.requireNonNull(keyType, "keyType must not be null");
         Objects.requireNonNull(keyExtractor, "keyExtractor must not be null");
         var groupKeySerde = new StringKeySerde<>(keyType);
         var groupName = stepNames.nextGroupByName(inputTypeOrNull());
+        if (tracing.enabled()) {
+            KStream<K, TracedValue<V>> traced = stream.processValues(KafkaMessageTracing.<K, V>wrap(),
+                    Named.as(stepNames.nextTraceWrapName(inputTypeOrNull())));
+            var tracedGrouped = traced.groupBy(
+                    (key, value) -> keyExtractor.apply(value.value()),
+                    Grouped.with(groupName, groupKeySerde, TracedValueSerde.writing(joinSerde(valueType)))
+            );
+            return new KafkaGroupedStream<>(null, tracedGrouped, groupKeySerde);
+        }
         var grouped = stream.groupBy(
                 (key, value) -> keyExtractor.apply(value),
                 Grouped.with(groupName, groupKeySerde, joinSerde(valueType))
         );
-        return new KafkaGroupedStream<>(grouped, groupKeySerde);
+        return new KafkaGroupedStream<>(grouped, null, groupKeySerde);
     }
 
     @Override
@@ -259,10 +323,16 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
 
     private final class KafkaGroupedStream<KO> implements PrefabGroupedStream<KO, V> {
         private final KGroupedStream<KO, V> grouped;
+        private final KGroupedStream<KO, TracedValue<V>> tracedGrouped;
         private final Serde<KO> groupKeySerde;
 
-        private KafkaGroupedStream(KGroupedStream<KO, V> grouped, Serde<KO> groupKeySerde) {
+        private KafkaGroupedStream(
+                KGroupedStream<KO, V> grouped,
+                KGroupedStream<KO, TracedValue<V>> tracedGrouped,
+                Serde<KO> groupKeySerde
+        ) {
             this.grouped = grouped;
+            this.tracedGrouped = tracedGrouped;
             this.groupKeySerde = groupKeySerde;
         }
 
@@ -277,6 +347,17 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
             Objects.requireNonNull(aggregator, "aggregator must not be null");
             var name = stepNames.nextAggregateName(inputTypeOrNull(), resultType);
             var resultHint = ValueTypeHint.known(resultType);
+            if (tracedGrouped != null) {
+                KTable<KO, TracedValue<VR>> table = tracedGrouped.aggregate(
+                        () -> new TracedValue<>(initializer.get(), List.of()),
+                        (key, value, aggregate) -> tracedAggregate(value, aggregate, aggregator),
+                        Named.as(name),
+                        Materialized.<KO, TracedValue<VR>, KeyValueStore<Bytes, byte[]>>as(name)
+                                .withKeySerde(groupKeySerde)
+                                .withValueSerde(TracedValueSerde.writing(joinSerde(resultHint)))
+                );
+                return wrap(unwrapResult(table.toStream()), resultHint, groupKeySerde);
+            }
             KTable<KO, VR> table = grouped.aggregate(
                     initializer::get,
                     (key, value, aggregate) -> aggregator.apply(value, aggregate),
@@ -302,6 +383,20 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
             var name = stepNames.nextWindowedAggregateName(inputTypeOrNull(), resultType);
             var resultHint = ValueTypeHint.known(resultType);
             var windows = TimeWindows.ofSizeAndGrace(window.size(), window.grace()).advanceBy(window.advance());
+            if (tracedGrouped != null) {
+                KTable<Windowed<KO>, TracedValue<VR>> table = tracedGrouped.windowedBy(windows).aggregate(
+                        () -> new TracedValue<>(initializer.get(), List.of()),
+                        (key, value, aggregate) -> tracedAggregate(value, aggregate, aggregator),
+                        Named.as(name),
+                        Materialized.<KO, TracedValue<VR>, WindowStore<Bytes, byte[]>>as(name)
+                                .withKeySerde(groupKeySerde)
+                                .withValueSerde(TracedValueSerde.writing(joinSerde(resultHint)))
+                );
+                return wrap(
+                        unwrapResult(table.toStream((windowedKey, value) -> windowedKey.key())),
+                        resultHint,
+                        groupKeySerde);
+            }
             KTable<Windowed<KO>, VR> table = grouped.windowedBy(windows).aggregate(
                     initializer::get,
                     (key, value, aggregate) -> aggregator.apply(value, aggregate),
@@ -311,6 +406,21 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
                             .withValueSerde(joinSerde(resultHint))
             );
             return wrap(table.toStream((windowedKey, value) -> windowedKey.key()), resultHint, groupKeySerde);
+        }
+
+        private <VR extends Keyed<KO>> TracedValue<VR> tracedAggregate(
+                TracedValue<V> input,
+                TracedValue<VR> aggregate,
+                BiFunction<? super V, ? super VR, ? extends VR> aggregator
+        ) {
+            return new TracedValue<>(
+                    aggregator.apply(input.value(), aggregate.value()),
+                    MessageTracing.union(aggregate.origins(), input.origins(), tracing.maxCorrelationIds()));
+        }
+
+        private <VR> KStream<KO, VR> unwrapResult(KStream<KO, TracedValue<VR>> results) {
+            return results.processValues(KafkaMessageTracing.<KO, VR>unwrap(),
+                    Named.as(stepNames.nextTraceUnwrapName(null)));
         }
     }
 
@@ -406,7 +516,7 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
         requireDeclared(stateStoreNames);
         requireGlobalDeclared(processor.globalStores().stream().map(GlobalStore::name).toList());
         var output = stream.process(
-                () -> new KafkaPrefabStreamProcessorAdapter<>(processor),
+                () -> new KafkaPrefabStreamProcessorAdapter<>(processor, tracing.maxCorrelationIds()),
                 Named.as(stepNames.nextProcessName(inputTypeOrNull())),
                 stateStoreNames
         );
@@ -448,7 +558,11 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
         // DynamicSerializer/Deserializer work on Object at runtime; the cast to Serde<V> is safe
         // because the backend selects serialization by topic, not by the generic type parameter.
         var valueSerde = new SerdeAdapter<V>(serializer.adapt(), deserializer.adapt());
-        stream.to(topic, Produced.with(keySerde, valueSerde));
+        var published = tracing.enabled()
+                ? stream.processValues(KafkaMessageTracing.<K, V>publish(),
+                        Named.as(stepNames.nextTracePublishName(inputTypeOrNull())))
+                : stream;
+        published.to(topic, Produced.with(keySerde, valueSerde));
         return end();
     }
 
@@ -502,14 +616,15 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
                 valueType,
                 streams,
                 keySerde,
-                stepNames
+                stepNames,
+                tracing
         );
     }
 
     private <T> Serde<T> joinSerde(ValueTypeHint<T> runtimeType) {
         Serializer<T> joinSerializer = (topic, data) -> serializeForJoin(topic, data, runtimeType);
         Deserializer<T> joinDeserializer = (topic, data) -> deserializeForJoin(topic, data, runtimeType);
-        return new SerdeAdapter<>(joinSerializer, joinDeserializer);
+        return TracedValueSerde.tolerant(new SerdeAdapter<>(joinSerializer, joinDeserializer));
     }
 
     @SuppressWarnings("unchecked")

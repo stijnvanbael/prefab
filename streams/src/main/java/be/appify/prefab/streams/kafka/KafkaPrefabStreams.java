@@ -20,10 +20,12 @@ import java.util.Objects;
 import java.util.function.Function;
 
 import be.appify.prefab.streams.TypeReference;
+import be.appify.prefab.streams.tracing.TracingConfig;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.KStream;
+import org.apache.kafka.streams.kstream.Named;
 import org.apache.kafka.streams.processor.api.ProcessorSupplier;
 import org.apache.kafka.streams.state.Stores;
 import org.springframework.core.convert.ConversionService;
@@ -42,6 +44,23 @@ public class KafkaPrefabStreams implements PrefabStreams {
     private final Map<String, GlobalStoreDefinition> globalStores = new HashMap<>();
     private final Map<String, String> globalStoreNamesByTopic = new HashMap<>();
     private final Set<String> declaredStores = new HashSet<>();
+    private final TracingConfig tracing;
+
+    /**
+     * Constructs a new KafkaPrefabStreams with message tracing disabled.
+     */
+    public KafkaPrefabStreams(
+            StreamsBuilder streamsBuilder,
+            KafkaTopicResolver topicResolver,
+            DynamicSerializer serializer,
+            DynamicDeserializer deserializer,
+            JsonMapper jsonMapper,
+            ConversionService conversionService,
+            Map<String, Object> kafkaClientProperties
+    ) {
+        this(streamsBuilder, topicResolver, serializer, deserializer, jsonMapper, conversionService,
+                kafkaClientProperties, TracingConfig.disabled());
+    }
 
     /**
      * Constructs a new KafkaPrefabStreams.
@@ -53,8 +72,10 @@ public class KafkaPrefabStreams implements PrefabStreams {
             DynamicDeserializer deserializer,
             JsonMapper jsonMapper,
             ConversionService conversionService,
-            Map<String, Object> kafkaClientProperties
+            Map<String, Object> kafkaClientProperties,
+            TracingConfig tracing
     ) {
+        this.tracing = tracing;
         this.streamsBuilder = streamsBuilder;
         this.topicResolver = topicResolver;
         this.serializer = serializer;
@@ -73,8 +94,11 @@ public class KafkaPrefabStreams implements PrefabStreams {
         var valueSerde = new SerdeAdapter<V>(serializer.adapt(), deserializer.adapt());
         // DynamicSerializer/Deserializer operate on Object at runtime; the cast is safe because
         // the topic is registered for exactly this type and the serde will deserialize to V.
-        KStream<K, V> stream = streamsBuilder.stream(topic,
+        KStream<K, V> source = streamsBuilder.stream(topic,
                 Consumed.with(keySerde, valueSerde));
+        KStream<K, V> stream = tracing.enabled()
+                ? source.processValues(KafkaMessageTracing.<K, V>ingress(), Named.as(stepNames.nextTraceIngressName(type)))
+                : source;
         return new KafkaPrefabStream<>(
                 streamsBuilder,
                 stream,
@@ -87,7 +111,8 @@ public class KafkaPrefabStreams implements PrefabStreams {
                 type,
                 this,
                 keySerde,
-                stepNames
+                stepNames,
+                tracing
         );
     }
 

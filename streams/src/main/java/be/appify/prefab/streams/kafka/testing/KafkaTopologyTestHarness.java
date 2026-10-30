@@ -10,6 +10,7 @@ import be.appify.prefab.streams.kafka.KafkaStateStoreAccess;
 import be.appify.prefab.streams.kafka.KafkaTopicResolver;
 import be.appify.prefab.streams.testing.TopologySession;
 import be.appify.prefab.streams.testing.TopologyTestHarness;
+import be.appify.prefab.streams.tracing.TracingConfig;
 import java.util.Properties;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
@@ -26,6 +27,7 @@ public final class KafkaTopologyTestHarness implements TopologyTestHarness {
     private final DynamicDeserializer deserializer;
     private final AutoRegisterPrefabStreamsTestDecorator streams;
     private final String appId;
+    private final boolean tracing;
 
     /**
      * Constructs a new KafkaTopologyTestHarness.
@@ -33,7 +35,18 @@ public final class KafkaTopologyTestHarness implements TopologyTestHarness {
      * @param appId the application id, used to derive topic names
      */
     public KafkaTopologyTestHarness(String appId) {
+        this(appId, false);
+    }
+
+    /**
+     * Constructs a new KafkaTopologyTestHarness.
+     *
+     * @param appId   the application id, used to derive topic names
+     * @param tracing whether message and correlation IDs are tracked
+     */
+    public KafkaTopologyTestHarness(String appId, boolean tracing) {
         this.appId = appId;
+        this.tracing = tracing;
         var conversionService = new DefaultConversionService();
         var kafkaProperties = new KafkaProperties();
         KafkaSchemaRegistrySupport.enableMockSchemaRegistry(kafkaProperties);
@@ -47,7 +60,8 @@ public final class KafkaTopologyTestHarness implements TopologyTestHarness {
                         deserializer,
                         JsonMapper.builder().findAndAddModules().build(),
                         conversionService,
-                        kafkaProperties.buildProducerProperties()),
+                        kafkaProperties.buildProducerProperties(),
+                        tracing ? TracingConfig.withTracing() : TracingConfig.disabled()),
                 eventRegistry,
                 appId);
     }
@@ -74,8 +88,8 @@ public final class KafkaTopologyTestHarness implements TopologyTestHarness {
     /** Registers {@link KafkaTopologyTestHarness} as the harness for Kafka Streams. */
     public static final class Factory implements TopologyTestHarness.Factory {
         @Override
-        public TopologyTestHarness create(String appId) {
-            return new KafkaTopologyTestHarness(appId);
+        public TopologyTestHarness create(String appId, boolean tracing) {
+            return new KafkaTopologyTestHarness(appId, tracing);
         }
     }
 }

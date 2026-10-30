@@ -50,7 +50,10 @@ This is an **opt-in** feature: when not enabled, wire format and behaviour of ex
 - [ ] #6 A message that does not originate from another message has no correlation IDs (absent, not empty).
 - [ ] #7 The public streams API exposes no backend-specific types for message/correlation IDs; the Kafka backend implements them via record headers.
 - [ ] #8 Behaviour is covered by backend-neutral topology contract tests for each operator type.
-- [ ] #9 Streams documentation describes how to enable the feature and its semantics.
+- [ ] #9 Streams documentation describes how to enable the feature, its semantics and the rolling-upgrade procedure.
+- [ ] #10 Enabling or disabling tracing on a running application with existing state stores, changelog topics and repartition topics requires no state reset: legacy bytes read as "no origins" and enabled-format bytes remain readable after disabling.
+- [ ] #11 State store names and internal topic names are identical with tracing off, tracing on and the previous release, verified by a topology test.
+- [ ] #12 Messages produced with tracing disabled keep the exact same payload bytes as before the feature; the tolerant reader is covered by tests for JSON and Avro payloads.
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -92,15 +95,40 @@ Consequence: a message published to topic B whose input was consumed from topic 
 6. Test API (TASK-300): `TopologyInput.send(value)` gains `.withMessageId(...)`; `TopologyOutput` gains `messages()` returning `OutputMessage<V>(value, Optional<String> messageId, List<String> correlationIds)`; `TopologyTestExtension.withTracing()` (or equivalent) enables the feature. Contract tests are backend-neutral, with Kafka-specific wire checks (header names, state serde) in `streams/.../kafka`.
 
 ### Risks and trade-offs
-- Enabling tracing on an existing application changes the serde format of join/aggregate state stores and repartition/changelog topics: documented as requiring a state reset (or a migration window); disabled by default for this reason.
+- Existing state and topics must keep working when tracing is switched on or off: see "Migration and compatibility" below.
 - Extra serialisation/processor hop per operator; correlation lists add header bytes (bounded by the cap). Cap eviction means correlation of long-lived aggregates is best-effort; document it.
 - `breakout` and global stores are outside lineage tracking.
 - Spike first: confirm Kafka Streams (Spring Boot 4 / Kafka 4.x) keeps headers through `filter`, `merge`, `branch`, `repartition` and `TopologyTestDriver`.
 
+### Migration and compatibility
+Goal: switching tracing on (or back off) never breaks a running application or requires a state reset. Lineage that was never recorded is simply absent: legacy data reads as "no known origins".
+
+**Where the format changes.** Only places where the origin set has to live inside the value because the DSL hides headers:
+- window stores + changelog topics of `join`,
+- key-value / window stores + changelog topics of `aggregate` / `windowedAggregate`,
+- the internal repartition topic that `groupBy` inserts before the aggregation.
+
+Everything else (`keyBy`/`repartition` topics, `to`, sources) is unchanged on the wire: the origin set rides in a record header and the payload bytes stay as they are. Other consumers of published topics only see two extra headers.
+
+**Self-describing, tolerant envelope.** `TracedValueSerde` writes `0xFF 'P' 'T' <version>` + origin list + original payload bytes. Its deserializer detects the magic prefix: present → read origins and payload; absent → the bytes are legacy, return the value with an empty origin set. The prefix is unambiguous for Prefab payloads: JSON/String are UTF-8 (never starts with `0xFF`), Confluent Avro starts with `0x00`. The version byte leaves room to evolve the envelope.
+
+**Tolerant reader is always installed, writer is opt-in.** The envelope-aware deserializer is used on the join/aggregate/groupBy serdes regardless of the tracing setting; the envelope is only *written* when tracing is enabled. Consequences:
+- Upgrading Prefab with tracing still off: bytes written are identical to today, and the reader accepts them. Every instance is now "envelope aware".
+- Enabling tracing (config change + restart, rolling bounce allowed because all instances already read both formats): stores and changelogs restore from legacy bytes, aggregates continue from the legacy aggregate with an empty origin set and then accumulate; entries are upgraded lazily on their next write. Repartition records still in flight from before the switch read as legacy.
+- Disabling tracing again (rollback): new instances write legacy bytes and still read envelope bytes left in stores/topics, so rollback needs no reset either; origins in existing state are dropped as they are rewritten.
+- Rolling-upgrade rule to document: first roll out the Prefab version that contains the tolerant reader (tracing off), then enable tracing in a second deployment. Enabling in the same rollout would let a not-yet-upgraded instance read envelope bytes it cannot parse.
+
+**Topology identity.** Adding processor nodes can shift auto-generated node/store/topic names, which would orphan existing state. All current stores, repartition topics and join names are explicit (`Materialized.as`, `Repartitioned.withName`, `Grouped.with(name, ...)`, `StreamJoined.withName`), and every new tracing node (ingress, publish, wrap, unwrap) must be created with an explicit `Named` so it does not consume the generated-name counter. A test compares the set of state store names and internal topic names of representative topologies with tracing off vs. on (and against the pre-feature names) and must show them identical.
+
+**Other compatibility notes.**
+- Absent origin header on a record (e.g. produced by an older instance, or consumed from a repartition topic written before the switch) means "no origins"; it is never treated as an error and never mints an ID.
+- Exactly-once and caching behave as before; the extra stages are stateless.
+- Legacy join store entries are matched normally; the joined result simply lacks the lineage of the legacy side.
+
 ### Suggested slicing (separate tasks once approved)
 1. Foundations: `TracingConfig`, `MessageTracing`, `StreamRecord` accessors, ingress/publish stages, header propagation through all 1:1 operators including chained `map`/`flatMap`/`keyBy` (AC #1-4, 6, 7), test API support.
 2. `process` origin-set propagation (chained and stateful processors, punctuators).
-3. `TracedValue` + serde, `join` (AC #5).
+3. `TracedValue` + tolerant serde (also covering migration tests), `join` (AC #5, #10-12).
 4. `aggregate`/`windowedAggregate` with capped lineage (AC #5).
 5. Documentation and a streams example (AC #9); contract tests land with each slice (AC #8).
 

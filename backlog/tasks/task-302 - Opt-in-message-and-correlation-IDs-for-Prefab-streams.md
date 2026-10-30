@@ -52,3 +52,58 @@ This is an **opt-in** feature: when not enabled, wire format and behaviour of ex
 - [ ] #8 Behaviour is covered by backend-neutral topology contract tests for each operator type.
 - [ ] #9 Streams documentation describes how to enable the feature and its semantics.
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+### Analysis (current state)
+- `KafkaPrefabStream` is a thin wrapper over `KStream`. Value-only DSL operators (`filter`, `mapValues`, `flatMapValues`, `merge`, `repartition`) forward the input record headers unchanged. Joins, `aggregate` and `windowedAggregate` use `ValueJoiner`/`Aggregator`, which never see headers, and state stores persist the value only. Headers on join/aggregate output are therefore not reliable and no lineage can be accumulated across several input records.
+- `StreamRecord` already has `Map<String,String> headers`; `KafkaRecords` and `KafkaPrefabProcessorContext` convert to/from Kafka headers, so custom `StreamProcessor`s can already read/write headers.
+- `PrefabStreams`, `PrefabStream`, `StreamProcessor` and `StreamRecord` are backend-neutral and must stay free of Kafka types.
+- `to(...)` serialises through `DynamicSerializer` with `Produced`; headers on the forwarded record are published as-is.
+
+### Design
+**Representation.** Two reserved record headers (constants in a neutral `be.appify.prefab.streams.tracing.MessageTracing`): `prefab-message-id` (random UUID string) and `prefab-correlation-ids` (comma-separated message IDs; header omitted when there are none). Payload schemas/Avro/JSON are untouched.
+
+**Opt-in.** Global switch `prefab.streams.tracing.enabled` (default `false`) and `prefab.streams.tracing.max-correlation-ids` (default 100), carried as a `TracingConfig` record into `KafkaPrefabStreams`/`KafkaPrefabStream` (existing constructors keep delegating with tracing disabled). When disabled, the topology is built exactly as today (same nodes, same step names, same serdes). Per-stream opt-in is out of scope: lineage is only meaningful if applied to a whole topology.
+
+**Semantics per operator** (an unchanged message keeps its ID; every *newly generated* message gets a new ID):
+
+| Operator | Message ID | Correlation IDs |
+|---|---|---|
+| `from` (ingress) | keep existing, otherwise random (in-stream only, not written back to the source topic) | keep existing, otherwise none |
+| `filter`, `branch`, `merge`, `repartition`, `deduplicate` | unchanged | unchanged |
+| `map`, `flatMap`, `keyBy` | new per output | [input ID] |
+| `process` (custom `StreamProcessor`) | new per forwarded record | [ID of record being processed] unless the processor sets them explicitly; none when forwarded from a punctuator |
+| `join` | new | [left ID, right ID] |
+| `aggregate`, `windowedAggregate` | new per emitted result | IDs of all messages folded into the emitted state (capped) |
+| `breakout` | lineage is lost (native `KStream`); `to` stamps a new ID if missing, no correlation | none |
+| `to` | stamps an ID if missing | as-is |
+
+**Mechanics (Kafka backend, only when enabled).**
+1. New package-private helper `KafkaMessageTracing` with reusable stages built on `processValues` (`FixedKeyProcessor`): `ingress` (ensure ID), `derive` (replace value, new ID, correlation from input), `ensureId` (before `to`).
+2. 1:1 operators `map`/`flatMap`: replace `mapValues`/`flatMapValues` with a `derive` stage that keeps the same `Named` step name. `rekey` (`keyBy`) derives before `repartition`; headers survive the repartition topic (to be proven in the spike).
+3. Joins and aggregations need lineage inside the value because the DSL hides headers. Introduce an internal `TracedValue<V>(V value, String messageId, List<String> correlationIds)` and a `TracedValueSerde` that wraps the existing `joinSerde` (length-prefixed metadata followed by the inner bytes). Before `join`/`groupBy` each side is wrapped into `TracedValue`; the joiner/aggregator operates on the unwrapped value and merges lineage (join: both IDs; aggregate: running set `ids ∪ {input ID}` kept in the state store, oldest evicted beyond the cap; windowed aggregate is naturally bounded per window). A final stage unwraps the result into value + headers with a fresh message ID. `KafkaGroupedStream` is parameterised on the wrapped type internally; its public `PrefabGroupedStream` API is unchanged.
+4. `KafkaPrefabStreamProcessorAdapter` remembers the ID of the record being processed; `KafkaPrefabProcessorContext.forward` applies the rule above. Explicit IDs/correlation set by the processor on the `StreamRecord` win.
+5. Neutral API additions: `StreamRecord.messageId()` (`Optional<String>`), `StreamRecord.correlationIds()` (`List<String>`) and `withCorrelationIds(...)`, all derived from the reserved headers, so user processors can read and extend lineage without Kafka types.
+6. Test API (TASK-300): `TopologyInput.send(value)` gains `.withMessageId(...)`; `TopologyOutput` gains `messages()` returning `OutputMessage<V>(value, Optional<String> messageId, List<String> correlationIds)`; `TopologyTestExtension.withTracing()` (or equivalent) enables the feature. Contract tests are backend-neutral, with Kafka-specific wire checks (header names, state serde) in `streams/.../kafka`.
+
+### Risks and trade-offs
+- Enabling tracing on an existing application changes the serde format of join/aggregate state stores and repartition/changelog topics: documented as requiring a state reset (or a migration window); disabled by default for this reason.
+- Extra serialisation/processor hop per operator; correlation lists add header bytes (bounded by the cap). Cap eviction means correlation of long-lived aggregates is best-effort; document it.
+- `breakout` and global stores are outside lineage tracking.
+- Spike first: confirm Kafka Streams (Spring Boot 4 / Kafka 4.x) keeps headers through `filter`, `merge`, `branch`, `repartition` and `TopologyTestDriver`.
+
+### Suggested slicing (separate tasks once approved)
+1. Foundations: `TracingConfig`, `MessageTracing`, `StreamRecord` accessors, ingress/ensureId stages, pass-through operators, test API support (AC #1-3, 6, 7).
+2. `map`/`flatMap`/`keyBy`/`process` derivation (AC #4).
+3. `TracedValue` + serde, `join` (AC #5).
+4. `aggregate`/`windowedAggregate` with capped lineage (AC #5).
+5. Documentation and a streams example (AC #9); contract tests land with each slice (AC #8).
+
+### Open decisions for approval
+- Header names and comma-separated encoding.
+- Cap default (100) and oldest-first eviction.
+- Treating pass-through operators as the *same* message (ID kept) rather than generating a new one.
+- Global-only opt-in.
+<!-- SECTION:PLAN:END -->

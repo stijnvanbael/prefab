@@ -4,6 +4,7 @@ title: Support generic event types in all event related features
 status: To Do
 assignee: []
 created_date: '2026-10-30 14:08'
+updated_date: '2026-10-30 14:27'
 labels:
   - events
   - generics
@@ -46,6 +47,7 @@ Today event handling is keyed on the raw `Class` of the event. Parameterised eve
 - [ ] #8 Unsupported generic forms fail at build time with a clear annotation processing error.
 - [ ] #9 Non-generic events keep their current behaviour, topics and wire format.
 - [ ] #10 Documentation and feature guides describe generic events and their limits.
+- [ ] #11 Repeatable `@Event` declarations bind ordered concrete `typeArguments` to their own topics: `Changed<Customer>` routes only to its customer topics and `Changed<Product>` only to its product topics, with separate registry entries, generated registrations and provisioning.
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -60,16 +62,61 @@ Today event handling is keyed on the raw `Class` of the event. Parameterised eve
 
 ### Design direction for the ADR
 - Introduce one canonical, immutable event type key that represents the raw event declaration plus recursively canonicalised concrete type arguments. Use this key for parameterised registry entries, reader schemas, handler routing and version/migration lookup; keep the existing raw-class path for non-generic events.
-- Retain the declared `@Event` topic for generic specialisations by default. Distinguish specialisations in message metadata and dispatch using the event type key, rather than inventing broker topic names. That preserves explicit topic configuration and makes provisioning consistent across Kafka, Pub/Sub and SNS/SQS.
+- Make `@Event` repeatable and add `Class<?>[] typeArguments() default {}`. Each declaration explicitly binds one concrete parameterisation to its declared topics; never combine topic sets across different parameterisations or derive broker names from Java type names. Retain the existing declaration shape for non-generic events.
 - Capture generic handler signatures from annotation-processing `TypeMirror`s. Generic publication must carry an explicit type token when the runtime event instance cannot reveal its erased type arguments; define the exact source API and generated publisher shape in the ADR before implementation. Do not guess from payload field values.
 - Generate deterministic Avro schema names from the raw schema identity plus a stable encoding/hash of the canonical type key. Detect collisions at processing time; do not rename schemas or alter wire formats for existing non-generic events.
-- Initially support only fully concrete type arguments (including nested parameterized types). Reject raw generic events, unresolved type variables, wildcards and unsupported bounds with element-specific processor errors unless the ADR explicitly expands this set.
+- Initially support concrete class arguments expressible through `typeArguments`, including generic field types resolved from those bindings. Reject raw generic events, unresolved type variables, wildcard bindings and unsupported bounds with element-specific processor errors; direct nested-argument bindings are outside this declaration API.
 - The ADR must also decide how the type key appears in JSON/Avro payload metadata and transport headers/attributes, how Avro-on-Pub/Sub and SNS/SQS behave given TASK-275's lack of writer schemas, and whether event-version baselines/migrations are tracked per raw generic declaration or per concrete specialisation.
 
+### Agreed declaration shape: one generic event, different topics per parameterisation
+
+The following is the target API for TASK-303, not syntax supported by the current implementation. The user selected repeatable `@Event` declarations with `typeArguments` rather than annotated type-token fields.
+
+```java
+import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.annotations.EventHandler;
+import be.appify.prefab.core.annotations.PartitioningKey;
+import org.springframework.stereotype.Component;
+
+@Event(
+        topic = "${topics.customer-changed:customer-changed}",
+        typeArguments = Customer.class,
+        platform = Event.Platform.KAFKA)
+@Event(
+        topic = "${topics.product-changed:product-changed}",
+        typeArguments = Product.class,
+        platform = Event.Platform.KAFKA)
+record Changed<T>(@PartitioningKey String id, T payload) {}
+
+record Customer(String name) {}
+record Product(String sku) {}
+
+@Component
+class ChangeHandlers {
+    @EventHandler
+    public void onCustomerChanged(Changed<Customer> event) {}
+
+    @EventHandler
+    public void onProductChanged(Changed<Product> event) {}
+}
+```
+
+| Concrete event type | Topic (default property value) | Handler |
+|---|---|---|
+| `Changed<Customer>` | `customer-changed` | `onCustomerChanged` |
+| `Changed<Product>` | `product-changed` | `onProductChanged` |
+
+- Each annotation's `typeArguments` is positional: for `Changed<K, V>`, use `typeArguments = {CustomerId.class, Customer.class}` to bind `K` and `V`. Validate argument count and declared bounds at build time.
+- A binding can itself declare multiple topics using the existing `topic = {"primary", "audit"}` and `publishTo = PublishTo.ALL` syntax. That fan-out applies only to that parameterisation, never to another annotation's topics.
+- The processor discovers both bindings even when the module has no handlers, generates separate typed registrations and provisions both configured topics. Handlers and registry lookups use the full concrete type, not `Changed.class`.
+- Publishing must explicitly retain `Changed<Customer>` or `Changed<Product>` identity through the type-token/publication API still to be specified in the ADR. `new Changed<Customer>(...)` alone does not preserve that identity at runtime; do not infer it from the payload or fan out to both bindings.
+- Reject missing/incorrect argument counts, bound violations, raw generic arguments, conflicting duplicate bindings and publications without a registered concrete binding explicitly. Preserve existing non-generic multi-topic semantics.
+- Java annotation class literals cannot express `List<Customer>.class`. Consequently, this declaration API supports concrete non-generic class arguments, not direct bindings such as `Changed<List<Customer>>`; nested parameterized fields inside an otherwise concrete binding can still be resolved. Explicit nested-argument bindings require a future type-token declaration API rather than a string-based workaround.
+
 ### Implementation steps
-1. **Settle contract and record ADR.** Confirm supported type forms, explicit publication/type-token API, metadata encoding, topic policy, deterministic schema naming, duplicate/collision handling, version/evolution baseline identity, and transport limitations. Map each decision to acceptance criteria and retain current non-generic topic names and bytes.
+1. **Settle contract and record ADR.** Record the agreed repeatable `@Event(typeArguments)` declaration and its class-literal limits. Confirm explicit publication/type-token API, metadata encoding, deterministic schema naming, duplicate/collision handling, version/evolution baseline identity, and transport limitations. Map each decision to acceptance criteria and retain current non-generic topic names and bytes.
 2. **Add the canonical event type model.** Implement and unit-test the type-key representation, stable name/metadata encoding and equality semantics in `core`. Extend registry lookups for parameterised keys while preserving existing `Class<?>` overloads and behavior. Define explicit errors for missing or ambiguous generic identity.
-3. **Teach annotation processing to preserve type arguments.** Update event and handler discovery, validation and generated dispatch/registrars to carry full `DeclaredType` arguments instead of reducing to `asElement()`. Add compile-testing fixtures for concrete, nested, raw, wildcard, bounded and unresolved forms; ensure unsupported forms fail with actionable diagnostics.
+3. **Teach annotation processing to preserve type arguments.** Add the repeatable `@Event` container and `typeArguments` attribute; update all annotation discovery, including dependency events, to read every binding rather than a single annotation. Update event and handler discovery, validation and generated dispatch/registrars to carry full `DeclaredType` arguments instead of reducing to `asElement()`. Add compile-testing fixtures for both bindings above, argument count/bounds, duplicate bindings, nested fields, raw, wildcard and unresolved forms; ensure unsupported forms fail with actionable diagnostics.
 4. **Implement JSON publish/consume routing.** Carry the canonical key through event publication and transport metadata, bind JSON with the captured concrete target type, and select only handlers matching that key. Test two specialisations on the same topic, wildcard/supertype handlers, missing/unknown keys and non-generic regression behavior.
 5. **Implement Avro specialization.** Substitute generic arguments into generated field schemas and converters, register the reader schema under the canonical key, and generate deterministic collision-checked Avro names. Add code-first tests and explicitly implement or reject generic `@Avsc` contracts according to the ADR. Verify schema evolution and versioning remain correct for specialised schemas.
 6. **Integrate all transports and provisioning.** Update Kafka, Pub/Sub and SNS/SQS producers, deserializers, subscribers and topic/queue/subscription provisioning to propagate and resolve the same identity. Test round trips and isolation for each platform and document any Avro schema-resolution limitation inherited from TASK-275.
@@ -79,6 +126,7 @@ Today event handling is keyed on the raw `Class` of the event. Parameterised eve
 ### Verification gates
 - Gate 1: ADR resolves the identity/API/compatibility decisions before implementation starts.
 - Gate 2: one concrete generic event can be published, JSON-deserialized and routed exclusively to its concrete handler; a second specialisation on the same topic is not cross-delivered.
+- Gate 2a: compile the agreed repeatable declaration example; assert separate topic registrations/provisioning and that publishing either parameterisation never targets the other's topic or handler. Verify multi-topic fan-out is scoped to one binding.
 - Gate 3: Avro specialisations have deterministic distinct schema names and reader registrations, with collision and evolution tests.
 - Gate 4: transport and stream contract tests pass for each supported path; generated artefacts for existing non-generic events and their topics/wire formats remain unchanged.
 - Gate 5: unsupported forms fail at compile time with clear diagnostics, documentation/examples match supported behavior, and the complete Maven test suite passes.

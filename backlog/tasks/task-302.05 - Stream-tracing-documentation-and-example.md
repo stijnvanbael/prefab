@@ -1,7 +1,7 @@
 ---
 id: TASK-302.05
 title: Stream tracing documentation and example
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-30 13:40'
 labels:
@@ -22,5 +22,9 @@ Slice 5 of TASK-302. Document enabling, semantics, limitations (`breakout`, cap)
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Feature guide documents configuration, semantics and the rolling-upgrade procedure.
+- [x] #1 Feature guide documents configuration, semantics and the rolling-upgrade procedure.
 <!-- AC:END -->
+
+## Implementation Notes
+
+Added feature guide subsection (config, semantics, limitations, two-step rolling upgrade), README section and `SalesTracingTopologyTest` in examples/streams.

@@ -67,24 +67,27 @@ This is an **opt-in** feature: when not enabled, wire format and behaviour of ex
 
 **Opt-in.** Global switch `prefab.streams.tracing.enabled` (default `false`) and `prefab.streams.tracing.max-correlation-ids` (default 100), carried as a `TracingConfig` record into `KafkaPrefabStreams`/`KafkaPrefabStream` (existing constructors keep delegating with tracing disabled). When disabled, the topology is built exactly as today (same nodes, same step names, same serdes). Per-stream opt-in is out of scope: lineage is only meaningful if applied to a whole topology.
 
-**Semantics per operator** (an unchanged message keeps its ID; every *newly generated* message gets a new ID):
+**Key rule: IDs are minted only for messages that are persisted to a topic.** Chains of in-memory operators (`from → map → map → filter → to`) must not mint IDs on intermediate hops: those messages are never published, so a correlation pointing to them could never be resolved and the lineage would break. Instead, an in-flight record carries only its *origin set*: the IDs of the persisted (consumed) messages it derives from. The in-flight origin set is carried in `prefab-correlation-ids`; the `prefab-message-id` header is only meaningful on persisted messages.
 
-| Operator | Message ID | Correlation IDs |
+**Semantics per operator:**
+
+| Operator | In-flight origin set (`prefab-correlation-ids`) | Message ID |
 |---|---|---|
-| `from` (ingress) | keep existing, otherwise random (in-stream only, not written back to the source topic) | keep existing, otherwise none |
-| `filter`, `branch`, `merge`, `repartition`, `deduplicate` | unchanged | unchanged |
-| `map`, `flatMap`, `keyBy` | new per output | [input ID] |
-| `process` (custom `StreamProcessor`) | new per forwarded record | [ID of record being processed] unless the processor sets them explicitly; none when forwarded from a punctuator |
-| `join` | new | [left ID, right ID] |
-| `aggregate`, `windowedAggregate` | new per emitted result | IDs of all messages folded into the emitted state (capped) |
-| `breakout` | lineage is lost (native `KStream`); `to` stamps a new ID if missing, no correlation | none |
-| `to` | stamps an ID if missing | as-is |
+| `from` (ingress) | `[ID of the consumed message]` (its existing ID, otherwise a random one, not written back to the source topic). Any correlation IDs already on the consumed message are dropped from the in-flight set: the consumed message itself is the parent. | the `prefab-message-id` header is removed from the in-flight record |
+| `filter`, `branch`, `merge`, `repartition`, `deduplicate` | unchanged | none (in-flight) |
+| `map`, `flatMap`, `keyBy`, `process` | unchanged: derived records inherit the origin set of their input, however many hops | none (in-flight); `process` may set an explicit origin set on the forwarded `StreamRecord`; forwarded from a punctuator with no input record, the set is empty |
+| `join` | union of both sides' origin sets | none (in-flight) |
+| `aggregate`, `windowedAggregate` | union of the origin sets of all folded-in records (capped), kept in the state store | none (in-flight) |
+| `breakout` | lost (native `KStream`); records leave with an empty set | none |
+| `to` | unchanged; if empty, the correlation header is omitted | **new random ID minted here**, for every message published |
+
+Consequence: a message published to topic B whose input was consumed from topic A with ID `a1` carries `message-id=b1`, `correlation-ids=[a1]`; a downstream stream consuming B then correlates to `b1`. Every correlation ID therefore refers to a message that exists on a topic (except IDs randomly assigned to consumed messages that had none, which are by definition unresolvable and only stable within one processing attempt). Publishing the same unchanged record to a second topic mints a second ID, as each published message gets its own ID. Repartition topics only persist the in-flight origin set, no new IDs are minted there.
 
 **Mechanics (Kafka backend, only when enabled).**
-1. New package-private helper `KafkaMessageTracing` with reusable stages built on `processValues` (`FixedKeyProcessor`): `ingress` (ensure ID), `derive` (replace value, new ID, correlation from input), `ensureId` (before `to`).
-2. 1:1 operators `map`/`flatMap`: replace `mapValues`/`flatMapValues` with a `derive` stage that keeps the same `Named` step name. `rekey` (`keyBy`) derives before `repartition`; headers survive the repartition topic (to be proven in the spike).
-3. Joins and aggregations need lineage inside the value because the DSL hides headers. Introduce an internal `TracedValue<V>(V value, String messageId, List<String> correlationIds)` and a `TracedValueSerde` that wraps the existing `joinSerde` (length-prefixed metadata followed by the inner bytes). Before `join`/`groupBy` each side is wrapped into `TracedValue`; the joiner/aggregator operates on the unwrapped value and merges lineage (join: both IDs; aggregate: running set `ids ∪ {input ID}` kept in the state store, oldest evicted beyond the cap; windowed aggregate is naturally bounded per window). A final stage unwraps the result into value + headers with a fresh message ID. `KafkaGroupedStream` is parameterised on the wrapped type internally; its public `PrefabGroupedStream` API is unchanged.
-4. `KafkaPrefabStreamProcessorAdapter` remembers the ID of the record being processed; `KafkaPrefabProcessorContext.forward` applies the rule above. Explicit IDs/correlation set by the processor on the `StreamRecord` win.
+1. New package-private helper `KafkaMessageTracing` with two reusable `processValues` (`FixedKeyProcessor`) stages: `ingress` (move the consumed message's ID, or a random one, into the origin set) and `publish` (mint the message ID, before `to`). Because intermediate hops mint nothing, `map`/`flatMap`/`keyBy` need **no** tracing stage at all: header propagation of the existing DSL operators already carries the origin set. This keeps the enabled topology close to the disabled one (only an ingress and a publish node are added).
+2. `flatMap` outputs all inherit the same origin set (they are the same parents). `keyBy` repartition topic carries the origin set header (headers survive the repartition topic; to be proven in the spike).
+3. Joins and aggregations need the origin set inside the value because the DSL hides headers and state stores keep the value only. Introduce an internal `TracedValue<V>(V value, List<String> origins)` and a `TracedValueSerde` that wraps the existing `joinSerde` (length-prefixed origin list followed by the inner bytes). Before `join`/`groupBy` each side is wrapped into `TracedValue` from its header; the joiner/aggregator operates on the unwrapped value and merges origin sets (join: union of both; aggregate: running union kept in the state store, oldest evicted beyond the cap; windowed aggregate is naturally bounded per window). A final stage unwraps the result into value + origin-set header. `KafkaGroupedStream` is parameterised on the wrapped type internally; its public `PrefabGroupedStream` API is unchanged.
+4. `KafkaPrefabStreamProcessorAdapter` remembers the origin set of the record being processed; `KafkaPrefabProcessorContext.forward` applies it to forwarded records, so chained and stateful processors keep lineage. An origin set set explicitly on the `StreamRecord` wins; punctuator forwards without one have none. Processors that buffer records and forward later can capture `StreamRecord.correlationIds()` and set it on the output.
 5. Neutral API additions: `StreamRecord.messageId()` (`Optional<String>`), `StreamRecord.correlationIds()` (`List<String>`) and `withCorrelationIds(...)`, all derived from the reserved headers, so user processors can read and extend lineage without Kafka types.
 6. Test API (TASK-300): `TopologyInput.send(value)` gains `.withMessageId(...)`; `TopologyOutput` gains `messages()` returning `OutputMessage<V>(value, Optional<String> messageId, List<String> correlationIds)`; `TopologyTestExtension.withTracing()` (or equivalent) enables the feature. Contract tests are backend-neutral, with Kafka-specific wire checks (header names, state serde) in `streams/.../kafka`.
 
@@ -95,8 +98,8 @@ This is an **opt-in** feature: when not enabled, wire format and behaviour of ex
 - Spike first: confirm Kafka Streams (Spring Boot 4 / Kafka 4.x) keeps headers through `filter`, `merge`, `branch`, `repartition` and `TopologyTestDriver`.
 
 ### Suggested slicing (separate tasks once approved)
-1. Foundations: `TracingConfig`, `MessageTracing`, `StreamRecord` accessors, ingress/ensureId stages, pass-through operators, test API support (AC #1-3, 6, 7).
-2. `map`/`flatMap`/`keyBy`/`process` derivation (AC #4).
+1. Foundations: `TracingConfig`, `MessageTracing`, `StreamRecord` accessors, ingress/publish stages, header propagation through all 1:1 operators including chained `map`/`flatMap`/`keyBy` (AC #1-4, 6, 7), test API support.
+2. `process` origin-set propagation (chained and stateful processors, punctuators).
 3. `TracedValue` + serde, `join` (AC #5).
 4. `aggregate`/`windowedAggregate` with capped lineage (AC #5).
 5. Documentation and a streams example (AC #9); contract tests land with each slice (AC #8).
@@ -104,6 +107,6 @@ This is an **opt-in** feature: when not enabled, wire format and behaviour of ex
 ### Open decisions for approval
 - Header names and comma-separated encoding.
 - Cap default (100) and oldest-first eviction.
-- Treating pass-through operators as the *same* message (ID kept) rather than generating a new one.
+- IDs minted only when publishing (`to`), in-flight records carrying origin sets, rather than IDs on every operator.
 - Global-only opt-in.
 <!-- SECTION:PLAN:END -->

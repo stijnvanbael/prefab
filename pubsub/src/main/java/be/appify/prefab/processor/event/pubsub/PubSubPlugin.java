@@ -6,13 +6,14 @@ import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.event.EventPlatformPluginSupport;
+import be.appify.prefab.processor.event.EventBindings;
+import java.util.Arrays;
 import be.appify.prefab.processor.event.EventTypeRegistrarWriter;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.derivedPlatform;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.filteredEventHandlersByOwner;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.isAvscGeneratedRecord;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.isMultiplePlatformsDetected;
 import static be.appify.prefab.processor.event.EventPlatformPluginSupport.setDerivedPlatform;
-import static java.util.Objects.requireNonNull;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
@@ -65,8 +66,11 @@ public class PubSubPlugin implements PrefabPlugin {
         if (TypeManifest.containsUnresolvedType(parameter.asType())) {
             return true;
         }
-        return TypeManifest.of(parameter.asType(), context.processingEnvironment())
-                .inheritedAnnotationsOfType(Event.class)
+        var type = TypeManifest.of(parameter.asType(), context.processingEnvironment());
+        if (!type.parameters().isEmpty() && !type.annotationsOfType(Event.class).isEmpty()) {
+            return platformIsPubSub(EventBindings.annotationFor(type), method, context);
+        }
+        return type.inheritedAnnotationsOfType(Event.class)
                 .stream()
                 .anyMatch(event -> platformIsPubSub(event, method, context));
     }
@@ -74,7 +78,8 @@ public class PubSubPlugin implements PrefabPlugin {
     private void writeRegistrars() {
         context.eventElementsIncludingConsumedDependencies()
                 .filter(e -> !isAvscGeneratedRecord(e))
-                .filter(e -> platformIsPubSub(requireNonNull(e.getAnnotation(Event.class)), e, context))
+                .filter(e -> Arrays.stream(e.getAnnotationsByType(Event.class))
+                        .anyMatch(event -> platformIsPubSub(event, e, context)))
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .map(EventPlatformPluginSupport::publisherEventType)
                 .distinct()

@@ -3,7 +3,6 @@ package be.appify.prefab.processor.event;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.annotations.PublishTo;
-import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.kafka.EventRegistryCustomizer;
 import be.appify.prefab.processor.OutputTargetFileOutput;
@@ -17,7 +16,6 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
-import com.palantir.javapoet.ParameterizedTypeName;
 import java.util.Arrays;
 import java.util.Optional;
 import javax.lang.model.element.Modifier;
@@ -25,6 +23,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import static be.appify.prefab.processor.event.ConsumerWriterSupport.keyField;
+import static be.appify.prefab.processor.event.EventBindings.typeReference;
 import static be.appify.prefab.processor.event.TopicExpressions.isExpression;
 import static org.apache.commons.lang3.StringUtils.uncapitalize;
 
@@ -152,12 +151,6 @@ public class EventTypeRegistrarWriter {
                         topic, typeReference(eventTypeName), Event.Serialization.class, serialization, extractor))
                 .orElseGet(() -> CodeBlock.of("registry.register($L, $L, $T.$L)",
                         topic, typeReference(eventTypeName), Event.Serialization.class, serialization));
-    }
-
-    private static CodeBlock typeReference(TypeName eventTypeName) {
-        return eventTypeName instanceof ParameterizedTypeName
-                ? CodeBlock.of("new $T<$T>() {}", EventType.class, eventTypeName)
-                : CodeBlock.of("$T.class", eventTypeName);
     }
 
     /**

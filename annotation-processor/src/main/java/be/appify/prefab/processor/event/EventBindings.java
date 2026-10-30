@@ -1,9 +1,14 @@
 package be.appify.prefab.processor.event;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.domain.EventType;
+import be.appify.prefab.core.serialization.EventSubscriptionNames;
 import be.appify.prefab.core.versioning.EventVersion;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
+import com.palantir.javapoet.CodeBlock;
+import com.palantir.javapoet.ParameterizedTypeName;
+import com.palantir.javapoet.TypeName;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -99,6 +104,31 @@ public final class EventBindings {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 is unavailable", e);
         }
+    }
+
+    /**
+     * Emits a class literal or captured concrete token without erasing generic arguments.
+     *
+     * @param type event Java type
+     * @return class or token expression
+     */
+    public static CodeBlock typeReference(TypeName type) {
+        return type instanceof ParameterizedTypeName
+                ? CodeBlock.of("new $T<$T>() {}", EventType.class, type)
+                : CodeBlock.of("$T.class", type);
+    }
+
+    /**
+     * Emits a broker-safe subscription identity for a generic binding and resolved topic.
+     *
+     * @param owner handler owner
+     * @param type concrete event binding
+     * @param topic resolved topic expression
+     * @return subscription name expression
+     */
+    public static CodeBlock subscriptionName(TypeManifest owner, TypeManifest type, CodeBlock topic) {
+        return CodeBlock.of("$T.name($S, $L.id(), $L)", EventSubscriptionNames.class,
+                owner.asTypeName().toString(), typeReference(type.asTypeName()), topic);
     }
 
     static List<? extends TypeMirror> argumentsOf(Event annotation, PrefabContext context) {

@@ -1,6 +1,7 @@
 package be.appify.prefab.core.pubsub;
 
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.core.serialization.ConcreteEventSupport;
 import be.appify.prefab.core.spring.JsonUtil;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -44,6 +45,7 @@ public class PubSubSerializer {
      * @return the serialized byte array
      */
     public byte[] serialize(String topic, Object data) {
+        data = ConcreteEventSupport.payloadFor(topic, data, eventRegistry);
         switch (data) {
             case null -> {
                 return null;

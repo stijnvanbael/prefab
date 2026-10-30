@@ -1,5 +1,6 @@
 package be.appify.prefab.core.pubsub;
 
+import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.kafka.EventRegistry;
 import com.google.cloud.spring.pubsub.PubSubAdmin;
 import com.google.cloud.spring.pubsub.core.subscriber.PubSubSubscriberTemplate;
@@ -154,6 +155,26 @@ public class PubSubUtil {
     }
 
     /**
+     * Checks registration without requiring the event to have exactly one topic.
+     *
+     * @param type event class
+     * @return whether any binding of the event is registered
+     */
+    public boolean hasTopicForType(Class<?> type) {
+        return eventRegistry.hasTopicForType(type);
+    }
+
+    /**
+     * Checks whether a concrete binding is registered.
+     *
+     * @param type concrete event binding
+     * @return whether the binding has registered topics
+     */
+    public boolean hasTopicForType(EventType<?> type) {
+        return !eventRegistry.topicsForType(type).isEmpty();
+    }
+
+    /**
      * Returns the ordering key for an event, if a key extractor has been registered for its type.
      *
      * @param event the event instance
@@ -221,7 +242,9 @@ public class PubSubUtil {
             request.retryTemplate().orElse(this.retryTemplate).execute(() -> {
                 var pubsubMessage = message.getPubsubMessage();
                 try {
-                    if (pubsubMessage.containsAttributes("type")) {
+                    if (request.eventType().isPresent()) {
+                        consumeConcrete(request, pubsubMessage);
+                    } else if (pubsubMessage.containsAttributes("type")) {
                         consumeTyped(request, pubsubMessage);
                     } else {
                         request.consumer().accept(deserializer.deserialize(request.topic(), pubsubMessage.getData(), request.type(), pubsubMessage.getAttributesMap()));
@@ -239,6 +262,21 @@ public class PubSubUtil {
             log.error("Retries exhausted when processing Pub/Sub message: {}", message, e);
             throw new RuntimeException(e);
         }
+    }
+
+    private <T> void consumeConcrete(SubscriptionRequest<T> request, PubsubMessage message) {
+        var type = request.eventType().orElseThrow();
+        var identity = message.getAttributesMap().get(EventType.HEADER);
+        if (identity == null) {
+            throw new IllegalArgumentException("Generic event is missing " + EventType.HEADER);
+        }
+        var registered = eventRegistry.concreteTypeFor(request.topic(), identity);
+        if (!registered.equals(type)) {
+            log.debug("Skipping concrete event [{}] for Pub/Sub binding [{}]", registered, type);
+            return;
+        }
+        request.consumer().accept(deserializer.deserialize(
+                request.topic(), message.getData(), type, message.getAttributesMap()));
     }
 
     <T> void consumeTyped(SubscriptionRequest<T> request, PubsubMessage pubsubMessage) {

@@ -6,7 +6,6 @@ import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.evolution.EventEvolutionModule;
 import be.appify.prefab.core.versioning.AvroTrees;
 import be.appify.prefab.core.versioning.EventMigrator;
-import be.appify.prefab.core.versioning.EventVersion;
 import be.appify.prefab.core.versioning.EventVersions;
 import be.appify.prefab.core.versioning.MessageVersions;
 import be.appify.prefab.core.versioning.UnsupportedEventVersionException;
@@ -147,25 +146,7 @@ public class DynamicDeserializer implements Deserializer<Object> {
         var concreteId = headerValue(headers, EventType.HEADER);
         if (concreteId != null) {
             var type = eventRegistry.concreteTypeFor(topic, concreteId);
-            var declaration = EventVersions.declarationFor(type);
-            var current = EventVersion.parse(declaration.version());
-            if (!declaration.minSupportedVersion().isBlank()
-                    && versions.event().compareTo(EventVersion.parse(declaration.minSupportedVersion())) < 0) {
-                throw new UnsupportedEventVersionException(
-                        "Event version " + versions.event() + " is below minSupportedVersion for " + type);
-            }
-            if (versions.event().major() != current.major()) {
-                throw new UnsupportedEventVersionException(
-                        "Generic event migration is not implemented for " + type + " from " + versions.event());
-            }
-            EventVersions.componentVersionsFor(type).forEach((component, version) -> {
-                var produced = versions.components().getOrDefault(component, EventVersion.INITIAL);
-                if (produced.major() != version.major()) {
-                    throw new UnsupportedEventVersionException(
-                            "Generic component migration is not implemented for " + component
-                                    + " from " + produced);
-                }
-            });
+            EventVersions.requireReadable(type, versions);
             return mapper.readValue(data, mapper.getTypeFactory().constructType(type.type()));
         }
         if (eventRegistry.hasConcreteTypes(topic) && !eventRegistry.hasTypeForTopic(topic)) {

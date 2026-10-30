@@ -3,6 +3,7 @@ package be.appify.prefab.core.kafka;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.domain.TypedEvent;
+import be.appify.prefab.core.serialization.ConcreteEventSupport;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroSerializer;
 import be.appify.prefab.core.versioning.EventVersions;
 import java.nio.charset.StandardCharsets;
@@ -62,7 +63,7 @@ public class DynamicSerializer implements Serializer<Object> {
      */
     @Override
     public byte[] serialize(String topic, Object data) {
-        requireConcreteIdentity(data);
+        ConcreteEventSupport.payloadFor(topic, data, eventRegistry);
         if (data instanceof TypedEvent<?>) {
             throw new IllegalArgumentException("Generic event serialization requires headers for " + EventType.HEADER);
         }
@@ -98,14 +99,10 @@ public class DynamicSerializer implements Serializer<Object> {
      */
     @Override
     public byte[] serialize(String topic, Headers headers, Object data) {
-        requireConcreteIdentity(data);
+        var payload = ConcreteEventSupport.payloadFor(topic, data, eventRegistry);
         if (data instanceof TypedEvent<?> typed) {
             if (headers == null) {
                 throw new IllegalArgumentException("Generic event serialization requires " + EventType.HEADER);
-            }
-            eventRegistry.concreteTypeFor(topic, typed.type().id());
-            if (eventRegistry.serialization(topic) != Event.Serialization.JSON) {
-                throw new IllegalArgumentException("Generic Avro serialization is not implemented for " + typed.type());
             }
             headers.remove(EventType.HEADER);
             headers.add(EventType.HEADER, typed.type().id().getBytes(StandardCharsets.UTF_8));
@@ -113,7 +110,7 @@ public class DynamicSerializer implements Serializer<Object> {
                 headers.remove(name);
                 headers.add(name, value.getBytes(StandardCharsets.UTF_8));
             });
-            return jsonSerializer.serialize(topic, typed.value());
+            return jsonSerializer.serialize(topic, payload);
         }
         if (headers != null && data != null && !(data instanceof String) && !(data instanceof byte[])) {
             EventVersions.headersFor(data).forEach((name, value) -> {
@@ -122,14 +119,6 @@ public class DynamicSerializer implements Serializer<Object> {
             });
         }
         return serialize(topic, data);
-    }
-
-    private static void requireConcreteIdentity(Object data) {
-        if (data != null && data.getClass().getTypeParameters().length > 0
-                && data.getClass().getAnnotationsByType(Event.class).length > 0) {
-            throw new IllegalArgumentException("Generic event serialization requires an explicit EventType: "
-                    + data.getClass().getName());
-        }
     }
 
     private GenericAvroSerializer avroSerializer() {

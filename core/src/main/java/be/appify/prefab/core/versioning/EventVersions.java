@@ -124,6 +124,33 @@ public final class EventVersions {
         return found.stream().collect(Collectors.toMap(Class::getName, EventVersions::current));
     }
 
+    /**
+     * Rejects concrete messages requiring generic migrations that are not yet implemented.
+     *
+     * @param type concrete consumer binding
+     * @param versions versions carried by the message
+     */
+    public static void requireReadable(EventType<?> type, MessageVersions versions) {
+        var declaration = declarationFor(type);
+        var current = EventVersion.parse(declaration.version());
+        if (!declaration.minSupportedVersion().isBlank()
+                && versions.event().compareTo(EventVersion.parse(declaration.minSupportedVersion())) < 0) {
+            throw new UnsupportedEventVersionException(
+                    "Event version " + versions.event() + " is below minSupportedVersion for " + type);
+        }
+        if (versions.event().major() != current.major()) {
+            throw new UnsupportedEventVersionException(
+                    "Generic event migration is not implemented for " + type + " from " + versions.event());
+        }
+        componentVersionsFor(type).forEach((component, version) -> {
+            var produced = versions.components().getOrDefault(component, EventVersion.INITIAL);
+            if (produced.major() != version.major()) {
+                throw new UnsupportedEventVersionException(
+                        "Generic component migration is not implemented for " + component + " from " + produced);
+            }
+        });
+    }
+
     private static Optional<Event> declaredEvent(Class<?> type) {
         return supertypes(type).map(candidate -> candidate.getAnnotation(Event.class)).filter(java.util.Objects::nonNull)
                 .findFirst();

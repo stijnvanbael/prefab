@@ -10,6 +10,7 @@ import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.event.ConsumerWriterSupport;
+import be.appify.prefab.processor.event.EventBindings;
 import com.google.pubsub.v1.DeadLetterPolicy;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
@@ -61,9 +62,7 @@ class PubSubSubscriberWriter {
                 context.processingEnvironment()).packageName();
 
         var topicList = eventHandlers.stream()
-                .map(e -> support.rootEventType(e, context).annotationsOfType(Event.class).stream().findFirst()
-                        .orElseThrow()
-                        .topic())
+                .map(e -> EventBindings.annotationFor(support.rootEventType(e, context)).topic())
                 .flatMap(java.util.Arrays::stream).distinct()
                 .toList();
         // Precompute unique base names to avoid collisions when the same event type maps to multiple topics
@@ -119,7 +118,8 @@ class PubSubSubscriberWriter {
                 .collect(groupingBy(e -> support.rootEventType(e, context)));
         for (Map.Entry<TypeManifest, List<ExecutableElement>> eventHandlersForEvent : eventHandlersByEventType.entrySet()) {
             var eventType = eventHandlersForEvent.getKey();
-            var method = MethodSpec.methodBuilder("on%s".formatted(eventType.simpleName().replace(".", "")))
+            var method = MethodSpec.methodBuilder("on%s".formatted(
+                            eventType.simpleName().replace(".", "") + EventBindings.suffix(eventType)))
                     .addModifiers(PRIVATE)
                     .addParameter(eventType.asTypeName(), "event")
                     .addStatement("log.debug($S, event)", "Received event {}");
@@ -178,23 +178,31 @@ class PubSubSubscriberWriter {
             MethodSpec.Builder constructor,
             String concurrency
     ) {
-        var eventType = support.eventTypeOf(eventHandlers, context, topic);
-        var eventName = eventType.simpleName().replace(".", "");
+        for (var eventType : support.subscriptionTypes(eventHandlers, context, topic)) {
+            addSubscription(owner, eventType, topic, uniqueBaseName, constructor, concurrency);
+        }
+    }
+
+    private void addSubscription(TypeManifest owner, TypeManifest eventType, String topic, String uniqueBaseName,
+                                 MethodSpec.Builder constructor, String concurrency) {
+        var eventName = eventType.simpleName().replace(".", "") + EventBindings.suffix(eventType);
+        var topicReference = isExpression(topic) ? CodeBlock.of("topic") : CodeBlock.of("$S", topic);
         var eventHandlerConfig = owner.inheritedAnnotationsOfType(EventHandlerConfig.class).stream().findFirst().orElse(null);
         var subscribe = CodeBlock.of("""
-                        pubSub.subscribe(new $T($L, $L, $T.class, this::on$L)
+                        pubSub.subscribe(new $T($L, $L, $L, this::on$L)
                         .withExecutor($T.newFixedThreadPool($L))$L)""",
                 ParameterizedTypeName.get(ClassName.get(SubscriptionRequest.class),
                         eventType.asTypeName()),
-                isExpression(topic) ? "topic" : CodeBlock.of("$S", topic),
-                subscriptionName(owner, eventName, topic),
-                eventType.asTypeName(),
+                topicReference,
+                eventType.parameters().isEmpty() ? subscriptionName(owner, eventName, topic)
+                        : EventBindings.subscriptionName(owner, eventType, topicReference),
+                EventBindings.typeReference(eventType.asTypeName()),
                 eventName,
                 ClassName.get(Executors.class),
                 concurrency.matches("\\$\\{.+}") ? "Integer.parseInt(concurrency)" : concurrency,
                 deadLetterPolicy(eventHandlerConfig));
         if (isExpression(topic)) {
-            var topicsVariableName = uniqueBaseName + "Topics";
+            var topicsVariableName = uniqueBaseName + EventBindings.suffix(eventType) + "Topics";
             constructor.addParameter(configParameter(String[].class, topicsVariableName, topic));
             constructor.beginControlFlow("for (var topic : $L)", topicsVariableName)
                     .addStatement(subscribe)

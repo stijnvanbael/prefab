@@ -1,6 +1,7 @@
 package be.appify.prefab.core.sns;
 
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.core.serialization.ConcreteEventSupport;
 import be.appify.prefab.core.spring.JsonUtil;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import java.io.ByteArrayOutputStream;
@@ -47,6 +48,7 @@ public class SnsSerializer {
      * @return the serialized String, or null if data is null
      */
     public String serialize(String topic, Object data) {
+        data = ConcreteEventSupport.payloadFor(topic, data, eventRegistry);
         if (data == null) {
             return null;
         }

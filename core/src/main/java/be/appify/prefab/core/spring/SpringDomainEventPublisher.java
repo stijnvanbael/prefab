@@ -38,7 +38,8 @@ public class SpringDomainEventPublisher extends DomainEventPublisher {
     @Deprecated(since = "0.12.2")
     public void publish(Object event) {
         var matched = dispatchers.stream()
-                .filter(d -> d.canDispatch(TypedEvent.payload(event).getClass()))
+                .filter(d -> event instanceof TypedEvent<?> typed
+                        ? d.canDispatch(typed.type()) : d.canDispatch(event.getClass()))
                 .toList();
 
         if (matched.isEmpty()) {

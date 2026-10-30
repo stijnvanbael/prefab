@@ -139,7 +139,7 @@ CHANGES.publish(new Changed<>(id, updated));
 
 `bind(Changed.class)` rejects the raw generic class. Wildcards and unresolved type variables
 are rejected by `EventType`; the publisher cannot infer concrete arguments from a payload.
-For Kafka JSON, repeat `@Event` on the generic declaration to bind each concrete argument
+For JSON on Kafka, Pub/Sub and SNS/SQS, repeat `@Event` on the generic declaration to bind each concrete argument
 set to its own topics:
 
 ```java
@@ -158,12 +158,27 @@ publication envelope; the header supplies the registered concrete Jackson target
 Unknown identities and identities registered only on another topic are rejected without
 loading classes named by message metadata. `PublishTo.ALL` applies only within one binding.
 
+Pub/Sub and SNS/SQS carry the same `prefab-event-type` identity in transport attributes.
+Their generated subscribers use `EventType`-based subscription requests and independent,
+deterministic subscription/queue names per handler owner, concrete binding and resolved
+topic. Generic names use `prefab-` plus a full SHA-256 digest (71 characters, within SQS's
+80-character limit); existing non-generic names are unchanged. Messages for another
+registered binding on a shared topic are acknowledged/deleted without calling the handler.
+Missing or unregistered identities fail explicitly. Pub/Sub's existing `type` attribute
+and SNS's subject retain the original payload class, never the `TypedEvent` wrapper.
+
+When configuring subscriptions manually, use
+`new SubscriptionRequest<>(topic, subscription, new EventType<Changed<Customer>>() {}, consumer)`
+for Pub/Sub or the corresponding `SqsSubscriptionRequest` constructor for SNS/SQS.
+Class-based constructors remain available for non-generic events. Bound publication selects
+the concrete annotation's platform, even if another parameterisation uses a different broker.
+
 `typeArguments` are positional, concrete non-generic class literals. Incorrect counts,
 duplicate bindings, violated bounds, raw arguments and handlers without a declared concrete
 binding are compiler errors. Wildcard handlers are not supported in this initial integration.
 
-TASK-303 remains in progress: generic Avro, Pub/Sub, SNS/SQS, provisioning, streams and
-per-binding evolution/migration integration are not complete. Kafka JSON stamps the exact
+TASK-303 remains in progress: generic Avro, complete declarative provisioning, streams and
+per-binding evolution/migration integration are not complete. All three JSON transports stamp the exact
 binding's version and enforces its minimum supported version; generic major-version or
 component migration is explicitly rejected rather than processed as an erased event.
 

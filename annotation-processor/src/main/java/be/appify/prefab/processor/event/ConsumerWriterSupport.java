@@ -242,8 +242,7 @@ public class ConsumerWriterSupport {
                                     String topic) {
         var eventTypes = eventHandlers.stream()
                 .map(e -> rootEventType(e, context))
-                .filter(type -> type.annotationsOfType(Event.class).stream()
-                        .anyMatch(event -> List.of(event.topic()).contains(topic)))
+                .filter(type -> List.of(EventBindings.annotationFor(type).topic()).contains(topic))
                 .collect(Collectors.toSet());
         if (eventTypes.size() > 1) {
             if (eventTypes.stream().map(TypeManifest::asElement).distinct().count() == 1) {
@@ -300,6 +299,22 @@ public class ConsumerWriterSupport {
                     ));
         }
         return type;
+    }
+
+    /**
+     * Resolves separate generic bindings sharing a topic, preserving the existing ordinary hierarchy path.
+     *
+     * @param handlers event handlers
+     * @param context processing context
+     * @param topic source topic
+     * @return concrete bindings or the common ordinary event ancestor
+     */
+    public List<TypeManifest> subscriptionTypes(List<ExecutableElement> handlers, PrefabContext context, String topic) {
+        var bindings = handlers.stream().map(handler -> rootEventType(handler, context))
+                .filter(type -> List.of(EventBindings.annotationFor(type).topic()).contains(topic))
+                .distinct().toList();
+        return bindings.stream().anyMatch(type -> !type.parameters().isEmpty())
+                ? bindings : List.of(eventTypeOf(handlers, context, topic));
     }
 
     private static void reportNoCommonAncestor(List<ExecutableElement> eventHandlers, PrefabContext context,

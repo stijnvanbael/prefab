@@ -1,9 +1,11 @@
 package be.appify.prefab.core.sns;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.versioning.AvroTrees;
 import be.appify.prefab.core.versioning.EventMigrator;
+import be.appify.prefab.core.versioning.EventVersions;
 import be.appify.prefab.core.versioning.MessageVersions;
 import be.appify.prefab.core.kafka.UnknownEventTypeException;
 import be.appify.prefab.core.spring.JsonUtil;
@@ -21,6 +23,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.JsonNode;
 
 /**
  * A deserializer for SQS messages that dynamically chooses the deserialization method based on the topic's
@@ -87,6 +90,9 @@ public class SqsDeserializer {
      */
     @SuppressWarnings("unchecked")
     public <T> T deserialize(String topic, String body, Class<T> type) {
+        if (type.getTypeParameters().length > 0) {
+            throw new IllegalArgumentException("Generic event deserialization requires an EventType: " + type.getName());
+        }
         var envelope = extractEnvelope(body);
         var serialization = eventRegistry.contains(topic) ? eventRegistry.serialization(topic) : Event.Serialization.JSON;
         var eventType = resolveEventType(envelope.typeName(), type);
@@ -103,6 +109,32 @@ public class SqsDeserializer {
         };
     }
 
+    /**
+     * Reads a notification for one registered concrete binding, skipping other bindings on the same topic.
+     *
+     * @param topic source topic
+     * @param body SNS notification envelope
+     * @param type consumer binding
+     * @param <T> event type
+     * @return the bound payload, empty only for a different registered binding
+     */
+    public <T> Optional<T> deserializeMatching(String topic, String body, EventType<T> type) {
+        var envelope = extractEnvelope(body);
+        var identity = envelope.attributes().get(EventType.HEADER);
+        if (identity == null) {
+            throw new IllegalArgumentException("Generic event is missing " + EventType.HEADER);
+        }
+        var registered = eventRegistry.concreteTypeFor(topic, identity);
+        if (!registered.equals(type)) {
+            return Optional.empty();
+        }
+        if (eventRegistry.serialization(topic) != Event.Serialization.JSON) {
+            throw new IllegalArgumentException("Generic Avro deserialization is not implemented for " + type);
+        }
+        EventVersions.requireReadable(type, MessageVersions.from(envelope.attributes()::get));
+        return Optional.of(jsonUtil.parseJson(envelope.payload(), type));
+    }
+
     private Class<?> resolveEventType(String typeName, Class<?> type) {
         return Optional.ofNullable(typeName).flatMap(eventRegistry::typeByClassName)
                 .filter(type::isAssignableFrom).orElse((Class) type);
@@ -111,24 +143,30 @@ public class SqsDeserializer {
     private record SnsEnvelope(String payload, String typeName, Map<String, String> attributes) {
     }
 
-    @SuppressWarnings("unchecked")
     private SnsEnvelope extractEnvelope(String body) {
-        try {
-            var parsed = (Map<String, Object>) jsonUtil.parseJson(body, Map.class);
-            var payload = parsed.containsKey("Message") ? (String) parsed.get("Message") : body;
-            var typeName = parsed.containsKey("Subject") ? (String) parsed.get("Subject") : null;
-            return new SnsEnvelope(payload, typeName, messageAttributes(parsed.get("MessageAttributes")));
-        } catch (Exception e) {
+        if (!body.stripLeading().startsWith("{")) {
             return new SnsEnvelope(body, null, Map.of());
         }
+        var parsed = jsonMapper.readTree(body);
+        if (!parsed.isObject() || !parsed.has("Message")) {
+            return new SnsEnvelope(body, null, Map.of());
+        }
+        var message = parsed.get("Message");
+        if (!message.isString()) {
+            throw new IllegalArgumentException("SNS notification Message must be a string");
+        }
+        var subject = parsed.get("Subject");
+        return new SnsEnvelope(message.asText(), subject == null ? null : subject.asText(),
+                messageAttributes(parsed.get("MessageAttributes")));
     }
 
-    private static Map<String, String> messageAttributes(Object attributes) {
+    private static Map<String, String> messageAttributes(JsonNode attributes) {
         var result = new HashMap<String, String>();
-        if (attributes instanceof Map<?, ?> map) {
-            map.forEach((name, attribute) -> {
-                if (attribute instanceof Map<?, ?> details && details.get("Value") != null) {
-                    result.put(name.toString(), details.get("Value").toString());
+        if (attributes != null && attributes.isObject()) {
+            attributes.properties().forEach(entry -> {
+                var value = entry.getValue().get("Value");
+                if (value != null && value.isString()) {
+                    result.put(entry.getKey(), value.asText());
                 }
             });
         }

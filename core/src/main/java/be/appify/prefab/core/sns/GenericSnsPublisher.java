@@ -1,11 +1,16 @@
 package be.appify.prefab.core.sns;
 
+import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.DomainEventDispatcher;
+import be.appify.prefab.core.domain.EventType;
+import be.appify.prefab.core.domain.TypedEvent;
+import be.appify.prefab.core.serialization.ConcreteEventSupport;
 import be.appify.prefab.core.versioning.EventVersions;
 import io.awspring.cloud.sns.core.SnsNotification;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -40,7 +45,13 @@ public class GenericSnsPublisher implements DomainEventDispatcher {
 
     @Override
     public boolean canDispatch(Class<?> eventType) {
-        return sqsUtil.tryTopicForType(eventType).isPresent();
+        return sqsUtil.hasTopicForType(eventType);
+    }
+
+    @Override
+    public boolean canDispatch(EventType<?> eventType) {
+        return sqsUtil.hasTopicForType(eventType)
+                && ConcreteEventSupport.usesPlatform(eventType, Event.Platform.SNS_SQS);
     }
 
     @Override
@@ -54,13 +65,17 @@ public class GenericSnsPublisher implements DomainEventDispatcher {
             var topicArn = topicArnCache.computeIfAbsent(resolvedTopic, sqsUtil::ensureTopicExists);
             log.debug("Publishing event {} on topic {}", event, topicArn);
             var payload = snsSerializer.serialize(resolvedTopic, event);
-            var versionHeaders = EventVersions.headersFor(event);
+            var versionHeaders = new HashMap<>(EventVersions.headersFor(event));
+            if (event instanceof TypedEvent<?> typed) {
+                versionHeaders.put(EventType.HEADER, typed.type().id());
+            }
+            var subject = TypedEvent.payload(event).getClass().getName();
             CompletableFuture.runAsync(() -> {
                 if (versionHeaders.isEmpty()) {
-                    snsTemplate.sendNotification(topicArn, payload, event.getClass().getName());
+                    snsTemplate.sendNotification(topicArn, payload, subject);
                 } else {
                     snsTemplate.sendNotification(topicArn, SnsNotification.builder(payload)
-                            .subject(event.getClass().getName())
+                            .subject(subject)
                             .headers(Map.copyOf(versionHeaders))
                             .build());
                 }

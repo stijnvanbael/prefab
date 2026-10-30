@@ -4,7 +4,7 @@ title: Support generic event types in all event related features
 status: In Progress
 assignee: []
 created_date: '2026-10-30 14:08'
-updated_date: '2026-10-30 18:50'
+updated_date: '2026-10-30 22:08'
 labels:
   - events
   - generics
@@ -38,9 +38,9 @@ Today event handling is keyed on the raw `Class` of the event. Parameterised eve
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 An analysis documents how generic events are identified (topic, schema name, registry key) and records the decisions as an ADR.
-- [ ] #2 A parameterised event can be declared, published and handled for a concrete parameterisation with JSON serialization.
+- [x] #2 A parameterised event can be declared, published and handled for a concrete parameterisation with JSON serialization.
 - [ ] #3 Avro schemas are generated and registered for parameterised events with deterministic, collision-free names.
-- [ ] #4 Event handlers for different parameterisations of the same event type receive only their own events.
+- [x] #4 Event handlers for different parameterisations of the same event type receive only their own events.
 - [ ] #5 Kafka, Pub/Sub and SNS/SQS publish and consume generic events, including topic/queue provisioning.
 - [ ] #6 Prefab streams (`from`, `to`, `join`, `aggregate`, processors) and the topology test API support generic events.
 - [ ] #7 Event versioning and schema evolution work for generic events.
@@ -55,6 +55,9 @@ Today event handling is keyed on the raw `Class` of the event. Parameterised eve
 
 <!-- SECTION:PLAN:BEGIN -->
 ### Implementation progress
+- Pub/Sub and SNS/SQS JSON integration now preserves concrete identity in attributes and original payload class metadata, resolves full JSON target types, and uses token-aware subscription requests. Generated subscribers create independent names for each owner/binding/resolved topic, including shared topics and property expressions; names use a full digest within SQS's 80-character limit. Ordinary subscription names are unchanged.
+- Spring dispatch now offers a token-aware `canDispatch` overload, with a default bridge for custom dispatchers. Built-in dispatchers select the concrete binding's platform rather than claiming every parameterisation by raw class. Shared publication validation and event/component version guards are reused across all three JSON transports.
+- Resuming transport integration: preserve concrete identity in Pub/Sub attributes and SNS notification attributes, add token-aware subscription requests, and generate independent subscriptions/queues for bindings sharing a topic. Reuse Kafka's version checks across all JSON transports; preserve existing class-based request APIs and non-generic wire contracts. Verify runtime payloads, subscription isolation, multi-topic dispatch and generated Java before committing.
 - Kafka JSON slice: repeated declarations are discovered without handlers; concrete registrars, resolved member types, binding-specific object mothers and AsyncAPI components are generated. Kafka listeners use each binding's topics and canonical identity guard. JSON serialization writes only the payload plus identity/version headers, and deserialization resolves only topic-registered concrete tokens.
 - Validation now runs before generation, with diagnostics for wrong argument counts, duplicate bindings, raw/primitive/array arguments and undeclared/raw/wildcard/type-variable handler bindings. Bound substitution handles dependent and self-referential bounds without recursive raw manifest expansion. Generic Avro and migration remain unsupported and must not be mistaken for completed support.
 - Resuming with processor binding discovery/validation and Kafka JSON routing. Verify publisher-only repeated declarations, generated concrete registrations and handler topic isolation before extending the remaining Avro/transport/streams surfaces.
@@ -79,7 +82,7 @@ Today event handling is keyed on the raw `Class` of the event. Parameterised eve
 
 ### Agreed declaration shape: one generic event, different topics per parameterisation
 
-The following is the agreed API for TASK-303, now implemented for concrete Kafka JSON bindings. The other transports, provisioning and Avro remain in progress. The user selected repeatable `@Event` declarations with `typeArguments` rather than annotated type-token fields.
+The following is the agreed API for TASK-303, now implemented for concrete JSON bindings on Kafka, Pub/Sub and SNS/SQS. Declarative provisioning and Avro remain in progress. The user selected repeatable `@Event` declarations with `typeArguments` rather than annotated type-token fields.
 
 ```java
 import be.appify.prefab.core.annotations.Event;
@@ -157,8 +160,8 @@ requires no registry/broker access. Publishing requires an active `DomainEventPu
 (or the capturing test publisher) and fails explicitly if none is registered.
 `CHANGES.publish(new Changed<Product>(...))` is a compile-time type error.
 Legacy direct `publish(...)` calls remain available with deprecation warnings during
-migration; this is not a compile-time ban. Concrete Kafka JSON routing is implemented;
-generic routing on other transports still depends on the remaining TASK-303 work.
+migration; this is not a compile-time ban. Concrete JSON routing is implemented on
+Kafka, Pub/Sub and SNS/SQS; generic Avro, streams and migration remain unfinished.
 
 ### Implementation steps
 1. **Settle contract and record ADR.** Record the agreed repeatable `@Event(typeArguments)` declaration and its class-literal limits. Confirm explicit publication/type-token API, metadata encoding, deterministic schema naming, duplicate/collision handling, version/evolution baseline identity, and transport limitations. Map each decision to acceptance criteria and retain current non-generic topic names and bytes.
@@ -191,4 +194,6 @@ generic routing on other transports still depends on the remaining TASK-303 work
 - Added compiler tests for binding discovery, invalid argument forms, duplicate bindings and bounds; runtime JSON tests for shared topics, spoofed/missing identity, payload wire shape, component metadata and version rejection; tests invoke the actual compiled generated listeners to verify shared-topic isolation. Documentation describes this partial integration and its remaining limits.
 - Verification of the Kafka JSON slice: the full `mvn -q -pl kafka -am test` reactor passed. Final focused checks including `GenericKafkaBindingTest`, `GenericEventBindingTest`, `GenericJsonEventTest`, `EventSchemaDocumentationWriterTest`, `EventVersionsTest` and `EventMigratorTest` passed after fixing a test fixture's `PUBSUB`/`PUB_SUB` enum spelling. The subsequent full `mvn -q --fail-at-end test` attempt reached the Pub/Sub example but stalled pulling `gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators`; its 120-second pull watchdog aborted and retried. Stopped the stalled owned Maven process. This attempt is not a full green reactor; its earlier Kafka fixture failure was corrected and independently rerun. Logs are retained in the session's `files/task-303-kafka-reactor.log`, `task-303-bindings-final.log` and `task-303-reactor-current.log`.
 - Remaining work: concrete Avro schemas/converters/reader registration; Pub/Sub and SNS/SQS runtime/generation plus provisioning; stream and topology APIs; per-binding evolution baselines and event/component migrations. Leave TASK-303 In Progress and do not infer completion of AC #2-11 from this Kafka-only slice.
+- Subsequent transport slice implements Pub/Sub and SNS/SQS JSON runtime/generation. Tests cover original payload bytes, concrete deserialization, shared-topic skips and acknowledgement/deletion, message identity/type/version attributes, exact-platform dispatch through Spring, generated token subscriptions on literal/shared/property-expression topics, and deterministic broker-safe names. The full `mvn -q -pl kafka,pubsub,sns-sqs -am test` module reactor passed; final focused checks additionally cover actual SQS consumption and the new platform-dispatch scenarios.
+- Still unfinished: generic Avro; declarative provisioning (including repeated-binding discovery in Terraform); stream/topology APIs; per-binding evolution baselines and event/component migrations. Existing runtime Pub/Sub and SNS/SQS subscribe/publish paths create their topics/subscriptions/queues, but this does not complete declarative provisioning or the broader task. Full-reactor validation is being attempted separately; keep TASK-303 In Progress.
 - Focused publication/compiler/test-infrastructure checks pass. The first full `mvn test` run stopped on an `EventConsumerWhereStepTest.customAssertClassPropagatesAssertionFailures` timeout; the same test passed on isolated retry. A second `mvn --fail-at-end test` run reached `SaleIntegrationTest` but could not fetch `confluentinc/cp-schema-registry:8.4.0` (connection reset / HTTP 416); the Kafka example then stalled pulling the same image and hit the 120-second pull watchdog. Stopped the repeated image pulls. The complete reactor is not green and later modules were not all verified; do not treat this as full TASK-303 completion.

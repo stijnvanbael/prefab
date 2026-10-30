@@ -132,9 +132,9 @@ Everything else (`keyBy`/`repartition` topics, `to`, sources) is unchanged on th
 4. `aggregate`/`windowedAggregate` with capped lineage (AC #5).
 5. Documentation and a streams example (AC #9); contract tests land with each slice (AC #8).
 
-### Open decisions for approval
-- Header names and comma-separated encoding.
-- Cap default (100) and oldest-first eviction.
-- IDs minted only when publishing (`to`), in-flight records carrying origin sets, rather than IDs on every operator.
-- Global-only opt-in.
+### Decisions (approved)
+- Header names `prefab-message-id` and `prefab-correlation-ids`; correlation IDs are comma-separated in a single header so the encoding also works for systems without multi-value headers (Kafka itself supports repeated headers).
+- Correlation ID cap defaults to 100 with oldest-first eviction.
+- Message IDs are minted only when publishing (`to`); in-flight records carry origin sets.
+- Opt-in is global only.
 <!-- SECTION:PLAN:END -->

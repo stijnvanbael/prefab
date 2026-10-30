@@ -16,6 +16,7 @@ import be.appify.prefab.streams.StreamBackend;
 import be.appify.prefab.streams.StreamBreakoutAdapter;
 import be.appify.prefab.streams.StreamDefinition;
 import be.appify.prefab.streams.StreamProcessor;
+import be.appify.prefab.streams.tracing.TracingConfig;
 import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
 import java.util.Collection;
@@ -73,9 +74,10 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
     private final Serde<K> keySerde;
     private final PrefabStreams streams;
     private final StreamStepNames stepNames;
+    private final TracingConfig tracing;
 
     /**
-     * Constructs a new KafkaPrefabStream.
+     * Constructs a new KafkaPrefabStream with message tracing disabled.
      */
     public KafkaPrefabStream(
             StreamsBuilder streamsBuilder,
@@ -92,8 +94,30 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
             StreamStepNames stepNames
     ) {
         this(streamsBuilder, stream, topicResolver, serializer, deserializer, jsonMapper, conversionService, kafkaClientProperties,
+                valueType, streams, keySerde, stepNames, TracingConfig.disabled());
+    }
+
+    /**
+     * Constructs a new KafkaPrefabStream.
+     */
+    public KafkaPrefabStream(
+            StreamsBuilder streamsBuilder,
+            KStream<K, V> stream,
+            KafkaTopicResolver topicResolver,
+            DynamicSerializer serializer,
+            DynamicDeserializer deserializer,
+            JsonMapper jsonMapper,
+            ConversionService conversionService,
+            Map<String, Object> kafkaClientProperties,
+            @NotNull Class<V> valueType,
+            PrefabStreams streams,
+            Serde<K> keySerde,
+            StreamStepNames stepNames,
+            TracingConfig tracing
+    ) {
+        this(streamsBuilder, stream, topicResolver, serializer, deserializer, jsonMapper, conversionService, kafkaClientProperties,
                 ValueTypeHint.known(Objects.requireNonNull(valueType, "valueType must not be null")), streams, keySerde,
-                stepNames);
+                stepNames, tracing);
     }
 
     private KafkaPrefabStream(
@@ -108,8 +132,10 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
             ValueTypeHint<V> valueType,
             PrefabStreams streams,
             Serde<K> keySerde,
-            StreamStepNames stepNames
+            StreamStepNames stepNames,
+            TracingConfig tracing
     ) {
+        this.tracing = Objects.requireNonNull(tracing, "tracing must not be null");
         this.streamsBuilder = streamsBuilder;
         this.stream = stream;
         this.topicResolver = topicResolver;
@@ -448,7 +474,11 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
         // DynamicSerializer/Deserializer work on Object at runtime; the cast to Serde<V> is safe
         // because the backend selects serialization by topic, not by the generic type parameter.
         var valueSerde = new SerdeAdapter<V>(serializer.adapt(), deserializer.adapt());
-        stream.to(topic, Produced.with(keySerde, valueSerde));
+        var published = tracing.enabled()
+                ? stream.processValues(KafkaMessageTracing.<K, V>publish(),
+                        Named.as(stepNames.nextTracePublishName(inputTypeOrNull())))
+                : stream;
+        published.to(topic, Produced.with(keySerde, valueSerde));
         return end();
     }
 
@@ -502,7 +532,8 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
                 valueType,
                 streams,
                 keySerde,
-                stepNames
+                stepNames,
+                tracing
         );
     }
 

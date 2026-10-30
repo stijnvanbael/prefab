@@ -32,9 +32,21 @@ public interface TopologyTestHarness {
      * @throws IllegalStateException when no backend is available
      */
     static TopologyTestHarness create(String appId) {
+        return create(appId, false);
+    }
+
+    /**
+     * Creates a harness for the backend that is available on the classpath.
+     *
+     * @param appId   the application id, used to derive topic names
+     * @param tracing whether message and correlation IDs are tracked
+     * @return a new harness
+     * @throws IllegalStateException when no backend is available
+     */
+    static TopologyTestHarness create(String appId, boolean tracing) {
         return ServiceLoader.load(Factory.class).findFirst()
                 .orElseThrow(() -> new IllegalStateException("No TopologyTestHarness.Factory found on the classpath"))
-                .create(appId);
+                .create(appId, tracing);
     }
 
     /** Creates harnesses for one backend. */
@@ -45,6 +57,17 @@ public interface TopologyTestHarness {
          * @param appId the application id, used to derive topic names
          * @return a new harness
          */
-        TopologyTestHarness create(String appId);
+        default TopologyTestHarness create(String appId) {
+            return create(appId, false);
+        }
+
+        /**
+         * Creates a harness.
+         *
+         * @param appId   the application id, used to derive topic names
+         * @param tracing whether message and correlation IDs are tracked
+         * @return a new harness
+         */
+        TopologyTestHarness create(String appId, boolean tracing);
     }
 }

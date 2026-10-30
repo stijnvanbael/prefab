@@ -41,14 +41,16 @@ public final class TopologyTestExtension implements BeforeEachCallback, AfterEac
     private static final String DEFAULT_APP_ID = "test";
 
     private final String appId;
+    private final boolean tracing;
 
     /** Constructs an extension that uses the default application id. */
     public TopologyTestExtension() {
-        this(DEFAULT_APP_ID);
+        this(DEFAULT_APP_ID, false);
     }
 
-    private TopologyTestExtension(String appId) {
+    private TopologyTestExtension(String appId, boolean tracing) {
         this.appId = appId;
+        this.tracing = tracing;
     }
 
     /**
@@ -58,7 +60,16 @@ public final class TopologyTestExtension implements BeforeEachCallback, AfterEac
      * @return the extension
      */
     public static TopologyTestExtension withAppId(String appId) {
-        return new TopologyTestExtension(appId);
+        return new TopologyTestExtension(appId, false);
+    }
+
+    /**
+     * Creates an extension that tracks message and correlation IDs.
+     *
+     * @return the extension
+     */
+    public static TopologyTestExtension withTracing() {
+        return new TopologyTestExtension(DEFAULT_APP_ID, true);
     }
 
     @Override
@@ -95,7 +106,7 @@ public final class TopologyTestExtension implements BeforeEachCallback, AfterEac
     }
 
     private Environment createEnvironment() {
-        var harness = TopologyTestHarness.create(appId);
+        var harness = TopologyTestHarness.create(appId, tracing);
         return new Environment(harness.streams(), new LazyTopologySession(harness::start));
     }
 

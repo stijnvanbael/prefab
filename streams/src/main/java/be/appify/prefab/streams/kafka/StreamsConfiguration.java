@@ -7,6 +7,7 @@ import be.appify.prefab.core.kafka.KafkaConfiguration;
 import be.appify.prefab.core.spring.PrefabCoreConfiguration;
 import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.StreamDefinition;
+import be.appify.prefab.streams.tracing.TracingConfig;
 import java.util.HashMap;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.StreamsBuilder;
@@ -71,6 +72,14 @@ public class StreamsConfiguration {
     }
 
     @Bean
+    TracingConfig streamsTracingConfig(
+            @Value("${prefab.streams.tracing.enabled:false}") boolean enabled,
+            @Value("${prefab.streams.tracing.max-correlation-ids:100}") int maxCorrelationIds
+    ) {
+        return new TracingConfig(enabled, maxCorrelationIds);
+    }
+
+    @Bean
     PrefabStreams prefabStreams(
             StreamsBuilder streamsBuilder,
             KafkaTopicResolver topicResolver,
@@ -78,7 +87,8 @@ public class StreamsConfiguration {
             DynamicDeserializer deserializer,
             JsonMapper jsonMapper,
             ConversionService conversionService,
-            KafkaProperties kafkaProperties
+            KafkaProperties kafkaProperties,
+            TracingConfig tracingConfig
     ) {
         return new KafkaPrefabStreams(
                 streamsBuilder,
@@ -87,7 +97,8 @@ public class StreamsConfiguration {
                 deserializer,
                 jsonMapper,
                 conversionService,
-                kafkaProperties.buildProducerProperties());
+                kafkaProperties.buildProducerProperties(),
+                tracingConfig);
     }
 
     @Bean

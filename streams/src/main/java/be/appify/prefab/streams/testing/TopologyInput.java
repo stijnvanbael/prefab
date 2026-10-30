@@ -58,4 +58,13 @@ public interface TopologyInput<K, V extends Keyed<K>> {
      * @return this input, to chain further records
      */
     TopologyInput<K, V> sendTombstone(K key);
+
+    /**
+     * Sends a record that already carries a message ID, as if it was published by a tracing stream.
+     *
+     * @param value     the record value, its key is used
+     * @param messageId the ID of the message
+     * @return this input, to chain further records
+     */
+    TopologyInput<K, V> sendWithMessageId(V value, String messageId);
 }

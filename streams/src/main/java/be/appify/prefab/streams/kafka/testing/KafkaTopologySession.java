@@ -10,10 +10,13 @@ import be.appify.prefab.streams.testing.TopologyInput;
 import be.appify.prefab.streams.testing.TopologyInspection;
 import be.appify.prefab.streams.testing.TopologyOutput;
 import be.appify.prefab.streams.testing.TopologySession;
+import be.appify.prefab.streams.tracing.MessageTracing;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
+import org.apache.kafka.common.header.internals.RecordHeaders;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.streams.TestInputTopic;
@@ -21,6 +24,7 @@ import org.apache.kafka.streams.Topology;
 import org.apache.kafka.streams.TestOutputTopic;
 import org.apache.kafka.streams.TopologyDescription;
 import org.apache.kafka.streams.TopologyTestDriver;
+import org.apache.kafka.streams.test.TestRecord;
 import org.apache.kafka.streams.state.KeyValueStore;
 
 import static be.appify.prefab.streams.kafka.KafkaPrefabStreams.keyTypeOf;
@@ -141,9 +145,32 @@ final class KafkaTopologySession implements TopologySession {
             topic.pipeInput(key, null);
             return this;
         }
+        @Override
+        public TopologyInput<K, V> sendWithMessageId(V value, String messageId) {
+            var headers = new RecordHeaders()
+                    .add(MessageTracing.MESSAGE_ID_HEADER, messageId.getBytes(StandardCharsets.UTF_8));
+            topic.pipeInput(new TestRecord<>(value.key(), value, headers, Instant.now()));
+            return this;
+        }
     }
 
     private record KafkaOutput<K, V>(TestOutputTopic<K, V> topic) implements TopologyOutput<K, V> {
+        @Override
+        public List<Message<K, V>> messages() {
+            return topic.readRecordsToList().stream()
+                    .map(record -> new Message<>(
+                            record.key(),
+                            record.value(),
+                            Optional.ofNullable(headerValue(record, MessageTracing.MESSAGE_ID_HEADER)),
+                            MessageTracing.decode(headerValue(record, MessageTracing.CORRELATION_IDS_HEADER))))
+                    .toList();
+        }
+
+        private static String headerValue(TestRecord<?, ?> record, String name) {
+            var header = record.headers().lastHeader(name);
+            return header == null ? null : new String(header.value(), StandardCharsets.UTF_8);
+        }
+
         @Override
         public List<V> values() {
             return topic.readValuesToList();

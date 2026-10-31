@@ -215,6 +215,14 @@ a different binding rather than delivering an incorrectly typed value. Kafka per
 only one global store per source topic, and that topic cannot also be a regular source.
 Tracing metadata continues through generic map, repartition and join operations.
 
+Configured Kafka, Pub/Sub and SNS/SQS brokers provision all resolved generic topics at
+startup, including bindings with no handlers and every fan-out target. This requires
+the broker permissions needed to inspect/create those resources. Kafka uses broker
+defaults for partition count and replication factor. Existing ordinary topic provisioning
+is unchanged. GCP Terraform generates literal generic topics and matching handler
+subscriptions; unresolved Spring property/SpEL topics instead produce an explicit
+compiler warning and must be managed separately if using Terraform.
+
 ---
 
 ## 7.3 Event Handling

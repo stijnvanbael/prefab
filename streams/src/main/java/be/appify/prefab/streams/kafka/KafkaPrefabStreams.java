@@ -121,7 +121,11 @@ public class KafkaPrefabStreams implements PrefabStreams {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public <K, V extends Keyed<K>> PrefabStream<K, V> from(EventType<V> type) {
+        if (type.type() instanceof Class<?> raw) {
+            return from((Class<V>) raw);
+        }
         var topic = topicResolver.topicForType(type);
         var keySerde = new StringKeySerde<K>(keyTypeOf(type));
         KStream<K, V> source = streamsBuilder.stream(topic,

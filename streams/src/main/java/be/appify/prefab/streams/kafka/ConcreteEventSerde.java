@@ -4,6 +4,7 @@ import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.domain.TypedEvent;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
+import java.nio.charset.StandardCharsets;
 import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.header.internals.RecordHeaders;
 import org.apache.kafka.common.serialization.Deserializer;
@@ -30,7 +31,8 @@ public final class ConcreteEventSerde<T> implements Serde<T> {
                 return serialize(topic, new RecordHeaders(), value);
             }
             public byte[] serialize(String topic, Headers headers, T value) {
-                return writer.serialize(topic, headers, value == null ? null : new TypedEvent<>(type, value));
+                return writer.serialize(topic, headers, value == null || type.type() instanceof Class<?>
+                        ? value : new TypedEvent<>(type, value));
             }
         };
     }
@@ -46,9 +48,16 @@ public final class ConcreteEventSerde<T> implements Serde<T> {
                 if (data == null) {
                     return null;
                 }
+                if (type.type() instanceof Class<?> raw) {
+                    var value = reader.deserialize(topic, headers, data);
+                    if (!raw.isInstance(value)) {
+                        throw new IllegalArgumentException("Message does not match stream binding " + type);
+                    }
+                    return (T) value;
+                }
                 var header = headers == null ? null : headers.lastHeader(EventType.HEADER);
                 if (header == null || !type.id().equals(new String(header.value(),
-                        java.nio.charset.StandardCharsets.UTF_8))) {
+                        StandardCharsets.UTF_8))) {
                     throw new IllegalArgumentException("Message does not match concrete stream binding " + type);
                 }
                 return (T) reader.deserialize(topic, headers, data);

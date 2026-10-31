@@ -18,6 +18,11 @@
             <artifactId>prefab-annotation-processor</artifactId>
         </dependency>
         <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-pubsub</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
             <scope>provided</scope>

@@ -85,6 +85,23 @@ The consumer:
 - Generates per-topic executor fields to prevent cross-topic deadlocks
 - Ignores messages whose event type is not registered locally and continues processing subsequent known events
 
+For repeatable generic `@Event` declarations, registrars and fixture builders are
+generated separately for every concrete binding, including publisher-only events.
+Their names append the full SHA-256 digest of the canonical type identity, and member
+types are substituted before generation. AsyncAPI components and Avro schemas/converters
+also retain independent binding identities; ordinary names remain unchanged.
+Generated handlers use concrete parameter types and guard the binding metadata before
+dispatch. Pub/Sub subscriptions and SQS queues are named from the complete owner,
+canonical type and resolved topic, so different bindings sharing a topic stay isolated.
+
+At startup, configured brokers provision every resolved generic topic and fan-out target.
+GCP Terraform emits deduplicated generic topic fragments and exact handler subscription
+fragments alongside `pubsub.tf`; separate files allow bindings discovered in later
+processing rounds to be included without rewriting existing resources. Generic topic
+property/SpEL expressions are provisioned at runtime: Terraform generation emits an
+explicit warning rather than embedding unresolved expressions as invalid HCL. Supply
+resolved Terraform resources separately when managing those expressions declaratively.
+
 ---
 
 ## 6.6 Database Migration Scripts

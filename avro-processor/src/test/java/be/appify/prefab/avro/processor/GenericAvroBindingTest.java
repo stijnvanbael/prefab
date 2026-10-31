@@ -10,6 +10,30 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class GenericAvroBindingTest {
     @Test
+    void detectsPayloadSchemaCollisionsInAnOverriddenNamespaceAcrossJavaPackages() {
+        var compilation = javac().withProcessors(new PrefabProcessor()).compile(
+                JavaFileObjects.forSourceString("generic.Changed", """
+                        package generic;
+                        import be.appify.prefab.core.annotations.Event;
+                        @Event(topic = "first", serialization = Event.Serialization.AVRO, typeArguments = a.Payload.class)
+                        @Event(topic = "second", serialization = Event.Serialization.AVRO, typeArguments = b.Payload.class)
+                        public record Changed<T>(T payload) {}
+                        """),
+                JavaFileObjects.forSourceString("a.Payload", """
+                        package a;
+                        @be.appify.prefab.core.annotations.AvroSchema(namespace = "shared", name = "Payload")
+                        public record Payload(String value, int count) {}
+                        """),
+                JavaFileObjects.forSourceString("b.Payload", """
+                        package b;
+                        @be.appify.prefab.core.annotations.AvroSchema(namespace = "shared", name = "Payload")
+                        public record Payload(String value, int count) {}
+                        """));
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("Avro schema name collision between");
+    }
+
+    @Test
     void generatesIndependentSchemasConvertersAndRegistrations() throws Exception {
         var compilation = javac().withProcessors(new PrefabProcessor()).compile(
                 JavaFileObjects.forSourceString("generic.Changed", """

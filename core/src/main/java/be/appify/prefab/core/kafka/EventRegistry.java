@@ -5,6 +5,7 @@ import be.appify.prefab.core.annotations.PreviousName;
 import be.appify.prefab.core.annotations.PublishTo;
 import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.domain.TypedEvent;
+import be.appify.prefab.core.serialization.ConcreteEventSupport;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -14,6 +15,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 
@@ -59,7 +61,12 @@ public class EventRegistry {
      * @param serialization payload format
      * @param <E> event type
      */
+    @SuppressWarnings("unchecked")
     public <E> void register(String topic, EventType<E> type, Event.Serialization serialization) {
+        if (type.type() instanceof Class<?> raw) {
+            register(topic, (Class<E>) raw, serialization);
+            return;
+        }
         var existing = serializations.putIfAbsent(topic, serialization);
         if (existing != null && existing != serialization) {
             throw new IllegalArgumentException("Conflicting serialization formats for topic: " + topic);
@@ -81,6 +88,10 @@ public class EventRegistry {
     @SuppressWarnings("unchecked")
     public <E> void register(String topic, EventType<E> type, Event.Serialization serialization,
                              Function<E, String> extractor) {
+        if (type.type() instanceof Class<?> raw) {
+            register(topic, (Class<E>) raw, serialization, extractor);
+            return;
+        }
         register(topic, type, serialization);
         concreteKeys.put(type, value -> extractor.apply((E) value));
     }
@@ -102,6 +113,9 @@ public class EventRegistry {
      * @return the configured topics
      */
     public Set<String> topicsForType(EventType<?> type) {
+        if (type.type() instanceof Class<?> raw) {
+            return topicsForType(raw);
+        }
         return Set.copyOf(concreteTopics.getOrDefault(type, Set.of()));
     }
 
@@ -142,6 +156,17 @@ public class EventRegistry {
      */
     public boolean hasConcreteTypes(String topic) {
         return concreteTopics.values().stream().anyMatch(topics -> topics.contains(topic));
+    }
+
+    /**
+     * Returns every resolved topic belonging to a concrete binding on the given platform.
+     * @param platform target broker
+     * @return unique resolved topics, including publisher-only bindings and all fan-out targets
+     */
+    public Set<String> concreteTopicsFor(Event.Platform platform) {
+        return concreteTopics.entrySet().stream()
+                .filter(entry -> ConcreteEventSupport.usesPlatform(entry.getKey(), platform))
+                .flatMap(entry -> entry.getValue().stream()).collect(Collectors.toUnmodifiableSet());
     }
 
     /**

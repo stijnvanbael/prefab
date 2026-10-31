@@ -4,3 +4,4 @@ be.appify.prefab.core.tenant.TenantConfiguration
 be.appify.prefab.core.kafka.KafkaConfiguration
 be.appify.prefab.core.pubsub.PubSubConfiguration
 be.appify.prefab.core.sns.SnsConfiguration
+be.appify.prefab.core.serialization.GenericEventProvisioningConfiguration

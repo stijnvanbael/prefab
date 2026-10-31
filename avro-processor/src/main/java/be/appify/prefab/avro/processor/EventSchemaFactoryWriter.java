@@ -204,7 +204,7 @@ class EventSchemaFactoryWriter {
         });
     }
 
-    private String avroNamespaceOf(TypeManifest type) {
+    String avroNamespaceOf(TypeManifest type) {
         // @AvroSchema.namespace() takes precedence, then the AVSC file namespace, then the Java package name.
         return type.annotationsOfType(AvroSchema.class).stream()
                 .map(AvroSchema::namespace)

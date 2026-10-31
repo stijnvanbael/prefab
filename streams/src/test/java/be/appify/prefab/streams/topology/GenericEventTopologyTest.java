@@ -20,6 +20,25 @@ class GenericEventTopologyTest {
     @TestStreams PrefabStreams streams;
     @TestStreams TopologySession topology;
 
+    @Event(topic = "ordinary")
+    public record Ordinary(String id, String payload) implements Keyed<String> {
+        public String key() { return id; }
+    }
+    @Event(topic = "ordinary-out")
+    public record OrdinaryResult(String id, String payload) implements Keyed<String> {
+        public String key() { return id; }
+    }
+
+    @Test
+    void ordinaryEventTokensRetainClassBasedSerializationAndRouting() {
+        var type = EventType.of(Ordinary.class);
+        var output = EventType.of(OrdinaryResult.class);
+        streams.from(type).filter(event -> !event.payload().isEmpty())
+                .map(event -> new OrdinaryResult(event.id(), event.payload())).to(output);
+        topology.input(type).send(new Ordinary("a", "value"));
+        assertThat(topology.output(output).values()).containsExactly(new OrdinaryResult("a", "value"));
+    }
+
     @Event(topic = "shared", typeArguments = String.class)
     @Event(topic = "shared", typeArguments = Integer.class)
     public record Changed<T>(String id, T payload) implements Keyed<String> {

@@ -89,7 +89,7 @@ public class AvroPlugin implements PrefabPlugin {
         if (writtenTypeNames.contains(key)) {
             return;
         }
-        var schemaName = type.packageName() + "." + EventSchemaFactoryWriter.avroSchemaNameOf(type);
+        var schemaName = eventSchemaFactoryWriter.avroNamespaceOf(type) + "." + EventSchemaFactoryWriter.avroSchemaNameOf(type);
         var owner = schemaOwners.putIfAbsent(schemaName, type);
         if (owner != null && !owner.equals(type)) {
             context.logError("Avro schema name collision between " + owner + " and " + type, type.asElement());
@@ -144,7 +144,7 @@ public class AvroPlugin implements PrefabPlugin {
      */
     public static boolean isAvroUnion(TypeManifest type) {
         if (!type.isSealed()) return false;
-        if (type.asElement() != null && type.asElement().getAnnotation(Event.class) != null) return false;
+        if (type.asElement() != null && type.asElement().getAnnotationsByType(Event.class).length > 0) return false;
         var subtypes = type.permittedSubtypes();
         return !subtypes.isEmpty() && subtypes.stream().allMatch(TypeManifest::isSingleValueType);
     }

@@ -41,13 +41,13 @@ Today event handling is keyed on the raw `Class` of the event. Parameterised eve
 - [x] #2 A parameterised event can be declared, published and handled for a concrete parameterisation with JSON serialization.
 - [x] #3 Avro schemas are generated and registered for parameterised events with deterministic, collision-free names.
 - [x] #4 Event handlers for different parameterisations of the same event type receive only their own events.
-- [ ] #5 Kafka, Pub/Sub and SNS/SQS publish and consume generic events, including topic/queue provisioning.
+- [x] #5 Kafka, Pub/Sub and SNS/SQS publish and consume generic events, including topic/queue provisioning.
 - [x] #6 Prefab streams (`from`, `to`, `join`, `aggregate`, processors) and the topology test API support generic events.
 - [x] #7 Event versioning and schema evolution work for generic events.
-- [ ] #8 Unsupported generic forms fail at build time with a clear annotation processing error.
-- [ ] #9 Non-generic events keep their current behaviour, topics and wire format.
-- [ ] #10 Documentation and feature guides describe generic events and their limits.
-- [ ] #11 Repeatable `@Event` declarations bind ordered concrete `typeArguments` to their own topics: `Changed<Customer>` routes only to its customer topics and `Changed<Product>` only to its product topics, with separate registry entries, generated registrations and provisioning.
+- [x] #8 Unsupported generic forms fail at build time with a clear annotation processing error.
+- [x] #9 Non-generic events keep their current behaviour, topics and wire format.
+- [x] #10 Documentation and feature guides describe generic events and their limits.
+- [x] #11 Repeatable `@Event` declarations bind ordered concrete `typeArguments` to their own topics: `Changed<Customer>` routes only to its customer topics and `Changed<Product>` only to its product topics, with separate registry entries, generated registrations and provisioning.
 - [x] #12 `EventPublisher.bind(Class<E>)` supports non-generic events and `bind(EventType<E>)` captures generic bindings once; handles resolve the active publisher per call, legacy direct publishing is deprecated, and test capture exposes payloads rather than infrastructure envelopes.
 <!-- AC:END -->
 
@@ -55,6 +55,8 @@ Today event handling is keyed on the raw `Class` of the event. Parameterised eve
 
 <!-- SECTION:PLAN:BEGIN -->
 ### Implementation progress
+- Provisioning is implemented and focused compiler/runtime checks passed: platform-scoped startup creation includes publisher-only bindings and deduplicated fan-out topics; generic GCP Terraform fragments include exact handler subscription identities and bindings discovered across rounds. Unresolved generic property/SpEL topics produce an explicit warning and remain runtime-provisioned, not invalid HCL. Repeated declarations are recognized by `@Generate` validation. Avro collision detection now uses the actual overridden namespace, with a cross-package nested-payload regression test.
+- Ordinary `EventType.of(Class)` stream APIs now bridge to class registration/serialization rather than requiring generic wire metadata. A seventh generic-topology-suite test verifies ordinary token input/source/output routing. Annotation reference, generated artefact guide and feature guide now describe the complete implementation and deliberate limits. All feature criteria have evidence; final root-reactor verification is still required before setting Done.
 - Concrete stream source/sink, type hints, joins/repartition, grouped/windowed aggregates, list processors, local/global stores and topology-test overloads now retain full type arguments. Six generic topology tests cover shared-topic isolation, tracing, join state, grouped/list aggregation, global-store updates/tombstones and typed rekeying. The complete streams module reactor passed. Kafka's one-global-store-per-source-topic restriction remains explicit.
 - Provisioning audit: runtime Pub/Sub/SNS subscriptions already create exact binding-specific resources. Add startup creation of all resolved generic topics (including publisher-only bindings and fan-out) on each configured platform; ordinary topic creation remains unchanged. Terraform still needs repeatable discovery and matching generic subscription identities, and `@Generate` validation must recognize repeated declarations.
 - Avro specializations now use concrete manifests, full canonical-identity SHA-256 names and binding-indexed converters/reader schemas, with a collision diagnostic. Kafka reader/writer resolution is strict for generic bindings. Pub/Sub/SNS use the registered current Avro schema; their writer-schema/migration limitation remains TASK-275. Generic Avro interfaces/contracts are rejected explicitly.
@@ -88,7 +90,7 @@ Today event handling is keyed on the raw `Class` of the event. Parameterised eve
 
 ### Agreed declaration shape: one generic event, different topics per parameterisation
 
-The following is the agreed API for TASK-303, now implemented for concrete JSON bindings on Kafka, Pub/Sub and SNS/SQS. Declarative provisioning and Avro remain in progress. The user selected repeatable `@Event` declarations with `typeArguments` rather than annotated type-token fields.
+The following is the agreed API for TASK-303, implemented for concrete JSON and code-first Avro bindings, broker provisioning and streams. The user selected repeatable `@Event` declarations with `typeArguments` rather than annotated type-token fields.
 
 ```java
 import be.appify.prefab.core.annotations.Event;

@@ -1,6 +1,7 @@
 package be.appify.prefab.streams.testing;
 
 import be.appify.prefab.core.domain.Keyed;
+import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.streams.GlobalStore;
 import java.util.Optional;
 
@@ -9,6 +10,17 @@ import java.util.Optional;
  * and read output.
  */
 public interface TopologySession extends AutoCloseable {
+    /** @param type concrete source binding @return source input */
+    <K, V extends Keyed<K>> TopologyInput<K, V> input(EventType<V> type);
+    /** @param type concrete source binding @param keyType key class @return source input */
+    <K, V extends Keyed<K>> TopologyInput<K, V> input(EventType<V> type, Class<K> keyType);
+    /** @param type concrete output binding @return output records */
+    <K, V extends Keyed<K>> TopologyOutput<K, V> output(EventType<V> type);
+    /** @param type concrete output binding @param keyType key class @return output records */
+    <K, V extends Keyed<K>> TopologyOutput<K, V> output(EventType<V> type, Class<K> keyType);
+    /** @param topic explicit output topic @param type concrete output binding @return output records */
+    <K, V extends Keyed<K>> TopologyOutput<K, V> output(String topic, EventType<V> type);
+
 
     /**
      * Opens the input of the topic that carries the given type.

@@ -42,7 +42,7 @@ Today event handling is keyed on the raw `Class` of the event. Parameterised eve
 - [x] #3 Avro schemas are generated and registered for parameterised events with deterministic, collision-free names.
 - [x] #4 Event handlers for different parameterisations of the same event type receive only their own events.
 - [ ] #5 Kafka, Pub/Sub and SNS/SQS publish and consume generic events, including topic/queue provisioning.
-- [ ] #6 Prefab streams (`from`, `to`, `join`, `aggregate`, processors) and the topology test API support generic events.
+- [x] #6 Prefab streams (`from`, `to`, `join`, `aggregate`, processors) and the topology test API support generic events.
 - [x] #7 Event versioning and schema evolution work for generic events.
 - [ ] #8 Unsupported generic forms fail at build time with a clear annotation processing error.
 - [ ] #9 Non-generic events keep their current behaviour, topics and wire format.
@@ -55,6 +55,8 @@ Today event handling is keyed on the raw `Class` of the event. Parameterised eve
 
 <!-- SECTION:PLAN:BEGIN -->
 ### Implementation progress
+- Concrete stream source/sink, type hints, joins/repartition, grouped/windowed aggregates, list processors, local/global stores and topology-test overloads now retain full type arguments. Six generic topology tests cover shared-topic isolation, tracing, join state, grouped/list aggregation, global-store updates/tombstones and typed rekeying. The complete streams module reactor passed. Kafka's one-global-store-per-source-topic restriction remains explicit.
+- Provisioning audit: runtime Pub/Sub/SNS subscriptions already create exact binding-specific resources. Add startup creation of all resolved generic topics (including publisher-only bindings and fan-out) on each configured platform; ordinary topic creation remains unchanged. Terraform still needs repeatable discovery and matching generic subscription identities, and `@Generate` validation must recognize repeated declarations.
 - Avro specializations now use concrete manifests, full canonical-identity SHA-256 names and binding-indexed converters/reader schemas, with a collision diagnostic. Kafka reader/writer resolution is strict for generic bindings. Pub/Sub/SNS use the registered current Avro schema; their writer-schema/migration limitation remains TASK-275. Generic Avro interfaces/contracts are rejected explicitly.
 - Event baselines and migration validation use the full concrete type rather than erased names. Runtime migrations retain parameterized snapshot types, independent event chains and resolved nested component types. Ordinary event migration behavior remains covered by existing tests. The complete Avro/Kafka/PubSub/SNS module reactor passed, including new transport, generation, independent baseline/chain and nested component migration tests.
 - Stream integration is now underway: add explicit concrete source/sink tokens, retain types through stateful operators, preserve source identity on shared topics and expose matching topology-test overloads. Do not mark stream acceptance complete before generic topology coverage passes.

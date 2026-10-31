@@ -1,6 +1,8 @@
 package be.appify.prefab.streams.kafka.testing;
 
 import be.appify.prefab.core.domain.Keyed;
+import be.appify.prefab.core.domain.EventType;
+import be.appify.prefab.streams.kafka.ConcreteEventSerde;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.core.kafka.EventRegistry;
@@ -49,6 +51,37 @@ final class KafkaTopologySession implements TopologySession {
         this.eventRegistry = eventRegistry;
         this.serializer = serializer;
         this.deserializer = deserializer;
+    }
+
+    @Override
+    public <K, V extends Keyed<K>> TopologyInput<K, V> input(EventType<V> type) {
+        return input(type, keyTypeOf(type));
+    }
+
+    @Override
+    public <K, V extends Keyed<K>> TopologyInput<K, V> input(EventType<V> type, Class<K> keyType) {
+        return new KafkaInput<>(driver.createInputTopic(eventRegistry.topicForType(type),
+                new StringKeySerde<>(keyType).serializer(),
+                new ConcreteEventSerde<>(type, serializer, deserializer).serializer()));
+    }
+
+    @Override
+    public <K, V extends Keyed<K>> TopologyOutput<K, V> output(EventType<V> type) {
+        return output(type, keyTypeOf(type));
+    }
+
+    @Override
+    public <K, V extends Keyed<K>> TopologyOutput<K, V> output(EventType<V> type, Class<K> keyType) {
+        return new KafkaOutput<>(driver.createOutputTopic(eventRegistry.topicForType(type),
+                new StringKeySerde<>(keyType).deserializer(),
+                new ConcreteEventSerde<>(type, serializer, deserializer).deserializer()));
+    }
+
+    @Override
+    public <K, V extends Keyed<K>> TopologyOutput<K, V> output(String topic, EventType<V> type) {
+        return new KafkaOutput<>(driver.createOutputTopic(topic,
+                new StringKeySerde<K>(keyTypeOf(type)).deserializer(),
+                new ConcreteEventSerde<>(type, serializer, deserializer).deserializer()));
     }
 
     @Override
@@ -199,4 +232,3 @@ final class KafkaTopologySession implements TopologySession {
         }
     }
 }
-

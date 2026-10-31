@@ -2,6 +2,7 @@ package be.appify.prefab.streams.kafka.testing;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.Keyed;
+import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.streams.AggregationWindow;
 import be.appify.prefab.streams.JoinWindow;
@@ -116,6 +117,19 @@ public class AutoRegisterPrefabStreamTestDecorator<K, V extends Keyed<K>> implem
         var grouped = delegate.groupBy(keyType, keyExtractor);
         return new PrefabGroupedStream<>() {
             @Override
+            public <VR extends Keyed<KO>> PrefabStream<KO, VR> aggregate(EventType<VR> type, Supplier<VR> initializer,
+                    BiFunction<? super V, ? super VR, ? extends VR> aggregator) {
+                return wrap(grouped.aggregate(type, initializer, aggregator));
+            }
+
+            @Override
+            public <VR extends Keyed<KO>> PrefabStream<KO, VR> windowedAggregate(AggregationWindow window,
+                    EventType<VR> type, Supplier<VR> initializer,
+                    BiFunction<? super V, ? super VR, ? extends VR> aggregator) {
+                return wrap(grouped.windowedAggregate(window, type, initializer, aggregator));
+            }
+
+            @Override
             public <VR extends Keyed<KO>> PrefabStream<KO, VR> aggregate(
                     Class<VR> resultType,
                     Supplier<VR> initializer,
@@ -163,6 +177,30 @@ public class AutoRegisterPrefabStreamTestDecorator<K, V extends Keyed<K>> implem
     }
 
     @Override
+    public StreamDefinition to(EventType<? super V> type) {
+        if (streams instanceof AutoRegisterPrefabStreamsTestDecorator decorator) {
+            decorator.register(type);
+        }
+        return delegate.to(type);
+    }
+
+    @Override
+    public PrefabStream<K, V> as(EventType<V> type) {
+        return wrap(delegate.as(type));
+    }
+
+    @Override
+    public java.util.Optional<EventType<V>> knownEventType() {
+        return delegate.knownEventType();
+    }
+
+    @Override
+    public <KO, VO extends Keyed<KO>> PrefabStream<KO, VO> keyBy(Class<KO> keyType, EventType<VO> outputType,
+                                                              Function<V, VO> mapper) {
+        return wrap(delegate.keyBy(keyType, outputType, mapper));
+    }
+
+    @Override
     public StreamDefinition to(String topic) {
         return delegate.to(topic);
     }
@@ -182,4 +220,3 @@ public class AutoRegisterPrefabStreamTestDecorator<K, V extends Keyed<K>> implem
         return delegate.knownValueType();
     }
 }
-

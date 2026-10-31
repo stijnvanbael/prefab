@@ -190,7 +190,30 @@ Version baselines and migration chains are independent per binding. Declare migr
 own chain. JSON transports and Kafka Avro apply event/component migrations using the
 resolved arguments, and reject unsupported versions explicitly. Baseline filenames append
 the same binding digest so specialisations cannot overwrite each other's released contract.
-Declarative provisioning and stream integration remain in progress under TASK-303.
+For streams, pass the same captured type to `streams.from(type)`, `.to(type)` and
+`topology.input(type)` / `topology.output(type)`. Type-preserving operators keep the
+binding; after `map`, `join` or a custom processor, call `.as(resultType)` before a
+stateful operation that serializes the new value. Use
+`.keyBy(Key.class, resultType, mapper)` when mapping and repartitioning together, and
+`.aggregate(resultType, initializer, aggregator)` for a generic aggregate result.
+
+```java
+var changes = new EventType<Changed<Customer>>() {};
+var results = new EventType<Changed<Product>>() {};
+streams.from(changes)
+        .map(change -> new Changed<>(change.id(), new Product(change.payload().name())))
+        .as(results)
+        .repartition()
+        .to(results);
+```
+
+Generic joins, repartition topics, local stores and aggregation state retain the full
+payload type rather than inferring arguments from values. `streams.createStore(type)`
+and `streams.globalStore(type)` accept concrete bindings. Sources and global-store
+updaters skip other registered bindings on shared topics; typed topology outputs reject
+a different binding rather than delivering an incorrectly typed value. Kafka permits
+only one global store per source topic, and that topic cannot also be a regular source.
+Tracing metadata continues through generic map, repartition and join operations.
 
 ---
 

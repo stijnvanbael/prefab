@@ -2,10 +2,10 @@ package be.appify.prefab.core.pubsub;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.EventType;
+import be.appify.prefab.core.serialization.ConcreteAvroSupport;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.versioning.AvroTrees;
 import be.appify.prefab.core.versioning.EventMigrator;
-import be.appify.prefab.core.versioning.EventVersions;
 import be.appify.prefab.core.versioning.MessageVersions;
 import be.appify.prefab.core.spring.JsonUtil;
 import com.google.protobuf.ByteString;
@@ -136,11 +136,19 @@ public class PubSubDeserializer {
         if (!registered.equals(type)) {
             throw new IllegalArgumentException("Message does not match consumer binding " + type);
         }
-        if (eventRegistry.serialization(topic) != Event.Serialization.JSON) {
-            throw new IllegalArgumentException("Generic Avro deserialization is not implemented for " + type);
+        var plan = eventMigrator.plan(type, MessageVersions.from(attributes::get));
+        if (plan.isRequired()) {
+            if (eventRegistry.serialization(topic) == Event.Serialization.AVRO) {
+                throw new IllegalArgumentException("Avro migration on Pub/Sub requires a writer schema (TASK-275): " + type);
+            }
+            @SuppressWarnings("unchecked")
+            var migrated = (T) plan.apply(jsonMapper.readTree(data.toStringUtf8()), jsonMapper);
+            return migrated;
         }
-        EventVersions.requireReadable(type, MessageVersions.from(attributes::get));
-        return jsonUtil.parseJson(data.toStringUtf8(), type);
+        return switch (eventRegistry.serialization(topic)) {
+            case JSON -> jsonUtil.parseJson(data.toStringUtf8(), type);
+            case AVRO -> ConcreteAvroSupport.read(data.toByteArray(), type, eventRegistry);
+        };
     }
 
     private <T> T deserializeAvro(byte[] data, Class<T> type) {

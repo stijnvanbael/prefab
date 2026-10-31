@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericRecord;
 
 /**
  * Central registry for event types, their associated topics/channels, partitioning key extractors,
@@ -34,6 +35,8 @@ public class EventRegistry {
     private final Map<EventType<?>, PublishTo> concretePublishTo = new ConcurrentHashMap<>();
     private final Map<EventType<?>, Function<Object, String>> concreteKeys = new ConcurrentHashMap<>();
     private final Map<EventType<?>, Schema> concreteSchemas = new ConcurrentHashMap<>();
+    private final Map<EventType<?>, Function<Object, GenericRecord>> concreteWriters = new ConcurrentHashMap<>();
+    private final Map<EventType<?>, Function<GenericRecord, ?>> concreteReaders = new ConcurrentHashMap<>();
     private final Map<String, Class<?>> types = new ConcurrentHashMap<>();
     private final Map<String, Set<Class<?>>> topicTypes = new ConcurrentHashMap<>();
     private final Map<Class<?>, Set<String>> typeTopics = new ConcurrentHashMap<>();
@@ -159,6 +162,39 @@ public class EventRegistry {
      */
     public Optional<Schema> readerSchemaFor(EventType<?> type) {
         return Optional.ofNullable(concreteSchemas.get(type));
+    }
+
+    /**
+     * Registers converters under the full binding, avoiding Spring's erased converter lookup.
+     * @param type concrete binding
+     * @param writer payload converter
+     * @param reader record converter
+     * @param <E> payload type
+     */
+    @SuppressWarnings("unchecked")
+    public <E> void registerAvroConverters(EventType<E> type, Function<E, GenericRecord> writer,
+                                           Function<GenericRecord, E> reader) {
+        concreteWriters.put(type, value -> writer.apply((E) value));
+        concreteReaders.put(type, reader);
+    }
+
+    /** @param event typed publication @return its specialized Avro record */
+    public GenericRecord toAvro(TypedEvent<?> event) {
+        var writer = concreteWriters.get(event.type());
+        if (writer == null) {
+            throw new IllegalArgumentException("No Avro writer registered for " + event.type());
+        }
+        return writer.apply(event.value());
+    }
+
+    /** @param type concrete binding @param record Avro record @return the bound payload */
+    @SuppressWarnings("unchecked")
+    public <E> E fromAvro(EventType<E> type, GenericRecord record) {
+        var reader = concreteReaders.get(type);
+        if (reader == null) {
+            throw new IllegalArgumentException("No Avro reader registered for " + type);
+        }
+        return (E) reader.apply(record);
     }
 
     /**

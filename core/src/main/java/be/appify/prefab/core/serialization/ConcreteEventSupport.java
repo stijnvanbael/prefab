@@ -33,9 +33,6 @@ public final class ConcreteEventSupport {
     public static Object payloadFor(String topic, Object event, EventRegistry registry) {
         if (event instanceof TypedEvent<?> typed) {
             registry.concreteTypeFor(topic, typed.type().id());
-            if (registry.serialization(topic) != Event.Serialization.JSON) {
-                throw new IllegalArgumentException("Generic Avro serialization is not implemented for " + typed.type());
-            }
             return typed.value();
         }
         if (event != null && event.getClass().getTypeParameters().length > 0

@@ -13,6 +13,7 @@ import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.event.EventBindings;
 import com.palantir.javapoet.*;
 import jakarta.annotation.Nullable;
 import java.io.IOException;
@@ -225,7 +226,7 @@ class EventSchemaFactoryWriter {
                 .map(AvroSchema::name)
                 .filter(name -> !name.isBlank())
                 .findFirst()
-                .orElse(type.simpleName().replace('.', '_'));
+                .orElse(type.simpleName().replace('.', '_')) + EventBindings.suffix(type);
     }
 
     private java.util.stream.Stream<TypeElement> avscAnnotatedInterfaces() {
@@ -801,7 +802,7 @@ class EventSchemaFactoryWriter {
     }
 
     private static String schemaFactorySimpleName(TypeManifest type) {
-        return "%sSchemaFactory".formatted(type.simpleName().replace(".", ""));
+        return "%sSchemaFactory".formatted(AvroSupport.generatedName(type));
     }
 
     private static String schemaFactoryFieldName(TypeManifest type) {

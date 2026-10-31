@@ -4,7 +4,7 @@ title: Support generic event types in all event related features
 status: In Progress
 assignee: []
 created_date: '2026-10-30 14:08'
-updated_date: '2026-10-30 22:14'
+updated_date: '2026-10-31 07:28'
 labels:
   - events
   - generics
@@ -39,11 +39,11 @@ Today event handling is keyed on the raw `Class` of the event. Parameterised eve
 <!-- AC:BEGIN -->
 - [x] #1 An analysis documents how generic events are identified (topic, schema name, registry key) and records the decisions as an ADR.
 - [x] #2 A parameterised event can be declared, published and handled for a concrete parameterisation with JSON serialization.
-- [ ] #3 Avro schemas are generated and registered for parameterised events with deterministic, collision-free names.
+- [x] #3 Avro schemas are generated and registered for parameterised events with deterministic, collision-free names.
 - [x] #4 Event handlers for different parameterisations of the same event type receive only their own events.
 - [ ] #5 Kafka, Pub/Sub and SNS/SQS publish and consume generic events, including topic/queue provisioning.
 - [ ] #6 Prefab streams (`from`, `to`, `join`, `aggregate`, processors) and the topology test API support generic events.
-- [ ] #7 Event versioning and schema evolution work for generic events.
+- [x] #7 Event versioning and schema evolution work for generic events.
 - [ ] #8 Unsupported generic forms fail at build time with a clear annotation processing error.
 - [ ] #9 Non-generic events keep their current behaviour, topics and wire format.
 - [ ] #10 Documentation and feature guides describe generic events and their limits.
@@ -55,6 +55,10 @@ Today event handling is keyed on the raw `Class` of the event. Parameterised eve
 
 <!-- SECTION:PLAN:BEGIN -->
 ### Implementation progress
+- Avro specializations now use concrete manifests, full canonical-identity SHA-256 names and binding-indexed converters/reader schemas, with a collision diagnostic. Kafka reader/writer resolution is strict for generic bindings. Pub/Sub/SNS use the registered current Avro schema; their writer-schema/migration limitation remains TASK-275. Generic Avro interfaces/contracts are rejected explicitly.
+- Event baselines and migration validation use the full concrete type rather than erased names. Runtime migrations retain parameterized snapshot types, independent event chains and resolved nested component types. Ordinary event migration behavior remains covered by existing tests. The complete Avro/Kafka/PubSub/SNS module reactor passed, including new transport, generation, independent baseline/chain and nested component migration tests.
+- Stream integration is now underway: add explicit concrete source/sink tokens, retain types through stateful operators, preserve source identity on shared topics and expose matching topology-test overloads. Do not mark stream acceptance complete before generic topology coverage passes.
+- Continuing to completion: implement binding-specific Avro schemas/conversion/reader registration first, preserving existing ordinary converters; then carry concrete identity through stream and topology APIs, provisioning and evolution/migration contracts. Revisit all remaining single-annotation/class-only readers, align documentation/examples, and verify the full reactor without treating infrastructure failures as success.
 - Pub/Sub and SNS/SQS JSON integration now preserves concrete identity in attributes and original payload class metadata, resolves full JSON target types, and uses token-aware subscription requests. Generated subscribers create independent names for each owner/binding/resolved topic, including shared topics and property expressions; names use a full digest within SQS's 80-character limit. Ordinary subscription names are unchanged.
 - Spring dispatch now offers a token-aware `canDispatch` overload, with a default bridge for custom dispatchers. Built-in dispatchers select the concrete binding's platform rather than claiming every parameterisation by raw class. Shared publication validation and event/component version guards are reused across all three JSON transports.
 - Resuming transport integration: preserve concrete identity in Pub/Sub attributes and SNS notification attributes, add token-aware subscription requests, and generate independent subscriptions/queues for bindings sharing a topic. Reuse Kafka's version checks across all JSON transports; preserve existing class-based request APIs and non-generic wire contracts. Verify runtime payloads, subscription isolation, multi-topic dispatch and generated Java before committing.

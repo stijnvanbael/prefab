@@ -45,6 +45,16 @@ public abstract class EventType<E> {
         return new EventType<E>(type) {};
     }
 
+    /**
+     * Creates a token from already captured reflective type information.
+     * @param type concrete reflective type
+     * @param <E> payload type represented by the reflective type
+     * @return validated concrete token
+     */
+    public static <E> EventType<E> from(Type type) {
+        return new EventType<E>(type) {};
+    }
+
     /** @return the captured reflective type */
     public final Type type() {
         return type;

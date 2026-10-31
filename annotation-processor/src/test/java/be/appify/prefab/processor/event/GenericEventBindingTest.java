@@ -121,18 +121,18 @@ class GenericEventBindingTest {
     }
 
     @Test
-    void reportsIncompleteAvroSupportRatherThanGeneratingErasedConverters() {
+    void rejectsGenericAvroInterfacesRatherThanGeneratingErasedConverters() {
         var source = JavaFileObjects.forSourceString("example.Changed", """
                 package example;
                 import be.appify.prefab.core.annotations.Event;
                 @Event(topic = "changes", typeArguments = String.class, serialization = Event.Serialization.AVRO)
-                public record Changed<T>(T payload) {}
+                public interface Changed<T> {}
                 """);
 
         var compilation = javac().withProcessors(new PrefabProcessor()).compile(source);
 
         assertThat(compilation).failed();
-        assertThat(compilation).hadErrorContaining("Generic Avro event bindings are not implemented");
+        assertThat(compilation).hadErrorContaining("Generic Avro bindings require code-first records");
     }
 
     @ParameterizedTest

@@ -110,7 +110,10 @@ public class DynamicSerializer implements Serializer<Object> {
                 headers.remove(name);
                 headers.add(name, value.getBytes(StandardCharsets.UTF_8));
             });
-            return jsonSerializer.serialize(topic, payload);
+            return switch (eventRegistry.serialization(topic)) {
+                case JSON -> jsonSerializer.serialize(topic, payload);
+                case AVRO -> avroSerializer().serialize(topic, eventRegistry.toAvro(typed));
+            };
         }
         if (headers != null && data != null && !(data instanceof String) && !(data instanceof byte[])) {
             EventVersions.headersFor(data).forEach((name, value) -> {

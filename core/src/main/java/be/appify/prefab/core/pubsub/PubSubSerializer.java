@@ -1,6 +1,8 @@
 package be.appify.prefab.core.pubsub;
 
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.domain.TypedEvent;
 import be.appify.prefab.core.serialization.ConcreteEventSupport;
 import be.appify.prefab.core.spring.JsonUtil;
 import java.io.ByteArrayOutputStream;
@@ -45,7 +47,12 @@ public class PubSubSerializer {
      * @return the serialized byte array
      */
     public byte[] serialize(String topic, Object data) {
+        var publication = data;
         data = ConcreteEventSupport.payloadFor(topic, data, eventRegistry);
+        if (publication instanceof TypedEvent<?> typed
+                && eventRegistry.serialization(topic) == Event.Serialization.AVRO) {
+            return serializeAvro(eventRegistry.toAvro(typed));
+        }
         switch (data) {
             case null -> {
                 return null;
@@ -70,7 +77,7 @@ public class PubSubSerializer {
         var avroWriter = new GenericDatumWriter<GenericRecord>();
         var outputStream = new ByteArrayOutputStream();
         var encoder = new EncoderFactory().binaryEncoder(outputStream, null);
-        var genericRecord = conversionService.convert(data, GenericRecord.class);
+        var genericRecord = data instanceof GenericRecord record ? record : conversionService.convert(data, GenericRecord.class);
         try {
             avroWriter.setSchema(Objects.requireNonNull(genericRecord).getSchema());
             avroWriter.write(genericRecord, encoder);

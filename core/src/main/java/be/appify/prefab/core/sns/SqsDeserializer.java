@@ -2,10 +2,10 @@ package be.appify.prefab.core.sns;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.EventType;
+import be.appify.prefab.core.serialization.ConcreteAvroSupport;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.versioning.AvroTrees;
 import be.appify.prefab.core.versioning.EventMigrator;
-import be.appify.prefab.core.versioning.EventVersions;
 import be.appify.prefab.core.versioning.MessageVersions;
 import be.appify.prefab.core.kafka.UnknownEventTypeException;
 import be.appify.prefab.core.spring.JsonUtil;
@@ -128,11 +128,19 @@ public class SqsDeserializer {
         if (!registered.equals(type)) {
             return Optional.empty();
         }
-        if (eventRegistry.serialization(topic) != Event.Serialization.JSON) {
-            throw new IllegalArgumentException("Generic Avro deserialization is not implemented for " + type);
+        var plan = eventMigrator.plan(type, MessageVersions.from(envelope.attributes()::get));
+        if (plan.isRequired()) {
+            if (eventRegistry.serialization(topic) == Event.Serialization.AVRO) {
+                throw new IllegalArgumentException("Avro migration on SQS requires a writer schema (TASK-275): " + type);
+            }
+            @SuppressWarnings("unchecked")
+            var migrated = (T) plan.apply(jsonMapper.readTree(envelope.payload()), jsonMapper);
+            return Optional.of(migrated);
         }
-        EventVersions.requireReadable(type, MessageVersions.from(envelope.attributes()::get));
-        return Optional.of(jsonUtil.parseJson(envelope.payload(), type));
+        return Optional.of(switch (eventRegistry.serialization(topic)) {
+            case JSON -> jsonUtil.parseJson(envelope.payload(), type);
+            case AVRO -> ConcreteAvroSupport.read(Base64.getDecoder().decode(envelope.payload()), type, eventRegistry);
+        });
     }
 
     private Class<?> resolveEventType(String typeName, Class<?> type) {

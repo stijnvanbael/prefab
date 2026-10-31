@@ -1,6 +1,7 @@
 package be.appify.prefab.core.versioning;
 
 import be.appify.prefab.core.annotations.EventMigration;
+import be.appify.prefab.core.domain.EventType;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -32,7 +33,8 @@ import tools.jackson.databind.node.ObjectNode;
 public final class EventMigrator {
     private static final EventMigrator NONE = new EventMigrator(List.of());
 
-    private final Map<Class<?>, Chain> chains;
+    private final Map<String, Chain> chains;
+    private final Map<String, ResolvableType> chainTypes;
     private final Map<String, Class<?>> typeAliases;
 
     /**
@@ -44,9 +46,12 @@ public final class EventMigrator {
     public EventMigrator(Collection<? extends Migration<?, ?>> migrations) {
         var steps = migrations.stream().map(EventMigrator::stepOf).toList();
         this.chains = buildChains(steps);
+        this.chainTypes = steps.stream().collect(LinkedHashMap::new,
+                (map, step) -> map.put(step.newType().toString(), step.newType()), Map::putAll);
         this.typeAliases = steps.stream()
                 .filter(step -> !step.fromType().isBlank())
-                .collect(LinkedHashMap::new, (map, step) -> map.put(step.fromType(), tipOf(step)), Map::putAll);
+                .filter(step -> !step.newType().hasGenerics())
+                .collect(LinkedHashMap::new, (map, step) -> map.put(step.fromType(), tipOf(step).resolve()), Map::putAll);
     }
 
     /**
@@ -84,38 +89,58 @@ public final class EventMigrator {
                             .formatted(eventType.getName(), produced, minimum));
         });
         var steps = stepsFor(eventType, produced, current);
-        var startType = steps.isEmpty() ? eventType : steps.getFirst().oldType();
-        return new Plan(startType, steps, versions, requiresComponentMigration(startType, versions));
+        var structure = steps.isEmpty() ? ResolvableType.forClass(eventType) : steps.getFirst().oldType();
+        return new Plan(structure, steps, versions, requiresComponentMigration(structure, versions));
+    }
+
+    /**
+     * Plans migration for one concrete binding, never the erased generic event class.
+     * @param eventType concrete binding
+     * @param versions message contract versions
+     * @return the binding-specific read plan
+     */
+    public Plan plan(EventType<?> eventType, MessageVersions versions) {
+        var declaration = EventVersions.declarationFor(eventType);
+        var produced = versions.event();
+        if (!declaration.minSupportedVersion().isBlank()
+                && produced.compareTo(EventVersion.parse(declaration.minSupportedVersion())) < 0) {
+            throw new UnsupportedEventVersionException("Event " + eventType + " version " + produced
+                    + " is older than minSupportedVersion " + declaration.minSupportedVersion());
+        }
+        var type = ResolvableType.forType(eventType.type());
+        var steps = stepsFor(type, produced, EventVersion.parse(declaration.version()));
+        var start = steps.isEmpty() ? type : steps.getFirst().oldType();
+        return new Plan(start, steps, versions, requiresComponentMigration(start, versions));
     }
 
     private List<Step> stepsFor(Class<?> type, EventVersion produced, EventVersion current) {
+        return stepsFor(ResolvableType.forClass(type), produced, current);
+    }
+
+    private List<Step> stepsFor(ResolvableType type, EventVersion produced, EventVersion current) {
         if (produced.major() > current.major()) {
             throw new UnsupportedEventVersionException(
                     "%s was written with version %s, which is newer than the supported major version %d of the consumer"
-                            .formatted(type.getName(), produced, current.major()));
+                            .formatted(type, produced, current.major()));
         }
         if (produced.major() == current.major()) {
             return List.of();
         }
-        var chain = chains.get(type);
+        var chain = chains.get(type.toString());
         var index = chain == null ? -1 : chain.indexOfFrom(produced.major());
         if (index < 0) {
             throw new UnsupportedEventVersionException(
                     "%s was written with version %s, but no migration from major version %d is available"
-                            .formatted(type.getName(), produced, produced.major()));
+                            .formatted(type, produced, produced.major()));
         }
         return chain.steps().subList(index, chain.steps().size());
     }
 
-    private boolean requiresComponentMigration(Class<?> startType, MessageVersions versions) {
-        return chains.keySet().stream()
-                .filter(type -> versions.component(type.getName()).major() < EventVersions.current(type).major()
-                        || versions.component(type.getName()).major() > EventVersions.current(type).major())
-                .anyMatch(type -> references(startType, type, new HashSet<>()));
-    }
-
-    private boolean references(Class<?> container, Class<?> target, Set<Class<?>> visited) {
-        return !container.equals(target) && referencedRecords(ResolvableType.forClass(container), visited).contains(target);
+    private boolean requiresComponentMigration(ResolvableType startType, MessageVersions versions) {
+        var components = referencedRecords(startType, new HashSet<>());
+        return components.stream().filter(type -> type != startType.resolve(Object.class))
+                .filter(type -> startType.hasGenerics() || chains.containsKey(type.getName()))
+                .anyMatch(type -> versions.component(type.getName()).major() != EventVersions.current(type).major());
     }
 
     private Set<Class<?>> referencedRecords(ResolvableType type, Set<Class<?>> visited) {
@@ -130,7 +155,7 @@ public final class EventMigrator {
         }
         found.add(raw);
         for (var component : raw.getRecordComponents()) {
-            found.addAll(referencedRecords(ResolvableType.forType(component.getGenericType()), visited));
+            found.addAll(referencedRecords(ResolvableType.forType(component.getGenericType(), type), visited));
         }
         return found;
     }
@@ -148,17 +173,19 @@ public final class EventMigrator {
             return migrateElements(node, element.get(), versions, mapper);
         }
         var steps = componentSteps(raw, versions);
-        var structure = steps.isEmpty() ? raw : steps.getFirst().oldType();
+        var structureType = steps.isEmpty() ? type : steps.getFirst().oldType();
+        var structure = structureType.resolve(Object.class);
         if (structure.isRecord() && !Modifier.isAbstract(structure.getModifiers()) && node instanceof ObjectNode object) {
             for (var component : structure.getRecordComponents()) {
                 var child = object.get(component.getName());
                 if (child != null) {
                     object.set(component.getName(),
-                            migrateComponents(child, ResolvableType.forType(component.getGenericType()), versions, mapper));
+                            migrateComponents(child, ResolvableType.forType(component.getGenericType(), structureType), versions, mapper));
                 }
             }
         }
-        return steps.isEmpty() ? node : mapper.valueToTree(migrate(mapper.treeToValue(node, structure), steps));
+        return steps.isEmpty() ? node : mapper.valueToTree(migrate(
+                mapper.readValue(node.toString(), mapper.getTypeFactory().constructType(structureType.getType())), steps));
     }
 
     private JsonNode migrateElements(JsonNode node, ResolvableType element, MessageVersions versions, JsonMapper mapper) {
@@ -175,10 +202,12 @@ public final class EventMigrator {
     }
 
     private List<Step> componentSteps(Class<?> type, MessageVersions versions) {
-        if (!chains.containsKey(type)) {
-            return List.of();
+        try {
+            return stepsFor(type, versions.component(type.getName()), EventVersions.current(type));
+        } catch (UnsupportedEventVersionException e) {
+            throw new UnsupportedEventVersionException("No component migration can read " + type.getName()
+                    + ": " + e.getMessage());
         }
-        return stepsFor(type, versions.component(type.getName()), EventVersions.current(type));
     }
 
     private static Object migrate(Object snapshot, List<Step> steps) {
@@ -197,9 +226,10 @@ public final class EventMigrator {
                     .formatted(userClass.getName()));
         }
         var type = ResolvableType.forClass(userClass).as(Migration.class);
-        var oldType = type.getGeneric(0).resolve();
-        var newType = type.getGeneric(1).resolve();
-        if (oldType == null || newType == null) {
+        var oldType = type.getGeneric(0);
+        var newType = type.getGeneric(1);
+        if (oldType.resolve() == null || newType.resolve() == null || oldType.hasUnresolvableGenerics()
+                || newType.hasUnresolvableGenerics()) {
             throw new IllegalStateException("Migration %s must declare its Old and New type"
                     .formatted(userClass.getName()));
         }
@@ -214,26 +244,26 @@ public final class EventMigrator {
         return new Step(oldType, newType, from, to, annotation.fromType(), typed);
     }
 
-    private static Map<Class<?>, Chain> buildChains(List<Step> steps) {
-        var byNewType = new LinkedHashMap<Class<?>, Step>();
+    private static Map<String, Chain> buildChains(List<Step> steps) {
+        var byNewType = new LinkedHashMap<String, Step>();
         for (var step : steps) {
-            if (byNewType.put(step.newType(), step) != null) {
-                throw new IllegalStateException("Multiple migrations produce %s".formatted(step.newType().getName()));
+            if (byNewType.put(step.newType().toString(), step) != null) {
+                throw new IllegalStateException("Multiple migrations produce %s".formatted(step.newType()));
             }
         }
-        var oldTypes = steps.stream().map(Step::oldType).collect(java.util.stream.Collectors.toSet());
-        var chains = new LinkedHashMap<Class<?>, Chain>();
+        var oldTypes = steps.stream().map(step -> step.oldType().toString()).collect(java.util.stream.Collectors.toSet());
+        var chains = new LinkedHashMap<String, Chain>();
         byNewType.keySet().stream().filter(type -> !oldTypes.contains(type))
                 .forEach(tip -> chains.put(tip, chainEndingAt(tip, byNewType)));
         return chains;
     }
 
-    private static Chain chainEndingAt(Class<?> tip, Map<Class<?>, Step> byNewType) {
+    private static Chain chainEndingAt(String tip, Map<String, Step> byNewType) {
         var steps = new ArrayList<Step>();
-        var visited = new HashSet<Class<?>>();
-        for (var step = byNewType.get(tip); step != null; step = byNewType.get(step.oldType())) {
-            if (!visited.add(step.newType())) {
-                throw new IllegalStateException("Migrations of %s form a cycle".formatted(tip.getName()));
+        var visited = new HashSet<String>();
+        for (var step = byNewType.get(tip); step != null; step = byNewType.get(step.oldType().toString())) {
+            if (!visited.add(step.newType().toString())) {
+                throw new IllegalStateException("Migrations of %s form a cycle".formatted(tip));
             }
             steps.addFirst(step);
         }
@@ -241,28 +271,31 @@ public final class EventMigrator {
             if (steps.get(i - 1).to() != steps.get(i).from()) {
                 throw new IllegalStateException(
                         "Migrations of %s are not contiguous: version %d is followed by a migration from version %d"
-                                .formatted(tip.getName(), steps.get(i - 1).to(), steps.get(i).from()));
+                                .formatted(tip, steps.get(i - 1).to(), steps.get(i).from()));
             }
         }
-        var currentMajor = EventVersions.current(tip).major();
+        var target = steps.getLast().newType();
+        var currentMajor = target.hasGenerics()
+                ? EventVersion.parse(EventVersions.declarationFor(EventType.from(target.getType())).version()).major()
+                : EventVersions.current(target.resolve(Object.class)).major();
         if (steps.getLast().to() != currentMajor) {
             throw new IllegalStateException("Migrations of %s end at major version %d, but the type declares major version %d"
-                    .formatted(tip.getName(), steps.getLast().to(), currentMajor));
+                    .formatted(tip, steps.getLast().to(), currentMajor));
         }
         return new Chain(steps);
     }
 
-    private Class<?> tipOf(Step step) {
+    private ResolvableType tipOf(Step step) {
         return chains.entrySet().stream()
                 .filter(entry -> entry.getValue().steps().contains(step))
-                .map(Map.Entry::getKey)
+                .map(entry -> chainTypes.get(entry.getKey()))
                 .findFirst()
                 .orElseThrow();
     }
 
     private record Step(
-            Class<?> oldType,
-            Class<?> newType,
+            ResolvableType oldType,
+            ResolvableType newType,
             int from,
             int to,
             String fromType,
@@ -283,12 +316,12 @@ public final class EventMigrator {
 
     /** How a message is read: directly, or after migrating it to the current shape. */
     public final class Plan {
-        private final Class<?> startType;
+        private final ResolvableType startType;
         private final List<Step> steps;
         private final MessageVersions versions;
         private final boolean componentMigration;
 
-        private Plan(Class<?> startType, List<Step> steps, MessageVersions versions, boolean componentMigration) {
+        private Plan(ResolvableType startType, List<Step> steps, MessageVersions versions, boolean componentMigration) {
             this.startType = startType;
             this.steps = steps;
             this.versions = versions;
@@ -312,8 +345,9 @@ public final class EventMigrator {
          * @return the event in its current shape
          */
         public Object apply(JsonNode payload, JsonMapper mapper) {
-            var migrated = migrateComponents(payload, ResolvableType.forClass(startType), versions, mapper);
-            return migrate(mapper.treeToValue(migrated, startType), steps);
+            var migrated = migrateComponents(payload, startType, versions, mapper);
+            return migrate(mapper.readValue(migrated.toString(),
+                    mapper.getTypeFactory().constructType(startType.getType())), steps);
         }
     }
 }

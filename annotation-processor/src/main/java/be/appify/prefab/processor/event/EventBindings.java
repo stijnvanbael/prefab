@@ -7,6 +7,7 @@ import be.appify.prefab.core.versioning.EventVersion;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import com.palantir.javapoet.CodeBlock;
+import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import java.nio.charset.StandardCharsets;
@@ -100,10 +101,20 @@ public final class EventBindings {
         }
         try {
             return "_" + HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(type.asTypeName().toString().getBytes(StandardCharsets.UTF_8)));
+                    .digest(identityOf(type.asTypeName()).getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 is unavailable", e);
         }
+    }
+
+    /** @param type concrete Java type @return its runtime canonical identity */
+    public static String identityOf(TypeName type) {
+        if (type instanceof ParameterizedTypeName parameterized) {
+            return parameterized.rawType().reflectionName() + "<"
+                    + parameterized.typeArguments().stream().map(EventBindings::identityOf)
+                            .collect(java.util.stream.Collectors.joining(",")) + ">";
+        }
+        return type instanceof ClassName name ? name.reflectionName() : type.toString();
     }
 
     /**
@@ -159,8 +170,10 @@ public final class EventBindings {
         var parameters = element.getTypeParameters();
         for (var annotation : element.getAnnotationsByType(Event.class)) {
             if (!parameters.isEmpty()) {
-                if (annotation.serialization() == Event.Serialization.AVRO) {
-                    context.logError("Generic Avro event bindings are not implemented; use JSON serialization.", element);
+                if (annotation.serialization() == Event.Serialization.AVRO
+                        && (element.getKind() != javax.lang.model.element.ElementKind.RECORD
+                            || element.getAnnotation(be.appify.prefab.core.annotations.Avsc.class) != null)) {
+                    context.logError("Generic Avro bindings require code-first records, not @Avsc contracts or interfaces.", element);
                     valid = false;
                 }
                 try {

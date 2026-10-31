@@ -177,10 +177,20 @@ the concrete annotation's platform, even if another parameterisation uses a diff
 duplicate bindings, violated bounds, raw arguments and handlers without a declared concrete
 binding are compiler errors. Wildcard handlers are not supported in this initial integration.
 
-TASK-303 remains in progress: generic Avro, complete declarative provisioning, streams and
-per-binding evolution/migration integration are not complete. All three JSON transports stamp the exact
-binding's version and enforces its minimum supported version; generic major-version or
-component migration is explicitly rejected rather than processed as an erased event.
+Code-first generic Avro records have independent schema factories, converters and reader
+registrations. Their schema names append a full SHA-256 digest of the canonical binding;
+ordinary schema names are unchanged. Converter selection uses the binding registry, not
+Spring's erased class lookup. Generic Avro interfaces and `@Avsc` contracts are rejected.
+Kafka resolves the writer schema against the binding's reader schema. Pub/Sub and SNS/SQS
+support the current concrete Avro schema; migrations there require writer-schema metadata
+and remain limited by TASK-275.
+
+Version baselines and migration chains are independent per binding. Declare migrations as
+`Migration<ChangedV1<Customer>, Changed<Customer>>`; another parameterisation needs its
+own chain. JSON transports and Kafka Avro apply event/component migrations using the
+resolved arguments, and reject unsupported versions explicitly. Baseline filenames append
+the same binding digest so specialisations cannot overwrite each other's released contract.
+Declarative provisioning and stream integration remain in progress under TASK-303.
 
 ---
 

@@ -80,7 +80,14 @@ an explicit `?sort=price,desc` replaces it entirely. It combines with filters, p
 
 ## 7.2 Event Publishing
 
-Any aggregate that `implements PublishesEvents` can call `publish(event)` from constructors or update methods.
+Bind an `EventPublisher<E>` once in a `static final` aggregate field, then call its
+`publish(event)` method from constructors or update methods. For non-generic events,
+use `EventPublisher.bind(OrderCreated.class)`. A bound handle does not require the
+aggregate to implement `PublishesEvents`.
+
+The legacy `PublishesEvents.publish(...)`, `PublishesEvents.publishEvent(...)` and
+direct `DomainEventPublisher.publish(...)` entry points are deprecated since 0.12.2.
+They remain available during migration; deprecation does not prohibit compilation.
 
 When an event subtype extends or implements a supertype annotated with `@Event`, Prefab generates a publisher for the
 annotated supertype only. It does not generate one publisher class per concrete subtype.
@@ -92,12 +99,14 @@ public record Order(
         @Id Reference<Order> id,
         @Version long version,
         String customerName
-) implements PublishesEvents {
+) {
+    private static final EventPublisher<OrderCreated> CREATED =
+            EventPublisher.bind(OrderCreated.class);
 
     @Create
     public Order(String customerName) {
         this(Reference.create(), 0L, customerName);
-        publish(new OrderCreated(id, customerName));  // publish event
+        CREATED.publish(new OrderCreated(id, customerName));
     }
 }
 
@@ -111,6 +120,108 @@ public record OrderCreated(
 
 To assert that the correct events are published in a **unit test** (without a Spring context), see
 [7.12 Unit Testing Domain Events](#712-unit-testing-domain-events).
+
+Binding captures only immutable type information, not a Spring bean or broker connection.
+Every publication resolves the currently registered infrastructure publisher, including a
+test replacement. Binding before application startup is safe; publishing without a
+registered publisher throws `IllegalStateException` instead of dropping the event.
+Non-generic payloads are passed through unchanged, preserving their topics and wire format.
+
+The `EventPublisher.bind(EventType<E>)` overload captures concrete generic arguments once:
+
+```java
+private static final EventPublisher<Changed<Customer>> CHANGES =
+        EventPublisher.bind(new EventType<Changed<Customer>>() {});
+
+// Inside an aggregate method:
+CHANGES.publish(new Changed<>(id, updated));
+```
+
+`bind(Changed.class)` rejects the raw generic class. Wildcards and unresolved type variables
+are rejected by `EventType`; the publisher cannot infer concrete arguments from a payload.
+For JSON on Kafka, Pub/Sub and SNS/SQS, repeat `@Event` on the generic declaration to bind each concrete argument
+set to its own topics:
+
+```java
+@Event(topic = "customer-changes", typeArguments = Customer.class,
+        platform = Event.Platform.KAFKA)
+@Event(topic = "product-changes", typeArguments = Product.class,
+        platform = Event.Platform.KAFKA)
+public record Changed<T>(@PartitioningKey String id, T payload) {}
+```
+
+Each binding generates a separate typed registry registration, object mother and AsyncAPI
+component. Kafka listeners for `Changed<Customer>` and `Changed<Product>` subscribe to
+their binding's topics and check the `prefab-event-type` header before invoking a handler,
+including when both bindings share a topic. JSON contains the original event, not the
+publication envelope; the header supplies the registered concrete Jackson target type.
+Unknown identities and identities registered only on another topic are rejected without
+loading classes named by message metadata. `PublishTo.ALL` applies only within one binding.
+
+Pub/Sub and SNS/SQS carry the same `prefab-event-type` identity in transport attributes.
+Their generated subscribers use `EventType`-based subscription requests and independent,
+deterministic subscription/queue names per handler owner, concrete binding and resolved
+topic. Generic names use `prefab-` plus a full SHA-256 digest (71 characters, within SQS's
+80-character limit); existing non-generic names are unchanged. Messages for another
+registered binding on a shared topic are acknowledged/deleted without calling the handler.
+Missing or unregistered identities fail explicitly. Pub/Sub's existing `type` attribute
+and SNS's subject retain the original payload class, never the `TypedEvent` wrapper.
+
+When configuring subscriptions manually, use
+`new SubscriptionRequest<>(topic, subscription, new EventType<Changed<Customer>>() {}, consumer)`
+for Pub/Sub or the corresponding `SqsSubscriptionRequest` constructor for SNS/SQS.
+Class-based constructors remain available for non-generic events. Bound publication selects
+the concrete annotation's platform, even if another parameterisation uses a different broker.
+
+`typeArguments` are positional, concrete non-generic class literals. Incorrect counts,
+duplicate bindings, violated bounds, raw arguments and handlers without a declared concrete
+binding are compiler errors. Wildcard handlers are not supported in this initial integration.
+
+Code-first generic Avro records have independent schema factories, converters and reader
+registrations. Their schema names append a full SHA-256 digest of the canonical binding;
+ordinary schema names are unchanged. Converter selection uses the binding registry, not
+Spring's erased class lookup. Generic Avro interfaces and `@Avsc` contracts are rejected.
+Kafka resolves the writer schema against the binding's reader schema. Pub/Sub and SNS/SQS
+support the current concrete Avro schema; migrations there require writer-schema metadata
+and remain limited by TASK-275.
+
+Version baselines and migration chains are independent per binding. Declare migrations as
+`Migration<ChangedV1<Customer>, Changed<Customer>>`; another parameterisation needs its
+own chain. JSON transports and Kafka Avro apply event/component migrations using the
+resolved arguments, and reject unsupported versions explicitly. Baseline filenames append
+the same binding digest so specialisations cannot overwrite each other's released contract.
+For streams, pass the same captured type to `streams.from(type)`, `.to(type)` and
+`topology.input(type)` / `topology.output(type)`. Type-preserving operators keep the
+binding; after `map`, `join` or a custom processor, call `.as(resultType)` before a
+stateful operation that serializes the new value. Use
+`.keyBy(Key.class, resultType, mapper)` when mapping and repartitioning together, and
+`.aggregate(resultType, initializer, aggregator)` for a generic aggregate result.
+
+```java
+var changes = new EventType<Changed<Customer>>() {};
+var results = new EventType<Changed<Product>>() {};
+streams.from(changes)
+        .map(change -> new Changed<>(change.id(), new Product(change.payload().name())))
+        .as(results)
+        .repartition()
+        .to(results);
+```
+
+Generic joins, repartition topics, local stores and aggregation state retain the full
+payload type rather than inferring arguments from values. `streams.createStore(type)`
+and `streams.globalStore(type)` accept concrete bindings. Sources and global-store
+updaters skip other registered bindings on shared topics; typed topology outputs reject
+a different binding rather than delivering an incorrectly typed value. Kafka permits
+only one global store per source topic, and that topic cannot also be a regular source.
+Tracing metadata continues through generic map, repartition and join operations.
+
+Configured Kafka, Pub/Sub and SNS/SQS brokers provision all resolved generic topics at
+startup, including bindings with no handlers and every fan-out target. This requires
+the broker permissions needed to inspect/create those resources. Kafka uses broker
+defaults for partition count and replication factor. Existing ordinary topic provisioning
+is unchanged. GCP Terraform generates literal generic topics and matching handler
+subscriptions; unresolved Spring property/SpEL topics instead produce an explicit
+compiler warning and must be managed separately if using Terraform.
 
 ---
 
@@ -671,9 +782,12 @@ Prefab generates:
 
 ## 7.12 Unit Testing Domain Events
 
-Aggregate roots that `implement PublishesEvents` call `publish()` inside constructors or update
-methods. In a plain JUnit 5 unit test there is no Spring context, so events would silently be
-discarded. `prefab-test` provides two classes to make unit-testing event publishing easy and safe.
+Aggregate roots publish through bound `EventPublisher` handles inside constructors or update
+methods. In a plain JUnit 5 unit test there is no Spring context: install the
+`PublishedEventsExtension` below to provide a capturing publisher. A bound handle throws
+when no publisher is registered; only the deprecated `PublishesEvents` helper retains its
+legacy no-op behavior. `prefab-test` provides two classes to make unit-testing event publishing
+easy and safe.
 
 ### `CapturingDomainEventPublisher`
 

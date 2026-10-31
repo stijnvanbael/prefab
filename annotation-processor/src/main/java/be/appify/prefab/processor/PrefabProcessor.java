@@ -1,6 +1,7 @@
 package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.annotations.EventSnapshot;
 import be.appify.prefab.core.annotations.Computed;
 import be.appify.prefab.core.annotations.OutputTarget;
@@ -14,6 +15,7 @@ import be.appify.prefab.core.annotations.rest.Security;
 import be.appify.prefab.core.annotations.rest.Streaming;
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.core.util.FullTextLanguages;
+import be.appify.prefab.processor.event.EventBindings;
 import com.google.auto.service.AutoService;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
@@ -91,6 +93,17 @@ public class PrefabProcessor extends AbstractProcessor {
                 environment,
                 deferredEventHandlers,
                 currentCompilationTypeNames);
+        var validEvents = context.eventElementsFromCurrentCompilation()
+                .map(element -> EventBindings.validate(element, context))
+                .toList().stream().allMatch(Boolean::booleanValue);
+        var validHandlers = environment.getElementsAnnotatedWith(EventHandler.class).stream()
+                .filter(ExecutableElement.class::isInstance)
+                .map(ExecutableElement.class::cast)
+                .map(handler -> EventBindings.validateHandler(handler, context))
+                .toList().stream().allMatch(Boolean::booleanValue);
+        if (!validEvents || !validHandlers) {
+            return true;
+        }
         plugins.forEach(plugin -> plugin.initContext(context));
         if (hasAvscAnnotations(context) && !eventFilesWritten) {
             eventFilesWritten = true;

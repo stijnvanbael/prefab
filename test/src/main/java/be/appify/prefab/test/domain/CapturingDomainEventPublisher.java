@@ -1,6 +1,7 @@
 package be.appify.prefab.test.domain;
 
 import be.appify.prefab.core.domain.DomainEventPublisher;
+import be.appify.prefab.core.domain.TypedEvent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,8 +17,9 @@ public class CapturingDomainEventPublisher extends DomainEventPublisher {
     private final List<Object> capturedEvents = new ArrayList<>();
 
     @Override
+    @Deprecated(since = "0.12.2")
     public void publish(Object event) {
-        capturedEvents.add(event);
+        capturedEvents.add(TypedEvent.payload(event));
     }
 
     /**
@@ -49,4 +51,3 @@ public class CapturingDomainEventPublisher extends DomainEventPublisher {
         capturedEvents.clear();
     }
 }
-

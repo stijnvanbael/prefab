@@ -200,6 +200,16 @@ public class VariableManifest {
     }
 
     /**
+     * Replaces the resolved type while preserving source annotations and identity.
+     *
+     * @param type substituted member type
+     * @return the resolved variable
+     */
+    public VariableManifest withType(TypeManifest type) {
+        return new VariableManifest(element, type, name, annotations, processingEnvironment);
+    }
+
+    /**
      * Creates a new VariableManifest with the specified name.
      *
      * @param newName

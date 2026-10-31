@@ -1,5 +1,8 @@
 package be.appify.prefab.core.pubsub;
 
+import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.domain.EventType;
+import be.appify.prefab.core.serialization.ConcreteAvroSupport;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.versioning.AvroTrees;
 import be.appify.prefab.core.versioning.EventMigrator;
@@ -94,6 +97,9 @@ public class PubSubDeserializer {
      */
     @SuppressWarnings("unchecked")
     public <T> T deserialize(String topic, ByteString data, Class<T> type, Map<String, String> attributes) {
+        if (type.getTypeParameters().length > 0) {
+            throw new IllegalArgumentException("Generic event deserialization requires an EventType: " + type.getName());
+        }
         var serialization = eventRegistry.serialization(topic);
         var eventType = Optional.ofNullable(attributes.get("type")).flatMap(eventRegistry::typeByClassName)
                 .filter(type::isAssignableFrom).orElse((Class) type);
@@ -108,6 +114,40 @@ public class PubSubDeserializer {
         return switch (serialization) {
             case AVRO -> deserializeAvro(data.toByteArray(), type);
             case JSON -> jsonUtil.parseJson(data.toStringUtf8(), type);
+        };
+    }
+
+    /**
+     * Reads a JSON message for exactly one registered concrete binding.
+     *
+     * @param topic source topic
+     * @param data message payload
+     * @param type consumer binding
+     * @param attributes transport metadata
+     * @param <T> event type
+     * @return the concretely bound payload
+     */
+    public <T> T deserialize(String topic, ByteString data, EventType<T> type, Map<String, String> attributes) {
+        var identity = attributes.get(EventType.HEADER);
+        if (identity == null) {
+            throw new IllegalArgumentException("Generic event is missing " + EventType.HEADER);
+        }
+        var registered = eventRegistry.concreteTypeFor(topic, identity);
+        if (!registered.equals(type)) {
+            throw new IllegalArgumentException("Message does not match consumer binding " + type);
+        }
+        var plan = eventMigrator.plan(type, MessageVersions.from(attributes::get));
+        if (plan.isRequired()) {
+            if (eventRegistry.serialization(topic) == Event.Serialization.AVRO) {
+                throw new IllegalArgumentException("Avro migration on Pub/Sub requires a writer schema (TASK-275): " + type);
+            }
+            @SuppressWarnings("unchecked")
+            var migrated = (T) plan.apply(jsonMapper.readTree(data.toStringUtf8()), jsonMapper);
+            return migrated;
+        }
+        return switch (eventRegistry.serialization(topic)) {
+            case JSON -> jsonUtil.parseJson(data.toStringUtf8(), type);
+            case AVRO -> ConcreteAvroSupport.read(data.toByteArray(), type, eventRegistry);
         };
     }
 

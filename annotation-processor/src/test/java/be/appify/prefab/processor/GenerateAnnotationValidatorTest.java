@@ -12,6 +12,22 @@ import org.junit.jupiter.api.Test;
 /** Unit tests for {@link GenerateAnnotationValidator}. */
 class GenerateAnnotationValidatorTest {
 
+    @Test
+    void repeatableEventDeclarationsAreRecognizedForGenerateOverrides() {
+        var compilation = javac().withProcessors(new PrefabProcessor()).compile(
+                sourceOf("""
+                        package test.example;
+                        import be.appify.prefab.core.annotations.*;
+                        @Event(topic = "strings", typeArguments = String.class)
+                        @Event(topic = "integers", typeArguments = Integer.class)
+                        @Generate(plugin = TestPlugin.class, enabled = false)
+                        public record Changed<T>(T payload) {}
+                        """, "test.example.Changed"),
+                sourceOf(VALID_AGGREGATE_WITH_PLUGIN_OVERRIDE_PLUGIN, "test.example.TestPlugin"));
+        assertThat(compilation).succeeded();
+        org.junit.jupiter.api.Assertions.assertTrue(compilation.warnings().isEmpty());
+    }
+
     private static final String VALID_AGGREGATE_WITH_PLUGIN_OVERRIDE_AGGREGATE = """
             package test.example;
 
@@ -219,7 +235,5 @@ class GenerateAnnotationValidatorTest {
         return sourceOf(sourceCode, "test.example");
     }
 }
-
-
 
 

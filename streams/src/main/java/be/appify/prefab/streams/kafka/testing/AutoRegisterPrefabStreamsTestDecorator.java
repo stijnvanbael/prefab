@@ -2,6 +2,7 @@ package be.appify.prefab.streams.kafka.testing;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.Keyed;
+import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.streams.GlobalStore;
 import be.appify.prefab.streams.GlobalStoreUpdater;
@@ -35,6 +36,21 @@ public class AutoRegisterPrefabStreamsTestDecorator implements PrefabStreams {
     }
 
     @Override
+    public <K, V extends Keyed<K>> PrefabStream<K, V> from(EventType<V> type) {
+        register(type);
+        return new AutoRegisterPrefabStreamTestDecorator<>(delegate.from(type), eventRegistry, this, appId);
+    }
+
+    void register(EventType<?> type) {
+        if (eventRegistry.topicsForType(type).isEmpty()) {
+            var declaration = be.appify.prefab.core.versioning.EventVersions.declarationFor(type);
+            for (var topic : declaration.topic()) {
+                eventRegistry.register(topic, type, declaration.serialization());
+            }
+        }
+    }
+
+    @Override
     public <K, M extends Keyed<K>> PrefabStream<K, M> merge(PrefabStream<K, ? extends M> left,
             PrefabStream<K, ? extends M> right) {
         return new AutoRegisterPrefabStreamTestDecorator<>(delegate.merge(left, right), eventRegistry, this, appId);
@@ -42,8 +58,24 @@ public class AutoRegisterPrefabStreamsTestDecorator implements PrefabStreams {
 
     @Override
     public <KS, VS extends Keyed<KS>> Store<KS, VS> createStore(TypeReference<VS> type) {
-        eventRegistry.register(appId + "-" + toStoreName(type.name()) + "-changelog", type.rawType(), Event.Serialization.JSON);
+        if (!(type.type() instanceof java.lang.reflect.ParameterizedType)) {
+            eventRegistry.register(appId + "-" + toStoreName(type.name()) + "-changelog", type.rawType(), Event.Serialization.JSON);
+        }
         return delegate.createStore(type);
+    }
+
+    @Override
+    public <KS, S extends Keyed<KS>, K, V extends Keyed<K>> GlobalStore<K, V> globalStore(
+            String name, EventType<S> sourceType, TypeReference<V> storeType, Function<S, V> mapper) {
+        register(sourceType);
+        return track(delegate.globalStore(name, sourceType, storeType, mapper));
+    }
+
+    @Override
+    public <KS, S extends Keyed<KS>, K, V extends Keyed<K>> GlobalStore<K, V> declareGlobalStore(
+            String name, EventType<S> sourceType, TypeReference<V> storeType, GlobalStoreUpdater<KS, S, K, V> updater) {
+        register(sourceType);
+        return track(delegate.declareGlobalStore(name, sourceType, storeType, updater));
     }
 
     @Override

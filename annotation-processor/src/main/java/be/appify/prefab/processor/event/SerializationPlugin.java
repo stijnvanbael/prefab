@@ -38,6 +38,7 @@ public class SerializationPlugin implements PrefabPlugin {
                 .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
                 .map(EventPlatformPluginSupport::publisherEventType)
                 .distinct()
+                .filter(event -> EventBindings.validate(event.asElement(), context))
                 .filter(event -> writtenTypes.add(event.packageName() + "." + event.simpleName()))
                 .forEach(eventTypeRegistrarWriter::writeRegistrar);
     }

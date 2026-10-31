@@ -9,6 +9,7 @@ import be.appify.prefab.core.annotations.Versioned;
 import be.appify.prefab.core.versioning.EventVersion;
 import be.appify.prefab.core.versioning.Migration;
 import be.appify.prefab.processor.PrefabContext;
+import be.appify.prefab.processor.TypeManifest;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.lang.annotation.Annotation;
@@ -66,9 +67,15 @@ class EventVersioningValidator {
                 .toList();
         validateChains(migrations);
         var versioned = new java.util.LinkedHashSet<TypeElement>();
-        versioned.addAll(ElementFilter.typesIn(roundEnvironment.getElementsAnnotatedWith(Event.class)));
+        versioned.addAll(context.eventElementsFromCurrentCompilation().toList());
         versioned.addAll(ElementFilter.typesIn(roundEnvironment.getElementsAnnotatedWith(Versioned.class)));
-        versioned.stream().filter(type -> validated.add(type.getQualifiedName().toString())).forEach(this::validateType);
+        versioned.stream().filter(type -> validated.add(type.getQualifiedName().toString())).forEach(type -> {
+            if (!type.getTypeParameters().isEmpty() && type.getAnnotationsByType(Event.class).length > 0) {
+                EventBindings.typesOf(type, context).forEach(this::validateBinding);
+            } else {
+                validateType(type);
+            }
+        });
     }
 
     private Optional<MigrationDeclaration> declarationOf(TypeElement element) {
@@ -100,9 +107,7 @@ class EventVersioningValidator {
     }
 
     private static String nameOf(TypeMirror type) {
-        return type instanceof DeclaredType declared
-                ? ((TypeElement) declared.asElement()).getQualifiedName().toString()
-                : type.toString();
+        return com.palantir.javapoet.TypeName.get(type).toString();
     }
 
     private void validateChains(List<MigrationDeclaration> migrations) {
@@ -137,12 +142,16 @@ class EventVersioningValidator {
                         .formatted(tip, chain.get(i - 1).to(), chain.get(i).from()), chain.get(i).element());
             }
         }
-        var tipElement = context.processingEnvironment().getElementUtils().getTypeElement(tip);
+        var rawName = tip.contains("<") ? tip.substring(0, tip.indexOf('<')) : tip;
+        var tipElement = context.processingEnvironment().getElementUtils().getTypeElement(rawName);
         var last = chain.getLast();
         if (tipElement == null) {
             return;
         }
-        var declared = declaredVersion(tipElement);
+        var declared = tipElement.getTypeParameters().isEmpty() ? declaredVersion(tipElement)
+                : EventBindings.typesOf(tipElement, context)
+                    .filter(type -> type.asTypeName().toString().equals(tip))
+                    .map(EventBindings::annotationFor).map(annotation -> EventVersion.parse(annotation.version())).findFirst();
         if (declared.isEmpty() || declared.get().major() != last.to()) {
             context.logError("Migrations of '%s' end at major version %d, but the type declares version %s."
                     .formatted(tip, last.to(), declared.map(EventVersion::toString).orElse("1.0.0")), last.element());
@@ -172,6 +181,27 @@ class EventVersioningValidator {
         }
     }
 
+    private void validateBinding(TypeManifest binding) {
+        var type = (TypeElement) binding.asElement();
+        var annotation = EventBindings.annotationFor(binding);
+        var current = EventVersion.parse(annotation.version());
+        validateMinSupported(type, annotation, current);
+        var fileName = type.getQualifiedName() + EventBindings.suffix(binding) + ".properties";
+        var baseline = readBaseline(type, fileName);
+        var fields = new LinkedHashMap<String, EventContract.Field>();
+        binding.fields().forEach(field -> fields.put(field.name(), new EventContract.Field(
+                field.type().asTypeName().toString(), field.type().is(java.util.Optional.class)
+                        || field.hasAnnotation(Default.class) || field.nullable())));
+        var contract = new EventContract(current, fields);
+        var errors = new ArrayList<String>();
+        baseline.ifPresent(previous -> compare(type, contract, previous, compatibilityOf(annotation), errors,
+                binding.asTypeName().toString()));
+        errors.forEach(message -> context.logError(message, type));
+        if (errors.isEmpty()) {
+            writeBaseline(type, contract, baseline.isEmpty(), fileName);
+        }
+    }
+
     private void validateMinSupported(TypeElement type, Event event, EventVersion current) {
         if (event.minSupportedVersion().isBlank()) {
             return;
@@ -194,6 +224,11 @@ class EventVersioningValidator {
             Compatibility mode,
             List<String> errors
     ) {
+        compare(type, current, baseline, mode, errors, type.getQualifiedName().toString());
+    }
+
+    private void compare(TypeElement type, EventContract current, EventContract baseline,
+                         Compatibility mode, List<String> errors, String identity) {
         var name = type.getSimpleName();
         if (current.version().compareTo(baseline.version()) < 0) {
             errors.add("Version %s of '%s' is lower than the released version %s; versions must not decrease."
@@ -201,7 +236,7 @@ class EventVersioningValidator {
             return;
         }
         if (current.version().major() > baseline.version().major()) {
-            validateMigrationCoverage(type, baseline.version(), current.version(), errors);
+            validateMigrationCoverage(type, baseline.version(), current.version(), errors, identity);
             return;
         }
         var changes = current.changesSince(baseline, renamedFields(type));
@@ -219,9 +254,10 @@ class EventVersioningValidator {
             TypeElement type,
             EventVersion baseline,
             EventVersion current,
-            List<String> errors
+            List<String> errors,
+            String identity
     ) {
-        var chain = chains.get(type.getQualifiedName().toString());
+        var chain = chains.get(identity);
         var covered = chain != null && chain.stream().anyMatch(step -> step.from() == baseline.major())
                 && chain.getLast().to() == current.major();
         if (!covered) {
@@ -317,7 +353,10 @@ class EventVersioningValidator {
     }
 
     private Optional<EventContract> readBaseline(TypeElement type) {
-        var fileName = type.getQualifiedName() + ".properties";
+        return readBaseline(type, type.getQualifiedName() + ".properties");
+    }
+
+    private Optional<EventContract> readBaseline(TypeElement type, String fileName) {
         try {
             var directory = baselineDirectory();
             if (directory.isPresent()) {
@@ -343,7 +382,10 @@ class EventVersioningValidator {
     }
 
     private void writeBaseline(TypeElement type, EventContract contract, boolean missing) {
-        var fileName = type.getQualifiedName() + ".properties";
+        writeBaseline(type, contract, missing, type.getQualifiedName() + ".properties");
+    }
+
+    private void writeBaseline(TypeElement type, EventContract contract, boolean missing, String fileName) {
         var text = new StringWriter();
         try {
             contract.write(text);
@@ -356,7 +398,7 @@ class EventVersioningValidator {
                 }
                 return;
             }
-            var current = readBaseline(type);
+            var current = readBaseline(type, fileName);
             if (!missing && current.isPresent() && sameContract(current.get(), contract)) {
                 return;
             }

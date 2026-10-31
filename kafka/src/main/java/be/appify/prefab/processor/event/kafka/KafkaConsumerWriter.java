@@ -5,11 +5,13 @@ import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.core.annotations.OutputTarget;
+import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.processor.CaseUtil;
 import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.event.ConsumerWriterSupport;
+import be.appify.prefab.processor.event.EventBindings;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.FieldSpec;
@@ -27,6 +29,7 @@ import javax.lang.model.type.DeclaredType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -88,9 +91,9 @@ class KafkaConsumerWriter {
 
     private void validateTopicAncestors(List<ExecutableElement> eventHandlers) {
         var topics = eventHandlers.stream()
-                .map(e -> listenerEventTypeFor(support.rootEventType(e, context))
-                        .annotationsOfType(Event.class).stream().findFirst().orElseThrow().topic())
-                .flatMap(java.util.Arrays::stream)
+                .map(e -> EventBindings.annotationFor(listenerEventTypeFor(support.rootEventType(e, context))))
+                .map(Event::topic)
+                .flatMap(Arrays::stream)
                 .collect(Collectors.toSet());
         topics.forEach(topic -> support.eventTypeOf(eventHandlers, context, topic));
     }
@@ -110,13 +113,23 @@ class KafkaConsumerWriter {
             var eventType = eventHandlersForEvent.getKey();
             var concreteTypes = support.concreteEventTypes(eventType, context);
             var listenerParamType = concreteTypes.size() == 1 ? concreteTypes.getFirst() : eventType;
-            var annotation = eventType.annotationsOfType(Event.class).stream().findFirst().orElseThrow();
-            var eventName = eventType.simpleName().replace(".", "");
+            var annotation = EventBindings.annotationFor(eventType);
+            var eventName = eventType.simpleName().replace(".", "") + EventBindings.suffix(eventType);
             var method = MethodSpec.methodBuilder("on%s".formatted(eventName))
                     .addModifiers(PUBLIC)
                     .addAnnotation(kafkaListener(owner, annotation, eventName))
                     .addParameter(listenerParamType.asTypeName(), "event")
                     .addStatement("log.debug($S, event)", "Received event {}");
+            if (!eventType.parameters().isEmpty()) {
+                method.addParameter(ParameterSpec.builder(String.class, "eventType")
+                        .addAnnotation(AnnotationSpec.builder(Header.class)
+                                .addMember("value", "$S", EventType.HEADER)
+                                .build()).build());
+                method.beginControlFlow("if (!new $T<$T>() {}.id().equals(eventType))",
+                                EventType.class, eventType.asTypeName())
+                        .addStatement("return")
+                        .endControlFlow();
+            }
             if (asyncCommit) {
                 method.addAnnotation(Transactional.class);
             }

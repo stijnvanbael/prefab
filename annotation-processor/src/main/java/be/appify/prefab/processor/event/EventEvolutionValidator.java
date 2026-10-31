@@ -24,7 +24,7 @@ class EventEvolutionValidator {
     }
 
     void validate(TypeManifest event, Set<String> currentEventNames) {
-        if (!validated.add(event.packageName() + "." + event.simpleName())) {
+        if (!validated.add(event.asTypeName().toString())) {
             return;
         }
         validateTypeNames(event, currentEventNames);

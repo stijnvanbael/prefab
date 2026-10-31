@@ -1,6 +1,7 @@
 package be.appify.prefab.streams.testing;
 
 import be.appify.prefab.core.domain.Keyed;
+import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.streams.GlobalStore;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -19,6 +20,27 @@ final class LazyTopologySession implements TopologySession {
             session = starter.get();
         }
         return session;
+    }
+
+    @Override
+    public <K, V extends Keyed<K>> TopologyInput<K, V> input(EventType<V> type) {
+        return session().input(type);
+    }
+    @Override
+    public <K, V extends Keyed<K>> TopologyInput<K, V> input(EventType<V> type, Class<K> keyType) {
+        return session().input(type, keyType);
+    }
+    @Override
+    public <K, V extends Keyed<K>> TopologyOutput<K, V> output(EventType<V> type) {
+        return session().output(type);
+    }
+    @Override
+    public <K, V extends Keyed<K>> TopologyOutput<K, V> output(EventType<V> type, Class<K> keyType) {
+        return session().output(type, keyType);
+    }
+    @Override
+    public <K, V extends Keyed<K>> TopologyOutput<K, V> output(String topic, EventType<V> type) {
+        return session().output(topic, type);
     }
 
     @Override

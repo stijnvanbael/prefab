@@ -2,6 +2,9 @@ package be.appify.prefab.core.spring;
 
 import be.appify.prefab.core.domain.DomainEventDispatcher;
 import be.appify.prefab.core.domain.DomainEventPublisher;
+import be.appify.prefab.core.domain.EventPublisher;
+import be.appify.prefab.core.domain.EventType;
+import be.appify.prefab.core.domain.TypedEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +17,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class SpringDomainEventPublisherTest {
 
@@ -99,6 +103,40 @@ class SpringDomainEventPublisherTest {
         assertNull(DomainEventPublisher.getInstance());
     }
 
+    @Test
+    void boundGenericPublisher_dispatchesUsingPayloadClassAndRetainsIdentity() {
+        var type = new EventType<GenericEvent<String>>() {};
+        var bound = EventPublisher.bind(type);
+        var event = new GenericEvent<>("data");
+        var received = new ArrayList<Object>();
+        var typedDispatcher = new DomainEventDispatcher() {
+            @Override
+            public boolean canDispatch(Class<?> eventType) {
+                return eventType == GenericEvent.class;
+            }
+
+            @Override
+            public void dispatch(Object publication, String... topicOverrides) {
+                received.add(publication);
+            }
+        };
+        publisher = new SpringDomainEventPublisher(applicationEventPublisher, List.of(typedDispatcher));
+
+        bound.publish(event);
+
+        assertEquals(List.of(new TypedEvent<>(type, event)), received);
+        assertEquals(List.of(), applicationEventPublisher.received);
+    }
+
+    @Test
+    void boundGenericPublisher_withoutDispatcherFailsRatherThanPublishingEnvelopeOnSpringBus() {
+        var bound = EventPublisher.bind(new EventType<GenericEvent<String>>() {});
+
+        assertThrows(IllegalArgumentException.class, () -> bound.publish(new GenericEvent<>("data")));
+
+        assertEquals(List.of(), applicationEventPublisher.received);
+    }
+
     // --- test doubles ---
 
     private static final class RecordingEventPublisher implements ApplicationEventPublisher {
@@ -131,4 +169,5 @@ class SpringDomainEventPublisherTest {
 
     private record RegisteredEvent(String data) {}
     private record UnregisteredEvent(String data) {}
+    private record GenericEvent<T>(T data) {}
 }

@@ -1,6 +1,7 @@
 package be.appify.prefab.streams;
 
 import be.appify.prefab.core.domain.Keyed;
+import be.appify.prefab.core.domain.EventType;
 
 import java.time.Duration;
 import java.util.List;
@@ -139,6 +140,24 @@ public interface PrefabStream<K, V extends Keyed<K>> {
 
     StreamDefinition to(Class<? super V> type);
 
+    /** @param type concrete sink binding @return topology definition */
+    StreamDefinition to(EventType<? super V> type);
+
+    /**
+     * Supplies the concrete output type after an operation that changes values.
+     * @param type captured output binding
+     * @return this stream with full serialization type information
+     */
+    PrefabStream<K, V> as(EventType<V> type);
+
+    /** @return captured concrete value identity, when known */
+    default java.util.Optional<EventType<V>> knownEventType() {
+        return java.util.Optional.empty();
+    }
+
+    /** @param keyType new key class @param outputType full mapped type @param mapper rekeying function @return repartitioned stream */
+    <KO, VO extends Keyed<KO>> PrefabStream<KO, VO> keyBy(Class<KO> keyType, EventType<VO> outputType, Function<V, VO> mapper);
+
     StreamDefinition to(String topic);
 
     /**
@@ -169,6 +188,9 @@ public interface PrefabStream<K, V extends Keyed<K>> {
             Function<List<V>, VO> aggregation,
             Predicate<VO> egressCondition
     ) {
+        if (knownEventType().isPresent()) {
+            return process(new AggregationProcessor<>(knownEventType().orElseThrow(), groupBy, aggregation, egressCondition));
+        }
         return process(new AggregationProcessor<>(groupBy, aggregation, egressCondition, knownValueType()));
     }
 }

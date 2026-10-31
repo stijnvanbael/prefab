@@ -21,6 +21,16 @@ public interface DomainEventDispatcher {
      */
     boolean canDispatch(Class<?> eventType);
 
+    /**
+     * Checks a concrete event binding rather than its erased class.
+     *
+     * @param eventType concrete event token
+     * @return whether the binding belongs to this dispatcher
+     */
+    default boolean canDispatch(EventType<?> eventType) {
+        return canDispatch(eventType.rawType());
+    }
+
 
     /**
      * Dispatches the event to the specified topic overrides instead of the topics that are
@@ -42,11 +52,13 @@ public interface DomainEventDispatcher {
      * is non-null and {@link #canDispatch} returns {@code true}.
      *
      * @param event the domain event to publish
+     * @deprecated Application code should use a bound {@link EventPublisher}.
      */
+    @Deprecated(since = "0.12.2")
     default void publish(Object event, String... topicOverrides) {
-        if (event != null && canDispatch(event.getClass())) {
+        if (event != null && (event instanceof TypedEvent<?> typed
+                ? canDispatch(typed.type()) : canDispatch(event.getClass()))) {
             dispatch(event, topicOverrides);
         }
     }
 }
-

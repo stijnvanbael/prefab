@@ -1,6 +1,9 @@
 package be.appify.prefab.core.kafka;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.domain.EventType;
+import be.appify.prefab.core.domain.TypedEvent;
+import be.appify.prefab.core.serialization.ConcreteEventSupport;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroSerializer;
 import be.appify.prefab.core.versioning.EventVersions;
 import java.nio.charset.StandardCharsets;
@@ -60,6 +63,10 @@ public class DynamicSerializer implements Serializer<Object> {
      */
     @Override
     public byte[] serialize(String topic, Object data) {
+        ConcreteEventSupport.payloadFor(topic, data, eventRegistry);
+        if (data instanceof TypedEvent<?>) {
+            throw new IllegalArgumentException("Generic event serialization requires headers for " + EventType.HEADER);
+        }
         switch (data) {
             case null -> {
                 return null;
@@ -92,6 +99,22 @@ public class DynamicSerializer implements Serializer<Object> {
      */
     @Override
     public byte[] serialize(String topic, Headers headers, Object data) {
+        var payload = ConcreteEventSupport.payloadFor(topic, data, eventRegistry);
+        if (data instanceof TypedEvent<?> typed) {
+            if (headers == null) {
+                throw new IllegalArgumentException("Generic event serialization requires " + EventType.HEADER);
+            }
+            headers.remove(EventType.HEADER);
+            headers.add(EventType.HEADER, typed.type().id().getBytes(StandardCharsets.UTF_8));
+            EventVersions.headersFor(typed).forEach((name, value) -> {
+                headers.remove(name);
+                headers.add(name, value.getBytes(StandardCharsets.UTF_8));
+            });
+            return switch (eventRegistry.serialization(topic)) {
+                case JSON -> jsonSerializer.serialize(topic, payload);
+                case AVRO -> avroSerializer().serialize(topic, eventRegistry.toAvro(typed));
+            };
+        }
         if (headers != null && data != null && !(data instanceof String) && !(data instanceof byte[])) {
             EventVersions.headersFor(data).forEach((name, value) -> {
                 headers.remove(name);
@@ -101,7 +124,7 @@ public class DynamicSerializer implements Serializer<Object> {
         return serialize(topic, data);
     }
 
-        private GenericAvroSerializer avroSerializer() {
+    private GenericAvroSerializer avroSerializer() {
         var serializer = avroSerializer;
         if (serializer != null) {
             return serializer;

@@ -1,6 +1,7 @@
 package be.appify.prefab.streams.kafka;
 
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.core.domain.EventType;
 
 /** Resolves event type to topic for streams source/sink operations. */
 public class KafkaTopicResolver {
@@ -27,6 +28,11 @@ public class KafkaTopicResolver {
         return eventRegistry.topicForType(type);
     }
 
+    /** @param type concrete event binding @return its single topic */
+    public String topicForType(EventType<?> type) {
+        return eventRegistry.topicForType(type);
+    }
+
     /**
      * Returns whether a serialization format is registered for the given topic.
      *
@@ -38,4 +44,3 @@ public class KafkaTopicResolver {
         return eventRegistry.contains(topic);
     }
 }
-

@@ -31,6 +31,15 @@ class DeferredAggregationSerde<K, V> implements Serde<Aggregation<K, V>> {
 
     private final AtomicReference<JavaType> capturedType = new AtomicReference<>();
     private final JsonMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
+    private final java.lang.reflect.Type valueType;
+
+    DeferredAggregationSerde() {
+        this.valueType = null;
+    }
+
+    DeferredAggregationSerde(java.lang.reflect.Type valueType) {
+        this.valueType = valueType;
+    }
 
     @Override
     public Serializer<Aggregation<K, V>> serializer() {
@@ -82,9 +91,9 @@ class DeferredAggregationSerde<K, V> implements Serde<Aggregation<K, V>> {
         var keyClass = (Class<K>) aggregation.key().getClass();
         @SuppressWarnings("unchecked")
         var valueClass = (Class<V>) aggregation.values().getFirst().getClass();
-        var type = objectMapper.getTypeFactory()
-                .constructParametricType(Aggregation.class, keyClass, valueClass);
+        var factory = objectMapper.getTypeFactory();
+        var type = factory.constructParametricType(Aggregation.class, factory.constructType(keyClass),
+                factory.constructType(valueType == null ? valueClass : valueType));
         capturedType.compareAndSet(null, type);
     }
 }
-

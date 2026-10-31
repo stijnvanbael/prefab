@@ -1,10 +1,10 @@
 ---
 id: TASK-303
 title: Support generic event types in all event related features
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-30 14:08'
-updated_date: '2026-10-31 14:01'
+updated_date: '2026-10-31 14:18'
 labels:
   - events
   - generics
@@ -199,8 +199,8 @@ Kafka, Pub/Sub and SNS/SQS; generic Avro, streams and migration remain unfinishe
 - Feature implementation is committed, including concrete JSON/Avro bindings, independent event/component migration chains and baselines, generic streams/topology APIs, broker and Terraform provisioning, compiler diagnostics, fixtures and documentation. Latest commits: `450b3762`, `aa03e958`, `ec0bc7fd`, `8d1f19d3`.
 - Complete affected-module reactors passed during implementation; the final component correction additionally passed the complete core reactor. All feature acceptance criteria have implementation evidence.
 - Final `mvn -q -fae test` is not green. `examples/avro` fails before application startup because `apache/kafka:4.4.0` never satisfies the `RECOVERY` to `RUNNING` readiness check. The Kafka example has 32 application-context errors from the same startup failure. The Pub/Sub example repeatedly downloads the emulator image without reaching startup; stopped only the owned Maven command after the repeated pulls.
-- Broker output reaches transaction-coordinator startup but not the required running transition. CDS archive mismatch messages are present, but their causal role is not established. No generic-event regression is established by these pre-application failures. Follow-up infrastructure investigation is TASK-305.
-- Leave TASK-303 **In Progress**, despite the completed feature criteria: the required full-root verification must pass before setting Done. Retained diagnostic artifacts: `task-303-root-final.log`, `task-303-components-final.log`, `task-303-provisioning.log` and `task-303-streams-ordinary-tokens.log`.
+- The user confirmed on 2026-10-31 that containers are blocked on this machine, declined infrastructure follow-up and will run the integration tests on CI. TASK-305 is archived as unnecessary; no local infrastructure changes are required.
+- TASK-303 is **Done** with all feature criteria implemented. Full container-based verification is explicitly deferred to the user's CI run, not claimed as passing locally. Retained diagnostic artifacts: `task-303-root-final.log`, `task-303-components-final.log`, `task-303-provisioning.log` and `task-303-streams-ordinary-tokens.log`.
 
 ### Historical progress
 

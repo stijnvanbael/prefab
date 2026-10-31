@@ -4,6 +4,7 @@ title: Resolve Kafka Testcontainer startup timeouts
 status: To Do
 assignee: []
 created_date: '2026-10-31 13:57'
+updated_date: '2026-10-31 14:18'
 labels:
   - testing
   - kafka
@@ -33,6 +34,7 @@ The final TASK-303 reactor reproduces this in `examples/avro` (`SaleIntegrationT
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
+- Archived without implementation at the user's request: containers are blocked on this machine and the user will run integration tests on CI. No infrastructure follow-up is needed. The unchecked investigation criteria were not performed.
 - TASK-303 implementation and focused/full affected-module reactors are green, but its required full-root verification remains blocked by this failure.
 - The same final run reports 32 Kafka-example application-context errors from the Kafka readiness failure. Pub/Sub then repeatedly pulls the emulator image without reaching startup; the owned Maven command was stopped after these repeated pulls. Treat image provisioning as a separate infrastructure symptom, not proof of an application regression.
 - Final root command: `mvn -q -fae test`. Diagnostic artifact: `task-303-root-final.log` in the originating Copilot session; the Maven report is `examples/avro/target/surefire-reports/be.appify.prefab.example.avro.sale.SaleIntegrationTest.txt`.

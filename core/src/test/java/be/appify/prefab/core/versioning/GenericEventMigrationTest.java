@@ -36,6 +36,35 @@ class GenericEventMigrationTest {
     @Event(topic = "addresses", typeArguments = Address.class)
     public record Envelope<T>(List<T> payload) {}
 
+    @Versioned(version = "2")
+    public record Wrapper<T>(T payload) {}
+    public record OldWrapper<T>(T raw) {}
+    @EventMigration(from = "1", to = "2")
+    static class TextWrappers implements Migration<OldWrapper<String>, Wrapper<String>> {
+        public Wrapper<String> migrate(OldWrapper<String> old) { return new Wrapper<>(old.raw().toUpperCase()); }
+    }
+    @EventMigration(from = "1", to = "2")
+    static class NumberWrappers implements Migration<OldWrapper<Integer>, Wrapper<Integer>> {
+        public Wrapper<Integer> migrate(OldWrapper<Integer> old) { return new Wrapper<>(old.raw() + 1); }
+    }
+    @Event(topic = "wrapped", typeArguments = String.class)
+    public record Wrapped<T>(Wrapper<T> first, Wrapper<Integer> second) {}
+
+    @Test
+    void siblingParameterizedComponentsUseTheirOwnResolvedMigrationChains() {
+        var mapper = JsonMapper.builder().build();
+        var type = new EventType<Wrapped<String>>() {};
+        var payload = mapper.readTree("{\"first\":{\"raw\":\"hello\"},\"second\":{\"raw\":3}}");
+        var plan = new EventMigrator(List.of(new TextWrappers(), new NumberWrappers()))
+                .plan(type, MessageVersions.initial());
+        assertThat(plan.isRequired()).isTrue();
+        assertThat(plan.apply(payload.deepCopy(), mapper))
+                .isEqualTo(new Wrapped<>(new Wrapper<>("HELLO"), new Wrapper<>(4)));
+        assertThatThrownBy(() -> new EventMigrator(List.of(new TextWrappers()))
+                .plan(type, MessageVersions.initial()).apply(payload.deepCopy(), mapper))
+                .hasMessageContaining("Wrapper<java.lang.Integer>");
+    }
+
     @Test
     void independentChainsRetainSnapshotArguments() {
         var mapper = JsonMapper.builder().build();

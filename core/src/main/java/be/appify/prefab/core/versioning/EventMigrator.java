@@ -1,6 +1,7 @@
 package be.appify.prefab.core.versioning;
 
 import be.appify.prefab.core.annotations.EventMigration;
+import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.EventType;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -138,24 +139,25 @@ public final class EventMigrator {
 
     private boolean requiresComponentMigration(ResolvableType startType, MessageVersions versions) {
         var components = referencedRecords(startType, new HashSet<>());
-        return components.stream().filter(type -> type != startType.resolve(Object.class))
-                .filter(type -> startType.hasGenerics() || chains.containsKey(type.getName()))
-                .anyMatch(type -> versions.component(type.getName()).major() != EventVersions.current(type).major());
+        return components.stream().filter(type -> !type.toString().equals(startType.toString()))
+                .filter(type -> startType.hasGenerics() || chains.containsKey(type.toString()))
+                .anyMatch(type -> versions.component(type.resolve(Object.class).getName()).major()
+                        != EventVersions.current(type.resolve(Object.class)).major());
     }
 
-    private Set<Class<?>> referencedRecords(ResolvableType type, Set<Class<?>> visited) {
+    private Set<ResolvableType> referencedRecords(ResolvableType type, Set<Class<?>> visited) {
         var element = TypeStructure.elementType(type);
         if (element.isPresent()) {
             return referencedRecords(element.get(), visited);
         }
         var raw = type.resolve(Object.class);
-        var found = new LinkedHashSet<Class<?>>();
+        var found = new LinkedHashSet<ResolvableType>();
         if (!raw.isRecord() || !visited.add(raw)) {
             return found;
         }
-        found.add(raw);
+        found.add(type);
         for (var component : raw.getRecordComponents()) {
-            found.addAll(referencedRecords(ResolvableType.forType(component.getGenericType(), type), visited));
+            found.addAll(referencedRecords(ResolvableType.forType(component.getGenericType(), type), new HashSet<>(visited)));
         }
         return found;
     }
@@ -172,7 +174,7 @@ public final class EventMigrator {
         if (element.isPresent()) {
             return migrateElements(node, element.get(), versions, mapper);
         }
-        var steps = componentSteps(raw, versions);
+        var steps = componentSteps(type, versions);
         var structureType = steps.isEmpty() ? type : steps.getFirst().oldType();
         var structure = structureType.resolve(Object.class);
         if (structure.isRecord() && !Modifier.isAbstract(structure.getModifiers()) && node instanceof ObjectNode object) {
@@ -201,11 +203,12 @@ public final class EventMigrator {
         return node;
     }
 
-    private List<Step> componentSteps(Class<?> type, MessageVersions versions) {
+    private List<Step> componentSteps(ResolvableType type, MessageVersions versions) {
+        var raw = type.resolve(Object.class);
         try {
-            return stepsFor(type, versions.component(type.getName()), EventVersions.current(type));
+            return stepsFor(type, versions.component(raw.getName()), EventVersions.current(raw));
         } catch (UnsupportedEventVersionException e) {
-            throw new UnsupportedEventVersionException("No component migration can read " + type.getName()
+            throw new UnsupportedEventVersionException("No component migration can read " + type
                     + ": " + e.getMessage());
         }
     }
@@ -275,9 +278,10 @@ public final class EventMigrator {
             }
         }
         var target = steps.getLast().newType();
-        var currentMajor = target.hasGenerics()
+        var raw = target.resolve(Object.class);
+        var currentMajor = target.hasGenerics() && raw.getAnnotationsByType(Event.class).length > 0
                 ? EventVersion.parse(EventVersions.declarationFor(EventType.from(target.getType())).version()).major()
-                : EventVersions.current(target.resolve(Object.class)).major();
+                : EventVersions.current(raw).major();
         if (steps.getLast().to() != currentMajor) {
             throw new IllegalStateException("Migrations of %s end at major version %d, but the type declares major version %d"
                     .formatted(tip, steps.getLast().to(), currentMajor));

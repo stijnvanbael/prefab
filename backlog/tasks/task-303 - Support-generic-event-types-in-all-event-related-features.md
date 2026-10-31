@@ -4,7 +4,7 @@ title: Support generic event types in all event related features
 status: In Progress
 assignee: []
 created_date: '2026-10-30 14:08'
-updated_date: '2026-10-31 07:28'
+updated_date: '2026-10-31 13:46'
 labels:
   - events
   - generics
@@ -55,6 +55,8 @@ Today event handling is keyed on the raw `Class` of the event. Parameterised eve
 
 <!-- SECTION:PLAN:BEGIN -->
 ### Implementation progress
+- The nested component gap is fixed: full resolved types select chains, recursion guards are path-local, and generic `@Versioned` targets use their component declaration rather than requiring `@Event`. A sibling `Wrapper<String>` / `Wrapper<Integer>` regression verifies independent chains and explicit missing-specialization errors. The complete core reactor passed. Restart full-root verification against this final correction; the earlier run was stopped during Schema Registry image download, not reported as success.
+- Final migration audit found a coupled gap: parameterized `@Versioned` components still looked up chains by erased class and sibling specializations shared a traversal visited key. Preserve each resolved component type and use path-local recursion guards; verify two differently parameterized components inside the same generic event before finalizing.
 - Provisioning is implemented and focused compiler/runtime checks passed: platform-scoped startup creation includes publisher-only bindings and deduplicated fan-out topics; generic GCP Terraform fragments include exact handler subscription identities and bindings discovered across rounds. Unresolved generic property/SpEL topics produce an explicit warning and remain runtime-provisioned, not invalid HCL. Repeated declarations are recognized by `@Generate` validation. Avro collision detection now uses the actual overridden namespace, with a cross-package nested-payload regression test.
 - Ordinary `EventType.of(Class)` stream APIs now bridge to class registration/serialization rather than requiring generic wire metadata. A seventh generic-topology-suite test verifies ordinary token input/source/output routing. Annotation reference, generated artefact guide and feature guide now describe the complete implementation and deliberate limits. All feature criteria have evidence; final root-reactor verification is still required before setting Done.
 - Concrete stream source/sink, type hints, joins/repartition, grouped/windowed aggregates, list processors, local/global stores and topology-test overloads now retain full type arguments. Six generic topology tests cover shared-topic isolation, tracing, join state, grouped/list aggregation, global-store updates/tombstones and typed rekeying. The complete streams module reactor passed. Kafka's one-global-store-per-source-topic restriction remains explicit.

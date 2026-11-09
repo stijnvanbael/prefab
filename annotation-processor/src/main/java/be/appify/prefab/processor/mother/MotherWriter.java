@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -540,6 +541,7 @@ class MotherWriter {
         var temporalDefault = temporalDefaultValue(type);
         if (temporalDefault != null) return temporalDefault;
         if (type.is(BigDecimal.class)) return CodeBlock.of("$T.ONE", BigDecimal.class);
+        if (type.is(UUID.class)) return CodeBlock.of("$T.randomUUID()", UUID.class);
         if (type.is(MultipartFile.class)) {
             var mockMultipartFile = ClassName.get("org.springframework.mock.web", "MockMultipartFile");
             return CodeBlock.of("new $T($S, $S, $S, new byte[0])", mockMultipartFile, fieldName, fieldName, "application/octet-stream");
@@ -693,6 +695,18 @@ class MotherWriter {
         if (temporalLiteral != null) return temporalLiteral;
         var decimalLiteral = bigDecimalExampleLiteral(value, type, param, reportErrors);
         if (decimalLiteral != null) return decimalLiteral;
+        if (type.is(UUID.class)) {
+            try {
+                UUID.fromString(value);
+                return CodeBlock.of("$T.fromString($S)", UUID.class, value);
+            } catch (IllegalArgumentException e) {
+                if (reportErrors && param != null) {
+                    reportExampleParseError(value, "UUID", param);
+                    return CodeBlock.of("$T.randomUUID()", UUID.class);
+                }
+                return null;
+            }
+        }
         if (type.is(char.class) || type.is(Character.class)) {
             if (value.length() == 1) {
                 return CodeBlock.of("$S.charAt(0)", value);

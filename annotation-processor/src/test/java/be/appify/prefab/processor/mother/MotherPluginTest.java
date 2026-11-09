@@ -198,6 +198,23 @@ class MotherPluginTest {
     }
 
     @Test
+    void motherUsesRandomUuidForUuidFields() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mother/uuid/source/UuidEvent.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/uuid/source", "UuidEventMother.java")
+                .contentsAsUtf8String()
+                .contains("UUID.randomUUID()");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "mother/uuid/source", "UuidEventMother.java")
+                .contentsAsUtf8String()
+                .contains("UUID.fromString(\"00000000-0000-0000-0000-000000000001\")");
+    }
+
+    @Test
     void motherGeneratedForMultiFieldRecordNestedInsideSingleValueType() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

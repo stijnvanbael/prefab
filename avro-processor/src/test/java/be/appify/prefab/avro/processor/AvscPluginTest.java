@@ -37,6 +37,20 @@ class AvscPluginTest {
     public static final com.google.testing.compile.Compilation decimalCompilation = javac()
             .withProcessors(new PrefabProcessor())
             .compile(sourceOf("event/avsc/decimal/source/DecimalAvsc.java"));
+    public static final com.google.testing.compile.Compilation uuidCompilation = javac()
+            .withProcessors(new PrefabProcessor())
+            .compile(sourceOf("event/avsc/uuid/source/UuidAvsc.java"));
+
+    @Test
+    void uuidLogicalTypeAvscEvent() {
+        assertThat(uuidCompilation).succeeded();
+        assertThat(uuidCompilation).generatedSourceFile("event.avsc.uuid.UuidAvscEvent")
+                .contentsAsUtf8String()
+                .contains("UUID id");
+        assertThat(uuidCompilation).generatedSourceFile("event.avsc.uuid.UuidAvscEvent")
+                .contentsAsUtf8String()
+                .contains("UUID parentId");
+    }
 
     @Test
     void simpleAvscEvent() {

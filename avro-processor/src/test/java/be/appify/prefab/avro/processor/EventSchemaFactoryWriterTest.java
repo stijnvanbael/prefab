@@ -61,6 +61,20 @@ class EventSchemaFactoryWriterTest {
     }
 
     @Test
+    void uuidFields() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avro/uuid/source/UuidEvent.java"));
+        assertThat(compilation).succeeded();
+        var schema = generatedSourceOf(compilation, "event.avro.infrastructure.avro.UuidEventSchemaFactory");
+        assertThat(schema).contains("SchemaSupport.createLogicalSchema(Schema.Type.STRING, LogicalTypes.uuid())");
+        var toRecord = generatedSourceOf(compilation, "event.avro.infrastructure.avro.UuidEventToGenericRecordConverter");
+        assertThat(toRecord).contains("event.id().toString()");
+        var toEvent = generatedSourceOf(compilation, "event.avro.infrastructure.avro.GenericRecordToUuidEventConverter");
+        assertThat(toEvent).contains("SchemaSupport.getUuid(genericRecord, \"id\")");
+    }
+
+    @Test
     void nullableFields() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

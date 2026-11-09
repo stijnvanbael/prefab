@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Modifier;
 import javax.tools.Diagnostic;
@@ -49,6 +50,7 @@ class AvscEventWriter {
     private static final String LOGICAL_TYPE_DATE = "date";
     private static final String LOGICAL_TYPE_DURATION_MILLIS = "duration-millis";
     private static final String LOGICAL_TYPE_DECIMAL = "decimal";
+    private static final String LOGICAL_TYPE_UUID = "uuid";
     private static final String OPTION_SETTER_PREFIX = "prefab.builder.setterPrefix";
     private final ProcessingEnvironment processingEnvironment;
     private final FileOutput fileWriter;
@@ -596,6 +598,7 @@ class AvscEventWriter {
             case LOGICAL_TYPE_DATE -> ClassName.get(LocalDate.class);
             case LOGICAL_TYPE_DURATION_MILLIS -> ClassName.get(Duration.class);
             case LOGICAL_TYPE_DECIMAL -> ClassName.get(BigDecimal.class);
+            case LOGICAL_TYPE_UUID -> ClassName.get(UUID.class);
             default -> {
                 reportError("Unsupported logical type: " + logicalTypeName);
                 yield null;

@@ -20,6 +20,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 /**
@@ -218,6 +219,7 @@ public class AvroPlugin implements PrefabPlugin {
                 || type.is(LocalDate.class)
                 || type.is(Duration.class)
                 || type.is(BigDecimal.class)
+                || type.is(UUID.class)
                 || (type.isSingleValueType() && type.fields().getFirst().type().isStandardType());
     }
 }

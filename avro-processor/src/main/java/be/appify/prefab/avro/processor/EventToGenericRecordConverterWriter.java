@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -248,6 +249,8 @@ class EventToGenericRecordConverterWriter {
             return CodeBlock.of("(int) $L.toEpochDay()", value);
         } else if (type.is(Duration.class)) {
             return CodeBlock.of("$L.toMillis()", value);
+        } else if (type.is(UUID.class)) {
+            return CodeBlock.of("$L.toString()", value);
         } else if (type.is(BigDecimal.class)) {
             return CodeBlock.of("$T.toDecimalAvro($L, $L)", SchemaSupport.class, value, schema);
         } else if (type.isSingleValueType()) {

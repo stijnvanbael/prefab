@@ -30,6 +30,7 @@ import java.time.LocalDate;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static be.appify.prefab.avro.processor.AvroPlugin.avroUnionRecordBranches;
 import static be.appify.prefab.avro.processor.AvroPlugin.isAvroUnion;
@@ -299,6 +300,9 @@ class GenericRecordToEventConverterWriter {
         if (type.is(LocalDate.class)) {
             return CodeBlock.of("$T.getLocalDate(genericRecord, $S)", SchemaSupport.class, fieldName);
         }
+        if (type.is(UUID.class)) {
+            return CodeBlock.of("$T.getUuid(genericRecord, $S)", SchemaSupport.class, fieldName);
+        }
         if (type.is(Duration.class)) {
             return CodeBlock.of("$T.getDuration(genericRecord, $S)", SchemaSupport.class, fieldName);
         }
@@ -395,6 +399,8 @@ class GenericRecordToEventConverterWriter {
             return CodeBlock.of("$T.ofEpochDay((Integer) $L)", LocalDate.class, value);
         } else if (type.is(Duration.class)) {
             return CodeBlock.of("$T.ofMillis((Long) $L)", Duration.class, value);
+        } else if (type.is(UUID.class)) {
+            return CodeBlock.of("$T.fromString($L.toString())", UUID.class, value);
         } else if (type.is(BigDecimal.class)) {
             if (schema == null) {
                 return CodeBlock.of("($T) $L", BigDecimal.class, value);

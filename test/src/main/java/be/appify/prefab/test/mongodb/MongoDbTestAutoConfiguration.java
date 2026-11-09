@@ -29,7 +29,7 @@ import java.util.Optional;
 @ConditionalOnClass(MongoTemplate.class)
 @ConditionalOnBean(PrefabCoreConfiguration.class)
 public class MongoDbTestAutoConfiguration {
-    private static final String MONGO_IMAGE = "mongo:9";
+    private static final String MONGO_IMAGE = "mongo:8";
 
     /**
      * Constructs a new MongoDbTestAutoConfiguration.

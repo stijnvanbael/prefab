@@ -39,6 +39,9 @@ public abstract class DomainEventPublisher {
      * Publishes a domain event.
      *
      * @param event the event to publish
+     * @deprecated Application code should bind an {@link EventPublisher}. Infrastructure
+     * implementations continue to override this publication hook.
      */
+    @Deprecated(since = "0.12.2")
     public abstract void publish(Object event);
 }

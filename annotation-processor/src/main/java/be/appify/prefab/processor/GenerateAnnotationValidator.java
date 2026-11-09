@@ -60,7 +60,7 @@ public class GenerateAnnotationValidator {
 
         // Check if this is an aggregate or event contract
         var hasAggregate = typeElement.getAnnotation(Aggregate.class) != null;
-        var hasEvent = typeElement.getAnnotation(Event.class) != null;
+        var hasEvent = typeElement.getAnnotationsByType(Event.class).length > 0;
         if (!hasAggregate && !hasEvent) {
             if (typeElement.getAnnotation(Generate.class) != null || typeElement.getAnnotation(GenerateOverrides.class) != null) {
                 warn(
@@ -262,7 +262,6 @@ public class GenerateAnnotationValidator {
                 .printMessage(Diagnostic.Kind.WARNING, message, element);
     }
 }
-
 
 
 

@@ -1,6 +1,7 @@
 package be.appify.prefab.streams;
 
 import be.appify.prefab.core.domain.Keyed;
+import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.streams.tracing.MessageTracing;
 import java.time.Instant;
 import java.util.List;
@@ -64,6 +65,15 @@ public class AggregationProcessor<K, V extends Keyed<K>, KO, VO extends Keyed<KO
         this.egressCondition = egressCondition;
     }
 
+    /** @param inputType full input binding @param groupBy grouping function @param aggregator result function @param egressCondition publication predicate */
+    public AggregationProcessor(EventType<V> inputType, Function<V, KO> groupBy,
+                                Function<List<V>, VO> aggregator, Predicate<VO> egressCondition) {
+        this(new TypeReference<Aggregation<KO, V>>(org.springframework.core.ResolvableType.forClassWithGenerics(
+                Aggregation.class, org.springframework.core.ResolvableType.forClass(Object.class),
+                org.springframework.core.ResolvableType.forType(inputType.type())).getType()) {},
+                groupBy, aggregator, egressCondition);
+    }
+
     @Override
     public void process(StreamRecord<K, V> streamRecord) {
         var store = store(storeType);
@@ -114,6 +124,5 @@ public class AggregationProcessor<K, V extends Keyed<K>, KO, VO extends Keyed<KO
         return TypeReference.of(aggregationClass);
     }
 }
-
 
 

@@ -3,6 +3,7 @@ package be.appify.prefab.processor;
 import be.appify.prefab.core.annotations.Avsc;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandler;
+import be.appify.prefab.core.annotations.Events;
 import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.util.FullTextLanguages;
 import java.util.HashMap;
@@ -256,7 +257,8 @@ public class PrefabContext {
     }
 
     private List<TypeElement> computeCurrentCompilationEventElements() {
-        var annotated = roundEnvironment.getElementsAnnotatedWith(Event.class)
+        var annotated = roundEnvironment.getElementsAnnotatedWithAny(
+                        Set.of(Event.class, Events.class))
                 .stream()
                 .map(e -> (TypeElement) e);
 
@@ -331,7 +333,7 @@ public class PrefabContext {
                 .map(VariableElement::asType)
                 .filter(type -> type.getKind().name().equals("DECLARED"))
                 .map(type -> (TypeElement) ((DeclaredType) type).asElement())
-                .filter(type -> type.getAnnotation(Event.class) != null);
+                .filter(type -> type.getAnnotationsByType(Event.class).length > 0);
     }
 
     /**

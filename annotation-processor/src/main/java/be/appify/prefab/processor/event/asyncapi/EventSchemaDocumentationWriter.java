@@ -1,11 +1,11 @@
 package be.appify.prefab.processor.event.asyncapi;
 
 import be.appify.prefab.core.annotations.Doc;
-import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.Example;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.event.EventBindings;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.core.util.DefaultIndenter;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -67,7 +67,7 @@ class EventSchemaDocumentationWriter {
                 .flatMap(List::stream)
                 .forEach(info -> {
                     collectSchemas(info.type(), schemas);
-                    messages.put(info.type().simpleName(), buildMessageSchema(info.type()));
+                    messages.put(componentName(info.type()), buildMessageSchema(info.type()));
                 });
 
         var asyncApiJson = buildAsyncApiJson(eventsByTopic, messages, schemas);
@@ -113,7 +113,7 @@ class EventSchemaDocumentationWriter {
     private Map<String, List<EventInfo>> groupByTopic(List<TypeManifest> events, Set<TypeManifest> consumed) {
         Map<String, List<EventInfo>> result = new LinkedHashMap<>();
         for (var event : events) {
-            var annotation = event.inheritedAnnotationsOfType(Event.class).stream().findFirst().orElseThrow();
+            var annotation = EventBindings.annotationFor(event);
             var isConsumed = consumed.contains(event);
             for (var topic : annotation.topic()) {
                 result.computeIfAbsent(topic, k -> new ArrayList<>()).add(new EventInfo(event, isConsumed));
@@ -125,7 +125,7 @@ class EventSchemaDocumentationWriter {
     private ObjectNode buildMessageSchema(TypeManifest type) {
         var message = factory.objectNode();
         var payload = factory.objectNode();
-        payload.put("$ref", "#/components/schemas/" + type.simpleName());
+        payload.put("$ref", "#/components/schemas/" + componentName(type));
         message.set("payload", payload);
         return message;
     }
@@ -151,12 +151,12 @@ class EventSchemaDocumentationWriter {
     private ObjectNode buildMessageRefNode(List<EventInfo> events) {
         var messageRef = factory.objectNode();
         if (events.size() == 1) {
-            messageRef.put("$ref", "#/components/messages/" + events.getFirst().type().simpleName());
+            messageRef.put("$ref", "#/components/messages/" + componentName(events.getFirst().type()));
         } else {
             var oneOf = factory.arrayNode();
             for (var event : events) {
                 var ref = factory.objectNode();
-                ref.put("$ref", "#/components/messages/" + event.type().simpleName());
+                ref.put("$ref", "#/components/messages/" + componentName(event.type()));
                 oneOf.add(ref);
             }
             messageRef.set("oneOf", oneOf);
@@ -165,10 +165,15 @@ class EventSchemaDocumentationWriter {
     }
 
     private void collectSchemas(TypeManifest type, Map<String, ObjectNode> schemas) {
-        if (schemas.containsKey(type.simpleName())) {
+        if (schemas.containsKey(componentName(type))) {
             return;
         }
-        schemas.put(type.simpleName(), buildTypeSchema(type, schemas));
+        schemas.put(componentName(type), factory.objectNode());
+        schemas.put(componentName(type), buildTypeSchema(type, schemas));
+    }
+
+    private static String componentName(TypeManifest type) {
+        return type.simpleName() + EventBindings.suffix(type);
     }
 
     private ObjectNode buildTypeSchema(TypeManifest type, Map<String, ObjectNode> schemas) {
@@ -192,7 +197,7 @@ class EventSchemaDocumentationWriter {
         for (var subtype : subtypes) {
             collectSchemas(subtype, schemas);
             var ref = factory.objectNode();
-            ref.put("$ref", "#/components/schemas/" + subtype.simpleName());
+            ref.put("$ref", "#/components/schemas/" + componentName(subtype));
             oneOf.add(ref);
         }
         schema.set("oneOf", oneOf);
@@ -273,7 +278,7 @@ class EventSchemaDocumentationWriter {
         }
         collectSchemas(type, schemas);
         var ref = factory.objectNode();
-        ref.put("$ref", "#/components/schemas/" + type.simpleName());
+        ref.put("$ref", "#/components/schemas/" + componentName(type));
         return ref;
     }
 

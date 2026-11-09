@@ -1,5 +1,6 @@
 package be.appify.prefab.streams;
 
+import be.appify.prefab.core.domain.EventType;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 
@@ -20,6 +21,11 @@ public abstract class TypeReference<T> {
         return new SimpleClass<>(type);
     }
 
+    /** @param type captured concrete binding @return a full reference for stores */
+    public static <T> TypeReference<T> of(EventType<T> type) {
+        return new SimpleClass<>(type.type());
+    }
+
     /**
      * Creates a {@code TypeReference} whose {@link #name()} returns a human-readable
      * representative label rather than the plain class name.
@@ -33,6 +39,10 @@ public abstract class TypeReference<T> {
     }
 
     public String name() {
+        if (type instanceof ParameterizedType) {
+            return rawType().getSimpleName() + "_" + be.appify.prefab.core.serialization.EventSubscriptionNames
+                    .name("store", type.getTypeName(), "").substring("prefab-".length());
+        }
         return type.getTypeName().substring(type.getTypeName().lastIndexOf('.') + 1);
     }
 
@@ -81,4 +91,3 @@ public abstract class TypeReference<T> {
         return name();
     }
 }
-

@@ -1,6 +1,7 @@
 package be.appify.prefab.core.sns;
 
 import be.appify.prefab.core.annotations.EventHandlerConfig;
+import be.appify.prefab.core.domain.EventType;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
@@ -20,6 +21,7 @@ public class SqsSubscriptionRequest<T> {
     private final String queueName;
     private final Class<T> type;
     private final Consumer<T> consumer;
+    private final Optional<EventType<T>> eventType;
     private RetryTemplate retryTemplate = null;
     private Executor executor = Runnable::run;
     private String deadLetterQueueName = DEFAULT_DEAD_LETTER_QUEUE_NAME;
@@ -46,6 +48,29 @@ public class SqsSubscriptionRequest<T> {
         this.queueName = queueName;
         this.type = type;
         this.consumer = consumer;
+        this.eventType = Optional.empty();
+    }
+
+    /**
+     * Creates a request for one concrete generic event binding.
+     *
+     * @param topic source topic
+     * @param queueName independent queue name
+     * @param type concrete event token
+     * @param consumer event consumer
+     */
+    @SuppressWarnings("unchecked")
+    public SqsSubscriptionRequest(String topic, String queueName, EventType<T> type, Consumer<T> consumer) {
+        this.topic = topic;
+        this.queueName = queueName;
+        this.type = (Class<T>) type.rawType();
+        this.consumer = consumer;
+        this.eventType = Optional.of(type);
+    }
+
+    /** @return the concrete binding, empty for legacy class-based subscriptions */
+    public Optional<EventType<T>> eventType() {
+        return eventType;
     }
 
     /**

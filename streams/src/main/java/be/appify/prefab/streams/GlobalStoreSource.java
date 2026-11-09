@@ -1,6 +1,7 @@
 package be.appify.prefab.streams;
 
 import be.appify.prefab.core.domain.Keyed;
+import be.appify.prefab.core.domain.EventType;
 import java.util.Objects;
 
 /**
@@ -12,11 +13,16 @@ import java.util.Objects;
  */
 public final class GlobalStoreSource<KS, S extends Keyed<KS>> {
     private final PrefabStreams streams;
-    private final Class<S> sourceType;
+    private final TypeReference<S> sourceType;
 
     GlobalStoreSource(PrefabStreams streams, Class<S> sourceType) {
         this.streams = Objects.requireNonNull(streams, "streams must not be null");
-        this.sourceType = Objects.requireNonNull(sourceType, "sourceType must not be null");
+        this.sourceType = TypeReference.of(Objects.requireNonNull(sourceType, "sourceType must not be null"));
+    }
+
+    GlobalStoreSource(PrefabStreams streams, EventType<S> sourceType) {
+        this.streams = Objects.requireNonNull(streams);
+        this.sourceType = TypeReference.of(sourceType);
     }
 
     /**

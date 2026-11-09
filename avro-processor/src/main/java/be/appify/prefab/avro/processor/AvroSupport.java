@@ -1,11 +1,16 @@
 package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.processor.TypeManifest;
+import be.appify.prefab.processor.event.EventBindings;
 import com.palantir.javapoet.AnnotationSpec;
 import org.springframework.stereotype.Component;
 
 class AvroSupport {
     private AvroSupport() {
+    }
+
+    static String generatedName(TypeManifest type) {
+        return type.simpleName().replace(".", "") + EventBindings.suffix(type);
     }
 
     static AnnotationSpec componentAnnotation(TypeManifest event, String name) {

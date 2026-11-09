@@ -18,7 +18,6 @@ import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.type.TypeVariable;
 import javax.tools.Diagnostic;
 import org.javalite.common.Inflector;
 import org.springframework.util.ClassUtils;
@@ -43,12 +42,13 @@ public class TypeManifest {
     private final ElementKind kind;
     private final TypeElement element;
     private final ProcessingEnvironment processingEnvironment;
+    private final TypeMirror sourceType;
 
     private TypeManifest(TypeMirror typeMirror, ProcessingEnvironment processingEnvironment) {
+        this.sourceType = typeMirror;
         this.processingEnvironment = processingEnvironment;
         if (typeMirror.getKind() == TypeKind.TYPEVAR) {
-            var typeVariable = (TypeVariable) typeMirror;
-            typeMirror = typeVariable.getUpperBound();
+            typeMirror = processingEnvironment.getTypeUtils().erasure(typeMirror);
         }
         if (typeMirror.getKind().isPrimitive()) {
             this.identity = new TypeIdentity("", typeMirror.toString(), List.of());
@@ -112,6 +112,7 @@ public class TypeManifest {
 
     private TypeManifest(String packageName, String simpleName, List<TypeManifest> parameters, ElementKind kind,
             ProcessingEnvironment processingEnvironment) {
+        this.sourceType = null;
         this.identity = new TypeIdentity(packageName, simpleName, parameters);
         this.kind = kind;
         this.element = null;
@@ -349,7 +350,16 @@ public class TypeManifest {
      * @return a list of VariableManifest representing the fields of the type
      */
     public List<VariableManifest> fields() {
-        return members.fields();
+        if (!(sourceType instanceof DeclaredType declared) || parameters().isEmpty()) {
+            return members.fields();
+        }
+        return members.fields().stream().map(field -> {
+            if (field.element() == null) {
+                return field;
+            }
+            var resolved = processingEnvironment.getTypeUtils().asMemberOf(declared, field.element());
+            return field.withType(TypeManifest.of(resolved, processingEnvironment));
+        }).toList();
     }
 
     /**

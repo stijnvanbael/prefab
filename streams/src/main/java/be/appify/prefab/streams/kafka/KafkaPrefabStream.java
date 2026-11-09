@@ -2,6 +2,7 @@ package be.appify.prefab.streams.kafka;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.Keyed;
+import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.core.kafka.EventRegistry;
@@ -152,6 +153,24 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
         this.stepNames = Objects.requireNonNull(stepNames, "stepNames must not be null");
     }
 
+    KafkaPrefabStream(StreamsBuilder builder, KStream<K, V> stream, KafkaTopicResolver resolver,
+                      DynamicSerializer serializer, DynamicDeserializer deserializer, JsonMapper mapper,
+                      ConversionService conversions, Map<String, Object> properties, EventType<V> type,
+                      PrefabStreams streams, Serde<K> keys, StreamStepNames names, TracingConfig tracing) {
+        this(builder, stream, resolver, serializer, deserializer, mapper, conversions, properties,
+                ValueTypeHint.known(type), streams, keys, names, tracing);
+    }
+
+    @Override
+    public PrefabStream<K, V> as(EventType<V> type) {
+        return wrap(stream, ValueTypeHint.known(type), keySerde);
+    }
+
+    @Override
+    public java.util.Optional<EventType<V>> knownEventType() {
+        return java.util.Optional.ofNullable(valueType.eventType);
+    }
+
     @Override
     public PrefabStream<K, V> filter(Predicate<V> predicate) {
         return wrap(
@@ -279,6 +298,19 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
     }
 
     @Override
+    public <KO, VO extends Keyed<KO>> PrefabStream<KO, VO> keyBy(Class<KO> keyType, EventType<VO> outputType,
+                                                              Function<V, VO> mapper) {
+        var keys = new StringKeySerde<KO>(keyType);
+        var hint = ValueTypeHint.known(outputType);
+        KStream<KO, VO> mapped = stream.map((key, value) -> {
+            var output = mapper.apply(value);
+            return KeyValue.pair(output.key(), output);
+        });
+        return wrap(mapped.repartition(Repartitioned.<KO, VO>with(keys, joinSerde(hint))
+                .withName(stepNames.nextRepartitionName(inputTypeOrNull()))), hint, keys);
+    }
+
+    @Override
     public <KO, VO extends Keyed<KO>> PrefabStream<KO, VO> keyBy(
             Class<KO> keyType,
             Function<V, VO> mapper,
@@ -342,11 +374,22 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
                 Supplier<VR> initializer,
                 BiFunction<? super V, ? super VR, ? extends VR> aggregator
         ) {
-            Objects.requireNonNull(resultType, "resultType must not be null");
+            return aggregate(ValueTypeHint.known(resultType), initializer, aggregator);
+        }
+
+        @Override
+        public <VR extends Keyed<KO>> PrefabStream<KO, VR> aggregate(
+                EventType<VR> resultType, Supplier<VR> initializer,
+                BiFunction<? super V, ? super VR, ? extends VR> aggregator) {
+            return aggregate(ValueTypeHint.known(resultType), initializer, aggregator);
+        }
+
+        private <VR extends Keyed<KO>> PrefabStream<KO, VR> aggregate(
+                ValueTypeHint<VR> resultHint, Supplier<VR> initializer,
+                BiFunction<? super V, ? super VR, ? extends VR> aggregator) {
             Objects.requireNonNull(initializer, "initializer must not be null");
             Objects.requireNonNull(aggregator, "aggregator must not be null");
-            var name = stepNames.nextAggregateName(inputTypeOrNull(), resultType);
-            var resultHint = ValueTypeHint.known(resultType);
+            var name = stepNames.nextAggregateName(inputTypeOrNull(), resultHint.knownRuntimeType());
             if (tracedGrouped != null) {
                 KTable<KO, TracedValue<VR>> table = tracedGrouped.aggregate(
                         () -> new TracedValue<>(initializer.get(), List.of()),
@@ -376,12 +419,23 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
                 Supplier<VR> initializer,
                 BiFunction<? super V, ? super VR, ? extends VR> aggregator
         ) {
+            return windowedAggregate(window, ValueTypeHint.known(resultType), initializer, aggregator);
+        }
+
+        @Override
+        public <VR extends Keyed<KO>> PrefabStream<KO, VR> windowedAggregate(
+                AggregationWindow window, EventType<VR> resultType, Supplier<VR> initializer,
+                BiFunction<? super V, ? super VR, ? extends VR> aggregator) {
+            return windowedAggregate(window, ValueTypeHint.known(resultType), initializer, aggregator);
+        }
+
+        private <VR extends Keyed<KO>> PrefabStream<KO, VR> windowedAggregate(
+                AggregationWindow window, ValueTypeHint<VR> resultHint, Supplier<VR> initializer,
+                BiFunction<? super V, ? super VR, ? extends VR> aggregator) {
             Objects.requireNonNull(window, "window must not be null");
-            Objects.requireNonNull(resultType, "resultType must not be null");
             Objects.requireNonNull(initializer, "initializer must not be null");
             Objects.requireNonNull(aggregator, "aggregator must not be null");
-            var name = stepNames.nextWindowedAggregateName(inputTypeOrNull(), resultType);
-            var resultHint = ValueTypeHint.known(resultType);
+            var name = stepNames.nextWindowedAggregateName(inputTypeOrNull(), resultHint.knownRuntimeType());
             var windows = TimeWindows.ofSizeAndGrace(window.size(), window.grace()).advanceBy(window.advance());
             if (tracedGrouped != null) {
                 KTable<Windowed<KO>, TracedValue<VR>> table = tracedGrouped.windowedBy(windows).aggregate(
@@ -550,19 +604,42 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
 
     @Override
     public StreamDefinition to(Class<? super V> type) {
+        if (type.getTypeParameters().length > 0) {
+            throw new IllegalArgumentException("Generic stream sinks require EventType: " + type.getName());
+        }
         return to(topicResolver.topicForType(type));
+    }
+
+    @Override
+    public StreamDefinition to(EventType<? super V> type) {
+        return writeTo(topicResolver.topicForType(type), new ConcreteEventSerde<>(type, serializer, deserializer));
     }
 
     @Override
     public StreamDefinition to(String topic) {
         // DynamicSerializer/Deserializer work on Object at runtime; the cast to Serde<V> is safe
         // because the backend selects serialization by topic, not by the generic type parameter.
-        var valueSerde = new SerdeAdapter<V>(serializer.adapt(), deserializer.adapt());
+        Serde<? super V> valueSerde = valueType.eventType == null
+                ? new SerdeAdapter<V>(serializer.adapt(), deserializer.adapt())
+                : new ConcreteEventSerde<>(valueType.eventType, serializer, deserializer);
+        return writeTo(topic, valueSerde);
+    }
+
+    private StreamDefinition writeTo(String topic, Serde<? super V> valueSerde) {
+        var writer = valueSerde.serializer();
+        var producedSerde = new SerdeAdapter<V>(new Serializer<>() {
+            public byte[] serialize(String destination, V value) {
+                return writer.serialize(destination, value);
+            }
+            public byte[] serialize(String destination, org.apache.kafka.common.header.Headers headers, V value) {
+                return writer.serialize(destination, headers, value);
+            }
+        }, deserializer.adapt());
         var published = tracing.enabled()
                 ? stream.processValues(KafkaMessageTracing.<K, V>publish(),
                         Named.as(stepNames.nextTracePublishName(inputTypeOrNull())))
                 : stream;
-        published.to(topic, Produced.with(keySerde, valueSerde));
+        published.to(topic, Produced.with(keySerde, producedSerde));
         return end();
     }
 
@@ -622,6 +699,9 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
     }
 
     private <T> Serde<T> joinSerde(ValueTypeHint<T> runtimeType) {
+        if (runtimeType.eventType != null) {
+            return TracedValueSerde.tolerant(new JsonValueSerde<>(jsonMapper, runtimeType.eventType.type()));
+        }
         Serializer<T> joinSerializer = (topic, data) -> serializeForJoin(topic, data, runtimeType);
         Deserializer<T> joinDeserializer = (topic, data) -> deserializeForJoin(topic, data, runtimeType);
         return TracedValueSerde.tolerant(new SerdeAdapter<>(joinSerializer, joinDeserializer));
@@ -694,6 +774,9 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
         if (left.isUnknown() || right.isUnknown()) {
             return ValueTypeHint.unknown();
         }
+        if (left.eventType != null || right.eventType != null) {
+            return Objects.equals(left.eventType, right.eventType) ? (ValueTypeHint<V>) left : ValueTypeHint.unknown();
+        }
         var leftType = left.knownRuntimeType();
         var rightType = right.knownRuntimeType();
         if (leftType.isAssignableFrom(rightType)) {
@@ -710,10 +793,22 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
 
         private final Class<?> runtimeType;
         private final boolean known;
+        private final EventType<T> eventType;
 
         private ValueTypeHint(Class<?> runtimeType, boolean known) {
             this.runtimeType = Objects.requireNonNull(runtimeType, "runtimeType must not be null");
             this.known = known;
+            this.eventType = null;
+        }
+
+        private ValueTypeHint(EventType<T> type) {
+            this.runtimeType = type.rawType();
+            this.eventType = type;
+            this.known = true;
+        }
+
+        static <T> ValueTypeHint<T> known(EventType<T> type) {
+            return new ValueTypeHint<>(type);
         }
 
         static <T> ValueTypeHint<T> known(Class<T> runtimeType) {
@@ -738,4 +833,3 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
         }
     }
 }
-

@@ -6,13 +6,20 @@ import be.appify.prefab.core.annotations.rest.Delete;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.annotations.rest.Update;
+import be.appify.prefab.core.serialization.EventSubscriptionNames;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
+import be.appify.prefab.processor.event.ConsumerWriterSupport;
+import be.appify.prefab.processor.event.EventBindings;
+import be.appify.prefab.processor.event.EventPlatformPluginSupport;
+import be.appify.prefab.processor.event.TopicExpressions;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import javax.annotation.processing.FilerException;
 import javax.lang.model.element.Element;
 import javax.tools.StandardLocation;
+import javax.tools.Diagnostic;
 
 class GcpTerraformWriter {
 
@@ -48,6 +55,7 @@ class GcpTerraformWriter {
         }
         if (hasPubSub) {
             writeFile("pubsub.tf", pubsubTf(), elements);
+            writeGenericPubsubFiles(elements);
         }
         if (hasRestEndpoints) {
             writeFile("load_balancer.tf", loadBalancerTf(), elements);
@@ -74,17 +82,78 @@ class GcpTerraformWriter {
     }
 
     /**
-     * Collects unique Pub/Sub topic names from all {@link Event}-annotated classes in the round environment.
+     * Collects ordinary Pub/Sub topics, preserving their existing resource and subscription names.
      * The {@code @Event(topic = "...")} attribute provides the topic name used for both the GCP Pub/Sub topic
      * and its pull subscription.
      */
     private List<String> pubsubTopics() {
-        return context.roundEnvironment().getElementsAnnotatedWith(Event.class)
-                .stream()
-                .flatMap(e -> java.util.Arrays.stream(e.getAnnotation(Event.class).topic()))
+        return context.eventElementsIncludingConsumedDependencies()
+                .filter(element -> element.getTypeParameters().isEmpty())
+                .flatMap(element -> Arrays.stream(element.getAnnotationsByType(Event.class)))
+                .filter(this::isPubsub)
+                .flatMap(event -> Arrays.stream(event.topic()))
                 .distinct()
                 .sorted()
                 .toList();
+    }
+
+    private boolean isPubsub(Event event) {
+        return event.platform() == Event.Platform.PUB_SUB
+                || event.platform() == Event.Platform.DERIVED
+                && EventPlatformPluginSupport.derivedPlatform() == Event.Platform.PUB_SUB;
+    }
+
+    private void writeGenericPubsubFiles(Element[] elements) {
+        var ordinaryTopics = pubsubTopics();
+        context.eventElementsIncludingConsumedDependencies()
+                .filter(element -> !element.getTypeParameters().isEmpty())
+                .flatMap(element -> EventBindings.typesOf(element, context))
+                .filter(type -> isPubsub(EventBindings.annotationFor(type)))
+                .forEach(type -> {
+                    for (var topic : EventBindings.annotationFor(type).topic()) {
+                        if (TopicExpressions.isExpression(topic)) {
+                            context.processingEnvironment().getMessager().printMessage(Diagnostic.Kind.WARNING,
+                                    "Generic Pub/Sub topic expression " + topic
+                                            + " is provisioned at runtime, not in Terraform; provide resolved infrastructure explicitly.",
+                                    type.asElement());
+                        } else if (!ordinaryTopics.contains(topic)) {
+                            var label = genericTopicLabel(topic);
+                            writeFile(label + ".tf", """
+                                    resource "google_pubsub_topic" "%s" {
+                                      name = "%s"
+                                    }
+                                    """.formatted(label, topic), elements);
+                        }
+                    }
+                });
+        var support = new ConsumerWriterSupport(Event.Platform.PUB_SUB);
+        EventPlatformPluginSupport.eventHandlers(context).forEach(handler -> {
+            var type = support.rootEventType(handler, context);
+            if (type.parameters().isEmpty() || !isPubsub(EventBindings.annotationFor(type))) {
+                return;
+            }
+            var owner = EventPlatformPluginSupport.ownerOf(context, handler);
+            for (var topic : EventBindings.annotationFor(type).topic()) {
+                if (!TopicExpressions.isExpression(topic)) {
+                    var name = EventSubscriptionNames.name(owner.asTypeName().toString(),
+                            EventBindings.identityOf(type.asTypeName()), topic);
+                    var label = name.replace('-', '_');
+                    var topicLabel = ordinaryTopics.contains(topic) ? topic : genericTopicLabel(topic);
+                    writeFile(label + ".tf", """
+                            resource "google_pubsub_subscription" "%s" {
+                              name  = "%s"
+                              topic = google_pubsub_topic.%s.name
+
+                              ack_deadline_seconds = 20
+                            }
+                            """.formatted(label, name, topicLabel), handler);
+                }
+            }
+        });
+    }
+
+    private static String genericTopicLabel(String topic) {
+        return EventSubscriptionNames.name("terraform", "google_pubsub_topic", topic).replace('-', '_');
     }
 
     private void writeFile(String filename, String content, Element... elements) {

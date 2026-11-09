@@ -1,5 +1,6 @@
 package be.appify.prefab.core.spring;
 
+import be.appify.prefab.core.domain.EventType;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -42,5 +43,18 @@ public class JsonUtil {
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse JSON", e);
         }
+
+    }
+
+    /**
+     * Parses JSON while preserving a concrete event's generic arguments.
+     *
+     * @param json JSON payload
+     * @param type concrete target token
+     * @param <T> target event type
+     * @return the bound payload
+     */
+    public <T> T parseJson(String json, EventType<T> type) {
+        return jsonMapper.readValue(json, jsonMapper.getTypeFactory().constructType(type.type()));
     }
 }

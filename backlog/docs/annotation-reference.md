@@ -811,6 +811,23 @@ event types are declared in dependency modules.
 | `publishTo`     | `PublishTo`           | `FIRST`          | Controls which topics the producer publishes to. `FIRST` = primary topic only (backward-compatible). `ALL` = every listed topic.                         |
 | `platform`      | `Event.Platform`      | `DERIVED`        | Messaging platform. Auto-detected when only one is configured.                                                                                           |
 | `serialization` | `Event.Serialization` | `JSON`           | Serialization format (`JSON` or `AVRO`).                                                                                                                 |
+| `typeArguments` | `Class<?>[]` | `{}` | Ordered concrete arguments for this binding of a generic event declaration. Repeat `@Event` for each parameterisation; each owns its topics, platform, format, versions and fan-out. |
+
+```java
+@Event(topic = {"customer-changed", "customer-audit"}, typeArguments = Customer.class,
+        publishTo = PublishTo.ALL)
+@Event(topic = "product-changed", typeArguments = Product.class)
+record Changed<T>(@PartitioningKey String id, T payload) {}
+```
+
+Publish through a once-bound `EventPublisher.bind(new EventType<Changed<Customer>>() {})`;
+ordinary events can use `EventPublisher.bind(CustomerCreated.class)`. Legacy direct
+publication is deprecated, and publishing an erased generic event fails explicitly.
+Handlers must name a declared concrete binding (`Changed<Customer>`). Raw, wildcard,
+unresolved, incorrectly bounded and undeclared bindings are compiler errors; arguments
+must be non-generic class literals. Generic Avro supports code-first records, not
+generic interfaces or `@Avsc` contracts. See [the event guide](feature-guides.md#72-event-publishing)
+for stream tokens, migrations and transport limits.
 
 **Platforms:**
 
@@ -1597,4 +1614,3 @@ Avro on Pub/Sub and SNS/SQS is limited by TASK-275, but migrations run from the 
 ### Compatibility and baselines
 
 `@Event(compatibility = BACKWARD|FORWARD|FULL|NONE)`; the default is `BACKWARD`, overridable with `-Aprefab.events.compatibility`. The processor compares each event with the baseline `prefab/event-baseline/<fqcn>.properties` (on `src/main/resources`, or the directory in `-Aprefab.events.baselineDir`). A missing baseline is written (or generated as a candidate under `prefab/event-baseline-generated/`). Compile errors: version decrease, major bump without a migration chain, mode violation within a major, changed contract without a minor bump. Fields count as optional when `Optional<>`, `@Nullable` or `@Default`; `@PreviousName` renames are backward but not forward compatible.
-

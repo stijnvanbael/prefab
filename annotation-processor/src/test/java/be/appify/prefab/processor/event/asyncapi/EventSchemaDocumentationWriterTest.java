@@ -4,6 +4,7 @@ import be.appify.prefab.processor.PrefabProcessor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.testing.compile.Compilation;
+import com.google.testing.compile.JavaFileObjects;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.stream.StreamSupport;
@@ -19,6 +20,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EventSchemaDocumentationWriterTest {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    @Test
+    void documentsConcreteBindingsWithSeparateTopicsAndResolvedPayloadTypes() {
+        var compilation = javac().withProcessors(new PrefabProcessor()).compile(
+                JavaFileObjects.forSourceString("example.Changed", """
+                        package example;
+                        import be.appify.prefab.core.annotations.Event;
+                        @Event(topic = "strings", typeArguments = String.class)
+                        @Event(topic = "numbers", typeArguments = Integer.class)
+                        public record Changed<T>(String id, T payload) {}
+                        """));
+        assertThat(compilation).succeeded();
+        var document = readAsyncApi(compilation);
+        var strings = document.at("/channels/strings/publish/message/$ref").asText();
+        var numbers = document.at("/channels/numbers/publish/message/$ref").asText();
+
+        assertFalse(strings.equals(numbers));
+        var stringSchema = document.at(strings.substring(1) + "/payload/$ref").asText();
+        var numberSchema = document.at(numbers.substring(1) + "/payload/$ref").asText();
+        assertEquals("string", document.at(stringSchema.substring(1) + "/properties/payload/type").asText());
+        assertEquals("integer", document.at(numberSchema.substring(1) + "/properties/payload/type").asText());
+    }
 
     @Test
     void publishedEvent() {

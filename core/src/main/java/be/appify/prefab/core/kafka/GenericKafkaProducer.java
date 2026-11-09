@@ -1,6 +1,9 @@
 package be.appify.prefab.core.kafka;
 
 import be.appify.prefab.core.domain.DomainEventDispatcher;
+import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.domain.EventType;
+import be.appify.prefab.core.serialization.ConcreteEventSupport;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +35,12 @@ public class GenericKafkaProducer implements DomainEventDispatcher {
     @Override
     public boolean canDispatch(Class<?> eventType) {
         return eventRegistry.hasTopicForType(eventType);
+    }
+
+    @Override
+    public boolean canDispatch(EventType<?> eventType) {
+        return !eventRegistry.topicsForType(eventType).isEmpty()
+                && ConcreteEventSupport.usesPlatform(eventType, Event.Platform.KAFKA);
     }
 
     @Override

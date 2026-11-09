@@ -1,8 +1,10 @@
 package be.appify.prefab.processor;
 
 import java.lang.annotation.Annotation;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -29,15 +31,22 @@ class TypeAnnotations {
     }
 
     <T extends Annotation> Set<T> annotationsOfType(Class<T> annotationType) {
-        return element != null ? Set.of(element.getAnnotationsByType(annotationType)) : Collections.emptySet();
+        // Insertion-ordered so that callers get deterministic results.
+        return element != null
+                ? new LinkedHashSet<>(Arrays.asList(element.getAnnotationsByType(annotationType)))
+                : Collections.emptySet();
     }
 
+    /**
+     * Returns the type's own annotations followed by those inherited from its supertypes. The iteration order is
+     * nearest-first, so a type's own annotation always precedes an annotation of the same type on a supertype.
+     */
     @SuppressWarnings("unchecked")
     <T extends Annotation> Set<T> inheritedAnnotationsOfType(Class<T> annotationType) {
         return (Set<T>) inheritedAnnotationCache.computeIfAbsent(annotationType, type -> Stream.concat(
                 annotationsOfType(annotationType).stream(),
                 supertypes().flatMap(superType -> superType.inheritedAnnotationsOfType(annotationType).stream())
-        ).collect(Collectors.toSet()));
+        ).collect(Collectors.toCollection(LinkedHashSet::new)));
     }
 
     Optional<TypeManifest> supertypeWithAnnotation(Class<? extends Annotation> annotationType) {

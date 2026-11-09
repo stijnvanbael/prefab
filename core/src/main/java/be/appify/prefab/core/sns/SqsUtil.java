@@ -1,5 +1,6 @@
 package be.appify.prefab.core.sns;
 
+import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.kafka.UnknownEventTypeException;
 import io.awspring.cloud.sns.core.SnsTemplate;
@@ -169,6 +170,26 @@ public class SqsUtil implements DisposableBean {
         return eventRegistry.tryTopicForType(type);
     }
 
+    /**
+     * Checks registration without requiring the event to have exactly one topic.
+     *
+     * @param type event class
+     * @return whether any binding of the event is registered
+     */
+    public boolean hasTopicForType(Class<?> type) {
+        return eventRegistry.hasTopicForType(type);
+    }
+
+    /**
+     * Checks whether a concrete binding is registered.
+     *
+     * @param type concrete event binding
+     * @return whether the binding has registered topics
+     */
+    public boolean hasTopicForType(EventType<?> type) {
+        return !eventRegistry.topicsForType(type).isEmpty();
+    }
+
     private String ensureQueueExists(String queueName) {
         var sanitizedName = queueName.replaceAll("[^a-zA-Z0-9_-]", "-");
         if (!sanitizedName.equals(queueName)) {
@@ -267,10 +288,21 @@ public class SqsUtil implements DisposableBean {
         });
     }
 
-    private <T> void processMessage(SqsSubscriptionRequest<T> request, String queueUrl, Message message) {
+    <T> void processMessage(SqsSubscriptionRequest<T> request, String queueUrl, Message message) {
         T event;
         try {
-            event = sqsDeserializer.deserialize(request.topic(), message.body(), request.type());
+            if (request.eventType().isPresent()) {
+                var matching = sqsDeserializer.deserializeMatching(
+                        request.topic(), message.body(), request.eventType().orElseThrow());
+                if (matching.isEmpty()) {
+                    log.debug("Skipping SQS message for another concrete binding on topic [{}]", request.topic());
+                    deleteMessage(queueUrl, message);
+                    return;
+                }
+                event = matching.orElseThrow();
+            } else {
+                event = sqsDeserializer.deserialize(request.topic(), message.body(), request.type());
+            }
         } catch (UnknownEventTypeException e) {
             log.warn("Ignoring SQS message with unknown event type [{}] on topic [{}]",
                     e.eventTypeName(), request.topic());

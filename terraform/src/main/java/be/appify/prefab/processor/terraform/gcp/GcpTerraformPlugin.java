@@ -18,6 +18,11 @@ public class GcpTerraformPlugin implements PrefabPlugin {
     }
 
     @Override
+    public PrefabContext.EventScope additionalFileEventScope() {
+        return PrefabContext.EventScope.CURRENT_COMPILATION_AND_CONSUMED_DEPENDENCIES;
+    }
+
+    @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests, List<PolymorphicAggregateManifest> polymorphicManifests) {
         new GcpTerraformWriter(context).write(manifests);
     }

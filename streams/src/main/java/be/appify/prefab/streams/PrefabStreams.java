@@ -1,6 +1,7 @@
 package be.appify.prefab.streams;
 
 import be.appify.prefab.core.domain.Keyed;
+import be.appify.prefab.core.domain.EventType;
 import java.util.function.Function;
 
 /**
@@ -8,6 +9,32 @@ import java.util.function.Function;
  */
 public interface PrefabStreams {
     <K, V extends Keyed<K>> PrefabStream<K, V> from(Class<V> type);
+
+    /** @param type concrete event binding @return its source stream */
+    <K, V extends Keyed<K>> PrefabStream<K, V> from(EventType<V> type);
+
+    /** @param type full stored value binding @return declared local store */
+    default <K, V extends Keyed<K>> Store<K, V> createStore(EventType<V> type) {
+        return createStore(TypeReference.of(type));
+    }
+
+    /** @param type concrete source and store binding @return replicated store */
+    default <K, V extends Keyed<K>> GlobalStore<K, V> globalStore(EventType<V> type) {
+        return globalStore(TypeReference.of(type).name(), type, TypeReference.of(type), Function.identity());
+    }
+
+    /** @param sourceType full source binding @return updater declaration */
+    default <K, V extends Keyed<K>> GlobalStoreSource<K, V> globalStoreFrom(EventType<V> sourceType) {
+        return new GlobalStoreSource<>(this, sourceType);
+    }
+
+    /** @param name store name @param sourceType source binding @param storeType stored type @param mapper mapping function @return replicated store */
+    <KS, S extends Keyed<KS>, K, V extends Keyed<K>> GlobalStore<K, V> globalStore(
+            String name, EventType<S> sourceType, TypeReference<V> storeType, Function<S, V> mapper);
+
+    /** @param name store name @param sourceType source binding @param storeType stored type @param updater single store writer @return replicated store */
+    <KS, S extends Keyed<KS>, K, V extends Keyed<K>> GlobalStore<K, V> declareGlobalStore(
+            String name, EventType<S> sourceType, TypeReference<V> storeType, GlobalStoreUpdater<KS, S, K, V> updater);
 
     <K, M extends Keyed<K>> PrefabStream<K, M> merge(PrefabStream<K, ? extends M> left, PrefabStream<K, ? extends M> right);
 

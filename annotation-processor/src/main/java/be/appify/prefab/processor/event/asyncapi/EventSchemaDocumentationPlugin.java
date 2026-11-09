@@ -8,6 +8,7 @@ import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.event.ConsumerWriterSupport;
+import be.appify.prefab.processor.event.EventBindings;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -35,7 +36,7 @@ public class EventSchemaDocumentationPlugin implements PrefabPlugin {
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
         var rawEvents = context.eventElementsIncludingConsumedDependencies()
-                .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
+                .flatMap(element -> EventBindings.typesOf(element, context))
                 .toList();
         if (rawEvents.isEmpty()) {
             return;

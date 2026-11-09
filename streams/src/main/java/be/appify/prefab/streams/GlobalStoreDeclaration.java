@@ -1,6 +1,7 @@
 package be.appify.prefab.streams;
 
 import be.appify.prefab.core.domain.Keyed;
+import be.appify.prefab.core.domain.EventType;
 
 /**
  * Final step of declaring a global store: choose the stored type, and optionally the store name.
@@ -13,10 +14,10 @@ import be.appify.prefab.core.domain.Keyed;
  */
 public final class GlobalStoreDeclaration<KS, S extends Keyed<KS>, K, V extends Keyed<K>> {
     private final PrefabStreams streams;
-    private final Class<S> sourceType;
+    private final TypeReference<S> sourceType;
     private final GlobalStoreUpdater<KS, S, K, V> updater;
 
-    GlobalStoreDeclaration(PrefabStreams streams, Class<S> sourceType, GlobalStoreUpdater<KS, S, K, V> updater) {
+    GlobalStoreDeclaration(PrefabStreams streams, TypeReference<S> sourceType, GlobalStoreUpdater<KS, S, K, V> updater) {
         this.streams = streams;
         this.sourceType = sourceType;
         this.updater = updater;
@@ -43,6 +44,19 @@ public final class GlobalStoreDeclaration<KS, S extends Keyed<KS>, K, V extends 
      * @return the read-only global store
      */
     public GlobalStore<K, V> as(String name, Class<V> storeType) {
-        return streams.declareGlobalStore(name, sourceType, storeType, updater);
+        if (sourceType.type() instanceof java.lang.reflect.ParameterizedType) {
+            return streams.declareGlobalStore(name, EventType.<S>from(sourceType.type()), TypeReference.of(storeType), updater);
+        }
+        return streams.declareGlobalStore(name, sourceType.rawType(), storeType, updater);
+    }
+
+    /** @param storeType full stored value binding @return replicated store */
+    public GlobalStore<K, V> as(EventType<V> storeType) {
+        return as(TypeReference.of(storeType).name(), storeType);
+    }
+
+    /** @param name explicit store name @param storeType full stored binding @return replicated store */
+    public GlobalStore<K, V> as(String name, EventType<V> storeType) {
+        return streams.declareGlobalStore(name, EventType.<S>from(sourceType.type()), TypeReference.of(storeType), updater);
     }
 }

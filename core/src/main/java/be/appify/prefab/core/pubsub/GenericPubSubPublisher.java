@@ -1,6 +1,10 @@
 package be.appify.prefab.core.pubsub;
 
+import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.DomainEventDispatcher;
+import be.appify.prefab.core.domain.EventType;
+import be.appify.prefab.core.domain.TypedEvent;
+import be.appify.prefab.core.serialization.ConcreteEventSupport;
 import be.appify.prefab.core.versioning.EventVersions;
 import com.google.cloud.spring.pubsub.PubSubAdmin;
 import com.google.cloud.spring.pubsub.core.PubSubTemplate;
@@ -40,7 +44,13 @@ public class GenericPubSubPublisher implements DomainEventDispatcher {
 
     @Override
     public boolean canDispatch(Class<?> eventType) {
-        return pubSubUtil.tryTopicForType(eventType).isPresent();
+        return pubSubUtil.hasTopicForType(eventType);
+    }
+
+    @Override
+    public boolean canDispatch(EventType<?> eventType) {
+        return pubSubUtil.hasTopicForType(eventType)
+                && ConcreteEventSupport.usesPlatform(eventType, Event.Platform.PUB_SUB);
     }
 
     @Override
@@ -56,8 +66,11 @@ public class GenericPubSubPublisher implements DomainEventDispatcher {
             var data = ByteString.copyFrom(serializer.serialize(PubSubUtil.simpleTopicName(qualifiedTopic), event));
             var messageBuilder = PubsubMessage.newBuilder()
                     .setData(data)
-                    .putAttributes("type", event.getClass().getName())
+                    .putAttributes("type", TypedEvent.payload(event).getClass().getName())
                     .putAllAttributes(EventVersions.headersFor(event));
+            if (event instanceof TypedEvent<?> typed) {
+                messageBuilder.putAttributes(EventType.HEADER, typed.type().id());
+            }
             pubSubUtil.keyFor(event).ifPresent(messageBuilder::setOrderingKey);
             pubSubTemplate.publish(qualifiedTopic, messageBuilder.build()).join();
         }

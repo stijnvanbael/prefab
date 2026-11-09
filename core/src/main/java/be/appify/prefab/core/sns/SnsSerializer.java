@@ -1,6 +1,9 @@
 package be.appify.prefab.core.sns;
 
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.domain.TypedEvent;
+import be.appify.prefab.core.serialization.ConcreteEventSupport;
 import be.appify.prefab.core.spring.JsonUtil;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import java.io.ByteArrayOutputStream;
@@ -47,6 +50,12 @@ public class SnsSerializer {
      * @return the serialized String, or null if data is null
      */
     public String serialize(String topic, Object data) {
+        var publication = data;
+        data = ConcreteEventSupport.payloadFor(topic, data, eventRegistry);
+        if (publication instanceof TypedEvent<?> typed
+                && eventRegistry.serialization(topic) == Event.Serialization.AVRO) {
+            return serializeAvro(eventRegistry.toAvro(typed));
+        }
         if (data == null) {
             return null;
         }
@@ -66,7 +75,7 @@ public class SnsSerializer {
         var avroWriter = new GenericDatumWriter<GenericRecord>();
         var outputStream = new ByteArrayOutputStream();
         var encoder = new EncoderFactory().binaryEncoder(outputStream, null);
-        var genericRecord = conversionService.convert(data, GenericRecord.class);
+        var genericRecord = data instanceof GenericRecord record ? record : conversionService.convert(data, GenericRecord.class);
         try {
             avroWriter.setSchema(Objects.requireNonNull(genericRecord).getSchema());
             avroWriter.write(genericRecord, encoder);

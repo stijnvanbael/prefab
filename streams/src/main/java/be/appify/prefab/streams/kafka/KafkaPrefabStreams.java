@@ -2,6 +2,7 @@ package be.appify.prefab.streams.kafka;
 
 import be.appify.prefab.streams.Aggregation;
 import be.appify.prefab.core.domain.Keyed;
+import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.kafka.DynamicDeserializer;
 import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.streams.GlobalStore;
@@ -88,6 +89,9 @@ public class KafkaPrefabStreams implements PrefabStreams {
 
     @Override
     public <K, V extends Keyed<K>> PrefabStream<K, V> from(Class<V> type) {
+        if (type.getTypeParameters().length > 0) {
+            throw new IllegalArgumentException("Generic stream sources require EventType: " + type.getName());
+        }
         var topic = topicResolver.topicForType(type);
         var keyType = keyTypeOf(type);
         var keySerde = new StringKeySerde<>(keyType);
@@ -114,6 +118,45 @@ public class KafkaPrefabStreams implements PrefabStreams {
                 stepNames,
                 tracing
         );
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <K, V extends Keyed<K>> PrefabStream<K, V> from(EventType<V> type) {
+        if (type.type() instanceof Class<?> raw) {
+            return from((Class<V>) raw);
+        }
+        var topic = topicResolver.topicForType(type);
+        var keySerde = new StringKeySerde<K>(keyTypeOf(type));
+        KStream<K, V> source = streamsBuilder.stream(topic,
+                Consumed.with(keySerde, new SerdeAdapter<V>(serializer.adapt(), deserializer.adapt())));
+        KStream<K, V> matching = source.processValues(() -> new org.apache.kafka.streams.processor.api.FixedKeyProcessor<K, V, V>() {
+            private org.apache.kafka.streams.processor.api.FixedKeyProcessorContext<K, V> context;
+            public void init(org.apache.kafka.streams.processor.api.FixedKeyProcessorContext<K, V> context) {
+                this.context = context;
+            }
+            public void process(org.apache.kafka.streams.processor.api.FixedKeyRecord<K, V> record) {
+                var header = record.headers().lastHeader(EventType.HEADER);
+                if (record.value() == null || header != null && type.id().equals(
+                        new String(header.value(), java.nio.charset.StandardCharsets.UTF_8))) {
+                    context.forward(record);
+                }
+            }
+        });
+        var stream = tracing.enabled() ? matching.processValues(KafkaMessageTracing.<K, V>ingress()) : matching;
+        return new KafkaPrefabStream<>(streamsBuilder, stream, topicResolver, serializer, deserializer, jsonMapper,
+                conversionService, kafkaClientProperties, type, this, keySerde, stepNames, tracing);
+    }
+
+    /** @param type concrete value type @return its resolved key class */
+    @SuppressWarnings("unchecked")
+    public static <K, V extends Keyed<K>> Class<K> keyTypeOf(EventType<V> type) {
+        var resolved = org.springframework.core.ResolvableType.forType(type.type()).as(Keyed.class)
+                .getGeneric(0).resolve();
+        if (resolved == null) {
+            throw new IllegalArgumentException("Cannot resolve key type for " + type);
+        }
+        return (Class<K>) resolved;
     }
 
     @SuppressWarnings("unchecked")
@@ -222,9 +265,9 @@ public class KafkaPrefabStreams implements PrefabStreams {
         var storeName = globalStoreName(name);
         var existing = globalStores.get(storeName);
         if (existing != null) {
-            return (GlobalStore<KS, VS>) existing.reuse(sourceType, storeType);
+            return (GlobalStore<KS, VS>) existing.reuse(TypeReference.of(sourceType), TypeReference.of(storeType));
         }
-        return registerGlobalStore(storeName, sourceType, storeType,
+        return registerGlobalStore(storeName, TypeReference.of(sourceType), TypeReference.of(storeType),
                 () -> new GlobalStoreUpdateProcessor<>(storeName, mapper));
     }
 
@@ -242,7 +285,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
                     "Global store '%s' is already declared; a store maintained by an updater can only be declared once"
                             .formatted(storeName));
         }
-        return registerGlobalStore(storeName, sourceType, storeType,
+        return registerGlobalStore(storeName, TypeReference.of(sourceType), TypeReference.of(storeType),
                 () -> new GlobalStoreWriterProcessor<>(storeName, updater));
     }
 
@@ -253,23 +296,49 @@ public class KafkaPrefabStreams implements PrefabStreams {
         return "global-" + toStoreName(name);
     }
 
+    @Override
+    @SuppressWarnings("unchecked")
+    public <KS, S extends Keyed<KS>, K, V extends Keyed<K>> GlobalStore<K, V> globalStore(
+            String name, EventType<S> sourceType, TypeReference<V> storeType, Function<S, V> mapper) {
+        var storeName = globalStoreName(name);
+        var source = TypeReference.of(sourceType);
+        var existing = globalStores.get(storeName);
+        if (existing != null) {
+            return (GlobalStore<K, V>) existing.reuse(source, storeType);
+        }
+        return registerGlobalStore(storeName, source, storeType, () -> new GlobalStoreUpdateProcessor<>(storeName, mapper));
+    }
+
+    @Override
+    public <KS, S extends Keyed<KS>, K, V extends Keyed<K>> GlobalStore<K, V> declareGlobalStore(
+            String name, EventType<S> sourceType, TypeReference<V> storeType, GlobalStoreUpdater<KS, S, K, V> updater) {
+        var storeName = globalStoreName(name);
+        if (globalStores.containsKey(storeName)) {
+            throw new IllegalArgumentException("Global store '" + storeName + "' is already declared");
+        }
+        return registerGlobalStore(storeName, TypeReference.of(sourceType), storeType,
+                () -> new GlobalStoreWriterProcessor<>(storeName, updater));
+    }
+
     private <KS, S extends Keyed<KS>, K, V extends Keyed<K>> GlobalStore<K, V> registerGlobalStore(
             String storeName,
-            Class<S> sourceType,
-            Class<V> storeType,
+            TypeReference<S> sourceType,
+            TypeReference<V> storeType,
             ProcessorSupplier<KS, S, Void, Void> updateSupplier
     ) {
         Objects.requireNonNull(sourceType, "sourceType must not be null");
         Objects.requireNonNull(storeType, "storeType must not be null");
-        var topic = topicResolver.topicForType(sourceType);
+        var concrete = sourceType.type() instanceof ParameterizedType;
+        var token = concrete ? EventType.<S>from(sourceType.type()) : null;
+        var topic = concrete ? topicResolver.topicForType(token) : topicResolver.topicForType(sourceType.rawType());
         var topicOwner = globalStoreNamesByTopic.get(topic);
         if (topicOwner != null) {
             throw new IllegalArgumentException(
                     "Global store '%s' cannot read topic '%s' (source type %s): the topic already feeds global store '%s'. Kafka allows one global store per source topic"
-                            .formatted(storeName, topic, sourceType.getName(), topicOwner));
+                            .formatted(storeName, topic, sourceType, topicOwner));
         }
-        var typeReference = TypeReference.of(storeType);
-        var sourceKeySerde = new StringKeySerde<KS>(keyTypeOf(sourceType));
+        var typeReference = storeType;
+        var sourceKeySerde = new StringKeySerde<KS>(concrete ? keyTypeOf(token) : keyTypeOf(sourceType.rawType()));
         var sourceValueSerde = new SerdeAdapter<S>(serializer.adapt(), deserializer.adapt());
         streamsBuilder.addGlobalStore(
                 Stores.keyValueStoreBuilder(
@@ -278,7 +347,7 @@ public class KafkaPrefabStreams implements PrefabStreams {
                         globalValueSerde(sourceType, typeReference)).withLoggingDisabled(),
                 topic,
                 Consumed.with(sourceKeySerde, sourceValueSerde),
-                updateSupplier);
+                concrete ? guardedUpdater(token, updateSupplier) : updateSupplier);
         var store = new KafkaPrefabGlobalStoreAdapter<K, V>(storeName, streamsBuilder::build);
         globalStores.put(storeName, new GlobalStoreDefinition(sourceType, storeType, store));
         globalStoreNamesByTopic.put(topic, storeName);
@@ -288,11 +357,29 @@ public class KafkaPrefabStreams implements PrefabStreams {
      * Resolves the value serde of a global store. When the stored type equals the source type the topic-based
      * serde is used; otherwise the registry cannot know the stored type, so it is serialised as JSON.
      */
-    private <K, V extends Keyed<K>> Serde<V> globalValueSerde(Class<?> sourceType, TypeReference<V> storeType) {
-        if (sourceType == storeType.rawType()) {
+    private <K, V extends Keyed<K>> Serde<V> globalValueSerde(TypeReference<?> sourceType, TypeReference<V> storeType) {
+        if (sourceType.equals(storeType)) {
             return valueSerde(storeType);
         }
-        return new JsonValueSerde<>(jsonMapper, storeType.rawType());
+        return new JsonValueSerde<>(jsonMapper, storeType.type());
+    }
+
+    private static <K, S> ProcessorSupplier<K, S, Void, Void> guardedUpdater(
+            EventType<S> type, ProcessorSupplier<K, S, Void, Void> supplier) {
+        return () -> new org.apache.kafka.streams.processor.api.Processor<>() {
+            private final org.apache.kafka.streams.processor.api.Processor<K, S, Void, Void> delegate = supplier.get();
+            public void init(org.apache.kafka.streams.processor.api.ProcessorContext<Void, Void> context) {
+                delegate.init(context);
+            }
+            public void process(org.apache.kafka.streams.processor.api.Record<K, S> record) {
+                var header = record.headers().lastHeader(EventType.HEADER);
+                if (record.value() == null || header != null && type.id().equals(
+                        new String(header.value(), java.nio.charset.StandardCharsets.UTF_8))) {
+                    delegate.process(record);
+                }
+            }
+            public void close() { delegate.close(); }
+        };
     }
     boolean isGlobalStoreDeclared(String name) {
         return globalStores.containsKey(name);
@@ -311,7 +398,12 @@ public class KafkaPrefabStreams implements PrefabStreams {
     @SuppressWarnings("unchecked")
     private <KS, VS extends Keyed<KS>> Serde<VS> valueSerde(TypeReference<VS> type) {
         if (type.rawType() == (Class<?>) Aggregation.class) {
-            return (Serde<VS>) new DeferredAggregationSerde<>();
+            return (Serde<VS>) (type.type() instanceof ParameterizedType captured
+                    ? new DeferredAggregationSerde<>(captured.getActualTypeArguments()[1])
+                    : new DeferredAggregationSerde<>());
+        }
+        if (type.type() instanceof ParameterizedType) {
+            return new JsonValueSerde<>(jsonMapper, type.type());
         }
         return new SerdeAdapter<>(serializer.adapt(), deserializer.adapt());
     }
@@ -329,7 +421,8 @@ public class KafkaPrefabStreams implements PrefabStreams {
     private <KS, VS extends Keyed<KS>> Serde<KS> keySerde(TypeReference<VS> type) {
         try {
             return new JsonKeySerde<>(
-                    keyTypeOf(type.rawType()),
+                    type.type() instanceof ParameterizedType ? keyTypeOf(EventType.<VS>from(type.type()))
+                            : keyTypeOf(type.rawType()),
                     jsonMapper,
                     serializer.eventRegistry(),
                     conversionService,
@@ -357,13 +450,12 @@ public class KafkaPrefabStreams implements PrefabStreams {
                 .replaceAll("[-.]+$", "");
     }
 
-    private record GlobalStoreDefinition(Class<?> sourceType, Class<?> storeType, GlobalStore<?, ?> store) {
-        GlobalStore<?, ?> reuse(Class<?> requestedSourceType, Class<?> requestedStoreType) {
-            if (sourceType != requestedSourceType || storeType != requestedStoreType) {
+    private record GlobalStoreDefinition(TypeReference<?> sourceType, TypeReference<?> storeType, GlobalStore<?, ?> store) {
+        GlobalStore<?, ?> reuse(TypeReference<?> requestedSourceType, TypeReference<?> requestedStoreType) {
+            if (!sourceType.equals(requestedSourceType) || !storeType.equals(requestedStoreType)) {
                 throw new IllegalArgumentException(
                         "Global store '%s' was already declared with source=%s, store=%s but received source=%s, store=%s"
-                                .formatted(store.name(), sourceType.getName(), storeType.getName(),
-                                        requestedSourceType.getName(), requestedStoreType.getName()));
+                                .formatted(store.name(), sourceType, storeType, requestedSourceType, requestedStoreType));
             }
             return store;
         }

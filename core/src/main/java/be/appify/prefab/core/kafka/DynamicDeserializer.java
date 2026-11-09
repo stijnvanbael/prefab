@@ -2,6 +2,7 @@ package be.appify.prefab.core.kafka;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.PreviousName;
+import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.evolution.EventEvolutionModule;
 import be.appify.prefab.core.versioning.AvroTrees;
 import be.appify.prefab.core.versioning.EventMigrator;
@@ -126,7 +127,7 @@ public class DynamicDeserializer implements Deserializer<Object> {
         try {
             var versions = MessageVersions.from(name -> headerValue(headers, name));
             return switch (eventRegistry.serialization(topic)) {
-                case AVRO -> toEvent(topic, avroDeserializer().deserialize(topic, data), versions);
+                case AVRO -> deserializeAvro(topic, headers, data, versions);
                 case JSON -> deserializeJson(topic, headers, data, versions);
             };
         } catch (UnknownEventTypeException | UnsupportedEventVersionException e) {
@@ -140,7 +141,54 @@ public class DynamicDeserializer implements Deserializer<Object> {
         }
     }
 
+    private Object deserializeAvro(String topic, Headers headers, byte[] data, MessageVersions versions) {
+        var identity = headerValue(headers, EventType.HEADER);
+        if (identity == null) {
+            if (eventRegistry.hasConcreteTypes(topic) && !eventRegistry.hasTypeForTopic(topic)) {
+                throw new IllegalArgumentException("Generic event on " + topic + " is missing " + EventType.HEADER);
+            }
+            return toEvent(topic, avroDeserializer().deserialize(topic, data), versions);
+        }
+        var type = eventRegistry.concreteTypeFor(topic, identity);
+        var record = avroDeserializer().deserialize(topic, data);
+        var plan = eventMigrator.plan(type, versions);
+        if (plan.isRequired()) {
+            return plan.apply(AvroTrees.toTree(record, mapper), mapper);
+        }
+        var reader = eventRegistry.readerSchemaFor(type).orElseThrow(
+                () -> new IllegalArgumentException("No Avro reader schema registered for " + type));
+        return eventRegistry.fromAvro(type, resolveAgainstReaderSchema(reader, record));
+    }
+
+    private GenericRecord resolveAgainstReaderSchema(Schema reader, GenericRecord record) {
+        if (reader.equals(record.getSchema())) {
+            return record;
+        }
+        try {
+            var output = new ByteArrayOutputStream();
+            var encoder = EncoderFactory.get().binaryEncoder(output, null);
+            new GenericDatumWriter<GenericRecord>(record.getSchema()).write(record, encoder);
+            encoder.flush();
+            var decoder = DecoderFactory.get().binaryDecoder(output.toByteArray(), null);
+            return new GenericDatumReader<GenericRecord>(record.getSchema(), reader).read(null, decoder);
+        } catch (IOException | AvroRuntimeException e) {
+            throw new IllegalArgumentException("Cannot resolve concrete Avro schema against " + reader.getFullName(), e);
+        }
+    }
+
     private Object deserializeJson(String topic, Headers headers, byte[] data, MessageVersions versions) {
+        var concreteId = headerValue(headers, EventType.HEADER);
+        if (concreteId != null) {
+            var type = eventRegistry.concreteTypeFor(topic, concreteId);
+            var plan = eventMigrator.plan(type, versions);
+            if (plan.isRequired()) {
+                return plan.apply(mapper.readTree(data), mapper);
+            }
+            return mapper.readValue(data, mapper.getTypeFactory().constructType(type.type()));
+        }
+        if (eventRegistry.hasConcreteTypes(topic) && !eventRegistry.hasTypeForTopic(topic)) {
+            throw new IllegalArgumentException("Generic event on " + topic + " is missing " + EventType.HEADER);
+        }
         var plan = eventMigrator.plan(jsonEventType(topic, headers), versions);
         if (!plan.isRequired()) {
             return jsonDeserializer.deserialize(topic, data);

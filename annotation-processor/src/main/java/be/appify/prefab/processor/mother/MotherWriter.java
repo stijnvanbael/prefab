@@ -8,6 +8,7 @@ import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.event.EventBindings;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ArrayTypeName;
 import com.palantir.javapoet.ClassName;
@@ -107,16 +108,17 @@ class MotherWriter {
      * Writes a Mother for an @Event-annotated type (or its concrete subtype if sealed).
      */
     void writeEventMother(TypeManifest eventType, TypeElement preferredElement, boolean hasEmbeddedBuilder) {
-        var qualifiedName = eventType.packageName() + "." + eventType.simpleName();
+        var qualifiedName = eventType.asTypeName().toString();
         if (!writtenTypes.add(qualifiedName)) {
             return;
         }
         fileWriter.setPreferredElement(preferredElement);
-        var simpleName = eventType.simpleName().replace(".", "");
+        var simpleName = eventType.simpleName().replace(".", "")
+                + EventBindings.suffix(eventType);
         var motherName = simpleName + MOTHER_SUFFIX;
         var packageName = eventType.packageName();
         var fields = eventType.fields();
-        var eventTypeName = (ClassName) eventType.asTypeName();
+        var eventTypeName = eventType.asTypeName();
         var motherBuilderRef = ClassName.get("", "MotherBuilder");
         var builderType = resolveBuilderType(eventTypeName, packageName, simpleName, fields, hasEmbeddedBuilder);
         var innerBuilder = buildEventMotherBuilderInnerClass(builderType, fields, hasEmbeddedBuilder);
@@ -134,14 +136,14 @@ class MotherWriter {
     // Private helpers
     // -------------------------------------------------------------------------
     private ClassName resolveBuilderType(
-            ClassName eventTypeName,
+            TypeName eventTypeName,
             String packageName,
             String simpleName,
             List<VariableManifest> fields,
             boolean hasEmbeddedBuilder
     ) {
         if (hasEmbeddedBuilder) {
-            return eventTypeName.nestedClass(BUILDER);
+            return ((ClassName) eventTypeName).nestedClass(BUILDER);
         }
         var builderName = simpleName + BUILDER;
         var builderType = ClassName.get(packageName, builderName);

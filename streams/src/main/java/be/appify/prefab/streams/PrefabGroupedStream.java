@@ -1,6 +1,7 @@
 package be.appify.prefab.streams;
 
 import be.appify.prefab.core.domain.Keyed;
+import be.appify.prefab.core.domain.EventType;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
@@ -13,6 +14,14 @@ import java.util.function.Supplier;
  *         the input value type
  */
 public interface PrefabGroupedStream<KG, V> {
+    /** @param resultType full result binding @param initializer initial state @param aggregator update function @return result stream */
+    <VR extends Keyed<KG>> PrefabStream<KG, VR> aggregate(EventType<VR> resultType, Supplier<VR> initializer,
+            BiFunction<? super V, ? super VR, ? extends VR> aggregator);
+
+    /** @param window time window @param resultType full result binding @param initializer initial state @param aggregator update function @return result stream */
+    <VR extends Keyed<KG>> PrefabStream<KG, VR> windowedAggregate(AggregationWindow window, EventType<VR> resultType,
+            Supplier<VR> initializer, BiFunction<? super V, ? super VR, ? extends VR> aggregator);
+
 
     /**
      * Continuously aggregates the values of each group into a running result.

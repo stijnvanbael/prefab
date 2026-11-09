@@ -8,9 +8,9 @@ import tools.jackson.databind.json.JsonMapper;
 /** Registry-independent JSON serde for values whose type is known statically. */
 final class JsonValueSerde<T> implements Serde<T> {
     private final JsonMapper jsonMapper;
-    private final Class<T> type;
+    private final java.lang.reflect.Type type;
 
-    JsonValueSerde(JsonMapper jsonMapper, Class<T> type) {
+    JsonValueSerde(JsonMapper jsonMapper, java.lang.reflect.Type type) {
         this.jsonMapper = jsonMapper;
         this.type = type;
     }
@@ -22,6 +22,7 @@ final class JsonValueSerde<T> implements Serde<T> {
 
     @Override
     public Deserializer<T> deserializer() {
-        return (topic, data) -> data == null ? null : jsonMapper.readValue(data, type);
+        return (topic, data) -> data == null ? null : jsonMapper.readValue(data,
+                jsonMapper.getTypeFactory().constructType(type));
     }
 }

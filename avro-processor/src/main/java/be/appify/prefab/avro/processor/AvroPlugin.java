@@ -8,15 +8,16 @@ import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.event.EventPlatformPluginSupport;
+import be.appify.prefab.processor.event.EventBindings;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.math.BigDecimal;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -33,6 +34,7 @@ public class AvroPlugin implements PrefabPlugin {
     private PrefabContext context;
     private final Set<String> writtenTypeNames = new LinkedHashSet<>();
     private final Set<String> writtenToEventOnlyTypeNames = new LinkedHashSet<>();
+    private final java.util.Map<String, TypeManifest> schemaOwners = new java.util.HashMap<>();
 
     @Override
     public void initContext(PrefabContext context) {
@@ -47,8 +49,11 @@ public class AvroPlugin implements PrefabPlugin {
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
         var events = context.eventElements()
                 .filter(e -> EventPlatformPluginSupport.isAvscGeneratedRecord(e)
-                        || Objects.requireNonNull(e.getAnnotation(Event.class)).serialization() == Event.Serialization.AVRO)
-                .map(element -> TypeManifest.of(element.asType(), context.processingEnvironment()))
+                        || Arrays.stream(e.getAnnotationsByType(Event.class))
+                                .anyMatch(annotation -> annotation.serialization() == Event.Serialization.AVRO))
+                .flatMap(element -> EventBindings.typesOf(element, context))
+                .filter(type -> EventPlatformPluginSupport.isAvscGeneratedRecord(type.asElement())
+                        || EventBindings.annotationFor(type).serialization() == Event.Serialization.AVRO)
                 .toList();
         events.forEach(this::writeConvertersIfNotWritten);
         allNestedTypes(events).forEach(this::writeNestedTypeIfNotWritten);
@@ -69,7 +74,7 @@ public class AvroPlugin implements PrefabPlugin {
      */
     private void writeNestedTypeIfNotWritten(TypeManifest type) {
         if (isAvroUnion(type)) {
-            var key = type.packageName() + "." + type.simpleName();
+            var key = type.asTypeName().toString();
             if (!writtenTypeNames.contains(key)) {
                 eventSchemaFactoryWriter.writeSchemaFactory(type);
                 writtenTypeNames.add(key);
@@ -80,8 +85,14 @@ public class AvroPlugin implements PrefabPlugin {
     }
 
     private void writeConvertersIfNotWritten(TypeManifest type) {
-        var key = type.packageName() + "." + type.simpleName();
+        var key = type.asTypeName().toString();
         if (writtenTypeNames.contains(key)) {
+            return;
+        }
+        var schemaName = eventSchemaFactoryWriter.avroNamespaceOf(type) + "." + EventSchemaFactoryWriter.avroSchemaNameOf(type);
+        var owner = schemaOwners.putIfAbsent(schemaName, type);
+        if (owner != null && !owner.equals(type)) {
+            context.logError("Avro schema name collision between " + owner + " and " + type, type.asElement());
             return;
         }
         var wroteAll = toGenericRecordConverterWriter.writeConverter(type)
@@ -94,7 +105,7 @@ public class AvroPlugin implements PrefabPlugin {
 
     /** Only concrete records are read with a reader schema; sealed interfaces and contracts have union schemas. */
     private void writeReaderSchemaRegistrarIfNotWritten(TypeManifest type) {
-        var key = type.packageName() + "." + type.simpleName();
+        var key = type.asTypeName().toString();
         var concrete = type.asElement() != null && type.asElement().getKind().isClass() && !type.isSealed();
         if (concrete && writtenTypeNames.contains(key) && writtenRegistrarNames.add(key)) {
             readerSchemaRegistrarWriter.writeRegistrar(type);
@@ -102,7 +113,7 @@ public class AvroPlugin implements PrefabPlugin {
     }
 
     private void writeToEventConverterIfNotWritten(TypeManifest type) {
-        var key = type.packageName() + "." + type.simpleName();
+        var key = type.asTypeName().toString();
         if (writtenTypeNames.contains(key) || writtenToEventOnlyTypeNames.contains(key)) {
             return;
         }
@@ -133,7 +144,7 @@ public class AvroPlugin implements PrefabPlugin {
      */
     public static boolean isAvroUnion(TypeManifest type) {
         if (!type.isSealed()) return false;
-        if (type.asElement() != null && type.asElement().getAnnotation(Event.class) != null) return false;
+        if (type.asElement() != null && type.asElement().getAnnotationsByType(Event.class).length > 0) return false;
         var subtypes = type.permittedSubtypes();
         return !subtypes.isEmpty() && subtypes.stream().allMatch(TypeManifest::isSingleValueType);
     }

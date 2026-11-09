@@ -77,7 +77,7 @@ public interface EventHandlerPlugin extends PrefabPlugin {
                     var paramType = TypeManifest.of(element.getParameters().getFirst().asType(),
                             context.processingEnvironment());
                     return paramType.asElement() != null
-                            && paramType.asElement().equals(eventType.asElement());
+                            && paramType.equals(eventType);
                 })
                 .filter(element -> {
                     var returnType = TypeManifest.of(element.getReturnType(), context.processingEnvironment());

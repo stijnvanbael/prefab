@@ -8,6 +8,7 @@ import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
+import be.appify.prefab.processor.event.EventBindings;
 import be.appify.prefab.processor.event.EventTypeRegistrarWriter;
 import be.appify.prefab.processor.event.PartitioningKeySupport;
 import com.palantir.javapoet.ClassName;
@@ -93,8 +94,11 @@ public class KafkaPlugin implements PrefabPlugin {
         if (TypeManifest.containsUnresolvedType(parameter.asType())) {
             return true;
         }
-        return TypeManifest.of(parameter.asType(), context.processingEnvironment())
-                .inheritedAnnotationsOfType(Event.class)
+        var type = TypeManifest.of(parameter.asType(), context.processingEnvironment());
+        if (!type.parameters().isEmpty() && !type.annotationsOfType(Event.class).isEmpty()) {
+            return platformIsKafka(EventBindings.annotationFor(type), method, context);
+        }
+        return type.inheritedAnnotationsOfType(Event.class)
                 .stream()
                 .anyMatch(event -> platformIsKafka(event, method, context));
     }

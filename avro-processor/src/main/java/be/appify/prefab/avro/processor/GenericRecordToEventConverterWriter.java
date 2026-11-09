@@ -62,7 +62,7 @@ class GenericRecordToEventConverterWriter {
 
         var fileWriter = new OutputTargetFileOutput(context, "infrastructure.avro", OutputTarget.MAIN);
 
-        var name = "GenericRecordTo%sConverter".formatted(event.simpleName().replace(".", ""));
+        var name = "GenericRecordTo%sConverter".formatted(AvroSupport.generatedName(event));
         var type = TypeSpec.classBuilder(name)
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(componentAnnotation(event, name))
@@ -116,7 +116,7 @@ class GenericRecordToEventConverterWriter {
     private CodeBlock subtypeCases(List<TypeManifest> subtypes) {
         return subtypes.stream()
                 .map(subtype -> {
-                    var converterName = "genericRecordTo%sConverter".formatted(subtype.simpleName().replace(".", ""));
+                    var converterName = "genericRecordTo%sConverter".formatted(AvroSupport.generatedName(subtype));
                     return CodeBlock.of("case $S -> $L.convert(genericRecord);", avroSchemaNameOf(subtype), converterName);
                 })
                 .collect(CodeBlock.joining("\n    "));
@@ -221,7 +221,7 @@ class GenericRecordToEventConverterWriter {
     private static void addConverter(TypeSpec.Builder type, TypeManifest subtype, MethodSpec.Builder constructor) {
         var converterName = "genericRecordTo%sConverter".formatted(subtype.simpleName().replace(".", ""));
         var converterType = ClassName.get(subtype.packageName() + ".infrastructure.avro",
-                "GenericRecordTo%sConverter".formatted(subtype.simpleName().replace(".", "")));
+                "GenericRecordTo%sConverter".formatted(AvroSupport.generatedName(subtype)));
         type.addField(converterType, converterName, Modifier.PRIVATE, Modifier.FINAL);
         constructor.addParameter(converterType, converterName)
                 .addStatement("this.$L = $L", converterName, converterName);
@@ -332,7 +332,7 @@ class GenericRecordToEventConverterWriter {
             return maybeNull(recordValue, sealedType(recordValue, type));
         }
         if (isNestedRecord(type)) {
-            var converterName = "genericRecordTo%sConverter".formatted(type.simpleName().replace(".", ""));
+            var converterName = "genericRecordTo%sConverter".formatted(AvroSupport.generatedName(type));
             return CodeBlock.of("$T.getRecord(genericRecord, $S, $L::convert)", SchemaSupport.class, fieldName, converterName);
         }
         if (type.is(List.class)) {
@@ -353,7 +353,7 @@ class GenericRecordToEventConverterWriter {
         } else if(type.isSealed()) {
             return maybeNull(value, sealedType(value, type));
         } else if (isNestedRecord(type)) {
-            var converterName = "genericRecordTo%sConverter".formatted(type.simpleName().replace(".", ""));
+            var converterName = "genericRecordTo%sConverter".formatted(AvroSupport.generatedName(type));
             return maybeNull(value, CodeBlock.of("$L.convert((GenericRecord) $L)", converterName, value));
         } else if (type.is(List.class)) {
             return maybeNull(value, listType(value, type));

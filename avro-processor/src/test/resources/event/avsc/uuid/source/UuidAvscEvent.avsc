@@ -1,0 +1,9 @@
+{
+  "type": "record",
+  "name": "UuidAvscEvent",
+  "namespace": "event.avsc.uuid",
+  "fields": [
+    {"name": "id", "type": {"type": "string", "logicalType": "uuid"}},
+    {"name": "parentId", "type": ["null", {"type": "string", "logicalType": "uuid"}], "default": null}
+  ]
+}

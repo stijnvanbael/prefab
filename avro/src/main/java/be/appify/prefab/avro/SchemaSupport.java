@@ -10,6 +10,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
@@ -449,6 +450,19 @@ public class SchemaSupport {
     public static Duration getDuration(GenericRecord record, String fieldName) {
         var millis = getLong(record, fieldName);
         return millis != null ? Duration.ofMillis(millis) : null;
+    }
+
+    /**
+     * Reads a {@code string} field holding a UUID and converts it to a {@link UUID},
+     * returning {@code null} when the field is absent or its value is null.
+     *
+     * @param record    the generic record to read from
+     * @param fieldName the name of the field to retrieve
+     * @return the field value as a {@code UUID}, or {@code null}
+     */
+    public static UUID getUuid(GenericRecord record, String fieldName) {
+        var value = getString(record, fieldName);
+        return value != null ? UUID.fromString(value) : null;
     }
 
     /**

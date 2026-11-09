@@ -474,7 +474,8 @@ class EventSchemaFactoryWriter {
         return type.is(Instant.class)
                 || type.is(LocalDate.class)
                 || type.is(Duration.class)
-                || type.is(BigDecimal.class);
+                || type.is(BigDecimal.class)
+                || type.is(UUID.class);
     }
 
 
@@ -504,6 +505,9 @@ class EventSchemaFactoryWriter {
         } else if (type.is(Duration.class)) {
             return CodeBlock.of("$T.createLogicalSchema($T.LONG, $T.DURATION_MILLIS)",
                     SchemaSupport.class, Schema.Type.class, SchemaSupport.class);
+        } else if (type.is(UUID.class)) {
+            return CodeBlock.of("$T.createLogicalSchema($T.STRING, $T.uuid())",
+                    SchemaSupport.class, Schema.Type.class, LogicalTypes.class);
         } else if (type.is(BigDecimal.class)) {
             int precision;
             int scale;

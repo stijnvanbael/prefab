@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
@@ -741,6 +742,32 @@ class SchemaSupportTest {
             var record = new GenericData.Record(schema);
 
             assertThat(SchemaSupport.getDuration(record, "missing")).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getUuid")
+    class GetUuidTest {
+
+        @Test
+        @DisplayName("should convert string to UUID")
+        void shouldConvertStringToUuid() {
+            var uuid = UUID.randomUUID();
+            var field = new Schema.Field("id", Schema.create(Schema.Type.STRING));
+            var schema = Schema.createRecord("R", null, "com.example", false, List.of(field));
+            var record = new GenericData.Record(schema);
+            record.put("id", uuid.toString());
+
+            assertThat(SchemaSupport.getUuid(record, "id")).isEqualTo(uuid);
+        }
+
+        @Test
+        @DisplayName("should return null when the field is absent from the schema")
+        void shouldReturnNullWhenFieldAbsent() {
+            var schema = Schema.createRecord("R", null, "com.example", false, emptyList());
+            var record = new GenericData.Record(schema);
+
+            assertThat(SchemaSupport.getUuid(record, "missing")).isNull();
         }
     }
 

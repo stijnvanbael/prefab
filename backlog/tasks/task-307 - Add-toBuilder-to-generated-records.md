@@ -1,7 +1,7 @@
 ---
 id: TASK-307
 title: Add toBuilder to all generated records
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-16 13:36'
 labels:
@@ -38,6 +38,8 @@ This applies to generated event, request, response, nested and other record vari
 - `HttpWriter` writes ordinary and polymorphic subtype response records directly without `BuilderWriter`. `CreateRequestRecordWriter` and `UpdateRequestRecordWriter` likewise write polymorphic nested request records directly.
 - `AvscEventWriter` already enriches top-level and named nested records, including schema defaults, but creates union branch wrapper records separately without builders. `AvscSnapshotPlugin` generates root and recursively discovered snapshot records without builders. Enumerate all record-generation sites again during implementation to catch additional paths.
 - `MotherWriter` uses generated nested builders for generated records and standalone builders for handwritten event records. Preserve those existing extension patterns and avoid introducing a requirement to alter user-owned records.
+- Implementation started: cover the shared writer first, then wire every direct record writer and verify the full reactor. Maven selects JDK 25 even though the default `java` executable is JDK 21.
+- Shared writer now seeds a fresh builder directly from record components, copying lists to protect mutable source lists; the prefix-independent runtime regression test passes.
 <!-- SECTION:ANALYSIS:END -->
 
 ## Implementation Plan

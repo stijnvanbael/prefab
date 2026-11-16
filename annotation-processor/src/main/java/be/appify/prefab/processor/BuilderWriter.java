@@ -20,8 +20,8 @@ import java.util.stream.Collectors;
 import static org.apache.commons.text.WordUtils.capitalize;
 
 /**
- * Generates a nested {@code Builder} class and a static {@code builder()} factory method
- * for a record {@link TypeSpec.Builder}.
+ * Generates a nested {@code Builder}, a static {@code builder()} factory, and an instance
+ * {@code toBuilder()} method for a record {@link TypeSpec.Builder}.
  *
  * <p>The setter method prefix (e.g. {@code with}) is configurable. Pass the desired prefix via
  * the {@code prefab.builder.setterPrefix} annotation-processor option (compiler {@code -A} flag).
@@ -66,6 +66,7 @@ public class BuilderWriter {
     public void enrichWithBuilder(TypeSpec.Builder recordBuilder, ClassName recordType,
             List<ParameterSpec> fields, Map<String, String> fieldDefaults) {
         recordBuilder.addMethod(builderFactoryMethod(recordType));
+        recordBuilder.addMethod(toBuilderMethod(recordType, fields));
         recordBuilder.addType(nestedBuilderClass(recordType, fields, fieldDefaults));
     }
 
@@ -98,12 +99,29 @@ public class BuilderWriter {
     }
 
     private MethodSpec builderFactoryMethod(ClassName recordType) {
-        var builderType = ClassName.get(recordType.packageName(), recordType.simpleName() + ".Builder");
+        var builderType = recordType.nestedClass(BUILDER);
         return MethodSpec.methodBuilder("builder")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .returns(ParameterizedTypeName.get(builderType, WildcardTypeName.subtypeOf(Object.class)))
                 .addStatement("return new $T<>()", builderType)
                 .build();
+    }
+
+    private MethodSpec toBuilderMethod(ClassName recordType, List<ParameterSpec> fields) {
+        var builderType = recordType.nestedClass(BUILDER);
+        var method = MethodSpec.methodBuilder("toBuilder")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(ParameterizedTypeName.get(builderType, WildcardTypeName.subtypeOf(Object.class)))
+                .addStatement("var builder = new $T<>()", builderType);
+        fields.forEach(field -> {
+            if (isListField(field)) {
+                method.addStatement("builder.$1N = this.$1N == null ? null : new $2T<>(this.$1N)",
+                        field.name(), ArrayList.class);
+            } else {
+                method.addStatement("builder.$1N = this.$1N", field.name());
+            }
+        });
+        return method.addStatement("return builder").build();
     }
 
     private TypeSpec nestedBuilderClass(ClassName recordType, List<ParameterSpec> fields,

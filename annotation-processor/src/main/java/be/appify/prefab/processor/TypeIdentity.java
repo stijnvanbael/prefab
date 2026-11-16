@@ -4,6 +4,7 @@ import com.palantir.javapoet.ArrayTypeName;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
+import com.palantir.javapoet.WildcardTypeName;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -20,14 +21,24 @@ class TypeIdentity {
     private final List<TypeManifest> parameters;
     // Precomputed once; used by is() which is called on every annotation/type check.
     private final String fqn;
+    private final WildcardTypeName wildcardType;
 
     TypeIdentity(String packageName, String simpleName, List<TypeManifest> parameters) {
         this.packageName = packageName;
         this.simpleName = simpleName;
         this.parameters = parameters;
+        this.wildcardType = null;
         this.fqn = packageName.isEmpty()
                 ? simpleName.replace('.', '$')
                 : packageName + "." + simpleName.replace('.', '$');
+    }
+
+    TypeIdentity(WildcardTypeName wildcardType) {
+        this.packageName = "";
+        this.simpleName = wildcardType.toString();
+        this.parameters = List.of();
+        this.fqn = simpleName;
+        this.wildcardType = wildcardType;
     }
 
     String packageName() {
@@ -73,6 +84,9 @@ class TypeIdentity {
             "boolean", "byte", "char", "double", "float", "int", "long", "short", "void");
 
     TypeName asTypeName() {
+        if (wildcardType != null) {
+            return wildcardType;
+        }
         if (simpleName.endsWith("[]")) {
             // Array type: resolve the component type and wrap in ArrayTypeName.
             var componentName = simpleName.substring(0, simpleName.length() - 2);

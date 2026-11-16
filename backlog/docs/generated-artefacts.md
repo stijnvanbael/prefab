@@ -87,6 +87,11 @@ Prefab cannot add methods to handwritten records, including code-first `@Event` 
 generated test fixtures may provide standalone builders, but those records do not gain `toBuilder()`.
 Sealed interfaces do not have a builder; their generated record implementations do.
 
+`@ByReference` resolves only the named event field or public zero-argument accessor. Unrelated
+methods, including `toBuilder()`, are not inspected as reference properties. Processor type
+manifests preserve unbounded, upper-bounded and lower-bounded wildcard arguments rather than
+erasing them to `Object`.
+
 ---
 
 ## 6.5 Event Consumer

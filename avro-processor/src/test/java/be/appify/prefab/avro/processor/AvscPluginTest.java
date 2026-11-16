@@ -21,6 +21,31 @@ import javax.tools.StandardLocation;
 class AvscPluginTest {
 
     @Test
+    void byReferenceHandlerAcceptsGeneratedEventWithCopyBuilder() {
+        var aggregate = JavaFileObjects.forSourceString("event.avsc.Meter", """
+                package event.avsc;
+                import be.appify.prefab.core.annotations.*;
+                import be.appify.prefab.processor.assertion.AssertionPlugin;
+                import be.appify.prefab.processor.dbmigration.DbMigrationPlugin;
+                import be.appify.prefab.processor.mother.MotherPlugin;
+                @Aggregate
+                @Generate(plugin = MotherPlugin.class, enabled = false)
+                @Generate(plugin = AssertionPlugin.class, enabled = false)
+                @Generate(plugin = DbMigrationPlugin.class, enabled = false)
+                public record Meter(@org.springframework.data.annotation.Id String id) {
+                    @EventHandler
+                    @ByReference(property = "name")
+                    public void onChange(SimpleAvscEvent event) {}
+                }
+                """);
+        var compilation = javac().withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"), aggregate);
+        assertThat(compilation).succeeded();
+        assertThat(compilation).generatedSourceFile("event.avsc.application.MeterService")
+                .contentsAsUtf8String().contains("meterRepository.findById(event.name())");
+    }
+
+    @Test
     void eventNestedAndUnionCopyBuildersAreUsable() {
         var client = JavaFileObjects.forSourceString("event.avsc.scalarunion.CopyClient", """
                 package event.avsc.scalarunion;

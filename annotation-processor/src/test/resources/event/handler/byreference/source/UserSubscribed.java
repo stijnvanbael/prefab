@@ -11,4 +11,10 @@ public record UserSubscribed(
         Reference<Channel> channel,
         String userId
 ) {
+    public Builder<?> toBuilder() {
+        return new Builder<>();
+    }
+
+    public static class Builder<SELF extends Builder<SELF>> {
+    }
 }

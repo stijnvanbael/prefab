@@ -33,6 +33,7 @@ This applies to generated event, request, response, nested and other record vari
 ## Analysis
 
 <!-- SECTION:ANALYSIS:BEGIN -->
+- Follow-up: user confirmed GitHub CI succeeds; the local image-download failure is environmental. Fixing the coupled regression where `@ByReference` eagerly inspects unrelated `toBuilder()` accessors and `TypeManifest` rejects wildcard arguments. Preserve the builder API and wildcard bounds, and filter reference members by name before manifest construction.
 - `BuilderWriter.enrichWithBuilder` currently emits `builder()` and a self-typed nested builder; its setters use the configured prefix. Its list adder copies non-`ArrayList` lists but mutates an `ArrayList` in place, so simply assigning a record's list to a builder is insufficient for isolation.
 - `ControllerUtil.writeRecord` creates request components from body/method parameters but creates builder fields using `buildTestClientParameter`; these representations can differ. Its `withX` helpers construct a new record and are candidates for careful simplification only if their path-parameter and conversion semantics are preserved.
 - `HttpWriter` writes ordinary and polymorphic subtype response records directly without `BuilderWriter`. `CreateRequestRecordWriter` and `UpdateRequestRecordWriter` likewise write polymorphic nested request records directly.
@@ -44,6 +45,7 @@ This applies to generated event, request, response, nested and other record vari
 - Targeted REST and AVSC generation tests pass. Added coverage for custom-prefix copy chains across polymorphic requests/responses, snapshots, AVSC events, nested types and union wrappers, plus runtime checks for nulls, defaults and list isolation. Full reactor validation is in progress.
 - First full reactor run reached the annotation-processor suite and found one source-text expectation affected by JavaPoet's equivalent nested-type spelling; fixed it and reran the expanded targeted suite successfully. A full rerun is in progress.
 - The full rerun passed the annotation-processor and AVSC suites but stopped at `examples/avro` when Testcontainers could not pull `confluentinc/cp-schema-registry:8.4.0` due to a connection reset and HTTP 416. A direct `docker pull` retry failed with the same error. Restore access to the image and rerun `mvn -q test`; remaining reactor modules have not been verified by this run.
+<!-- SECTION:ANALYSIS:END -->
 
 ## Implementation Notes
 
@@ -52,7 +54,6 @@ Implemented shared copy builders and wired all current JavaPoet record emission 
 
 Focused builder, REST, mother, AVSC event/union and snapshot tests pass, including the compiler's diagnostic for a conflicting `toBuilder` component. Full-suite completion remains blocked by the container image download above; leave this task in progress until the full suite succeeds.
 <!-- SECTION:NOTES:END -->
-<!-- SECTION:ANALYSIS:END -->
 
 ## Implementation Plan
 

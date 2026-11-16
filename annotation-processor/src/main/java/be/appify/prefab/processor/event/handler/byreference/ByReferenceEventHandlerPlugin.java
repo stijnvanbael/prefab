@@ -11,7 +11,6 @@ import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
-import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
@@ -51,8 +50,8 @@ public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
                     var annotation = element.getAnnotationsByType(ByReference.class)[0];
                     var eventType = getEventType(element, context);
                     return Stream.concat(
-                                    getFields(eventType.asElement(), context.processingEnvironment()).stream(),
-                                    getAccessors(eventType.asElement(), context.processingEnvironment()).stream())
+                                    getFields(eventType.asElement(), annotation.property()).stream(),
+                                    getAccessors(eventType.asElement(), annotation.property()).stream())
                             .filter(member -> member.name().equals(annotation.property())
                                     && (member.type().isSingleValueType() || member.type().is(String.class)))
                             .findFirst()
@@ -75,25 +74,27 @@ public class ByReferenceEventHandlerPlugin implements EventHandlerPlugin {
                 });
     }
 
-    private List<VariableManifest> getFields(TypeElement typeElement, ProcessingEnvironment processingEnvironment) {
+    private List<VariableManifest> getFields(TypeElement typeElement, String property) {
         return typeElement.getEnclosedElements()
                 .stream()
                 .filter(element -> element.getKind() == ElementKind.FIELD)
+                .filter(element -> element.getSimpleName().contentEquals(property))
                 .map(VariableElement.class::cast)
-                .map(element -> VariableManifest.of(element, processingEnvironment))
+                .map(element -> VariableManifest.of(element, context.processingEnvironment()))
                 .toList();
     }
 
-    private List<VariableManifest> getAccessors(TypeElement typeElement, ProcessingEnvironment processingEnvironment) {
+    private List<VariableManifest> getAccessors(TypeElement typeElement, String property) {
         return typeElement.getEnclosedElements()
                 .stream()
                 .filter(element -> element.getKind() == ElementKind.METHOD)
+                .filter(element -> element.getSimpleName().contentEquals(property))
                 .map(ExecutableElement.class::cast)
                 .filter(method -> method.getParameters().isEmpty()
                         && !method.getModifiers().contains(Modifier.STATIC)
                         && method.getModifiers().contains(Modifier.PUBLIC)
                         && method.getReturnType().getKind() != TypeKind.VOID)
-                .map(method -> VariableManifest.ofMethod(method, processingEnvironment))
+                .map(method -> VariableManifest.ofMethod(method, context.processingEnvironment()))
                 .toList();
     }
 

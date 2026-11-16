@@ -23,5 +23,8 @@ public class UserSubscribed {
     public String userId() {
         return userId;
     }
-}
 
+    public java.util.List<? super String> unrelatedValues() {
+        return java.util.List.of();
+    }
+}

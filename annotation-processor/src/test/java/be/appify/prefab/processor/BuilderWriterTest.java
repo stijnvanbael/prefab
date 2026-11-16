@@ -29,6 +29,8 @@ import com.google.testing.compile.JavaFileObjects;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.google.testing.compile.CompilationSubject.assertThat;
+import static com.google.testing.compile.Compiler.javac;
 
 class BuilderWriterTest {
 
@@ -198,6 +200,15 @@ class BuilderWriterTest {
     void toBuilderIsGeneratedForEmptyRecordsWithCustomPrefix() {
         var code = generateCodeWithPrefix("EmptyRecord", List.of(), "set");
         assertTrue(code.contains("toBuilder()"));
+    }
+
+    @Test
+    void conflictingComponentProducesCompilerDiagnostic() {
+        var fields = List.of(ParameterSpec.builder(ClassName.get(String.class), "toBuilder").build());
+        var source = generateCode("ListRecord", fields);
+        var compilation = javac().compile(JavaFileObjects.forSourceString("com.example.ListRecord", source));
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("invalid accessor method in record");
     }
 
     private String generateCode(String recordName, List<ParameterSpec> fields) {

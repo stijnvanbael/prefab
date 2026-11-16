@@ -4,6 +4,7 @@ import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.CustomType;
 import be.appify.prefab.core.annotations.Doc;
 import com.palantir.javapoet.TypeName;
+import com.palantir.javapoet.WildcardTypeName;
 import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +19,7 @@ import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.WildcardType;
 import javax.tools.Diagnostic;
 import org.javalite.common.Inflector;
 import org.springframework.util.ClassUtils;
@@ -90,6 +92,15 @@ public class TypeManifest {
                     .toList();
             this.identity = new TypeIdentity(packageName, simpleName, parameters);
             this.kind = element.getKind();
+        } else if (typeMirror.getKind() == TypeKind.WILDCARD) {
+            var wildcard = (WildcardType) typeMirror;
+            var wildcardName = wildcard.getSuperBound() != null
+                    ? WildcardTypeName.supertypeOf(TypeName.get(wildcard.getSuperBound()))
+                    : WildcardTypeName.subtypeOf(wildcard.getExtendsBound() == null
+                            ? TypeName.get(Object.class) : TypeName.get(wildcard.getExtendsBound()));
+            this.identity = new TypeIdentity(wildcardName);
+            this.kind = null;
+            this.element = null;
         } else if (typeMirror.getKind() == TypeKind.ARRAY) {
             // Array types (e.g. float[], Float[], byte[]) are not DECLARED, so we represent them
             // as a plain type with the array notation embedded in the simple name.  They have no
@@ -171,6 +182,12 @@ public class TypeManifest {
             case ERROR -> true;
             case DECLARED -> ((DeclaredType) mirror).getTypeArguments().stream()
                     .anyMatch(TypeManifest::containsUnresolvedType);
+            case ARRAY -> containsUnresolvedType(((ArrayType) mirror).getComponentType());
+            case WILDCARD -> {
+                var wildcard = (WildcardType) mirror;
+                yield (wildcard.getExtendsBound() != null && containsUnresolvedType(wildcard.getExtendsBound()))
+                        || (wildcard.getSuperBound() != null && containsUnresolvedType(wildcard.getSuperBound()));
+            }
             default -> false;
         };
     }

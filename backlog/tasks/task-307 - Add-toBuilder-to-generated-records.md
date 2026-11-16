@@ -1,7 +1,7 @@
 ---
 id: TASK-307
 title: Add toBuilder to all generated records
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-16 13:36'
 labels:
@@ -26,13 +26,14 @@ This applies to generated event, request, response, nested and other record vari
 - [x] #4 Generated APIs compile and remain fluent with the default, empty, and custom `prefab.builder.setterPrefix` values, including nested types and AVSC defaults. Existing `builder()`, setters, list adders, constructors, serialization, and generated convenience methods keep their behavior.
 - [x] #5 Copying is based on the record's actual components and types, not a potentially different test-client parameter representation; requests with path, binary, converted or omitted parameters are covered. Report a clear compiler diagnostic for an input that would produce an incompatible `toBuilder()` signature rather than silently generating uncompilable code.
 - [x] #6 Identify and replace applicable copy-and-modify boilerplate with `toBuilder()` where the source and target are the same generated record and the result is behaviorally equivalent. Preserve existing APIs and document inspected candidates or why none are suitable.
-- [ ] #7 Add executable generator and runtime coverage for all generation families, including polymorphic and nested records, snapshots, union branches, defaulted and nullable fields, zero components, multiple builder prefixes, list isolation, and generated-source compilation. Run the full Maven suite and address regressions.
+- [x] #7 Add executable generator and runtime coverage for all generation families, including polymorphic and nested records, snapshots, union branches, defaulted and nullable fields, zero components, multiple builder prefixes, list isolation, and generated-source compilation. Run the full Maven suite and address regressions.
 - [x] #8 Update the generated-artefacts/developer documentation with the API, shallow-copy and list-adder behavior, examples, and the distinction between generated records and handwritten events.
 <!-- AC:END -->
 
 ## Analysis
 
 <!-- SECTION:ANALYSIS:BEGIN -->
+- Follow-up: user confirmed GitHub CI succeeds; the local image-download failure is environmental. Fixing the coupled regression where `@ByReference` eagerly inspects unrelated `toBuilder()` accessors and `TypeManifest` rejects wildcard arguments. Preserve the builder API and wildcard bounds, and filter reference members by name before manifest construction.
 - `BuilderWriter.enrichWithBuilder` currently emits `builder()` and a self-typed nested builder; its setters use the configured prefix. Its list adder copies non-`ArrayList` lists but mutates an `ArrayList` in place, so simply assigning a record's list to a builder is insufficient for isolation.
 - `ControllerUtil.writeRecord` creates request components from body/method parameters but creates builder fields using `buildTestClientParameter`; these representations can differ. Its `withX` helpers construct a new record and are candidates for careful simplification only if their path-parameter and conversion semantics are preserved.
 - `HttpWriter` writes ordinary and polymorphic subtype response records directly without `BuilderWriter`. `CreateRequestRecordWriter` and `UpdateRequestRecordWriter` likewise write polymorphic nested request records directly.
@@ -44,15 +45,19 @@ This applies to generated event, request, response, nested and other record vari
 - Targeted REST and AVSC generation tests pass. Added coverage for custom-prefix copy chains across polymorphic requests/responses, snapshots, AVSC events, nested types and union wrappers, plus runtime checks for nulls, defaults and list isolation. Full reactor validation is in progress.
 - First full reactor run reached the annotation-processor suite and found one source-text expectation affected by JavaPoet's equivalent nested-type spelling; fixed it and reran the expanded targeted suite successfully. A full rerun is in progress.
 - The full rerun passed the annotation-processor and AVSC suites but stopped at `examples/avro` when Testcontainers could not pull `confluentinc/cp-schema-registry:8.4.0` due to a connection reset and HTTP 416. A direct `docker pull` retry failed with the same error. Restore access to the image and rerun `mvn -q test`; remaining reactor modules have not been verified by this run.
+<!-- SECTION:ANALYSIS:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 Implemented shared copy builders and wired all current JavaPoet record emission sites. Lists are copied when a builder is seeded; other references remain shallow. REST `withX` helpers use `toBuilder()` when their method parameter matches a record component; unmatched plugin-provided representations retain the previous constructor path. Conversions between different record types and fresh construction in test clients are not copy-and-modify candidates.
 
-Focused builder, REST, mother, AVSC event/union and snapshot tests pass, including the compiler's diagnostic for a conflicting `toBuilder` component. Full-suite completion remains blocked by the container image download above; leave this task in progress until the full suite succeeds.
+Focused builder, REST, mother, AVSC event/union and snapshot tests pass, including the compiler's diagnostic for a conflicting `toBuilder` component. The user confirmed GitHub CI succeeds and the previous image-download failure is machine-specific.
+
+Follow-up implemented: `@ByReference` filters fields and accessors by the requested property before creating manifests, retaining custom accessor support. `TypeManifest`/`TypeIdentity` preserve JavaPoet wildcard types and their bounds, including nested wildcards and self-typed builders. Unresolved-type detection traverses wildcard bounds and array components.
+
+New compilation regressions cover a generated AVSC event used by a reference handler, handwritten events with wildcard builder accessors, custom reference accessors with unrelated wildcard methods, and wildcard type identity/rendering. Targeted tests and the complete annotation-processor/AVSC suites passed. Ran `mvn -q -fae test`; local example tests failed on Schema Registry image downloads and PostgreSQL startup timeouts. Stopped the run during repeated LocalStack image-download attempts. This environmental limitation is recorded rather than changing unrelated infrastructure; the new commit still needs its normal GitHub CI run.
 <!-- SECTION:NOTES:END -->
-<!-- SECTION:ANALYSIS:END -->
 
 ## Implementation Plan
 

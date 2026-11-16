@@ -4,6 +4,7 @@ import be.appify.prefab.core.annotations.Generate;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.processor.assertion.AssertionPlugin;
 import be.appify.prefab.processor.mother.MotherPlugin;
+import java.util.List;
 
 @Generate(plugin = MotherPlugin.class, enabled = false)
 @Generate(plugin = AssertionPlugin.class, enabled = false)
@@ -23,5 +24,8 @@ public class UserSubscribed {
     public String userId() {
         return userId;
     }
-}
 
+    public List<? super String> unrelatedValues() {
+        return List.of();
+    }
+}

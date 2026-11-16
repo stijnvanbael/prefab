@@ -300,7 +300,7 @@ class MotherPluginTest {
         assertThat(personCompilation)
                 .generatedSourceFile("mother.person.application.CreatePersonRequest")
                 .contentsAsUtf8String()
-                .contains("public static CreatePersonRequest.Builder<?> builder()");
+                .contains("public static Builder<?> builder()");
         assertThat(personCompilation)
                 .generatedSourceFile("mother.person.application.CreatePersonRequest")
                 .contentsAsUtf8String()

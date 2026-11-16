@@ -40,6 +40,7 @@ This applies to generated event, request, response, nested and other record vari
 - `MotherWriter` uses generated nested builders for generated records and standalone builders for handwritten event records. Preserve those existing extension patterns and avoid introducing a requirement to alter user-owned records.
 - Implementation started: cover the shared writer first, then wire every direct record writer and verify the full reactor. Maven selects JDK 25 even though the default `java` executable is JDK 21.
 - Shared writer now seeds a fresh builder directly from record components, copying lists to protect mutable source lists; the prefix-independent runtime regression test passes.
+- Wired REST requests/responses and AVSC branch/snapshot writers to the shared generator. Request builders now use actual record components, and matching request `withX` helpers delegate to `toBuilder`; retained the legacy path for unmatched plugin-provided method parameters.
 <!-- SECTION:ANALYSIS:END -->
 
 ## Implementation Plan

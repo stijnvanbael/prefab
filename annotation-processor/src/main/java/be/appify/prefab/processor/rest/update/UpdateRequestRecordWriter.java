@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.rest.update;
 
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.BuilderWriter;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.RequestParameterBuilder;
 import be.appify.prefab.processor.FileOutput;
@@ -33,7 +34,8 @@ class UpdateRequestRecordWriter {
             FileOutput fileWriter,
             PolymorphicAggregateManifest polymorphic,
             List<Map.Entry<ClassManifest, UpdateManifest>> group,
-            RequestParameterBuilder parameterBuilder
+            RequestParameterBuilder parameterBuilder,
+            String builderSetterPrefix
     ) {
         var operationName = capitalize(group.getFirst().getValue().operationName());
         var unionName = "%s%sRequest".formatted(polymorphic.simpleName(), operationName);
@@ -56,7 +58,8 @@ class UpdateRequestRecordWriter {
 
         permittedSubclasses.forEach(outerInterface::addPermittedSubclass);
 
-        group.forEach(e -> outerInterface.addType(buildNestedRecord(unionClass, e, operationName, parameterBuilder)));
+        group.forEach(e -> outerInterface.addType(
+                buildNestedRecord(unionClass, e, operationName, parameterBuilder, builderSetterPrefix)));
 
         fileWriter.writeFile(polymorphic.packageName(), unionName, outerInterface.build());
     }
@@ -65,7 +68,8 @@ class UpdateRequestRecordWriter {
             ClassName unionClass,
             Map.Entry<ClassManifest, UpdateManifest> entry,
             String operationName,
-            RequestParameterBuilder parameterBuilder
+            RequestParameterBuilder parameterBuilder,
+            String builderSetterPrefix
     ) {
         var leafName = leafName(entry.getKey().simpleName());
         var nestedName = "%s%sRequest".formatted(leafName, operationName);
@@ -74,13 +78,15 @@ class UpdateRequestRecordWriter {
                         .or(() -> parameterBuilder.buildMethodParameter(p))
                         .stream())
                 .toList();
-        return TypeSpec.recordBuilder(nestedName)
+        var builder = TypeSpec.recordBuilder(nestedName)
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .addSuperinterface(unionClass)
                 .recordConstructor(MethodSpec.compactConstructorBuilder()
                         .addParameters(recordParams)
-                        .build())
-                .build();
+                        .build());
+        new BuilderWriter(builderSetterPrefix)
+                .enrichWithBuilder(builder, unionClass.nestedClass(nestedName), recordParams);
+        return builder.build();
     }
 
     private static ClassName nestedClass(PolymorphicAggregateManifest polymorphic, String unionName,

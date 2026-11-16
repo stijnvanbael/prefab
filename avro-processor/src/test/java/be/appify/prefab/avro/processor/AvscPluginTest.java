@@ -369,7 +369,7 @@ class AvscPluginTest {
                 .contains("public static class Builder");
         assertThat(simpleCompilation).generatedSourceFile("event.avsc.SimpleAvscEvent")
                 .contentsAsUtf8String()
-                .contains("public static SimpleAvscEvent.Builder<?> builder()");
+                .contains("public static Builder<?> builder()");
     }
 
     @Test

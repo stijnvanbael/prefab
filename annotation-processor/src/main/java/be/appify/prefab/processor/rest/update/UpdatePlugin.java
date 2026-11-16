@@ -81,7 +81,7 @@ public class UpdatePlugin extends RestOperationPlugin {
                     }
                 });
                 updateRequestRecordWriter.writeUnionUpdateRequestInterface(fileWriter, polymorphic, entries,
-                        context().requestParameterBuilder());
+                        context().requestParameterBuilder(), context().builderSetterPrefix());
             } else {
                 entries.forEach(e -> {
                     if (!e.getValue().requestParameters().isEmpty()) {

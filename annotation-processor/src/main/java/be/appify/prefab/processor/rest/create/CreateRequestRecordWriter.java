@@ -2,6 +2,7 @@ package be.appify.prefab.processor.rest.create;
 
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.BuilderWriter;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.FileOutput;
@@ -107,13 +108,15 @@ public class CreateRequestRecordWriter {
                         .or(() -> context.requestParameterBuilder().buildMethodParameter(p))
                         .stream())
                 .toList();
-        return TypeSpec.recordBuilder(nestedName)
+        var builder = TypeSpec.recordBuilder(nestedName)
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .addSuperinterface(unionClass)
                 .recordConstructor(MethodSpec.compactConstructorBuilder()
                         .addParameters(recordParams)
-                        .build())
-                .build();
+                        .build());
+        new BuilderWriter(context.builderSetterPrefix())
+                .enrichWithBuilder(builder, unionClass.nestedClass(nestedName), recordParams);
+        return builder.build();
     }
 
     private static ClassName nestedClass(PolymorphicAggregateManifest polymorphic, String unionName, ClassManifest subtype) {

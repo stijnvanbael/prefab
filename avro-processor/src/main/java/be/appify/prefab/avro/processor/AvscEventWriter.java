@@ -369,11 +369,13 @@ class AvscEventWriter {
         if (isListField(valueType)) {
             ctor.addStatement("value = $T.copyOf(value)", List.class);
         }
-        return TypeSpec.recordBuilder(branchName)
+        var builder = TypeSpec.recordBuilder(branchName)
                 .addModifiers(Modifier.PUBLIC)
                 .addSuperinterface(sealedInterface)
-                .recordConstructor(ctor.build())
-                .build();
+                .recordConstructor(ctor.build());
+        new BuilderWriter(builderSetterPrefix()).enrichWithBuilder(
+                builder, ClassName.get(sealedInterface.packageName(), branchName), List.of(valueParam));
+        return builder.build();
     }
 
     /**

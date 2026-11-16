@@ -308,9 +308,6 @@ public class ControllerUtil {
                         .or(() -> parameterBuilder.buildMethodParameter(param))
                         .stream())
                 .toList();
-        var builderParams = fields.stream()
-                .flatMap(param -> parameterBuilder.buildTestClientParameter(param).stream())
-                .toList();
         var type = TypeSpec.recordBuilder(name)
                 .addModifiers(Modifier.PUBLIC)
                 .recordConstructor(MethodSpec.compactConstructorBuilder()
@@ -318,20 +315,27 @@ public class ControllerUtil {
                         .build());
         type.addMethods(fields.stream()
                 .flatMap(parameter -> parameterBuilder.buildMethodParameter(parameter).stream())
-                .map(parameter -> withMethod(name, parameter, fields))
+                .map(parameter -> withMethod(name, parameter, constructorParams, fields, builderSetterPrefix))
                 .toList());
-        new BuilderWriter(builderSetterPrefix).enrichWithBuilder(type, name, builderParams);
+        new BuilderWriter(builderSetterPrefix).enrichWithBuilder(type, name, constructorParams);
         return type.build();
     }
 
-    private static MethodSpec withMethod(TypeName type, ParameterSpec parameter, List<VariableManifest> fields) {
-        return MethodSpec.methodBuilder("with%s" .formatted(capitalize(parameter.name())))
+    private static MethodSpec withMethod(TypeName type, ParameterSpec parameter, List<ParameterSpec> components,
+            List<VariableManifest> fields, String setterPrefix) {
+        var setter = setterPrefix.isEmpty() ? parameter.name() : setterPrefix + capitalize(parameter.name());
+        var method = MethodSpec.methodBuilder("with%s" .formatted(capitalize(parameter.name())))
                 .addModifiers(Modifier.PUBLIC)
                 .returns(type)
-                .addParameter(parameter)
-                .addStatement("return new $T($L)", type, fields.stream()
-                        .map(VariableManifest::name)
-                        .collect(java.util.stream.Collectors.joining(", ")))
-                .build();
+                .addParameter(parameter);
+        if (components.stream().anyMatch(component ->
+                component.name().equals(parameter.name()) && component.type().equals(parameter.type()))) {
+            method.addStatement("return toBuilder().$N($N).build()", setter, parameter.name());
+        } else {
+            method.addStatement("return new $T($L)", type, fields.stream()
+                    .map(VariableManifest::name)
+                    .collect(java.util.stream.Collectors.joining(", ")));
+        }
+        return method.build();
     }
 }

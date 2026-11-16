@@ -140,9 +140,7 @@ class HttpWriter {
                             .addMember("description", "$S", d.value())
                             .build()));
         }
-        var type = typeBuilder
-                .recordConstructor(MethodSpec.compactConstructorBuilder()
-                        .addParameters(manifest.fields().stream()
+        var recordParams = Stream.concat(manifest.fields().stream()
                                 .map(field -> {
                                     var paramBuilder = ParameterSpec.builder(
                                             field.type().asTypeName(),
@@ -159,8 +157,9 @@ class HttpWriter {
                                         }
                                     }
                                     return paramBuilder.build();
-                                }).toList())
-                        .addParameters(computedParameters(manifest))
+                                }), computedParameters(manifest).stream()).toList();
+        typeBuilder.recordConstructor(MethodSpec.compactConstructorBuilder()
+                        .addParameters(recordParams)
                         .build())
                 .addMethod(MethodSpec.methodBuilder("from")
                         .addModifiers(PUBLIC, STATIC)
@@ -173,9 +172,9 @@ class HttpWriter {
                                 responseType(manifest),
                                 responseAccessors(manifest, "aggregateRoot")
                         )
-                        .build())
-                .build();
-        fileWriter.writeFile(manifest.packageName(), "%sResponse".formatted(manifest.simpleName()), type);
+                        .build());
+        new BuilderWriter(context.builderSetterPrefix()).enrichWithBuilder(typeBuilder, responseType(manifest), recordParams);
+        fileWriter.writeFile(manifest.packageName(), "%sResponse".formatted(manifest.simpleName()), typeBuilder.build());
     }
 
     private void writePolymorphicResponseType(PolymorphicAggregateManifest manifest) {
@@ -244,18 +243,18 @@ class HttpWriter {
                         subtypeResponseClassName,
                         responseAccessors(subtype, "subtype"))
                 .build();
-        return TypeSpec.recordBuilder(subtypeResponseName)
+        var recordParams = Stream.concat(subtype.fields().stream()
+                        .map(field -> ParameterSpec.builder(field.type().asTypeName(), field.name()).build()),
+                computedParameters(subtype).stream()).toList();
+        var builder = TypeSpec.recordBuilder(subtypeResponseName)
                 .addModifiers(PUBLIC, STATIC)
                 .addSuperinterface(responseClassName)
                 .recordConstructor(MethodSpec.compactConstructorBuilder()
-                        .addParameters(subtype.fields().stream()
-                                .map(field -> ParameterSpec.builder(
-                                        field.type().asTypeName(), field.name()).build())
-                                .toList())
-                        .addParameters(computedParameters(subtype))
+                        .addParameters(recordParams)
                         .build())
-                .addMethod(fromMethod)
-                .build();
+                .addMethod(fromMethod);
+        new BuilderWriter(context.builderSetterPrefix()).enrichWithBuilder(builder, subtypeResponseClassName, recordParams);
+        return builder.build();
     }
 
     private MethodSpec buildPolymorphicFromMethod(PolymorphicAggregateManifest manifest,

@@ -2,11 +2,13 @@ package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.core.annotations.EventSnapshot;
 import be.appify.prefab.processor.PrefabContext;
+import be.appify.prefab.processor.BuilderWriter;
 import be.appify.prefab.processor.PrefabPlugin;
 import com.palantir.javapoet.ArrayTypeName;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.MethodSpec;
+import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
@@ -15,6 +17,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -70,10 +73,16 @@ public class AvscSnapshotPlugin implements PrefabPlugin {
         var constructor = MethodSpec.constructorBuilder();
         var builder = TypeSpec.recordBuilder(name).addModifiers(Modifier.PUBLIC);
         records.put(name, builder.build());
+        var fields = new ArrayList<ParameterSpec>();
         for (var field : schema.getFields()) {
-            constructor.addParameter(typeOf(field.schema(), packageName, records), field.name());
+            var param = ParameterSpec.builder(typeOf(field.schema(), packageName, records), field.name()).build();
+            fields.add(param);
+            constructor.addParameter(param);
         }
-        records.put(name, builder.recordConstructor(constructor.build()).build());
+        builder.recordConstructor(constructor.build());
+        new BuilderWriter(context.builderSetterPrefix())
+                .enrichWithBuilder(builder, ClassName.get(packageName, name), fields);
+        records.put(name, builder.build());
     }
 
     private TypeName typeOf(Schema schema, String packageName, Map<String, TypeSpec> records) {

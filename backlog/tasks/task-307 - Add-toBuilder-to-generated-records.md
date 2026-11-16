@@ -1,7 +1,7 @@
 ---
 id: TASK-307
 title: Add toBuilder to all generated records
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-16 13:36'
 labels:
@@ -26,7 +26,7 @@ This applies to generated event, request, response, nested and other record vari
 - [x] #4 Generated APIs compile and remain fluent with the default, empty, and custom `prefab.builder.setterPrefix` values, including nested types and AVSC defaults. Existing `builder()`, setters, list adders, constructors, serialization, and generated convenience methods keep their behavior.
 - [x] #5 Copying is based on the record's actual components and types, not a potentially different test-client parameter representation; requests with path, binary, converted or omitted parameters are covered. Report a clear compiler diagnostic for an input that would produce an incompatible `toBuilder()` signature rather than silently generating uncompilable code.
 - [x] #6 Identify and replace applicable copy-and-modify boilerplate with `toBuilder()` where the source and target are the same generated record and the result is behaviorally equivalent. Preserve existing APIs and document inspected candidates or why none are suitable.
-- [ ] #7 Add executable generator and runtime coverage for all generation families, including polymorphic and nested records, snapshots, union branches, defaulted and nullable fields, zero components, multiple builder prefixes, list isolation, and generated-source compilation. Run the full Maven suite and address regressions.
+- [x] #7 Add executable generator and runtime coverage for all generation families, including polymorphic and nested records, snapshots, union branches, defaulted and nullable fields, zero components, multiple builder prefixes, list isolation, and generated-source compilation. Run the full Maven suite and address regressions.
 - [x] #8 Update the generated-artefacts/developer documentation with the API, shallow-copy and list-adder behavior, examples, and the distinction between generated records and handwritten events.
 <!-- AC:END -->
 
@@ -52,7 +52,11 @@ This applies to generated event, request, response, nested and other record vari
 <!-- SECTION:NOTES:BEGIN -->
 Implemented shared copy builders and wired all current JavaPoet record emission sites. Lists are copied when a builder is seeded; other references remain shallow. REST `withX` helpers use `toBuilder()` when their method parameter matches a record component; unmatched plugin-provided representations retain the previous constructor path. Conversions between different record types and fresh construction in test clients are not copy-and-modify candidates.
 
-Focused builder, REST, mother, AVSC event/union and snapshot tests pass, including the compiler's diagnostic for a conflicting `toBuilder` component. Full-suite completion remains blocked by the container image download above; leave this task in progress until the full suite succeeds.
+Focused builder, REST, mother, AVSC event/union and snapshot tests pass, including the compiler's diagnostic for a conflicting `toBuilder` component. The user confirmed GitHub CI succeeds and the previous image-download failure is machine-specific.
+
+Follow-up implemented: `@ByReference` filters fields and accessors by the requested property before creating manifests, retaining custom accessor support. `TypeManifest`/`TypeIdentity` preserve JavaPoet wildcard types and their bounds, including nested wildcards and self-typed builders. Unresolved-type detection traverses wildcard bounds and array components.
+
+New compilation regressions cover a generated AVSC event used by a reference handler, handwritten events with wildcard builder accessors, custom reference accessors with unrelated wildcard methods, and wildcard type identity/rendering. Targeted tests and the complete annotation-processor/AVSC suites passed. Ran `mvn -q -fae test`; local example tests failed on Schema Registry image downloads and PostgreSQL startup timeouts. Stopped the run during repeated LocalStack image-download attempts. This environmental limitation is recorded rather than changing unrelated infrastructure; the new commit still needs its normal GitHub CI run.
 <!-- SECTION:NOTES:END -->
 
 ## Implementation Plan

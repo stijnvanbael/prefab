@@ -20,14 +20,14 @@ This applies to generated event, request, response, nested and other record vari
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Every Prefab-generated record exposes a public instance `toBuilder()` returning its usable nested builder, including ordinary and polymorphic request/response records, AVSC-generated event and nested records, union branch wrappers, and historic snapshot records. Records without an existing builder gain one; sealed interfaces do not.
-- [ ] #2 `record.toBuilder().build()` preserves every actual record component, including nulls, primitive values, nested values, lists, and values that differ from builder defaults. Setting any subset of components produces a new record with only those components changed; zero-component records also work.
-- [ ] #3 Each invocation returns an independent builder. List adders on a copied builder, including when a source list is a mutable `ArrayList`, do not mutate the source record or a builder obtained from another invocation. Other reference components retain their existing shallow-copy semantics; canonical constructor validation and normalization still run on `build()`.
-- [ ] #4 Generated APIs compile and remain fluent with the default, empty, and custom `prefab.builder.setterPrefix` values, including nested types and AVSC defaults. Existing `builder()`, setters, list adders, constructors, serialization, and generated convenience methods keep their behavior.
-- [ ] #5 Copying is based on the record's actual components and types, not a potentially different test-client parameter representation; requests with path, binary, converted or omitted parameters are covered. Report a clear compiler diagnostic for an input that would produce an incompatible `toBuilder()` signature rather than silently generating uncompilable code.
-- [ ] #6 Identify and replace applicable copy-and-modify boilerplate with `toBuilder()` where the source and target are the same generated record and the result is behaviorally equivalent. Preserve existing APIs and document inspected candidates or why none are suitable.
+- [x] #1 Every Prefab-generated record exposes a public instance `toBuilder()` returning its usable nested builder, including ordinary and polymorphic request/response records, AVSC-generated event and nested records, union branch wrappers, and historic snapshot records. Records without an existing builder gain one; sealed interfaces do not.
+- [x] #2 `record.toBuilder().build()` preserves every actual record component, including nulls, primitive values, nested values, lists, and values that differ from builder defaults. Setting any subset of components produces a new record with only those components changed; zero-component records also work.
+- [x] #3 Each invocation returns an independent builder. List adders on a copied builder, including when a source list is a mutable `ArrayList`, do not mutate the source record or a builder obtained from another invocation. Other reference components retain their existing shallow-copy semantics; canonical constructor validation and normalization still run on `build()`.
+- [x] #4 Generated APIs compile and remain fluent with the default, empty, and custom `prefab.builder.setterPrefix` values, including nested types and AVSC defaults. Existing `builder()`, setters, list adders, constructors, serialization, and generated convenience methods keep their behavior.
+- [x] #5 Copying is based on the record's actual components and types, not a potentially different test-client parameter representation; requests with path, binary, converted or omitted parameters are covered. Report a clear compiler diagnostic for an input that would produce an incompatible `toBuilder()` signature rather than silently generating uncompilable code.
+- [x] #6 Identify and replace applicable copy-and-modify boilerplate with `toBuilder()` where the source and target are the same generated record and the result is behaviorally equivalent. Preserve existing APIs and document inspected candidates or why none are suitable.
 - [ ] #7 Add executable generator and runtime coverage for all generation families, including polymorphic and nested records, snapshots, union branches, defaulted and nullable fields, zero components, multiple builder prefixes, list isolation, and generated-source compilation. Run the full Maven suite and address regressions.
-- [ ] #8 Update the generated-artefacts/developer documentation with the API, shallow-copy and list-adder behavior, examples, and the distinction between generated records and handwritten events.
+- [x] #8 Update the generated-artefacts/developer documentation with the API, shallow-copy and list-adder behavior, examples, and the distinction between generated records and handwritten events.
 <!-- AC:END -->
 
 ## Analysis
@@ -43,6 +43,15 @@ This applies to generated event, request, response, nested and other record vari
 - Wired REST requests/responses and AVSC branch/snapshot writers to the shared generator. Request builders now use actual record components, and matching request `withX` helpers delegate to `toBuilder`; retained the legacy path for unmatched plugin-provided method parameters.
 - Targeted REST and AVSC generation tests pass. Added coverage for custom-prefix copy chains across polymorphic requests/responses, snapshots, AVSC events, nested types and union wrappers, plus runtime checks for nulls, defaults and list isolation. Full reactor validation is in progress.
 - First full reactor run reached the annotation-processor suite and found one source-text expectation affected by JavaPoet's equivalent nested-type spelling; fixed it and reran the expanded targeted suite successfully. A full rerun is in progress.
+- The full rerun passed the annotation-processor and AVSC suites but stopped at `examples/avro` when Testcontainers could not pull `confluentinc/cp-schema-registry:8.4.0` due to a connection reset and HTTP 416. A direct `docker pull` retry failed with the same error. Restore access to the image and rerun `mvn -q test`; remaining reactor modules have not been verified by this run.
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implemented shared copy builders and wired all current JavaPoet record emission sites. Lists are copied when a builder is seeded; other references remain shallow. REST `withX` helpers use `toBuilder()` when their method parameter matches a record component; unmatched plugin-provided representations retain the previous constructor path. Conversions between different record types and fresh construction in test clients are not copy-and-modify candidates.
+
+Focused builder, REST, mother, AVSC event/union and snapshot tests pass, including the compiler's diagnostic for a conflicting `toBuilder` component. Full-suite completion remains blocked by the container image download above; leave this task in progress until the full suite succeeds.
+<!-- SECTION:NOTES:END -->
 <!-- SECTION:ANALYSIS:END -->
 
 ## Implementation Plan

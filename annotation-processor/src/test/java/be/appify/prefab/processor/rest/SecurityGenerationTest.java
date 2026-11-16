@@ -28,6 +28,9 @@ class SecurityGenerationTest {
 
         assertThat(compilation).succeeded();
 
+        assertThat(compilation).generatedSourceFile("rest.security.application.CreateDocumentRequest")
+                .contentsAsUtf8String().contains("return toBuilder().attachment(attachment).build()");
+
         var controllerSource = compilation.generatedSourceFile("rest.security.infrastructure.http.DocumentController")
                 .orElseThrow()
                 .getCharContent(false)

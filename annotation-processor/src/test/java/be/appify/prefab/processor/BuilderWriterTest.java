@@ -13,9 +13,10 @@ import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import javax.lang.model.element.Modifier;
 import javax.tools.DiagnosticCollector;
 import javax.tools.JavaFileObject;
@@ -156,37 +157,41 @@ class BuilderWriterTest {
 
     @Test
     void toBuilderCopiesValuesAndIsolatesMutableLists() {
-            var listOfStrings = ParameterizedTypeName.get(ClassName.get(List.class), ClassName.get(String.class));
-            var fields = List.of(
-                    ParameterSpec.builder(listOfStrings, "tags").build(),
-                    ParameterSpec.builder(ClassName.get(String.class), "name").build(),
-                    ParameterSpec.builder(TypeName.INT, "count").build());
-            var outputDirectory = compileToClasspath(generateCodeWithPrefix("ListRecord", fields, ""));
-            try (var loader = new URLClassLoader(new URL[]{outputDirectory.toUri().toURL()},
-                    Thread.currentThread().getContextClassLoader())) {
-                var recordClass = loader.loadClass("com.example.ListRecord");
-                var builderClass = loader.loadClass("com.example.ListRecord$Builder");
-                var tags = new ArrayList<>(List.of("original"));
-                var original = recordClass.getConstructor(List.class, String.class, int.class)
-                        .newInstance(tags, null, 7);
-                var toBuilder = recordClass.getMethod("toBuilder");
-                var first = toBuilder.invoke(original);
-                var second = toBuilder.invoke(original);
-                var build = builderClass.getMethod("build");
-                assertEquals(original, build.invoke(first));
-                builderClass.getMethod("addTags", String.class).invoke(first, "added");
-                builderClass.getMethod("name", String.class).invoke(first, "updated");
-                var changed = build.invoke(first);
-                assertEquals(List.of("original"), tags);
-                assertEquals(List.of("original"), recordClass.getMethod("tags").invoke(build.invoke(second)));
-                assertEquals(List.of("original", "added"), recordClass.getMethod("tags").invoke(changed));
-                assertEquals("updated", recordClass.getMethod("name").invoke(changed));
-                assertEquals(7, recordClass.getMethod("count").invoke(changed));
-            } catch (ReflectiveOperationException | IOException e) {
-                throw new RuntimeException(e);
-            } finally {
-                deleteRecursively(outputDirectory);
-            }
+        var listOfStrings = ParameterizedTypeName.get(ClassName.get(List.class), ClassName.get(String.class));
+        var fields = List.of(
+                ParameterSpec.builder(listOfStrings, "tags").build(),
+                ParameterSpec.builder(ClassName.get(String.class), "name").build(),
+                ParameterSpec.builder(TypeName.INT, "count").build());
+        var outputDirectory = compileToClasspath(generateCodeWithDefaults("ListRecord", fields, "",
+                Map.of("name", "\"default\"", "count", "42")));
+        try (var loader = new URLClassLoader(new URL[]{outputDirectory.toUri().toURL()},
+                Thread.currentThread().getContextClassLoader())) {
+            var recordClass = loader.loadClass("com.example.ListRecord");
+            var builderClass = loader.loadClass("com.example.ListRecord$Builder");
+            var tags = new ArrayList<>(List.of("original"));
+            var original = recordClass.getConstructor(List.class, String.class, int.class)
+                    .newInstance(tags, null, 7);
+            var toBuilder = recordClass.getMethod("toBuilder");
+            var first = toBuilder.invoke(original);
+            var second = toBuilder.invoke(original);
+            var build = builderClass.getMethod("build");
+            assertEquals(original, build.invoke(first));
+            builderClass.getMethod("addTags", String.class).invoke(first, "added");
+            builderClass.getMethod("name", String.class).invoke(first, "updated");
+            var changed = build.invoke(first);
+            assertEquals(List.of("original"), tags);
+            assertEquals(List.of("original"), recordClass.getMethod("tags").invoke(build.invoke(second)));
+            assertEquals(List.of("original", "added"), recordClass.getMethod("tags").invoke(changed));
+            assertEquals("updated", recordClass.getMethod("name").invoke(changed));
+            assertEquals(7, recordClass.getMethod("count").invoke(changed));
+            var nullable = recordClass.getConstructor(List.class, String.class, int.class)
+                    .newInstance(null, null, 0);
+            assertEquals(nullable, build.invoke(toBuilder.invoke(nullable)));
+        } catch (ReflectiveOperationException | IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            deleteRecursively(outputDirectory);
+        }
     }
 
     @Test
@@ -200,11 +205,16 @@ class BuilderWriterTest {
     }
 
     private String generateCodeWithPrefix(String recordName, List<ParameterSpec> fields, String prefix) {
+        return generateCodeWithDefaults(recordName, fields, prefix, Map.of());
+    }
+
+    private String generateCodeWithDefaults(String recordName, List<ParameterSpec> fields, String prefix,
+            Map<String, String> defaults) {
         var recordType = ClassName.get("com.example", recordName);
         var recordBuilder = TypeSpec.recordBuilder(recordName)
                 .addModifiers(Modifier.PUBLIC)
                 .recordConstructor(MethodSpec.compactConstructorBuilder().addParameters(fields).build());
-        new BuilderWriter(prefix).enrichWithBuilder(recordBuilder, recordType, fields);
+        new BuilderWriter(prefix).enrichWithBuilder(recordBuilder, recordType, fields, defaults);
         return JavaFile.builder("com.example", recordBuilder.build()).build().toString();
     }
 

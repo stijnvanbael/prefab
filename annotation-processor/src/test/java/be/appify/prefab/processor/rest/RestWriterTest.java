@@ -18,6 +18,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RestWriterTest {
 
+    @Test
+    void requestAndResponseCopyBuildersUseActualComponents() {
+        assertThat(aggregateProductOrderCompilation).succeeded();
+        assertThat(aggregateProductOrderCompilation)
+                .generatedSourceFile("rest.aggregate.application.CreateOrderRequest")
+                .contentsAsUtf8String().contains("builder.productId = this.productId");
+        assertThat(aggregateProductOrderCompilation)
+                .generatedSourceFile("rest.aggregate.infrastructure.http.OrderResponse")
+                .contentsAsUtf8String().contains("toBuilder()");
+        assertThat(pathVariableSubscriptionCompilation).succeeded();
+        assertThat(pathVariableSubscriptionCompilation)
+                .generatedSourceFile("rest.pathvariable.application.CreateSubscriptionRequest")
+                .contentsAsUtf8String().contains("toBuilder()");
+    }
+
     public static final com.google.testing.compile.Compilation testClientPersonCompilation = javac()
             .withProcessors(new PrefabProcessor())
             .compile(sourceOf("rest/testclient/source/Person.java"));
@@ -206,7 +221,7 @@ class RestWriterTest {
         assertThat(testClientPersonCompilation)
                 .generatedSourceFile("rest.testclient.application.CreatePersonRequest")
                 .contentsAsUtf8String()
-                .contains("public static CreatePersonRequest.Builder<?> builder()");
+                .contains("public static Builder<?> builder()");
     }
 
     @Test
@@ -219,7 +234,7 @@ class RestWriterTest {
         assertThat(testClientPersonCompilation)
                 .generatedSourceFile("rest.testclient.application.PersonUpdateRequest")
                 .contentsAsUtf8String()
-                .contains("public static PersonUpdateRequest.Builder<?> builder()");
+                .contains("public static Builder<?> builder()");
     }
 
     @Test

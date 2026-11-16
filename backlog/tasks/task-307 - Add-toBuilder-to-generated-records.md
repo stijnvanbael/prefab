@@ -41,6 +41,7 @@ This applies to generated event, request, response, nested and other record vari
 - Implementation started: cover the shared writer first, then wire every direct record writer and verify the full reactor. Maven selects JDK 25 even though the default `java` executable is JDK 21.
 - Shared writer now seeds a fresh builder directly from record components, copying lists to protect mutable source lists; the prefix-independent runtime regression test passes.
 - Wired REST requests/responses and AVSC branch/snapshot writers to the shared generator. Request builders now use actual record components, and matching request `withX` helpers delegate to `toBuilder`; retained the legacy path for unmatched plugin-provided method parameters.
+- Targeted REST and AVSC generation tests pass. Added coverage for custom-prefix copy chains across polymorphic requests/responses, snapshots, AVSC events, nested types and union wrappers, plus runtime checks for nulls, defaults and list isolation. Full reactor validation is in progress.
 <!-- SECTION:ANALYSIS:END -->
 
 ## Implementation Plan

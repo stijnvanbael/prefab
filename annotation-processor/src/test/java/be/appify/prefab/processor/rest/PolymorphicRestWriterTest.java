@@ -2,6 +2,7 @@ package be.appify.prefab.processor.rest;
 
 import be.appify.prefab.processor.PrefabProcessor;
 import com.google.testing.compile.Compilation;
+import com.google.testing.compile.JavaFileObjects;
 import org.junit.jupiter.api.Test;
 
 import static be.appify.prefab.processor.test.ProcessorTestUtil.contentsOf;
@@ -10,6 +11,45 @@ import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
 
 class PolymorphicRestWriterTest {
+
+    @Test
+    void nestedRecordsExposeFluentCopyBuildersWithCustomPrefix() {
+        var client = JavaFileObjects.forSourceString("rest.polymorphic.CopyClient", """
+                package rest.polymorphic;
+                import rest.polymorphic.application.CreateShapeRequest.CreateCircleRequest;
+                import rest.polymorphic.infrastructure.http.ShapeResponse.CircleResponse;
+                class CopyClient {
+                    CreateCircleRequest copy(CreateCircleRequest value) {
+                        return value.toBuilder().setRadius(2).build();
+                    }
+                    CircleResponse copy(CircleResponse value) {
+                        return value.toBuilder().setRadius(2).build();
+                    }
+                }
+                """);
+        var compilation = javac().withOptions("-Aprefab.builder.setterPrefix=set")
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/polymorphic/source/Shape.java"), client);
+        assertThat(compilation).succeeded();
+    }
+
+    @Test
+    void nestedUpdateRecordsExposeFluentCopyBuildersWithCustomPrefix() {
+        var client = JavaFileObjects.forSourceString("rest.polymorphicwithparent.CopyClient", """
+                package rest.polymorphicwithparent;
+                import rest.polymorphicwithparent.application.DrawingResizeRequest.CircleResizeRequest;
+                class CopyClient {
+                    CircleResizeRequest copy(CircleResizeRequest value) {
+                        return value.toBuilder().setRadius(2).build();
+                    }
+                }
+                """);
+        var compilation = javac().withOptions("-Aprefab.builder.setterPrefix=set")
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/polymorphicwithparent/source/Canvas.java"),
+                        sourceOf("rest/polymorphicwithparent/source/Drawing.java"), client);
+        assertThat(compilation).succeeded();
+    }
 
     private static final Compilation shapeCompilation = javac()
             .withProcessors(new PrefabProcessor())

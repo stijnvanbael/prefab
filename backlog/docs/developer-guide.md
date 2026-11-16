@@ -38,4 +38,6 @@ request/response DTOs, event consumer, and database migration scripts at compile
 | [Configuration Reference](configuration.md)           | Application properties, Kafka/Pub/Sub/SNS configuration            |
 | [Troubleshooting](troubleshooting.md)                 | Common errors and fixes                                            |
 
-
+Generated records can be copied and modified with `toBuilder()`; see
+[Generated Artefacts: Copying generated records](generated-artefacts.md#copying-generated-records)
+for builder options and copy semantics.

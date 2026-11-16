@@ -66,6 +66,27 @@ One response record:
 
 Nested value objects (inner records) are also represented as nested response records.
 
+### Copying generated records
+
+Generated records, including REST request and response records, AVSC-generated events and nested
+records, union branches, and event snapshots, expose `builder()` and `toBuilder()`. The latter
+starts a new builder with the record's current component values:
+
+```java
+var updated = request.toBuilder().name("Alice").build();
+```
+
+Builder setter names use the `prefab.builder.setterPrefix` annotation-processor option; the default
+is empty, so the setter above is `name`. For example, the `with` prefix produces `withName`.
+Calling `build()` invokes the record's canonical constructor and its validation. Each call to
+`toBuilder()` is independent: list components are copied into new lists so list adders cannot
+mutate the original. Other reference components are copied shallowly; nested objects and their
+mutable contents are not cloned.
+
+Prefab cannot add methods to handwritten records, including code-first `@Event` records. Their
+generated test fixtures may provide standalone builders, but those records do not gain `toBuilder()`.
+Sealed interfaces do not have a builder; their generated record implementations do.
+
 ---
 
 ## 6.5 Event Consumer

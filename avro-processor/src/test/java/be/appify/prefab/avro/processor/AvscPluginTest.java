@@ -1,6 +1,7 @@
 package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.processor.PrefabProcessor;
+import com.google.testing.compile.JavaFileObjects;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -18,6 +19,28 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import javax.tools.StandardLocation;
 
 class AvscPluginTest {
+
+    @Test
+    void eventNestedAndUnionCopyBuildersAreUsable() {
+        var client = JavaFileObjects.forSourceString("event.avsc.scalarunion.CopyClient", """
+                package event.avsc.scalarunion;
+                class CopyClient {
+                    ScalarUnionAvscEvent copy(ScalarUnionAvscEvent value) {
+                        return value.toBuilder().setId("changed").build();
+                    }
+                    ScalarUnionItem copy(ScalarUnionItem value) {
+                        return value.toBuilder().setName("changed").build();
+                    }
+                    ExactValueDouble copy(ExactValueDouble value) {
+                        return value.toBuilder().setValue(2.0).build();
+                    }
+                }
+                """);
+        var compilation = javac().withOptions("-Aprefab.builder.setterPrefix=set")
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/scalarunion/source/ScalarUnionAvsc.java"), client);
+        assertThat(compilation).succeeded();
+    }
 
     public static final com.google.testing.compile.Compilation nullableCompilation = javac()
             .withProcessors(new PrefabProcessor())
@@ -506,10 +529,14 @@ class AvscPluginTest {
         assertThat(compilation).generatedSourceFile("event.avsc.scalarunion.ScalarUnionAvscEvent")
                 .contentsAsUtf8String()
                 .contains("List<ScalarUnionItem> items");
+        assertThat(compilation).generatedSourceFile("event.avsc.scalarunion.ScalarUnionAvscEvent")
+                .contentsAsUtf8String().contains("toBuilder()");
         // Nested record with the sealed-interface union field
         assertThat(compilation).generatedSourceFile("event.avsc.scalarunion.ScalarUnionItem")
                 .contentsAsUtf8String()
                 .contains("ExactValue exactValue");
+        assertThat(compilation).generatedSourceFile("event.avsc.scalarunion.ScalarUnionItem")
+                .contentsAsUtf8String().contains("toBuilder()");
         // Sealed interface generated from the ["double","string"] union
         assertThat(compilation).generatedSourceFile("event.avsc.scalarunion.ExactValue")
                 .contentsAsUtf8String()
@@ -518,6 +545,8 @@ class AvscPluginTest {
         assertThat(compilation).generatedSourceFile("event.avsc.scalarunion.ExactValueDouble")
                 .contentsAsUtf8String()
                 .contains("double value");
+        assertThat(compilation).generatedSourceFile("event.avsc.scalarunion.ExactValueDouble")
+                .contentsAsUtf8String().contains("builder.value = this.value");
         // String branch wrapper
         assertThat(compilation).generatedSourceFile("event.avsc.scalarunion.ExactValueString")
                 .contentsAsUtf8String()

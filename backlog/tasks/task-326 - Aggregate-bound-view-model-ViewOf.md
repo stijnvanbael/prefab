@@ -19,7 +19,8 @@ Code-first, minimal-annotation design (see decision-005): one annotation binds a
 - [ ] #1 Prototype via a PrefabPlugin first; document which plugin hooks were insufficient
 - [ ] #2 Unknown view fields or type mismatches against the aggregate produce actionable compiler errors
 - [ ] #3 A view generates mapper (default or via `ViewAssembler`), GET-by-id and paged GET-list endpoints, test client and mother
-- [ ] #3b `ViewCommands` create/update/delete endpoints are generated only for implemented operations, with validation and a transaction boundary
+- [ ] #3b Existing `@GetById`/`@GetList`/`@Create`/`@Update`/`@Delete` configure view endpoints (path, method, security); `ViewCommands` endpoints exist only for annotated methods, with validation and a transaction boundary
+- [ ] #3d Shorthands work in order: field-name match, view constructor or `from(Aggregate)`, then `ViewAssembler`; a form record with `toRequest()` makes a simple `@Create` body-free
 - [ ] #3c Source rows are tenant/security scoped before the assembler runs; assemblers receive a batch, never a single item
 - [ ] #4 Tenant filtering and security configuration of the aggregate apply to the view, including counts
 - [ ] #5 Several views of one aggregate coexist; the aggregate record is unchanged

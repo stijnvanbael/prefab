@@ -56,11 +56,34 @@ Prefab generates: controller (paged GET list/by id), service wiring, tenant/secu
 rows, validation, transaction boundary, OpenAPI, test client and mother. The developer writes the DTO and
 the mapping.
 
+**Shorthand: a constructor on the view.** For simple mappings the view itself declares how it is built from
+the aggregate, so no assembler class is needed. Prefab detects a constructor taking the aggregate (or a
+static `from(Aggregate)` factory) and uses it as the mapper. Existing annotations configure the endpoints.
+
+```java
+@View(of = Product.class)
+@GetById
+@GetList
+public record ProductListItem(String id, String title, int tagCount) {
+
+    public ProductListItem(Product product) {                                 // mapping shorthand
+        this(product.id().id(), product.name(), product.tags().size());
+    }
+}
+```
+
+Shorthand ladder, from least to most code: (1) field names match, nothing to write (generated mapper);
+(2) constructor or `from(...)` on the view for per-row mapping; (3) `ViewAssembler` when the mapping needs
+the whole page (joins, aggregation, enrichment, external data). A constructor taking the aggregate plus
+extra parameters (for example `ProductListItem(Product p, Map<Reference<User>, User> users)`) is
+resolved by the assembler, which keeps batch loading explicit.
+
 **Read side: a batch assembler.** It receives an already scoped, paged list of source aggregates, so joins,
 aggregation and enrichment are ordinary Java with one lookup per page, never per item.
 
 ```java
 @View(of = ChannelSummary.class)
+@GetList
 public record ChannelDashboardItem(String id, String name, int totalMessages, int unread) {}
 
 @Component
@@ -86,23 +109,41 @@ map). When view fields equal aggregate fields no assembler is needed: a default 
 the trivial case stays zero-code. Anything not expressible stays in Java instead of a DSL.
 
 **Write side: view commands translate to generated aggregate operations.** The developer maps the form to
-calls on generated services; Prefab generates the endpoint, validation, `@Transactional` boundary and test
-client only for the operations implemented.
+calls on generated services. The existing `@Create`, `@Update` and `@Delete` annotations (path, method,
+security) configure the endpoints, exactly as on aggregates; they are placed on the command methods, and
+endpoints exist only for annotated methods. Prefab generates validation, the `@Transactional` boundary and
+the test client.
 
 ```java
 @Component
 class ProductEditor implements ViewCommands<Product, ProductForm> {
     private final ProductService products;
 
-    @Override
-    public Product create(ProductForm form) {                                 // POST
+    @Create
+    public Product create(ProductForm form) {                                 // POST /product-editor
         var created = products.create(new CreateProductRequest(form.title(), form.details()));
         form.tags().forEach(t -> products.addTag(created.id(), new AddTagRequest(t)));
         return created;
     }
 
-    @Override
-    public void delete(String id) { products.delete(id); }                   // DELETE (optional)
+    @Update(path = "/tags", method = "POST")
+    public void addTag(String id, AddTagForm form) {                          // POST /product-editor/{id}/tags
+        products.addTag(id, new AddTagRequest(form.tag()));
+    }
+
+    @Delete
+    public void delete(String id) { products.delete(id); }                    // DELETE /product-editor/{id}
+}
+```
+
+The same constructor shorthand applies to commands: a form record may declare
+`CreateProductRequest toRequest()` (or the command a one-to-one mapping) so a simple `@Create` needs no body:
+
+```java
+@View(of = Product.class)
+@Create                                                                       // delegates to ProductService.create
+public record ProductForm(String title, ProductDetails details) {
+    CreateProductRequest toRequest() { return new CreateProductRequest(title, details); }
 }
 ```
 

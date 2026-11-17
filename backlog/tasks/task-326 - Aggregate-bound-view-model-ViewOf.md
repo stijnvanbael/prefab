@@ -11,14 +11,16 @@ priority: medium
 
 ## Description
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Let a record declare a frontend view of an aggregate (`@ViewOf(Channel.class)`) with a field subset, renames and `@Computed` values. Prefab generates the mapper, service method, REST endpoint, test client and mother, reusing generated paging, `@Filter`, tenant and security behaviour. Removes the handwritten DTO/mapping/controller boilerplate shown in the TASK-320 prototypes. Rationale: decision-005. Complements TASK-170 and TASK-319; coordinate with TASK-127 (exposure strategies) and TASK-321 (versioned contracts).
+Code-first, minimal-annotation design (see decision-005): one annotation binds a view record to an aggregate; the developer writes mapping in plain Java via `ViewAssembler` (batch read: joins, aggregation, enrichment) and `ViewCommands` (create/update/delete delegating to generated services). A default mapper is generated when view fields equal aggregate fields. Prefab generates controller, paging, tenant/security scoping, validation, transaction boundary, test client and mother. No string-based DSL. Removes the handwritten DTO/mapping/controller boilerplate shown in the TASK-320 prototypes. Rationale: decision-005. Complements TASK-170 and TASK-319; coordinate with TASK-127 (exposure strategies) and TASK-321 (versioned contracts).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Prototype via a PrefabPlugin first; document which plugin hooks were insufficient
 - [ ] #2 Unknown view fields or type mismatches against the aggregate produce actionable compiler errors
-- [ ] #3 A view generates mapper, service method, GET-by-id and paged GET-list endpoints, test client and mother without handwritten code
+- [ ] #3 A view generates mapper (default or via `ViewAssembler`), GET-by-id and paged GET-list endpoints, test client and mother
+- [ ] #3b `ViewCommands` create/update/delete endpoints are generated only for implemented operations, with validation and a transaction boundary
+- [ ] #3c Source rows are tenant/security scoped before the assembler runs; assemblers receive a batch, never a single item
 - [ ] #4 Tenant filtering and security configuration of the aggregate apply to the view, including counts
 - [ ] #5 Several views of one aggregate coexist; the aggregate record is unchanged
 - [ ] #6 Documented in the developer guide and annotation reference; the Kafka example replaces the handwritten dashboard DTO where applicable

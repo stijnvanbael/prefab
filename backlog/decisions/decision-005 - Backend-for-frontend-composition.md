@@ -44,68 +44,76 @@ common case for cross-aggregate screens (TASK-319).
   TASK-321 versioned contracts).
 - Plugin-only prototyping (via `PrefabPlugin.writeController`/`writeService`) is feasible before changing core.
 
-### Illustrative client code (proposed API, not implemented)
+### Illustrative client code: code-first, minimal annotations (proposed API, not implemented)
 
-Sketches of what an application developer would write with `@ViewOf` (TASK-326) and reference expansion
-(TASK-327). Names (`@ViewOf`, `@From`, `@Expand`, `@Aggregate`-style `@Sum`) are placeholders; the point is the
-amount of code compared with the handwritten prototypes. Everything else (mapper, service, endpoint, test
-client, mother, tenant/security filtering) is generated.
+An earlier sketch used a field-level annotation DSL (`@From`, `@Join`, `@Count`, `@Expand`). It was rejected:
+string-typed, limited to simple shapes, and every exception (conditional logic, external data, custom
+aggregation) forces a rewrite as handwritten code. The revised principle: **Prefab owns the plumbing, the
+developer owns the mapping, in plain typed Java.** One annotation binds a view to its aggregate; the rest is
+interfaces the developer implements. Names are placeholders.
 
-**1. Field mapping: subset, rename, computed**
+Prefab generates: controller (paged GET list/by id), service wiring, tenant/security scoping of the source
+rows, validation, transaction boundary, OpenAPI, test client and mother. The developer writes the DTO and
+the mapping.
+
+**Read side: a batch assembler.** It receives an already scoped, paged list of source aggregates, so joins,
+aggregation and enrichment are ordinary Java with one lookup per page, never per item.
 
 ```java
-@ViewOf(Product.class)
-@GetList
-public record ProductListItem(
-        String id,
-        @From("name") String title,          // rename
-        @Computed String label) {            // computed from view fields only
+@View(of = ChannelSummary.class)
+public record ChannelDashboardItem(String id, String name, int totalMessages, int unread) {}
 
-    static String label(String title) { return title.toUpperCase(); }
+@Component
+class ChannelDashboardAssembler implements ViewAssembler<ChannelSummary, ChannelDashboardItem> {
+    private final UserStatusRepository statuses;
+    private final UserRepository users;
+
+    @Override
+    public List<ChannelDashboardItem> assemble(List<ChannelSummary> page, ViewContext ctx) {
+        var unread = statuses.findByUser(ctx.currentUser()).stream()          // join
+                .collect(toMap(s -> s.channel(), s -> s.unreadMessages().size()));
+        return page.stream()
+                .map(c -> new ChannelDashboardItem(                           // field mapping + rename
+                        c.id().id(), c.name(), c.totalMessages(),             // aggregation is plain Java
+                        unread.getOrDefault(c.channel(), 0)))
+                .toList();
+    }
 }
 ```
 
-**2. Aggregation: counts and sums over a related aggregate, computed in the query (no per-item loads)**
+Enrichment from other aggregates or external systems is the same shape (`users.findAllById(ids)` once, then
+map). When view fields equal aggregate fields no assembler is needed: a default mapper is generated, so
+the trivial case stays zero-code. Anything not expressible stays in Java instead of a DSL.
+
+**Write side: view commands translate to generated aggregate operations.** The developer maps the form to
+calls on generated services; Prefab generates the endpoint, validation, `@Transactional` boundary and test
+client only for the operations implemented.
 
 ```java
-@ViewOf(Channel.class)
-@GetList
-public record ChannelDashboardItem(
-        String id,
-        String name,
-        @From("summary.totalMessages") int totalMessages,
-        @Count(of = Message.class, by = "channel") long messageCount) {}
+@Component
+class ProductEditor implements ViewCommands<Product, ProductForm> {
+    private final ProductService products;
+
+    @Override
+    public Product create(ProductForm form) {                                 // POST
+        var created = products.create(new CreateProductRequest(form.title(), form.details()));
+        form.tags().forEach(t -> products.addTag(created.id(), new AddTagRequest(t)));
+        return created;
+    }
+
+    @Override
+    public void delete(String id) { products.delete(id); }                   // DELETE (optional)
+}
 ```
 
-**3. Join: combine two aggregates through a `Reference`**
-
-```java
-@ViewOf(ChannelSummary.class)
-@GetList
-public record ChannelWithUnread(
-        String id,
-        String name,
-        @Join(UserStatus.class, on = "channel", filter = "user = :currentUser")
-        @From("unreadMessages.size") int unread) {}   // :currentUser derived from the authenticated principal
-```
-
-**4. Enrichment: expand a `Reference` into a nested view with one batched lookup per page**
-
-```java
-@ViewOf(Message.class)
-@GetList
-public record MessageItem(
-        String id,
-        String text,
-        @Expand UserSummary sender) {}               // Reference<User> resolved via findAllById
-
-@ViewOf(User.class)
-public record UserSummary(String id, String name) {}
-```
-
-Missing references yield `null` (or the documented placeholder), never an exception; unsupported backends
-fail at compile time. Anything beyond these shapes (external calls, multi-step commands) falls back to a
-handwritten adapter such as `ChannelDashboardService`.
+**Propagation.** (a) Computed views read live aggregates, so create/update/delete propagate automatically
+with no code; this is the default and the recommendation. (b) Deletes of a source aggregate simply remove
+the row from the view; dangling references seen by an assembler are handled in the assembler (skip, placeholder
+or fail), and the documented default is explicit, not silent. (c) If a view must be materialised for
+performance, it is an event-maintained read model (`@EventHandler`, TASK-170/TASK-319), and propagation of
+create/update/delete is its event handlers, which Prefab already supports. (d) Cascades and cross-aggregate
+invariants stay in the domain (aggregates, events), never in the view. Atomicity limits from "Transactions and
+compensation" below still apply to multi-aggregate view commands (TASK-328).
 
 ### Revised decision
 

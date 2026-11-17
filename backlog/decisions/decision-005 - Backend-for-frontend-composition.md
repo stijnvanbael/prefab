@@ -2,12 +2,54 @@
 id: decision-005
 title: Compose frontend contracts in handwritten application adapters
 date: '2026-11-17'
-status: accepted
+status: accepted (revised, see "Revision: declarative frontend models")
 related_tasks:
   - TASK-320
   - TASK-319
   - TASK-324
+  - TASK-170
+  - TASK-326
+  - TASK-327
+  - TASK-328
 ---
+
+## Revision: declarative frontend models
+
+The first version of this ADR concluded that handwritten adapters were enough and that no follow-up was
+justified. That was too weak for an out-of-the-box, declarative framework: the prototypes below needed ~150
+lines of handwritten DTO, mapping, sorting and batching code. Handwritten adapters remain the **escape
+hatch**, not the default. The recommendation is revised as follows.
+
+### Options assessed
+
+| # | Option | Boilerplate removed | Risk / cost | Verdict |
+|---|---|---|---|---|
+| 1 | Aggregate-bound view: `@ViewOf(Aggregate.class)` on a record (field subset, renames, `@Computed`), generating mapper, service method, endpoint, test client and mother | DTO mapping, controller, paging, sorting, tenant/security reuse | Presentation stays outside the aggregate; view only references aggregate fields so it cannot drift silently (compile error on unknown field). Needs a new annotation and processor writer | **Recommended first slice** (TASK-326) |
+| 2 | `Reference<T>` expansion in a view (`@Expand` field resolved with one batched lookup) | Hand-written joins and N+1 avoidance | Needs a batch `findAllById` on generated repositories; backend limits (non-SQL) must be explicit. Overlaps TASK-319 | Build on option 1 (TASK-327) |
+| 3 | Declarative composed command (several `@Create`/`@Update` steps in one `@Transactional`) | Orchestration service and request mapping | Easy to over-promise atomicity; Prefab events are not an outbox; sagas need real design | Defer: design-only follow-up (TASK-328) |
+| 4 | Column projections (fetch only view fields) | Over-fetching | Optimisation; needs option 1 first | Later optimisation of option 1 |
+| 5 | Handwritten in-process adapter (this spike's prototypes) | None | Boilerplate, tenant/security easy to forget in mixins | Escape hatch, documented |
+| 6 | Separate BFF service | None | Network boundary, token propagation, no shared transaction | Only for independent ownership/scaling |
+
+`@ReadModel` (TASK-170) is complementary, not a substitute: it marks an event-populated aggregate as read-only,
+whereas `@ViewOf` shapes the API contract of any aggregate. A view of a `@ReadModel` aggregate is the expected
+common case for cross-aggregate screens (TASK-319).
+
+### Why a view tied to the aggregate root
+
+- The aggregate stays the single source of truth; view fields are validated against it at compile time.
+- Generated services already apply tenant filtering, paging and `@Filter`; a generated view can reuse them
+  instead of each hand-written mixin re-implementing authorization predicates.
+- Multiple views per aggregate allow several frontends/versions without touching the domain (also helps
+  TASK-321 versioned contracts).
+- Plugin-only prototyping (via `PrefabPlugin.writeController`/`writeService`) is feasible before changing core.
+
+### Revised decision
+
+- Introduce a declarative frontend view model (TASK-326) as the preferred BFF building block; add reference
+  expansion (TASK-327); design composed commands separately (TASK-328).
+- The handwritten decisions below still apply to anything the declarative model cannot express.
+
 
 ## Context
 
@@ -29,8 +71,9 @@ construction, before its repository save.
 - Use a repository mixin for a bounded, purpose-built batch read when generated filters do not express it.
   Keep SQL filtering and tenant/row-authorization predicates in that query, before ordering, pagination and
   counts. Do not fetch one related row per screen item.
-- Do not add a BFF module, annotation, or plugin hook for this use case. Generated services are internal
-  in-process Java collaborators, not a versioned network contract.
+- Do not add a separate BFF module. (Original text said "or annotation"; superseded by the revision above:
+  a view annotation is the preferred route.) Generated services are internal in-process Java collaborators,
+  not a versioned network contract.
 - Start with an in-process adapter. Deploy a separate BFF only when independent ownership, deployment,
   scaling, or aggregation across independently deployed backends justifies the additional network boundary.
 
@@ -111,4 +154,4 @@ same tenant and row restrictions as the returned rows.
 | In-process adapter (recommended default) | Coupled to generated Java service/repository types, but a handwritten screen DTO separates the frontend response from aggregate response records. One deployable owns API evolution. | No network hop or token forwarding between adapter and services; local transaction can span calls using one manager. Scaling and release cadence remain shared. |
 | Separately deployed BFF | Backend services must expose versioned HTTP/event contracts. Independent frontend response evolution is possible, but mapping and compatibility work move across a network boundary. | Independent deploy/scale and technology choice; adds authentication propagation, deadlines, retries, partial-failure policy, observability and distributed-command recovery. No shared transaction. |
 
-No separate follow-up story is justified by these prototypes: current handwritten services and repository mixins cover the demonstrated composition needs. Reliable event publication/outbox semantics are a separate infrastructure concern and are not promised by this BFF decision.
+Follow-up stories: TASK-326 (aggregate-bound `@ViewOf`), TASK-327 (reference expansion in views), TASK-328 (composed-command design). Reliable event publication/outbox semantics remain a separate infrastructure concern and are not promised by this decision.

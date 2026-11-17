@@ -215,7 +215,9 @@ avoid per-item repository lookups. The [BFF composition decision](../decisions/d
 records transaction, authorization, tenant, timeout and deployment boundaries. Runnable examples and focused
 tests are in `examples/kafka` under `dashboard` and `product/application`.
 
-This is an application composition pattern, not a new Prefab-generated BFF API. Generated services are
+This is the escape hatch. The preferred direction is declarative: an aggregate-bound view model
+(planned in TASK-326, with reference expansion in TASK-327) will generate the mapper, endpoint and tests so
+that no handwritten adapter is needed for common screens. Generated services are
 in-process collaborators; a separately deployed BFF must use versioned network contracts and cannot share
 their local database transaction. In-process composition also does not grant authorization automatically:
 derive identity from the authenticated principal, and explicitly scope custom repository queries for tenant

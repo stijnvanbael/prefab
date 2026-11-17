@@ -36,6 +36,13 @@ Generated aggregate services are Spring `@Transactional` beans. Aggregate constr
 Select a concrete frontend workflow, prototype composition through current extension points, measure complexity and document the recommended boundary.
 <!-- SECTION:PLAN:END -->
 
+## Revision (review feedback)
+
+The first conclusion ("handwritten adapters, no follow-ups") did not assess an aggregate-bound frontend model
+or other boilerplate reductions, which is at odds with Prefab being a declarative framework. decision-005 was
+revised with an options table; handwritten adapters are now the escape hatch. Follow-ups created: TASK-326
+(`@ViewOf`), TASK-327 (reference expansion), TASK-328 (composed-command design). Related: TASK-170, TASK-319.
+
 ## Implementation Notes
 
 - Added `ChannelDashboardService` and `ChannelDashboardItem` in `examples/kafka`: the generated `ChannelSummaryService` provides a stable paged summary; a handwritten repository mixin provides one user-scoped status lookup. The adapter returns an explicit status-availability flag for eventually consistent read models and makes no per-channel repository calls.

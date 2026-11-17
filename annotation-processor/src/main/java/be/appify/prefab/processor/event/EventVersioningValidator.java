@@ -403,7 +403,7 @@ class EventVersioningValidator {
                 return;
             }
             var resource = context.processingEnvironment().getFiler()
-                    .createResource(StandardLocation.CLASS_OUTPUT, "", CANDIDATE_PATH + fileName);
+                    .createResource(StandardLocation.CLASS_OUTPUT, "", CANDIDATE_PATH + fileName, type);
             try (var writer = resource.openWriter()) {
                 writer.write(text.toString());
             }

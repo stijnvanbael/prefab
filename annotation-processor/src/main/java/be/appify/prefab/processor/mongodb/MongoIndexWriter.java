@@ -20,6 +20,7 @@ import com.palantir.javapoet.TypeSpec;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.Modifier;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -81,6 +82,9 @@ class MongoIndexWriter {
                 .addMethod(constructor.build())
                 .build();
 
+        fileWriter.setOriginatingElements(manifests.stream()
+                .map(manifest -> manifest.type().asElement())
+                .toArray(TypeElement[]::new));
         fileWriter.writeFile(rootPackage, "MongoIndexConfiguration", type);
     }
 

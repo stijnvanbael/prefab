@@ -31,6 +31,7 @@ class GetListQueryWriter {
     }
 
     void writeQuery(FileOutput fileWriter, ClassManifest manifest) {
+        fileWriter.setOriginatingElements(manifest.type().asElement());
         var queryType = queryType(manifest);
         var type = TypeSpec.classBuilder(queryType)
                 .addModifiers(Modifier.PUBLIC, Modifier.FINAL)

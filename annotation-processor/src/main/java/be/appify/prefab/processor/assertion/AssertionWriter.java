@@ -103,12 +103,14 @@ class AssertionWriter {
                         .map(entry -> assertThatDelegateMethod(entry.subjectType(), entry.assertType()))
                         .toList())
                 .build();
-        var preferredElement = findPreferredElement(packageName);
-        preferredElement.ifPresent(fileWriter::setPreferredElement);
+        var originatingElements = findOriginatingElements(packageName);
+        if (originatingElements.length > 0) {
+            fileWriter.setOriginatingElements(originatingElements);
+        }
         fileWriter.writeFile(packageName, "Assertions", typeSpec);
     }
 
-    private java.util.Optional<TypeElement> findPreferredElement(String packageName) {
+    private TypeElement[] findOriginatingElements(String packageName) {
         return context.roundEnvironment().getRootElements().stream()
                 .filter(TypeElement.class::isInstance)
                 .map(TypeElement.class::cast)
@@ -116,7 +118,7 @@ class AssertionWriter {
                     var qn = e.getQualifiedName().toString();
                     return qn.startsWith(packageName + ".");
                 })
-                .findFirst();
+                .toArray(TypeElement[]::new);
     }
 
     private void writeEventTypeAssert(TypeManifest eventType, TypeElement preferredElement) {

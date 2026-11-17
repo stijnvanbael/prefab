@@ -1,7 +1,7 @@
 ---
 id: TASK-320
 title: Spike backend-for-frontend composition with Prefab
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-16 15:43'
 labels: [spike, architecture]
@@ -15,6 +15,11 @@ Investigate how a Prefab application can serve frontend-specific contracts and c
 
 Related: TASK-319 (read projections), TASK-127 (exposure separation) and TASK-324 (extension-point audit). No frontend implementation or new annotation is promised by this spike.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Analysis
+Prefab already generates REST controllers and per-aggregate services, and supports handwritten Spring components, repository mixins and `PrefabPlugin` hooks. Generated `getById`/`getList` operations include tenant filtering only when an aggregate declares `@TenantId`; the default `TenantContextProvider` returns `null`, so applications requiring isolation must provide a real tenant context. The security module provides JWT resource-server authentication and method security.
+
+The initial prototype direction is to keep screen DTOs and orchestration in handwritten application adapters, exercising the existing generated services and repository query hooks. The Kafka example's `ChannelSummary` and `UserStatus` are candidate read-side models. Transaction behavior across generated service calls, event publication, and the PostgreSQL persistence adapter still needs verification before the command prototype can make a boundary guarantee.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->

@@ -206,3 +206,17 @@ To revert, delete the file from `src/main/java/` and the processor regenerates i
 For full details, worked examples, and a decision matrix on when to use this approach, see
 [Generated Artefacts — §6.11 Overriding a Generated Class](generated-artefacts.md#611-overriding-a-generated-class-escape-hatch).
 
+## 8.7 Application-Service Composition
+
+Frontend-specific read DTOs and multi-step use cases can live in handwritten Spring `@Service` adapters that
+inject Prefab-generated aggregate services. Use generated services for ordinary aggregate operations and a
+`@RepositoryMixin` for a purpose-built batch read; keep presentation DTOs out of aggregate write records and
+avoid per-item repository lookups. The [BFF composition decision](../decisions/decision-005%20-%20Backend-for-frontend-composition.md)
+records transaction, authorization, tenant, timeout and deployment boundaries. Runnable examples and focused
+tests are in `examples/kafka` under `dashboard` and `product/application`.
+
+This is an application composition pattern, not a new Prefab-generated BFF API. Generated services are
+in-process collaborators; a separately deployed BFF must use versioned network contracts and cannot share
+their local database transaction. In-process composition also does not grant authorization automatically:
+derive identity from the authenticated principal, and explicitly scope custom repository queries for tenant
+and row-level access.

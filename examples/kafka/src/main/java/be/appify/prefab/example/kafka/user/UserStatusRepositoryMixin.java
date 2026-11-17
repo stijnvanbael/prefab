@@ -3,12 +3,15 @@ package be.appify.prefab.example.kafka.user;
 import be.appify.prefab.core.annotations.RepositoryMixin;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.example.kafka.channel.Channel;
+import be.appify.prefab.example.kafka.user.User;
 import org.springframework.data.jdbc.repository.query.Query;
 
 import java.util.List;
 
 @RepositoryMixin(UserStatus.class)
 public interface UserStatusRepositoryMixin {
+    List<UserStatus> findByUser(Reference<User> user);
+
     @Query("""
             SELECT *
             FROM user_status

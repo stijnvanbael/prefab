@@ -156,6 +156,43 @@ create/update/delete is its event handlers, which Prefab already supports. (d) C
 invariants stay in the domain (aggregates, events), never in the view. Atomicity limits from "Transactions and
 compensation" below still apply to multi-aggregate view commands (TASK-328).
 
+### Internal aggregates behind a BFF
+
+Today `@GetById`, `@GetList`, `@Create`, `@Update` and `@Delete` generate the service method and the REST
+endpoint together; there is no way to keep an aggregate reachable only in-process (verified: no exposure
+switch exists in `core` annotations). Proposed, aligned with the `endpoints` attribute planned in TASK-127
+rather than a second mechanism:
+
+```java
+@Aggregate(exposure = Exposure.INTERNAL)          // default for all operations: service only, no controller
+@GetById
+@GetList
+public record Channel(...) {
+
+    @Create
+    public Channel(...) { ... }
+
+    @Update(path = "/rename", exposure = Exposure.PUBLIC)   // per-operation override
+    public void rename(String name) { ... }
+}
+```
+
+- `INTERNAL` generates the service method, request/response records and repository, but no controller
+  method, OpenAPI entry or HTTP test client. `PUBLIC` (the default, so existing apps are unchanged) generates
+  everything as today. Operation-level `exposure` overrides the aggregate default.
+- Views are the public face: `@View(of = Channel.class)` with `@GetList` generates the endpoint, calling the
+  internal service. A view may be `@Update`/`@Create`-annotated too (see view commands), so an aggregate can
+  be fully internal while its views and commands are the only HTTP surface.
+- Because internal services have no HTTP security layer, tenant filtering still applies (it lives in the
+  service), but authorization belongs to the view endpoint, which must declare its own security. The
+  generated service stays a Spring bean; to stop other code from calling an internal aggregate by accident,
+  an optional ArchUnit-style compile check can restrict callers to view assemblers/commands (open design
+  question, not promised).
+- A view of an aggregate in `Exposure.PUBLIC` also works, so exposure is an adoption choice, not a
+  prerequisite.
+- This composes with TASK-127: when MCP is added, `exposure`/`endpoints` becomes one set of values
+  (`REST`, `MCP`, none) instead of two overlapping attributes.
+
 ### Revised decision
 
 - Introduce a declarative frontend view model (TASK-326) as the preferred BFF building block; add reference

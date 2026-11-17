@@ -21,6 +21,8 @@ Code-first, minimal-annotation design (see decision-005): one annotation binds a
 - [ ] #3 A view generates mapper (default or via `ViewAssembler`), GET-by-id and paged GET-list endpoints, test client and mother
 - [ ] #3b Existing `@GetById`/`@GetList`/`@Create`/`@Update`/`@Delete` configure view endpoints (path, method, security); `ViewCommands` endpoints exist only for annotated methods, with validation and a transaction boundary
 - [ ] #3d Shorthands work in order: field-name match, view constructor or `from(Aggregate)`, then `ViewAssembler`; a form record with `toRequest()` makes a simple `@Create` body-free
+- [ ] #3e An aggregate can be internal (`exposure = INTERNAL` at aggregate level, overridable per operation): service and records are generated, but no controller method, OpenAPI entry or HTTP test client; default stays public and existing apps are unchanged; coordinate attribute design with TASK-127 `endpoints`
+- [ ] #3f Views over internal aggregates are the only HTTP surface and must declare their own security; tenant filtering still applies through the service
 - [ ] #3c Source rows are tenant/security scoped before the assembler runs; assemblers receive a batch, never a single item
 - [ ] #4 Tenant filtering and security configuration of the aggregate apply to the view, including counts
 - [ ] #5 Several views of one aggregate coexist; the aggregate record is unchanged

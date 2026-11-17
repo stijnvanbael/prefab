@@ -1,65 +1,71 @@
-# 📦 Prefab
+# Prefab
 
-The purpose of the software we build is to solve business problems. However, a lot of time is spent
-on boilerplate code that doesn't add any business value. Prefab aims to reduce this boilerplate
-by generating the necessary code for you based on your domain model.
+Prefab is a Java annotation processor for Spring Boot. Describe domain aggregates and their operations in Java; at
+compile time, Prefab can generate selected application infrastructure such as REST endpoints and contracts,
+repositories, migrations, event plumbing, and test helpers. Features are opt-in and depend on the modules you choose.
 
-With Prefab, you can focus on defining your domain classes with the business logic and let the
-framework handle the application infrastructure. This leads to faster development cycles, fewer bugs,
-and a more maintainable codebase. You are essentially coding at a higher level of abstraction,
-focusing on the "what" instead of the "how". Prefab severely reduces the context both for humans and LLMs,
-allowing both to work more effectively with the domain model and business logic.
+**Start here: [Prefab Developer Guide](backlog/docs/developer-guide.md)** — setup, module selection, feature guides,
+generated artefacts, configuration, and extension points.
 
-There are several use cases where Prefab can help you:
+Prefab reduces repetitive scaffolding; it does not replace domain design or application architecture. Your team still
+owns business rules, integrations that fall outside the supported modules, and production operations.
 
-- Rapid prototyping
-- Iterate quickly on domain models
-- Reducing boilerplate and maintenance overhead
-- Consume significantly fewer tokens when using LLMs to develop and maintain your application
-- Learning and experimenting with Spring Boot and Domain-Driven Design
-- Scaffolding for larger applications
-- Easy pivoting and changing directions in the early stages of development
+## Capabilities in the current source
 
-While Prefab is not intended to build very complex applications out of the box, it can serve as a solid foundation
-that you can extend and customize to fit your specific needs.
+This inventory describes functionality implemented in this repository, not a promise that every item is included in
+every published artifact or enabled by the core dependency. Add only the modules you need, and check the version you
+use for the features it contains. Items that appear only in the [backlog](backlog/tasks) are planned, not supported
+features.
 
-## ⚙️ How it works
+| Area | What Prefab provides |
+|---|---|
+| [Domain modeling](backlog/docs/annotation-reference.md#41-aggregate-annotations) | Aggregate-root annotations, typed references, [nested value objects](backlog/docs/feature-guides.md#79-nested-value-objects-and-embedded-types), and compile-time checks. |
+| [REST and generated contracts](backlog/docs/feature-guides.md#71-rest-crud-operations) | Opt-in create, update, delete, get-by-ID, list, filters, and generated [request/response types](backlog/docs/generated-artefacts.md#64-requestresponse-records); optional [OpenAPI](backlog/docs/modules.md#prefab-modules). |
+| [Persistence, migrations, and indexes](backlog/docs/generated-artefacts.md#66-database-migration-scripts) | PostgreSQL/Spring Data JDBC or MongoDB repositories; opt-in Flyway or MongoDB migration generation and [declared indexes](backlog/docs/annotation-reference.md#indexed). See [database annotations](backlog/docs/annotation-reference.md#45-database-annotations) and [persistence modules](backlog/docs/modules.md#prefab-modules). |
+| [Messaging and schema evolution](backlog/docs/feature-guides.md#72-event-publishing) | Kafka, Google Pub/Sub, and AWS SNS/SQS event integrations; Kafka JSON/Avro support, generated event handlers, and [event version compatibility and migrations](backlog/docs/annotation-reference.md#event-versioning-and-migrations). Serializer/transport combinations vary by module; optional [AsyncAPI docs](backlog/docs/modules.md#prefab-modules). |
+| [Kafka streams](backlog/docs/feature-guides.md#715-streams-dsl-baseline-kafka-sourcesink) | An opt-in source/sink DSL for building Kafka Streams topologies. |
+| [Security, tenancy, and audit](backlog/docs/feature-guides.md#75-audit-trail) | Optional [Spring Security module](backlog/docs/modules.md#prefab-modules), [per-operation authorization](backlog/docs/annotation-reference.md#security), tenant-aware aggregate access, and audit fields with replaceable runtime providers. See [multi-tenancy](backlog/docs/feature-guides.md#76-multi-tenancy). |
+| [Validation, binary files, and search](backlog/docs/annotation-reference.md#48-validation-annotations) | Bean Validation on domain operations, validated [binary uploads/downloads](backlog/docs/generated-artefacts.md#61-controller), PostgreSQL/MongoDB [full-text filters](backlog/docs/annotation-reference.md#filter), and generated [autocomplete](backlog/docs/feature-guides.md#717-autocomplete-endpoints). |
+| [Test helpers](backlog/docs/generated-artefacts.md#69-generated-test-client) | Generated [test clients](backlog/docs/generated-artefacts.md#69-generated-test-client), [object mothers](backlog/docs/generated-artefacts.md#610-generated-object-mothers-test-sources), [assertions](backlog/docs/generated-artefacts.md#68-generated-assertion-classes), [event test helpers](backlog/docs/feature-guides.md#712-unit-testing-domain-events), and optional [Testcontainers support](backlog/docs/modules.md#prefab-modules). |
+| [Observability](backlog/docs/configuration.md#application-properties) | Spring Boot Actuator through `prefab-core`, with baseline health and info endpoints; this is not a full observability platform. |
+| [Infrastructure generation](backlog/docs/modules.md#gcp-terraform-infrastructure-generation) | The optional Terraform module generates selected GCP resources from the application model. It does not provision infrastructure or replace infrastructure review and operations. |
+| [Extension points](backlog/docs/extension-points.md#81-prefabplugin-interface) | [Repository mixins](backlog/docs/extension-points.md#82-repository-mixins), code-generation plugins, runtime providers/customizers, and a documented [source-file override escape hatch](backlog/docs/extension-points.md#86-source-file-override-escape-hatch). |
 
-Prefab is a Java annotation processor that generates an entire application from domain classes.
+## Quick start
 
-By adding annotations to your domain classes, Prefab will generate REST controllers, request/response records,
-services, repositories, event producers/consumers, and database migration scripts at compile time.
-
-Prefab is an opinionated framework that follows the principles of Domain-Driven Design (DDD). Domain classes must
-therefore be valid aggregate roots.
-
-## 🏁 Getting started
-
-Add the following to your `pom.xml` (replace `LATEST_VERSION` with the current release):
+Use Java 21 or newer, Spring Boot 4.x, and Maven. Add `prefab-core`, one persistence module, and the annotation
+processor; add messaging or other modules only when needed. Use the same current released Prefab version for each
+artifact (replace `RELEASE_VERSION` below).
 
 ```xml
 <dependency>
     <groupId>be.appify.prefab</groupId>
     <artifactId>prefab-core</artifactId>
-    <version>LATEST_VERSION</version>
+    <version>RELEASE_VERSION</version>
 </dependency>
-<!-- Choose your database backend: prefab-postgres for PostgreSQL or prefab-mongodb for MongoDB -->
 <dependency>
     <groupId>be.appify.prefab</groupId>
     <artifactId>prefab-postgres</artifactId>
-    <version>LATEST_VERSION</version>
+    <version>RELEASE_VERSION</version>
 </dependency>
 <dependency>
     <groupId>be.appify.prefab</groupId>
     <artifactId>prefab-annotation-processor</artifactId>
-    <version>LATEST_VERSION</version>
+    <version>RELEASE_VERSION</version>
     <scope>provided</scope>
 </dependency>
 ```
 
-Annotate your Spring Boot application class with `@EnablePrefab`:
+For MongoDB, use `prefab-mongodb` instead of `prefab-postgres`. Add `@EnablePrefab` to the Spring Boot application and
+annotate an aggregate and its operations:
+
+In `Application.java`:
 
 ```java
+import be.appify.prefab.core.spring.EnablePrefab;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
 @SpringBootApplication
 @EnablePrefab
 public class Application {
@@ -69,57 +75,70 @@ public class Application {
 }
 ```
 
-Write your first aggregate:
+In `Product.java`:
 
 ```java
+import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.rest.Create;
+import be.appify.prefab.core.annotations.rest.GetById;
+import be.appify.prefab.core.annotations.rest.GetList;
+import be.appify.prefab.core.service.Reference;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
+
 @Aggregate
 @GetById
 @GetList
-public record Sale(
-        @Id Reference<Sale> id,
+public record Product(
+        @Id Reference<Product> id,
         @Version long version,
-        Instant start,
-        Double amount
+        String name
 ) {
     @Create
-    public Sale(Instant start, Double amount) {
-        this(Reference.create(), 0L, start, amount);
+    public Product(String name) {
+        this(Reference.create(), 0L, name);
     }
-
-    @Update
-    public Sale updateAmount(Double newAmount) {
-        return new Sale(id, version, start, newAmount);
-    }
-
-    @Delete
-    public void delete() { }
 }
 ```
 
-Prefab generates a fully-wired REST controller, service, repository, request/response records, and a Flyway
-migration script from this single class.
+See [Getting Started](backlog/docs/getting-started.md) for a complete application setup, and the
+[module matrix](backlog/docs/modules.md) for the dependencies required by each feature.
 
-For a full reference of all annotations, built-in types, generated artefacts, event handling, extension points,
-configuration, and troubleshooting, see the
-**[Developer Guide](backlog/docs/developer-guide.md)**.
+## Real-world customization
 
-## 🛠️ IDE support
+Prefab keeps generated infrastructure customizable without making generated sources the normal place for application
+code:
 
-IDEs like IntelliJ IDEA and Eclipse support annotation processors out of the box. However, you might need to enable
-annotation processing and switch to Maven for building as partial compilation by the IDE might not produce the desired
-result.
+- **Event-driven projections and custom queries:** [`ChannelSummary`](examples/kafka/src/main/java/be/appify/prefab/example/kafka/channelsummary/ChannelSummary.java)
+  combines event handlers, multicast updates, and a list endpoint. Its
+  [`@RepositoryMixin`](examples/kafka/src/main/java/be/appify/prefab/example/kafka/channelsummary/ChannelSummaryRepositoryMixin.java)
+  adds the `findByChannel` query used by those handlers. See [repository mixins](backlog/docs/extension-points.md#82-repository-mixins).
+- **Per-aggregate code generation:** [`@Generate`](backlog/docs/feature-guides.md#716-per-aggregate-plugin-overrides)
+  enables, disables, or redirects a generator for one aggregate. The
+  [compile-time integration tests](annotation-processor/src/test/java/be/appify/prefab/processor/GeneratePluginOverrideIntegrationTest.java)
+  exercise these overrides; implement a [`PrefabPlugin`](backlog/docs/extension-points.md#81-prefabplugin-interface)
+  when you need to add generated files or extend generated types.
+- **Runtime tenant, audit, and security policy:** mark the aggregate's tenant discriminator with `@TenantId`, then supply
+  [`TenantContextProvider`](backlog/docs/built-in-types.md#tenantcontextprovider) and
+  [`AuditContextProvider`](backlog/docs/built-in-types.md#auditcontextprovider) beans,
+  register an [`HttpSecurityCustomizer`](security/src/main/java/be/appify/prefab/core/security/HttpSecurityCustomizer.java),
+  and declare endpoint rules with [`@Security`](backlog/docs/annotation-reference.md#security). The
+  [Customer example](examples/avro/src/main/java/be/appify/prefab/example/avro/customer/Customer.java) combines
+  operation-level rules with domain events; generated service and security code remains processor-owned.
 
-### 💡 IntelliJ IDEA
+For a last-resort, hand-maintained replacement, see the [generated-class escape hatch](backlog/docs/generated-artefacts.md#611-overriding-a-generated-class-escape-hatch)
+and its maintenance trade-offs.
 
-1. Go to `Settings > Build, Execution, Deployment > Compiler > Annotation Processors` and make sure
-   `Enable annotation processing` is checked.
-2. It's also recommended to use Maven instead of IntelliJ IDEA's built-in compiler to avoid potential issues
-   with annotation processing. You can do this by going to
-   `Settings > Build, Execution, Deployment > Build Tools > Maven > Runner` and selecting
-   `Delegate IDE build/run actions to Maven`. Tick `Skip tests` to avoid running tests on every build.
+## Scope and trade-offs
 
-## 🧭 What's next?
+Prefab generates infrastructure for supported aggregate shapes and module integrations; it is not a general-purpose
+application generator. Put business behavior in your domain methods, use repository mixins for queries beyond the
+generated filters, and manage integrations or infrastructure outside the supported modules explicitly. Generated
+source overrides require manual synchronization when the domain model changes. Consult the guide for exact behavior
+and the [backlog](backlog/tasks) for work that is planned but not yet implemented.
 
-Prefab is still in its early stages, and many more features are planned for the future.
+## IDE support
 
-See the [backlog](backlog/tasks) for a list of planned features and improvements.
+Enable annotation processing in your IDE. IntelliJ IDEA can delegate builds to Maven under
+`Settings > Build, Execution, Deployment > Build Tools > Maven > Runner`; IDE partial compilation may not run the
+processor in the same way as a Maven build.

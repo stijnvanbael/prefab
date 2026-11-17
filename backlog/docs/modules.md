@@ -22,7 +22,7 @@
 | `openapi`              | `prefab-openapi`              | OpenAPI docs       | SpringDoc OpenAPI / Swagger UI                 |
 | `async-api`            | `prefab-async-api`            | AsyncAPI docs      | AsyncAPI specification generation              |
 | `test`                 | `prefab-test`                 | Testing            | Testcontainers-based integration test support  |
-| `terraform`            | `prefab-terraform`            | GCP infra          | GCP Terraform configuration generation         |
+| `terraform`            | `prefab-terraform`            | GCP infra          | Compile-time GCP Terraform configuration generation |
 
 ---
 
@@ -44,6 +44,22 @@
 | OpenAPI documentation   | `core`, `annotation-processor`, `openapi`                         |
 | AsyncAPI documentation  | `core`, `annotation-processor`, `async-api`                       |
 | Integration testing     | `test`, plus one or more messaging modules                        |
+
+---
+
+## GCP Terraform Infrastructure Generation
+
+Add `prefab-terraform` to the annotation-processor classpath to generate Terraform files under
+`terraform/gcp/` in the compiler output. The generator emits a baseline for Cloud Run and Artifact Registry,
+then adds selected resources according to the persistence, messaging, and REST modules present in the compilation.
+For Pub/Sub event handlers it can also emit topics and subscriptions for literal topic names.
+
+This is infrastructure-as-code generation, not provisioning: review and manage the output with your normal Terraform
+workflow. Pub/Sub topic names supplied as runtime property or SpEL expressions cannot be resolved at compile time;
+Prefab warns and those resources must be managed separately. See the
+[Terraform generator implementation](../../terraform/src/main/java/be/appify/prefab/processor/terraform/gcp/GcpTerraformWriter.java)
+and [generation tests](../../terraform/src/test/java/be/appify/prefab/processor/terraform/gcp/GcpTerraformWriterTest.java)
+for the emitted resources and limits.
 
 ---
 
@@ -92,4 +108,3 @@ Replace `LATEST_VERSION` with the current release version:
     <version>LATEST_VERSION</version>
 </dependency>
 ```
-

@@ -44,6 +44,69 @@ common case for cross-aggregate screens (TASK-319).
   TASK-321 versioned contracts).
 - Plugin-only prototyping (via `PrefabPlugin.writeController`/`writeService`) is feasible before changing core.
 
+### Illustrative client code (proposed API, not implemented)
+
+Sketches of what an application developer would write with `@ViewOf` (TASK-326) and reference expansion
+(TASK-327). Names (`@ViewOf`, `@From`, `@Expand`, `@Aggregate`-style `@Sum`) are placeholders; the point is the
+amount of code compared with the handwritten prototypes. Everything else (mapper, service, endpoint, test
+client, mother, tenant/security filtering) is generated.
+
+**1. Field mapping: subset, rename, computed**
+
+```java
+@ViewOf(Product.class)
+@GetList
+public record ProductListItem(
+        String id,
+        @From("name") String title,          // rename
+        @Computed String label) {            // computed from view fields only
+
+    static String label(String title) { return title.toUpperCase(); }
+}
+```
+
+**2. Aggregation: counts and sums over a related aggregate, computed in the query (no per-item loads)**
+
+```java
+@ViewOf(Channel.class)
+@GetList
+public record ChannelDashboardItem(
+        String id,
+        String name,
+        @From("summary.totalMessages") int totalMessages,
+        @Count(of = Message.class, by = "channel") long messageCount) {}
+```
+
+**3. Join: combine two aggregates through a `Reference`**
+
+```java
+@ViewOf(ChannelSummary.class)
+@GetList
+public record ChannelWithUnread(
+        String id,
+        String name,
+        @Join(UserStatus.class, on = "channel", filter = "user = :currentUser")
+        @From("unreadMessages.size") int unread) {}   // :currentUser derived from the authenticated principal
+```
+
+**4. Enrichment: expand a `Reference` into a nested view with one batched lookup per page**
+
+```java
+@ViewOf(Message.class)
+@GetList
+public record MessageItem(
+        String id,
+        String text,
+        @Expand UserSummary sender) {}               // Reference<User> resolved via findAllById
+
+@ViewOf(User.class)
+public record UserSummary(String id, String name) {}
+```
+
+Missing references yield `null` (or the documented placeholder), never an exception; unsupported backends
+fail at compile time. Anything beyond these shapes (external calls, multi-step commands) falls back to a
+handwritten adapter such as `ChannelDashboardService`.
+
 ### Revised decision
 
 - Introduce a declarative frontend view model (TASK-326) as the preferred BFF building block; add reference

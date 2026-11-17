@@ -191,7 +191,7 @@ Assert `ExactValueDouble` source does NOT contain `requireNonNull(value` (double
 | nonprimitive | NonPrimitiveAvscEvent | requireNonNull for timestamp, date, duration |
 | scalarunion | ExactValueString | requireNonNull on value |
 | scalarunion | ExactValueDouble | no check (primitive) |
-| nullablearraynestedsvr | NullableArrayNestedSingleValuedRecordAvscEvent | guarded List.copyOf for toegangspuntList |
+| nullablearraynestedsvr | NullableArrayNestedSingleValuedRecordAvscEvent | guarded List.copyOf for contactList |
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes

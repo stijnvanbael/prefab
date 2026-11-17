@@ -1191,7 +1191,7 @@ with a `GlobalStoreUpdater`:
 ```java
 @Bean
 GlobalStore<String, SnapshotCounter> snapshotCounters(PrefabStreams streams, ApplicationEventPublisher publisher) {
-    return streams.globalStoreFrom(MeteringconfigLifecycleEvent.class)
+    return streams.globalStoreFrom(OrderLifecycleEvent.class)
             .updatedBy(new SnapshotCounterUpdater(publisher))
             .as(SnapshotCounter.class); // or .as("snapshot-counters", SnapshotCounter.class)
 }
@@ -1199,9 +1199,9 @@ GlobalStore<String, SnapshotCounter> snapshotCounters(PrefabStreams streams, App
 
 ```java
 class SnapshotCounterUpdater
-        implements GlobalStoreUpdater<String, MeteringconfigLifecycleEvent, String, SnapshotCounter> {
+        implements GlobalStoreUpdater<String, OrderLifecycleEvent, String, SnapshotCounter> {
     @Override
-    public void update(StreamRecord<String, MeteringconfigLifecycleEvent> record, Store<String, SnapshotCounter> store) {
+    public void update(StreamRecord<String, OrderLifecycleEvent> record, Store<String, SnapshotCounter> store) {
         var counter = store.get(record.key()).orElseGet(() -> SnapshotCounter.init(record.key()));
         store.put(record.key(), counter.apply(record.value()));
     }

@@ -15,7 +15,7 @@ ordinal: 42200
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-AVSC record and enum names may start with a lowercase letter (valid in Avro, e.g. `meteringconfigUpdated`),
+AVSC record and enum names may start with a lowercase letter (valid in Avro, e.g. `orderUpdated`),
 which caused the generated Java types to also start with a lowercase letter. This violates Java naming
 conventions and breaks IDE and compiler expectations.
 

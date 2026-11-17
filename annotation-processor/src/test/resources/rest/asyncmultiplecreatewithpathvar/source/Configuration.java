@@ -1,4 +1,4 @@
-package rest.asyncmultiplecreatenopathvar;
+package rest.asyncmultiplecreatewithpathvar;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.AsyncCommit;
@@ -15,17 +15,17 @@ import org.springframework.data.annotation.Id;
 @Generate(plugin = MotherPlugin.class, enabled = false)
 @Generate(plugin = AssertionPlugin.class, enabled = false)
 @Generate(plugin = DbMigrationPlugin.class, enabled = false)
-public record MeteringConfig(
-        @Id Reference<MeteringConfig> id,
-        String status,
-        String remark
+public record Configuration(
+        @Id Reference<Configuration> id,
+        String configurationId,
+        String remark,
+        String status
 ) {
-    @Create(path = "/{meteringconfig}/close-for-input")
-    public static void closeForInput(String meteringconfigId, String remark) {
+    @Create(path = "/configurations/{configurationId}/disable")
+    public static void disable(String configurationId, String remark) {
     }
 
-    @Create(path = "/{meteringconfig}/open-for-input")
-    public static void openForInput(String meteringconfigId, String remark) {
+    @Create(path = "/configurations/{configurationId}/enable")
+    public static void enable(String configurationId, String remark) {
     }
 }
-

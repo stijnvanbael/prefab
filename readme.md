@@ -107,24 +107,114 @@ See [Getting Started](backlog/docs/getting-started.md) for a complete applicatio
 ## Real-world customization
 
 Prefab keeps generated infrastructure customizable without making generated sources the normal place for application
-code:
+code. These examples are drawn from working repository examples and supported extension points.
 
-- **Event-driven projections and custom queries:** [`ChannelSummary`](examples/kafka/src/main/java/be/appify/prefab/example/kafka/channelsummary/ChannelSummary.java)
-  combines event handlers, multicast updates, and a list endpoint. Its
-  [`@RepositoryMixin`](examples/kafka/src/main/java/be/appify/prefab/example/kafka/channelsummary/ChannelSummaryRepositoryMixin.java)
-  adds the `findByChannel` query used by those handlers. See [repository mixins](backlog/docs/extension-points.md#82-repository-mixins).
-- **Per-aggregate code generation:** [`@Generate`](backlog/docs/feature-guides.md#716-per-aggregate-plugin-overrides)
-  enables, disables, or redirects a generator for one aggregate. The
-  [compile-time integration tests](annotation-processor/src/test/java/be/appify/prefab/processor/GeneratePluginOverrideIntegrationTest.java)
-  exercise these overrides; implement a [`PrefabPlugin`](backlog/docs/extension-points.md#81-prefabplugin-interface)
-  when you need to add generated files or extend generated types.
-- **Runtime tenant, audit, and security policy:** mark the aggregate's tenant discriminator with `@TenantId`, then supply
-  [`TenantContextProvider`](backlog/docs/built-in-types.md#tenantcontextprovider) and
-  [`AuditContextProvider`](backlog/docs/built-in-types.md#auditcontextprovider) beans,
-  register an [`HttpSecurityCustomizer`](security/src/main/java/be/appify/prefab/core/security/HttpSecurityCustomizer.java),
-  and declare endpoint rules with [`@Security`](backlog/docs/annotation-reference.md#security). The
-  [Customer example](examples/avro/src/main/java/be/appify/prefab/example/avro/customer/Customer.java) combines
-  operation-level rules with domain events; generated service and security code remains processor-owned.
+### Build an event-driven projection with a custom query
+
+The [`ChannelSummary` example](examples/kafka/src/main/java/be/appify/prefab/example/kafka/channelsummary/ChannelSummary.java)
+combines event handlers, multicast updates, and a generated list endpoint. A handler can ask Prefab to find all
+matching projection rows, then update each row as an event arrives:
+
+```java
+@EventHandler
+@Multicast(queryMethod = "findByChannel", parameters = "channel")
+public ChannelSummary applyMessageSent(MessageSent event) {
+    return new ChannelSummary(
+            id, version, channel, name, totalMessages + 1, totalSubscribers);
+}
+```
+
+The matching query stays in an ordinary Spring Data mixin, not the generated repository:
+
+```java
+@RepositoryMixin(ChannelSummary.class)
+public interface ChannelSummaryRepositoryMixin {
+    List<ChannelSummary> findByChannel(Reference<Channel> channel);
+}
+```
+
+Prefab includes the mixin in the generated repository; the handler uses `findByChannel` to select the records it
+updates. See the [complete aggregate](examples/kafka/src/main/java/be/appify/prefab/example/kafka/channelsummary/ChannelSummary.java),
+[mixin source](examples/kafka/src/main/java/be/appify/prefab/example/kafka/channelsummary/ChannelSummaryRepositoryMixin.java),
+and [repository mixin guide](backlog/docs/extension-points.md#82-repository-mixins). Use a custom `@Query` mixin
+when a derived method name is not enough.
+
+### Change generated output for one aggregate
+
+When a table is managed outside Prefab, opt that aggregate out of migration generation while leaving other
+aggregates unchanged. The common opt-out is `@DbMigration(enabled = false)`; `@Generate` offers direct control over
+the responsible built-in plugin:
+
+```java
+import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.Generate;
+import be.appify.prefab.core.service.Reference;
+import be.appify.prefab.processor.dbmigration.DbMigrationPlugin;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
+
+@Aggregate
+@Generate(plugin = DbMigrationPlugin.class, enabled = false)
+public record ExternalProduct(
+        @Id Reference<ExternalProduct> id,
+        @Version long version,
+        String sku
+) { }
+```
+
+This per-aggregate override is described in the
+[plugin override guide](backlog/docs/feature-guides.md#716-per-aggregate-plugin-overrides); implement a
+[custom `PrefabPlugin`](backlog/docs/extension-points.md#81-prefabplugin-interface) when you need new generated
+files or behavior.
+
+### Supply tenant identity and operation security at runtime
+
+With the optional `prefab-security` module and JWT authentication configured, mark tenant-owned data in the
+aggregate and provide the current tenant from the authenticated request. Prefab uses the provider while accessing
+tenant-scoped aggregates:
+
+```java
+@Aggregate
+public record Project(
+        @Id Reference<Project> id,
+        @Version long version,
+        @TenantId String organisationId,
+        String name
+) { }
+```
+
+```java
+@Component
+public class JwtTenantContextProvider implements TenantContextProvider {
+    @Override
+    public String currentTenantId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication instanceof JwtAuthenticationToken jwt) {
+            return jwt.getToken().getClaimAsString("organisation_id");
+        }
+        return null;
+    }
+}
+```
+
+The provider contract treats `null` as “disable tenant filtering”; make sure that behavior is appropriate for your
+application and handle missing or invalid tenant claims according to your security policy. Likewise, declare
+operation-level authorization on the domain method rather than editing a generated controller:
+
+```java
+@Create(security = @Security(authority = "ROLE_CUSTOMER_WRITE"))
+public Customer(@NotNull PersonName name, @NotNull String email) {
+    this(Reference.create(), 0L, name, email);
+    publish(new Created(id, name, email));
+}
+```
+
+This authorization pattern is used in the
+[Customer example](examples/avro/src/main/java/be/appify/prefab/example/avro/customer/Customer.java).
+Provide an [`AuditContextProvider`](backlog/docs/built-in-types.md#auditcontextprovider) bean to populate audit
+identities and an [`HttpSecurityCustomizer`](security/src/main/java/be/appify/prefab/core/security/HttpSecurityCustomizer.java)
+bean to extend Prefab's default Spring Security chain. See the guides for [audit](backlog/docs/feature-guides.md#75-audit-trail),
+[multi-tenancy](backlog/docs/feature-guides.md#76-multi-tenancy), and [security annotations](backlog/docs/annotation-reference.md#security).
 
 For a last-resort, hand-maintained replacement, see the [generated-class escape hatch](backlog/docs/generated-artefacts.md#611-overriding-a-generated-class-escape-hatch)
 and its maintenance trade-offs.

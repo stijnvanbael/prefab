@@ -22,7 +22,7 @@ Related: TASK-148 (authoritative guide), TASK-125 (agent learning path), TASK-17
 - [x] #1 A prominent Developer Guide link appears immediately below the title/intro, before the quick start.
 - [x] #2 A capability inventory checked against modules, annotations, examples and existing guide pages covers domain modeling, REST and generated contracts, persistence/migrations/indexing, messaging/schema evolution, streams, security/tenancy/audit, validation/binary storage/search, test helpers, observability, infrastructure generation and extension points.
 - [x] #3 Every capability has a working deep link to the relevant guide section; unsupported or planned capabilities are clearly distinguished from released behavior.
-- [x] #4 At least three executable or source-linked complex scenarios show combinations of features and customization, including repository queries, plugin generation and runtime provider/security customization without editing generated sources.
+- [x] #4 At least three README code examples, grounded in source-linked scenarios, show combinations of features and customization, including repository queries, plugin generation and runtime provider/security customization without editing generated sources.
 - [x] #5 Unsupported blanket claims about application complexity are replaced with evidence-based boundaries and trade-offs; setup/version/module examples remain accurate and links/snippets are checked.
 <!-- AC:END -->
 
@@ -47,3 +47,13 @@ Inventory shipped features and public customization hooks, select existing compi
 - Added source-linked examples for a repository-mixin-backed event projection, per-aggregate plugin generation, and runtime tenant/audit/security customization that leaves generated source processor-owned.
 - Added the missing GCP Terraform section to the module guide, including generated output scope and the compile-time limitation for unresolved Pub/Sub topic expressions.
 - Validated local links and Markdown anchors in the README and module guide; `git diff --check` passes.
+
+## Follow-up Analysis
+
+- The user clarified that “showcase” requires more actual code examples in the README, not only links to repository sources. Replace the three short source-linked bullets with contextual, source-backed Java snippets demonstrating the repository mixin/projection, built-in plugin output customization, and runtime tenant/security extension points.
+
+## Follow-up Implementation Notes
+
+- Replaced the source-only customization bullets with three contextual README examples: a multicast event projection backed by a repository mixin, per-aggregate migration-plugin control, and JWT tenant resolution combined with method-level authorization.
+- Added links from each example to the actual source and canonical guide sections. Clarified the tenant provider's `null` behavior so the example does not imply that missing claims remain tenant-isolated.
+- Revalidated local Markdown links and anchors and ran `git diff --check`.

@@ -132,25 +132,29 @@ resolved Terraform resources separately when managing those expressions declarat
 
 ## 6.6 Database Migration Scripts
 
+Prefab generates database migration files at compile time; the database-specific lifecycle, ownership rules,
+manual migration examples, and deployment/recovery limitations are documented in the
+[Database Migration Lifecycle guide](database-migrations.md).
+
 ### PostgreSQL (Flyway)
 
-**Location:** `src/main/resources/db/migration/V{n}__{aggregate_snake_case}.sql` (e.g. `V001__order.sql`)
-
-Generated SQL:
+**Generated location:** `db/migration/V{n}__generated.sql` in compiler output (normally
+`target/classes/db/migration/`). Copy reviewed migrations to `src/main/resources/db/migration/` to version them in
+the application source. Flyway executes pending SQL migrations at application startup.
 
 ```sql
-CREATE TABLE IF NOT EXISTS order (
-    id         VARCHAR(36)  NOT NULL PRIMARY KEY,
-    version    BIGINT       NOT NULL,
-    customer_name VARCHAR(255),
-    created_at TIMESTAMP,
-    created_by VARCHAR(255)
+CREATE TABLE "order" (
+  "id" VARCHAR (255) NOT NULL,
+  "version" BIGINT NOT NULL,
+  "customer_name" VARCHAR (255),
+  PRIMARY KEY("id")
 );
-
-CREATE INDEX IF NOT EXISTS idx_order_customer_name ON order (customer_name);
 ```
 
-Column type mapping:
+This is representative output; exact columns, types, indexes, and constraints follow the aggregate model. See
+[PostgreSQL lifecycle and SQL evolution examples](database-migrations.md#postgresql-generated-sql-and-flyway).
+
+PostgreSQL column type mapping:
 
 | Java Type                 | SQL Type           | Notes             |
 |---------------------------|--------------------|-------------------|
@@ -168,6 +172,13 @@ Column type mapping:
 | `List<X>` + `@DbDocument` | `JSONB`            |                   |
 | `enum`                    | `VARCHAR(255)`     | Enum name         |
 | `Binary`                  | Omitted            | Stored externally |
+
+### MongoDB
+
+**Generated location:** `mongo/migration/V{n}__generated.js` in compiler output. Prefab generates collection and
+field rename scripts when `@DbRename` is used; it does not execute them or manage MongoDB migration history.
+See the [MongoDB lifecycle](database-migrations.md#mongodb-generated-rename-scripts) for the script format and
+operational responsibilities.
 
 Fields annotated with `@Transient` are omitted from generated persistence metadata and migration columns but remain in
 REST and event contracts.

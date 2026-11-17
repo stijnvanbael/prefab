@@ -39,5 +39,6 @@ The current guide had only a brief generated-migration warning and no lifecycle 
 
 - Added `backlog/docs/database-migrations.md` as the canonical lifecycle guide, including PostgreSQL schema replay/diff behavior, migration examples, Flyway startup/checksum behavior, MongoDB rename-only script generation, and test-only reset boundaries.
 - Corrected the generated SQL location/name in `generated-artefacts.md`; linked the canonical guide from the developer-guide index, generated-artefacts page, and troubleshooting.
+- Added a direct link to the lifecycle guide from the README persistence capability entry.
 - Verified migration behavior against `DbMigrationWriter`, `MongoMigrationWriter`, the test Flyway strategy, and migration processor tests.
 - Validation: `mvn --% -pl annotation-processor -am -Dtest=DbMigrationWriterTest,MongoMigrationWriterTest -Dsurefire.failIfNoSpecifiedTests=false test` (78 tests passed).

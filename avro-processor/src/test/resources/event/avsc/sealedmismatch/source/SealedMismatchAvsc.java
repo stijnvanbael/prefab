@@ -7,9 +7,8 @@ import be.appify.prefab.processor.assertion.AssertionPlugin;
 import be.appify.prefab.processor.mother.MotherPlugin;
 
 @Event(topic = "sealed-mismatch-avsc", serialization = Event.Serialization.AVRO)
-@Avsc("event/avsc/sealedmismatch/source/MeteringconfigUpdated.avsc")
+@Avsc("event/avsc/sealedmismatch/source/OrderUpdated.avsc")
 @Generate(plugin = MotherPlugin.class, enabled = false)
 @Generate(plugin = AssertionPlugin.class, enabled = false)
-public sealed interface SealedMismatchAvsc permits MeteringconfigUpdated {
+public sealed interface SealedMismatchAvsc permits OrderUpdated {
 }
-

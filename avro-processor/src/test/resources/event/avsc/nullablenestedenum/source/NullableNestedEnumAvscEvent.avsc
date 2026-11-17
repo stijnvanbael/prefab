@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "NullableNestedEnumAvscEvent",
-  "namespace": "intern.dcs.meteringconfig.facts.v1",
+  "namespace": "example.events.v1",
   "fields": [
     {"name": "id", "type": "string"},
     {
@@ -13,41 +13,30 @@
           "name": "Status",
           "fields": [
             {
-              "name": "fysiekeStatus",
+              "name": "state",
               "type": {
                 "type": "enum",
-                "name": "FysiekeStatus",
-                "symbols": ["UNDEFINED_DO_NOT_USE", "ACTIVE", "INACTIVE", "REMOVED"],
-                "default": "UNDEFINED_DO_NOT_USE"
+                "name": "LifecycleState",
+                "symbols": ["UNSPECIFIED", "ACTIVE", "INACTIVE", "ARCHIVED"],
+                "default": "UNSPECIFIED"
               }
             },
             {
-              "name": "statusInactiefReden",
+              "name": "inactiveReason",
               "type": [
                 "null",
                 {
                   "type": "enum",
-                  "name": "StatusInactiefReden",
+                  "name": "InactiveReason",
                   "symbols": [
-                    "UNDEFINED_DO_NOT_USE",
-                    "VRAAG_VAN_DE_KLANT",
-                    "SCHORSING_POLITIEBEVEL",
-                    "SCHORSING_FRAUDE",
-                    "SCHORSING_DROP_NIET_RESIDENTIEEL",
-                    "SCHORSING_MOZA_UCR",
-                    "SCHORSING_DROP_RESIDENTIEEL",
-                    "VEILIGHED",
-                    "VOLLE_PLAAT",
-                    "GEEN_KEURING",
-                    "GEEN_ATTEST",
-                    "LOKALE_PRODUCTIE_NIET_GEMELD",
-                    "GEEN_LS_ZEKERING",
-                    "GEEN_BINNEN_INSTALLATIE",
-                    "GEEN_SPANNING_GAS_OP_AANSLUITING",
-                    "GEEN_GROEN_LICHT",
-                    "ONGEKEND"
+                    "UNSPECIFIED",
+                    "USER_REQUEST",
+                    "POLICY_CHANGE",
+                    "PAYMENT_REQUIRED",
+                    "DUPLICATE_RECORD",
+                    "OTHER"
                   ],
-                  "default": "UNDEFINED_DO_NOT_USE"
+                  "default": "UNSPECIFIED"
                 }
               ],
               "default": null

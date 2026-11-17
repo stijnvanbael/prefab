@@ -18,18 +18,18 @@ The target style is a fluent, nested assertion DSL that reads like a specificati
 mechanism that produced the value (REST call, event consumer, or unit test):
 
 ```java
-assertThat(meteringConfig)
+assertThat(order)
     .hasNumberOfSnapshots(1)
     .hasSnapshotSatisfying(snapshot -> snapshot
-        .hasMeteringConfigSatisfying(mc -> mc
-            .hasStatus(S2))
-        .hasSnapshotType(ASSET_ORIGINAL_UPDATED)
+        .hasOrderSatisfying(o -> o.hasStatus(CONFIRMED))
+        .hasSnapshotType(ORDER_UPDATED)
         .hasSnapshotValidAsFromTimestamp(initialDate)
-        .anyAfgaandvertrekSatisfying(av -> av
-            .hasAfgaandvertrekId(Afgaandvertrek.idFromInstallatieId(installatieIdA))
-            .anyToegangspuntSatisfying(tp -> tp.hasEanGsrn(ean)))
-        .anyAfgaandvertrekSatisfying(av -> av
-            .hasAfgaandvertrekId(Afgaandvertrek.idFromInstallatieId(installatieIdB))));
+        .anyLineSatisfying(line -> line
+            .hasProduct("Laptop")
+            .hasQuantity(2))
+        .anyLineSatisfying(line -> line
+            .hasProduct("Mouse")
+            .hasQuantity(1)));
 ```
 
 ### Key requirement
@@ -322,4 +322,3 @@ depth, and the domain vocabulary is lost entirely.
 - The `prefab-test` module documentation is updated with a short usage guide showing the nested and
   list navigation patterns.
 - No changes are required to the annotation processor.
-

@@ -1,0 +1,8 @@
+{
+  "type": "record",
+  "name": "OrderUpdated",
+  "namespace": "example.events.v1",
+  "fields": [
+    {"name": "id", "type": "string"}
+  ]
+}

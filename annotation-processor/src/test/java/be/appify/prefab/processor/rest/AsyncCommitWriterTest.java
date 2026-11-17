@@ -114,56 +114,56 @@ class AsyncCommitWriterTest {
     void multipleVoidAsyncCreateFactoriesWithPathVarsGenerateAllMethodsInTestClient() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/asyncmultiplecreatewithpathvar/source/MeteringConfig.java"));
+                .compile(sourceOf("rest/asyncmultiplecreatewithpathvar/source/Configuration.java"));
 
         assertThat(compilation).succeeded();
         assertThat(compilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT,
-                        "rest/asyncmultiplecreatewithpathvar/MeteringConfigClient.java")
+                        "rest/asyncmultiplecreatewithpathvar/ConfigurationClient.java")
                 .contentsAsUtf8String()
-                .contains("void closeForInput(");
+                .contains("void disable(");
         assertThat(compilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT,
-                        "rest/asyncmultiplecreatewithpathvar/MeteringConfigClient.java")
+                        "rest/asyncmultiplecreatewithpathvar/ConfigurationClient.java")
                 .contentsAsUtf8String()
-                .contains("void openForInput(");
+                .contains("void enable(");
     }
 
     @Test
     void multipleVoidAsyncCreateFactoriesGenerateAllMethodsInTestClient() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())
-                .compile(sourceOf("rest/asyncmultiplecreatenopathvar/source/MeteringConfig.java"));
+                .compile(sourceOf("rest/asyncmultiplecreatenopathvar/source/Configuration.java"));
 
         assertThat(compilation).succeeded();
         assertThat(compilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT,
-                        "rest/asyncmultiplecreatenopathvar/MeteringConfigClient.java")
+                        "rest/asyncmultiplecreatenopathvar/ConfigurationClient.java")
                 .contentsAsUtf8String()
-                .contains("void closeForInput(");
+                .contains("void disable(");
         assertThat(compilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT,
-                        "rest/asyncmultiplecreatenopathvar/MeteringConfigClient.java")
+                        "rest/asyncmultiplecreatenopathvar/ConfigurationClient.java")
                 .contentsAsUtf8String()
-                .contains("void openForInput(");
+                .contains("void enable(");
         assertThat(compilation)
                 .generatedSourceFile(
-                        "rest.asyncmultiplecreatenopathvar.infrastructure.http.MeteringConfigController")
+                        "rest.asyncmultiplecreatenopathvar.infrastructure.http.ConfigurationController")
                 .contentsAsUtf8String()
-                .contains("closeForInput(");
+                .contains("disable(");
         assertThat(compilation)
                 .generatedSourceFile(
-                        "rest.asyncmultiplecreatenopathvar.infrastructure.http.MeteringConfigController")
+                        "rest.asyncmultiplecreatenopathvar.infrastructure.http.ConfigurationController")
                 .contentsAsUtf8String()
-                .contains("openForInput(");
+                .contains("enable(");
         assertThat(compilation)
-                .generatedSourceFile("rest.asyncmultiplecreatenopathvar.application.MeteringConfigService")
+                .generatedSourceFile("rest.asyncmultiplecreatenopathvar.application.ConfigurationService")
                 .contentsAsUtf8String()
-                .contains("void closeForInput(");
+                .contains("void disable(");
         assertThat(compilation)
-                .generatedSourceFile("rest.asyncmultiplecreatenopathvar.application.MeteringConfigService")
+                .generatedSourceFile("rest.asyncmultiplecreatenopathvar.application.ConfigurationService")
                 .contentsAsUtf8String()
-                .contains("void openForInput(");
+                .contains("void enable(");
     }
 
     @Test

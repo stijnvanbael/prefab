@@ -1,18 +1,18 @@
 {
   "type": "record",
   "name": "NullableSingleValuedRecordAvscEvent",
-  "namespace": "intern.dcs.meteringconfig.facts.v1",
+  "namespace": "example.events.v1",
   "fields": [
     {"name": "id", "type": "string"},
     {
-      "name": "gelinktMarkttoegangspunt",
+      "name": "address",
       "type": [
         "null",
         {
           "type": "record",
-          "name": "GelinktMarkttoegangspunt",
+          "name": "Address",
           "fields": [
-            {"name": "eanGsrn", "type": "string"}
+            {"name": "city", "type": "string"}
           ]
         }
       ],
@@ -20,4 +20,3 @@
     }
   ]
 }
-

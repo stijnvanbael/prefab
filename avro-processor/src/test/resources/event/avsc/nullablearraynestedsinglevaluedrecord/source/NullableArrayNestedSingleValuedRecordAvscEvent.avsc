@@ -1,25 +1,25 @@
 {
   "type": "record",
   "name": "NullableArrayNestedSingleValuedRecordAvscEvent",
-  "namespace": "intern.dcs.meteringconfig.facts.v1",
+  "namespace": "example.events.v1",
   "fields": [
     {
-      "name": "toegangspuntList",
+      "name": "contactList",
       "type": {
         "type": "array",
         "items": {
-          "name": "Toegangspunt",
+          "name": "Contact",
           "type": "record",
           "fields": [
             {
-              "name": "gelinktMarkttoegangspunt",
+              "name": "address",
               "type": [
                 "null",
                 {
-                  "name": "GelinktMarkttoegangspunt",
+                  "name": "Address",
                   "type": "record",
                   "fields": [
-                    {"name": "eanGsrn", "type": "string"}
+                    {"name": "city", "type": "string"}
                   ]
                 }
               ],
@@ -32,4 +32,3 @@
     }
   ]
 }
-

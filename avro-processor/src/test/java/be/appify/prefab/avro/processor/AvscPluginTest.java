@@ -397,16 +397,16 @@ class AvscPluginTest {
                 .withProcessors(new PrefabProcessor())
                 .compile(sourceOf("event/avsc/sealedmismatch/source/SealedMismatchAvsc.java"));
         assertThat(compilation).succeeded();
-        assertThat(compilation).generatedSourceFile("event.avsc.sealedmismatch.MeteringconfigUpdated")
+        assertThat(compilation).generatedSourceFile("event.avsc.sealedmismatch.OrderUpdated")
                 .contentsAsUtf8String()
                 .contains("implements SealedMismatchAvsc");
-        assertThat(compilation).generatedSourceFile("event.avsc.sealedmismatch.MeteringconfigUpdated")
+        assertThat(compilation).generatedSourceFile("event.avsc.sealedmismatch.OrderUpdated")
                 .contentsAsUtf8String()
-                .contains("namespace = \"intern.dcs.meteringconfig.facts.v1\"");
+                .contains("namespace = \"example.events.v1\"");
         assertThat(compilation)
-                .generatedSourceFile("event.avsc.sealedmismatch.infrastructure.avro.MeteringconfigUpdatedSchemaFactory")
+                .generatedSourceFile("event.avsc.sealedmismatch.infrastructure.avro.OrderUpdatedSchemaFactory")
                 .contentsAsUtf8String()
-                .contains("MeteringconfigUpdated.avsc");
+                .contains("OrderUpdated.avsc");
     }
 
     @Test
@@ -464,19 +464,19 @@ class AvscPluginTest {
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.Status")
                 .contentsAsUtf8String()
-                .contains("namespace = \"intern.dcs.meteringconfig.facts.v1\"");
+                .contains("namespace = \"example.events.v1\"");
         assertThat(compilation)
-                .generatedSourceFile("event.avsc.FysiekeStatus")
+                .generatedSourceFile("event.avsc.LifecycleState")
                 .contentsAsUtf8String()
-                .contains("namespace = \"intern.dcs.meteringconfig.facts.v1\"");
+                .contains("namespace = \"example.events.v1\"");
         assertThat(compilation)
-                .generatedSourceFile("event.avsc.StatusInactiefReden")
+                .generatedSourceFile("event.avsc.InactiveReason")
                 .contentsAsUtf8String()
-                .contains("namespace = \"intern.dcs.meteringconfig.facts.v1\"");
+                .contains("namespace = \"example.events.v1\"");
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.StatusSchemaFactory")
                 .contentsAsUtf8String()
-                .contains("intern.dcs.meteringconfig.facts.v1");
+                .contains("example.events.v1");
 
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.NullableNestedEnumAvscEventToGenericRecordConverter")
@@ -486,12 +486,12 @@ class AvscPluginTest {
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.StatusToGenericRecordConverter")
                 .contentsAsUtf8String()
-                .contains("SchemaSupport.enumSchemaOf(schema.getField(\"statusInactiefReden\").schema())");
+                .contains("SchemaSupport.enumSchemaOf(schema.getField(\"inactiveReason\").schema())");
 
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.StatusToGenericRecordConverter")
                 .contentsAsUtf8String()
-                .contains("genericRecord.put(\"statusInactiefReden\", event.statusInactiefReden() != null ?");
+                .contains("genericRecord.put(\"inactiveReason\", event.inactiveReason() != null ?");
     }
 
     @Test
@@ -501,7 +501,7 @@ class AvscPluginTest {
                 .compile(sourceOf("event/avsc/nullablesinglevaluedrecord/source/NullableSingleValuedRecordAvsc.java"));
         assertThat(compilation).succeeded();
 
-        // The top-level factory loads from AVSC, which preserves GelinktMarkttoegangspunt as a record
+        // The top-level factory loads from AVSC, which preserves Address as a record
         // rather than collapsing it to its single primitive value type.
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.infrastructure.avro.NullableSingleValuedRecordAvscEventSchemaFactory")
@@ -518,9 +518,9 @@ class AvscPluginTest {
         assertThat(compilation).succeeded();
 
         assertThat(compilation)
-                .generatedSourceFile("event.avsc.infrastructure.avro.ToegangspuntSchemaFactory")
+                .generatedSourceFile("event.avsc.infrastructure.avro.ContactSchemaFactory")
                 .contentsAsUtf8String()
-                .contains("new Schema.Field(\"gelinktMarkttoegangspunt\", SchemaSupport.createNullableSchema(Schema.createRecord(\"GelinktMarkttoegangspunt\", null, \"intern.dcs.meteringconfig.facts.v1\", false, List.of(");
+                .contains("new Schema.Field(\"address\", SchemaSupport.createNullableSchema(Schema.createRecord(\"Address\", null, \"example.events.v1\", false, List.of(");
     }
 
     @Test
@@ -941,6 +941,6 @@ class AvscPluginTest {
         assertThat(compilation)
                 .generatedSourceFile("event.avsc.NullableArrayNestedSingleValuedRecordAvscEvent")
                 .contentsAsUtf8String()
-                .contains("List.copyOf(toegangspuntList)");
+                .contains("List.copyOf(contactList)");
     }
 }

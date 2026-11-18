@@ -1,5 +1,7 @@
 # Prefab
 
+[![Latest Prefab release on Maven Central](https://img.shields.io/maven-central/v/be.appify.prefab/prefab-core?label=Maven%20Central)](https://central.sonatype.com/artifact/be.appify.prefab/prefab-core)
+
 Prefab is a Java annotation processor for Spring Boot. Describe domain aggregates and their operations in Java; at
 compile time, Prefab can generate selected application infrastructure such as REST endpoints and contracts,
 repositories, migrations, event plumbing, and test helpers. Features are opt-in and depend on the modules you choose.

@@ -57,7 +57,7 @@
         <commons-io.version>2.22.0</commons-io.version>
         <commons-compress.version>1.28.0</commons-compress.version>
         <jsr305.version>3.0.2</jsr305.version>
-        <springdoc.version>3.0.3</springdoc.version>
+        <springdoc.version>3.2.0</springdoc.version>
         <jsqlparser.version>5.3</jsqlparser.version>
         <auto-service.version>1.1.1</auto-service.version>
         <javapoet.version>0.18.0</javapoet.version>

@@ -10,6 +10,7 @@ import be.appify.prefab.core.versioning.EventVersion;
 import be.appify.prefab.core.versioning.Migration;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
+import be.appify.prefab.processor.VariableManifest;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.lang.annotation.Annotation;
@@ -28,8 +29,10 @@ import java.util.Set;
 import java.util.stream.Stream;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.RecordComponentElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
@@ -304,7 +307,8 @@ class EventVersioningValidator {
         var fields = new LinkedHashMap<String, EventContract.Field>();
         for (var component : type.getRecordComponents()) {
             fields.put(prefix + component.getSimpleName(), new EventContract.Field(
-                    component.asType().toString(), isOptional(type, component)));
+                    TypeManifest.of(component.asType(), context.processingEnvironment()).asTypeName().toString(),
+                    isOptional(type, component)));
         }
         type.getPermittedSubclasses().stream().map(mirror -> ((DeclaredType) mirror).asElement())
                 .map(TypeElement.class::cast)
@@ -313,11 +317,22 @@ class EventVersioningValidator {
     }
 
     private boolean isOptional(TypeElement type, RecordComponentElement component) {
+        var componentManifest = VariableManifest.of((VariableElement) component,
+                context.processingEnvironment());
+        var field = fieldOf(type, component);
+        var fieldNullable = field != null
+                && VariableManifest.of((VariableElement) field, context.processingEnvironment()).nullable();
+        var accessorNullable = type.getEnclosedElements().stream()
+                .filter(element -> element.getKind() == ElementKind.METHOD)
+                .map(ExecutableElement.class::cast)
+                .filter(method -> method.getSimpleName().contentEquals(component.getSimpleName())
+                        && method.getParameters().isEmpty())
+                .anyMatch(method -> TypeManifest.of(method.getReturnType(), context.processingEnvironment()).nullable());
         return component.asType().toString().startsWith("java.util.Optional<")
                 || annotationOf(type, component, Default.class).isPresent()
-                || Stream.of(component, fieldOf(type, component)).filter(java.util.Objects::nonNull)
-                .flatMap(element -> element.getAnnotationMirrors().stream())
-                .anyMatch(mirror -> mirror.getAnnotationType().asElement().getSimpleName().contentEquals("Nullable"));
+                || componentManifest.nullable()
+                || fieldNullable
+                || accessorNullable;
     }
 
     private Map<String, List<String>> renamedFields(TypeElement type) {

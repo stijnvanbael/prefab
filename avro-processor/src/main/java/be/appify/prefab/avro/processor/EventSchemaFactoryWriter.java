@@ -15,7 +15,7 @@ import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.event.EventBindings;
 import com.palantir.javapoet.*;
-import jakarta.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;

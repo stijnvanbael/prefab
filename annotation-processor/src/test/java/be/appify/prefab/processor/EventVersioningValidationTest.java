@@ -62,6 +62,19 @@ class EventVersioningValidationTest {
     }
 
     @Test
+    void nullableAnnotationMigrationDoesNotChangeTheEventBaselineContract() throws IOException {
+        Files.writeString(baselineDir.resolve("test.versioning.UserCreated.properties"), """
+                version=1.0.0
+                field.name=java.lang.String;optional
+                """);
+
+        assertThat(compile("1.0.0", "BACKWARD",
+                "@org.jspecify.annotations.Nullable String name", "")).succeeded();
+        assertThat(compile("1.0.0", "BACKWARD",
+                "@jakarta.annotation.Nullable String name", "")).succeeded();
+    }
+
+    @Test
     void acceptsAPatchBumpWithoutChanges() {
         assertThat(compile("1.0.1", "BACKWARD", "String name", "")).succeeded();
     }

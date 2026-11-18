@@ -62,6 +62,7 @@ class TypeManifestTest {
 
                         class Nullability {
                             @Nullable String nullableField;
+                            @jakarta.annotation.Nullable String legacyNullableField;
                             List<@Nullable String> nullableElement;
                             @Nullable List<String> nullableContainer;
                             String @Nullable [] nullableArray;
@@ -72,6 +73,8 @@ class TypeManifestTest {
                             @Nullable String nullableReturn() { return null; }
                         }
 
+                        record ComponentRecord(@Nullable String value) {}
+
                         record AccessorRecord(String value) {
                             @Nullable public String value() { return value; }
                         }
@@ -79,12 +82,19 @@ class TypeManifestTest {
 
         assertThat(compilation).succeeded();
         assertThat(processor.variables.get("nullableField").nullable()).isTrue();
+        assertThat(processor.variables.get("legacyNullableField").nullable()).isTrue();
         assertThat(processor.variables.get("nullableElement").nullable()).isFalse();
+        assertThat(processor.variables.get("nullableElement").type().parameters().getFirst().nullable()).isTrue();
         assertThat(processor.variables.get("nullableContainer").nullable()).isTrue();
+        assertThat(processor.variables.get("nullableContainer").type().parameters().getFirst().nullable()).isFalse();
         assertThat(processor.variables.get("nullableArray").nullable()).isTrue();
+        assertThat(processor.variables.get("nullableArray").type().componentType().orElseThrow().nullable()).isFalse();
         assertThat(processor.variables.get("nullableArrayElement").nullable()).isFalse();
+        assertThat(processor.variables.get("nullableArrayElement").type().componentType().orElseThrow().nullable())
+                .isTrue();
         assertThat(processor.variables.get("nullableParameter").nullable()).isTrue();
         assertThat(processor.methodReturns.get("nullableReturn").nullable()).isTrue();
+        assertThat(processor.recordFields.get("ComponentRecord").getFirst().nullable()).isTrue();
         assertThat(processor.recordFields.get("AccessorRecord").getFirst().nullable()).isTrue();
     }
 

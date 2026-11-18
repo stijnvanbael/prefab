@@ -1,20 +1,25 @@
 ---
 id: decision-006
-title: Keep aggregate generation as the only built-in application architecture
+title: Screen alternative application architectures before deciding adoption
 date: '2026-11-18'
-status: accepted
+status: proposed (revised after broad use-case screen)
 related_tasks:
   - TASK-309
   - TASK-127
   - TASK-180
+  - TASK-319
+  - TASK-326
+  - TASK-327
+  - TASK-328
 ---
 
 ## Context
 
 TASK-309 asked whether Prefab should generate an additional application architecture for workflows that do not map
-cleanly to one aggregate. The representative case is importing a batch of products: validate rows, persist the valid
-ones, report rejected rows, and expose one bulk operation. It is not a request to replace DDD, and support for
-pluggable exposure strategies (TASK-127) and provider SPIs (TASK-180) is still planned work.
+cleanly to one aggregate. The first assessment used one representative case: importing a batch of products. That
+was too little evidence to support a framework-wide no-go. This revision screens fourteen materially different use
+cases to distinguish aggregate-model mismatch from capabilities already present in Prefab, planned work, or
+specialized infrastructure. The objective remains to evaluate an optional generation model, not to replace DDD.
 
 The current processor discovers `@Aggregate` types and builds `ClassManifest`s. `ApplicationWriter` generates the
 aggregate service and delegates operation methods to plugins such as `CreatePlugin`; the plugins generate methods
@@ -34,6 +39,54 @@ hatch for composition in decision-005.
 These approaches are not mutually exclusive in general: a vertical slice can implement a transaction script and still
 call aggregate-owned domain methods. The design decision here is about Prefab's generation unit and opt-in contract,
 not about forbidding application services or transaction scripts in user code.
+
+## Broader use-case screen
+
+This is a qualitative screen, not proof that each area needs a Prefab feature. “DDD fit” asks whether an aggregate is
+a natural primary unit for the work. “Prefab coverage” distinguishes built-in generation from manual composition
+and known roadmap items. “Screen result” identifies what deserves deeper evidence, not an adoption commitment.
+
+| # | Use case | DDD fit | Relevant Prefab coverage today | Screen result |
+|---|---|---|---|---|
+| 1 | Reference-data administration (countries, tax codes, units) | Good: stable identity, validation and lifecycle map to simple aggregates. | Generated CRUD, filters, pagination, optimistic locking and persistence backends directly cover this shape. | **Not a mismatch.** Useful baseline/control case; do not add a competing resource model without evidence CRUD is insufficient. |
+| 2 | Large catalogue import with row-level rejection, checkpoints and resume | Weak at the workflow boundary: the unit of work is a job/chunk, while product invariants still belong to products. | Generated create is per aggregate. A handwritten application service and repository mixin can implement it; no built-in batch job/checkpoint contract is shown. | **Strong candidate.** Prototype bulk persistence vs per-item aggregate operations, partial failure, transaction/chunk semantics and restartability. |
+| 3 | Operational report joining orders, payments and delivery totals | Weak: output is a query projection rather than an aggregate lifecycle. | `@GetList`, filters and repository mixins exist; cross-aggregate joins/projections are explicitly in TASK-319. | **Strong candidate, but not a new write architecture.** Compare generated projection support with current mixin/manual adapter and TASK-319. |
+| 4 | Frontend dashboard combining several domain records | Weak-to-moderate: screen response boundaries do not necessarily match aggregate boundaries. | Handwritten adapters are documented and demonstrated; declarative views/reference expansion are planned in TASK-326/327. | **Already identified.** Use as a cross-aggregate read case in projection evaluation; avoid duplicating the view roadmap. |
+| 5 | Faceted product search with relevance, highlighting and cursors | Weak for the search result contract; aggregate lifecycle remains useful for writes. | Generated full-text/equality/range filters and paged lists cover simpler searches. External search-index facets, score and cursor semantics are not established by that contract. | **Partial gap.** Investigate as a specialized query adapter, not evidence for a wholesale application architecture. |
+| 6 | Payment-provider webhook ingestion with signature check, deduplication and routing | Weak at ingress: external delivery/authentication protocol precedes aggregate mutation. | Prefab generates broker event consumers/handlers, but that is not evidence of an HTTP webhook signature, replay or delivery contract. | **Potential integration gap.** Assess only if provider-specific webhook adapters recur; otherwise retain as manual adapter/provider concern. |
+| 7 | Stateless shipping-rate or eligibility façade over remote providers | Poor: may have no local entity, repository or aggregate lifecycle. | Current built-in REST generation is aggregate-operation-centric; plugin hooks have aggregate manifests. No general operation-only exposure contract is evident; TASK-127 concerns exposure strategies, not necessarily aggregate-free operations. | **Strong candidate.** Test whether typed request/response plus generated exposure is reusable without inventing persistence or domain state. |
+| 8 | Scheduled bank-settlement reconciliation with discrepancy output | Weak at job boundary: work is dataset comparison, checkpoint and discrepancy reporting; later resolution may be aggregate behavior. | Event handlers and aggregate CRUD can support downstream mutations, but a scheduled/checkpointed reconciliation lifecycle is not established by the current generated contracts. | **Potential batch family.** Compare with catalogue import; avoid a second prototype unless resumability/consistency semantics differ materially. |
+| 9 | Asynchronous document conversion with progress and downloadable result | Mixed: a job itself has identity/status and can be an aggregate; conversion execution is a worker pipeline. | Binary fields and `@Download` support file downloads; event handlers and async commit support asynchronous processing patterns. A generated job lifecycle/worker contract is not established. | **Partial mismatch, not a clean anti-DDD case.** Check whether existing aggregate + events + binary support suffices before proposing job scaffolding. |
+| 10 | Telemetry ingestion, windowed aggregation and threshold detection | Poor for stream execution: ownership follows keys, windows and topology state. | The optional `streams` module already provides a Kafka Streams DSL, source/sink, aggregation and state-store abstractions. | **Already a distinct architecture surface.** Evaluate completeness of the streams module separately; do not use it to justify another generic application architecture. |
+| 11 | Multi-system onboarding with retries and compensation | Weak for workflow coordination: no single local transaction spans identity, CRM and billing. Individual state may still be aggregate-owned. | Events, messaging modules, handlers and `@AsyncCommit` support message-driven integration; these do not establish durable saga state, compensation or outbox atomicity. | **Important but high-risk gap.** Requires a separate durable-workflow assessment; do not promise it as a side effect of transaction-script generation. |
+| 12 | Stateless tax/eligibility calculation from a request and versioned rules | Poor: computation may be a pure operation with no persistent identity. | Aggregate operation generation assumes an aggregate; no generic request/response operation generation is evident in the screened contracts. | **Strong candidate.** Prototype operation-only generation; quantify how much endpoint/client/validation plumbing is truly reusable. |
+| 13 | Administration over a legacy shared schema/stored procedures | Weak when the schema boundary is externally owned, though domain concepts may still exist. | PostgreSQL/MongoDB providers target generated aggregate repositories. TASK-180 proposes provider SPIs; it does not by itself specify arbitrary legacy mapping or procedure contracts. | **Provider/data-mapping concern, not yet architecture evidence.** Screen provider SPI scope before adding another application model. |
+| 14 | Large authorized CSV export with streaming or asynchronous download | Weak at the export job/query boundary, but source records can remain aggregate-owned. | Paged `@GetList` and binary download are present; a long-running, checkpointed export artifact lifecycle is not established. | **Potential query/job gap.** Assess alongside reporting and batch import; keep tenant/row authorization and resource limits explicit. |
+
+### Screen method and prioritization
+
+The screen considers: (a) whether aggregate identity/invariants are central to the use case, (b) whether Prefab
+already generates the relevant contract, (c) whether existing extension points can meet it without unsafe
+duplication, and (d) whether repeated plumbing gives Prefab a bounded generation opportunity. A poor DDD fit alone
+is insufficient: search, webhooks and legacy persistence may need specialized adapters rather than another
+application architecture.
+
+The most informative next comparative prototypes are:
+
+1. **Stateless operation** (cases 7/12): no aggregate/repository, typed input/output, validation, REST exposure and
+   generated client. This tests whether generation can be useful without resource lifecycle assumptions.
+2. **Cross-aggregate projection** (cases 3/4/5): paged, filtered query with stable ordering, counts and authorization.
+   Compare current mixins/manual composition against TASK-319/326/327; do not duplicate that planned scope.
+3. **Resumable bulk job** (cases 2/8/14): batch persistence/export with an explicit all-or-nothing vs chunk commit
+   policy, checkpoints, retries and result reporting. Compare against both per-aggregate DDD and the existing
+   batch-import prototype.
+4. **Durable external workflow** (cases 6/11): include only as a boundary study to establish whether Prefab needs
+   integration ingress or durable orchestration, not as a presumed member of the same architecture family.
+
+Cases 1 and 10 serve as controls: existing aggregate CRUD is a good fit for simple reference resources, and Prefab
+already has a separate streams DSL. Cases 5, 6, 9, 13 and 14 need focused evidence, but should not automatically
+be folded into a generic alternative. The current spike prototype only covers the route seam of case 2; it does not
+test batch persistence, checkpoints, or database transaction behavior.
 
 ## Bounded prototype and comparison
 
@@ -61,20 +114,17 @@ the smallest viable generation seam, not a production-ready public API.
 
 ## Decision
 
-**No-go for adding a second built-in application architecture based on this evidence.** Keep aggregate-centric DDD
-and its generated behavior as the default. Keep handwritten application services, repository mixins and custom
-source overrides as opt-in escape hatches for workflows like batch import. Do not promote the prototype `@UseCase`
-annotation or add a new runtime/module now.
+**Decision deferred: this screen invalidates the prior broad no-go, but does not yet justify adoption.** Four
+candidate families (operation-only services, query projections, resumable jobs, durable external workflows) have
+plausible structural gaps, while the screen also found important cases already served by aggregates, existing
+modules, or planned view/projection work. They do not form one obvious alternative architecture.
 
-The prototype proves a narrow adapter can be generated without changing DDD artifacts, but this alone is not enough
-framework value: the operation body and persistence contract remain user-owned, and a production endpoint would
-need to repeat or coordinate validation, authorization, tenant handling, error responses, OpenAPI and client
-generation already supplied by the existing REST path. The current extension points cover custom logic, while
-TASK-127 is already intended to separate exposure from business services. Adding a parallel annotation and endpoint
-lifecycle now risks two competing contracts for the same HTTP surface.
+Keep aggregate-centric DDD as the default and preserve existing behavior. Keep the prototype `@UseCase` annotation
+non-public and isolated. Do not add a production runtime/module until comparative prototypes show a coherent,
+repeated generation contract with more value than Prefab's current extension points and planned TASK-127/319/326
+work.
 
-Reconsider only when a concrete use case cannot be expressed safely with the existing aggregate plus adapter/mixin
-pattern, and prototype it against the completed TASK-127 exposure contract. If evidence later supports adoption:
+If later prototypes support adoption:
 
 - Make it explicitly opt-in on a feature-owned operation; never infer or change architecture for existing
   `@Aggregate` types.
@@ -117,5 +167,6 @@ These are rough sizing estimates, not approved follow-up tasks:
 5. **S — Compatibility/release:** prove a no-marker project produces byte-for-byte unchanged DDD output, document
    migration/opt-in behavior, and release only after TASK-127 integration.
 
-The prototype covers only a small portion of slice 2 and a minimal portion of slice 3. It does not justify creating
-these implementation tasks now.
+The current prototype covers only a small portion of slices 2 and 3. The four comparative proof points above
+should be completed before deciding whether to create implementation tasks for a new architecture or to close the
+identified gaps through TASK-127, TASK-319/326, existing provider work, or focused integration features.

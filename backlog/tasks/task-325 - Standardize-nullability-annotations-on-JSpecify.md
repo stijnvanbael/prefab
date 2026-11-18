@@ -37,6 +37,17 @@ JSpecify describes nullness, not runtime validation or bean lifecycle. Retain Ja
 `VariableManifest`, `TenantPlugin`, `EventSchemaDocumentationWriter`, `AvscEventWriter` and `EventSchemaFactoryWriter` currently import Jakarta Nullable. Several core/PostgreSQL/MongoDB runtime types already use JSpecify Nullable. `feature-guides.md` still names Jakarta Nullable as an optional marker. Jakarta `PreDestroy` is used for lifecycle management and must remain.
 
 TASK-003's acceptance checklist is not checked despite its Done status, so verify the implementation rather than assuming JSpecify detection or NullAway enforcement is already complete. Reuse the record-component/backing-field metadata handling and avoid duplicating nullability logic in individual writers.
+
+### Implementation findings (2026-11-18)
+
+- The working tree was clean at task start. No `backlog-prefab` MCP tools are available in this session, so task metadata and notes are maintained in this file.
+- `VariableManifest.nullable()` currently reads declaration annotations and treats any annotation whose simple name is `Nullable` as a marker. It does not consistently inspect the annotated root type; this is important because JSpecify `@Nullable` has `TYPE_USE` semantics.
+- Record fields already merge record-component declaration annotations to accommodate IDE incremental compilation, but do not merge root type-use annotations from the component or accessor return type.
+- `EventSchemaDocumentationWriter` and `TenantPlugin` bypass `VariableManifest.nullable()`. Event compatibility validation also has a separate simple-name check. These paths need to use shared nullable metadata.
+- Avro writers still import Jakarta `Nullable` for generated source. Existing runtime JSpecify imports depend on unrelated transitive APIs; `prefab-core` has no direct JSpecify dependency, so generated/public contracts need an explicit compile dependency.
+- Compatibility policy: recognize JSpecify `@Nullable` and legacy `jakarta.annotation.Nullable` (and preserve the existing simple-name fallback for third-party annotations during this migration); when multiple markers occur, any nullable marker continues to make the value optional. Emit only JSpecify annotations. Jakarta validation and lifecycle annotations remain unchanged.
+- Tests will cover root type-use positions, array and generic element distinction, legacy Jakarta detection, and the unchanged Avro nullable schema / generated annotation contract. No package-wide null-marking or NullAway scope expansion is planned.
+- The new compiler-model regression test currently fails at the first JSpecify field assertion: `VariableManifest.nullable()` does not see `@Nullable` placed on the type use. This confirms the root metadata gap before implementation.
 <!-- SECTION:ANALYSIS:END -->
 
 ## Implementation Plan

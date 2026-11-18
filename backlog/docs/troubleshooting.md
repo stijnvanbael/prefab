@@ -71,10 +71,15 @@ permanently fail are routed to the DLT rather than blocking the consumer.
 
 ## Generated migration script conflicts with existing schema
 
-**Cause:** A column was renamed without `@DbRename`, or a field was removed without a migration.
+**Cause:** A rename may lack `@DbRename`, or a generated delta may include a destructive change such as dropping a
+column or table. The processor reconstructs the prior schema from versioned SQL on the compile classpath; it does
+not inspect the live database.
 
-**Fix:** Use `@DbRename(oldName = "old_column")` when renaming fields, and write manual migration
-scripts for removals.
+**Fix:** Review the generated SQL against the source-controlled migration history and current schema. Use
+`@DbRename("oldName")` for a column rename, and use an explicit manual migration for data-preserving transitions.
+Never edit a migration that has already been applied. See the
+[Database Migration Lifecycle guide](database-migrations.md) for generation, Flyway checksums, MongoDB behavior,
+and test-only reset limitations.
 
 ---
 
@@ -111,4 +116,3 @@ and that the dead-letter configuration is correct so retries do not block indefi
 
 **Fix:** Ensure `prefab-annotation-processor` is declared with `<scope>provided</scope>` in `pom.xml`.
 Verify `maven.compiler.release` is set to `21`. Run `mvn clean compile` to force regeneration.
-

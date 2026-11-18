@@ -4,12 +4,16 @@ title: Spike an alternative target architecture alongside DDD
 status: Done
 assignee: []
 created_date: '2026-11-16 15:43'
-labels: [spike, architecture]
+updated_date: '2026-11-18 10:40'
+labels:
+  - spike
+  - architecture
 dependencies: []
 priority: medium
 ---
 
 ## Description
+
 <!-- SECTION:DESCRIPTION:BEGIN -->
 Investigate whether Prefab should support an additional generated application architecture for use cases poorly served by aggregate-centric DDD. Compare alternatives such as transaction scripts, vertical slices and resource-centric applications without replacing the existing DDD default.
 
@@ -26,9 +30,16 @@ Related: TASK-127 (pluggable exposure strategies) and TASK-180 (provider SPIs). 
 <!-- AC:END -->
 
 ## Implementation Plan
+
 <!-- SECTION:PLAN:BEGIN -->
 Select a non-DDD-friendly use case, evaluate candidates, conduct a bounded prototype and record the decision. Create implementation stories only if the evidence supports adoption.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Deferred follow-ups created after the fourteen-case screen: TASK-329 aggregate-free operations, TASK-330 resumable bulk jobs, TASK-331 faceted search, TASK-332 incoming webhooks, TASK-333 durable orchestration, TASK-334 legacy schemas and TASK-335 asynchronous file processing. Existing TASK-319/326/327 cover projections/views; TASK-105/107/157/317 cover related bulk, export, job status and backfill capabilities. These are low-priority assessments, not approved production implementations.
+<!-- SECTION:NOTES:END -->
 
 ## Progress
 

@@ -11,6 +11,13 @@ related_tasks:
   - TASK-326
   - TASK-327
   - TASK-328
+  - TASK-329
+  - TASK-330
+  - TASK-331
+  - TASK-332
+  - TASK-333
+  - TASK-334
+  - TASK-335
 ---
 
 ## Context
@@ -87,6 +94,15 @@ Cases 1 and 10 serve as controls: existing aggregate CRUD is a good fit for simp
 already has a separate streams DSL. Cases 5, 6, 9, 13 and 14 need focused evidence, but should not automatically
 be folded into a generic alternative. The current spike prototype only covers the route seam of case 2; it does not
 test batch persistence, checkpoints, or database transaction behavior.
+
+### Deferred backlog follow-ups
+
+The distinct potential gaps are tracked as low-priority assessments, not approved implementation commitments:
+TASK-329 (aggregate-free operations), TASK-330 (resumable import/export jobs), TASK-331 (faceted search),
+TASK-332 (incoming webhooks), TASK-333 (durable cross-service workflows), TASK-334 (legacy schemas), and
+TASK-335 (asynchronous file processing). TASK-319 and TASK-326/327 already cover cross-aggregate projections
+and views. TASK-105, TASK-107, TASK-157, and TASK-317 cover related synchronous bulk operations, exports,
+job status, and database backfills; the new assessments must compare and reuse those contracts.
 
 ## Bounded prototype and comparison
 

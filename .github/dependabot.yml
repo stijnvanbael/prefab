@@ -1,0 +1,50 @@
+version: 2
+updates:
+  - package-ecosystem: maven
+    directories:
+      - /
+      - /async-api
+      - /annotation-processor
+      - /avro
+      - /avro-processor
+      - /backlog/prototypes/task-309
+      - /core
+      - /examples/avro
+      - /examples/kafka
+      - /examples/mongodb
+      - /examples/pubsub
+      - /examples/sns-sqs
+      - /examples/streams
+      - /kafka
+      - /mongodb
+      - /openapi
+      - /postgres
+      - /pubsub
+      - /security
+      - /sns-sqs
+      - /streams
+      - /terraform
+      - /test
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      maven-minor-patch:
+        group-by: dependency-name
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"

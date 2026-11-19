@@ -121,7 +121,7 @@ class MotherWriter {
         var fields = eventType.fields();
         var eventTypeName = eventType.asTypeName();
         var motherBuilderRef = ClassName.get("", "MotherBuilder");
-        var builderType = resolveBuilderType(eventTypeName, packageName, simpleName, fields, hasEmbeddedBuilder);
+        var builderType = resolveBuilderType(eventTypeName, packageName, simpleName, fields, hasEmbeddedBuilder, preferredElement);
         var innerBuilder = buildEventMotherBuilderInnerClass(builderType, fields, hasEmbeddedBuilder);
         var typeSpec = TypeSpec.classBuilder(motherName)
                 .addModifiers(Modifier.PUBLIC)
@@ -141,13 +141,17 @@ class MotherWriter {
             String packageName,
             String simpleName,
             List<VariableManifest> fields,
-            boolean hasEmbeddedBuilder
+            boolean hasEmbeddedBuilder,
+            TypeElement preferredElement
     ) {
         if (hasEmbeddedBuilder) {
             return ((ClassName) eventTypeName).nestedClass(BUILDER);
         }
         var builderName = simpleName + BUILDER;
         var builderType = ClassName.get(packageName, builderName);
+        if (preferredElement != null) {
+            productionFileWriter.setOriginatingElements(preferredElement);
+        }
         productionFileWriter.writeFile(packageName, builderName,
                 buildStandaloneBuilderClass(builderType, eventTypeName, fields));
         return builderType;
@@ -163,7 +167,7 @@ class MotherWriter {
         var packageName = type.packageName();
         var fields = type.fields();
         var typeName = (ClassName) type.asTypeName();
-        var builderType = resolveBuilderType(typeName, packageName, simpleName, fields, hasEmbeddedBuilder);
+        var builderType = resolveBuilderType(typeName, packageName, simpleName, fields, hasEmbeddedBuilder, preferredElement);
         var motherBuilderRef = ClassName.get("", "MotherBuilder");
         var innerBuilder = buildEventMotherBuilderInnerClass(builderType, fields, hasEmbeddedBuilder);
         var typeSpec = TypeSpec.classBuilder(motherName)

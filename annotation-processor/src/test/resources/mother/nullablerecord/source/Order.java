@@ -5,7 +5,7 @@ import be.appify.prefab.core.annotations.Generate;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.processor.assertion.AssertionPlugin;
 import be.appify.prefab.processor.dbmigration.DbMigrationPlugin;
-import jakarta.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.annotation.Id;
@@ -22,10 +22,9 @@ public record Order(
 
     @Create
     public Order(
-            @Nullable ShipmentEvent.Address shippingAddress,
+            ShipmentEvent.@Nullable Address shippingAddress,
             List<ShipmentEvent.Item> items,
             @Nullable List<ShipmentEvent.Item> optionalItems) {
         this(UUID.randomUUID().toString(), 0L, shippingAddress, items);
     }
 }
-

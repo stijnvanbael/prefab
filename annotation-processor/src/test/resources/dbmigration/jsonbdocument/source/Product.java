@@ -5,7 +5,7 @@ import be.appify.prefab.core.annotations.DbDocument;
 import be.appify.prefab.core.annotations.DbMigration;
 import be.appify.prefab.core.annotations.Indexed;
 import be.appify.prefab.core.service.Reference;
-import jakarta.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.List;

@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Optional;
+import java.util.List;
 import java.util.stream.Stream;
 import javax.lang.model.element.TypeElement;
 import javax.tools.StandardLocation;
@@ -18,6 +19,7 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
 public class TestJavaFileWriter implements FileOutput {
     private final PrefabContext context;
     private final String packageSuffix;
+    private List<TypeElement> originatingElements = List.of();
     /**
      * Optional: a specific TypeElement (always from a source file) to use when resolving the root path.
      */
@@ -30,7 +32,13 @@ public class TestJavaFileWriter implements FileOutput {
 
     @Override
     public void setPreferredElement(TypeElement element) {
-        this.preferredElement = element;
+        setOriginatingElements(element);
+    }
+
+    @Override
+    public void setOriginatingElements(TypeElement... elements) {
+        originatingElements = List.of(elements);
+        preferredElement = originatingElements.stream().findFirst().orElse(null);
     }
 
     @Override
@@ -101,7 +109,8 @@ public class TestJavaFileWriter implements FileOutput {
         try {
             var relativePath = packageName.replace(".", "/") + "/" + typeName + ".java";
             var resource = context.processingEnvironment().getFiler()
-                    .createResource(StandardLocation.CLASS_OUTPUT, "", relativePath);
+                    .createResource(StandardLocation.CLASS_OUTPUT, "", relativePath,
+                            originatingElements.toArray(TypeElement[]::new));
             try (var writer = resource.openWriter()) {
                 JavaFile.builder(packageName, type).indent("    ").build().writeTo(writer);
             }

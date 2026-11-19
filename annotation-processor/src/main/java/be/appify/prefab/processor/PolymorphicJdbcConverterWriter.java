@@ -41,6 +41,7 @@ class PolymorphicJdbcConverterWriter {
      *         the polymorphic aggregate manifest
      */
     void writeConverters(PolymorphicAggregateManifest manifest) {
+        fileWriter.setOriginatingElements(manifest.type().asElement());
         writeReadingConverter(manifest);
     }
 

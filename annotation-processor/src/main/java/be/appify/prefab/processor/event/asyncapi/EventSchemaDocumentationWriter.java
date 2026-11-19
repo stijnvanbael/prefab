@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.FilerException;
+import javax.lang.model.element.Element;
 import javax.tools.StandardLocation;
 
 /**
@@ -71,7 +72,7 @@ class EventSchemaDocumentationWriter {
                 });
 
         var asyncApiJson = buildAsyncApiJson(eventsByTopic, messages, schemas);
-        writeResource(asyncApiJson);
+        writeResource(asyncApiJson, events);
     }
 
     private ObjectNode buildAsyncApiJson(
@@ -330,12 +331,16 @@ class EventSchemaDocumentationWriter {
         };
     }
 
-    private void writeResource(ObjectNode asyncApiJson) {
+    private void writeResource(ObjectNode asyncApiJson, List<TypeManifest> events) {
         try {
+            var originatingElements = events.stream()
+                    .map(TypeManifest::asElement)
+                    .toArray(Element[]::new);
             var resource = context.processingEnvironment().getFiler().createResource(
                     StandardLocation.CLASS_OUTPUT,
                     "",
-                    "META-INF/async-api/asyncapi.json"
+                    "META-INF/async-api/asyncapi.json",
+                    originatingElements
             );
             try (var writer = resource.openWriter()) {
                 var jsonString = objectMapper.writerWithDefaultPrettyPrinter()

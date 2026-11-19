@@ -21,6 +21,7 @@ import com.palantir.javapoet.TypeSpec;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -74,6 +75,11 @@ class KafkaConsumerWriter {
         var name = "%sKafkaConsumer".formatted(owner.simpleName());
         var packageName = TypeManifest.of(resolvedHandlers.getFirst().getEnclosingElement().asType(),
                 context.processingEnvironment()).packageName();
+        fileWriter.setOriginatingElements(Stream.concat(
+                        Stream.of(owner.asElement()),
+                        resolvedHandlers.stream().map(handler -> support.rootEventType(handler, context).asElement()))
+                .distinct()
+                .toArray(TypeElement[]::new));
         var isAsyncCommit = !owner.annotationsOfType(AsyncCommit.class).isEmpty();
         var type = TypeSpec.classBuilder(name)
                 .addAnnotation(Component.class)

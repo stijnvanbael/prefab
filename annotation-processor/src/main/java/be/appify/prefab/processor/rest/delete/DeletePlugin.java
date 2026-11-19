@@ -5,10 +5,12 @@ import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.rest.RestOperationPlugin;
+import be.appify.prefab.processor.rest.ExposureResolver;
 import com.palantir.javapoet.TypeSpec;
 import java.util.Objects;
 import java.util.Optional;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 
 /**
  * Prefab plugin that generates delete controller, service, and test client methods based on the @Delete annotation.
@@ -26,17 +28,21 @@ public class DeletePlugin extends RestOperationPlugin {
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
         var context = context();
         var typeDelete = typeDelete(manifest);
-        typeDelete.ifPresent(delete ->
-                builder.addMethod(controllerWriter.deleteMethod(manifest, delete)));
+        typeDelete.filter(delete -> ExposureResolver.isPublic(
+                        (TypeElement) manifest.element(), delete.exposure()))
+                .ifPresent(delete -> builder.addMethod(controllerWriter.deleteMethod(manifest, delete)));
         var deleteMethod = deleteMethod(manifest, context);
         if (typeDelete.isPresent() && deleteMethod.isPresent()) {
             context.logError("[@Delete] " + deleteMethod.get().getSimpleName() + ": @Delete cannot be present on both the class and method.\n"
                     + "Suggested fix: place @Delete on either the class or the method, not both.",
                     deleteMethod.get());
         } else {
-            deleteMethod.ifPresent(method ->
-                    builder.addMethod(controllerWriter.deleteMethod(manifest,
-                            Objects.requireNonNull(method.getAnnotation(Delete.class)))));
+            deleteMethod.ifPresent(method -> {
+                var delete = Objects.requireNonNull(method.getAnnotation(Delete.class));
+                if (ExposureResolver.isPublic((TypeElement) manifest.element(), delete.exposure())) {
+                    builder.addMethod(controllerWriter.deleteMethod(manifest, delete));
+                }
+            });
         }
     }
 
@@ -52,16 +58,22 @@ public class DeletePlugin extends RestOperationPlugin {
     @Override
     public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
         var context = context();
-        typeDelete(manifest).ifPresentOrElse(ignored ->
+        typeDelete(manifest)
+                .filter(delete -> ExposureResolver.isPublic((TypeElement) manifest.element(), delete.exposure()))
+                .ifPresentOrElse(ignored ->
                         testClientWriter.deleteMethods(manifest).forEach(builder::addMethod),
-                () -> deleteMethod(manifest, context).ifPresent(method ->
-                        testClientWriter.deleteMethods(manifest).forEach(builder::addMethod)));
+                () -> deleteMethod(manifest, context)
+                        .filter(method -> ExposureResolver.isPublic(
+                                (TypeElement) manifest.element(), method.getAnnotation(Delete.class).exposure()))
+                        .ifPresent(method -> testClientWriter.deleteMethods(manifest).forEach(builder::addMethod)));
     }
 
     @Override
     public void writePolymorphicController(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
-        manifest.annotationsOfType(Delete.class).stream().findFirst().ifPresent(delete ->
-                builder.addMethod(controllerWriter.deleteMethodForPolymorphic(manifest, delete)));
+        manifest.annotationsOfType(Delete.class).stream().findFirst()
+                .filter(delete -> ExposureResolver.isPublic(
+                        (TypeElement) manifest.type().asElement(), delete.exposure()))
+                .ifPresent(delete -> builder.addMethod(controllerWriter.deleteMethodForPolymorphic(manifest, delete)));
     }
 
     @Override
@@ -72,8 +84,10 @@ public class DeletePlugin extends RestOperationPlugin {
 
     @Override
     public void writePolymorphicTestClient(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
-        manifest.annotationsOfType(Delete.class).stream().findFirst().ifPresent(ignored ->
-                testClientWriter.deleteMethodsForPolymorphic(manifest).forEach(builder::addMethod));
+        manifest.annotationsOfType(Delete.class).stream().findFirst()
+                .filter(delete -> ExposureResolver.isPublic(
+                        (TypeElement) manifest.type().asElement(), delete.exposure()))
+                .ifPresent(ignored -> testClientWriter.deleteMethodsForPolymorphic(manifest).forEach(builder::addMethod));
     }
 
     private Optional<Delete> typeDelete(ClassManifest manifest) {

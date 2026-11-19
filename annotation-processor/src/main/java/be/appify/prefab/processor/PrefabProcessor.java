@@ -70,6 +70,7 @@ public class PrefabProcessor extends AbstractProcessor {
     private final List<PolymorphicAggregateManifest> allResolvedPolymorphicAggregates = new ArrayList<>();
     private boolean globalFilesWritten = false;
     private boolean eventFilesWritten = false;
+    private final ViewWriter viewWriter = new ViewWriter();
 
     // Plugin list is stable for the lifetime of the processor; detect once and reuse across rounds.
     private List<PrefabPlugin> cachedPlugins;
@@ -119,6 +120,7 @@ public class PrefabProcessor extends AbstractProcessor {
         validateSecurityAnnotations(environment);
         writeAggregates(context, aggregates);
         writePolymorphicAggregates(context, polymorphicAggregates);
+        viewWriter.writeViews(context, environment);
         writeAdditionalFilesIfNeeded(context, plugins, aggregates, polymorphicAggregates);
         allResolvedAggregates.addAll(aggregates);
         allResolvedPolymorphicAggregates.addAll(polymorphicAggregates);

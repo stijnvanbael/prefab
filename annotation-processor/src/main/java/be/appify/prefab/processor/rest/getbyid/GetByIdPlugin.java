@@ -3,9 +3,11 @@ package be.appify.prefab.processor.rest.getbyid;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
+import be.appify.prefab.processor.rest.ExposureResolver;
 import be.appify.prefab.processor.rest.RestOperationPlugin;
 import com.palantir.javapoet.TypeSpec;
 import java.util.Optional;
+import javax.lang.model.element.TypeElement;
 
 /**
  * Prefab plugin that generates getById controller, service, and test client methods based on the @GetById annotation.
@@ -21,8 +23,9 @@ public class GetByIdPlugin extends RestOperationPlugin {
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
-        getByIdAnnotation(manifest).ifPresent(getById ->
-                builder.addMethod(controllerWriter.getByIdMethod(manifest, getById)));
+        getByIdAnnotation(manifest)
+                .filter(getById -> ExposureResolver.isPublic((TypeElement) manifest.element(), getById.exposure()))
+                .ifPresent(getById -> builder.addMethod(controllerWriter.getByIdMethod(manifest, getById)));
     }
 
     @Override
@@ -39,20 +42,26 @@ public class GetByIdPlugin extends RestOperationPlugin {
 
     @Override
     public void writePolymorphicController(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
-        manifest.annotationsOfType(GetById.class).stream().findFirst().ifPresent(getById ->
-                builder.addMethod(controllerWriter.getByIdMethod(manifest, getById)));
+        manifest.annotationsOfType(GetById.class).stream().findFirst()
+                .filter(getById -> ExposureResolver.isPublic(
+                        (TypeElement) manifest.type().asElement(), getById.exposure()))
+                .ifPresent(getById -> builder.addMethod(controllerWriter.getByIdMethod(manifest, getById)));
     }
 
     @Override
     public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
-        getByIdAnnotation(manifest).ifPresent(ignored ->
-                builder.addMethod(testClientWriter.getByIdMethod(manifest)));
+        getByIdAnnotation(manifest)
+                .filter(getById -> ExposureResolver.isPublic(
+                        (TypeElement) manifest.element(), getById.exposure()))
+                .ifPresent(ignored -> builder.addMethod(testClientWriter.getByIdMethod(manifest)));
     }
 
     @Override
     public void writePolymorphicTestClient(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
-        manifest.annotationsOfType(GetById.class).stream().findFirst().ifPresent(ignored ->
-                builder.addMethod(testClientWriter.getByIdMethodForPolymorphic(manifest)));
+        manifest.annotationsOfType(GetById.class).stream().findFirst()
+                .filter(getById -> ExposureResolver.isPublic(
+                        (TypeElement) manifest.type().asElement(), getById.exposure()))
+                .ifPresent(ignored -> builder.addMethod(testClientWriter.getByIdMethodForPolymorphic(manifest)));
     }
 
     private Optional<GetById> getByIdAnnotation(ClassManifest manifest) {

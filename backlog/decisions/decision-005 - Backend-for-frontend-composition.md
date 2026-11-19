@@ -44,13 +44,14 @@ common case for cross-aggregate screens (TASK-319).
   TASK-321 versioned contracts).
 - Plugin-only prototyping (via `PrefabPlugin.writeController`/`writeService`) is feasible before changing core.
 
-### Illustrative client code: code-first, minimal annotations (proposed API, not implemented)
+### Client code: code-first, minimal annotations
 
 An earlier sketch used a field-level annotation DSL (`@From`, `@Join`, `@Count`, `@Expand`). It was rejected:
 string-typed, limited to simple shapes, and every exception (conditional logic, external data, custom
 aggregation) forces a rewrite as handwritten code. The revised principle: **Prefab owns the plumbing, the
 developer owns the mapping, in plain typed Java.** One annotation binds a view to its aggregate; the rest is
-interfaces the developer implements. Names are placeholders.
+interfaces the developer implements. The read-side annotation is `@ViewOf`; command adapters implement
+`ViewCommands<Aggregate>`.
 
 Prefab generates: controller (paged GET list/by id), service wiring, tenant/security scoping of the source
 rows, validation, transaction boundary, OpenAPI, test client and mother. The developer writes the DTO and
@@ -61,7 +62,7 @@ the aggregate, so no assembler class is needed. Prefab detects a constructor tak
 static `from(Aggregate)` factory) and uses it as the mapper. Existing annotations configure the endpoints.
 
 ```java
-@View(of = Product.class)
+@ViewOf(Product.class)
 @GetById
 @GetList
 public record ProductListItem(String id, String title, int tagCount) {
@@ -82,7 +83,7 @@ resolved by the assembler, which keeps batch loading explicit.
 aggregation and enrichment are ordinary Java with one lookup per page, never per item.
 
 ```java
-@View(of = ChannelSummary.class)
+@ViewOf(ChannelSummary.class)
 @GetList
 public record ChannelDashboardItem(String id, String name, int totalMessages, int unread) {}
 
@@ -116,7 +117,7 @@ the test client.
 
 ```java
 @Component
-class ProductEditor implements ViewCommands<Product, ProductForm> {
+class ProductEditor implements ViewCommands<Product> {
     private final ProductService products;
 
     @Create
@@ -140,10 +141,10 @@ The same constructor shorthand applies to commands: a form record may declare
 `CreateProductRequest toRequest()` (or the command a one-to-one mapping) so a simple `@Create` needs no body:
 
 ```java
-@View(of = Product.class)
+@ViewOf(Product.class)
 @Create                                                                       // delegates to ProductService.create
 public record ProductForm(String title, ProductDetails details) {
-    CreateProductRequest toRequest() { return new CreateProductRequest(title, details); }
+    public CreateProductRequest toRequest() { return new CreateProductRequest(title, details); }
 }
 ```
 
@@ -158,10 +159,8 @@ compensation" below still apply to multi-aggregate view commands (TASK-328).
 
 ### Internal aggregates behind a BFF
 
-Today `@GetById`, `@GetList`, `@Create`, `@Update` and `@Delete` generate the service method and the REST
-endpoint together; there is no way to keep an aggregate reachable only in-process (verified: no exposure
-switch exists in `core` annotations). Proposed, aligned with the `endpoints` attribute planned in TASK-127
-rather than a second mechanism:
+`@Aggregate(exposure = Exposure.INTERNAL)` keeps aggregate services in-process while suppressing aggregate
+HTTP endpoints. Operation-level `exposure` can override the aggregate default:
 
 ```java
 @Aggregate(exposure = Exposure.INTERNAL)          // default for all operations: service only, no controller
@@ -180,7 +179,7 @@ public record Channel(...) {
 - `INTERNAL` generates the service method, request/response records and repository, but no controller
   method, OpenAPI entry or HTTP test client. `PUBLIC` (the default, so existing apps are unchanged) generates
   everything as today. Operation-level `exposure` overrides the aggregate default.
-- Views are the public face: `@View(of = Channel.class)` with `@GetList` generates the endpoint, calling the
+- Views are the public face: `@ViewOf(Channel.class)` with `@GetList` generates the endpoint, calling the
   internal service. A view may be `@Update`/`@Create`-annotated too (see view commands), so an aggregate can
   be fully internal while its views and commands are the only HTTP surface.
 - Because internal services have no HTTP security layer, tenant filtering still applies (it lives in the
@@ -190,8 +189,9 @@ public record Channel(...) {
   question, not promised).
 - A view of an aggregate in `Exposure.PUBLIC` also works, so exposure is an adoption choice, not a
   prerequisite.
-- This composes with TASK-127: when MCP is added, `exposure`/`endpoints` becomes one set of values
-  (`REST`, `MCP`, none) instead of two overlapping attributes.
+- `Exposure` is a visibility gate (`PUBLIC` or `INTERNAL`), while TASK-127's planned `endpoints` attribute selects
+  transport strategies such as REST and MCP. A future strategy module must honor both: an internal operation must not
+  produce a remote endpoint, while a public operation may target one or more enabled strategies.
 
 ### Revised decision
 
@@ -228,13 +228,13 @@ construction, before its repository save.
 
 ## Runnable examples
 
-`examples/kafka/src/main/java/be/appify/prefab/example/kafka/dashboard/ChannelDashboardService.java` composes
-a page from the generated `ChannelSummaryService` with one `UserStatusRepository.findByUser(...)` lookup.
-It maps the rows in memory to `ChannelDashboardItem`, preserving page metadata, and sorts by `name` then `id`
-for stable pagination. The adapter operation count is constant with respect to the number of page items; it
-does not issue one status query per channel. If the asynchronous status projection is absent, the item marks
-`unreadStatusAvailable` false instead of implying that the count is authoritative. Repository failures are
-not converted into successful-looking empty results.
+`examples/kafka/src/main/java/be/appify/prefab/example/kafka/dashboard/ChannelDashboardItem.java` is a
+`@ViewOf(ChannelSummary.class)` list contract. Prefab's generated view service reuses the filtered, sorted and
+paged `ChannelSummaryService`; `ChannelDashboardAssembler` enriches its batch with one
+`UserStatusRepository.findByUser(...)` lookup. The generated view preserves page metadata and avoids one query per
+channel. If the asynchronous status projection is absent, the item marks `unreadStatusAvailable` false instead of
+implying that the count is authoritative. Repository failures are not converted into successful-looking empty
+results.
 
 `examples/kafka/src/main/java/be/appify/prefab/example/kafka/product/application/ProductCommandService.java`
 composes generated `ProductService.create(...)` and `addTag(...)` calls. Its outer `@Transactional` boundary
@@ -246,11 +246,12 @@ proxy. It does not claim atomicity across aggregate roots, databases, or a messa
 Focused, runnable tests:
 
 ```shell
-mvn -pl :kafka-example -am "-Dtest=ChannelDashboardServiceTest,ProductCommandServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
+mvn -pl :kafka-example -am "-Dtest=ChannelDashboardAssemblerTest,ProductCommandServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
 ```
 
-The dashboard tests verify stable paging, composed output, missing versus empty projection state, and one
-batch repository lookup. The command tests verify generated-operation ordering and explicit failure handling.
+The dashboard tests verify batch mapping, missing versus empty projection state, and one repository lookup per
+assembler batch. The generated view service supplies filtering, stable paging and page metadata. The command tests
+verify generated-operation ordering and explicit failure handling.
 
 ## Operational contract
 

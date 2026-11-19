@@ -23,6 +23,7 @@
 - [7.15 Streams DSL Baseline (Kafka Source/Sink)](#715-streams-dsl-baseline-kafka-sourcesink)
 - [7.16 Per-aggregate Plugin Overrides](#716-per-aggregate-plugin-overrides)
 - [7.17 Autocomplete Endpoints](#717-autocomplete-endpoints)
+- [7.18 Aggregate-bound frontend views](#718-aggregate-bound-frontend-views)
 
 ---
 
@@ -1678,3 +1679,93 @@ String sku;
 @Autocomplete
 String code; // PREFIX + IGNORE_CASE
 ```
+
+---
+
+## 7.18 Aggregate-bound frontend views
+
+Use `@ViewOf` on a record when an HTTP contract should be smaller or more screen-oriented than its aggregate
+response. Add `@GetById` and/or `@GetList`; the aggregate must declare the matching operation so Prefab can
+reuse its generated service. Multiple view records can target one aggregate without changing that aggregate.
+
+```java
+@Aggregate(exposure = Exposure.INTERNAL)
+@GetById
+@GetList
+public record ChannelSummary(...) {
+}
+
+@ViewOf(ChannelSummary.class)
+@GetList(security = @Security(role = "USER"))
+public record ChannelDashboardItem(
+        Reference<Channel> channel,
+        String name,
+        int totalMessages,
+        int totalSubscribers,
+        int unreadMessages,
+        boolean unreadStatusAvailable
+) {
+}
+```
+
+Prefab generates the view controller, a read-only service, an HTTP test client and a test mother. A view's
+`@GetById`/`@GetList` attributes configure its own path, HTTP method, sorting and security. For lists, aggregate
+filters are available on the view endpoint too. The generated view service calls the aggregate service first,
+so tenant filtering, paging, filter predicates and total counts are applied before mapping.
+
+Mapping shortcuts are tried in this order:
+
+1. Matching component names and types use a generated mapper.
+2. A public constructor taking the aggregate, or a public static `from(Aggregate)` factory, maps one row.
+3. A Spring bean implementing `ViewAssembler<Aggregate, View>` maps the complete, already-scoped page.
+
+Use an assembler for enrichment, joins or aggregation. It receives one batch and a `ViewContext` with the
+authenticated principal and optional tenant ID. It must return exactly one view per source row; a mismatch
+fails explicitly, and generated paging retains the aggregate page's total count.
+
+```java
+@Component
+class ChannelDashboardAssembler implements ViewAssembler<ChannelSummary, ChannelDashboardItem> {
+    private final UserStatusRepository userStatusRepository;
+
+    ChannelDashboardAssembler(UserStatusRepository userStatusRepository) {
+        this.userStatusRepository = userStatusRepository;
+    }
+
+    @Override
+    public List<ChannelDashboardItem> assemble(List<ChannelSummary> page, ViewContext context) {
+        var statuses = context.currentUser()
+                .map(user -> userStatusRepository.findByUser(Reference.<User>fromId(user.getName())))
+                .orElseGet(List::of);
+        var unreadByChannel = statuses.stream()
+                .flatMap(status -> status.unreadMessages().stream())
+                .collect(Collectors.groupingBy(UnreadMessage::channel, Collectors.summingInt(message -> 1)));
+        var statusAvailable = !statuses.isEmpty();
+        return page.stream()
+                .map(channel -> new ChannelDashboardItem(
+                        channel.channel(),
+                        channel.name(),
+                        channel.totalMessages(),
+                        channel.totalSubscribers(),
+                        unreadByChannel.getOrDefault(channel.channel(), 0),
+                        statusAvailable))
+                .toList();
+    }
+}
+```
+
+An internal aggregate (`@Aggregate(exposure = Exposure.INTERNAL)`) still gets its services and records but
+does not expose aggregate REST operations or their OpenAPI/test-client methods. A view over it is an independent
+HTTP surface: its endpoint must use its own security configuration; aggregate controller security is not inherited.
+Tenant filtering remains in the aggregate service and also applies to page counts. Keep row-level authorization in
+the view endpoint or in a service-side query when tenant scoping alone is insufficient.
+
+For simple create forms, annotate a form record with both `@ViewOf(Aggregate.class)` and type-level `@Create`;
+provide `toRequest()` returning the aggregate's generated `CreateAggregateRequest`. Prefab generates a
+transactional adapter and secured POST endpoint, so no `ViewCommands` class is needed for a one-to-one create.
+Use `ViewCommands<Aggregate>` when commands need custom mapping or orchestration. Only its methods annotated with
+`@Create`, `@Update` or `@Delete` become HTTP operations; they run behind a generated transactional service.
+
+The Kafka example demonstrates this pattern with `ChannelDashboardItem` and `ChannelDashboardAssembler`. List
+views of child aggregates that need a parent path are not currently supported; expose a parent-scoped query through
+a custom service instead.

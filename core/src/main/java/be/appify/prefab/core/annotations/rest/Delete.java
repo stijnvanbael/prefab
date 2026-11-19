@@ -1,5 +1,6 @@
 package be.appify.prefab.core.annotations.rest;
 
+import be.appify.prefab.core.annotations.Exposure;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -13,6 +14,13 @@ import java.lang.annotation.Target;
 @Target({ ElementType.TYPE, ElementType.METHOD })
 @Retention(RetentionPolicy.SOURCE)
 public @interface Delete {
+    /**
+     * Overrides the aggregate's default HTTP exposure for this operation.
+     *
+     * @return the exposure override, or {@link Exposure#INHERIT}
+     */
+    Exposure exposure() default Exposure.INHERIT;
+
     /**
      * The HTTP method to use for this endpoint. Default is DELETE.
      *

@@ -9,6 +9,7 @@ import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.rest.PathVariables;
+import be.appify.prefab.processor.rest.ExposureResolver;
 import be.appify.prefab.processor.rest.create.CreateRequestRecordWriter;
 import be.appify.prefab.processor.rest.update.UpdateManifest;
 import com.palantir.javapoet.TypeSpec;
@@ -18,6 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 
 /**
  * Plugin that detects create-or-update pairs (a {@code @Create} constructor/factory sharing the same HTTP method and
@@ -45,8 +47,16 @@ public class CreateOrUpdatePlugin implements PrefabPlugin {
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
-        createOrUpdatePairsOf(manifest).forEach(pair ->
-                builder.addMethod(controllerWriter.createOrUpdateMethod(manifest, pair, context)));
+        createOrUpdatePairsOf(manifest).stream()
+                .filter(pair -> ExposureResolver.isPublic((TypeElement) manifest.element(),
+                        pair.createConstructor().getAnnotation(Create.class).exposure()))
+                .filter(pair -> manifest.methodsWith(Update.class).stream()
+                        .filter(method -> method.getSimpleName().contentEquals(pair.updateManifest().operationName()))
+                        .findFirst()
+                        .map(method -> ExposureResolver.isPublic((TypeElement) manifest.element(),
+                                method.getAnnotation(Update.class).exposure()))
+                        .orElse(false))
+                .forEach(pair -> builder.addMethod(controllerWriter.createOrUpdateMethod(manifest, pair, context)));
     }
 
     @Override
@@ -57,8 +67,17 @@ public class CreateOrUpdatePlugin implements PrefabPlugin {
 
     @Override
     public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
-        createOrUpdatePairsOf(manifest).forEach(pair ->
-                testClientWriter.createOrUpdateMethods(manifest, pair, context).forEach(builder::addMethod));
+        createOrUpdatePairsOf(manifest).stream()
+                .filter(pair -> ExposureResolver.isPublic((TypeElement) manifest.element(),
+                        pair.createConstructor().getAnnotation(Create.class).exposure()))
+                .filter(pair -> manifest.methodsWith(Update.class).stream()
+                        .filter(method -> method.getSimpleName().contentEquals(pair.updateManifest().operationName()))
+                        .findFirst()
+                        .map(method -> ExposureResolver.isPublic((TypeElement) manifest.element(),
+                                method.getAnnotation(Update.class).exposure()))
+                        .orElse(false))
+                .forEach(pair -> testClientWriter.createOrUpdateMethods(manifest, pair, context)
+                        .forEach(builder::addMethod));
     }
 
     @Override
@@ -144,7 +163,8 @@ public class CreateOrUpdatePlugin implements PrefabPlugin {
                 false,
                 update.method(),
                 update.path(),
-                update.security());
+                update.security(),
+                method);
     }
 
     private record UpdateEntry(ExecutableElement method, UpdateManifest update) {}

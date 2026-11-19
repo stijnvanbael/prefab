@@ -4,6 +4,7 @@ import be.appify.prefab.core.annotations.rest.Security;
 import be.appify.prefab.processor.VariableManifest;
 
 import java.util.List;
+import javax.lang.model.element.ExecutableElement;
 
 public record UpdateManifest(
         String operationName,
@@ -16,5 +17,6 @@ public record UpdateManifest(
         boolean asyncCommit,
         String method,
         String path,
-        Security security) {
+        Security security,
+        ExecutableElement element) {
 }

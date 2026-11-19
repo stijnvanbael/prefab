@@ -7,6 +7,8 @@ import be.appify.prefab.processor.AnnotationManifest;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
+import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.TypeName;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,14 +16,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
-class GetListUtil {
+public class GetListUtil {
     private static final Set<String> RANGE_COMPARABLE_TYPES = Set.of(
             "java.lang.Byte", "java.lang.Short", "java.lang.Integer", "java.lang.Long", "java.lang.Float",
             "java.lang.Double", "java.math.BigDecimal", "java.math.BigInteger", "java.time.Instant",
             "java.time.LocalDate", "java.time.LocalDateTime", "java.time.LocalTime", "java.time.OffsetDateTime",
             "java.time.ZonedDateTime");
 
-    static List<FilterManifest> filterPropertiesOf(ClassManifest manifest) {
+    public static List<FilterManifest> filterPropertiesOf(ClassManifest manifest) {
         var declared = declaredFiltersOf(manifest);
         var fullText = fullTextFiltersOf(declared);
         return declared.stream()
@@ -66,7 +68,7 @@ class GetListUtil {
                 .stream();
     }
 
-    record FilterManifest(
+    public record FilterManifest(
             VariableManifest field,
             Filter.Operator operator,
             boolean ignoreCase,
@@ -85,6 +87,7 @@ class GetListUtil {
                         filter.ignoreCase(), List.of(field.name()), filter.fuzzy(), filter.similarityThreshold(),
                         Map.of(field.name(), filter.weight()), filter.typeahead(), filter.language());
             }
+
             var exposedField = !RangeCondition.isRange(filter.operator()) && field.type().isSingleValueType()
                     ? field.withType(String.class)
                     : field;
@@ -111,7 +114,7 @@ class GetListUtil {
                             .findFirst().orElse(""));
         }
 
-        boolean isRange() {
+        public boolean isRange() {
             return RangeCondition.isRange(operator);
         }
 
@@ -119,7 +122,7 @@ class GetListUtil {
             return operator == Filter.Operator.FULL_TEXT;
         }
 
-        String parameterName() {
+        public String parameterName() {
             return field.name() + switch (operator) {
                 case GREATER_THAN -> "GreaterThan";
                 case GREATER_THAN_OR_EQUAL -> "GreaterThanOrEqual";
@@ -129,6 +132,17 @@ class GetListUtil {
             };
         }
     }
+
+    public static TypeName filterParameterType(FilterManifest filter) {
+        var field = filter.field();
+        if (filter.isRange()) {
+            return field.type().asBoxed().asTypeName();
+        }
+        return field.type().isSingleValueType()
+                ? field.type().fields().getFirst().type().asBoxed().asTypeName()
+                : ClassName.get(field.type().packageName(), field.type().simpleName());
+    }
+
     static boolean isRangeComparable(TypeManifest type) {
         var boxed = type.asBoxed();
         return RANGE_COMPARABLE_TYPES.contains(boxed.packageName() + "." + boxed.simpleName());

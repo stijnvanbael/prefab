@@ -100,13 +100,7 @@ class GetListControllerWriter {
     }
 
     private static TypeName filterParamType(GetListUtil.FilterManifest filter) {
-        var field = filter.field();
-        if (filter.isRange()) {
-            return field.type().asBoxed().asTypeName();
-        }
-        return field.type().isSingleValueType()
-                ? field.type().fields().getFirst().type().asBoxed().asTypeName()
-                : ClassName.get(field.type().packageName(), field.type().simpleName());
+        return GetListUtil.filterParameterType(filter);
     }
 
     private static String getListParameters(ClassManifest manifest) {

@@ -1,11 +1,13 @@
 package be.appify.prefab.processor.rest.binary;
 
+import be.appify.prefab.core.annotations.Exposure;
 import be.appify.prefab.core.annotations.rest.Download;
 import be.appify.prefab.core.domain.Binary;
 import be.appify.prefab.core.spring.StorageService;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.rest.ExposureResolver;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
@@ -16,6 +18,7 @@ import com.palantir.javapoet.TypeSpec;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
+import javax.lang.model.element.TypeElement;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -70,6 +73,9 @@ public class BinaryPlugin implements PrefabPlugin {
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
+        if (!hasPublicAggregateExposure(manifest)) {
+            return;
+        }
         manifest.fields().stream()
                 .filter(f -> f.type().is(Binary.class) && f.hasAnnotation(Download.class))
                 .forEach(field ->
@@ -78,10 +84,17 @@ public class BinaryPlugin implements PrefabPlugin {
 
     @Override
     public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
+        if (!hasPublicAggregateExposure(manifest)) {
+            return;
+        }
         manifest.fields().stream()
                 .filter(f -> f.type().is(Binary.class) && f.hasAnnotation(Download.class))
                 .forEach(field ->
                         builder.addMethod(binaryTestClientWriter.downloadMethod(manifest, field)));
+    }
+
+    private static boolean hasPublicAggregateExposure(ClassManifest manifest) {
+        return ExposureResolver.isPublic((TypeElement) manifest.element(), Exposure.INHERIT);
     }
 
 }

@@ -3,7 +3,7 @@ package be.appify.prefab.example.kafka.product;
 import be.appify.prefab.core.annotations.Computed;
 import be.appify.prefab.core.annotations.DbDocument;
 import be.appify.prefab.core.annotations.Indexed;
-import jakarta.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 

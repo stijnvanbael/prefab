@@ -5,7 +5,7 @@ import be.appify.prefab.core.annotations.DbMigration;
 import be.appify.prefab.core.annotations.Generate;
 import be.appify.prefab.processor.assertion.AssertionPlugin;
 import be.appify.prefab.processor.mother.MotherPlugin;
-import jakarta.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 

@@ -9,6 +9,7 @@ import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.MirroredTypeException;
@@ -29,6 +30,7 @@ class PersistenceWriter {
     }
 
     void writePersistenceLayer(ClassManifest manifest) {
+        fileWriter.setOriginatingElements(manifest.type().asElement());
         writeRepository(manifest);
     }
 
@@ -46,7 +48,13 @@ class PersistenceWriter {
                 .stream()
                 .filter(element -> TypeManifest.of(element.asType(), context.processingEnvironment())
                         .annotationsOfType(RepositoryMixin.class).stream().anyMatch(annotation ->
-                                manifest.type().equals(getMirroredType(annotation::value))));
+                                manifest.type().equals(getMirroredType(annotation::value))))
+                .toList();
+        fileWriter.setOriginatingElements(Stream.concat(
+                        Stream.of(manifest.type().asElement()),
+                        mixins.stream().filter(TypeElement.class::isInstance).map(TypeElement.class::cast))
+                .distinct()
+                .toArray(TypeElement[]::new));
         var type = TypeSpec.interfaceBuilder(repositoryName)
                 .addModifiers(Modifier.PUBLIC)
                 .addSuperinterface(ParameterizedTypeName.get(ClassName.get(CrudRepository.class),
@@ -61,11 +69,18 @@ class PersistenceWriter {
 
     private void writePolymorphicRepository(PolymorphicAggregateManifest manifest) {
         var repositoryName = "%sRepository".formatted(manifest.simpleName());
+        fileWriter.setOriginatingElements(manifest.type().asElement());
         var mixins = context.roundEnvironment().getElementsAnnotatedWith(RepositoryMixin.class)
                 .stream()
                 .filter(element -> TypeManifest.of(element.asType(), context.processingEnvironment())
                         .annotationsOfType(RepositoryMixin.class).stream().anyMatch(annotation ->
-                                manifest.type().equals(getMirroredType(annotation::value))));
+                                manifest.type().equals(getMirroredType(annotation::value))))
+                .toList();
+        fileWriter.setOriginatingElements(Stream.concat(
+                        Stream.of(manifest.type().asElement()),
+                        mixins.stream().filter(TypeElement.class::isInstance).map(TypeElement.class::cast))
+                .distinct()
+                .toArray(TypeElement[]::new));
         var type = TypeSpec.interfaceBuilder(repositoryName)
                 .addModifiers(Modifier.PUBLIC)
                 .addSuperinterface(ParameterizedTypeName.get(ClassName.get(CrudRepository.class),

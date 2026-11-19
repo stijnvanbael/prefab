@@ -85,7 +85,9 @@ class EventSchemaFactoryWriter {
                 .addMethod(createSchemaMethod());
         directAvscPath.ifPresent(path -> type.addMethods(runtimeAvscValidationMethods(event, path)));
 
-        newFileWriter().writeFile(event.packageName(), name, type.build());
+        var fileWriter = newFileWriter();
+        fileWriter.setOriginatingElements(event.asElement());
+        fileWriter.writeFile(event.packageName(), name, type.build());
         return true;
     }
 
@@ -346,7 +348,12 @@ class EventSchemaFactoryWriter {
                         Modifier.FINAL)
                 .build()));
 
-        newFileWriter().writeFile(contractInterface.packageName(), name, type.build());
+        var fileWriter = newFileWriter();
+        fileWriter.setOriginatingElements(Stream.concat(
+                Stream.of(contractInterface.asElement()),
+                implementations.stream().map(TypeManifest::asElement))
+                .toArray(TypeElement[]::new));
+        fileWriter.writeFile(contractInterface.packageName(), name, type.build());
         return true;
     }
 

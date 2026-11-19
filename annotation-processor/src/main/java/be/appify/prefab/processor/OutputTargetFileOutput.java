@@ -27,7 +27,12 @@ public final class OutputTargetFileOutput implements FileOutput {
 
     @Override
     public void setPreferredElement(TypeElement element) {
-        testWriter.setPreferredElement(element);
+        setOriginatingElements(element);
+    }
+
+    @Override
+    public void setOriginatingElements(TypeElement... elements) {
+        writersByTarget.values().forEach(writer -> writer.setOriginatingElements(elements));
     }
 
     @Override
@@ -37,5 +42,4 @@ public final class OutputTargetFileOutput implements FileOutput {
                 .writeFile(packagePrefix, typeName, type);
     }
 }
-
 

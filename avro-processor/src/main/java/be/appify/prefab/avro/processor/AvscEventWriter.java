@@ -34,6 +34,7 @@ import java.util.Optional;
 import java.util.UUID;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 
 import org.apache.avro.JsonProperties;
@@ -63,8 +64,9 @@ class AvscEventWriter {
     void writeAll(
             Schema schema, String[] topics, Event.Platform platform, String defaultPackage,
             ClassName contractInterface, List<AnnotationSpec> generateAnnotations,
-            Map<String, List<ClassName>> interfaceImplementations
+            Map<String, List<ClassName>> interfaceImplementations, TypeElement originatingElement
     ) {
+        fileWriter.setOriginatingElements(originatingElement);
         var namedTypes = collectNamedTypes(schema);
         var pendingUnions = new ArrayList<UnionTypeGroup>();
         writeTopLevelRecord(schema, topics, platform, defaultPackage, contractInterface, generateAnnotations,

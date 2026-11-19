@@ -13,7 +13,6 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
-import jakarta.annotation.Nullable;
 import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.Modifier;
@@ -97,7 +96,7 @@ public class TenantPlugin implements PrefabPlugin {
 
         var tenantFieldName = tenantFields.getFirst().name();
 
-        if (tenantFields.getFirst().hasAnnotation(Nullable.class)) {
+        if (tenantFields.getFirst().nullable()) {
             context.logError(
                     "[@TenantId] " + tenantFieldName + ": tenant ID field must not be nullable; it is always required by the framework.\n"
                             + "Suggested fix: remove the @Nullable annotation from this field",

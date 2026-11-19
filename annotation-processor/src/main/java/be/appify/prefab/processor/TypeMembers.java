@@ -61,22 +61,44 @@ class TypeMembers {
      * such as {@code @Nullable} are always visible regardless of the compilation context.
      */
     private Stream<VariableManifest> recordFieldsWithComponentAnnotations() {
-        var componentAnnotations = recordComponentAnnotationsByName();
+        var componentMetadata = recordComponentMetadataByName();
         return element.getEnclosedElements().stream()
                 .filter(e -> e.getKind() == ElementKind.FIELD && !e.getModifiers().contains(Modifier.STATIC))
                 .map(VariableElement.class::cast)
-                .map(field -> VariableManifest.of(field, processingEnvironment)
-                        .withAdditionalAnnotations(
-                                componentAnnotations.getOrDefault(field.getSimpleName().toString(), List.of())));
+                .map(field -> {
+                    var manifest = VariableManifest.of(field, processingEnvironment);
+                    var metadata = componentMetadata.get(field.getSimpleName().toString());
+                    return metadata == null
+                            ? manifest
+                            : manifest.withAdditionalAnnotations(metadata.annotations())
+                                    .withAdditionalNullableTypeUse(metadata.nullable());
+                });
     }
 
-    private Map<String, List<? extends AnnotationManifest<?>>> recordComponentAnnotationsByName() {
+    private Map<String, RecordComponentMetadata> recordComponentMetadataByName() {
         return element.getEnclosedElements().stream()
                 .filter(e -> e.getKind() == ElementKind.RECORD_COMPONENT)
                 .map(VariableElement.class::cast)
-                .collect(Collectors.toMap(
-                        comp -> comp.getSimpleName().toString(),
-                        comp -> VariableManifest.of(comp, processingEnvironment).annotations()));
+                .collect(Collectors.toMap(comp -> comp.getSimpleName().toString(), comp -> {
+                    var manifest = VariableManifest.of(comp, processingEnvironment);
+                    return new RecordComponentMetadata(
+                            manifest.annotations(),
+                            recordAccessorNullable(comp.getSimpleName().toString()) || manifest.nullable());
+                }));
+    }
+
+    private boolean recordAccessorNullable(String name) {
+        return element.getEnclosedElements().stream()
+                .filter(e -> e.getKind() == ElementKind.METHOD)
+                .map(ExecutableElement.class::cast)
+                .filter(method -> method.getSimpleName().contentEquals(name) && method.getParameters().isEmpty())
+                .anyMatch(method -> TypeManifest.of(method.getReturnType(), processingEnvironment).nullable());
+    }
+
+    private record RecordComponentMetadata(
+            List<? extends AnnotationManifest<?>> annotations,
+            boolean nullable
+    ) {
     }
 
     List<ExecutableElement> methodsWith(Class<? extends Annotation> annotation) {

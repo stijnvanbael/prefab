@@ -14,6 +14,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
+            <version>${jspecify.version}</version>
+        </dependency>
+        <dependency>
             <groupId>be.appify.prefab</groupId>
             <artifactId>prefab-core</artifactId>
         </dependency>

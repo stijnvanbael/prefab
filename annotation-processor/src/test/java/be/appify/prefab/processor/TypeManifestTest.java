@@ -2,6 +2,7 @@ package be.appify.prefab.processor;
 
 import com.google.testing.compile.JavaFileObjects;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
@@ -9,6 +10,7 @@ import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.util.ElementFilter;
 import org.junit.jupiter.api.Test;
 
@@ -49,20 +51,85 @@ class TypeManifestTest {
         assertThat(processor.types.get("unbounded").parameters().getFirst().fields()).isEmpty();
     }
 
+    @Test
+    void nullableTypeUseIsRecognizedOnDeclarationsAndRecordAccessors() {
+        var processor = new CapturingProcessor();
+        var compilation = javac().withProcessors(processor).compile(
+                JavaFileObjects.forSourceString("example.Nullability", """
+                        package example;
+                        import java.util.List;
+                        import org.jspecify.annotations.Nullable;
+
+                        class Nullability {
+                            @Nullable String nullableField;
+                            @jakarta.annotation.Nullable String legacyNullableField;
+                            List<@Nullable String> nullableElement;
+                            @Nullable List<String> nullableContainer;
+                            String @Nullable [] nullableArray;
+                            @Nullable String[] nullableArrayElement;
+
+                            void method(@Nullable String nullableParameter) {}
+
+                            @Nullable String nullableReturn() { return null; }
+                        }
+
+                        record ComponentRecord(@Nullable String value) {}
+
+                        record AccessorRecord(String value) {
+                            @Nullable public String value() { return value; }
+                        }
+                        """));
+
+        assertThat(compilation).succeeded();
+        assertThat(processor.variables.get("nullableField").nullable()).isTrue();
+        assertThat(processor.variables.get("legacyNullableField").nullable()).isTrue();
+        assertThat(processor.variables.get("nullableElement").nullable()).isFalse();
+        assertThat(processor.variables.get("nullableElement").type().parameters().getFirst().nullable()).isTrue();
+        assertThat(processor.variables.get("nullableContainer").nullable()).isTrue();
+        assertThat(processor.variables.get("nullableContainer").type().parameters().getFirst().nullable()).isFalse();
+        assertThat(processor.variables.get("nullableArray").nullable()).isTrue();
+        assertThat(processor.variables.get("nullableArray").type().componentType().orElseThrow().nullable()).isFalse();
+        assertThat(processor.variables.get("nullableArrayElement").nullable()).isFalse();
+        assertThat(processor.variables.get("nullableArrayElement").type().componentType().orElseThrow().nullable())
+                .isTrue();
+        assertThat(processor.variables.get("nullableParameter").nullable()).isTrue();
+        assertThat(processor.methodReturns.get("nullableReturn").nullable()).isTrue();
+        assertThat(processor.recordFields.get("ComponentRecord").getFirst().nullable()).isTrue();
+        assertThat(processor.recordFields.get("AccessorRecord").getFirst().nullable()).isTrue();
+    }
+
     @SupportedAnnotationTypes("*")
     static class CapturingProcessor extends AbstractProcessor {
         final Map<String, TypeManifest> types = new LinkedHashMap<>();
+        final Map<String, VariableManifest> variables = new LinkedHashMap<>();
+        final Map<String, VariableManifest> methodReturns = new LinkedHashMap<>();
+        final Map<String, List<VariableManifest>> recordFields = new LinkedHashMap<>();
 
         @Override
         public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnvironment) {
             roundEnvironment.getRootElements().stream()
-                    .flatMap(element -> ElementFilter.fieldsIn(element.getEnclosedElements()).stream())
-                    .forEach(this::capture);
+                    .filter(TypeElement.class::isInstance)
+                    .map(TypeElement.class::cast)
+                    .forEach(type -> {
+                        ElementFilter.fieldsIn(type.getEnclosedElements()).forEach(this::capture);
+                        ElementFilter.methodsIn(type.getEnclosedElements()).forEach(method -> {
+                            method.getParameters().forEach(this::capture);
+                            if (method.getReturnType().getKind() != TypeKind.VOID) {
+                                methodReturns.put(method.getSimpleName().toString(),
+                                        VariableManifest.ofMethod(method, processingEnv));
+                            }
+                        });
+                        if (!type.getRecordComponents().isEmpty()) {
+                            recordFields.put(type.getSimpleName().toString(),
+                                    TypeManifest.of(type.asType(), processingEnv).fields());
+                        }
+                    });
             return false;
         }
 
         private void capture(VariableElement field) {
             types.put(field.getSimpleName().toString(), TypeManifest.of(field.asType(), processingEnv));
+            variables.put(field.getSimpleName().toString(), VariableManifest.of(field, processingEnv));
         }
     }
 }

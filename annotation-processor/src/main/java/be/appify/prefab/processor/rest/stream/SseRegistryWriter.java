@@ -32,6 +32,7 @@ class SseRegistryWriter {
      * @param manifest the aggregate class manifest
      */
     void writeSseRegistry(ClassManifest manifest) {
+        fileWriter.setOriginatingElements(manifest.type().asElement());
         var registryName = sseRegistrySimpleName(manifest);
         var mapType = ParameterizedTypeName.get(
                 ClassName.get(ConcurrentHashMap.class),
@@ -83,4 +84,3 @@ class SseRegistryWriter {
                 sseRegistrySimpleName(manifest));
     }
 }
-

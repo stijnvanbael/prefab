@@ -44,6 +44,7 @@ class KafkaConsumerConfigWriter {
         var name = "%sKafkaConsumerConfig".formatted(owner.simpleName());
         var packageName = TypeManifest.of(eventHandlers.getFirst().getEnclosingElement().asType(),
                 context.processingEnvironment()).packageName();
+        fileWriter.setOriginatingElements(owner.asElement());
         var config = owner.inheritedAnnotationsOfType(EventHandlerConfig.class).stream().findFirst().orElseThrow();
         var type = TypeSpec.classBuilder(name)
                 .addAnnotation(Configuration.class)

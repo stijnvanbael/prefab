@@ -3,7 +3,7 @@ package mother.nullablerecord.source;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.Generate;
 import be.appify.prefab.processor.assertion.AssertionPlugin;
-import jakarta.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 @Event(topic = "shipments")
@@ -18,4 +18,3 @@ public record ShipmentEvent(
 
     public record Item(String name, int quantity) {}
 }
-

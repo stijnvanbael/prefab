@@ -23,6 +23,7 @@ import org.springframework.core.convert.converter.Converter;
 
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 import java.time.Duration;
 import java.time.Instant;
@@ -31,6 +32,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static be.appify.prefab.avro.processor.AvroPlugin.avroUnionRecordBranches;
 import static be.appify.prefab.avro.processor.AvroPlugin.isAvroUnion;
@@ -62,6 +64,7 @@ class GenericRecordToEventConverterWriter {
         }
 
         var fileWriter = new OutputTargetFileOutput(context, "infrastructure.avro", OutputTarget.MAIN);
+        fileWriter.setOriginatingElements(event.asElement());
 
         var name = "GenericRecordTo%sConverter".formatted(AvroSupport.generatedName(event));
         var type = TypeSpec.classBuilder(name)
@@ -78,6 +81,10 @@ class GenericRecordToEventConverterWriter {
 
     private void writeEventSupertypeConverter(TypeManifest supertype, List<TypeManifest> subtypes) {
         var fileWriter = new OutputTargetFileOutput(context, "infrastructure.avro", OutputTarget.MAIN);
+        fileWriter.setOriginatingElements(Stream.concat(
+                Stream.of(supertype.asElement()),
+                subtypes.stream().map(TypeManifest::asElement))
+                .toArray(TypeElement[]::new));
         var name = "GenericRecordTo%sConverter".formatted(supertype.simpleName().replace(".", ""));
 
         var type = TypeSpec.classBuilder(name)
@@ -167,6 +174,10 @@ class GenericRecordToEventConverterWriter {
             return false;
         }
 
+        fileWriter.setOriginatingElements(Stream.concat(
+                Stream.of(contractInterface.asElement()),
+                implementations.stream().map(TypeManifest::asElement))
+                .toArray(TypeElement[]::new));
         var type = TypeSpec.classBuilder(name)
                 .addModifiers(javax.lang.model.element.Modifier.PUBLIC)
                 .addAnnotation(componentAnnotation(contractInterface, name))

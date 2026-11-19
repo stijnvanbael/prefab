@@ -45,11 +45,13 @@ class HttpWriter {
     }
 
     void writeHttpLayer(ClassManifest manifest) {
+        fileWriter.setOriginatingElements(manifest.type().asElement());
         writeController(manifest);
         writeResponseRecord(manifest);
     }
 
     void writePolymorphicHttpLayer(PolymorphicAggregateManifest manifest) {
+        fileWriter.setOriginatingElements(manifest.type().asElement());
         writePolymorphicController(manifest);
         writePolymorphicResponseType(manifest);
     }

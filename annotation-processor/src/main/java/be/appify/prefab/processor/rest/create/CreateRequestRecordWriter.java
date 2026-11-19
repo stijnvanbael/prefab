@@ -16,8 +16,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
 
 import static be.appify.prefab.processor.rest.ControllerUtil.writeRecord;
 import static org.apache.commons.text.WordUtils.capitalize;
@@ -45,6 +47,7 @@ public class CreateRequestRecordWriter {
             String name,
             Optional<String> parentName
     ) {
+        fileWriter.setOriginatingElements(manifest.type().asElement());
         var bodyParams = constructor.getParameters().stream()
                 .map(param -> VariableManifest.of(param, context.processingEnvironment()))
                 .filter(param -> parentName.map(parentFieldName -> !parentFieldName.equals(param.name())).orElse(true))
@@ -66,6 +69,10 @@ public class CreateRequestRecordWriter {
             List<Map.Entry<ClassManifest, ExecutableElement>> group,
             PrefabContext context
     ) {
+        fileWriter.setOriginatingElements(Stream.concat(
+                Stream.of(polymorphic.type().asElement()),
+                group.stream().map(entry -> entry.getKey().type().asElement()))
+                .toArray(TypeElement[]::new));
         var unionName = "Create%sRequest".formatted(polymorphic.simpleName());
         var unionClass = ClassName.get(polymorphic.packageName() + ".application", unionName);
 
@@ -131,6 +138,7 @@ public class CreateRequestRecordWriter {
             ExecutableElement constructor,
             PrefabContext context
     ) {
+        fileWriter.setOriginatingElements(subtype.type().asElement());
         var leafName = leafName(subtype.simpleName());
         var name = "Create%sRequest".formatted(leafName);
         var parentFieldName = CreateServiceWriter.parentFieldName(subtype);

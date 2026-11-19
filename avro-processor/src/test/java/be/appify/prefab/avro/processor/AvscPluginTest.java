@@ -204,6 +204,9 @@ class AvscPluginTest {
                 .contains("@Nullable");
         assertThat(nullableCompilation).generatedSourceFile("event.avsc.NullableAvscEvent")
                 .contentsAsUtf8String()
+                .contains("import org.jspecify.annotations.Nullable;");
+        assertThat(nullableCompilation).generatedSourceFile("event.avsc.NullableAvscEvent")
+                .contentsAsUtf8String()
                 .contains("String description");
     }
 

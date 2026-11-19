@@ -10,8 +10,10 @@ import javax.tools.JavaFileObject;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.lang.model.element.TypeElement;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
@@ -27,6 +29,7 @@ public class JavaFileWriter implements FileOutput {
 
     private final ProcessingEnvironment processingEnvironment;
     private final String packageSuffix;
+    private List<TypeElement> originatingElements = List.of();
 
     /**
      * Constructs a JavaFileWriter.
@@ -37,6 +40,16 @@ public class JavaFileWriter implements FileOutput {
     public JavaFileWriter(ProcessingEnvironment processingEnvironment, String packageSuffix) {
         this.processingEnvironment = processingEnvironment;
         this.packageSuffix = packageSuffix;
+    }
+
+    @Override
+    public void setPreferredElement(TypeElement element) {
+        setOriginatingElements(element);
+    }
+
+    @Override
+    public void setOriginatingElements(TypeElement... elements) {
+        originatingElements = List.of(elements);
     }
 
     /**
@@ -54,7 +67,7 @@ public class JavaFileWriter implements FileOutput {
             JavaFileObject builderFile;
             try {
                 builderFile = processingEnvironment.getFiler()
-                        .createSourceFile(qualifiedName);
+                        .createSourceFile(qualifiedName, originatingElements.toArray(TypeElement[]::new));
             } catch (FilerException e) {
                 if (indicatesFileAlreadyExists(e)) {
                     if (!wasGeneratedByProcessor(qualifiedName)) {

@@ -30,6 +30,8 @@ class ReaderSchemaRegistrarWriter {
     }
 
     void writeRegistrar(TypeManifest event) {
+        var fileWriter = new OutputTargetFileOutput(context, AVRO_PACKAGE_SUFFIX, OutputTarget.MAIN);
+        fileWriter.setOriginatingElements(event.asElement());
         var name = "%sReaderSchemaRegistrar".formatted(AvroSupport.generatedName(event));
         var factory = schemaFactoryClassName(event);
         var type = TypeSpec.classBuilder(name)
@@ -57,7 +59,6 @@ class ReaderSchemaRegistrarWriter {
                     .addStatement("registry.registerAvroConverters(type, writer::convert, reader::convert)");
         }
         type.addMethod(constructor.build()).addMethod(customize.build());
-        new OutputTargetFileOutput(context, AVRO_PACKAGE_SUFFIX, OutputTarget.MAIN)
-                .writeFile(event.packageName(), name, type.build());
+        fileWriter.writeFile(event.packageName(), name, type.build());
     }
 }

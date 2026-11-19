@@ -2,7 +2,7 @@ package persistence.polymorphic_with_embedded_record;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.service.Reference;
-import jakarta.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.data.annotation.Id;
@@ -29,4 +29,3 @@ public sealed interface Quiz permits Quiz.Assessment {
     ) implements Quiz {
     }
 }
-

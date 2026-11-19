@@ -9,7 +9,7 @@ import be.appify.prefab.core.domain.PublishesEvents;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.example.avro.cashregister.CashRegister;
 import be.appify.prefab.example.avro.customer.Customer;
-import jakarta.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.ArrayList;

@@ -15,6 +15,7 @@ import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.TypeKind;
@@ -64,6 +65,9 @@ class DbColumnConverterContributorWriter {
                     .toList();
 
             if (!converterTypes.isEmpty()) {
+                fileWriter.setOriginatingElements(packageManifests.stream()
+                        .map(manifest -> manifest.type().asElement())
+                        .toArray(TypeElement[]::new));
                 writeContributorClass(packageName, converterTypes);
             }
         });
@@ -152,4 +156,3 @@ class DbColumnConverterContributorWriter {
         fileWriter.writeFile(packageName, className, typeSpec);
     }
 }
-

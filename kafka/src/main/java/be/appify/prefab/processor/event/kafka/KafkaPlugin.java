@@ -162,7 +162,8 @@ public class KafkaPlugin implements PrefabPlugin {
                     eventType,
                     event.topic(),
                     event.publishTo(),
-                    keyExtractor);
+                    keyExtractor,
+                    Optional.of(eventManifest.asElement()));
         }
     }
 

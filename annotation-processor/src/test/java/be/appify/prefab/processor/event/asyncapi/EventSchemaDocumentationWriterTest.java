@@ -7,6 +7,7 @@ import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.List;
 import java.util.stream.StreamSupport;
 import javax.tools.StandardLocation;
 import org.junit.jupiter.api.Test;
@@ -66,6 +67,31 @@ class EventSchemaDocumentationWriterTest {
         assertEquals(2, required.size());
         assertTrue(required.contains("orderId"));
         assertTrue(required.contains("customerId"));
+    }
+
+    @Test
+    void nullableContainerIsDistinctFromNullableElements() {
+        var compilation = javac().withProcessors(new PrefabProcessor()).compile(
+                JavaFileObjects.forSourceString("example.NullabilityEvent", """
+                        package example;
+                        import be.appify.prefab.core.annotations.Event;
+                        import java.util.List;
+                        import org.jspecify.annotations.Nullable;
+
+                        @Event(topic = "nullability")
+                        public record NullabilityEvent(
+                                @Nullable List<String> optionalValues,
+                                List<@Nullable String> requiredValues
+                        ) {}
+                        """));
+        assertThat(compilation).succeeded();
+        var asyncApi = readAsyncApi(compilation);
+
+        var required = StreamSupport.stream(
+                        asyncApi.at("/components/schemas/NullabilityEvent/required").spliterator(), false)
+                .map(JsonNode::asText)
+                .toList();
+        assertEquals(List.of("requiredValues"), required);
     }
 
     @Test

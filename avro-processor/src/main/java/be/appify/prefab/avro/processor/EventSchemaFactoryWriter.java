@@ -15,7 +15,7 @@ import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.event.EventBindings;
 import com.palantir.javapoet.*;
-import jakarta.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
@@ -85,7 +85,9 @@ class EventSchemaFactoryWriter {
                 .addMethod(createSchemaMethod());
         directAvscPath.ifPresent(path -> type.addMethods(runtimeAvscValidationMethods(event, path)));
 
-        newFileWriter().writeFile(event.packageName(), name, type.build());
+        var fileWriter = newFileWriter();
+        fileWriter.setOriginatingElements(event.asElement());
+        fileWriter.writeFile(event.packageName(), name, type.build());
         return true;
     }
 
@@ -346,7 +348,12 @@ class EventSchemaFactoryWriter {
                         Modifier.FINAL)
                 .build()));
 
-        newFileWriter().writeFile(contractInterface.packageName(), name, type.build());
+        var fileWriter = newFileWriter();
+        fileWriter.setOriginatingElements(Stream.concat(
+                Stream.of(contractInterface.asElement()),
+                implementations.stream().map(TypeManifest::asElement))
+                .toArray(TypeElement[]::new));
+        fileWriter.writeFile(contractInterface.packageName(), name, type.build());
         return true;
     }
 

@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 import java.util.UUID;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
@@ -50,6 +51,7 @@ class EventToGenericRecordConverterWriter {
         }
 
         var fileWriter = new OutputTargetFileOutput(context, "infrastructure.avro", OutputTarget.MAIN);
+        fileWriter.setOriginatingElements(event.asElement());
 
         var name = "%sToGenericRecordConverter".formatted(AvroSupport.generatedName(event));
         var type = TypeSpec.classBuilder(name)
@@ -85,6 +87,10 @@ class EventToGenericRecordConverterWriter {
         }
 
         var fileWriter = new OutputTargetFileOutput(context, "infrastructure.avro", OutputTarget.MAIN);
+        fileWriter.setOriginatingElements(Stream.concat(
+                Stream.of(contractInterface.asElement()),
+                implementations.stream().map(TypeManifest::asElement))
+                .toArray(TypeElement[]::new));
         var name = "%sToGenericRecordConverter".formatted(contractInterface.simpleName().replace(".", ""));
 
         var type = TypeSpec.classBuilder(name)

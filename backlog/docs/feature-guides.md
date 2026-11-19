@@ -76,6 +76,31 @@ To get a stable order (and stable paging), declare a default sort order on `@Get
 `@GetList(sorted = @SortOrder(property = "name"))`. It applies only when the request has no `sort` parameter;
 an explicit `?sort=price,desc` replaces it entirely. It combines with filters, paging, tenant and parent.
 
+### Nullability annotations
+
+Use JSpecify's `org.jspecify.annotations.Nullable` to mark an optional value:
+
+```java
+import org.jspecify.annotations.Nullable;
+
+public record ProductDetails(String name, @Nullable String description) {}
+```
+
+Place `@Nullable` on the value itself. `@Nullable List<String>` makes the list optional; `List<@Nullable String>`
+allows null elements but does not make the list optional. The same type-use placement is supported on record
+components, fields, method return types and parameters, including array references and array components. Only a
+nullable field/container affects persistence, REST requiredness, generated mothers and event compatibility; nullable
+elements do not make the enclosing container nullable.
+
+Prefab continues to recognize existing annotations whose simple name is `Nullable`, including
+`jakarta.annotation.Nullable`, for source compatibility. Migrate imports to JSpecify; generated contracts emit only
+JSpecify. A nullable marker keeps its existing optional semantics, including when a legacy and JSpecify marker both
+appear; if both nullable and runtime validation annotations are present, nullable metadata still controls generated
+optionality and the validation annotation retains its runtime behavior. No removal release for the legacy marker is
+currently scheduled. Nullability annotations describe static contracts; they do not perform runtime validation. Keep Jakarta
+Validation annotations such as `@NotNull`, `@Valid` and `@Size` for runtime validation, and keep Jakarta lifecycle
+annotations such as `@PreDestroy`. No package-wide `@NullMarked` checking is enabled as part of this migration.
+
 ---
 
 ## 7.2 Event Publishing
@@ -426,9 +451,8 @@ Use `files = @AvscFile(...)` when different AVSC files need different partitioni
 when only some of the generated events should register a partitioning-key extractor. In that case,
 `keyProperty` must match a top-level field name in the referenced schema.
 
-For nullable Avro fields, Prefab treats annotations named `Nullable` (including
-`jakarta.annotation.Nullable`) as optional markers and generates Avro unions as `["null", T]` with a
-`null` default.
+For nullable Avro fields, Prefab treats JSpecify `@Nullable` and legacy annotations named `Nullable` as optional
+markers and generates Avro unions as `["null", T]` with a `null` default.
 
 ### Avro union fields
 

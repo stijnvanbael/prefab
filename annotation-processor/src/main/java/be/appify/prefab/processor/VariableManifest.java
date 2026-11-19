@@ -1,7 +1,6 @@
 package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Transient;
-import jakarta.annotation.Nullable;
 import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +24,7 @@ public class VariableManifest {
     private final String name;
     private final List<? extends AnnotationManifest<?>> annotations;
     private final ProcessingEnvironment processingEnvironment;
+    private final boolean additionalNullableTypeUse;
 
     private VariableManifest(VariableElement variableElement, ProcessingEnvironment processingEnvironment) {
         this(
@@ -37,7 +37,8 @@ public class VariableManifest {
                                         processingEnvironment,
                                         resolveAnnotation(variableElement, annotationMirror, processingEnvironment)))
                         .toList(),
-                processingEnvironment
+                processingEnvironment,
+                false
         );
     }
 
@@ -91,7 +92,7 @@ public class VariableManifest {
                                 mirror.getAnnotationType().asElement().asType(),
                                 processingEnvironment).asClass())))
                 .toList();
-        return new VariableManifest(null, type, name, annotations, processingEnvironment);
+        return new VariableManifest(null, type, name, annotations, processingEnvironment, false);
     }
 
     private VariableManifest(
@@ -99,13 +100,15 @@ public class VariableManifest {
             TypeManifest type,
             String name,
             List<? extends AnnotationManifest<?>> annotations,
-            ProcessingEnvironment processingEnvironment
+            ProcessingEnvironment processingEnvironment,
+            boolean additionalNullableTypeUse
     ) {
         this.element = element;
         this.type = type;
         this.name = name;
         this.annotations = annotations;
         this.processingEnvironment = processingEnvironment;
+        this.additionalNullableTypeUse = additionalNullableTypeUse;
     }
 
     @SuppressWarnings("unchecked")
@@ -162,12 +165,14 @@ public class VariableManifest {
      */
     public boolean nullable() {
         return !isPrimitive()
-                && annotations.stream().anyMatch(this::isNullableAnnotation)
+                && (additionalNullableTypeUse
+                || type.nullable()
+                || annotations.stream().anyMatch(this::isNullableAnnotation))
                 && annotations.stream().noneMatch(annotation -> annotation.type().is(Id.class));
     }
 
     private boolean isNullableAnnotation(AnnotationManifest<?> annotation) {
-        return annotation.type().is(Nullable.class) || "Nullable".equals(annotation.type().simpleName());
+        return "Nullable".equals(annotation.type().simpleName());
     }
 
     @Override
@@ -196,7 +201,7 @@ public class VariableManifest {
      */
     public VariableManifest withType(Class<?> type) {
         return new VariableManifest(element, TypeManifest.of(type, processingEnvironment), name, annotations,
-                processingEnvironment);
+                processingEnvironment, additionalNullableTypeUse);
     }
 
     /**
@@ -206,7 +211,13 @@ public class VariableManifest {
      * @return the resolved variable
      */
     public VariableManifest withType(TypeManifest type) {
-        return new VariableManifest(element, type, name, annotations, processingEnvironment);
+        return new VariableManifest(element, type, name, annotations, processingEnvironment, additionalNullableTypeUse);
+    }
+
+    VariableManifest withAdditionalNullableTypeUse(boolean nullableTypeUse) {
+        return nullableTypeUse && !additionalNullableTypeUse
+                ? new VariableManifest(element, type, name, annotations, processingEnvironment, true)
+                : this;
     }
 
     /**
@@ -217,7 +228,8 @@ public class VariableManifest {
      * @return a VariableManifest with the new name
      */
     public VariableManifest withName(String newName) {
-        return new VariableManifest(element, type, newName, annotations, processingEnvironment);
+        return new VariableManifest(element, type, newName, annotations, processingEnvironment,
+                additionalNullableTypeUse);
     }
 
     /**
@@ -239,7 +251,7 @@ public class VariableManifest {
             return this;
         }
         var merged = java.util.stream.Stream.concat(annotations.stream(), newAnnotations.stream()).toList();
-        return new VariableManifest(element, type, name, merged, processingEnvironment);
+        return new VariableManifest(element, type, name, merged, processingEnvironment, additionalNullableTypeUse);
     }
 
     /**

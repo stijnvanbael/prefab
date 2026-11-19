@@ -1,7 +1,7 @@
 package event.avro;
 
 import be.appify.prefab.core.annotations.Event;
-import jakarta.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 @Event(topic = "nullable", serialization = Event.Serialization.AVRO)
 public record NullableEvent(

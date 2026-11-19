@@ -463,8 +463,9 @@ OrderMother.builder().address(b -> b.city("Brussels")).build();
 
 #### Nullable record fields — `withoutX()`
 
-When a record field is annotated `@Nullable`, calling the raw setter with `null` would be ambiguous
-with the `Consumer` overload above. A dedicated `withoutX()` method is generated to avoid this:
+When a record field is annotated with JSpecify `@Nullable` (or a legacy annotation named `Nullable`), calling the
+raw setter with `null` would be ambiguous with the `Consumer` overload above. A dedicated `withoutX()` method is
+generated to avoid this:
 
 ```java
 // Unambiguously set a nullable nested record to null:

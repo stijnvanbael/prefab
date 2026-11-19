@@ -29,7 +29,14 @@
 
 Marks a class as an aggregate root — the primary domain entity managed by Prefab.
 
-**Attributes:** None
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `exposure` | `Exposure` | `Exposure.PUBLIC` | Default HTTP exposure for aggregate operations; operation annotations may override it. |
+| `plural` | `String` | `""` | Custom plural for generated paths and names. |
+
+`Exposure.INTERNAL` keeps generated service, repository and request/response artefacts while suppressing aggregate
+controller endpoints and their OpenAPI/test-client methods. A view may still expose a separately secured endpoint
+over an internal aggregate; see [Aggregate-bound frontend views](feature-guides.md#718-aggregate-bound-frontend-views).
 
 **Generated artefacts:**
 
@@ -257,12 +264,13 @@ All REST annotations are in package `be.appify.prefab.core.annotations.rest` wit
 
 ### `@Create`
 
-**Target:** `CONSTRUCTOR`, `METHOD`
+**Target:** `TYPE` (view create form), `CONSTRUCTOR`, `METHOD`
 
 Exposes a constructor (synchronous) or static factory method (`@AsyncCommit`) as an HTTP create endpoint.
 
 | Attribute  | Type        | Default                             | Description                                        |
 |------------|-------------|-------------------------------------|----------------------------------------------------|
+| `exposure` | `Exposure`  | `Exposure.INHERIT`                  | Aggregate-operation HTTP exposure override.        |
 | `method`   | `String`    | `"POST"`                            | HTTP method. Use constants from `HttpMethod`.      |
 | `path`     | `String`    | `""`                                | Path suffix appended to the aggregate's base path. |
 | `security` | `@Security` | `@Security` (enabled, no authority) | Security settings.                                 |
@@ -277,6 +285,11 @@ public Order(String customerName) {
 }
 ```
 
+On a record annotated with `@ViewOf`, type-level `@Create` declares a create form. Add a public, no-argument
+`toRequest()` returning the generated `Create{Aggregate}Request`; Prefab generates a transactional adapter and
+POST endpoint. This shorthand currently supports aggregates with one request-based `@Create` constructor and no
+parent or custom create path.
+
 ---
 
 ### `@Update`
@@ -287,6 +300,7 @@ Exposes an instance method as an HTTP update endpoint.
 
 | Attribute  | Type        | Default     | Description                                                                     |
 |------------|-------------|-------------|---------------------------------------------------------------------------------|
+| `exposure` | `Exposure`  | `Exposure.INHERIT` | Aggregate-operation HTTP exposure override.                                 |
 | `method`   | `String`    | `"PUT"`     | HTTP method.                                                                    |
 | `path`     | `String`    | `""`        | Path suffix appended after `/{id}`. E.g. `"/lines"` → `PUT /orders/{id}/lines`. |
 | `security` | `@Security` | `@Security` | Security settings.                                                              |
@@ -360,6 +374,7 @@ Exposes a delete endpoint. On a type, performs a plain delete. On a method, the 
 
 | Attribute  | Type        | Default     | Description                 |
 |------------|-------------|-------------|-----------------------------|
+| `exposure` | `Exposure`  | `Exposure.INHERIT` | Aggregate-operation HTTP exposure override. |
 | `method`   | `String`    | `"DELETE"`  | HTTP method.                |
 | `path`     | `String`    | `"/{id}"`   | Full path for the endpoint. |
 | `security` | `@Security` | `@Security` | Security settings.          |
@@ -382,6 +397,7 @@ Exposes a get-by-ID endpoint.
 
 | Attribute  | Type        | Default     | Description        |
 |------------|-------------|-------------|--------------------|
+| `exposure` | `Exposure`  | `Exposure.INHERIT` | Aggregate-operation HTTP exposure override. |
 | `method`   | `String`    | `"GET"`     | HTTP method.       |
 | `path`     | `String`    | `"/{id}"`   | Full path.         |
 | `security` | `@Security` | `@Security` | Security settings. |
@@ -406,6 +422,7 @@ Exposes a paginated list endpoint. Combine with `@Filter` on fields to enable fi
 
 | Attribute     | Type          | Default     | Description                                                                                          |
 |---------------|---------------|-------------|------------------------------------------------------------------------------------------------------|
+| `exposure`    | `Exposure`    | `Exposure.INHERIT` | Aggregate-operation HTTP exposure override.                                                        |
 | `method`      | `String`      | `"GET"`     | HTTP method.                                                                                         |
 | `path`        | `String`      | `""`        | Path suffix (defaults to base path of aggregate).                                                    |
 | `security`    | `@Security`   | `@Security` | Security settings.                                                                                   |
@@ -427,6 +444,42 @@ public record Order(
 
 **Generated endpoint:** `GET /orders?page=0&size=20&customerName=foo` → returns `Page<OrderResponse>`.
 Without `sort`, results are ordered by `customerName` ascending, then `id` descending. `?sort=version,desc` ignores the default.
+
+### `@ViewOf`
+
+**Target:** `TYPE` (record)
+
+Binds a frontend view record to the aggregate service that supplies source rows. Add `@GetById` and/or `@GetList`
+to the view; the aggregate must provide the corresponding operation. Prefab generates a view service, controller,
+test client and mother. List views reuse aggregate filters, tenant scoping, paging and total counts.
+
+```java
+@ViewOf(Product.class)
+@GetList(security = @Security(role = "USER"))
+public record ProductListItem(String name) {
+    public ProductListItem(Product product) {
+        this(product.name());
+    }
+}
+```
+
+Mapping order is matching component name/type, public constructor or static `from(Product)`, then a Spring
+`ViewAssembler<Product, ProductListItem>`. An assembler receives the entire scoped page and `ViewContext` and must
+return one result per source row. For computed or enriched views, see
+[Aggregate-bound frontend views](feature-guides.md#718-aggregate-bound-frontend-views).
+
+### `Exposure`
+
+`be.appify.prefab.core.annotations.Exposure` controls whether aggregate operations are exposed remotely:
+
+| Value | Meaning |
+|-------|---------|
+| `PUBLIC` | Generate the operation's HTTP endpoint (the default aggregate behavior). |
+| `INTERNAL` | Generate in-process service operations and records, but no aggregate HTTP endpoint or HTTP test method. |
+| `INHERIT` | On an operation annotation, use the aggregate's exposure setting. |
+
+`Exposure` is the visibility gate; the planned TASK-127 `endpoints` attribute selects transport strategies. Views
+and `ViewCommands` define separate HTTP surfaces and must set their own endpoint security.
 
 **Programmatic queries:** for every `@GetList` aggregate Prefab also generates an `<Aggregate>Query` class (in the
 `application` package) and a `getList(<Aggregate>Query)` overload on the service. The builder has `page` (zero-based,
@@ -1538,15 +1591,16 @@ See [Feature Guides — Repository Mixins](feature-guides.md#710-repository-mixi
 
 | Annotation            | Target                    | Retention | Purpose                                                                                                                                                                                                                                                               |
 |-----------------------|---------------------------|-----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `@Aggregate`          | Type                      | RUNTIME   | Marks an aggregate root                                                                                                                                                                                                                                               |
+| `@Aggregate`          | Type                      | RUNTIME   | Marks an aggregate root; configures default HTTP exposure                                                                                                                                                                                                             |
 | `@AsyncCommit`        | Type, Constructor, Method | SOURCE    | Async-commit (listen-to-self) pattern. At **type level**: all `@Create` and `@Update` methods become async (202, no `repository.save()`). At **method level**: only that method is async. `@Create` methods must be `void` and call `PublishesEvents.publishEvent()`. |
 | `@CustomType`         | Type                      | RUNTIME   | Opt out of automatic field mapping                                                                                                                                                                                                                                    |
 | `@Generate`           | Type                      | SOURCE    | Per-aggregate plugin override (`enabled` and output `target`)                                                                                                                                                                                                         |
-| `@Create`             | Constructor, Method       | SOURCE    | HTTP create endpoint                                                                                                                                                                                                                                                  |
+| `@Create`             | Type, Constructor, Method | SOURCE    | HTTP create endpoint or a `@ViewOf` create form                                                                                                                                                                                                                       |
 | `@Update`             | Method                    | SOURCE    | HTTP update endpoint                                                                                                                                                                                                                                                  |
 | `@Delete`             | Type, Method              | SOURCE    | HTTP delete endpoint                                                                                                                                                                                                                                                  |
 | `@GetById`            | Type                      | SOURCE    | HTTP get-by-ID endpoint                                                                                                                                                                                                                                               |
 | `@GetList`            | Type                      | SOURCE    | HTTP paginated list endpoint                                                                                                                                                                                                                                          |
+| `@ViewOf`             | Type                      | SOURCE    | Binds a frontend view record to its aggregate service                                                                                                                                                                                                                |
 | `@Filter`             | Field                     | SOURCE    | Enable filtering on `@GetList`                                                                                                                                                                                                                                        |
 | `@Download`           | Field                     | SOURCE    | HTTP binary download endpoint                                                                                                                                                                                                                                         |
 | `@Streaming`          | Method                    | SOURCE    | SSE streaming endpoint                                                                                                                                                                                                                                                |

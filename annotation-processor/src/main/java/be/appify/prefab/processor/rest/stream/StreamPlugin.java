@@ -1,11 +1,13 @@
 package be.appify.prefab.processor.rest.stream;
 
+import be.appify.prefab.core.annotations.Exposure;
 import be.appify.prefab.core.annotations.ByReference;
 import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.annotations.rest.Streaming;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
+import be.appify.prefab.processor.rest.ExposureResolver;
 import be.appify.prefab.processor.TypeManifest;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
@@ -15,6 +17,7 @@ import java.util.Set;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
 
 /**
@@ -53,6 +56,9 @@ public class StreamPlugin implements PrefabPlugin {
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
+        if (!ExposureResolver.isPublic((TypeElement) manifest.element(), Exposure.INHERIT)) {
+            return;
+        }
         pullStreamMethods(manifest).forEach(method -> {
             var annotation = method.getAnnotation(Streaming.class);
             var returnType = TypeManifest.of(method.getReturnType(), context.processingEnvironment());
@@ -125,4 +131,3 @@ public class StreamPlugin implements PrefabPlugin {
                 || "Flux".equals(type.simpleName()) && "reactor.core.publisher".equals(type.packageName());
     }
 }
-

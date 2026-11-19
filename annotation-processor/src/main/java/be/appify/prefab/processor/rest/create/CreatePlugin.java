@@ -10,6 +10,7 @@ import be.appify.prefab.processor.FileOutput;
 import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.rest.RestOperationPlugin;
+import be.appify.prefab.processor.rest.ExposureResolver;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
@@ -23,6 +24,7 @@ import java.util.WeakHashMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 
 /**
  * Plugin that handles the @Create annotation to generate controller methods, service methods, request records, and test client methods for
@@ -45,11 +47,18 @@ public class CreatePlugin extends RestOperationPlugin {
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
         var asyncFactories = asyncCreateFactoriesOf(manifest);
-        asyncFactories.forEach(factory ->
-                builder.addMethod(asyncControllerWriter.createMethod(manifest, factory, context())));
+        asyncFactories.stream()
+                .filter(factory -> ExposureResolver.isPublic((TypeElement) manifest.element(),
+                        factory.getAnnotation(Create.class).exposure()))
+                .forEach(factory -> builder.addMethod(asyncControllerWriter.createMethod(manifest, factory, context())));
         if (asyncFactories.isEmpty()) {
             createConstructorOf(manifest).ifPresent(createConstructor ->
-                    builder.addMethod(controllerWriter.createMethod(manifest, createConstructor, context())));
+                    {
+                        if (ExposureResolver.isPublic((TypeElement) manifest.element(),
+                                createConstructor.getAnnotation(Create.class).exposure())) {
+                            builder.addMethod(controllerWriter.createMethod(manifest, createConstructor, context()));
+                        }
+                    });
         }
     }
 
@@ -67,11 +76,20 @@ public class CreatePlugin extends RestOperationPlugin {
     @Override
     public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
         var asyncFactories = asyncCreateFactoriesOf(manifest);
-        asyncFactories.forEach(factory ->
-                testClientWriter.asyncCreateMethods(manifest, factory, context()).forEach(builder::addMethod));
+        asyncFactories.stream()
+                .filter(factory -> ExposureResolver.isPublic((TypeElement) manifest.element(),
+                        factory.getAnnotation(Create.class).exposure()))
+                .forEach(factory -> testClientWriter.asyncCreateMethods(manifest, factory, context())
+                        .forEach(builder::addMethod));
         if (asyncFactories.isEmpty()) {
             createConstructorOf(manifest).ifPresent(createConstructor ->
-                    testClientWriter.createMethods(manifest, createConstructor, context()).forEach(builder::addMethod));
+                    {
+                        if (ExposureResolver.isPublic((TypeElement) manifest.element(),
+                                createConstructor.getAnnotation(Create.class).exposure())) {
+                            testClientWriter.createMethods(manifest, createConstructor, context())
+                                    .forEach(builder::addMethod);
+                        }
+                    });
         }
     }
 
@@ -146,10 +164,19 @@ public class CreatePlugin extends RestOperationPlugin {
         var grouped = groupSubtypesByPath(manifest);
         grouped.forEach((pathKey, entries) -> {
             if (isUnionGroup(entries)) {
-                builder.addMethod(controllerWriter.createDispatchMethodForPolymorphic(manifest, entries));
+                var publicEntries = entries.stream()
+                        .filter(e -> ExposureResolver.isPublic(
+                                (TypeElement) e.getKey().element(), e.getValue().getAnnotation(Create.class).exposure()))
+                        .toList();
+                if (!publicEntries.isEmpty()) {
+                    builder.addMethod(controllerWriter.createDispatchMethodForPolymorphic(manifest, publicEntries));
+                }
             } else {
-                entries.forEach(e -> builder.addMethod(
-                        controllerWriter.createMethodForPolymorphic(manifest, e.getKey(), e.getValue(), context())));
+                entries.stream()
+                        .filter(e -> ExposureResolver.isPublic(
+                                (TypeElement) e.getKey().element(), e.getValue().getAnnotation(Create.class).exposure()))
+                        .forEach(e -> builder.addMethod(
+                                controllerWriter.createMethodForPolymorphic(manifest, e.getKey(), e.getValue(), context())));
             }
         });
     }
@@ -172,13 +199,20 @@ public class CreatePlugin extends RestOperationPlugin {
     public void writePolymorphicTestClient(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
         var grouped = groupSubtypesByPath(manifest);
         grouped.forEach((pathKey, entries) -> {
+            var publicEntries = entries.stream()
+                    .filter(e -> ExposureResolver.isPublic(
+                            (TypeElement) e.getKey().element(), e.getValue().getAnnotation(Create.class).exposure()))
+                    .toList();
+            if (publicEntries.isEmpty()) {
+                return;
+            }
             if (isUnionGroup(entries)) {
-                var create = entries.getFirst().getValue().getAnnotation(Create.class);
+                var create = publicEntries.getFirst().getValue().getAnnotation(Create.class);
                 builder.addMethod(testClientWriter.baseCreateMethodForPolymorphic(manifest, create));
-                entries.forEach(e -> testClientWriter.createMethodsForPolymorphicUnion(manifest, e, context())
+                publicEntries.forEach(e -> testClientWriter.createMethodsForPolymorphicUnion(manifest, e, context())
                         .forEach(builder::addMethod));
             } else {
-                entries.forEach(e -> testClientWriter.createMethodsForPolymorphic(manifest, e.getKey(), e.getValue(), context())
+                publicEntries.forEach(e -> testClientWriter.createMethodsForPolymorphic(manifest, e.getKey(), e.getValue(), context())
                         .forEach(builder::addMethod));
             }
         });

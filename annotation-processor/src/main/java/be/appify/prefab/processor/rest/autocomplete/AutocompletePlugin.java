@@ -1,8 +1,11 @@
 package be.appify.prefab.processor.rest.autocomplete;
 
+import be.appify.prefab.core.annotations.Exposure;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabPlugin;
+import be.appify.prefab.processor.rest.ExposureResolver;
 import com.palantir.javapoet.TypeSpec;
+import javax.lang.model.element.TypeElement;
 
 /**
  * Prefab plugin that contributes repository autocomplete methods for fields annotated with @Autocomplete.
@@ -16,7 +19,9 @@ public class AutocompletePlugin implements PrefabPlugin {
 
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
-        controllerWriter.autocompleteMethods(manifest).forEach(builder::addMethod);
+        if (hasPublicAggregateExposure(manifest)) {
+            controllerWriter.autocompleteMethods(manifest).forEach(builder::addMethod);
+        }
     }
 
     @Override
@@ -31,7 +36,12 @@ public class AutocompletePlugin implements PrefabPlugin {
 
     @Override
     public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
-        testClientWriter.autocompleteMethods(manifest).forEach(builder::addMethod);
+        if (hasPublicAggregateExposure(manifest)) {
+            testClientWriter.autocompleteMethods(manifest).forEach(builder::addMethod);
+        }
+    }
+
+    private static boolean hasPublicAggregateExposure(ClassManifest manifest) {
+        return ExposureResolver.isPublic((TypeElement) manifest.element(), Exposure.INHERIT);
     }
 }
-

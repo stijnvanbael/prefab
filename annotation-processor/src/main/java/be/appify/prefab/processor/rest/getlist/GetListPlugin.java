@@ -10,6 +10,7 @@ import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.rest.ExposureResolver;
 import be.appify.prefab.processor.rest.RestOperationPlugin;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
@@ -19,6 +20,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.lang.model.element.TypeElement;
 
 import static be.appify.prefab.processor.rest.getlist.GetListUtil.declaredFiltersOf;
 import static be.appify.prefab.processor.rest.getlist.GetListUtil.filterPropertiesOf;
@@ -40,7 +42,8 @@ public class GetListPlugin extends RestOperationPlugin {
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
         getListAnnotation(manifest).ifPresent(getList -> {
-            if (defaultSortIsValid(manifest, getList)) {
+            if (ExposureResolver.isPublic((TypeElement) manifest.element(), getList.exposure())
+                    && defaultSortIsValid(manifest, getList)) {
                 builder.addMethod(controllerWriter.getListMethod(manifest, getList));
             }
         });
@@ -204,8 +207,10 @@ public class GetListPlugin extends RestOperationPlugin {
 
     @Override
     public void writePolymorphicController(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
-        manifest.annotationsOfType(GetList.class).stream().findFirst().ifPresent(getList ->
-                builder.addMethod(controllerWriter.getListMethod(manifest, getList)));
+        manifest.annotationsOfType(GetList.class).stream().findFirst()
+                .filter(getList -> ExposureResolver.isPublic(
+                        (TypeElement) manifest.type().asElement(), getList.exposure()))
+                .ifPresent(getList -> builder.addMethod(controllerWriter.getListMethod(manifest, getList)));
     }
 
     @Override
@@ -218,6 +223,7 @@ public class GetListPlugin extends RestOperationPlugin {
     @Override
     public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
         getListAnnotation(manifest)
+                .filter(getList -> ExposureResolver.isPublic((TypeElement) manifest.element(), getList.exposure()))
                 .map(getList -> testClientWriter.getListMethod(manifest))
                 .ifPresent(builder::addMethod);
     }
@@ -225,6 +231,8 @@ public class GetListPlugin extends RestOperationPlugin {
     @Override
     public void writePolymorphicTestClient(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
         manifest.annotationsOfType(GetList.class).stream().findFirst()
+                .filter(getList -> ExposureResolver.isPublic(
+                        (TypeElement) manifest.type().asElement(), getList.exposure()))
                 .map(ignored -> testClientWriter.getListMethodForPolymorphic(manifest))
                 .ifPresent(builder::addMethod);
     }

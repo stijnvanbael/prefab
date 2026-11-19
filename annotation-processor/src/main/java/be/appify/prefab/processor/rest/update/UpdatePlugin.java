@@ -11,6 +11,7 @@ import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.rest.PathVariables;
+import be.appify.prefab.processor.rest.ExposureResolver;
 import be.appify.prefab.processor.rest.RestOperationPlugin;
 import com.palantir.javapoet.TypeSpec;
 import java.util.LinkedHashMap;
@@ -22,6 +23,7 @@ import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 
 import static org.apache.commons.text.WordUtils.capitalize;
 
@@ -40,7 +42,13 @@ public class UpdatePlugin extends RestOperationPlugin {
     @Override
     public void writeController(ClassManifest manifest, TypeSpec.Builder builder) {
         updateMethodsOf(manifest).forEach(update ->
-                builder.addMethod(updateControllerWriter.updateMethod(manifest, update, context())));
+                {
+                    if (ExposureResolver.isPublic(
+                            (TypeElement) manifest.element(),
+                            update.element().getAnnotation(Update.class).exposure())) {
+                        builder.addMethod(updateControllerWriter.updateMethod(manifest, update, context()));
+                    }
+                });
     }
 
     @Override
@@ -111,8 +119,12 @@ public class UpdatePlugin extends RestOperationPlugin {
 
     @Override
     public void writeTestClient(ClassManifest manifest, TypeSpec.Builder builder) {
-        updateMethodsOf(manifest).forEach(update ->
-                updateTestClientWriter.updateMethods(manifest, update, context()).forEach(builder::addMethod));
+        updateMethodsOf(manifest).stream()
+                .filter(update -> ExposureResolver.isPublic(
+                        (TypeElement) manifest.element(),
+                        update.element().getAnnotation(Update.class).exposure()))
+                .forEach(update -> updateTestClientWriter.updateMethods(manifest, update, context())
+                        .forEach(builder::addMethod));
     }
 
     @Override
@@ -203,7 +215,8 @@ public class UpdatePlugin extends RestOperationPlugin {
                                     || element.getAnnotationsByType(AsyncCommit.class).length > 0,
                             update.method(),
                             update.path(),
-                            update.security());
+                            update.security(),
+                            element);
                 })
                 .toList();
     }

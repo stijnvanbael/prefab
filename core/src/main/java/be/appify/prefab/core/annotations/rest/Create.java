@@ -1,5 +1,6 @@
 package be.appify.prefab.core.annotations.rest;
 
+import be.appify.prefab.core.annotations.Exposure;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -13,9 +14,16 @@ import java.lang.annotation.Target;
  * the target must be a {@code public static} method returning the event type; the processor will call
  * it, publish the returned event, and return {@code 202 Accepted}.
  */
-@Target({ElementType.CONSTRUCTOR, ElementType.METHOD})
+@Target({ElementType.TYPE, ElementType.CONSTRUCTOR, ElementType.METHOD})
 @Retention(RetentionPolicy.SOURCE)
 public @interface Create {
+    /**
+     * Overrides the aggregate's default HTTP exposure for this operation.
+     *
+     * @return the exposure override, or {@link Exposure#INHERIT}
+     */
+    Exposure exposure() default Exposure.INHERIT;
+
     /**
      * The HTTP method to use for this endpoint. Default is POST.
      *

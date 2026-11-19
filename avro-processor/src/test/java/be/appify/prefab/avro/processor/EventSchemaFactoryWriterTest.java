@@ -165,7 +165,7 @@ class EventSchemaFactoryWriterTest {
         var nullableSource = JavaFileObjects.forSourceString("event.avro.NullableEvent", """
                 package event.avro;
                 import be.appify.prefab.core.annotations.Event;
-                import jakarta.annotation.Nullable;
+                import org.jspecify.annotations.Nullable;
                 @Event(topic = "nullable", serialization = Event.Serialization.AVRO)
                 public record NullableEvent(String id, String name, @Nullable String description) {}
                 """);
@@ -179,6 +179,25 @@ class EventSchemaFactoryWriterTest {
         assertThat(secondCompilation).succeeded();
         assertThat(generatedSourceOf(secondCompilation, "event.avro.infrastructure.avro.NullableEventSchemaFactory"))
                 .contains("SchemaSupport.createNullableSchema");
+    }
+
+    @Test
+    void legacyNullableMarkerRemainsOptional() {
+        var compilation = javac().withProcessors(new PrefabProcessor()).compile(
+                JavaFileObjects.forSourceString("event.avro.LegacyNullableEvent", """
+                        package event.avro;
+                        import be.appify.prefab.core.annotations.Event;
+                        @Event(topic = "legacy-nullable", serialization = Event.Serialization.AVRO)
+                        public record LegacyNullableEvent(
+                                String id,
+                                @jakarta.annotation.Nullable String description
+                        ) {}
+                        """));
+
+        assertThat(compilation).succeeded();
+        assertThat(generatedSourceOf(
+                compilation, "event.avro.infrastructure.avro.LegacyNullableEventSchemaFactory"))
+                .contains("SchemaSupport.createNullableSchema(");
     }
 
     @Test

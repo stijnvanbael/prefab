@@ -11,7 +11,6 @@ import com.fasterxml.jackson.core.util.DefaultIndenter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -236,7 +235,7 @@ class EventSchemaDocumentationWriter {
         schema.set("properties", properties);
         
         var required = fields.stream()
-                .filter(f -> !f.hasAnnotation(Nullable.class))
+                .filter(f -> !f.nullable())
                 .map(VariableManifest::name)
                 .toList();
         

@@ -115,7 +115,7 @@ public class AvscPlugin implements PrefabPlugin {
             }
             registry.registerAll(definition.path(), schema, element);
             writer.writeAll(schema, eventAnnotation.topic(), eventAnnotation.platform(), contractPackage, contractInterface,
-                    generateAnnotationSpecs, interfaceImplementations);
+                    generateAnnotationSpecs, interfaceImplementations, typeElement);
         }
     }
 

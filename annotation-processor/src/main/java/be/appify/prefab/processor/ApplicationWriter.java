@@ -29,10 +29,12 @@ class ApplicationWriter {
     }
 
     void writeApplicationLayer(ClassManifest manifest) {
+        fileWriter.setOriginatingElements(manifest.type().asElement());
         writeService(manifest);
     }
 
     void writePolymorphicApplicationLayer(PolymorphicAggregateManifest manifest) {
+        fileWriter.setOriginatingElements(manifest.type().asElement());
         writePolymorphicService(manifest);
     }
 

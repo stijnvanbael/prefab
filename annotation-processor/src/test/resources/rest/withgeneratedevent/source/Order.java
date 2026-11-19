@@ -4,7 +4,7 @@ import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.service.Reference;
-import jakarta.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
 import org.springframework.data.annotation.Id;
@@ -29,4 +29,3 @@ public record Order(
         this(Reference.create(), 0L, description, null);
     }
 }
-

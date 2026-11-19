@@ -11,7 +11,9 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeSpec;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
 
 import static be.appify.prefab.processor.rest.ControllerUtil.writeRecord;
 import static org.apache.commons.text.WordUtils.capitalize;
@@ -24,6 +26,7 @@ class UpdateRequestRecordWriter {
             RequestParameterBuilder parameterBuilder,
             String builderSetterPrefix
     ) {
+        fileWriter.setOriginatingElements(manifest.type().asElement());
         var name = "%s%sRequest".formatted(manifest.simpleName(), capitalize(update.operationName()));
         var type = writeRecord(ClassName.get(manifest.packageName() + ".application", name), update.requestParameters(),
                 parameterBuilder, builderSetterPrefix);
@@ -37,6 +40,10 @@ class UpdateRequestRecordWriter {
             RequestParameterBuilder parameterBuilder,
             String builderSetterPrefix
     ) {
+        fileWriter.setOriginatingElements(Stream.concat(
+                Stream.of(polymorphic.type().asElement()),
+                group.stream().map(entry -> entry.getKey().type().asElement()))
+                .toArray(TypeElement[]::new));
         var operationName = capitalize(group.getFirst().getValue().operationName());
         var unionName = "%s%sRequest".formatted(polymorphic.simpleName(), operationName);
         var unionClass = ClassName.get(polymorphic.packageName() + ".application", unionName);

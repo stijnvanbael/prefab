@@ -19,6 +19,7 @@ import com.palantir.javapoet.TypeSpec;
 import java.util.Arrays;
 import java.util.Optional;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -51,6 +52,7 @@ public class EventTypeRegistrarWriter {
      * @param event the event type manifest
      */
     public void writeRegistrar(TypeManifest event) {
+        fileOutput.setOriginatingElements(event.asElement());
         for (var annotation : event.asElement().getAnnotationsByType(Event.class)) {
             var binding = EventBindings.typeOf(event.asElement(), annotation, context);
             var simpleName = event.simpleName().replace(".", "") + EventBindings.suffix(binding);
@@ -75,6 +77,13 @@ public class EventTypeRegistrarWriter {
 
     public void writeAvscRegistrar(String packageName, ClassName eventType, String[] topics,
                                    PublishTo publishTo, Optional<CodeBlock> keyExtractor) {
+        writeAvscRegistrar(packageName, eventType, topics, publishTo, keyExtractor, Optional.empty());
+    }
+
+    public void writeAvscRegistrar(String packageName, ClassName eventType, String[] topics,
+                                   PublishTo publishTo, Optional<CodeBlock> keyExtractor,
+                                   Optional<TypeElement> originatingElement) {
+        originatingElement.ifPresent(fileOutput::setOriginatingElements);
         var name = registrarName(eventType.simpleName());
         var type = buildRegistrarType(packageName, name, topics, Event.Serialization.AVRO,
                 publishTo, eventType.simpleName(), eventType, keyExtractor);

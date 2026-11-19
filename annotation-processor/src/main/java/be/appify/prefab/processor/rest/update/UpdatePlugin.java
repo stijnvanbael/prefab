@@ -105,6 +105,7 @@ public class UpdatePlugin extends RestOperationPlugin {
                 update.requestParameters(),
                 context().requestParameterBuilder(),
                 context().builderSetterPrefix());
+        fileWriter.setOriginatingElements(subtype.type().asElement());
         fileWriter.writeFile(polymorphic.packageName(), name, type);
     }
 

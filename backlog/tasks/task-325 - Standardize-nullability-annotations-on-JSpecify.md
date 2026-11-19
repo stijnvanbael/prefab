@@ -1,7 +1,7 @@
 ---
 id: TASK-325
 title: Standardize nullability annotations on JSpecify instead of Jakarta
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-16 16:16'
 labels: [annotation-processor, dx, refactor]
@@ -27,7 +27,7 @@ JSpecify describes nullness, not runtime validation or bean lifecycle. Retain Ja
 - [x] #4 Define an explicit compatibility policy for legacy Jakarta nullability annotations. Prefer continued recognition during migration while emitting only JSpecify; document precedence and any planned deprecation rather than silently treating existing nullable fields as required.
 - [x] #5 Use `@NullMarked`, `@NullUnmarked` and `@NonNull` only where their scopes and exceptions are deliberate and verified. Do not enable package-wide checking by mass annotation if existing contracts cannot satisfy it; reuse existing null-safety tooling and track broader enforcement separately if needed.
 - [x] #6 Preserve Jakarta runtime validation and lifecycle behavior and retain necessary dependencies; ensure published modules expose the JSpecify dependency needed to compile their public/generated contracts.
-- [ ] #7 Add compilation and schema regressions for JSpecify and legacy inputs, nullable records and nested collections, generated AVSC fields and cross-module usage. Verify native IntelliJ incremental annotation discovery as well as Maven compilation.
+- [x] #7 Add compilation and schema regressions for JSpecify and legacy inputs, nullable records and nested collections, generated AVSC fields and cross-module usage. Verify native IntelliJ incremental annotation discovery as well as Maven compilation.
 - [x] #8 Update annotation/feature guides and migration instructions with supported imports, type-use placement, default semantics and the difference between static nullness and runtime validation.
 <!-- AC:END -->
 
@@ -72,4 +72,5 @@ TASK-003's acceptance checklist is not checked despite its Done status, so verif
 - Migrated production examples, test fixtures and generated AVSC annotations to `org.jspecify.annotations.Nullable`. Added direct JSpecify dependencies to public/runtime and processor modules. Jakarta validation and lifecycle annotations were not changed.
 - Event baselines normalize annotated component types before comparison, so replacing Jakarta `@Nullable` with JSpecify does not change event type fingerprints. Targeted coverage confirms both annotations retain optional semantics.
 - `mvn -DskipTests package` passed for all 22 reactor modules, including test compilation and examples. The full `mvn test` run passed through Kafka support but the Avro example integration test could not pull `confluentinc/cp-schema-registry:8.4.0` after a network reset; all downstream tests were skipped.
-- Native IntelliJ incremental compilation could not be run with the available tooling. Compiler-model regressions cover record components, backing fields, accessors, parameters, arrays, nested generic elements and fresh snapshots; this is the remaining verification item.
+- Native IntelliJ incremental compilation could not be run with the available tooling. Compiler-model regressions cover record components, backing fields, accessors, parameters, arrays, nested generic elements and fresh snapshots.
+- On 2026-11-19, the user confirmed CI is green and approved checking criterion #7 for now; they will exercise native IntelliJ incremental compilation during normal development. It has not yet been independently verified here.

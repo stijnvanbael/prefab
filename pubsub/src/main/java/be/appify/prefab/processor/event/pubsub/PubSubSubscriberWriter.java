@@ -24,7 +24,9 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -60,6 +62,11 @@ class PubSubSubscriberWriter {
         var name = "%sPubSubSubscriber".formatted(owner.simpleName());
         var packageName = TypeManifest.of(eventHandlers.getFirst().getEnclosingElement().asType(),
                 context.processingEnvironment()).packageName();
+        fileWriter.setOriginatingElements(Stream.concat(
+                        Stream.of(owner.asElement()),
+                        eventHandlers.stream().map(handler -> support.rootEventType(handler, context).asElement()))
+                .distinct()
+                .toArray(TypeElement[]::new));
 
         var topicList = eventHandlers.stream()
                 .map(e -> EventBindings.annotationFor(support.rootEventType(e, context)).topic())

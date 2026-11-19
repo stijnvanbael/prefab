@@ -63,7 +63,7 @@ public class AvscSnapshotPlugin implements PrefabPlugin {
         var records = new LinkedHashMap<String, TypeSpec>();
         var rootName = annotation.name().isBlank() ? schema.getName() : annotation.name();
         collect(schema, rootName, packageName, records);
-        records.values().forEach(spec -> write(JavaFile.builder(packageName, spec).build(), element));
+        records.forEach((name, spec) -> write(JavaFile.builder(packageName, spec).build(), element, name));
     }
 
     private void collect(Schema schema, String name, String packageName, Map<String, TypeSpec> records) {
@@ -136,9 +136,16 @@ public class AvscSnapshotPlugin implements PrefabPlugin {
         return Files.exists(file) ? Files.newInputStream(file) : null;
     }
 
-    private void write(JavaFile file, TypeElement element) {
+    private void write(JavaFile file, TypeElement element, String typeName) {
         try {
-            file.writeTo(context.processingEnvironment().getFiler());
+            var qualifiedName = file.packageName().isBlank()
+                    ? typeName
+                    : "%s.%s".formatted(file.packageName(), typeName);
+            var generatedFile = context.processingEnvironment().getFiler()
+                    .createSourceFile(qualifiedName, element);
+            try (var writer = generatedFile.openWriter()) {
+                file.writeTo(writer);
+            }
         } catch (IOException e) {
             error("Failed to write snapshot record: " + e.getMessage(), element);
         }

@@ -4,6 +4,7 @@ import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 import javax.tools.StandardLocation;
@@ -76,9 +77,13 @@ class AggregateManifestFile {
      */
     void save(List<ClassManifest> classManifests, List<PolymorphicAggregateManifest> polymorphicManifests) {
         var names = aggregateNames(classManifests, polymorphicManifests);
+        var originatingElements = Stream.concat(
+                classManifests.stream().map(manifest -> manifest.type().asElement()),
+                polymorphicManifests.stream().map(manifest -> manifest.type().asElement())
+        ).toArray(Element[]::new);
         try {
             var resource = processingEnvironment.getFiler().createResource(
-                    StandardLocation.CLASS_OUTPUT, MANIFEST_PACKAGE, MANIFEST_NAME);
+                    StandardLocation.CLASS_OUTPUT, MANIFEST_PACKAGE, MANIFEST_NAME, originatingElements);
             var writer = new StringWriter();
             names.forEach(name -> writer.write(name + "\n"));
             try (var out = resource.openWriter()) {
@@ -123,7 +128,6 @@ class AggregateManifestFile {
         ).collect(Collectors.toSet());
     }
 }
-
 
 
 

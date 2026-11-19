@@ -2,7 +2,7 @@ package tenant.nullable;
 
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.TenantId;
-import jakarta.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.UUID;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;

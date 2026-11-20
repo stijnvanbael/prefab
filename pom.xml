@@ -30,6 +30,9 @@
         <module>examples/pubsub</module>
         <module>examples/sns-sqs</module>
         <module>examples/mongodb</module>
+        <module>examples/showcase</module>
+        <module>examples/showcase-variant-parent</module>
+        <module>examples/showcase-mongodb</module>
         <module>kafka</module>
         <module>pubsub</module>
         <module>sns-sqs</module>

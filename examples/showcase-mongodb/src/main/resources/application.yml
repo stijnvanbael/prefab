@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: prefab.showcase-mongodb
+  data:
+    mongodb:
+      auto-index-creation: true
+
+error.handling:
+  exception-logging: WITH_STACKTRACE

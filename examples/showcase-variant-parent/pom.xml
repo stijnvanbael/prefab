@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>be.appify.prefab</groupId>
+        <artifactId>prefab-parent</artifactId>
+        <version>0.13.3-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>showcase-variant-parent</artifactId>
+    <packaging>pom</packaging>
+    <name>Prefab Showcase Variant Parent</name>
+    <description>
+        Shared build of the showcase variants. A variant recompiles the hand-written showcase sources and tests against
+        its own technology dependencies, so the annotation processor generates code for that technology.
+        A variant pom only lists its technology dependencies and brings its own configuration. See ADR decision-007.
+    </description>
+
+    <properties>
+        <!--
+            The unpacked sources mimic a module layout (src/main/java, src/test/java) so the annotation processor
+            resolves this directory as the project root: generated test clients land in its target/prefab-test-sources
+            and manual overrides in the showcase tests are honoured.
+        -->
+        <showcase.directory>${project.build.directory}/showcase</showcase.directory>
+    </properties>
+
+    <dependencies>
+        <!--
+            The sources to recompile. Only the classifiers are used, never the compiled showcase jar, and none of its
+            dependencies: the reference stack (Postgres + Kafka) must not leak into a variant.
+        -->
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>showcase-example</artifactId>
+            <version>${project.version}</version>
+            <classifier>showcase-sources</classifier>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>showcase-example</artifactId>
+            <version>${project.version}</version>
+            <classifier>showcase-test-sources</classifier>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-annotation-processor</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Start from a fresh copy, so sources deleted from the showcase do not linger in a variant -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>clean-showcase-sources</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                        <configuration>
+                            <excludeDefaultDirectories>true</excludeDefaultDirectories>
+                            <!--
+                                Generated test clients in target/prefab-test-sources are kept: the processor only
+                                regenerates them when the main sources are recompiled.
+                            -->
+                            <filesets>
+                                <fileset>
+                                    <directory>${showcase.directory}/src</directory>
+                                </fileset>
+                                <fileset>
+                                    <directory>${showcase.directory}/markers</directory>
+                                </fileset>
+                            </filesets>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <!-- Markers live with the unpacked sources, so cleaning those forces a fresh unpack -->
+                    <markersDirectory>${showcase.directory}/markers</markersDirectory>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>unpack-showcase-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>unpack-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <includeArtifactIds>showcase-example</includeArtifactIds>
+                            <includeClassifiers>showcase-sources</includeClassifiers>
+                            <excludes>META-INF/**</excludes>
+                            <outputDirectory>${showcase.directory}/src/main/java</outputDirectory>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>unpack-showcase-test-sources</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>unpack-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <includeArtifactIds>showcase-example</includeArtifactIds>
+                            <includeClassifiers>showcase-test-sources</includeClassifiers>
+                            <excludes>META-INF/**</excludes>
+                            <outputDirectory>${showcase.directory}/src/test/java</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>add-showcase-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${showcase.directory}/src/main/java</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>add-showcase-test-sources</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>add-test-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${showcase.directory}/src/test/java</source>
+                                <source>${showcase.directory}/target/prefab-test-sources</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessors>
+                        <annotationProcessor>be.appify.prefab.processor.PrefabProcessor</annotationProcessor>
+                    </annotationProcessors>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>injected-central-publishing</id>
+                        <phase>none</phase>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

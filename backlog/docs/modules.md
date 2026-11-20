@@ -65,14 +65,17 @@ for the emitted resources and limits.
 
 ## Repository Example Modules
 
-| Module Path         | Purpose                                         |
-|---------------------|-------------------------------------------------|
-| `examples/avro`     | Avro and AVSC-first event examples              |
-| `examples/kafka`    | Kafka aggregate and projection examples          |
-| `examples/streams`  | Kafka streams DSL source/sink forwarding example |
-| `examples/pubsub`   | Google Cloud Pub/Sub examples                    |
-| `examples/sns-sqs`  | AWS SNS/SQS examples                             |
-| `examples/mongodb`  | MongoDB aggregate examples                       |
+| Module Path                         | Purpose                                                                                  |
+|-------------------------------------|------------------------------------------------------------------------------------------|
+| `examples/showcase`                 | Shop showcase on the reference stack (Postgres + Kafka, JSON)                            |
+| `examples/showcase-variant-parent`  | Shared build that recompiles the showcase sources and tests per variant (decision-007)   |
+| `examples/showcase-mongodb`         | Showcase variant on MongoDB + Kafka (configuration only)                                 |
+| `examples/avro`                     | Avro and AVSC-first event examples                                                       |
+| `examples/kafka`                    | Kafka aggregate and projection examples                                                  |
+| `examples/streams`                  | Kafka streams DSL source/sink forwarding example                                         |
+| `examples/pubsub`                   | Google Cloud Pub/Sub examples                                                            |
+| `examples/sns-sqs`                  | AWS SNS/SQS examples                                                                     |
+| `examples/mongodb`                  | MongoDB aggregate examples                                                               |
 
 ---
 

@@ -4,12 +4,14 @@ title: Make Avro payloads self-describing on Pub/Sub and SNS/SQS
 status: To Do
 assignee: []
 created_date: '2026-09-07 06:34'
+updated_date: '2026-11-20 19:48'
 labels:
   - bug
   - events
   - avro
   - pubsub
   - sns-sqs
+  - coverage-gap
 dependencies:
   - TASK-274
 priority: medium

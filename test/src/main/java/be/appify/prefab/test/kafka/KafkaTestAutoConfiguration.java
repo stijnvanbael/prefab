@@ -51,7 +51,7 @@ public class KafkaTestAutoConfiguration {
             ObjectProvider<DefaultKafkaConsumerFactoryCustomizer> customizers,
             KafkaProperties kafkaProperties,
             ConversionService conversionService,
-            EventRegistry eventRegistry
+            ObjectProvider<EventRegistry> eventRegistry
     ) {
         var consumerProperties = (properties != null ? properties : kafkaProperties).buildConsumerProperties();
         consumerProperties.putIfAbsent(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
@@ -61,7 +61,8 @@ public class KafkaTestAutoConfiguration {
         try (var dynamicDeserializer = new DynamicDeserializer(
                 kafkaProperties,
                 conversionService,
-                eventRegistry
+                // No registry exists while the application does not declare any events yet
+                eventRegistry.getIfAvailable(EventRegistry::new)
         )) {
             factory.setValueDeserializer(dynamicDeserializer);
         }

@@ -4,7 +4,7 @@ title: Generate Mermaid.js architecture diagram from Prefab metadata
 status: To Do
 assignee: []
 created_date: '2026-05-08'
-updated_date: '2026-05-21 06:22'
+updated_date: '2026-11-20 20:14'
 labels: []
 dependencies: []
 priority: low
@@ -52,3 +52,12 @@ artifact for existing teams.
 - [ ] #2 The build is green
 - [ ] #3 Code is clean (refactored)
 <!-- DOD:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-11-20 20:14
+---
+TASK-345 (per-project agent context file) collects the same metadata: aggregates, endpoints, events, topics and handlers. Share one metadata model between them.
+---
+<!-- COMMENTS:END -->

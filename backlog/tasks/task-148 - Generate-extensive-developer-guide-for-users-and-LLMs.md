@@ -4,7 +4,7 @@ title: Generate extensive developer guide for users and LLMs
 status: To Do
 assignee: []
 created_date: '2026-04-30 06:41'
-updated_date: '2026-05-21 06:22'
+updated_date: '2026-11-20 20:14'
 labels:
   - documentation
   - agents
@@ -47,3 +47,12 @@ as part of the same task.
 - [ ] #11 Evaluate whether a Maven plugin can auto-generate the annotation reference section during the build and embed
   it into the guide (e.g. via maven-resources-plugin filtering or a custom plugin)
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-11-20 20:14
+---
+AC #5 (compilable snippets) overlaps with TASK-346, which requires every recipe example to be compiled by the build. The current guide has about 130 uncompiled Java snippets. Reuse one mechanism for both.
+---
+<!-- COMMENTS:END -->

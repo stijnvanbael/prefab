@@ -14,52 +14,23 @@
     <packaging>pom</packaging>
     <name>Prefab Showcase Variant Parent</name>
     <description>
-        Shared build of the showcase variants. A variant recompiles the hand-written showcase sources and tests against
-        its own technology dependencies, so the annotation processor generates code for that technology.
+        Shared build of the showcase variants. A variant copies the hand-written showcase sources and tests and
+        recompiles them against its own technology dependencies, so the annotation processor generates code for that
+        technology.
         A variant pom only lists its technology dependencies and brings its own configuration. See ADR decision-007.
     </description>
 
     <properties>
         <!--
-            The unpacked sources mimic a module layout (src/main/java, src/test/java) so the annotation processor
+            The copied sources mimic a module layout (src/main/java, src/test/java) so the annotation processor
             resolves this directory as the project root: generated test clients land in its target/prefab-test-sources
             and manual overrides in the showcase tests are honoured.
         -->
         <showcase.directory>${project.build.directory}/showcase</showcase.directory>
+        <showcase.source.directory>${project.basedir}/../showcase/src</showcase.source.directory>
     </properties>
 
     <dependencies>
-        <!--
-            The sources to recompile. Only the classifiers are used, never the compiled showcase jar, and none of its
-            dependencies: the reference stack (Postgres + Kafka) must not leak into a variant.
-        -->
-        <dependency>
-            <groupId>be.appify.prefab</groupId>
-            <artifactId>showcase-example</artifactId>
-            <version>${project.version}</version>
-            <classifier>showcase-sources</classifier>
-            <scope>provided</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>*</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>be.appify.prefab</groupId>
-            <artifactId>showcase-example</artifactId>
-            <version>${project.version}</version>
-            <classifier>showcase-test-sources</classifier>
-            <scope>provided</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>*</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
         <dependency>
             <groupId>be.appify.prefab</groupId>
             <artifactId>prefab-core</artifactId>
@@ -99,46 +70,47 @@
                                 <fileset>
                                     <directory>${showcase.directory}/src</directory>
                                 </fileset>
-                                <fileset>
-                                    <directory>${showcase.directory}/markers</directory>
-                                </fileset>
                             </filesets>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
+            <!--
+                Copy rather than share the showcase source folders: IntelliJ forbids a source root in two modules.
+                Copying needs no showcase build, so refreshing a variant is a single, fast goal: generate-test-sources.
+            -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <configuration>
-                    <!-- Markers live with the unpacked sources, so cleaning those forces a fresh unpack -->
-                    <markersDirectory>${showcase.directory}/markers</markersDirectory>
-                </configuration>
+                <artifactId>maven-resources-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>unpack-showcase-sources</id>
+                        <id>copy-showcase-sources</id>
                         <phase>generate-sources</phase>
                         <goals>
-                            <goal>unpack-dependencies</goal>
+                            <goal>copy-resources</goal>
                         </goals>
                         <configuration>
-                            <includeArtifactIds>showcase-example</includeArtifactIds>
-                            <includeClassifiers>showcase-sources</includeClassifiers>
-                            <excludes>META-INF/**</excludes>
                             <outputDirectory>${showcase.directory}/src/main/java</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${showcase.source.directory}/main/java</directory>
+                                </resource>
+                            </resources>
                         </configuration>
                     </execution>
                     <execution>
-                        <id>unpack-showcase-test-sources</id>
+                        <id>copy-showcase-test-sources</id>
                         <phase>generate-test-sources</phase>
                         <goals>
-                            <goal>unpack-dependencies</goal>
+                            <goal>copy-resources</goal>
                         </goals>
                         <configuration>
-                            <includeArtifactIds>showcase-example</includeArtifactIds>
-                            <includeClassifiers>showcase-test-sources</includeClassifiers>
-                            <excludes>META-INF/**</excludes>
                             <outputDirectory>${showcase.directory}/src/test/java</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${showcase.source.directory}/test/java</directory>
+                                </resource>
+                            </resources>
                         </configuration>
                     </execution>
                 </executions>

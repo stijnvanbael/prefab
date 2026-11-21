@@ -54,7 +54,7 @@ public class UpdatePlugin extends RestOperationPlugin {
     @Override
     public void writeService(ClassManifest manifest, TypeSpec.Builder builder) {
         updateMethodsOf(manifest).forEach(update ->
-                builder.addMethod(updateServiceWriter.updateMethod(manifest, update)));
+                builder.addMethod(updateServiceWriter.updateMethod(manifest, update, context())));
     }
 
     @Override
@@ -144,7 +144,7 @@ public class UpdatePlugin extends RestOperationPlugin {
     public void writePolymorphicService(PolymorphicAggregateManifest manifest, TypeSpec.Builder builder) {
         manifest.subtypes().forEach(subtype ->
                 updateMethodsOf(subtype).forEach(update ->
-                        builder.addMethod(updateServiceWriter.updateMethodForPolymorphic(manifest, subtype, update))));
+                        builder.addMethod(updateServiceWriter.updateMethodForPolymorphic(manifest, subtype, update, context()))));
     }
 
     @Override

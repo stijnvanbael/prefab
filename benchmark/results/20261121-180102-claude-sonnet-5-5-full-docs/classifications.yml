@@ -1,0 +1,10 @@
+security-public-endpoints#1:
+  category: API_MISUSE
+  note: >
+    Same as Haiku: an extra @Order(HIGHEST_PRECEDENCE) SecurityFilterChain for the public GETs disables Prefab's
+    @ConditionalOnMissingBean default chain, so authenticated writes get 401 (TASK-353).
+list-range-filter#1:
+  category: TEST_OR_INFRASTRUCTURE
+  note: >
+    The Postgres test container died during the hidden tests ("terminating connection due to unexpected postmaster
+    exit"). The code matches the reference; the agent did not run any build or test itself (3 turns).

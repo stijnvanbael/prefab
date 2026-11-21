@@ -279,5 +279,35 @@ Recorded runs live in `benchmark/results/<run-id>/` (`report.md`, `report.json` 
 `classifications.yml`). The per-attempt logs are not committed.
 
 <!-- BASELINES:BEGIN -->
-Baselines have not been recorded yet.
+### 2026-11-21: first baseline, 8-task subset
+
+Prefab `0.13.3-SNAPSHOT` at commit `26ff283`. One attempt per task. The subset covers REST value objects, range
+filters, schema evolution, sealed event hierarchies, multicast handling, public endpoints, binary uploads and
+unit-testing events. It was chosen to fit a subscription usage limit; the full 32-task baseline has not been
+recorded yet (run it with an API key). Comparison: [`benchmark/results/comparison-2026-11-21.md`](../../benchmark/results/comparison-2026-11-21.md).
+
+| Setup | Passed | 95% CI | Cost | Median turns | Median Maven builds | Median agent time |
+|---|---|---|---|---|---|---|
+| Haiku 5.5, `none` | 8/8 | 68-100% | $0.96 | 43 | 12 | 5m05s |
+| Haiku 5.5, `full-docs` | 7/8 | 53-98% | $1.74 | 12 | 4 | 1m10s |
+| Sonnet 5.5, `full-docs` (ceiling) | 6/8 (7/7 excluding infra) | 41-93% | $3.99 | 6 | 3 | 29s |
+
+What it shows:
+
+- **Haiku can build these features with Prefab.** Pass rates are statistically indistinguishable across the three
+  setups. The intervals overlap almost completely, so this run gives no evidence that docs improve correctness.
+- **Docs buy speed, not correctness, at this size.** Without docs, Haiku decompiles the Prefab jars in `~/.m2`
+  and needs 3.5x more turns, 3x more builds and 4x more time. The full docs in CLAUDE.md cost more per run because
+  of the 60k-token context (mostly cache reads). That is the trade-off a compact cheat sheet (TASK-344) should
+  improve: fewer turns without the 60k tokens.
+- **Both models with docs fell into the same trap** on `security-public-endpoints`. They added a second,
+  path-scoped `SecurityFilterChain`, which silently removes Prefab's `@ConditionalOnMissingBean` default chain, so
+  authenticated writes return 401. Their own tests only checked anonymous requests. Classified `API_MISUSE` and
+  added to TASK-353. Haiku without docs replaced the whole chain and passed.
+- One `TEST_OR_INFRASTRUCTURE` failure: the Postgres container died during Sonnet's `list-range-filter` hidden tests.
+
+**Margin.** With 8 tasks, one attempt each, the 95% interval is about ±25 percentage points, and with all 32
+tasks about ±15. No repeated run of the same setup has been recorded yet, so the empirical run-to-run margin is still
+open. Until it is measured, compare setups per task with `--repeat 3`, and treat total pass-rate differences inside
+the confidence intervals as noise.
 <!-- BASELINES:END -->

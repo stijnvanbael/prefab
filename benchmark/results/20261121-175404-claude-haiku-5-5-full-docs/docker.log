@@ -1,0 +1,4 @@
+Error response from daemon: network prefab_bench_dba1f_1_kafka not found
+exit status 1
+prefab_bench_dba1f_2_postgres
+prefab_bench_dba1f_2_kafka

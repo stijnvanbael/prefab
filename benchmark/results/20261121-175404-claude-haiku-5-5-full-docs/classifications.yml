@@ -1,0 +1,6 @@
+security-public-endpoints#1:
+  category: API_MISUSE
+  note: >
+    Added a second, path-scoped SecurityFilterChain for the public GETs. Prefab's default chain is
+    @ConditionalOnMissingBean, so it silently disappeared: no chain handles POST any more, bearer tokens are never
+    processed and every authenticated write gets 401. The agent's own tests only checked anonymous requests (TASK-353).

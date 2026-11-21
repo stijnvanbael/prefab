@@ -11,11 +11,13 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.lang.model.element.Modifier;
 
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -192,10 +194,12 @@ class UpdateTestClientWriter {
         var statusMatcher = update.asyncCommit() ? "isAccepted()" : "isOk()";
         var annotationPathVarSuffix = annotationPathVarNames.isBlank() ? "" : ", " + annotationPathVarNames;
         return method.addStatement("""
-                                return mockMvc.perform($T.multipart($L, id$L)$L
+                                mockMvc.perform($T.multipart($T.valueOf($S), $L, id$L)$L
                                         $L
                                         ).andExpect($T.status().$L)""",
                         MOCK_MVC_REQUEST_BUILDERS,
+                        HttpMethod.class,
+                        update.method().toUpperCase(Locale.ROOT),
                         pathVariables(manifest, update, parentPathVariables),
                         annotationPathVarSuffix,
                         ControllerUtil.withMockUser(update.security()),

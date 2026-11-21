@@ -1,5 +1,7 @@
 package be.appify.prefab.core.spring;
 
+import be.appify.prefab.core.audit.AuditConfiguration;
+import be.appify.prefab.core.audit.AuditContextProvider;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.kafka.EventRegistryCustomizer;
 import be.appify.prefab.core.kafka.PrefabRegistryConfiguration;
@@ -19,6 +21,7 @@ import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -62,6 +65,15 @@ class CoreAutoConfigurationActivationTest {
     }
 
     @Test
+    @DisplayName("registers the default audit context provider in an application with @EnablePrefab")
+    void auditConfiguration_withEnablePrefab_registersDefaultProvider() {
+        runner.withUserConfiguration(PrefabApplication.class)
+                .withBean(JsonMapper.class, () -> JsonMapper.builder().build())
+                .withConfiguration(AutoConfigurations.of(AuditConfiguration.class))
+                .run(context -> assertThat(context).hasSingleBean(AuditContextProvider.class));
+    }
+
+    @Test
     @DisplayName("registry configuration does not activate without an EventRegistryCustomizer")
     void registryConfiguration_withoutCustomizer_isInactive() {
         runner.withConfiguration(AutoConfigurations.of(PrefabRegistryConfiguration.class))
@@ -85,6 +97,11 @@ class CoreAutoConfigurationActivationTest {
                 .withClassLoader(new FilteredClassLoader(hiddenClass))
                 .withConfiguration(AutoConfigurations.of(configuration))
                 .run(context -> assertThat(context).doesNotHaveBean(configuration));
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @EnablePrefab
+    static class PrefabApplication {
     }
 
     @Configuration(proxyBeanMethods = false)

@@ -1,4 +1,4 @@
-be.appify.prefab.core.spring.AuditConfiguration
+be.appify.prefab.core.audit.AuditConfiguration
 be.appify.prefab.core.kafka.PrefabRegistryConfiguration
 be.appify.prefab.core.tenant.TenantConfiguration
 be.appify.prefab.core.kafka.KafkaConfiguration

@@ -125,5 +125,6 @@ Avoid: raw types, `StringBuffer`, old `Date`/`Calendar`, `synchronized` (prefer 
 - [ ] Code reads naturally without explanation
 - [ ] Task file updated to `Done` with implementation notes
 - [ ] Changes committed with a descriptive conventional-commit message
+- [ ] Pull request created for the branch (agents open the PR themselves when the work is done)
 
 </CRITICAL_INSTRUCTION>

@@ -23,6 +23,8 @@ Rebuild the Prefab Streams example on the shop domain in the optional source fol
 Topologies on order events from TASK-337.04: revenue per category (`groupBy` + `aggregate`), hourly revenue per category (`windowedAggregate` with grace period), order/payment matching (KStream-KStream `join` with `JoinWindow`), routing by order type (`branch`/`merge`), enrichment from a catalog global store, a native `breakout`, opt-in tracing (`prefab.streams.tracing.enabled`). Tests use the backend-neutral topology test API (TestStreams / TopologyTestHarness).
 
 Only variants with a streams backend include this folder; others report STREAMS as a gap (TASK-337.02).
+
+The in-process engine for Pub/Sub and SNS/SQS (decision-008) supports no `breakout` and no `StreamProcessorContext.schedule`. Put the native `breakout` topology in a configuration that only loads with the Kafka backend (e.g. `@ConditionalOnClass(KafkaStreamBackend.class)`), and guard its test with a dedicated capability. The rest of the slice then runs unchanged on those variants (TASK-341, TASK-342).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

@@ -2,6 +2,7 @@ package be.appify.prefab.processor.rest.update;
 
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
+import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.audit.AuditFields;
 import com.palantir.javapoet.ClassName;
@@ -17,7 +18,7 @@ import static org.apache.commons.text.WordUtils.capitalize;
 import static org.apache.commons.text.WordUtils.uncapitalize;
 
 class UpdateServiceWriter {
-    MethodSpec updateMethod(ClassManifest manifest, UpdateManifest update) {
+    MethodSpec updateMethod(ClassManifest manifest, UpdateManifest update, PrefabContext context) {
         var method = MethodSpec.methodBuilder(update.operationName())
                 .addModifiers(Modifier.PUBLIC)
                 .returns(ParameterizedTypeName.get(ClassName.get(Optional.class), manifest.type().asTypeName()))
@@ -33,12 +34,12 @@ class UpdateServiceWriter {
         method.addStatement("log.debug($S, $T.class.getSimpleName(), id)", "Updating {} with id: {}",
                 manifest.className());
         if (update.asyncCommit()) {
-            var domainCallBlock = buildDomainCallBlock(update);
+            var domainCallBlock = buildDomainCallBlock(update, context);
             updateAsync(method, uncapitalize(manifest.simpleName()) + "Repository",
                     domainCallBlock);
             return method.build();
         }
-        var domainCallBlock = buildDomainCallBlock(update);
+        var domainCallBlock = buildDomainCallBlock(update, context);
         var aggregateFunction = buildAggregateFunction(update, domainCallBlock);
         var repositoryName = uncapitalize(manifest.simpleName()) + "Repository";
         var tenantField = manifest.tenantIdField();
@@ -106,7 +107,7 @@ class UpdateServiceWriter {
                 param.name(), param.type().asTypeName(), repositoryName, param.name());
     }
 
-    private CodeBlock buildDomainCallBlock(UpdateManifest update) {
+    private CodeBlock buildDomainCallBlock(UpdateManifest update, PrefabContext context) {
         var requestParamNames = update.requestParameters().stream()
                 .map(VariableManifest::name)
                 .collect(java.util.stream.Collectors.toSet());
@@ -119,7 +120,7 @@ class UpdateServiceWriter {
                 .map(VariableManifest::name)
                 .collect(java.util.stream.Collectors.toSet());
         var args = update.parameters().stream()
-                .map(p -> resolveParam(p, requestParamNames, aggregateParamNames, pathParamNames))
+                .map(p -> resolveParam(p, requestParamNames, aggregateParamNames, pathParamNames, context))
                 .collect(CodeBlock.joining(", "));
         if (update.stateful()) {
             return CodeBlock.of("aggregate.$N($L);\n", update.operationName(), args);
@@ -209,7 +210,8 @@ class UpdateServiceWriter {
             VariableManifest parameter,
             java.util.Set<String> requestParamNames,
             java.util.Set<String> aggregateParamNames,
-            java.util.Set<String> pathParamNames
+            java.util.Set<String> pathParamNames,
+            PrefabContext context
     ) {
         if (aggregateParamNames.contains(parameter.name())) {
             return CodeBlock.of("$N", parameter.name());
@@ -220,21 +222,15 @@ class UpdateServiceWriter {
         if (!requestParamNames.contains(parameter.name())) {
             return CodeBlock.of("aggregate.$N()", parameter.name());
         }
-        return fromRequest(parameter);
-    }
-
-    private CodeBlock fromRequest(VariableManifest parameter) {
-        if (parameter.type().isSingleValueType()) {
-            return CodeBlock.of("request.$N() != null ? new $T(request.$N()) : null",
-                    parameter.name(), parameter.type().asTypeName(), parameter.name());
-        }
-        return CodeBlock.of("request.$N()", parameter.name());
+        // Plugins convert request values the domain cannot take as-is, such as an uploaded file into a Binary
+        return context.requestParameterMapper().mapRequestParameter(parameter);
     }
 
     MethodSpec updateMethodForPolymorphic(
             PolymorphicAggregateManifest polymorphic,
             ClassManifest subtype,
-            UpdateManifest update
+            UpdateManifest update,
+            PrefabContext context
     ) {
         var leafName = leafName(subtype.simpleName());
         var operationName = uncapitalize(leafName + capitalize(update.operationName()));
@@ -252,7 +248,7 @@ class UpdateServiceWriter {
         }
         method.addStatement("log.debug($S, $T.class.getSimpleName(), id)", "Updating {} with id: {}",
                 polymorphic.className());
-        var domainCallBlock = buildDomainCallBlock(update);
+        var domainCallBlock = buildDomainCallBlock(update, context);
         var parentEntityLookups = buildParentEntityLookups(update);
         method.addStatement("""
                         return $N.findById(id).map(shape -> {

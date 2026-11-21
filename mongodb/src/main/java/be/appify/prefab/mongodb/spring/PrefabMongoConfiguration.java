@@ -1,9 +1,12 @@
 package be.appify.prefab.mongodb.spring;
 
+import be.appify.prefab.core.binary.ByteArrayToFileConverter;
+import be.appify.prefab.core.binary.FileToByteArrayConverter;
 import be.appify.prefab.core.spring.PrefabCoreConfiguration;
 import be.appify.prefab.core.spring.data.FullTextQueryExecutor;
 import be.appify.prefab.core.spring.data.RangeQueryExecutor;
 import be.appify.prefab.core.util.FullTextLanguages;
+import be.appify.prefab.mongodb.spring.data.mongodb.BsonBinaryToFileConverter;
 import be.appify.prefab.mongodb.spring.data.mongodb.MongoFullTextQueryExecutor;
 import be.appify.prefab.mongodb.spring.data.mongodb.MongoRangeQueryExecutor;
 import be.appify.prefab.mongodb.spring.data.mongodb.PrefabMongoMappingContext;
@@ -29,7 +32,8 @@ import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
  * <p>
  * Add {@code prefab-mongodb} as a Maven dependency to enable MongoDB-backed repositories. This configuration is
  * automatically applied via Spring Boot's auto-configuration mechanism and registers the converters needed to
- * store {@link be.appify.prefab.core.service.Reference} values as plain strings in MongoDB documents.
+ * store {@link be.appify.prefab.core.service.Reference} values as plain strings and the content of
+ * {@link be.appify.prefab.core.domain.Binary} values as binary data in MongoDB documents.
  * </p>
  * <p>
  * It also replaces the default {@link MongoMappingContext} with {@link PrefabMongoMappingContext}, which adds
@@ -61,6 +65,10 @@ public class PrefabMongoConfiguration {
         return MongoCustomConversions.create(adapter -> {
             adapter.registerConverter(new ReferenceToStringConverter());
             adapter.registerConverter(new StringToReferenceConverter());
+            // The content of a Binary is stored as BSON binary data, not as the temporary file holding it
+            adapter.registerConverter(new FileToByteArrayConverter());
+            adapter.registerConverter(new ByteArrayToFileConverter());
+            adapter.registerConverter(new BsonBinaryToFileConverter());
         });
     }
 

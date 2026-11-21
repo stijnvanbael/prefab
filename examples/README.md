@@ -6,6 +6,30 @@ pom, configuration and a capabilities file, and run the *same* sources and tests
 See [decision-007](../backlog/decisions/decision-007%20-%20One-showcase-recompiled-per-technology-variant.md) for how
 that works and why.
 
+## What the showcase shows
+
+Every feature has an integration test that calls the REST API only through the generated test clients, so the tests
+double as usage examples. Tests run on every variant (see [Technology coverage](#technology-coverage)).
+
+### Catalog: REST
+
+Sources in [`catalog`](showcase/src/main/java/be/appify/prefab/example/showcase/catalog), tests in
+[`catalog`](showcase/src/test/java/be/appify/prefab/example/showcase/catalog).
+
+| Feature | Where | Test |
+|---|---|---|
+| `@Create`, `@GetById`, `@Update`, `@Delete` | `Product` | `ProductIntegrationTest` |
+| Jakarta Validation, `@ContentType`, `@FileSize` | `Product`, `Category`, `Promotion` | `ProductValidationIntegrationTest` |
+| `@GetList` with `@Filter` (equality, range, full text), paging, `@SortOrder` | `Product`, `Category` | `ProductListIntegrationTest`, `CategoryIntegrationTest` |
+| `@Text` (unbounded column) | `Product.description` | `ProductIntegrationTest` |
+| `@Autocomplete` | `Product.brand`, `Category.name` | `AutocompleteIntegrationTest` |
+| `@Parent` (nested resource) | `ProductVariant` | `ProductVariantIntegrationTest` |
+| Polymorphic aggregate (sealed interface) | `Promotion` | `PromotionIntegrationTest` |
+| `Binary` upload and `@Download` | `Product.image` | `ProductImageIntegrationTest` |
+| Audit fields (`AuditInfo`: `@CreatedAt`, `@CreatedBy`, `@LastModifiedAt`, `@LastModifiedBy`) | `Product.audit` | `ProductAuditIntegrationTest` |
+| Optimistic locking (`@Version`) | `Product.version` | `ProductOptimisticLockingIntegrationTest` |
+| `@RepositoryMixin` | `ProductRepositoryMixin` | `ProductRepositoryMixinIntegrationTest` |
+
 ## Technology coverage
 
 Not every feature works on every stack. A variant lists what it lacks in

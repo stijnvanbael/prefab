@@ -1,7 +1,6 @@
-package be.appify.prefab.core.spring;
+package be.appify.prefab.core.audit;
 
-import be.appify.prefab.core.audit.AuditContextProvider;
-import be.appify.prefab.core.audit.SystemAuditContextProvider;
+import be.appify.prefab.core.spring.PrefabCoreConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -20,6 +19,10 @@ import org.springframework.context.annotation.Bean;
  *         .getAuthentication().getName();
  * }
  * }</pre>
+ * <p>
+ * Lives outside {@code be.appify.prefab.core.spring}: {@link PrefabCoreConfiguration} component-scans that package,
+ * which would evaluate the condition before {@link PrefabCoreConfiguration} is registered and skip the default bean.
+ * </p>
  */
 @AutoConfiguration
 @ConditionalOnBean(PrefabCoreConfiguration.class)

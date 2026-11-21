@@ -1,4 +1,4 @@
-package be.appify.prefab.postgres.spring.data.jdbc;
+package be.appify.prefab.core.binary;
 
 import java.io.File;
 import java.io.FileInputStream;

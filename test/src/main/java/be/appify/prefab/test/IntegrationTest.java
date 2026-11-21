@@ -24,7 +24,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * schema and retries if there is a checksum mismatch for the last applied migration.
  * <p>
  * When Spring Data MongoDB is on the classpath (i.e., when {@code prefab-mongodb} is a dependency), a MongoDB
- * Testcontainer is automatically started and all collections are dropped before each test.
+ * Testcontainer is automatically started and all collections are emptied before each test.
  * <p>
  * Similarly, when the test module is on the classpath, PostgreSQL, Kafka, Pub/Sub, and SNS/SQS test containers are
  * automatically provisioned and configured via Spring Boot autoconfiguration.

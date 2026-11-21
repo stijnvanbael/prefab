@@ -131,6 +131,21 @@ class PolymorphicConverterWriterTest {
                 .isNotNull();
     }
 
+    @Test
+    void primitiveFieldWithTypeUseValidationAnnotationIsReadAsItsBoxedType() throws IOException {
+        var source = sourceOf("persistence/polymorphic_validated_primitive/source/Discount.java");
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(source);
+        assertThat(compilation).succeeded();
+        var content = assertThat(compilation)
+                .generatedSourceFile(
+                        "persistence.polymorphic_validated_primitive.infrastructure.persistence.DiscountReadingConverter")
+                .contentsAsUtf8String();
+        content.contains("conversionService.convert(row.get(\"percentage\"), Integer.class)");
+        content.contains("conversionService.convert(row.get(\"amount\"), Double.class)");
+    }
+
     private static String contentsOf(String fileName) throws IOException {
         return new ClassPathResource(fileName).getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
     }

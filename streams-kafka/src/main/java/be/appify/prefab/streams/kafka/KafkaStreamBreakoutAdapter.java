@@ -18,7 +18,7 @@ public record KafkaStreamBreakoutAdapter<KI, KO, V extends Keyed<KI>, R extends 
 
     @Override
     public StreamBackend backend() {
-        return StreamBackend.KAFKA;
+        return KafkaStreamBackend.KAFKA;
     }
 
     @Override

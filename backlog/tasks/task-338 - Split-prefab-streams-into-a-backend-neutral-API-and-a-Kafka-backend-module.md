@@ -1,7 +1,8 @@
 ---
 id: TASK-338
 title: Split prefab-streams into a backend-neutral API and a Kafka backend module
-status: To Do
+status: Done
+updated_date: '2026-11-21 09:00'
 assignee: []
 created_date: '2026-11-20 19:48'
 labels:
@@ -23,8 +24,19 @@ Split into `prefab-streams` (API + backend-neutral test API) and `prefab-streams
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 prefab-streams has no Kafka dependency
-- [ ] #2 prefab-streams-kafka contains all Kafka-specific code and auto-configuration
-- [ ] #3 Existing streams tests and the showcase streams slice pass unchanged apart from the dependency
-- [ ] #4 Developer guide and migration notes explain the new artifact
+- [x] #1 prefab-streams has no Kafka dependency
+- [x] #2 prefab-streams-kafka contains all Kafka-specific code and auto-configuration
+- [x] #3 Existing streams tests and the showcase streams slice pass unchanged apart from the dependency
+- [x] #4 Developer guide and migration notes explain the new artifact
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+- New module `streams-kafka` (`prefab-streams-kafka`) holds everything under `be.appify.prefab.streams.kafka` (incl. `kafka.testing`), the `StreamsConfiguration` auto-configuration import and the `TopologyTestHarness.Factory` service registration. Package names are unchanged.
+- `prefab-streams` now depends only on `prefab-core` (plus optional JUnit for `TopologyTestExtension`); no Kafka, Spring Kafka or Confluent artifacts. The Avro jar is a transitive dependency of `prefab-core`, not of the streams module.
+- `StreamBackend` is a record identified by a case-insensitive name (`StreamBackend.named(..)`) instead of an enum, so other backends can add their own. The Kafka constant is `KafkaStreamBackend.KAFKA`; `KafkaPrefabStream.breakout` compares against it. Only breaking source change: `StreamBackend.KAFKA/CUSTOM` no longer exist.
+- All existing streams tests (they need a backend, so they run through the Kafka harness) moved unchanged to `streams-kafka`, apart from `KafkaSpecificTopologyTest` using the new `StreamBackend` API. Added `StreamBackendTest` to `prefab-streams`.
+- `examples/streams` depends on `prefab-streams-kafka` additionally; its tests pass unchanged. Root pom (module + dependencyManagement), dependabot, CONTRIBUTING, modules guide and the streams feature guide (section 7.15, incl. migration notes) are updated.
+- Verified: `mvn install` for `streams`, `streams-kafka`, `examples/streams` and `test`: 5 + 128 + 8 + 44 tests green.
+<!-- SECTION:NOTES:END -->

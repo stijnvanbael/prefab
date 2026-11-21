@@ -1046,7 +1046,32 @@ public record ChannelSummary(
 
 ## 7.15 Streams DSL Baseline (Kafka Source/Sink)
 
-Prefab provides a dedicated `streams` module (`prefab-streams`) with a Kafka-backed DSL.
+Prefab provides a backend-neutral Streams DSL (`prefab-streams`) and a Kafka Streams implementation of it
+(`prefab-streams-kafka`):
+
+| Artifact               | Contains                                                                                                   | Depends on Kafka? |
+|------------------------|------------------------------------------------------------------------------------------------------------|-------------------|
+| `prefab-streams`       | The DSL (`PrefabStreams`, `PrefabStream`, `StreamDefinition`, `Store`, ...) and the backend-neutral test API (`be.appify.prefab.streams.testing`) | No                |
+| `prefab-streams-kafka` | `KafkaPrefabStreams`, serdes, `KafkaStreamBreakoutAdapter`, the Kafka test harness and the `StreamsConfiguration` auto-configuration | Yes               |
+
+Add `prefab-streams-kafka` to run the DSL on Kafka Streams; it brings `prefab-streams` along. Application code that
+only declares topologies compiles against `prefab-streams` and does not import any Kafka type. Future backends for
+other brokers are separate artifacts that implement the same DSL.
+
+```xml
+<dependency>
+    <groupId>be.appify.prefab</groupId>
+    <artifactId>prefab-streams-kafka</artifactId>
+</dependency>
+```
+
+**Migrating from earlier versions.** Existing applications that depend on `prefab-streams` must add
+`prefab-streams-kafka`; without it the DSL has no backend, no `StreamsConfiguration` is activated and
+`TopologyTestHarness.create(...)` fails with `No TopologyTestHarness.Factory found on the classpath`. The Kafka
+classes (`be.appify.prefab.streams.kafka.*`, `...kafka.testing.*`) keep their package and name, so no source changes
+are needed apart from one: `StreamBackend` is no longer an enum. Use `KafkaStreamBackend.KAFKA` instead of
+`StreamBackend.KAFKA`, and `StreamBackend.named("my-backend")` instead of `StreamBackend.CUSTOM` in a custom
+`StreamBreakoutAdapter`. State store names, topics and serialised bytes are unchanged.
 
 Supported operations:
 
@@ -1370,7 +1395,9 @@ class StreamTopologyConfiguration {
 Portability note:
 
 - `breakout(...)` accepts a backend adapter abstraction in core DSL API.
-- `KafkaStreamBreakoutAdapter` is Kafka-specific and should be treated as an escape hatch.
+- `KafkaStreamBreakoutAdapter` (in `prefab-streams-kafka`) is Kafka-specific and should be treated as an escape hatch.
+- `StreamBreakoutAdapter.backend()` returns a `StreamBackend`, an open identifier rather than an enum, so a backend
+  module can add its own adapter without a change to `prefab-streams`.
 - Pipelines using breakout are no longer backend-portable unless equivalent adapters exist for other backends.
 
 `StreamDefinition` beans are auto-discovered by Prefab Streams at startup. Their DSL wiring is bootstrapped into one
@@ -1408,7 +1435,7 @@ class OrderTopologyTest {
 - `TopologyTestExtension.withAppId("...")` (with `@RegisterExtension`) changes the application id used for topic names.
 - `@TestStreams` also works on test method parameters.
 - The extension picks the backend from the classpath, so the same tests run against every backend that registers a
-  `TopologyTestHarness.Factory`. The Kafka implementation needs `kafka-streams-test-utils` on the test classpath.
+  `TopologyTestHarness.Factory`. The Kafka implementation lives in `prefab-streams-kafka` and needs `kafka-streams-test-utils` on the test classpath.
 
 ### Message and correlation IDs (opt-in)
 

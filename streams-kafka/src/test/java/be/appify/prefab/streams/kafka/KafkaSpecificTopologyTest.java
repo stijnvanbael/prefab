@@ -101,7 +101,7 @@ class KafkaSpecificTopologyTest {
 
         @Override
         public StreamBackend backend() {
-            return StreamBackend.CUSTOM;
+            return StreamBackend.named("custom");
         }
 
         @Override
@@ -122,7 +122,7 @@ class KafkaSpecificTopologyTest {
 
         @Override
         public StreamBackend backend() {
-            return StreamBackend.KAFKA;
+            return KafkaStreamBackend.KAFKA;
         }
 
         @Override

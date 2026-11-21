@@ -13,7 +13,6 @@ import be.appify.prefab.streams.PrefabStream;
 import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.GlobalStore;
 import be.appify.prefab.streams.Store;
-import be.appify.prefab.streams.StreamBackend;
 import be.appify.prefab.streams.StreamBreakoutAdapter;
 import be.appify.prefab.streams.StreamDefinition;
 import be.appify.prefab.streams.StreamProcessor;
@@ -530,7 +529,7 @@ public class KafkaPrefabStream<K, V extends Keyed<K>> implements PrefabStream<K,
             StreamBreakoutAdapter<K, V, KO, VO, NI, NO> adapter
     ) {
         var breakoutAdapter = Objects.requireNonNull(adapter, "adapter must not be null");
-        if (breakoutAdapter.backend() != StreamBackend.KAFKA) {
+        if (!KafkaStreamBackend.KAFKA.equals(breakoutAdapter.backend())) {
             throw new IllegalArgumentException(
                     "Unsupported breakout backend '%s' for Kafka stream; use a Kafka adapter"
                             .formatted(breakoutAdapter.backend())

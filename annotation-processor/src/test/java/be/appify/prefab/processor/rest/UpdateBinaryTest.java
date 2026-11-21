@@ -25,6 +25,20 @@ class UpdateBinaryTest {
     }
 
     @Test
+    void controllerValidatesTheFileConstraintsOfTheUpload() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/updatebinary/source/Document.java"));
+
+        assertThat(compilation).succeeded();
+        assertThat(compilation)
+                .generatedSourceFile("rest.updatebinary.infrastructure.http.DocumentController")
+                .contentsAsUtf8String()
+                .containsMatch("@ContentType\\([^)]*\"application/pdf\"[^)]*\\) @FileSize\\(max = 1024[^)]*\\) "
+                        + "MultipartFile attachment");
+    }
+
+    @Test
     void testClientUploadsTheFileWithTheHttpMethodOfTheUpdate() {
         var processor = new SecurityGenerationTest.CapturingSecurityProcessor();
         var compilation = javac()

@@ -6,6 +6,8 @@ import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.Download;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.Update;
+import be.appify.prefab.core.annotations.validation.ContentType;
+import be.appify.prefab.core.annotations.validation.FileSize;
 import be.appify.prefab.core.domain.Binary;
 import be.appify.prefab.processor.assertion.AssertionPlugin;
 import be.appify.prefab.processor.dbmigration.DbMigrationPlugin;
@@ -31,7 +33,7 @@ public record Document(
     }
 
     @Update(path = "/attachment")
-    public Document replaceAttachment(Binary attachment) {
+    public Document replaceAttachment(@ContentType("application/pdf") @FileSize(max = 1024) Binary attachment) {
         return new Document(id, version, title, attachment);
     }
 }

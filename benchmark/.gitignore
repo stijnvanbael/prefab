@@ -2,3 +2,4 @@ target/
 # Per-attempt logs (transcripts, diffs, build logs) are large; only report.json, report.md and
 # classifications.yml of recorded runs are committed.
 results/*/attempts/
+results/*/docker.log

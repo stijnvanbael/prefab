@@ -22,6 +22,9 @@ public class FileSizeValidator implements ConstraintValidator<FileSize, Binary> 
 
     @Override
     public boolean isValid(Binary value, ConstraintValidatorContext context) {
+        if (value == null) {
+            return true;
+        }
         try {
             return Files.size(value.data().toPath()) <= maxFileSize;
         } catch (IOException e) {

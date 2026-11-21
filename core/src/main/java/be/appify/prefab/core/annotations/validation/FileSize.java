@@ -13,7 +13,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 /** Validate that the file size is below the specified maximum. */
 @Target({METHOD, FIELD, ANNOTATION_TYPE, CONSTRUCTOR, PARAMETER, TYPE_USE})
 @Retention(RUNTIME)
-@Constraint(validatedBy = FileSizeValidator.class)
+@Constraint(validatedBy = {FileSizeValidator.class, MultipartFileSizeValidator.class})
 @Documented
 public @interface FileSize {
     /** Default error message */

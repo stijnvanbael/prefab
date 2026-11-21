@@ -5,3 +5,4 @@ notes: >
   The documented @ContentType/@FileSize constraints are not enforced: the generated request record drops them and the
   controller attaches the file after bean validation. The reference therefore validates in the aggregate constructor.
   The documentation also describes the multipart body as form fields, while Prefab expects a JSON part named "body".
+  Tracked in TASK-352.

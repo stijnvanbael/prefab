@@ -7,3 +7,4 @@ notes: >
   exist, so the project does not compile. Switch to a different namespace once that is fixed.
   The @Avsc contract interface must be sealed (permits the generated record): a non-sealed contract compiles but fails
   at startup with "Only sealed interfaces are supported for event types", while the docs show a non-sealed example.
+  Tracked in TASK-351, TASK-354.

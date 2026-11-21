@@ -1,3 +1,6 @@
 title: Aggregate with a nested value object
 category: rest-crud
 modules: [postgres]
+notes: >
+  The reference does not put @Valid on the Address parameters: that generates a duplicate @Valid and does not
+  compile (TASK-351).

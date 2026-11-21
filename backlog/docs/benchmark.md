@@ -1,0 +1,272 @@
+# Agent Benchmark
+
+**For Prefab contributors.** This guide is not part of the application developer documentation.
+
+The benchmark measures how well an AI coding agent builds Prefab applications. Each task gives the agent a starting
+project and a natural-language prompt. Hidden acceptance tests, which the agent never sees, then decide whether the
+result works. Run the same tasks with different models and documentation setups and you can see whether a doc change,
+a better diagnostic or a new recipe actually helps, rather than guessing.
+
+The question it answers: *can a small, cheap model such as Claude Haiku develop Prefab applications flawlessly, and
+what stops it?* Every failure is classified, so each one points to a follow-up: a doc gap, a misleading diagnostic,
+an API that is easy to misuse, or a place where the model fell back to plain Spring code.
+
+---
+
+## Contents
+
+- [Requirements](#requirements)
+- [Running the benchmark](#running-the-benchmark)
+- [How an attempt works](#how-an-attempt-works)
+- [Context setups](#context-setups)
+- [Reading the report](#reading-the-report)
+- [Classifying failures](#classifying-failures)
+- [Adding a task](#adding-a-task)
+- [Reproducibility](#reproducibility)
+- [Isolation and known limitations](#isolation-and-known-limitations)
+- [Recorded baselines](#recorded-baselines)
+
+---
+
+## Requirements
+
+- JDK and Maven, as for building Prefab itself.
+- Docker. Hidden tests run Postgres, Kafka, the schema registry and MongoDB with Testcontainers. **No cloud
+  credentials are needed**: nothing talks to AWS, GCP or a real identity provider.
+- The Claude Code CLI (`claude`), logged in or with `ANTHROPIC_API_KEY` set. Only `run` needs it; `validate`,
+  `list`, `compare` and `classify` work without it.
+
+## Running the benchmark
+
+All commands go through `benchmark/run.sh`, run from the repository root:
+
+```bash
+benchmark/run.sh list
+```
+
+```bash
+benchmark/run.sh validate --parallel 3
+```
+
+```bash
+benchmark/run.sh run --model claude-haiku-5-5 --context full-docs --parallel 3
+```
+
+```bash
+benchmark/run.sh run --model claude-haiku-5-5 --context none --tasks 'rest-*,events-handling' --repeat 3
+```
+
+```bash
+benchmark/run.sh compare benchmark/results/*/report.json --output /tmp/comparison.md
+```
+
+`run` and `validate` first install the working-tree Prefab into the local Maven repository (without the example
+modules; see [Isolation](#isolation-and-known-limitations)), so the benchmark always measures the code you have
+checked out. Set `BENCHMARK_SKIP_INSTALL=1` to skip that step when nothing changed.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--model` | (required) | Model to test, passed to `claude --model`, e.g. `claude-haiku-5-5`, `claude-sonnet-5-5`. |
+| `--context` | `none` | Documentation setup from `benchmark/contexts/`. |
+| `--agent` | `claude` | `claude`, or the stand-ins `reference` (applies the reference solution) and `noop` (changes nothing). |
+| `--tasks` | all | Comma-separated task ids or categories; globs such as `events-*` work. |
+| `--repeat` | 1 | Attempts per task. Use 3 or more when comparing setups (see [Reproducibility](#reproducibility)). |
+| `--parallel` | 2 | Attempts running at the same time. Each needs about 2 CPU cores and 3 GB of memory. |
+| `--triage-model` | none | Let this model classify failures (see [Classifying failures](#classifying-failures)). |
+| `--results` | `benchmark/results/<run-id>` | Where the report and logs go. |
+| `--work-dir` | `<tmp>/prefab-benchmark/<run-id>` | Where the workspaces go. Keep this outside the repository. |
+| `--keep-workspaces` | off | Keep the workspaces of passed attempts. Failed ones are always kept. |
+
+`validate` runs every task twice, with stand-in agents. The reference solution must pass and the unchanged starting
+project must fail. Run it after changing a task or Prefab itself. A task that no longer validates measures nothing.
+
+## How an attempt works
+
+1. **Workspace.** The harness copies `benchmark/template` (a standalone Spring Boot + Prefab Maven project), overlays
+   the task's `starter/`, applies the context setup, and commits the result to a fresh git repository outside the
+   Prefab checkout.
+2. **Agent.** Claude Code runs headless in the workspace:
+   `claude -p <preamble + prompt> --model <model> --output-format stream-json --permission-mode bypassPermissions
+   --setting-sources project --disallowedTools WebFetch,WebSearch --max-turns <n>`. Only the workspace's own
+   CLAUDE.md is loaded; your personal settings and memory are not. The preamble (`benchmark/agent-preamble.md`)
+   tells the agent to work autonomously and that Maven and Docker are available.
+3. **Acceptance.** When the agent stops (it says it is done, runs out of turns, or hits the task timeout):
+   - **guardrails** scan the files the agent changed for plain Spring habits. Hand-written controllers, JPA,
+     Spring Data repositories, JdbcTemplate/MongoTemplate, Lombok and source files that replace generated classes
+     fail the attempt. A new SQL migration is reported as a warning.
+   - for test-writing tasks, the agent's own tests must pass, `src/main` must be unchanged, and the tests must fail
+     on every **mutant** (a copy of the code with a deliberate bug).
+   - the **hidden tests** are copied in and run with Maven. They talk to the application over HTTP (MockMvc), so
+     they depend only on the API contract in the prompt, not on how the agent named Java methods.
+4. **Report.** The transcript, the agent's diff and all build logs are kept per attempt under
+   `benchmark/results/<run-id>/attempts/` (not committed). `report.json` and `report.md` summarise the run.
+
+Before the agent starts and again before acceptance, the harness removes the slot's Testcontainers containers. Every
+attempt starts with an empty database and an empty Kafka broker, and the hidden tests never see messages left behind
+by the agent's own test runs.
+
+## Context setups
+
+A context setup is the documentation the agent works with. It lives in `benchmark/contexts/<name>/context.yml`:
+
+```yaml
+description: One line shown by `list` and in reports.
+instructionsFile: CLAUDE.md   # default
+instructions:                  # concatenated into the instructions file, in order
+  - context: CLAUDE.md         # a file in this context directory
+  - repo: backlog/docs/*.md    # a file or glob in the Prefab repository
+copy:                          # repository files or directories copied into the workspace
+  - from: backlog/docs/feature-guides.md
+    to: docs/prefab/feature-guides.md
+```
+
+| Context | What the agent gets |
+|---|---|
+| `none` | Nothing beyond the project and the prompt. It can still read the Prefab jars in `~/.m2`, as any user can. |
+| `full-docs` | The readme and all developer guide chapters (about 250 KB, 60k tokens) inside CLAUDE.md, always loaded. |
+| `docs-folder` | The same docs copied to `docs/prefab/`, with a short CLAUDE.md that points to them. Read on demand. |
+
+When the compact agent cheat sheet (TASK-344) and the recipes (TASK-346) exist, add a context for each. Once
+TASK-350 delivers agent guidance to application projects, the benchmark must use that same delivery path. Then add a
+context that reproduces the setup step, so the benchmark measures what users get.
+
+## Reading the report
+
+`report.md` starts with a summary:
+
+- **Pass rate** with a 95% Wilson confidence interval. With 33 tasks and one attempt each, the interval is about
+  ±15 percentage points wide, so small differences between runs are noise. See [Reproducibility](#reproducibility).
+- **Tasks passed in every attempt**: the stable successes when `--repeat` is above 1.
+- **Cost**, **tokens** (input including prompt-cache reads and writes, and output), and the median **turns**,
+  **builds** (Maven invocations by the agent, a proxy for compile-and-fix retries) and **agent time**
+  (wall-clock time).
+- **Contaminated attempts**: the agent read the benchmark's own sources (hidden tests or reference solutions). These
+  attempts count as failed.
+
+The summary is followed by failure counts per category, pass counts per task category, one row per attempt (checks
+passed `+` or failed `-`, metrics, failure category), and, for every failure, the evidence: failed checks, guardrail
+violations and compiler errors. The workspace of a failed attempt is kept, so you can open it, run Maven and read the
+diff (`agent.diff`) and the transcript (`transcript.jsonl`).
+
+`compare` puts several runs side by side: pass rate, cost, turns and failure categories per run, then one row per
+task with `PASS n/n`, `FAIL 0/n` or `FLAKY k/n`, plus the failure category abbreviations (`doc`, `diag`, `api`,
+`spring`, `infra`).
+
+## Classifying failures
+
+Every failed attempt gets one category, which says what kind of follow-up it needs:
+
+| Category | Meaning | Typical follow-up |
+|---|---|---|
+| `DOC_GAP` | The model did not know how to do it with Prefab. | Add or fix docs, cheat sheet entry or recipe. |
+| `MISLEADING_DIAGNOSTIC` | A Prefab compiler or runtime message misled the model or did not help it. | Improve the diagnostic. |
+| `API_MISUSE` | The model used a Prefab API in an unsupported way or named things differently than asked. | Make the API harder to misuse, or document the rule. |
+| `PLAIN_SPRING_FALLBACK` | The model hand-wrote what Prefab generates. | Strengthen the "do not" guidance. |
+| `TEST_OR_INFRASTRUCTURE` | The task, its tests or the environment failed, not the model. | Fix the task or the harness. |
+
+Classification happens in three layers. Each later layer wins over the earlier one:
+
+1. **Heuristics** (always on): an agent crash, Docker problem or broken mutant counts as infrastructure. A failed
+   guardrail counts as a Spring fallback. An unresolved Prefab processor error counts as a misleading diagnostic.
+   Hidden tests that don't compile against the generated API, or a project that doesn't compile, count as API
+   misuse. Wrong behaviour counts as a doc gap. Heuristics are a starting point: review the doc-gap ones.
+2. **Triage** (`--triage-model claude-sonnet-5-5`): a stronger model reads the prompt, the diff, the agent's final
+   message and the evidence, then picks a category with a one-sentence rationale.
+3. **Manual review**: write `classifications.yml` next to the report, then re-render it with
+   `benchmark/run.sh classify benchmark/results/<run-id>`:
+
+   ```yaml
+   events-multicast#1:
+     category: API_MISUSE
+     note: used @ByReference with a query instead of @Multicast and a repository mixin
+   ```
+
+Turn each failure into a backlog task (or attach it to an existing one) and note the attempt key in it, so the next
+benchmark run can confirm the fix.
+
+## Adding a task
+
+A task is a directory in `benchmark/tasks/`. Its name is the task id.
+
+```
+benchmark/tasks/events-multicast/
+├── task.yml        # metadata and acceptance settings
+├── prompt.md       # what the agent is asked, as a developer would ask it
+├── starter/        # files overlaid on benchmark/template: the starting project
+├── hidden/         # acceptance tests, copied in only after the agent finishes
+├── reference/      # a correct solution, overlaid on the starter (plus optional .delete list)
+└── mutants/        # only for test-writing tasks: one directory per deliberate bug
+```
+
+`task.yml`:
+
+```yaml
+title: Update many aggregates from one event
+category: events-handling      # used for per-category pass rates and --tasks selection
+modules: [postgres, kafka]     # postgres, mongodb, kafka, avro, avro-processor, security, openapi
+timeoutMinutes: 30             # default 30
+maxTurns: 100                  # default 100
+allowGuardrails: []            # guardrail rules this task legitimately breaks
+acceptance:                    # only needed for test-writing tasks
+  agentTests: true
+  minAgentTests: 3
+  mainReadOnly: true
+  unitTestsOnly: false         # true: the agent's tests may not start a Spring context
+  mutants: [pay-keeps-status]
+notes: >
+  Anything maintainers should know, such as a Prefab bug the reference works around.
+```
+
+Guidelines:
+
+- **Write the prompt like a developer would.** State the observable contract: package and type names the hidden
+  tests rely on, HTTP paths, JSON fields, topics and event components. Do not name Prefab annotations; finding the
+  Prefab way is what the benchmark measures.
+- **Test over HTTP.** Hidden tests are `@IntegrationTest` classes named `*AcceptanceTest`. Use
+  `benchmark.support.Api` from `benchmark/acceptance-support` (create, get, put, multipart, read JSON paths, and
+  `eventually` for asynchronous event handling). Reference generated types only when the prompt names them, such as an
+  event record or `OrderRepository`.
+- **Make the reference idiomatic.** It shows how Prefab is meant to be used, and it is the obvious source for
+  recipes. If the reference has to work around a Prefab bug, explain it in `notes` and create a backlog task.
+- **Mutants must keep the API.** A mutant changes behaviour only. If generated signatures change, the agent's tests
+  no longer compile and the mutant check is reported as infrastructure.
+- **Validate:** `benchmark/run.sh validate --tasks <id>` must report the task as valid. Then run it with a strong
+  model once, to check that the prompt is clear enough to be solvable.
+- **When Prefab's public behaviour changes,** update or add the affected tasks in the same change, and rerun
+  `validate`.
+
+The harness's unit tests (`mvn -pl benchmark test`) check that the catalogue still has at least 30 valid tasks, that
+the required use cases are covered, and that no hidden test leaks into a starting project.
+
+## Reproducibility
+
+The model is the main source of variance. The same setup passes a slightly different set of tasks each time. The
+harness removes the other sources: fixed Prefab version from the working tree, pinned template and Testcontainers
+images, a fresh workspace, and empty containers per attempt. The local Maven repository is shared.
+
+The measured margin for the same setup is recorded under [Recorded baselines](#recorded-baselines). As a rule of
+thumb, treat a difference between two runs as real only when it is larger than that margin **and** the 95%
+confidence intervals barely overlap. Use `--repeat 3` for decisions, and compare per task: a task that flips from
+`FAIL 0/3` to `PASS 3/3` is a much stronger signal than one more pass in the total.
+
+## Isolation and known limitations
+
+- Workspaces live outside the repository, and the agent's tool calls are scanned for the repository path and
+  `benchmark/tasks/`. An attempt that reads them is marked contaminated and fails.
+- `run.sh` installs Prefab without the example modules and removes `*-example` artifacts from `~/.m2`. Without that,
+  agents decompiled example jars, which application developers don't have.
+- The agent can read the Prefab jars in `~/.m2` (classes, generated sources in its own `target/`), like any user.
+  It cannot browse the web.
+- Attempts in different slots share the local Maven repository and the CPU. A heavily loaded machine makes agent
+  time and build time longer, but not pass rates (timeouts are generous).
+- The benchmark measures Claude Code as the agent. The `Agent` interface is small, so another agent CLI can be
+  added as another implementation.
+
+## Recorded baselines
+
+Recorded runs live in `benchmark/results/<run-id>/` (`report.md`, `report.json` and, after review,
+`classifications.yml`). The per-attempt logs are not committed.
+
+<!-- BASELINES:BEGIN -->
+Baselines have not been recorded yet.
+<!-- BASELINES:END -->

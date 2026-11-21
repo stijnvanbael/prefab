@@ -4,5 +4,25 @@ instructions:
 copy:
   - from: readme.md
     to: docs/prefab/readme.md
-  - from: backlog/docs
-    to: docs/prefab
+  - from: backlog/docs/developer-guide.md
+    to: docs/prefab/developer-guide.md
+  - from: backlog/docs/getting-started.md
+    to: docs/prefab/getting-started.md
+  - from: backlog/docs/modules.md
+    to: docs/prefab/modules.md
+  - from: backlog/docs/annotation-reference.md
+    to: docs/prefab/annotation-reference.md
+  - from: backlog/docs/built-in-types.md
+    to: docs/prefab/built-in-types.md
+  - from: backlog/docs/generated-artefacts.md
+    to: docs/prefab/generated-artefacts.md
+  - from: backlog/docs/feature-guides.md
+    to: docs/prefab/feature-guides.md
+  - from: backlog/docs/extension-points.md
+    to: docs/prefab/extension-points.md
+  - from: backlog/docs/configuration.md
+    to: docs/prefab/configuration.md
+  - from: backlog/docs/database-migrations.md
+    to: docs/prefab/database-migrations.md
+  - from: backlog/docs/troubleshooting.md
+    to: docs/prefab/troubleshooting.md

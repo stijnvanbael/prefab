@@ -4,3 +4,4 @@ modules: [mongodb]
 notes: >
   @Filter on a primitive boolean crashes the annotation processor ("not a valid name: boolean"); the reference uses a
   boxed Boolean.
+  Tracked in TASK-351.

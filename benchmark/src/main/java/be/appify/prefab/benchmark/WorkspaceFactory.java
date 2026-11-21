@@ -34,11 +34,11 @@ final class WorkspaceFactory {
     Git create(BenchmarkTask task, ContextSetup context, Path directory, Path log) {
         FileTrees.delete(directory);
         FileTrees.copy(paths.template(), directory);
-        render(directory.resolve("pom.xml"), task);
-        render(directory.resolve("src/main/resources/application.yml"), task);
         if (Files.isDirectory(task.starter())) {
             FileTrees.copy(task.starter(), directory);
         }
+        render(directory.resolve("pom.xml"), task);
+        render(directory.resolve("src/main/resources/application.yml"), task);
         context.applyTo(paths, directory);
         var git = new Git(directory, log);
         git.init();

@@ -40,6 +40,7 @@ prefab/
 ├── test/               # Testcontainers-based integration test support + test utilities
 ├── terraform/          # GCP Terraform configuration generation
 ├── examples/           # Runnable example projects (avro, kafka, mongodb, pubsub, sns-sqs, streams)
+├── benchmark/          # Agent benchmark: how well AI agents build Prefab apps (backlog/docs/benchmark.md)
 └── backlog/            # Project backlog, decisions, and developer guide
     └── docs/           # Developer Guide (index: backlog/docs/developer-guide.md)
 ```

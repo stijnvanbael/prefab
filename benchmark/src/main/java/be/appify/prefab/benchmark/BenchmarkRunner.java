@@ -49,6 +49,7 @@ final class BenchmarkRunner {
         }
         var preamble = FileTrees.readString(paths.agentPreamble()).strip();
         var futures = new ArrayList<Future<TaskResult>>();
+        var runTag = Integer.toHexString(run.runId().hashCode() & 0xfffff);
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             for (int attempt = 1; attempt <= options.repeat(); attempt++) {
                 for (var task : tasks) {
@@ -56,13 +57,17 @@ final class BenchmarkRunner {
                     futures.add(executor.submit(() -> {
                         var slot = slots.take();
                         try {
-                            return attempt(task, attemptNumber, agent, context, preamble, run, slot);
+                            return attempt(task, attemptNumber, agent, context, preamble, run,
+                                    slotEnvironment(runTag, slot));
                         } finally {
                             slots.add(slot);
                         }
                     }));
                 }
             }
+        }
+        for (int slot = 1; slot <= options.parallel(); slot++) {
+            removeContainers(slotEnvironment(runTag, slot), run.directory());
         }
         var results = futures.stream().map(BenchmarkRunner::get)
                 .sorted(Comparator.comparing(TaskResult::taskId).thenComparing(TaskResult::attempt))
@@ -72,12 +77,11 @@ final class BenchmarkRunner {
     }
 
     private TaskResult attempt(BenchmarkTask task, int attempt, Agent agent, ContextSetup context, String preamble,
-            RunInfo run, int slot) {
+            RunInfo run, Map<String, String> environment) {
         var name = task.id() + "-" + attempt;
         var logs = run.directory().resolve("attempts").resolve(name);
         var workspace = run.workDirectory().resolve(name).resolve(WORKSPACE);
-        var environment = slotEnvironment(slot);
-        log("start  %s (slot %d)", name, slot);
+        log("start  %s", name);
         Agent.AgentOutcome outcome = null;
         try {
             var git = workspaces.create(task, context, workspace, logs.resolve("git.log"));
@@ -119,8 +123,12 @@ final class BenchmarkRunner {
         }
     }
 
-    static Map<String, String> slotEnvironment(int slot) {
-        var prefix = "prefab_bench" + slot + "_";
+    /**
+     * Container and network names for a parallel slot. The run tag keeps concurrent benchmark runs on one machine
+     * apart.
+     */
+    static Map<String, String> slotEnvironment(String runTag, int slot) {
+        var prefix = "prefab_bench_" + runTag + "_" + slot + "_";
         return Map.of(
                 "TESTCONTAINERS_REUSE_ENABLE", "true",
                 "PREFAB_TEST_POSTGRES_CONTAINER_NAME", prefix + "postgres",
@@ -144,6 +152,14 @@ final class BenchmarkRunner {
                 .sorted()
                 .forEach(command::add);
         ProcessRunner.run(command, ProcessRunner.ProcessOptions.of(logs, logs.resolve("docker.log"), Duration.ofMinutes(2)));
+    }
+
+    private static void removeContainers(Map<String, String> environment, Path directory) {
+        FileTrees.append(directory.resolve("docker.log"), "");
+        resetContainers(environment, directory);
+        var network = environment.get("PREFAB_TEST_KAFKA_NETWORK_NAME");
+        ProcessRunner.run(List.of("docker", "network", "rm", network),
+                ProcessRunner.ProcessOptions.of(directory, directory.resolve("docker.log"), Duration.ofMinutes(1)));
     }
 
     private static String checkSummary(AcceptanceRunner.AcceptanceResult acceptance) {

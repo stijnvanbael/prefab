@@ -1,6 +1,6 @@
 spring:
   application:
-    name: app
+    name: @@ARTIFACT_ID@@
   security:
     oauth2:
       resourceserver:

@@ -1,0 +1,3 @@
+title: Add derived query methods to the generated repository
+category: repository-mixins
+modules: [postgres]

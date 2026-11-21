@@ -1,0 +1,3 @@
+title: Computed read-only fields in responses
+category: rest-crud
+modules: [postgres]

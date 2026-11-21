@@ -1,0 +1,3 @@
+title: Book aggregate with create and get-by-id endpoints
+category: rest-crud
+modules: [postgres]

@@ -1,0 +1,8 @@
+description: The complete current docs copied to docs/prefab/, with a short CLAUDE.md pointing to them (read on demand).
+instructions:
+  - context: CLAUDE.md
+copy:
+  - from: readme.md
+    to: docs/prefab/readme.md
+  - from: backlog/docs
+    to: docs/prefab

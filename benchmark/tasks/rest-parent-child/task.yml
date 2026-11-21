@@ -1,0 +1,3 @@
+title: Child aggregate nested under a parent resource
+category: rest-crud
+modules: [postgres]

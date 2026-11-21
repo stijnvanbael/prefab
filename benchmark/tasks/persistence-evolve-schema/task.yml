@@ -1,0 +1,3 @@
+title: Add fields to an aggregate whose schema is already released
+category: persistence
+modules: [postgres]

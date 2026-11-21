@@ -1,0 +1,3 @@
+title: Update and delete endpoints for an existing aggregate
+category: rest-crud
+modules: [postgres]

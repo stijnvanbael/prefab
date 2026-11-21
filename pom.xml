@@ -37,6 +37,7 @@
         <module>security</module>
         <module>openapi</module>
         <module>terraform</module>
+        <module>benchmark</module>
     </modules>
 
     <properties>

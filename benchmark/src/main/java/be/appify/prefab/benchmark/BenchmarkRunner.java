@@ -1,0 +1,193 @@
+package be.appify.prefab.benchmark;
+
+import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
+/**
+ * Runs a set of tasks with one agent and one context setup, in parallel slots, and collects a {@link RunReport}.
+ *
+ * <p>Every slot uses its own Testcontainers containers and Docker network (through the {@code prefab.test.*} name
+ * properties, passed as environment variables so the agent's own builds use them too), so parallel attempts never
+ * share a database or Kafka topic.
+ */
+final class BenchmarkRunner {
+    private static final String WORKSPACE = "project";
+
+    private final BenchmarkPaths paths;
+    private final WorkspaceFactory workspaces;
+    private final Options options;
+
+    BenchmarkRunner(BenchmarkPaths paths, ProjectVersions versions, Options options) {
+        this.paths = paths;
+        this.workspaces = new WorkspaceFactory(paths, versions);
+        this.options = options;
+    }
+
+    /**
+     * Runs every task {@code repeat} times.
+     *
+     * @param tasks   the tasks
+     * @param agent   the agent under test
+     * @param context the documentation setup
+     * @param run     identification of the run and where its results go
+     * @return the report, with results sorted by task and attempt
+     */
+    RunReport run(List<BenchmarkTask> tasks, Agent agent, ContextSetup context, RunInfo run) {
+        BlockingQueue<Integer> slots = new ArrayBlockingQueue<>(options.parallel());
+        for (int slot = 1; slot <= options.parallel(); slot++) {
+            slots.add(slot);
+        }
+        var preamble = FileTrees.readString(paths.agentPreamble()).strip();
+        var futures = new ArrayList<Future<TaskResult>>();
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            for (int attempt = 1; attempt <= options.repeat(); attempt++) {
+                for (var task : tasks) {
+                    var attemptNumber = attempt;
+                    futures.add(executor.submit(() -> {
+                        var slot = slots.take();
+                        try {
+                            return attempt(task, attemptNumber, agent, context, preamble, run, slot);
+                        } finally {
+                            slots.add(slot);
+                        }
+                    }));
+                }
+            }
+        }
+        var results = futures.stream().map(BenchmarkRunner::get)
+                .sorted(Comparator.comparing(TaskResult::taskId).thenComparing(TaskResult::attempt))
+                .toList();
+        return new RunReport(run.runId(), run.startedAt(), agent.name(), agent.model(), context.name(),
+                run.prefabVersion(), run.gitCommit(), options.repeat(), results);
+    }
+
+    private TaskResult attempt(BenchmarkTask task, int attempt, Agent agent, ContextSetup context, String preamble,
+            RunInfo run, int slot) {
+        var name = task.id() + "-" + attempt;
+        var logs = run.directory().resolve("attempts").resolve(name);
+        var workspace = run.workDirectory().resolve(name).resolve(WORKSPACE);
+        var environment = slotEnvironment(slot);
+        log("start  %s (slot %d)", name, slot);
+        Agent.AgentOutcome outcome = null;
+        try {
+            var git = workspaces.create(task, context, workspace, logs.resolve("git.log"));
+            resetContainers(environment, logs);
+            outcome = agent.run(new Agent.AgentRun(task, preamble + "\n\n" + task.prompt(), workspace, logs, environment));
+            resetContainers(environment, logs);
+            var acceptanceStart = Instant.now();
+            var acceptance = new AcceptanceRunner(Maven.create(environment), paths.acceptanceSupport()).check(task, workspace, git, logs);
+            var acceptanceDuration = Duration.between(acceptanceStart, Instant.now());
+            var passed = acceptance.passed() && !outcome.contaminated();
+            var result = new TaskResult(task.id(), task.category(), attempt, passed, outcome, acceptance,
+                    acceptanceDuration, null, logs.toString());
+            if (!passed) {
+                result = result.withFailure(outcome.contaminated()
+                        ? new TaskResult.Classification(FailureCategory.TEST_OR_INFRASTRUCTURE, "heuristic",
+                        "the agent read the benchmark sources (hidden tests or reference)",
+                        FailureClassifier.evidence(outcome, acceptance))
+                        : FailureClassifier.classify(task, outcome, acceptance));
+                if (options.triage() != null && result.failure().category() != FailureCategory.TEST_OR_INFRASTRUCTURE) {
+                    result = options.triage().classify(task, result, logs);
+                }
+            } else if (!options.keepWorkspaces()) {
+                FileTrees.delete(workspace.getParent());
+            }
+            log("%s %s %s", passed ? "PASS  " : "FAIL  ", name,
+                    passed ? "" : result.failure().category() + " " + checkSummary(acceptance));
+            return result;
+        } catch (RuntimeException e) {
+            log("ERROR  %s %s", name, e);
+            var failedOutcome = outcome != null ? outcome : new Agent.AgentOutcome(Agent.Status.ERROR,
+                    Agent.TokenUsage.NONE, 0, 0, 0, Duration.ZERO, false, String.valueOf(e.getMessage()));
+            var acceptance = new AcceptanceRunner.AcceptanceResult(
+                    List.of(new AcceptanceRunner.CheckResult("harness", false, e.toString(), true)),
+                    List.of(), List.of(), null, List.of(), false);
+            return new TaskResult(task.id(), task.category(), attempt, false, failedOutcome, acceptance, Duration.ZERO,
+                    new TaskResult.Classification(FailureCategory.TEST_OR_INFRASTRUCTURE, "heuristic",
+                            "the harness failed: " + e.getMessage(), List.of(e.toString())),
+                    logs.toString());
+        }
+    }
+
+    static Map<String, String> slotEnvironment(int slot) {
+        var prefix = "prefab_bench" + slot + "_";
+        return Map.of(
+                "TESTCONTAINERS_REUSE_ENABLE", "true",
+                "PREFAB_TEST_POSTGRES_CONTAINER_NAME", prefix + "postgres",
+                "PREFAB_TEST_MONGODB_CONTAINER_NAME", prefix + "mongodb",
+                "PREFAB_TEST_KAFKA_CONTAINER_NAME", prefix + "kafka",
+                "PREFAB_TEST_KAFKA_NETWORK_NAME", prefix + "kafka",
+                "PREFAB_TEST_SCHEMA_REGISTRY_CONTAINER_NAME", prefix + "schema_registry",
+                "PREFAB_TEST_LOCALSTACK_CONTAINER_NAME", prefix + "localstack",
+                "PREFAB_TEST_PUBSUB_CONTAINER_NAME", prefix + "pubsub");
+    }
+
+    /**
+     * Removes the slot's Testcontainers containers, so an attempt never sees topics, queues or tables left behind by an
+     * earlier attempt (or by the agent's own test runs, for the acceptance builds).
+     */
+    private static void resetContainers(Map<String, String> environment, Path logs) {
+        var command = new ArrayList<String>(List.of("docker", "rm", "--force", "--volumes"));
+        environment.entrySet().stream()
+                .filter(entry -> entry.getKey().endsWith("_CONTAINER_NAME"))
+                .map(Map.Entry::getValue)
+                .sorted()
+                .forEach(command::add);
+        ProcessRunner.run(command, ProcessRunner.ProcessOptions.of(logs, logs.resolve("docker.log"), Duration.ofMinutes(2)));
+    }
+
+    private static String checkSummary(AcceptanceRunner.AcceptanceResult acceptance) {
+        return acceptance.checks().stream().filter(check -> !check.passed())
+                .map(AcceptanceRunner.CheckResult::name).toList().toString();
+    }
+
+    private static TaskResult get(Future<TaskResult> future) {
+        try {
+            return future.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted", e);
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("Attempt failed unexpectedly", e.getCause());
+        }
+    }
+
+    private static void log(String format, Object... args) {
+        System.out.printf("[%tT] %s%n", Instant.now().toEpochMilli(), format.formatted(args));
+    }
+
+    /**
+     * Run options.
+     *
+     * @param repeat         attempts per task
+     * @param parallel       number of attempts running at the same time
+     * @param triage         LLM triage for failures, or {@code null}
+     * @param keepWorkspaces whether to keep the workspaces of passed attempts (failed ones are always kept)
+     */
+    record Options(int repeat, int parallel, Triage triage, boolean keepWorkspaces) {
+    }
+
+    /**
+     * Identification of a run.
+     *
+     * @param runId         run id
+     * @param startedAt     start time
+     * @param directory     results directory (report, logs)
+     * @param workDirectory directory for workspaces, outside the repository
+     * @param prefabVersion Prefab version
+     * @param gitCommit     repository commit
+     */
+    record RunInfo(String runId, Instant startedAt, Path directory, Path workDirectory, String prefabVersion,
+            String gitCommit) {
+    }
+}

@@ -1,0 +1,8 @@
+title: Integration tests for a REST API
+category: testing
+modules: [postgres]
+acceptance:
+  agentTests: true
+  minAgentTests: 3
+  mainReadOnly: true
+  mutants: [pay-keeps-status, double-payment-allowed, amount-not-stored]

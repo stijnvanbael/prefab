@@ -1,0 +1,9 @@
+title: Unit tests for the events an aggregate publishes
+category: testing
+modules: [postgres, kafka]
+acceptance:
+  agentTests: true
+  minAgentTests: 3
+  mainReadOnly: true
+  unitTestsOnly: true
+  mutants: [withdraw-publishes-deposit, deposit-not-published, overdraft-allowed]

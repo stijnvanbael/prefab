@@ -1,0 +1,3 @@
+title: Create an aggregate when an event arrives
+category: events-handling
+modules: [postgres, kafka]

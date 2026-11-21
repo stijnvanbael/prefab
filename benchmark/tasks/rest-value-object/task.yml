@@ -1,0 +1,3 @@
+title: Aggregate with a nested value object
+category: rest-crud
+modules: [postgres]

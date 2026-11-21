@@ -4,7 +4,7 @@ title: Add @PrefabSlice test slice for generated controller/service
 status: To Do
 assignee: []
 created_date: '2026-05-08 16:37'
-updated_date: '2026-05-21 06:22'
+updated_date: '2026-11-20 20:14'
 labels: []
 dependencies: []
 priority: high
@@ -31,3 +31,12 @@ Introduce a `@PrefabSlice` test annotation (analogous to Spring Boot's `@WebMvcT
 - [ ] #2 The build is green
 - [ ] #3 Code is clean (refactored)
 <!-- DOD:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-11-20 20:14
+---
+AI-driven development: a fast, container-free test loop matters even more for agents than for humans. Cheap models like Haiku iterate more often, and a slow or Docker-dependent loop is the main cost and failure source in agent runs. The Haiku benchmark (TASK-343) should measure the impact.
+---
+<!-- COMMENTS:END -->

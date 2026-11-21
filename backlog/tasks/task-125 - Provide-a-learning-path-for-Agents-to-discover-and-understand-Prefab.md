@@ -4,7 +4,7 @@ title: Provide a learning path for Agents to discover and understand Prefab
 status: To Do
 assignee: []
 created_date: '2026-04-18 08:55'
-updated_date: '2026-04-24 06:57'
+updated_date: '2026-11-20 20:14'
 labels:
   - documentation
   - agents
@@ -28,3 +28,12 @@ Agents (AI coding assistants) need a clear, structured way to learn how Prefab w
 - [ ] #4 A dedicated AGENTS.md section (or separate doc under backlog/docs/) describes the recommended learning path: readme → Javadoc entry points → example modules
 - [ ] #5 The annotation-processor module exposes Javadoc for its public SPI so agents can understand how to write custom plugins
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-11-20 20:14
+---
+Related agent-readiness work: TASK-344 (cheat sheet), TASK-346 (task recipes) and TASK-350 (deliver version-matched guidance to application projects). Javadoc and package-info from this task remain the in-jar fallback that agents can read from sources jars.
+---
+<!-- COMMENTS:END -->

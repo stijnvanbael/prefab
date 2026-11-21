@@ -4,7 +4,7 @@ title: Add in-memory persistence and messaging backend for tests
 status: To Do
 assignee: []
 created_date: '2026-05-08 16:37'
-updated_date: '2026-05-21 06:22'
+updated_date: '2026-11-20 20:14'
 labels: []
 dependencies: []
 priority: high
@@ -31,3 +31,12 @@ Add a `prefab-test-inmemory` module that replaces PostgreSQL/MongoDB with an in-
 - [ ] #2 The build is green
 - [ ] #3 Code is clean (refactored)
 <!-- DOD:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-11-20 20:14
+---
+AI-driven development: container-free integration tests let agents (especially cheap models like Haiku) verify event-driven behaviour quickly and without Docker. The Haiku benchmark (TASK-343) should measure the impact.
+---
+<!-- COMMENTS:END -->

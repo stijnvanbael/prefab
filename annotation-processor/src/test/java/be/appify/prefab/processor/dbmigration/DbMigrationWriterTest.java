@@ -720,8 +720,8 @@ class DbMigrationWriterTest {
         assertThat(compilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
-                .contains("USING GIN (setweight(to_tsvector('simple', coalesce(\"title\", '')), 'A') || "
-                        + "setweight(to_tsvector('simple', coalesce(\"body_text\", '')), 'C'));");
+                .contains("USING GIN ((setweight(to_tsvector('simple', coalesce(\"title\", '')), 'A') || "
+                        + "setweight(to_tsvector('simple', coalesce(\"body_text\", '')), 'C')));");
     }
 
     @Test
@@ -734,8 +734,8 @@ class DbMigrationWriterTest {
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
                 .contains("CREATE INDEX \"pamphlet_title_body_text_fts_english\" ON \"pamphlet\" USING GIN "
-                        + "(setweight(to_tsvector('english', coalesce(\"title\", '')), 'A') || "
-                        + "setweight(to_tsvector('english', coalesce(\"body_text\", '')), 'C'));");
+                        + "((setweight(to_tsvector('english', coalesce(\"title\", '')), 'A') || "
+                        + "setweight(to_tsvector('english', coalesce(\"body_text\", '')), 'C')));");
     }
 
     @Test
@@ -749,7 +749,7 @@ class DbMigrationWriterTest {
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "db/migration/V1__generated.sql")
                 .contentsAsUtf8String()
                 .contains("\"booklet_title_body_text_fts_dutch\" ON \"booklet\" USING GIN "
-                        + "(setweight(to_tsvector('dutch', coalesce(\"title\", '')), 'A')");
+                        + "((setweight(to_tsvector('dutch', coalesce(\"title\", '')), 'A')");
     }
 
     @Test
@@ -852,6 +852,26 @@ class DbMigrationWriterTest {
                 .withProcessors(new PrefabProcessor())
                 .withOptions(classpathOptionsWith(classpathWithMigration("V1__initial_schema.sql", baselineSql)))
                 .compile(sourceOf("dbmigration/fulltext/source/Manual.java"));
+
+        assertThat(recompilation).succeeded();
+        Truth.assertThat(recompilation.generatedFiles().stream()
+                .map(file -> file.getName())
+                .filter(name -> name.contains("db/migration/") && name.endsWith("__generated.sql"))
+                .toList()).isEmpty();
+    }
+
+    @Test
+    void weightedFullTextIndexSurvivesARoundTripThroughTheExistingMigration() throws IOException {
+        var baseline = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("dbmigration/fulltextweighted/source/Booklet.java"));
+        assertThat(baseline).succeeded();
+        var baselineSql = generatedMigrationContent(baseline, "db/migration/V1__generated.sql");
+
+        var recompilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .withOptions(classpathOptionsWith(classpathWithMigration("V1__initial_schema.sql", baselineSql)))
+                .compile(sourceOf("dbmigration/fulltextweighted/source/Booklet.java"));
 
         assertThat(recompilation).succeeded();
         Truth.assertThat(recompilation.generatedFiles().stream()

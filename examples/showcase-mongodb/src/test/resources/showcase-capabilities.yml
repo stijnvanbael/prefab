@@ -1,0 +1,8 @@
+# Capabilities this variant does not support. Every capability that is not listed is supported.
+# Each gap needs a reason and the backlog task that tracks it, e.g.:
+#
+# unsupported:
+#   STREAMS:
+#     reason: no Pub/Sub backend for Prefab Streams
+#     task: TASK-341
+variant: showcase-mongodb

@@ -193,7 +193,8 @@ defaults, indexes, or data backfills. Plan, version, review, execute, and record
 application's chosen operational process. Do not assume Flyway's SQL execution or checksum behavior applies to
 MongoDB.
 
-MongoDB integration tests have a separate test helper that drops collections before each test instance is prepared.
+MongoDB integration tests have a separate test helper that removes all documents before each test instance is prepared;
+it keeps the collections, so the indexes created at startup survive.
 That reset is test-only and is unrelated to generated MongoDB migration execution.
 
 See also [Generated Artefacts: Database migrations](generated-artefacts.md#66-database-migration-scripts) and

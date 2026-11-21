@@ -30,10 +30,11 @@ public final class TsVectorExpression {
                     .collect(Collectors.joining(" || ' ' || "));
             return "to_tsvector('%s', %s)".formatted(configuration, text);
         }
+        // Parenthesized: an index expression that is not a single function call must be, and the query stays the same
         return weightByColumn.entrySet().stream()
                 .map(entry -> "setweight(to_tsvector('%s', %s), '%s')"
                         .formatted(configuration, textOf(entry.getKey()), entry.getValue()))
-                .collect(Collectors.joining(" || "));
+                .collect(Collectors.joining(" || ", "(", ")"));
     }
 
     private static String textOf(String column) {

@@ -16,7 +16,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  */
 @Target({METHOD, FIELD, ANNOTATION_TYPE, CONSTRUCTOR, PARAMETER, TYPE_USE})
 @Retention(RUNTIME)
-@Constraint(validatedBy = ContentTypeValidator.class)
+@Constraint(validatedBy = {ContentTypeValidator.class, MultipartFileContentTypeValidator.class})
 @Documented
 public @interface ContentType {
     /** Default error message */

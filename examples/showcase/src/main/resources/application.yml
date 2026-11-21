@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: prefab.showcase
+
+error.handling:
+  exception-logging: WITH_STACKTRACE

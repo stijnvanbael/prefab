@@ -38,6 +38,11 @@ final class MarkdownReport {
                 Statistics.median(results.stream().map(result -> result.agent().buildAttempts()).toList()),
                 Statistics.formatDuration(Duration.ofSeconds((long) Statistics.median(
                         results.stream().map(result -> result.agent().duration().toSeconds()).toList())))));
+        var notRun = results.stream().filter(result -> result.agent().status() == Agent.Status.RATE_LIMITED
+                || result.agent().status() == Agent.Status.SKIPPED).count();
+        if (notRun > 0) {
+            row(md, "**Rate limited or skipped**", notRun + " attempts did not run; the pass rate is not meaningful");
+        }
         if (results.stream().anyMatch(result -> result.agent().contaminated())) {
             row(md, "**Contaminated attempts**", results.stream().filter(result -> result.agent().contaminated())
                     .map(TaskResult::key).collect(Collectors.joining(", ")));

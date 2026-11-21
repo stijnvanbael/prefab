@@ -35,6 +35,10 @@ an API that is easy to misuse, or a place where the model fell back to plain Spr
   credentials are needed**: nothing talks to AWS, GCP or a real identity provider.
 - The Claude Code CLI (`claude`), logged in or with `ANTHROPIC_API_KEY` set. Only `run` needs it; `validate`,
   `list`, `compare` and `classify` work without it.
+- **Usage budget.** A full run is 32 agent sessions. On a Claude subscription, two Haiku runs in parallel used up a
+  5-hour usage limit within minutes, so prefer an API key for baselines, run one setup at a time, or pick tasks with
+  `--tasks`. When the API answers with a usage or rate limit (HTTP 429), the harness stops starting new attempts,
+  marks the remaining ones as skipped, flags the report as not meaningful and exits with code 3. Rerun later.
 
 ## Running the benchmark
 
@@ -75,6 +79,7 @@ checked out. Set `BENCHMARK_SKIP_INSTALL=1` to skip that step when nothing chang
 | `--triage-model` | none | Let this model classify failures (see [Classifying failures](#classifying-failures)). |
 | `--results` | `benchmark/results/<run-id>` | Where the report and logs go. |
 | `--work-dir` | `<tmp>/prefab-benchmark/<run-id>` | Where the workspaces go. Keep this outside the repository. |
+| `--hide` | none | Extra comma-separated paths hidden from the agent (see [Isolation](#isolation-and-known-limitations)). |
 | `--keep-workspaces` | off | Keep the workspaces of passed attempts. Failed ones are always kept. |
 
 `validate` runs every task twice, with stand-in agents. The reference solution must pass and the unchanged starting
@@ -251,8 +256,14 @@ confidence intervals barely overlap. Use `--repeat 3` for decisions, and compare
 
 ## Isolation and known limitations
 
-- Workspaces live outside the repository, and the agent's tool calls are scanned for the repository path and
-  `benchmark/tasks/`. An attempt that reads them is marked contaminated and fails.
+- **Agents search the file system.** In the first runs, Haiku without docs found the Prefab checkout and read a
+  task's reference solution. On Linux as root, the agent therefore runs in a private mount namespace
+  (`unshare --mount`): the repository, the parent of the run's work directory (other runs' workspaces) and any
+  `--hide` paths are covered by an empty tmpfs, and only the attempt's own workspace is visible. Docker keeps working
+  because containers are started by the daemon. Keep the work directory in a folder of its own (the default
+  `<tmp>/prefab-benchmark/<run-id>` is), and pass `--hide` for other places with Prefab sources or benchmark output.
+  Where isolation is unavailable, the harness warns. In every case, tool calls are scanned for the repository path and
+  `benchmark/tasks/`, and an attempt that touches them is marked contaminated and fails.
 - `run.sh` installs Prefab without the example modules and removes `*-example` artifacts from `~/.m2`. Without that,
   agents decompiled example jars, which application developers don't have.
 - The agent can read the Prefab jars in `~/.m2` (classes, generated sources in its own `target/`), like any user.

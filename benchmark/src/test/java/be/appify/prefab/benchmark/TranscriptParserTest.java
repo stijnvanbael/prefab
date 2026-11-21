@@ -52,5 +52,7 @@ class TranscriptParserTest {
 
         assertThat(TranscriptParser.parse(List.of(maxTurns), List.of()).status()).isEqualTo(Agent.Status.MAX_TURNS);
         assertThat(TranscriptParser.parse(List.of(error), List.of()).status()).isEqualTo(Agent.Status.ERROR);
+        var limited = RESULT.replace("\"num_turns\"", "\"api_error_status\":429,\"num_turns\"");
+        assertThat(TranscriptParser.parse(List.of(limited), List.of()).status()).isEqualTo(Agent.Status.RATE_LIMITED);
     }
 }

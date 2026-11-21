@@ -88,6 +88,9 @@ final class TranscriptParser {
     }
 
     private static Agent.Status status(JsonNode result) {
+        if (result.path("api_error_status").asInt(0) == 429) {
+            return Agent.Status.RATE_LIMITED;
+        }
         var subtype = result.path("subtype").asString("");
         if (subtype.equals("error_max_turns")) {
             return Agent.Status.MAX_TURNS;

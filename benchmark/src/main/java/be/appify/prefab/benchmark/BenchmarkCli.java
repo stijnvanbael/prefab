@@ -101,7 +101,11 @@ public final class BenchmarkCli {
         writeReport(report, resultsDirectory);
         System.out.printf("%nPass rate %d/%d = %s%nReport: %s%n", report.passedCount(), report.results().size(),
                 report.passRate().format(), resultsDirectory.resolve("report.md"));
-        return 0;
+        var limited = report.results().stream().anyMatch(result -> result.agent().status() == Agent.Status.RATE_LIMITED);
+        if (limited) {
+            System.out.println("The run stopped early because the model API reported a usage or rate limit.");
+        }
+        return limited ? 3 : 0;
     }
 
     private static int validate(BenchmarkPaths paths, CliArguments arguments) {

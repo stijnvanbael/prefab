@@ -72,7 +72,11 @@ sealed interface Agent permits ClaudeCodeAgent, ReferenceAgent, NoopAgent {
         /** The harness killed the agent after the task timeout. */
         TIMED_OUT,
         /** The agent failed: API error, crash, could not start. */
-        ERROR
+        ERROR,
+        /** The model API refused the request because a usage or rate limit was reached; the run stops. */
+        RATE_LIMITED,
+        /** The attempt was not started because an earlier attempt hit a rate limit. */
+        SKIPPED
     }
 
     /**

@@ -50,6 +50,7 @@ final class BenchmarkRunner {
         var preamble = FileTrees.readString(paths.agentPreamble()).strip();
         var futures = new ArrayList<Future<TaskResult>>();
         var runTag = Integer.toHexString(run.runId().hashCode() & 0xfffff);
+        var rateLimited = new java.util.concurrent.atomic.AtomicBoolean();
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             for (int attempt = 1; attempt <= options.repeat(); attempt++) {
                 for (var task : tasks) {
@@ -57,8 +58,15 @@ final class BenchmarkRunner {
                     futures.add(executor.submit(() -> {
                         var slot = slots.take();
                         try {
-                            return attempt(task, attemptNumber, agent, context, preamble, run,
+                            if (rateLimited.get()) {
+                                return skipped(task, attemptNumber, run);
+                            }
+                            var result = attempt(task, attemptNumber, agent, context, preamble, run,
                                     slotEnvironment(runTag, slot));
+                            if (result.agent().status() == Agent.Status.RATE_LIMITED && !rateLimited.getAndSet(true)) {
+                                log("STOP   the model API reports a usage or rate limit: %s", result.agent().message());
+                            }
+                            return result;
                         } finally {
                             slots.add(slot);
                         }
@@ -87,6 +95,14 @@ final class BenchmarkRunner {
             var git = workspaces.create(task, context, workspace, logs.resolve("git.log"));
             resetContainers(environment, logs);
             outcome = agent.run(new Agent.AgentRun(task, preamble + "\n\n" + task.prompt(), workspace, logs, environment));
+            if (outcome.status() == Agent.Status.RATE_LIMITED) {
+                log("FAIL   %s rate limited", name);
+                return new TaskResult(task.id(), task.category(), attempt, false, outcome,
+                        new AcceptanceRunner.AcceptanceResult(List.of(new AcceptanceRunner.CheckResult("agent", false,
+                                outcome.message(), true)), List.of(), List.of(), null, List.of(), false),
+                        Duration.ZERO, new TaskResult.Classification(FailureCategory.TEST_OR_INFRASTRUCTURE, "heuristic",
+                        "rate limited: " + outcome.message(), List.of()), logs.toString());
+            }
             resetContainers(environment, logs);
             var acceptanceStart = Instant.now();
             var acceptance = new AcceptanceRunner(Maven.create(environment), paths.acceptanceSupport()).check(task, workspace, git, logs);
@@ -127,6 +143,18 @@ final class BenchmarkRunner {
      * Container and network names for a parallel slot. The run tag keeps concurrent benchmark runs on one machine
      * apart.
      */
+    private static TaskResult skipped(BenchmarkTask task, int attempt, RunInfo run) {
+        var outcome = new Agent.AgentOutcome(Agent.Status.SKIPPED, Agent.TokenUsage.NONE, 0, 0, 0, Duration.ZERO, false,
+                "not started: an earlier attempt hit a usage or rate limit");
+        var acceptance = new AcceptanceRunner.AcceptanceResult(
+                List.of(new AcceptanceRunner.CheckResult("agent", false, outcome.message(), true)),
+                List.of(), List.of(), null, List.of(), false);
+        return new TaskResult(task.id(), task.category(), attempt, false, outcome, acceptance, Duration.ZERO,
+                new TaskResult.Classification(FailureCategory.TEST_OR_INFRASTRUCTURE, "heuristic", outcome.message(),
+                        List.of()),
+                run.directory().resolve("attempts").resolve(task.id() + "-" + attempt).toString());
+    }
+
     static Map<String, String> slotEnvironment(String runTag, int slot) {
         var prefix = "prefab_bench_" + runTag + "_" + slot + "_";
         return Map.of(

@@ -35,6 +35,8 @@ class HttpWriter {
             ClassName.get("com.fasterxml.jackson.annotation", "JsonSubTypes");
     private static final ClassName JSON_SUB_TYPE =
             ClassName.get("com.fasterxml.jackson.annotation", "JsonSubTypes", "Type");
+    private static final ClassName JSON_PROPERTY =
+            ClassName.get("com.fasterxml.jackson.annotation", "JsonProperty");
 
     private final FileOutput fileWriter;
     private final PrefabContext context;
@@ -194,10 +196,22 @@ class HttpWriter {
         fileWriter.writeFile(manifest.packageName(), responseName, outerInterface.build());
     }
 
+    // The type is an existing property of every subtype response rather than added by the type serializer: Jackson
+    // only adds a type id when the declared type is polymorphic, and the elements of a page are declared as Object
     private AnnotationSpec buildJsonTypeInfo() {
         return AnnotationSpec.builder(JSON_TYPE_INFO)
                 .addMember("use", "$T.Id.NAME", JSON_TYPE_INFO)
+                .addMember("include", "$T.As.EXISTING_PROPERTY", JSON_TYPE_INFO)
                 .addMember("property", "$S", "type")
+                .build();
+    }
+
+    private static MethodSpec buildTypeProperty(String subtypeName) {
+        return MethodSpec.methodBuilder("type")
+                .addModifiers(PUBLIC)
+                .addAnnotation(AnnotationSpec.builder(JSON_PROPERTY).addMember("value", "$S", "type").build())
+                .returns(String.class)
+                .addStatement("return $S", subtypeName)
                 .build();
     }
 
@@ -254,7 +268,8 @@ class HttpWriter {
                 .recordConstructor(MethodSpec.compactConstructorBuilder()
                         .addParameters(recordParams)
                         .build())
-                .addMethod(fromMethod);
+                .addMethod(fromMethod)
+                .addMethod(buildTypeProperty(subtypeName));
         new BuilderWriter(context.builderSetterPrefix()).enrichWithBuilder(builder, subtypeResponseClassName, recordParams);
         return builder.build();
     }

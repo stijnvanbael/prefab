@@ -31,6 +31,7 @@ public final class BenchmarkCli {
                            --results <dir>        report directory (default: benchmark/results/<run-id>)
                            --work-dir <dir>       workspace directory (default: <tmp>/prefab-benchmark/<run-id>)
                            --claude <path>        Claude Code CLI executable (default: claude)
+                           --hide <paths>         extra comma-separated paths to hide from the agent
                            --keep-workspaces      keep workspaces of passed attempts too
               validate   Check every task: the reference solution must pass, the starting project must fail
                            --tasks, --parallel, --work-dir as above
@@ -72,24 +73,31 @@ public final class BenchmarkCli {
     private static int run(BenchmarkPaths paths, CliArguments arguments) {
         var agentName = arguments.option("agent", "claude");
         var claude = arguments.option("claude", "claude");
+        var startedAt = Instant.now();
+        var context = ContextSetup.load(paths.contexts(), arguments.option("context", "none"));
+        var model = arguments.option("model").orElse(agentName);
+        var runId = RUN_ID_TIME.format(startedAt) + "-" + sanitize(model) + "-" + context.name();
+        var workDirectory = workDirectory(arguments, runId);
+        var isolation = isolation(paths, arguments, workDirectory);
         var agent = switch (agentName) {
             case "claude" -> new ClaudeCodeAgent(
                     arguments.option("model").orElseThrow(() -> new IllegalArgumentException("--model is required")),
-                    claude, List.of(), ClaudeCodeAgent.forbiddenMarkers(paths.repository()));
+                    claude, List.of(), ClaudeCodeAgent.forbiddenMarkers(paths.repository()), isolation);
             case "reference" -> new ReferenceAgent();
             case "noop" -> new NoopAgent();
             default -> throw new IllegalArgumentException("Unknown agent " + agentName);
         };
-        var context = ContextSetup.load(paths.contexts(), arguments.option("context", "none"));
         var tasks = new TaskCatalog(paths.tasks()).select(arguments.listOption("tasks"));
-        var triage = arguments.option("triage-model").map(model -> new Triage(model, claude)).orElse(null);
-        var startedAt = Instant.now();
-        var runId = RUN_ID_TIME.format(startedAt) + "-" + sanitize(agent.model()) + "-" + context.name();
+        var triage = arguments.option("triage-model").map(triageModel -> new Triage(triageModel, claude)).orElse(null);
+        if (agent instanceof ClaudeCodeAgent && !isolation.enabled()) {
+            System.out.println("warning: cannot hide the repository from the agent on this machine (needs Linux, root"
+                    + " and unshare); attempts that read benchmark sources are marked contaminated");
+        }
         var resultsDirectory = Path.of(arguments.option("results", paths.results().resolve(runId).toString()));
         var options = new BenchmarkRunner.Options(arguments.intOption("repeat", 1), arguments.intOption("parallel", 2),
                 triage, arguments.flag("keep-workspaces"));
         var report = runner(paths, options).run(tasks, agent, context,
-                runInfo(paths, runId, startedAt, resultsDirectory, workDirectory(arguments, runId)));
+                runInfo(paths, runId, startedAt, resultsDirectory, workDirectory));
         writeReport(report, resultsDirectory);
         System.out.printf("%nPass rate %d/%d = %s%nReport: %s%n", report.passedCount(), report.results().size(),
                 report.passRate().format(), resultsDirectory.resolve("report.md"));
@@ -170,6 +178,16 @@ public final class BenchmarkCli {
         var versions = ProjectVersions.read(paths.repository());
         var commit = new Git(paths.repository(), workDirectory.resolve("repository-git.log")).describeHead();
         return new BenchmarkRunner.RunInfo(runId, startedAt, resultsDirectory, workDirectory, versions.prefab(), commit);
+    }
+
+    /**
+     * Hides the repository, the parent of this run's work directory (other runs' workspaces) and any {@code --hide}
+     * paths. The default work directory lives in its own {@code <tmp>/prefab-benchmark} folder for this reason.
+     */
+    private static Isolation isolation(BenchmarkPaths paths, CliArguments arguments, Path workDirectory) {
+        var hidden = new ArrayList<Path>(List.of(paths.repository(), workDirectory.toAbsolutePath().getParent()));
+        arguments.listOption("hide").stream().map(Path::of).forEach(hidden::add);
+        return Isolation.hiding(hidden);
     }
 
     private static Path workDirectory(CliArguments arguments, String runId) {

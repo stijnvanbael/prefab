@@ -17,8 +17,10 @@ import java.util.List;
  * @param executable  the CLI to run, normally {@code claude}
  * @param extraArgs   additional CLI arguments
  * @param forbidden   strings that mark a tool call as looking at the benchmark sources
+ * @param isolation   what the agent must not see
  */
-record ClaudeCodeAgent(String model, String executable, List<String> extraArgs, List<String> forbidden) implements Agent {
+record ClaudeCodeAgent(String model, String executable, List<String> extraArgs, List<String> forbidden,
+        Isolation isolation) implements Agent {
     /** Variables that make the CLI believe it runs nested inside another Claude Code session. */
     private static final List<String> REMOVED_ENVIRONMENT = List.of("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT");
     private static final Duration GRACE = Duration.ofSeconds(30);
@@ -49,7 +51,15 @@ record ClaudeCodeAgent(String model, String executable, List<String> extraArgs, 
         var options = new ProcessRunner.ProcessOptions(
                 run.workspace(), run.environment(), REMOVED_ENVIRONMENT,
                 transcript, run.logs().resolve("agent-stderr.log"), run.task().timeout().plus(GRACE));
-        var process = ProcessRunner.run(command, options);
+        var stage = createStage();
+        try {
+            return outcome(run, transcript, ProcessRunner.run(isolation.wrap(command, run.workspace(), stage), options));
+        } finally {
+            FileTrees.delete(stage);
+        }
+    }
+
+    private AgentOutcome outcome(AgentRun run, Path transcript, ProcessRunner.ProcessResult process) {
         var parsed = TranscriptParser.parse(transcript, forbidden);
         var status = process.timedOut() ? Status.TIMED_OUT
                 : parsed.complete() ? parsed.status()
@@ -59,6 +69,14 @@ record ClaudeCodeAgent(String model, String executable, List<String> extraArgs, 
                 : "agent exited with code " + process.exitCode() + " without a result, see agent-stderr.log";
         return new AgentOutcome(status, parsed.usage(), parsed.turns(), parsed.buildAttempts(), parsed.costUsd(),
                 process.duration(), parsed.contaminated(), message);
+    }
+
+    private static Path createStage() {
+        try {
+            return java.nio.file.Files.createTempDirectory(Path.of("/tmp"), "prefab-benchmark-stage-");
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
     }
 
     static List<String> forbiddenMarkers(Path repository) {

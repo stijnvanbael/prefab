@@ -1,0 +1,1425 @@
+{
+  "runId" : "20261122-195459-claude-sonnet-5-5-full-docs",
+  "startedAt" : "2026-11-22T19:54:59.905434220Z",
+  "agent" : "claude-code/claude-sonnet-5-5",
+  "model" : "claude-sonnet-5-5",
+  "context" : "full-docs",
+  "prefabVersion" : "0.13.3-SNAPSHOT",
+  "gitCommit" : "eab5431",
+  "repeat" : 1,
+  "results" : [ {
+    "taskId" : "audit-trail",
+    "category" : "audit",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 10,
+        "output" : 1569,
+        "cacheRead" : 451878,
+        "cacheCreation" : 97813
+      },
+      "turns" : 5,
+      "buildAttempts" : 1,
+      "costUsd" : 0.45214980000000005,
+      "duration" : "PT20.387577809S",
+      "contaminated" : false,
+      "message" : "`GET /contracts/{id}` should now return an `audit` object with `createdBy`, `createdAt`, `lastModifiedBy` and `lastModifiedAt`. I confirmed that the build passes and that the generated response includes `audit`. I did not exercise the endpoint, since the project has no tests, so the timestamps and user names are untested.\n\n- **`Contract.java`:** I added an `AuditInfo audit` component, which Prefab fills in on create and update. It is not part of any request record, so clients can't set it. `createdBy`/`createdAt` are written only on creation. `lastModifiedBy`/`lastModifiedAt` are written on creation and on every `PUT /contracts/{id}`.\n- **`SecurityAuditContextProvider.java` (new):** this supplies the user as the Spring Security principal name. It falls back to `\"system\"` when nobody is authenticated.\n- **Migration:** the generated `V1__generated.sql` already includes the four `audit_*` columns. It is written to `target/classes/db/migration/` at build time, and Prefab's docs recommend copying it into `src/main/resources/db/migration/` to keep it in source control."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/legal/Contract.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/legal/SecurityAuditContextProvider.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT20.040320434S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/audit-trail-1"
+  }, {
+    "taskId" : "avro-avsc-contract",
+    "category" : "avro",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 16,
+        "output" : 2808,
+        "cacheRead" : 801713,
+        "cacheCreation" : 103672
+      },
+      "turns" : 8,
+      "buildAttempts" : 3,
+      "costUsd" : 0.5229713,
+      "duration" : "PT1M36.718930743S",
+      "contaminated" : false,
+      "message" : "Dispatching a shipment now publishes a `ShipmentDispatched` event on the `shipments` topic, serialized as Avro, and `mvn test` passes.\n\n- **Event class:** `com.example.shipping.ShipmentDispatched` is generated from `shipment-dispatched.avsc`, which I did not touch. The new `ShipmentEvent` is a sealed interface annotated `@Event` and `@Avsc` that points at the schema and sets the Kafka topic and Avro format. I made it sealed because Prefab's event registry refuses a plain interface.\n- **Partitioning:** The key is `shipmentId`, declared with `@PartitioningKey` on `ShipmentEvent`.\n- **Dispatch:** `Shipment.dispatch(...)` publishes `ShipmentDispatched(id, carrier, trackingNumber)` through a bound `EventPublisher`.\n- **Test:** `ShipmentDispatchTest` is a new integration test that creates a shipment, dispatches it, and checks the event arrives on the topic with the right `shipmentId`, carrier and tracking number.\n\nI didn't check the Kafka message key itself, only the event contents."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/shipping/Shipment.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/shipping/ShipmentEvent.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/shipping/ShipmentDispatchTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT38.937204454S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/avro-avsc-contract-1"
+  }, {
+    "taskId" : "avro-publish-and-handle",
+    "category" : "avro",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 16,
+        "output" : 2555,
+        "cacheRead" : 794768,
+        "cacheCreation" : 99353
+      },
+      "turns" : 8,
+      "buildAttempts" : 3,
+      "costUsd" : 0.5024707999999999,
+      "duration" : "PT1M7.699993983S",
+      "contaminated" : false,
+      "message" : "Paying a sale now publishes a `SalePaid` event, and the cash register picks it up and adds the amount to `cashInDrawer`. The project compiles. I added one integration test, which passes against the real Kafka and schema registry containers.\n\n- **Event:** `SalePaid` has the components `sale`, `cashRegister` and `amount`. It goes to the Kafka topic `sales` as Avro and is partitioned by `cashRegister`.\n- **Publishing:** `Sale.pay()` publishes `SalePaid` before returning the updated sale.\n- **Handling:** `CashRegister.onSalePaid` finds the register through the event's `cashRegister` reference and returns it with `cashInDrawer` increased by `amount`.\n- **Test:** `SalePaidIntegrationTest` creates a register, creates a 12.5 sale and pays it. It then waits (up to 30 seconds) for `GET /cash-registers/{id}` to show `cashInDrawer` of 12.5.\n\nI didn't touch the config files."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/retail/CashRegister.java"
+      }, {
+        "status" : "M",
+        "path" : "src/main/java/com/example/retail/Sale.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/retail/SalePaid.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/retail/SalePaidIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT39.016320046S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/avro-publish-and-handle-1"
+  }, {
+    "taskId" : "binary-upload-download",
+    "category" : "binary",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 32,
+        "output" : 5784,
+        "cacheRead" : 1779450,
+        "cacheCreation" : 109973
+      },
+      "turns" : 17,
+      "buildAttempts" : 5,
+      "costUsd" : 0.6757410000000001,
+      "duration" : "PT2M4.76699041S",
+      "contaminated" : false,
+      "message" : "The `/documents` upload and download endpoints are in place, and `mvn clean test` passes.\n\n`Document` in `com.example.documents` has a `title` and a `file`, with `@GetById`, `@Create` and `@Download` on it. That gives you `POST /documents` (multipart with a JSON `body` part and a `file` part, responding `201` with a `Location` header), `GET /documents/{id}` and `GET /documents/{id}/file`.\n\nThe `@ContentType` and `@FileSize` annotations had no effect in this Prefab version, because the processor doesn't copy them into the generated request record. Uploads of any type or size were returning `201`. So the `Document` constructor now checks the file itself and throws `BadRequestException`, which returns `400`. It accepts only `application/pdf` and `image/png`, up to 1,048,576 bytes. I left the annotations on the aggregate as documentation.\n\nThe new `DocumentIntegrationTest` covers three things:\n- **Upload and download:** a PDF round-trips with its original bytes and content type, and `GET /documents/{id}` returns the title.\n- **Rejected uploads:** `text/plain` and a 1,048,577-byte PNG both get `400`.\n- **Size limit:** a PNG of exactly 1,048,576 bytes is accepted.\n\nThe test output shows two ERROR log lines from the rejected uploads, which are expected."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "4/4 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/documents/Document.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/documents/DocumentIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 4,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT19.187733297S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/binary-upload-download-1"
+  }, {
+    "taskId" : "diagnostic-fix-build",
+    "category" : "diagnostics",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 14,
+        "output" : 1807,
+        "cacheRead" : 683792,
+        "cacheCreation" : 99834
+      },
+      "turns" : 7,
+      "buildAttempts" : 3,
+      "costUsd" : 0.48581320000000006,
+      "duration" : "PT52.742728175S",
+      "contaminated" : false,
+      "message" : "The build compiles again and the feature works.\n\n**Cause:** In `Order.java`, the `@ByReference(property = \"orderId\")` on `onPaymentReceived` named a field that doesn't exist. `PaymentReceived` declares its order reference as `order`, so the annotation processor rejected it.\n\n**Fix:** I changed it to `@ByReference(property = \"order\")`. The event and the payment API are unchanged.\n\n**Test:** I added `src/test/java/com/example/OrderPaymentTest.java`, an integration test against Kafka and Postgres. It creates an order with total 100 and pays 40, so `amountPaid` is 40 and the status is still `OPEN`. It then pays 60, so `amountPaid` is 100 and the status is `PAID`. The test passes."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/ordering/Order.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/OrderPaymentTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT27.032932033S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/diagnostic-fix-build-1"
+  }, {
+    "taskId" : "events-create-from-event",
+    "category" : "events-handling",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 14,
+        "output" : 1550,
+        "cacheRead" : 675175,
+        "cacheCreation" : 97350
+      },
+      "turns" : 7,
+      "buildAttempts" : 1,
+      "costUsd" : 0.4724455,
+      "duration" : "PT23.173149282S",
+      "contaminated" : false,
+      "message" : "I added a `LoyaltyAccount` aggregate in `com.example.loyalty`. The project compiles with `mvn test`, but it has no tests, so nothing has exercised the Kafka handler or the endpoint at runtime.\n\n- **Creation:** a static `@EventHandler` on `CustomerRegistered` creates an account for each registered customer, with the customer reference and 0 points.\n- **REST:** there is no `@Create`, so no create endpoint is generated. The only generated endpoint is `GET /loyalty-accounts`.\n- **Filter:** the `customer` field has an equality `@Filter`. The generated controller's `getList` takes a `customer` String parameter, which should give `GET /loyalty-accounts?customer=<id>`. The response should be a standard Spring page with `id`, `customer` and `points` in `content`; I checked the generated controller but didn't call the endpoint.\n\nThe code is in `src/main/java/com/example/loyalty/LoyaltyAccount.java`."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/loyalty/LoyaltyAccount.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT27.038097837S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/events-create-from-event-1"
+  }, {
+    "taskId" : "events-multicast",
+    "category" : "events-handling",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 6,
+        "output" : 1121,
+        "cacheRead" : 232274,
+        "cacheCreation" : 95693
+      },
+      "turns" : 3,
+      "buildAttempts" : 1,
+      "costUsd" : 0.4172214,
+      "duration" : "PT15.761820414S",
+      "contaminated" : false,
+      "message" : "`PriceWatch` now has a handler for `PriceChanged`. When the event arrives, it sets `currentPrice` on every watch of that product and leaves other products' watches alone. `GET /price-watches/{id}` returns the updated value. `mvn verify` ran clean with no errors. I didn't add a test for this handler, so the update itself hasn't been exercised.\n\n- **Handler:** `onPriceChanged` in `PriceWatch.java` is an `@EventHandler` with `@Multicast(queryMethod = \"findByProduct\", parameters = \"product\")`.\n- **Query:** a new `PriceWatchRepositoryMixin` supplies `findByProduct`, which finds all watches for a product.\n\nIf a product has no watches, Prefab throws `IllegalStateException` so the event is retried. Once retries run out, the event goes to the dead-letter topic. I didn't check whether `prefab.dlt.topic.name` is set in this project."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/watch/PriceWatch.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/watch/PriceWatchRepositoryMixin.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT25.62974695S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/events-multicast-1"
+  }, {
+    "taskId" : "events-publish-on-create",
+    "category" : "events-publishing",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 8,
+        "output" : 1253,
+        "cacheRead" : 342000,
+        "cacheCreation" : 95760
+      },
+      "turns" : 4,
+      "buildAttempts" : 1,
+      "costUsd" : 0.42978600000000006,
+      "duration" : "PT16.194607971S",
+      "contaminated" : false,
+      "message" : "Creating an order through `POST /orders` now publishes an `OrderPlaced` event to the Kafka topic `orders`. The project compiles and `mvn test` passes, but there are no tests in the project, so nothing exercises the event. I did not run a broker or send a real `POST /orders` to check it.\n\n- **Event:** `OrderPlaced` is a new record with `order`, `customer` and `total`. It is annotated `@Event(topic = \"orders\", platform = KAFKA, serialization = JSON)`.\n- **Partitioning:** `order` carries `@PartitioningKey`, so events for the same order go to the same partition.\n- **Publishing:** `Order` binds an `EventPublisher<OrderPlaced>` and calls it in the `@Create` constructor, right after the order is built.\n\nI used `EventPublisher` rather than the `publish(...)` helper on `PublishesEvents`, because the docs mark that helper as deprecated."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/ordering/Order.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/ordering/OrderPlaced.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT27.654841947S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/events-publish-on-create-1"
+  }, {
+    "taskId" : "events-sealed-hierarchy",
+    "category" : "events-publishing",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "RATE_LIMITED",
+      "usage" : {
+        "input" : 4,
+        "output" : 1092,
+        "cacheRead" : 123223,
+        "cacheCreation" : 94583
+      },
+      "turns" : 3,
+      "buildAttempts" : 1,
+      "costUsd" : 0.4015823,
+      "duration" : "PT12.077786635S",
+      "contaminated" : false,
+      "message" : "You've hit your 5-hour limit · resets 11:40pm (UTC)"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "You've hit your 5-hour limit · resets 11:40pm (UTC)",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "rate limited: You've hit your 5-hour limit · resets 11:40pm (UTC)",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/events-sealed-hierarchy-1"
+  }, {
+    "taskId" : "events-update-by-reference",
+    "category" : "events-handling",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "RATE_LIMITED",
+      "usage" : {
+        "input" : 2,
+        "output" : 162,
+        "cacheRead" : 14782,
+        "cacheCreation" : 93567
+      },
+      "turns" : 2,
+      "buildAttempts" : 0,
+      "costUsd" : 0.3773702,
+      "duration" : "PT3.353823196S",
+      "contaminated" : false,
+      "message" : "You've hit your 5-hour limit · resets 11:40pm (UTC)"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "You've hit your 5-hour limit · resets 11:40pm (UTC)",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "rate limited: You've hit your 5-hour limit · resets 11:40pm (UTC)",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/events-update-by-reference-1"
+  }, {
+    "taskId" : "list-autocomplete",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-autocomplete-1"
+  }, {
+    "taskId" : "list-filters",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-filters-1"
+  }, {
+    "taskId" : "list-full-text-search",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-full-text-search-1"
+  }, {
+    "taskId" : "list-paged-sorted",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-paged-sorted-1"
+  }, {
+    "taskId" : "list-range-filter",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-range-filter-1"
+  }, {
+    "taskId" : "mixin-custom-sql",
+    "category" : "repository-mixins",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/mixin-custom-sql-1"
+  }, {
+    "taskId" : "mixin-derived-query",
+    "category" : "repository-mixins",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/mixin-derived-query-1"
+  }, {
+    "taskId" : "mongodb-crud",
+    "category" : "mongodb",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/mongodb-crud-1"
+  }, {
+    "taskId" : "persistence-evolve-schema",
+    "category" : "persistence",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/persistence-evolve-schema-1"
+  }, {
+    "taskId" : "rest-computed-field",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-computed-field-1"
+  }, {
+    "taskId" : "rest-create-and-get",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-create-and-get-1"
+  }, {
+    "taskId" : "rest-custom-action",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-custom-action-1"
+  }, {
+    "taskId" : "rest-parent-child",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-parent-child-1"
+  }, {
+    "taskId" : "rest-update-and-delete",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-update-and-delete-1"
+  }, {
+    "taskId" : "rest-validation",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-validation-1"
+  }, {
+    "taskId" : "rest-value-object",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-value-object-1"
+  }, {
+    "taskId" : "security-public-endpoints",
+    "category" : "security",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/security-public-endpoints-1"
+  }, {
+    "taskId" : "security-role-based",
+    "category" : "security",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/security-role-based-1"
+  }, {
+    "taskId" : "tenancy-isolation",
+    "category" : "multi-tenancy",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/tenancy-isolation-1"
+  }, {
+    "taskId" : "testing-domain-events-unit",
+    "category" : "testing",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/testing-domain-events-unit-1"
+  }, {
+    "taskId" : "testing-integration-tests",
+    "category" : "testing",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/testing-integration-tests-1"
+  }, {
+    "taskId" : "view-model",
+    "category" : "views",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/view-model-1"
+  } ]
+}

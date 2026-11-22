@@ -108,6 +108,8 @@ final class BenchmarkRunner {
         var logs = run.directory().resolve("attempts").resolve(name);
         var workspace = run.workDirectory().resolve(name).resolve(WORKSPACE);
         log("start  %s", name);
+        // A resumed attempt starts over: logs and transcripts of an earlier, interrupted try must not count.
+        FileTrees.delete(logs);
         Agent.AgentOutcome outcome = null;
         try {
             var git = workspaces.create(task, context, workspace, logs.resolve("git.log"));

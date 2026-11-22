@@ -1,0 +1,1323 @@
+{
+  "runId" : "20261122-091726-claude-haiku-5-5-full-docs",
+  "startedAt" : "2026-11-22T09:17:26.761558326Z",
+  "agent" : "claude-code/claude-haiku-5-5",
+  "model" : "claude-haiku-5-5",
+  "context" : "full-docs",
+  "prefabVersion" : "0.13.3-SNAPSHOT",
+  "gitCommit" : "fa2b6e9",
+  "repeat" : 1,
+  "results" : [ {
+    "taskId" : "audit-trail",
+    "category" : "audit",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "RATE_LIMITED",
+      "usage" : {
+        "input" : 42,
+        "output" : 13652,
+        "cacheRead" : 2140604,
+        "cacheCreation" : 317334
+      },
+      "turns" : 23,
+      "buildAttempts" : 5,
+      "costUsd" : 0.21082885000000004,
+      "duration" : "PT1M44.392734463S",
+      "contaminated" : false,
+      "message" : "You've hit your 5-hour limit · resets 11:10am (UTC)"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "You've hit your 5-hour limit · resets 11:10am (UTC)",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "rate limited: You've hit your 5-hour limit · resets 11:10am (UTC)",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/audit-trail-1"
+  }, {
+    "taskId" : "avro-avsc-contract",
+    "category" : "avro",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "RATE_LIMITED",
+      "usage" : {
+        "input" : 48,
+        "output" : 13611,
+        "cacheRead" : 2545013,
+        "cacheCreation" : 311653
+      },
+      "turns" : 26,
+      "buildAttempts" : 6,
+      "costUsd" : 0.25375695000000004,
+      "duration" : "PT2M44.074279505S",
+      "contaminated" : false,
+      "message" : "You've hit your 5-hour limit · resets 11:10am (UTC)"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "You've hit your 5-hour limit · resets 11:10am (UTC)",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "rate limited: You've hit your 5-hour limit · resets 11:10am (UTC)",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/avro-avsc-contract-1"
+  }, {
+    "taskId" : "avro-publish-and-handle",
+    "category" : "avro",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/avro-publish-and-handle-1"
+  }, {
+    "taskId" : "binary-upload-download",
+    "category" : "binary",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/binary-upload-download-1"
+  }, {
+    "taskId" : "diagnostic-fix-build",
+    "category" : "diagnostics",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/diagnostic-fix-build-1"
+  }, {
+    "taskId" : "events-create-from-event",
+    "category" : "events-handling",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/events-create-from-event-1"
+  }, {
+    "taskId" : "events-multicast",
+    "category" : "events-handling",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/events-multicast-1"
+  }, {
+    "taskId" : "events-publish-on-create",
+    "category" : "events-publishing",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/events-publish-on-create-1"
+  }, {
+    "taskId" : "events-sealed-hierarchy",
+    "category" : "events-publishing",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/events-sealed-hierarchy-1"
+  }, {
+    "taskId" : "events-update-by-reference",
+    "category" : "events-handling",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/events-update-by-reference-1"
+  }, {
+    "taskId" : "list-autocomplete",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/list-autocomplete-1"
+  }, {
+    "taskId" : "list-filters",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/list-filters-1"
+  }, {
+    "taskId" : "list-full-text-search",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/list-full-text-search-1"
+  }, {
+    "taskId" : "list-paged-sorted",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/list-paged-sorted-1"
+  }, {
+    "taskId" : "list-range-filter",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/list-range-filter-1"
+  }, {
+    "taskId" : "mixin-custom-sql",
+    "category" : "repository-mixins",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/mixin-custom-sql-1"
+  }, {
+    "taskId" : "mixin-derived-query",
+    "category" : "repository-mixins",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/mixin-derived-query-1"
+  }, {
+    "taskId" : "mongodb-crud",
+    "category" : "mongodb",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/mongodb-crud-1"
+  }, {
+    "taskId" : "persistence-evolve-schema",
+    "category" : "persistence",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/persistence-evolve-schema-1"
+  }, {
+    "taskId" : "rest-computed-field",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/rest-computed-field-1"
+  }, {
+    "taskId" : "rest-create-and-get",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/rest-create-and-get-1"
+  }, {
+    "taskId" : "rest-custom-action",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/rest-custom-action-1"
+  }, {
+    "taskId" : "rest-parent-child",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/rest-parent-child-1"
+  }, {
+    "taskId" : "rest-update-and-delete",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/rest-update-and-delete-1"
+  }, {
+    "taskId" : "rest-validation",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/rest-validation-1"
+  }, {
+    "taskId" : "rest-value-object",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/rest-value-object-1"
+  }, {
+    "taskId" : "security-public-endpoints",
+    "category" : "security",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/security-public-endpoints-1"
+  }, {
+    "taskId" : "security-role-based",
+    "category" : "security",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/security-role-based-1"
+  }, {
+    "taskId" : "tenancy-isolation",
+    "category" : "multi-tenancy",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/tenancy-isolation-1"
+  }, {
+    "taskId" : "testing-domain-events-unit",
+    "category" : "testing",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/testing-domain-events-unit-1"
+  }, {
+    "taskId" : "testing-integration-tests",
+    "category" : "testing",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/testing-integration-tests-1"
+  }, {
+    "taskId" : "view-model",
+    "category" : "views",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/view-model-1"
+  } ]
+}

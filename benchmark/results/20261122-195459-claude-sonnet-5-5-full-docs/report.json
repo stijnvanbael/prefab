@@ -441,985 +441,1289 @@
     "taskId" : "events-sealed-hierarchy",
     "category" : "events-publishing",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "RATE_LIMITED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 4,
-        "output" : 1092,
-        "cacheRead" : 123223,
-        "cacheCreation" : 94583
+        "input" : 10,
+        "output" : 1794,
+        "cacheRead" : 454607,
+        "cacheCreation" : 98345
       },
-      "turns" : 3,
-      "buildAttempts" : 1,
-      "costUsd" : 0.4015823,
-      "duration" : "PT12.077786635S",
+      "turns" : 5,
+      "buildAttempts" : 2,
+      "costUsd" : 0.45680070000000006,
+      "duration" : "PT37.384133608S",
       "contaminated" : false,
-      "message" : "You've hit your 5-hour limit · resets 11:40pm (UTC)"
+      "message" : "Deposits and withdrawals on an account now publish events to the Kafka topic `account-events`. The project compiles and `mvn test` passes. I didn't add tests for the new events, and I didn't check what the existing tests cover.\n\n- **Event type:** `com.example.banking.AccountEvent` is a sealed interface with nested records `Deposited(Reference<Account> account, BigDecimal amount)` and `Withdrawn(...)`. Both share the topic, so consumers can read it as `AccountEvent`. It is marked `@Event(topic = \"account-events\", platform = KAFKA)` and `@JsonTypeInfo(use = NAME)` so the JSON carries the concrete type.\n- **Ordering:** `@PartitioningKey` sits on the interface's `account()` method, so all events of one account go to the same partition.\n- **Publishing:** `Account.deposit` publishes `Deposited` and `Account.withdraw` publishes `Withdrawn`. They use a bound `EventPublisher<AccountEvent>` held in a static field, which is the approach the guide recommends over the deprecated `PublishesEvents.publish`.\n\nThe publisher class is `be.appify.prefab.core.domain.EventPublisher`. The guide doesn't give the package, and I had guessed it wrong at first."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "You've hit your 5-hour limit · resets 11:40pm (UTC)",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/banking/Account.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/banking/AccountEvent.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "rate limited: You've hit your 5-hour limit · resets 11:40pm (UTC)",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/events-sealed-hierarchy-1"
+    "acceptanceDuration" : "PT32.380713723S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/events-sealed-hierarchy-1"
   }, {
     "taskId" : "events-update-by-reference",
     "category" : "events-handling",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "RATE_LIMITED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 2,
-        "output" : 162,
-        "cacheRead" : 14782,
-        "cacheCreation" : 93567
+        "input" : 6,
+        "output" : 1067,
+        "cacheRead" : 231751,
+        "cacheCreation" : 96702
       },
-      "turns" : 2,
-      "buildAttempts" : 0,
-      "costUsd" : 0.3773702,
-      "duration" : "PT3.353823196S",
+      "turns" : 3,
+      "buildAttempts" : 1,
+      "costUsd" : 0.4206651,
+      "duration" : "PT27.846167665S",
       "contaminated" : false,
-      "message" : "You've hit your 5-hour limit · resets 11:40pm (UTC)"
+      "message" : "Orders now react to `PaymentReceived` events, and `mvn verify` passes. I didn't run the payment-to-order flow end to end, though, because the project has no tests. There's no Kafka round trip or `GET /orders/{id}` check behind this.\n\nThe change is in `Order.java`:\n- **New field:** `amountPaid` starts at 0, and `GET /orders/{id}` will include it.\n- **New handler:** an `@EventHandler @ByReference(property = \"order\")` method adds the payment amount to `amountPaid`. It sets `status` to `PAID` once `amountPaid` is at least `total`. Until then the status stays as it was, so `OPEN`.\n\nBecause `PAID` is never reverted, an order that is already `PAID` stays `PAID` if another payment arrives.\n\nIf a payment arrives for an order that doesn't exist, the update-by-reference handler has nothing to update. I didn't add anything for that case.\n\nI didn't add a migration file. The project has none under `src`, so I'm assuming Prefab generates it at build time, but I didn't look at the output."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "You've hit your 5-hour limit · resets 11:40pm (UTC)",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/ordering/Order.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "rate limited: You've hit your 5-hour limit · resets 11:40pm (UTC)",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/events-update-by-reference-1"
+    "acceptanceDuration" : "PT41.756049289S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/events-update-by-reference-1"
   }, {
     "taskId" : "list-autocomplete",
     "category" : "lists",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 8,
+        "output" : 866,
+        "cacheRead" : 342739,
+        "cacheCreation" : 96514
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 4,
+      "buildAttempts" : 2,
+      "costUsd" : 0.4290059,
+      "duration" : "PT21.935527566S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "I added `@Autocomplete` to the `name` field of `Product` (`src/main/java/com/example/catalog/Product.java`). Prefab now generates `GET /products/name/autocomplete?query=<text>`. The generated `ProductController`, `ProductService` and `ProductRepository` all contain the autocomplete code, and `mvn test` passes.\n\nThe defaults give the behaviour you described: distinct names that start with the query, ignoring case. So `query=lap` returns `Laptop` and `laptop bag`, but not `Lamp` or `Desk`. I didn't call the endpoint or add a test for it, so that behaviour comes from the documented defaults rather than a run.\n\nThe endpoint also takes optional `page` and `limit` parameters, with `limit` defaulting to 20."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/catalog/Product.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-autocomplete-1"
+    "acceptanceDuration" : "PT16.846913739S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-autocomplete-1"
   }, {
     "taskId" : "list-filters",
     "category" : "lists",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 8,
+        "output" : 1071,
+        "cacheRead" : 342225,
+        "cacheCreation" : 95959
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 4,
+      "buildAttempts" : 2,
+      "costUsd" : 0.42878449999999996,
+      "duration" : "PT21.401457855S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "`GET /products` now exists and takes optional `category` and `name` filters. The project compiles and `mvn verify` passes. I didn't add a test for the new endpoint, so the case-insensitive matching and the combined filters are untested.\n\nI added `@GetList` to `Product` and put a `@Filter` on two fields:\n- **`category`:** `Filter.Operator.EQUAL`, so `?category=books` matches `Books` but not `Ebooks`.\n- **`name`:** `Filter.Operator.CONTAINS`, so `?name=lap` matches `Laptop stand`.\n\n`ignoreCase` defaults to true in `@Filter`, so both filters ignore case. Prefab combines filters with AND, and with no filters all products come back. The response is a standard page with the products in `content`.\n\nThe change is in `src/main/java/com/example/catalog/Product.java`."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "4/4 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/catalog/Product.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 4,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-filters-1"
+    "acceptanceDuration" : "PT16.19776833S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-filters-1"
   }, {
     "taskId" : "list-full-text-search",
     "category" : "lists",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 10,
+        "output" : 1718,
+        "cacheRead" : 454026,
+        "cacheCreation" : 96798
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 5,
+      "buildAttempts" : 2,
+      "costUsd" : 0.4497946,
+      "duration" : "PT27.496355619S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "`GET /articles?query=<text>` now works. Without `query`, it returns all articles.\n\nI haven't called the endpoint myself, and I didn't add a test for it. `mvn verify` passes, but the project had no tests to run.\n\nThe change is in `Article.java`. I added `@GetList` and put a full-text `@Filter` on both `title` and `body`, sharing the parameter name `query`. Prefab generates a PostgreSQL query using `to_tsvector` and `websearch_to_tsquery`, and a GIN index on `title` and `body` together (see `target/classes/db/migration/V1__generated.sql`). Every word has to match, but each word can match in either field.\n\n- **Prefix matching:** Prefab's default type-ahead mode makes each word match as a word prefix. This is why `query=spring postgres` finds a body that says \"PostgreSQL\", since the search config doesn't do stemming.\n- **Wider than asked:** a word like `post` would also match \"Postgres\". Setting `typeahead = false` on the filters would restrict matching to whole words, but then \"postgres\" would no longer find \"PostgreSQL\".\n- **Migration:** the generated migration lives in `target/classes/db/migration/`. If you want it versioned, copy it into `src/main/resources/db/migration/`."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "3/3 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/blog/Article.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 3,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-full-text-search-1"
+    "acceptanceDuration" : "PT13.268429185S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-full-text-search-1"
   }, {
     "taskId" : "list-paged-sorted",
     "category" : "lists",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 8,
+        "output" : 693,
+        "cacheRead" : 340808,
+        "cacheCreation" : 94949
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 4,
+      "buildAttempts" : 1,
+      "costUsd" : 0.42082280000000005,
+      "duration" : "PT13.81560236S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "I added `GET /products` by putting `@GetList(sorted = @SortOrder(property = \"name\"))` on `Product` (`src/main/java/com/example/catalog/Product.java`). The project compiles and `mvn test` passes.\n\nPrefab generates the endpoint from that annotation:\n- **Paging:** the `page` (zero-based) and `size` parameters work, and the response is a Spring Data page with `content` and `totalElements`.\n- **Default sort:** `name` ascending applies when the request has no `sort` parameter.\n- **Explicit sort:** a request like `?sort=price,desc` replaces the default entirely.\n\nI didn't write a test for the new endpoint or call it by hand. The existing tests pass, but nothing exercises the list, the default order or the explicit sort."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/catalog/Product.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-paged-sorted-1"
+    "acceptanceDuration" : "PT14.862428431S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-paged-sorted-1"
   }, {
     "taskId" : "list-range-filter",
     "category" : "lists",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 14,
+        "output" : 1990,
+        "cacheRead" : 682517,
+        "cacheCreation" : 99330
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 7,
+      "buildAttempts" : 2,
+      "costUsd" : 0.4854997,
+      "duration" : "PT26.865777204S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "`GET /invoices` is now in place, but I haven't called it, so the three filters are untested. There are no tests in the project, and I didn't write any.\n\n`mvn test` compiles cleanly and passes, though with no tests that only shows the build is sound.\n\nAll the changes are in `Invoice.java`:\n- **List endpoint:** I added `@GetList` to `Invoice`.\n- **Amount filters:** `amount` has two `@Filter` annotations, `GREATER_THAN_OR_EQUAL` and `LESS_THAN_OR_EQUAL`. They give `amountGreaterThanOrEqual` and `amountLessThanOrEqual`, which work together or on their own.\n- **Date filter:** `issuedOn` has one `GREATER_THAN_OR_EQUAL` filter, which gives `issuedOnGreaterThanOrEqual`.\n\nPer the Prefab docs, all given filters are combined with AND and bounds are included. The response should be the standard page JSON with invoices in `content`.\n\nMy first edit also put the `@Filter` annotations on the `@Create` constructor parameter by mistake. That broke compilation, and I removed them."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "3/3 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/billing/Invoice.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 3,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-range-filter-1"
+    "acceptanceDuration" : "PT13.84798525S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-range-filter-1"
   }, {
     "taskId" : "mixin-custom-sql",
     "category" : "repository-mixins",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 14,
+        "output" : 2029,
+        "cacheRead" : 672649,
+        "cacheCreation" : 100224
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 7,
+      "buildAttempts" : 2,
+      "costUsd" : 0.4884789000000001,
+      "duration" : "PT38.8975928S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "`OrderRepository.totalRevenue(String status)` now exists and returns `BigDecimal`. The database does the sum in a single query, and it returns `0` when no orders match.\n\nI added it through a repository mixin, `OrderRepositoryMixin` in `com.example.ordering.application`, which Prefab folds into the generated `OrderRepository`. That keeps it to one repository for orders. The query is:\n\n```sql\nSELECT COALESCE(SUM(\"total\"), 0) FROM \"order\" WHERE \"status\" = :status\n```\n\nI also added `OrderRepositoryTest`, an integration test against Postgres. It checks that `SHIPPED` returns 0 with no orders, then that two shipped orders sum to 15.00 and one open order is counted only under `OPEN`. `mvn verify` passes, including that test."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/ordering/application/OrderRepositoryMixin.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/ordering/application/OrderRepositoryTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/mixin-custom-sql-1"
+    "acceptanceDuration" : "PT15.317160729S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/mixin-custom-sql-1"
   }, {
     "taskId" : "mixin-derived-query",
     "category" : "repository-mixins",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 6,
+        "output" : 712,
+        "cacheRead" : 232002,
+        "cacheCreation" : 95091
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 3,
+      "buildAttempts" : 1,
+      "costUsd" : 0.4106962,
+      "duration" : "PT12.264572944S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "I added `findByCustomerEmail` and `countByStatus` to the generated `OrderRepository` through a repository mixin, so there's no second order repository.\n\nThe mixin is a new file, `src/main/java/com/example/ordering/OrderRepositoryMixin.java`. It's annotated `@RepositoryMixin(Order.class)` and declares `List<Order> findByCustomerEmail(String customerEmail)` and `long countByStatus(OrderStatus status)`. Spring Data derives both queries from the method names.\n\n`mvn verify` finished with no errors. I didn't write new tests for the two queries, so they have not been exercised against a database.\n\nThe generated `application/OrderRepository` now extends `OrderRepositoryMixin`, so other beans can inject it and call both methods."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/ordering/OrderRepositoryMixin.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/mixin-derived-query-1"
+    "acceptanceDuration" : "PT15.509612874S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/mixin-derived-query-1"
   }, {
     "taskId" : "mongodb-crud",
     "category" : "mongodb",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 12,
+        "output" : 3164,
+        "cacheRead" : 568839,
+        "cacheCreation" : 104598
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 6,
+      "buildAttempts" : 2,
+      "costUsd" : 0.5069399000000001,
+      "duration" : "PT50.537918237S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "Notes are in place, and the project compiles. The one new integration test passes against a real MongoDB container. I didn't print Maven's final summary line, so the pass rests on the run showing no errors.\n\nThe domain type is `Note` in `com.example.notes` (`src/main/java/com/example/notes/Note.java`). Prefab generates the endpoints from its annotations:\n\n- **Create:** `POST /notes` takes `title` (required) and `text`, and returns `201 Created` with a `Location` header. New notes get `archived = false`.\n- **Get:** `GET /notes/{id}` returns `id`, `title`, `text` and `archived`.\n- **Archive:** `POST /notes/{id}/archive` has no body and returns `200 OK`.\n- **List:** `GET /notes` returns a standard page with the notes in `content`. The `title` filter matches contains, ignoring case. The `archived` filter matches `true` or `false`.\n- **Delete:** `DELETE /notes/{id}` returns `204 No Content`.\n\nI declared `archived` as `Boolean` rather than `boolean`, so the filter can treat an omitted parameter as \"no filter\". Responses still show `false` or `true`.\n\nThe test is `src/test/java/com/example/notes/NoteTest.java`. It creates a note, archives it, and fetches it. It then lists with `title=hEL&archived=true` and with `archived=false`, and deletes the note. The `201` status and the `204` on delete are asserted inside the generated client helpers. I didn't separately assert the `Location` header or the `title` filter on its own."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/notes/Note.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/notes/NoteTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/mongodb-crud-1"
+    "acceptanceDuration" : "PT12.343238938S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/mongodb-crud-1"
   }, {
     "taskId" : "persistence-evolve-schema",
     "category" : "persistence",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 12,
+        "output" : 1687,
+        "cacheRead" : 564582,
+        "cacheCreation" : 96547
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 6,
+      "buildAttempts" : 4,
+      "costUsd" : 0.45954019999999995,
+      "duration" : "PT33.138614289S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "Products now have an optional `description` and an integer `stock`. Both are accepted on `POST /products` and returned by `GET /products/{id}`. A clean `mvn verify` passes, but I didn't add tests or call the endpoints myself.\n\n- **Fields:** in `Product.java`, `description` is a nullable `@Text` string and `stock` is an `int` with a database default of 0. The `@Create` constructor takes both.\n- **Schema:** I added `src/main/resources/db/migration/V2__add_product_description_stock.sql`, copied from the migration Prefab generated. It adds `description TEXT` and `stock INTEGER NOT NULL DEFAULT 0`. The `V1` file is untouched. The default of 0 means existing products in production get a stock of 0.\n- **Clean build:** I rebuilt from scratch with `clean verify` to confirm there is no duplicate `V2` file. Only the committed one is in the build output.\n\nThe existing tests passed. `stock` is a primitive `int`, so a create request that omits it gets 0."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
       } ],
-      "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "violations" : [ {
+        "rule" : "hand-written-migration",
+        "severity" : "WARN",
+        "description" : "new SQL migration under src/main/resources/db/migration; Prefab generates migrations at compile time",
+        "file" : "src/main/resources/db/migration/V2__add_product_description_stock.sql",
+        "line" : 0
+      } ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/inventory/Product.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/resources/db/migration/V2__add_product_description_stock.sql"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/persistence-evolve-schema-1"
+    "acceptanceDuration" : "PT14.965751626S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/persistence-evolve-schema-1"
   }, {
     "taskId" : "rest-computed-field",
     "category" : "rest-crud",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 6,
+        "output" : 726,
+        "cacheRead" : 231870,
+        "cacheCreation" : 95572
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 3,
+      "buildAttempts" : 1,
+      "costUsd" : 0.412747,
+      "duration" : "PT14.883119372S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "`GET /orders/{id}` now returns two extra read-only fields, `total` and `lineCount`. `total` is the sum of `quantity * unitPrice` over all lines, and `lineCount` is the number of lines. I didn't add a test that checks the values in a response.\n\nI added two public methods to `Order` and annotated them with Prefab's `@Computed`. The processor then added both fields to the generated `OrderResponse`. They aren't in the create request and aren't stored in the database.\n\n`mvn verify` passed with no errors."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "3/3 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/ordering/Order.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 3,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-computed-field-1"
+    "acceptanceDuration" : "PT14.28480655S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-computed-field-1"
   }, {
     "taskId" : "rest-create-and-get",
     "category" : "rest-crud",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 18,
+        "output" : 2852,
+        "cacheRead" : 913910,
+        "cacheCreation" : 101989
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 10,
+      "buildAttempts" : 4,
+      "costUsd" : 0.527903,
+      "duration" : "PT1M17.865646335S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "I added the book catalogue in `com.example.catalog`, and the project compiles and its tests pass, including a new integration test that creates a book and reads it back.\n\n- **`Book`:**\n  - It's an aggregate with an id, a version, a required title of at most 200 characters, a required author, a required ISBN and an `int` publication year.\n  - It exposes `POST /books` and `GET /books/{id}`. Prefab generates the controller, service, repository and request/response types.\n  - `POST /books` should return `201 Created` with a `Location` header ending in the new id, and `GET /books/{id}` returns `id`, `title`, `author`, `isbn` and `publicationYear`. I didn't assert the status codes, the `Location` header or the 404 case directly.\n- **Database:** Prefab generates the Flyway migration at compile time, so there is no migration file in `src`. The generated table has `title VARCHAR(200)`, and all columns are `NOT NULL`.\n- **Test:** `BookTest` runs against the real PostgreSQL container and checks every field after the round trip.\n\nI first copied the generated migration into `src/main/resources/db/migration`. That made Flyway fail on startup, because the generated version-1 migration collided with the copy. I removed the copy."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "3/3 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/catalog/Book.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/catalog/BookTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 3,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-create-and-get-1"
+    "acceptanceDuration" : "PT14.289495123S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-create-and-get-1"
   }, {
     "taskId" : "rest-custom-action",
     "category" : "rest-crud",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 10,
+        "output" : 1337,
+        "cacheRead" : 452016,
+        "cacheCreation" : 95722
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 5,
+      "buildAttempts" : 1,
+      "costUsd" : 0.44147959999999997,
+      "duration" : "PT19.406496282S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "I added `POST /orders/{id}/ship` and `POST /orders/{id}/cancel` to `Order.java` as two `@Update` methods with `method = \"POST\"`. The project builds with `mvn verify`. I didn't run the endpoints or add tests; there is no `src/test` directory. I did confirm the generated `OrderController` has both routes (`/{id}/ship` and `/{id}/cancel`).\n\n- **Ship:** sets the status to `SHIPPED` and returns the updated order with `200 OK`.\n- **Cancel:** sets the status to `CANCELLED` and returns `200 OK`. If the order is already `SHIPPED`, it throws Prefab's `ConflictException`, which Prefab documents as a `409 Conflict`. The status stays `SHIPPED`.\n- **Extra rule:** I also made shipping a cancelled order return `409`. You didn't ask for this, so remove that check if you want a cancelled order to be shippable.\n- **Status:** `GET /orders/{id}` was already there and shows the current `status`."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/ordering/Order.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-custom-action-1"
+    "acceptanceDuration" : "PT18.117099417S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-custom-action-1"
   }, {
     "taskId" : "rest-parent-child",
     "category" : "rest-crud",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 12,
+        "output" : 2803,
+        "cacheRead" : 566306,
+        "cacheCreation" : 102059
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 6,
+      "buildAttempts" : 3,
+      "costUsd" : 0.49292060000000004,
+      "duration" : "PT47.338477589S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "Tasks are now a sub-resource of projects, and the project compiles. My new integration test passes against a real Postgres container. Maven showed no test failures, though I only read the end of its output.\n\nI added `Task` as a Prefab aggregate in `src/main/java/com/example/planning/Task.java`. The record has `id`, `version`, a `@Parent` reference to the project, a required `title` and `done`. `done` is `false` when the task is created. Prefab generates the endpoints and the database migration from it.\n\n- **Create:** `POST /projects/{projectId}/tasks` with `{\"title\": ...}` returns `201 Created` with a `Location` header ending in the task id.\n- **Get one:** `GET /projects/{projectId}/tasks/{id}` returns the task.\n- **List:** `GET /projects/{projectId}/tasks` returns a standard Spring Data page containing only that project's tasks.\n- **Complete:** `POST /projects/{projectId}/tasks/{id}/complete` marks the task done and returns `200 OK`.\n\n- **Response shape:** the task response also contains `version` and `project`, in addition to `id`, `title` and `done`. Prefab generates the response record, so I left it.\n- **Test:** it creates two projects and one task in each, checks the task fields and the complete flow, then checks the list endpoint returns only the first project's task. It is in `src/test/java/com/example/planning/TaskIntegrationTest.java`."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/planning/Task.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/planning/TaskIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-parent-child-1"
+    "acceptanceDuration" : "PT17.247467813S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-parent-child-1"
   }, {
     "taskId" : "rest-update-and-delete",
     "category" : "rest-crud",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 6,
+        "output" : 706,
+        "cacheRead" : 231914,
+        "cacheCreation" : 94937
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 3,
+      "buildAttempts" : 1,
+      "costUsd" : 0.4100114,
+      "duration" : "PT12.571045552S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "I added two operations to `Book` in `src/main/java/com/example/catalog/Book.java`. The project compiles and `mvn test` passes. I didn't write new tests for the two endpoints or call them over HTTP, so their behaviour is unchecked.\n\n- **Update:** `@Update` on `update(title, author)` should give `PUT /books/{id}`. It keeps `isbn` and `publicationYear` and should return `200` with the updated book.\n- **Delete:** `@Delete` on `delete()` should give `DELETE /books/{id}`. It should return `204`, and `GET /books/{id}` should return `404` afterwards.\n\nThe update method repeats the `@NotNull` and `@Size(max = 200)` checks that `title` already has on create."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/catalog/Book.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-update-and-delete-1"
+    "acceptanceDuration" : "PT17.466227598S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-update-and-delete-1"
   }, {
     "taskId" : "rest-validation",
     "category" : "rest-crud",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 18,
+        "output" : 2139,
+        "cacheRead" : 900502,
+        "cacheCreation" : 99717
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 9,
+      "buildAttempts" : 5,
+      "costUsd" : 0.5103442000000001,
+      "duration" : "PT1M5.221297699S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "`POST /customers` now returns `400 Bad Request` for invalid input, and nothing is stored in those cases. Valid requests still return `201 Created`. The project compiles and its tests pass.\n\nI changed one thing in `Customer.java`. The `@Create` constructor now has `@NotBlank @Size(max = 100)` on `name` and `@NotBlank @Email` on `email`. Prefab copies those constraints onto the generated request record, and the generated controller already validates the body.\n\nI added `CustomerValidationTest` (a Spring Boot integration test). It checks that a valid request returns 201. It also checks five bad requests that each return 400:\n- missing `name`\n- blank `name`\n- `name` of 101 characters\n- missing `email`\n- an `email` that isn't a valid address\n\nEach rejected request is also logged at ERROR level with the field and reason; that's just how the project's logging reports validation failures."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "7/7 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/crm/Customer.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/crm/CustomerValidationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 7,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-validation-1"
+    "acceptanceDuration" : "PT15.220585519S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-validation-1"
   }, {
     "taskId" : "rest-value-object",
     "category" : "rest-crud",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 14,
+        "output" : 2232,
+        "cacheRead" : 679351,
+        "cacheCreation" : 101020
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 7,
+      "buildAttempts" : 2,
+      "costUsd" : 0.49436310000000006,
+      "duration" : "PT39.860031591S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "Customers with a postal address are in place in `com.example.crm`. The project compiles and the one integration test passes. I ran it with `mvn test` against a Postgres container. That test creates a customer, reads it back, updates the address and reads it again.\n\nI did not hit the three endpoints over raw HTTP. The test goes through the generated test client, which uses MockMvc.\n\n- **`Address`** is a record with `street`, `city`, `postalCode` and `country`, all `@NotNull`.\n- **`Customer`** has `name` and `address`, both `@NotNull`.\n- **`POST /customers`** creates a customer.\n- **`GET /customers/{id}`** returns the customer.\n- **`PUT /customers/{id}/address`** replaces the address. It is generated from an `@Update(path = \"/address\")` method.\n\nPrefab generated the controller, service, repository and request/response records. It also generated the migration `V1__generated.sql`, which flattens the address into columns like `address_postal_code`.\n\nThe files are `Address.java`, `Customer.java` and `CustomerTest.java`.\n\nI didn't read the `Location` header, the JSON field names or the `200 OK` on the PUT in the test. These come from Prefab's generated controller, so check them if you need to be sure."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/crm/Address.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/crm/Customer.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/crm/CustomerTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-value-object-1"
+    "acceptanceDuration" : "PT17.252753858S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-value-object-1"
   }, {
     "taskId" : "security-public-endpoints",
     "category" : "security",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 16,
+        "output" : 3514,
+        "cacheRead" : 805349,
+        "cacheCreation" : 107694
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 8,
+      "buildAttempts" : 3,
+      "costUsd" : 0.5464828999999999,
+      "duration" : "PT1M1.52107138S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "`GET /articles` and `GET /articles/{id}` now work without authentication. `POST /articles` still returns `401` for anonymous callers. `mvn test` passes, including three new MockMvc tests (list and get-by-id are public, create is rejected without a token). They don't send a real bearer token, so the authenticated create path isn't covered.\n\nTwo changes were needed:\n\n- **`Article.java`:** I set `@GetById(security = @Security(enabled = false))` and `@GetList(security = @Security(enabled = false))`. That makes the generated controller methods `permitAll()`.\n- **`PublicReadSecurity.java` (new):** This defines my own `SecurityFilterChain` bean and replaces Prefab's default one.\n  - **Why:** Prefab's default chain ends in `anyRequest().authenticated()`, which blocks anonymous reads before the controller is reached. An `HttpSecurityCustomizer` can't add earlier matchers after that, and my first attempt failed at startup with \"Can't configure requestMatchers after anyRequest\".\n  - **What it does:** Its settings mirror Prefab's default (CSRF off, stateless sessions, JWT resource server). It permits `GET /articles` and `GET /articles/*` and requires authentication for everything else.\n  - **Dropped default:** Prefab's default chain also sets a Content-Security-Policy and a referrer-policy header, which my chain doesn't. Say if you want them added back.\n\nThe tests are in `PublicAccessTest.java`."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/blog/Article.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/blog/PublicReadSecurity.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/PublicAccessTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/security-public-endpoints-1"
+    "acceptanceDuration" : "PT15.154772939S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/security-public-endpoints-1"
   }, {
     "taskId" : "security-role-based",
     "category" : "security",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 6,
+        "output" : 1041,
+        "cacheRead" : 232692,
+        "cacheCreation" : 96023
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 3,
+      "buildAttempts" : 1,
+      "costUsd" : 0.4177832,
+      "duration" : "PT14.715356555S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "I restricted the invoice API in `Invoice.java`, and the project compiles. I didn't run any tests, and there is no `src/test` directory in the project. I also haven't called the endpoints, so the 401, 403 and 204 behaviour is untested.\n\n- **Create:** `@Create(security = @Security(role = \"ACCOUNTANT\"))`. The generated controller guards `POST /invoices` with `@PreAuthorize(\"hasRole('ACCOUNTANT')\")`.\n- **Read:** I left `GET /invoices/{id}` and `GET /invoices` unchanged. Their generated guard is `@PreAuthorize(\"isAuthenticated()\")`.\n- **Delete:** I added `@Delete(security = @Security(role = \"ADMIN\"))` on a new empty `delete()` method. The generated controller guards `DELETE /invoices/{id}` with `@PreAuthorize(\"hasRole('ADMIN')\")`.\n\nI expect unauthenticated requests to get 401 and users without the role to get 403, assuming Prefab's default Spring Security setup (the `prefab-security` module). I also expect `DELETE` to respond 204, going by the Prefab docs."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "3/3 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/billing/Invoice.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 3,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/security-role-based-1"
+    "acceptanceDuration" : "PT16.185894096S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/security-role-based-1"
   }, {
     "taskId" : "tenancy-isolation",
     "category" : "multi-tenancy",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 14,
+        "output" : 3541,
+        "cacheRead" : 682003,
+        "cacheCreation" : 100997
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 7,
+      "buildAttempts" : 3,
+      "costUsd" : 0.5076263000000001,
+      "duration" : "PT57.500892596S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "Projects are now tenant-specific, and the project compiles and its tests pass, including a new integration test for tenant isolation.\n\n- **`Project`** has a new `@TenantId String tenantId` field, which adds a `tenant_id` column to the generated migration. The `@Create` constructor does not take it, so clients never send it. The generated service fills it from the request's tenant on create.\n- **`HeaderTenantContextProvider`** (new, in `com.example`) is a `TenantContextProvider` bean that reads `X-Tenant-Id` from the current request. The generated service uses it to scope `GET /projects/{id}` and `GET /projects`.\n- **Missing header:** if the header is missing or blank, it throws instead of returning `null`. Prefab treats a `null` tenant as \"no filtering\", so returning it would have exposed every tenant's projects. The gateway guarantees the header, so this should not occur.\n- **`TenantIsolationTest`** (new) creates a project as tenant `a`. It checks that tenant `a` gets 200 on the project and sees it in the list, while tenant `b` gets 404 and doesn't see it in the list.\n\nThe response record also includes `tenantId`.\n\nI didn't commit anything."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/HeaderTenantContextProvider.java"
+      }, {
+        "status" : "M",
+        "path" : "src/main/java/com/example/planning/Project.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/TenantIsolationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/tenancy-isolation-1"
+    "acceptanceDuration" : "PT17.937598274S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/tenancy-isolation-1"
   }, {
     "taskId" : "testing-domain-events-unit",
     "category" : "testing",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 8,
+        "output" : 1725,
+        "cacheRead" : 344926,
+        "cacheCreation" : 97385
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 4,
+      "buildAttempts" : 1,
+      "costUsd" : 0.44129860000000004,
+      "duration" : "PT18.710803234S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "I added `src/test/java/com/example/banking/AccountTest.java` with five plain JUnit tests. All five pass in about 0.13 s, and `mvn test` runs them without a Spring context or Docker. I didn't touch the production code.\n\nThe tests use Prefab's `@ExtendWith(PublishedEventsExtension.class)` and take a `CapturingDomainEventPublisher` as a test-method parameter. They check these cases:\n- **Deposit:** a deposit publishes exactly one `Deposited` event with the account id and amount, and the balance goes up by that amount.\n- **Withdrawal:** a withdrawal publishes exactly one `Withdrawn` event with the account id and amount, and the balance goes down by that amount.\n- **Full balance:** withdrawing the entire balance is allowed and publishes a `Withdrawn` event.\n- **Overdraft:** withdrawing more than the balance (10.01 against 10) throws `ConflictException` and publishes nothing.\n- **New account:** creating an account publishes nothing."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "main-unchanged",
+        "passed" : true,
+        "detail" : "src/main untouched",
+        "infrastructure" : false
+      }, {
+        "name" : "agent-tests-written",
+        "passed" : true,
+        "detail" : "[src/test/java/com/example/banking/AccountTest.java]",
+        "infrastructure" : false
+      }, {
+        "name" : "unit-tests-only",
+        "passed" : true,
+        "detail" : "no Spring context in the agent's tests",
+        "infrastructure" : false
+      }, {
+        "name" : "agent-tests-pass",
+        "passed" : true,
+        "detail" : "5 tests, 0 failed (need at least 3)",
+        "infrastructure" : false
+      }, {
+        "name" : "mutant-killed:withdraw-publishes-deposit",
+        "passed" : true,
+        "detail" : "2 of 5 tests failed on the mutant",
+        "infrastructure" : false
+      }, {
+        "name" : "mutant-killed:deposit-not-published",
+        "passed" : true,
+        "detail" : "1 of 5 tests failed on the mutant",
+        "infrastructure" : false
+      }, {
+        "name" : "mutant-killed:overdraft-allowed",
+        "passed" : true,
+        "detail" : "1 of 5 tests failed on the mutant",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/test/java/com/example/banking/AccountTest.java"
+      } ],
       "hiddenTests" : null,
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/testing-domain-events-unit-1"
+    "acceptanceDuration" : "PT30.6846876S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/testing-domain-events-unit-1"
   }, {
     "taskId" : "testing-integration-tests",
     "category" : "testing",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 12,
+        "output" : 2683,
+        "cacheRead" : 574028,
+        "cacheCreation" : 102697
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 6,
+      "buildAttempts" : 3,
+      "costUsd" : 0.49504480000000006,
+      "duration" : "PT57.144426957S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "I added integration tests for the invoice API in `src/test/java/com/example/billing/InvoiceIntegrationTest.java`, and `mvn test` now passes. I didn't change any production code.\n\nThe tests use Prefab's `@IntegrationTest`, which runs the app against a real PostgreSQL container. They also use the generated `InvoiceClient` and assertion classes.\n\n- **Create and read back:** `POST /invoices` followed by `GET /invoices/{id}` checks the id, customer, amount and `OPEN` status.\n- **Pay:** `POST /invoices/{id}/pay` leaves the invoice as `PAID`, with customer and amount unchanged.\n- **Pay twice:** a second pay returns `409 Conflict`, and the invoice stays `PAID`. The generated client only accepts `200` on pay, so this test calls MockMvc directly.\n\nTwo assertions differ from what you might expect:\n\n- **Amount:** the amount is compared by value rather than exactly, because the database column stores 4 decimal places. `10.00` reads back as `10.0000`.\n- **Version:** I left out a check on `version`. A newly created invoice reads back with version `1`, not `0`. I didn't look into why.\n\nThe final `mvn -q test` run printed no output. I didn't confirm the pass with a visible test count."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "main-unchanged",
+        "passed" : true,
+        "detail" : "src/main untouched",
+        "infrastructure" : false
+      }, {
+        "name" : "agent-tests-written",
+        "passed" : true,
+        "detail" : "[src/test/java/com/example/billing/InvoiceIntegrationTest.java]",
+        "infrastructure" : false
+      }, {
+        "name" : "agent-tests-pass",
+        "passed" : true,
+        "detail" : "3 tests, 0 failed (need at least 3)",
+        "infrastructure" : false
+      }, {
+        "name" : "mutant-killed:pay-keeps-status",
+        "passed" : true,
+        "detail" : "2 of 3 tests failed on the mutant",
+        "infrastructure" : false
+      }, {
+        "name" : "mutant-killed:double-payment-allowed",
+        "passed" : true,
+        "detail" : "1 of 3 tests failed on the mutant",
+        "infrastructure" : false
+      }, {
+        "name" : "mutant-killed:amount-not-stored",
+        "passed" : true,
+        "detail" : "2 of 3 tests failed on the mutant",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/test/java/com/example/billing/InvoiceIntegrationTest.java"
+      } ],
       "hiddenTests" : null,
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/testing-integration-tests-1"
+    "acceptanceDuration" : "PT48.884036953S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/testing-integration-tests-1"
   }, {
     "taskId" : "view-model",
     "category" : "views",
     "attempt" : 1,
-    "passed" : false,
+    "passed" : true,
     "agent" : {
-      "status" : "SKIPPED",
+      "status" : "COMPLETED",
       "usage" : {
-        "input" : 0,
-        "output" : 0,
-        "cacheRead" : 0,
-        "cacheCreation" : 0
+        "input" : 12,
+        "output" : 1641,
+        "cacheRead" : 563691,
+        "cacheCreation" : 97260
       },
-      "turns" : 0,
-      "buildAttempts" : 0,
-      "costUsd" : 0.0,
-      "duration" : "PT0S",
+      "turns" : 6,
+      "buildAttempts" : 2,
+      "costUsd" : 0.46184309999999995,
+      "duration" : "PT27.859491909S",
       "contaminated" : false,
-      "message" : "not started: an earlier attempt hit a usage or rate limit"
+      "message" : "I added `CatalogItem` as a read-only view over `Product`, served at `GET /catalog-items`. The project compiles and `mvn test` passes. I didn't write a test that calls the new endpoint, so I haven't checked its output or the `category` filter at runtime.\n\n- **Fields:** each item has only `name`, `price` and `inStock` (`true` when `stock > 0`). Stock levels and `supplierNotes` are never in the response.\n- **Page format:** the generated controller returns the same paged model as the product list.\n- **Filter:** `category` is accepted, the same as on `GET /products`.\n- **Existing endpoints:** `Product` is unchanged.\n\nThe new file is `src/main/java/com/example/catalog/CatalogItem.java`. It is annotated `@ViewOf(Product.class)` and `@GetList`, with a constructor that maps a `Product` to the three fields. I left the view's security at the default. The project has no security module, so the endpoint is public, as the shop needs."
     },
     "acceptance" : {
       "checks" : [ {
-        "name" : "agent",
-        "passed" : false,
-        "detail" : "not started: an earlier attempt hit a usage or rate limit",
-        "infrastructure" : true
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "3/3 passed",
+        "infrastructure" : false
       } ],
       "violations" : [ ],
-      "changes" : [ ],
-      "hiddenTests" : null,
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/catalog/CatalogItem.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 3,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
       "buildErrors" : [ ],
       "dockerUnavailable" : false
     },
-    "acceptanceDuration" : "PT0S",
-    "failure" : {
-      "category" : "TEST_OR_INFRASTRUCTURE",
-      "source" : "heuristic",
-      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
-      "evidence" : [ ]
-    },
-    "logs" : "/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/view-model-1"
+    "acceptanceDuration" : "PT16.622977046S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/view-model-1"
   } ]
 }

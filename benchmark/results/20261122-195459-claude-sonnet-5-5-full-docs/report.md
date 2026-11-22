@@ -8,12 +8,11 @@
 | Prefab | 0.13.3-SNAPSHOT @ eab5431 |
 | Started | 2026-11-22T19:54:59.905434220Z |
 | Attempts | 32 (32 tasks x 1) |
-| **Pass rate** | **8/32 = 25% (95% CI 13-42%)** |
-| Tasks passed in every attempt | 8 |
-| Cost | $4.74 |
-| Tokens (input incl. cache / output) | 6,886,775 / 19,701 |
-| Median turns / builds / agent time | 0 / 0 / 0s |
-| **Rate limited or skipped** | 24 attempts did not run; the pass rate is not meaningful |
+| **Pass rate** | **32/32 = 100% (95% CI 89-100%)** |
+| Tasks passed in every attempt | 32 |
+| Cost | $15.08 |
+| Tokens (input incl. cache / output) | 20,994,306 / 62,178 |
+| Median turns / builds / agent time | 6 / 2 / 27s |
 
 ## Failure categories
 
@@ -23,7 +22,7 @@
 | MISLEADING_DIAGNOSTIC | 0 |
 | API_MISUSE | 0 |
 | PLAIN_SPRING_FALLBACK | 0 |
-| TEST_OR_INFRASTRUCTURE | 24 |
+| TEST_OR_INFRASTRUCTURE | 0 |
 
 ## By task category
 
@@ -33,17 +32,17 @@
 | avro | 2/2 |
 | binary | 1/1 |
 | diagnostics | 1/1 |
-| events-handling | 2/3 |
-| events-publishing | 1/2 |
-| lists | 0/5 |
-| mongodb | 0/1 |
-| multi-tenancy | 0/1 |
-| persistence | 0/1 |
-| repository-mixins | 0/2 |
-| rest-crud | 0/7 |
-| security | 0/2 |
-| testing | 0/2 |
-| views | 0/1 |
+| events-handling | 3/3 |
+| events-publishing | 2/2 |
+| lists | 5/5 |
+| mongodb | 1/1 |
+| multi-tenancy | 1/1 |
+| persistence | 1/1 |
+| repository-mixins | 2/2 |
+| rest-crud | 7/7 |
+| security | 2/2 |
+| testing | 2/2 |
+| views | 1/1 |
 
 ## Attempts
 
@@ -57,197 +56,27 @@
 | events-create-from-event | 1 | PASS | +guardrails +hidden-tests | 7 | 1 | 772,539 / 1,550 | $0.47 | 23s |  |
 | events-multicast | 1 | PASS | +guardrails +hidden-tests | 3 | 1 | 327,973 / 1,121 | $0.42 | 15s |  |
 | events-publish-on-create | 1 | PASS | +guardrails +hidden-tests | 4 | 1 | 437,768 / 1,253 | $0.43 | 16s |  |
-| events-sealed-hierarchy | 1 | FAIL | -agent | 3 | 1 | 217,810 / 1,092 | $0.40 | 12s | TEST_OR_INFRASTRUCTURE |
-| events-update-by-reference | 1 | FAIL | -agent | 2 | 0 | 108,351 / 162 | $0.38 | 3s | TEST_OR_INFRASTRUCTURE |
-| list-autocomplete | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| list-filters | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| list-full-text-search | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| list-paged-sorted | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| list-range-filter | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| mixin-custom-sql | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| mixin-derived-query | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| mongodb-crud | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| persistence-evolve-schema | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| rest-computed-field | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| rest-create-and-get | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| rest-custom-action | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| rest-parent-child | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| rest-update-and-delete | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| rest-validation | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| rest-value-object | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| security-public-endpoints | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| security-role-based | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| tenancy-isolation | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| testing-domain-events-unit | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| testing-integration-tests | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-| view-model | 1 | FAIL | -agent | 0 | 0 | 0 / 0 | $0.00 | 0s | TEST_OR_INFRASTRUCTURE |
-
-## Failures
-
-### events-sealed-hierarchy#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): rate limited: You've hit your 5-hour limit · resets 11:40pm (UTC)
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/events-sealed-hierarchy-1`
-
-### events-update-by-reference#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): rate limited: You've hit your 5-hour limit · resets 11:40pm (UTC)
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/events-update-by-reference-1`
-
-### list-autocomplete#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-autocomplete-1`
-
-### list-filters#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-filters-1`
-
-### list-full-text-search#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-full-text-search-1`
-
-### list-paged-sorted#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-paged-sorted-1`
-
-### list-range-filter#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/list-range-filter-1`
-
-### mixin-custom-sql#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/mixin-custom-sql-1`
-
-### mixin-derived-query#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/mixin-derived-query-1`
-
-### mongodb-crud#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/mongodb-crud-1`
-
-### persistence-evolve-schema#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/persistence-evolve-schema-1`
-
-### rest-computed-field#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-computed-field-1`
-
-### rest-create-and-get#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-create-and-get-1`
-
-### rest-custom-action#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-custom-action-1`
-
-### rest-parent-child#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-parent-child-1`
-
-### rest-update-and-delete#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-update-and-delete-1`
-
-### rest-validation#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-validation-1`
-
-### rest-value-object#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/rest-value-object-1`
-
-### security-public-endpoints#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/security-public-endpoints-1`
-
-### security-role-based#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/security-role-based-1`
-
-### tenancy-isolation#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/tenancy-isolation-1`
-
-### testing-domain-events-unit#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/testing-domain-events-unit-1`
-
-### testing-integration-tests#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/testing-integration-tests-1`
-
-### view-model#1
-
-**TEST_OR_INFRASTRUCTURE** (heuristic): not started: an earlier attempt hit a usage or rate limit
-
-
-Logs: `/home/user/prefab/benchmark/results/20261122-195459-claude-sonnet-5-5-full-docs/attempts/view-model-1`
+| events-sealed-hierarchy | 1 | PASS | +guardrails +hidden-tests | 5 | 2 | 552,962 / 1,794 | $0.46 | 37s |  |
+| events-update-by-reference | 1 | PASS | +guardrails +hidden-tests | 3 | 1 | 328,459 / 1,067 | $0.42 | 27s |  |
+| list-autocomplete | 1 | PASS | +guardrails +hidden-tests | 4 | 2 | 439,261 / 866 | $0.43 | 21s |  |
+| list-filters | 1 | PASS | +guardrails +hidden-tests | 4 | 2 | 438,192 / 1,071 | $0.43 | 21s |  |
+| list-full-text-search | 1 | PASS | +guardrails +hidden-tests | 5 | 2 | 550,834 / 1,718 | $0.45 | 27s |  |
+| list-paged-sorted | 1 | PASS | +guardrails +hidden-tests | 4 | 1 | 435,765 / 693 | $0.42 | 13s |  |
+| list-range-filter | 1 | PASS | +guardrails +hidden-tests | 7 | 2 | 781,861 / 1,990 | $0.49 | 26s |  |
+| mixin-custom-sql | 1 | PASS | +guardrails +hidden-tests | 7 | 2 | 772,887 / 2,029 | $0.49 | 38s |  |
+| mixin-derived-query | 1 | PASS | +guardrails +hidden-tests | 3 | 1 | 327,099 / 712 | $0.41 | 12s |  |
+| mongodb-crud | 1 | PASS | +guardrails +hidden-tests | 6 | 2 | 673,449 / 3,164 | $0.51 | 50s |  |
+| persistence-evolve-schema | 1 | PASS | +guardrails +hidden-tests | 6 | 4 | 661,141 / 1,687 | $0.46 | 33s |  |
+| rest-computed-field | 1 | PASS | +guardrails +hidden-tests | 3 | 1 | 327,448 / 726 | $0.41 | 14s |  |
+| rest-create-and-get | 1 | PASS | +guardrails +hidden-tests | 10 | 4 | 1,015,917 / 2,852 | $0.53 | 1m17s |  |
+| rest-custom-action | 1 | PASS | +guardrails +hidden-tests | 5 | 1 | 547,748 / 1,337 | $0.44 | 19s |  |
+| rest-parent-child | 1 | PASS | +guardrails +hidden-tests | 6 | 3 | 668,377 / 2,803 | $0.49 | 47s |  |
+| rest-update-and-delete | 1 | PASS | +guardrails +hidden-tests | 3 | 1 | 326,857 / 706 | $0.41 | 12s |  |
+| rest-validation | 1 | PASS | +guardrails +hidden-tests | 9 | 5 | 1,000,237 / 2,139 | $0.51 | 1m05s |  |
+| rest-value-object | 1 | PASS | +guardrails +hidden-tests | 7 | 2 | 780,385 / 2,232 | $0.49 | 39s |  |
+| security-public-endpoints | 1 | PASS | +guardrails +hidden-tests | 8 | 3 | 913,059 / 3,514 | $0.55 | 1m01s |  |
+| security-role-based | 1 | PASS | +guardrails +hidden-tests | 3 | 1 | 328,721 / 1,041 | $0.42 | 14s |  |
+| tenancy-isolation | 1 | PASS | +guardrails +hidden-tests | 7 | 3 | 783,014 / 3,541 | $0.51 | 57s |  |
+| testing-domain-events-unit | 1 | PASS | +guardrails +main-unchanged +agent-tests-written +unit-tests-only +agent-tests-pass +mutant-killed:withdraw-publishes-deposit +mutant-killed:deposit-not-published +mutant-killed:overdraft-allowed | 4 | 1 | 442,319 / 1,725 | $0.44 | 18s |  |
+| testing-integration-tests | 1 | PASS | +guardrails +main-unchanged +agent-tests-written +agent-tests-pass +mutant-killed:pay-keeps-status +mutant-killed:double-payment-allowed +mutant-killed:amount-not-stored | 6 | 3 | 676,737 / 2,683 | $0.50 | 57s |  |
+| view-model | 1 | PASS | +guardrails +hidden-tests | 6 | 2 | 660,963 / 1,641 | $0.46 | 27s |  |

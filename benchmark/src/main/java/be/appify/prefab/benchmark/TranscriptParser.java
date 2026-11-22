@@ -35,7 +35,7 @@ final class TranscriptParser {
         int assistantTurns = 0;
         int buildAttempts = 0;
         boolean contaminated = false;
-        JsonNode result = null;
+        var results = new java.util.ArrayList<JsonNode>();
         for (var line : lines) {
             var event = readEvent(line);
             if (event == null) {
@@ -59,23 +59,35 @@ final class TranscriptParser {
                         }
                     }
                 }
-                case "result" -> result = event;
+                case "result" -> results.add(event);
                 default -> {
                 }
             }
         }
-        if (result == null) {
+        if (results.isEmpty()) {
             return new Transcript(false, null, usage, assistantTurns, buildAttempts, 0, contaminated, "");
         }
+        // Headless Claude Code emits one result per query. An agent that started background work keeps answering
+        // its notifications after the main answer, so a transcript can hold many results: turns and tokens are
+        // per query and add up, the cost is cumulative, and the main answer is the first non-empty one.
+        var last = results.getLast();
+        var totalUsage = results.stream().map(result -> usage(result.path("usage")))
+                .reduce(Agent.TokenUsage.NONE, Agent.TokenUsage::plus);
+        var turns = results.stream().mapToInt(result -> result.path("num_turns").asInt(0)).sum();
+        var limited = results.stream().anyMatch(result -> result.path("api_error_status").asInt(0) == 429);
+        var message = results.stream().map(result -> result.path("result").asString(""))
+                .filter(text -> !text.isBlank())
+                .findFirst()
+                .orElse(last.path("subtype").asString(""));
         return new Transcript(
                 true,
-                status(result),
-                usage(result.path("usage")),
-                result.path("num_turns").asInt(assistantTurns),
+                limited ? Agent.Status.RATE_LIMITED : status(last),
+                totalUsage,
+                turns == 0 ? assistantTurns : turns,
                 buildAttempts,
-                result.path("total_cost_usd").asDouble(0),
+                last.path("total_cost_usd").asDouble(0),
                 contaminated,
-                result.path("result").asString(result.path("subtype").asString("")));
+                message);
     }
 
     static Transcript parse(Path transcript, List<String> forbiddenMarkers) {

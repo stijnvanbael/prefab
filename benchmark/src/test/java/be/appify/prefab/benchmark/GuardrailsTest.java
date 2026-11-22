@@ -27,12 +27,14 @@ class GuardrailsTest {
                 write("src/main/java/com/example/BookEntity.java", "import jakarta.persistence.Entity;\n@Entity class BookEntity {}"),
                 write("src/main/java/com/example/Books.java", "interface Books extends JpaRepository<Book, String> {}"),
                 write("src/main/java/com/example/Dao.java", "class Dao { JdbcTemplate jdbc; }"),
-                write("src/main/java/com/example/Pojo.java", "import lombok.Data;\n@Data class Pojo {}"));
+                write("src/main/java/com/example/Pojo.java", "import lombok.Data;\n@Data class Pojo {}"),
+                write("src/main/java/com/example/Listener.java", "class Listener {\n  @KafkaListener(topics = \"x\") void on(String s) {}\n}"));
 
         var violations = Guardrails.check(workspace, changes, Set.of());
 
         assertThat(violations).extracting(Guardrails.Violation::rule).containsExactlyInAnyOrder(
-                "hand-written-controller", "jpa", "spring-data-repository", "hand-written-persistence", "lombok");
+                "hand-written-controller", "jpa", "spring-data-repository", "hand-written-persistence", "lombok",
+                "hand-written-consumer");
         assertThat(violations).allMatch(violation -> violation.severity() == Guardrails.Severity.FAIL);
     }
 

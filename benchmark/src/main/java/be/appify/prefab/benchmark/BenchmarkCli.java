@@ -206,9 +206,28 @@ public final class BenchmarkCli {
             throw new IllegalArgumentException("classify needs a run directory");
         }
         var directory = Path.of(arguments.positional().getFirst());
-        writeReport(RunReport.read(directory.resolve("report.json")), directory);
+        var paths = BenchmarkPaths.discover(Path.of(arguments.option("repository", ".")));
+        writeReport(refreshAgentMetrics(RunReport.read(directory.resolve("report.json")), paths), directory);
         System.out.println("Updated " + directory.resolve("report.md"));
         return 0;
+    }
+
+    /** Recomputes tokens, turns, builds and cost from the kept transcripts, so parser fixes apply to old runs. */
+    private static RunReport refreshAgentMetrics(RunReport report, BenchmarkPaths paths) {
+        var markers = ClaudeCodeAgent.forbiddenMarkers(paths.repository());
+        return report.withResults(report.results().stream().map(result -> {
+            var transcript = Path.of(result.logs()).resolve("transcript.jsonl");
+            if (!java.nio.file.Files.isRegularFile(transcript)) {
+                return result;
+            }
+            var parsed = TranscriptParser.parse(transcript, markers);
+            var agent = result.agent();
+            var refreshed = new Agent.AgentOutcome(agent.status(), parsed.usage(), parsed.turns(),
+                    parsed.buildAttempts(), parsed.costUsd(), agent.duration(), agent.contaminated(),
+                    parsed.complete() ? parsed.finalMessage() : agent.message());
+            return new TaskResult(result.taskId(), result.category(), result.attempt(), result.passed(), refreshed,
+                    result.acceptance(), result.acceptanceDuration(), result.failure(), result.logs());
+        }).toList());
     }
 
     private static void writeReport(RunReport report, Path directory) {

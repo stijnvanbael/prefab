@@ -1,0 +1,11 @@
+events-multicast#1:
+  category: PLAIN_SPRING_FALLBACK
+  note: >
+    Without docs it did not find @Multicast/@RepositoryMixin: it replaced the generated PriceWatchRepository with a
+    hand-written one (findAllByProduct) and handled PriceChanged in a hand-written @KafkaListener. The listener was not
+    caught by the guardrails yet; the hand-written-consumer rule was added after this run.
+rest-create-and-get#1:
+  category: PLAIN_SPRING_FALLBACK
+  note: >
+    Overrode the generated BookResponse to leave out the version field, which the prompt does not ask for (the
+    response may contain more fields). Not wrong behaviour, but replacing a generated class.

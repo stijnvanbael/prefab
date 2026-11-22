@@ -41,6 +41,19 @@ class TranscriptParserTest {
     }
 
     @Test
+    void addsUpFollowUpQueriesAfterTheMainAnswer() {
+        var followUp = """
+                {"type":"result","subtype":"success","is_error":false,"num_turns":1,"total_cost_usd":0.15,"result":"Stale notification, nothing to do.","usage":{"input_tokens":5,"output_tokens":6,"cache_read_input_tokens":7,"cache_creation_input_tokens":8}}""";
+
+        var transcript = TranscriptParser.parse(List.of(INIT, BUILD, RESULT, followUp), List.of());
+
+        assertThat(transcript.turns()).isEqualTo(8);
+        assertThat(transcript.costUsd()).isEqualTo(0.15);
+        assertThat(transcript.usage()).isEqualTo(new Agent.TokenUsage(55, 66, 707, 88));
+        assertThat(transcript.finalMessage()).isEqualTo("Done.");
+    }
+
+    @Test
     void detectsReadsOfBenchmarkSources() {
         assertThat(TranscriptParser.parse(List.of(PEEK), List.of("benchmark/tasks/")).contaminated()).isTrue();
     }

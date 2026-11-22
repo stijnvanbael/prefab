@@ -180,7 +180,9 @@ final class BenchmarkRunner {
     static Map<String, String> slotEnvironment(String runTag, int slot) {
         var prefix = "prefab_bench_" + runTag + "_" + slot + "_";
         return Map.of(
-                "TESTCONTAINERS_REUSE_ENABLE", "true",
+                // No reuse: Testcontainers matches reusable containers by a configuration hash that ignores the
+                // container name, so parallel slots would share (and remove) each other's databases.
+                "TESTCONTAINERS_REUSE_ENABLE", "false",
                 "PREFAB_TEST_POSTGRES_CONTAINER_NAME", prefix + "postgres",
                 "PREFAB_TEST_MONGODB_CONTAINER_NAME", prefix + "mongodb",
                 "PREFAB_TEST_KAFKA_CONTAINER_NAME", prefix + "kafka",

@@ -108,7 +108,10 @@ project must fail. Run it after changing a task or Prefab itself. A task that no
 4. **Report.** The transcript, the agent's diff and all build logs are kept per attempt under
    `benchmark/results/<run-id>/attempts/` (not committed). `report.json` and `report.md` summarise the run.
 
-Before the agent starts and again before acceptance, the harness removes the slot's Testcontainers containers. Every
+Before the agent starts and again before acceptance, the harness kills any process the agent left running in its
+workspace and removes the slot's Testcontainers containers. Container reuse is disabled
+(`TESTCONTAINERS_REUSE_ENABLE=false`): Testcontainers matches reusable containers by a configuration hash that ignores
+the container name, so parallel slots would otherwise share, and remove, each other's databases (TASK-356). Every
 attempt starts with an empty database and an empty Kafka broker, and the hidden tests never see messages left behind
 by the agent's own test runs.
 

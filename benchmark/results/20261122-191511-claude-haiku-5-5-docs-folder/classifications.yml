@@ -1,0 +1,17 @@
+events-sealed-hierarchy#1:
+  category: DOC_GAP
+  note: >
+    Sealed JSON event interface without @JsonTypeInfo(use = NAME): consumers of AccountEvent cannot deserialize the
+    events (InvalidDefinitionException). The docs do not mention the annotation (TASK-354). The agent's own test only
+    checked the publishing side.
+mixin-custom-sql#1:
+  category: TEST_OR_INFRASTRUCTURE
+  note: >
+    Connection refused to Postgres during the hidden tests: the acceptance build reused another parallel slot's
+    Postgres container (Testcontainers reuse matches on a configuration hash that ignores the container name), which
+    that slot then removed. Fixed by disabling container reuse in the harness; prefab-test issue filed as TASK-356.
+rest-parent-child#1:
+  category: PLAIN_SPRING_FALLBACK
+  note: >
+    Same as the no-docs run: hand-wrote the sub-resource endpoints because the generated get/complete endpoints ignore
+    {projectId} (TASK-355).

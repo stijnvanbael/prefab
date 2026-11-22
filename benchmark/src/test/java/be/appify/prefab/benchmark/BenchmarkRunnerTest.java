@@ -14,7 +14,7 @@ class BenchmarkRunnerTest {
 
         assertThat(first).containsEntry("PREFAB_TEST_KAFKA_CONTAINER_NAME", "prefab_bench_a1_1_kafka")
                 .containsEntry("PREFAB_TEST_KAFKA_NETWORK_NAME", "prefab_bench_a1_1_kafka")
-                .containsEntry("TESTCONTAINERS_REUSE_ENABLE", "true");
+                .containsEntry("TESTCONTAINERS_REUSE_ENABLE", "false");
         assertThat(first.values()).doesNotContainAnyElementsOf(
                 second.values().stream().filter(value -> value.startsWith("prefab_")).toList());
         assertThat(first.values()).doesNotContainAnyElementsOf(

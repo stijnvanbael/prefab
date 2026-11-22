@@ -1,0 +1,11 @@
+mongodb-crud#1:
+  category: PLAIN_SPRING_FALLBACK
+  note: >
+    Hand-wrote ArchiveNoteController and ArchiveNoteService for POST /notes/{id}/archive, believing "Prefab has no
+    custom-action generator" (without docs it did not find @Update(path, method)). Also hit the @Filter-on-boolean
+    processor crash (TASK-351) and worked around it with Boolean.
+rest-parent-child#1:
+  category: PLAIN_SPRING_FALLBACK
+  note: >
+    Hand-wrote get-by-id and complete endpoints because the generated ones ignore {projectId}, so a task was reachable
+    through another project's URL. That is a real Prefab bug (TASK-355); the fallback was a reasonable reaction to it.

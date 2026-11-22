@@ -38,7 +38,8 @@ an API that is easy to misuse, or a place where the model fell back to plain Spr
 - **Usage budget.** A full run is 32 agent sessions. On a Claude subscription, two Haiku runs in parallel used up a
   5-hour usage limit within minutes, so prefer an API key for baselines, run one setup at a time, or pick tasks with
   `--tasks`. When the API answers with a usage or rate limit (HTTP 429), the harness stops starting new attempts,
-  marks the remaining ones as skipped, flags the report as not meaningful and exits with code 3. Rerun later.
+  marks the remaining ones as skipped, flags the report as not meaningful and exits with code 3. After the limit
+  resets, continue with `benchmark/run.sh run --resume benchmark/results/<run-id>`.
 
 ## Running the benchmark
 
@@ -80,6 +81,7 @@ checked out. Set `BENCHMARK_SKIP_INSTALL=1` to skip that step when nothing chang
 | `--results` | `benchmark/results/<run-id>` | Where the report and logs go. |
 | `--work-dir` | `<tmp>/prefab-benchmark/<run-id>` | Where the workspaces go. Keep this outside the repository. |
 | `--hide` | none | Extra comma-separated paths hidden from the agent (see [Isolation](#isolation-and-known-limitations)). |
+| `--resume <run-dir>` | none | Continue a run that a usage limit stopped: rerun its rate-limited and skipped attempts with the same model and context, and merge them into its report. |
 | `--keep-workspaces` | off | Keep the workspaces of passed attempts. Failed ones are always kept. |
 
 `validate` runs every task twice, with stand-in agents. The reference solution must pass and the unchanged starting

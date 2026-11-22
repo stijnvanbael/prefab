@@ -43,6 +43,25 @@ final class BenchmarkRunner {
      * @return the report, with results sorted by task and attempt
      */
     RunReport run(List<BenchmarkTask> tasks, Agent agent, ContextSetup context, RunInfo run) {
+        var attempts = new ArrayList<Attempt>();
+        for (int attempt = 1; attempt <= options.repeat(); attempt++) {
+            for (var task : tasks) {
+                attempts.add(new Attempt(task, attempt));
+            }
+        }
+        return runAttempts(attempts, agent, context, run);
+    }
+
+    /**
+     * Runs specific attempts, for example the ones a rate limit interrupted.
+     *
+     * @param attempts which task attempts to run
+     * @param agent    the agent under test
+     * @param context  the documentation setup
+     * @param run      identification of the run and where its results go
+     * @return the report with only these attempts
+     */
+    RunReport runAttempts(List<Attempt> attempts, Agent agent, ContextSetup context, RunInfo run) {
         BlockingQueue<Integer> slots = new ArrayBlockingQueue<>(options.parallel());
         for (int slot = 1; slot <= options.parallel(); slot++) {
             slots.add(slot);
@@ -52,26 +71,25 @@ final class BenchmarkRunner {
         var runTag = Integer.toHexString(run.runId().hashCode() & 0xfffff);
         var rateLimited = new java.util.concurrent.atomic.AtomicBoolean();
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            for (int attempt = 1; attempt <= options.repeat(); attempt++) {
-                for (var task : tasks) {
-                    var attemptNumber = attempt;
-                    futures.add(executor.submit(() -> {
-                        var slot = slots.take();
-                        try {
-                            if (rateLimited.get()) {
-                                return skipped(task, attemptNumber, run);
-                            }
-                            var result = attempt(task, attemptNumber, agent, context, preamble, run,
-                                    slotEnvironment(runTag, slot));
-                            if (result.agent().status() == Agent.Status.RATE_LIMITED && !rateLimited.getAndSet(true)) {
-                                log("STOP   the model API reports a usage or rate limit: %s", result.agent().message());
-                            }
-                            return result;
-                        } finally {
-                            slots.add(slot);
+            for (var planned : attempts) {
+                var task = planned.task();
+                var attemptNumber = planned.number();
+                futures.add(executor.submit(() -> {
+                    var slot = slots.take();
+                    try {
+                        if (rateLimited.get()) {
+                            return skipped(task, attemptNumber, run);
                         }
-                    }));
-                }
+                        var result = attempt(task, attemptNumber, agent, context, preamble, run,
+                                slotEnvironment(runTag, slot));
+                        if (result.agent().status() == Agent.Status.RATE_LIMITED && !rateLimited.getAndSet(true)) {
+                            log("STOP   the model API reports a usage or rate limit: %s", result.agent().message());
+                        }
+                        return result;
+                    } finally {
+                        slots.add(slot);
+                    }
+                }));
             }
         }
         for (int slot = 1; slot <= options.parallel(); slot++) {
@@ -208,6 +226,15 @@ final class BenchmarkRunner {
 
     private static void log(String format, Object... args) {
         System.out.printf("[%tT] %s%n", Instant.now().toEpochMilli(), format.formatted(args));
+    }
+
+    /**
+     * One planned attempt.
+     *
+     * @param task   the task
+     * @param number 1-based attempt number
+     */
+    record Attempt(BenchmarkTask task, int number) {
     }
 
     /**

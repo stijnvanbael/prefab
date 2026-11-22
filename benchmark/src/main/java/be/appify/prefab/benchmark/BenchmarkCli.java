@@ -33,6 +33,7 @@ public final class BenchmarkCli {
                            --claude <path>        Claude Code CLI executable (default: claude)
                            --hide <paths>         extra comma-separated paths to hide from the agent
                            --keep-workspaces      keep workspaces of passed attempts too
+                           --resume <run-dir>     rerun the rate-limited and skipped attempts of an earlier run
               validate   Check every task: the reference solution must pass, the starting project must fail
                            --tasks, --parallel, --work-dir as above
               list       List tasks and contexts
@@ -71,6 +72,9 @@ public final class BenchmarkCli {
     }
 
     private static int run(BenchmarkPaths paths, CliArguments arguments) {
+        if (arguments.option("resume").isPresent()) {
+            return resume(paths, arguments, Path.of(arguments.option("resume").orElseThrow()));
+        }
         var agentName = arguments.option("agent", "claude");
         var claude = arguments.option("claude", "claude");
         var startedAt = Instant.now();
@@ -105,6 +109,46 @@ public final class BenchmarkCli {
         if (limited) {
             System.out.println("The run stopped early because the model API reported a usage or rate limit.");
         }
+        return limited ? 3 : 0;
+    }
+
+    /**
+     * Continues a run that a usage or rate limit stopped: reruns its rate-limited and skipped attempts with the same
+     * model and context, and merges them into the existing report.
+     */
+    private static int resume(BenchmarkPaths paths, CliArguments arguments, Path resultsDirectory) {
+        var previous = RunReport.read(resultsDirectory.resolve("report.json"));
+        var catalog = new TaskCatalog(paths.tasks());
+        var tasks = catalog.all().stream().collect(java.util.stream.Collectors.toMap(BenchmarkTask::id, task -> task));
+        var redo = previous.results().stream()
+                .filter(result -> result.agent().status() == Agent.Status.RATE_LIMITED
+                        || result.agent().status() == Agent.Status.SKIPPED)
+                .map(result -> new BenchmarkRunner.Attempt(tasks.get(result.taskId()), result.attempt()))
+                .toList();
+        if (redo.isEmpty()) {
+            System.out.println("Nothing to resume: no rate-limited or skipped attempts in " + resultsDirectory);
+            return 0;
+        }
+        var context = ContextSetup.load(paths.contexts(), previous.context());
+        var workDirectory = workDirectory(arguments, previous.runId());
+        var agent = new ClaudeCodeAgent(previous.model(), arguments.option("claude", "claude"), List.of(),
+                ClaudeCodeAgent.forbiddenMarkers(paths.repository()), isolation(paths, arguments, workDirectory));
+        var options = new BenchmarkRunner.Options(previous.repeat(), arguments.intOption("parallel", 2), null,
+                arguments.flag("keep-workspaces"));
+        System.out.printf("Resuming %d attempts of %s%n", redo.size(), previous.runId());
+        var rerun = runner(paths, options).runAttempts(redo, agent, context, new BenchmarkRunner.RunInfo(previous.runId(),
+                previous.startedAt(), resultsDirectory, workDirectory, previous.prefabVersion(), previous.gitCommit()));
+        var replaced = rerun.results().stream().map(TaskResult::key).collect(java.util.stream.Collectors.toSet());
+        var merged = new ArrayList<>(previous.results().stream()
+                .filter(result -> !replaced.contains(result.key())).toList());
+        merged.addAll(rerun.results());
+        merged.sort(java.util.Comparator.comparing(TaskResult::taskId).thenComparing(TaskResult::attempt));
+        var report = previous.withResults(merged);
+        writeReport(report, resultsDirectory);
+        System.out.printf("%nPass rate %d/%d = %s%nReport: %s%n", report.passedCount(), report.results().size(),
+                report.passRate().format(), resultsDirectory.resolve("report.md"));
+        var limited = report.results().stream().anyMatch(result -> result.agent().status() == Agent.Status.RATE_LIMITED
+                || result.agent().status() == Agent.Status.SKIPPED);
         return limited ? 3 : 0;
     }
 

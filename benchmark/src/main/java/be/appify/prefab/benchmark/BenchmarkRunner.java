@@ -68,7 +68,8 @@ final class BenchmarkRunner {
         }
         var preamble = FileTrees.readString(paths.agentPreamble()).strip();
         var futures = new ArrayList<Future<TaskResult>>();
-        var runTag = Integer.toHexString(run.runId().hashCode() & 0xfffff);
+        // Unique per invocation, so a resumed run never shares containers with processes of an earlier invocation.
+        var runTag = Integer.toHexString((run.runId() + System.nanoTime()).hashCode() & 0xfffff);
         var rateLimited = new java.util.concurrent.atomic.AtomicBoolean();
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             for (var planned : attempts) {
@@ -115,6 +116,7 @@ final class BenchmarkRunner {
             var git = workspaces.create(task, context, workspace, logs.resolve("git.log"));
             resetContainers(environment, logs);
             outcome = agent.run(new Agent.AgentRun(task, preamble + "\n\n" + task.prompt(), workspace, logs, environment));
+            ProcessReaper.killProcessesIn(workspace);
             if (outcome.status() == Agent.Status.RATE_LIMITED) {
                 log("FAIL   %s rate limited", name);
                 return new TaskResult(task.id(), task.category(), attempt, false, outcome,
@@ -122,10 +124,6 @@ final class BenchmarkRunner {
                                 outcome.message(), true)), List.of(), List.of(), null, List.of(), false),
                         Duration.ZERO, new TaskResult.Classification(FailureCategory.TEST_OR_INFRASTRUCTURE, "heuristic",
                         "rate limited: " + outcome.message(), List.of()), logs.toString());
-            }
-            var leftovers = ProcessReaper.killProcessesIn(workspace);
-            if (leftovers > 0) {
-                FileTrees.append(logs.resolve("docker.log"), "killed %d processes the agent left running%n".formatted(leftovers));
             }
             resetContainers(environment, logs);
             var acceptanceStart = Instant.now();

@@ -1,0 +1,6 @@
+audit-trail#1:
+  category: TEST_OR_INFRASTRUCTURE
+  note: >
+    The hidden test failed with "Could not open JDBC Connection": the database was gone. The agent's own two tests
+    passed. This was the first attempt after a resume; processes of the previous, rate-limited invocation were not
+    killed and shared its container names (both fixed afterwards).

@@ -48,14 +48,20 @@ record ClaudeCodeAgent(String model, String executable, List<String> extraArgs, 
                 "--no-session-persistence",
                 "--disallowedTools", "WebFetch,WebSearch"));
         command.addAll(extraArgs);
+        var stage = createTempDirectory("prefab-benchmark-stage-");
+        // Claude Code keeps tool output in its temp directory (/tmp/claude-<uid> by default). That directory may be
+        // hidden by the isolation, so every attempt gets its own, outside the hidden paths.
+        var agentTemp = createTempDirectory("prefab-benchmark-agent-tmp-");
+        var environment = new java.util.HashMap<>(run.environment());
+        environment.put("CLAUDE_CODE_TMPDIR", agentTemp.toString());
         var options = new ProcessRunner.ProcessOptions(
-                run.workspace(), run.environment(), REMOVED_ENVIRONMENT,
+                run.workspace(), environment, REMOVED_ENVIRONMENT,
                 transcript, run.logs().resolve("agent-stderr.log"), run.task().timeout().plus(GRACE));
-        var stage = createStage();
         try {
             return outcome(run, transcript, ProcessRunner.run(isolation.wrap(command, run.workspace(), stage), options));
         } finally {
             FileTrees.delete(stage);
+            FileTrees.delete(agentTemp);
         }
     }
 
@@ -71,9 +77,9 @@ record ClaudeCodeAgent(String model, String executable, List<String> extraArgs, 
                 process.duration(), parsed.contaminated(), message);
     }
 
-    private static Path createStage() {
+    private static Path createTempDirectory(String prefix) {
         try {
-            return java.nio.file.Files.createTempDirectory(Path.of("/tmp"), "prefab-benchmark-stage-");
+            return java.nio.file.Files.createTempDirectory(Path.of("/tmp"), prefix);
         } catch (java.io.IOException e) {
             throw new java.io.UncheckedIOException(e);
         }

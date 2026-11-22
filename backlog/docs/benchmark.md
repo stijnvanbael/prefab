@@ -281,6 +281,12 @@ Recorded runs live in `benchmark/results/<run-id>/` (`report.md`, `report.json` 
 `classifications.yml`). The per-attempt logs are not committed.
 
 <!-- BASELINES:BEGIN -->
+> **Superseded.** The runs below and the first full Haiku `none` run (`20261122-065711`) were made with two harness
+> bugs, since fixed: (1) the isolation hid Claude Code's own temp directory behind a 1 MB tmpfs, so large tool output
+> failed with "no space left"; (2) build processes the agent left running in the background recreated and then removed
+> the slot's test containers in the middle of the hidden tests. Their pass rates are not comparable to later runs;
+> their qualitative findings (TASK-353, TASK-355) still hold.
+
 ### 2026-11-21: first baseline, 8-task subset
 
 Prefab `0.13.3-SNAPSHOT` at commit `26ff283`. One attempt per task. The subset covers REST value objects, range

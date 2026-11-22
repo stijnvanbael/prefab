@@ -121,6 +121,10 @@ final class BenchmarkRunner {
                         Duration.ZERO, new TaskResult.Classification(FailureCategory.TEST_OR_INFRASTRUCTURE, "heuristic",
                         "rate limited: " + outcome.message(), List.of()), logs.toString());
             }
+            var leftovers = ProcessReaper.killProcessesIn(workspace);
+            if (leftovers > 0) {
+                FileTrees.append(logs.resolve("docker.log"), "killed %d processes the agent left running%n".formatted(leftovers));
+            }
             resetContainers(environment, logs);
             var acceptanceStart = Instant.now();
             var acceptance = new AcceptanceRunner(Maven.create(environment), paths.acceptanceSupport()).check(task, workspace, git, logs);

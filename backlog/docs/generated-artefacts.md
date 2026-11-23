@@ -25,6 +25,28 @@ Generated methods for each REST annotation:
 
 **Security:** Each method is annotated with `@PreAuthorize` if `security.enabled = true`.
 
+### Multipart requests (`Binary` parameters)
+
+When a `@Create` constructor or `@Update` method has a `Binary` parameter, the endpoint takes
+`multipart/form-data` instead of a JSON body. The request has one part per input:
+
+| Part                | Content type                   | Holds                                                              |
+|---------------------|--------------------------------|--------------------------------------------------------------------|
+| `body`              | `application/json`             | A JSON object with all non-binary parameters (`{"title": "..."}`). |
+| one per `Binary`    | the file's own type            | The file, named after the parameter (`file`).                      |
+
+```bash
+curl -X POST http://localhost:8080/documents \
+  -F 'body={"title": "Contract"};type=application/json' \
+  -F 'file=@contract.pdf;type=application/pdf'
+```
+
+A plain form field (`-F title=Contract`) is **not** read: the other parameters must be in the `body` JSON part.
+
+`@ContentType` and `@FileSize` on the parameter are copied onto the generated controller parameter, so an upload that
+violates them is rejected with `400 Bad Request` before it is stored. A missing part, or a request that is not valid
+multipart, also results in `400 Bad Request` (error code `INVALID_MULTIPART_REQUEST` for the latter), not `500`.
+
 ---
 
 ## 6.2 Service

@@ -4,6 +4,7 @@ import be.appify.prefab.core.sns.SqsSubscriptionRequest;
 import be.appify.prefab.core.sns.SqsUtil;
 import be.appify.prefab.test.EventConsumer;
 import be.appify.prefab.test.TestEventConsumer;
+import be.appify.prefab.test.inmemory.TestInfrastructureMode;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.core.env.Environment;
 import org.springframework.test.context.TestContext;
@@ -33,6 +34,9 @@ public class TestSqsSubscriberExecutionListener extends AbstractTestExecutionLis
 
     @Override
     public void prepareTestInstance(TestContext testContext) {
+        if (!TestInfrastructureMode.containersEnabled(testContext.getApplicationContext())) {
+            return;
+        }
         environment = testContext.getApplicationContext().getBean(Environment.class);
         testContext.getApplicationContext().getBeanProvider(SqsUtil.class).ifAvailable(sqsUtil -> {
             this.sqsUtil = sqsUtil;

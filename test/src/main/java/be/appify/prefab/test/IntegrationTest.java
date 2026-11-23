@@ -37,4 +37,15 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @ActiveProfiles("test")
 @Import(FlywayChecksumMismatchMigrationStrategy.class)
 public @interface IntegrationTest {
+
+    /**
+     * Whether this test class runs against real infrastructure (Testcontainers) instead of the in-memory backend.
+     * <p>
+     * When {@code true}, {@code prefab.test.containers=true} is applied with the highest precedence, and the test
+     * class gets its own cached application context. When {@code false} (the default), the
+     * {@code prefab.test.containers} property from the test configuration decides.
+     *
+     * @return {@code true} to force containers for this test class
+     */
+    boolean containers() default false;
 }

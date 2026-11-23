@@ -113,6 +113,16 @@
             <artifactId>prefab-annotation-processor</artifactId>
         </dependency>
         <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-postgres</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-mongodb</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.apache.tomcat.embed</groupId>
             <artifactId>tomcat-embed-core</artifactId>
         </dependency>

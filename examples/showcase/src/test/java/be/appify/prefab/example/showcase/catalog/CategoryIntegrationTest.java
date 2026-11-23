@@ -2,7 +2,6 @@ package be.appify.prefab.example.showcase.catalog;
 
 import be.appify.prefab.example.showcase.catalog.infrastructure.http.CategoryResponse;
 import be.appify.prefab.test.IntegrationTest;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
@@ -24,7 +23,6 @@ class CategoryIntegrationTest {
     }
 
     @Test
-    @Disabled("TASK-353: public category listing is rejected by the default security filter chain")
     void findCategories_listsThemByName() throws Exception {
         categories.createCategory("Tea");
         categories.createCategory("Coffee");

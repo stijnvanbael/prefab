@@ -835,16 +835,24 @@ public Order(String customerName) { ...}
 void delete() { ... }
 ```
 
-To extend Prefab's default `WebSecurityConfiguration` without replacing the entire
-`SecurityFilterChain` bean, register one or more `HttpSecurityCustomizer` beans:
+To make selected endpoints public without replacing Prefab's default
+`SecurityFilterChain`, register an `HttpSecurityCustomizer` bean. Customizers run
+before the default `anyRequest().authenticated()` fallback:
 
 ```java
 @Bean
-HttpSecurityCustomizer swaggerCustomizer() {
+HttpSecurityCustomizer publicArticleReads() {
     return http -> http.authorizeHttpRequests(auth -> auth
-            .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll());
+            .requestMatchers(HttpMethod.GET, "/articles", "/articles/*").permitAll());
 }
 ```
+
+Import `org.springframework.http.HttpMethod` for the method-specific matcher. The
+generated `@Security(enabled = false)` option disables only method-level authorization;
+anonymous access also requires a matching `permitAll()` rule in the filter chain.
+Additional path-scoped `SecurityFilterChain` beans can coexist with Prefab's default
+chain. To replace Prefab's chain entirely, name the replacement bean
+`prefabSecurityFilterChain`.
 
 ---
 

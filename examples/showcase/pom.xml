@@ -32,6 +32,14 @@
         </dependency>
         <dependency>
             <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-streams</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-streams-kafka</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
             <artifactId>prefab-security</artifactId>
         </dependency>
         <dependency>
@@ -61,6 +69,19 @@
                 <artifactId>build-helper-maven-plugin</artifactId>
                 <executions>
                     <execution>
+                        <id>add-showcase-streams-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${project.basedir}/src/streams/java</source>
+                                <source>${project.basedir}/src/streams-kafka/java</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>add-prefab-test-sources</id>
                         <phase>generate-test-sources</phase>
                         <goals>
@@ -69,6 +90,19 @@
                         <configuration>
                             <sources>
                                 <source>${project.build.directory}/prefab-test-sources</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>add-showcase-streams-test-sources</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>add-test-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${project.basedir}/src/streams-test/java</source>
+                                <source>${project.basedir}/src/streams-kafka-test/java</source>
                             </sources>
                         </configuration>
                     </execution>

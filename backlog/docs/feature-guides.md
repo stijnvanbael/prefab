@@ -1106,6 +1106,12 @@ Supported operations:
 - `to(String)`
 - `end()`
 
+The shop showcase demonstrates the operators together on its order events: category revenue aggregation and hourly
+windows are in `examples/showcase/src/streams/java`, with backend-neutral topology tests in
+`examples/showcase/src/streams-test/java`. Its Kafka-native breakout example is kept in a separate optional source
+root (`src/streams-kafka/java`) and guarded by the `KAFKA_STREAMS_BREAKOUT` capability; variants that provide another
+Streams backend can compile and run the common topology slice without the Kafka adapter.
+
 Serialization and deserialization reuse the existing Kafka dynamic serde infrastructure:
 
 - `DynamicDeserializer` for source records
@@ -1313,7 +1319,8 @@ Behaviour and constraints:
   differs from the topic's records, use a distinct source type and a mapper:
   `globalStore(String name, Class<S> sourceType, Class<V> storeType, Function<S, V> mapper)`. A mapper result of
   `null` removes the key. Stores whose type differs from the source type are serialised as JSON.
-- The store has no changelog topic; on restart it is restored from the source topic. Use a compacted topic.
+- The store has no changelog topic; on restart it is restored from the source topic. Use a compacted topic, and ensure
+  the source topic exists before Kafka Streams starts (for example, provision it with a `NewTopic` bean).
 - A processor reads a global store by returning it from `StreamProcessor.globalStores()`; the framework binds it to the
   processor context. Returning a store
   that was not declared via `globalStore(...)` or `globalStoreFrom(...)` fails fast with an `IllegalArgumentException`.

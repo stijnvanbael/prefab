@@ -28,6 +28,8 @@
         -->
         <showcase.directory>${project.build.directory}/showcase</showcase.directory>
         <showcase.source.directory>${project.basedir}/../showcase/src</showcase.source.directory>
+        <showcase.streams.skip>true</showcase.streams.skip>
+        <showcase.kafka.streams.skip>true</showcase.kafka.streams.skip>
     </properties>
 
     <dependencies>
@@ -125,6 +127,70 @@
                             </resources>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>copy-showcase-streams-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${showcase.streams.skip}</skip>
+                            <outputDirectory>${showcase.directory}/src/streams/java</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${showcase.source.directory}/streams/java</directory>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-showcase-streams-test-sources</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${showcase.streams.skip}</skip>
+                            <outputDirectory>${showcase.directory}/src/streams-test/java</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${showcase.source.directory}/streams-test/java</directory>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-showcase-kafka-streams-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${showcase.kafka.streams.skip}</skip>
+                            <outputDirectory>${showcase.directory}/src/streams-kafka/java</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${showcase.source.directory}/streams-kafka/java</directory>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-showcase-kafka-streams-test-sources</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${showcase.kafka.streams.skip}</skip>
+                            <outputDirectory>${showcase.directory}/src/streams-kafka-test/java</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${showcase.source.directory}/streams-kafka-test/java</directory>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
             <plugin>
@@ -140,6 +206,8 @@
                         <configuration>
                             <sources>
                                 <source>${showcase.directory}/src/main/java</source>
+                                <source>${showcase.directory}/src/streams/java</source>
+                                <source>${showcase.directory}/src/streams-kafka/java</source>
                             </sources>
                         </configuration>
                     </execution>
@@ -152,6 +220,8 @@
                         <configuration>
                             <sources>
                                 <source>${showcase.directory}/src/test/java</source>
+                                <source>${showcase.directory}/src/streams-test/java</source>
+                                <source>${showcase.directory}/src/streams-kafka-test/java</source>
                                 <source>${showcase.directory}/target/prefab-test-sources</source>
                             </sources>
                         </configuration>

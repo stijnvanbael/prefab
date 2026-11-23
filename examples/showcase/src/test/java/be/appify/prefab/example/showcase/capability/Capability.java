@@ -20,6 +20,8 @@ public enum Capability {
     ORDERED_DELIVERY,
     /** Prefab Streams topologies. */
     STREAMS,
+    /** Kafka-native Prefab Streams breakout operators. */
+    KAFKA_STREAMS_BREAKOUT,
     /** Events serialized as Avro. */
     AVRO,
     /** Spring Security integration. */

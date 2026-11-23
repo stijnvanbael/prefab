@@ -87,3 +87,7 @@ Container-dependent integration tests are delegated to CI because this environme
   the retention property using Spring Boot's duration syntax independently of the application's conversion service.
 - Full Maven verify passed on Java 21 in CI run 45198222791 for commit `1b648925`. The task remains in progress
   because the showcase-pubsub variant (TASK-337.09) is not yet available for acceptance criteria #1 and #3.
+- CI run 45200337894 later timed out waiting for aggregate output. The outbox relay can miss a wake-up when a
+  second transaction commits after a topic was scanned while another relay is active. A deterministic in-memory test
+  reproduced the missed wake-up; relay requests are now coalesced and trigger another scan, including for
+  synchronously delivered downstream messages. CI must verify the container-backed suite after this fix.

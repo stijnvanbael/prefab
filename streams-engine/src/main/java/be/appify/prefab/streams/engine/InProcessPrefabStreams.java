@@ -83,7 +83,7 @@ public final class InProcessPrefabStreams implements PrefabStreams {
     private final AtomicInteger nameSequence = new AtomicInteger();
     private final Map<String, AtomicInteger> sourceSequences = new ConcurrentHashMap<>();
     private final ReentrantLock declarationsLock = new ReentrantLock();
-    private final ReentrantLock relayLock = new ReentrantLock();
+    private final AtomicInteger relayRequests = new AtomicInteger();
     private final ThreadLocal<StreamStateRepository.Transaction> activeTransaction = new ThreadLocal<>();
     private final AtomicBoolean started = new AtomicBoolean();
 
@@ -513,25 +513,34 @@ public final class InProcessPrefabStreams implements PrefabStreams {
     }
 
     private void relayOutbox() {
-        if (!relayLock.tryLock()) {
+        if (relayRequests.getAndIncrement() != 0) {
             return;
         }
+        var pending = 1;
         try {
-            for (var topic : sinkTopics) {
-                while (true) {
-                    var records = repository.leaseOutbox(
-                            topic, relayOwner, Instant.now(), Duration.ofMinutes(1), MAX_OUTBOX_BATCH);
-                    if (records.isEmpty()) {
-                        break;
-                    }
-                    for (var record : records) {
-                        sink.publish(record.topic(), record.message());
-                        repository.completeOutbox(relayOwner, record.id());
-                    }
+            do {
+                drainOutbox();
+                pending = relayRequests.addAndGet(-pending);
+            } while (pending != 0);
+        } catch (RuntimeException | Error failure) {
+            relayRequests.set(0);
+            throw failure;
+        }
+    }
+
+    private void drainOutbox() {
+        for (var topic : sinkTopics) {
+            while (true) {
+                var records = repository.leaseOutbox(
+                        topic, relayOwner, Instant.now(), Duration.ofMinutes(1), MAX_OUTBOX_BATCH);
+                if (records.isEmpty()) {
+                    break;
+                }
+                for (var record : records) {
+                    sink.publish(record.topic(), record.message());
+                    repository.completeOutbox(relayOwner, record.id());
                 }
             }
-        } finally {
-            relayLock.unlock();
         }
     }
 

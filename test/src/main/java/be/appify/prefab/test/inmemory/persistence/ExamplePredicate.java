@@ -12,14 +12,14 @@ import org.springframework.data.domain.Example;
 import org.springframework.data.domain.ExampleMatcher.MatchMode;
 import org.springframework.data.domain.ExampleMatcher.NullHandler;
 import org.springframework.data.domain.ExampleMatcher.StringMatcher;
-import org.springframework.data.keyvalue.core.mapping.KeyValuePersistentEntity;
-import org.springframework.data.keyvalue.core.mapping.KeyValuePersistentProperty;
+import org.springframework.data.mapping.PersistentEntity;
+import org.springframework.data.mapping.PersistentProperty;
 import org.springframework.data.mapping.SimplePropertyHandler;
 import org.springframework.data.mapping.context.MappingContext;
 import org.springframework.data.support.ExampleMatcherAccessor;
 
 /**
- * Evaluates Query by Example in memory, which Spring Data KeyValue does not support. Understands the matchers the
+ * Evaluates Query by Example in memory, which Spring Data Commons only describes. Understands the matchers the
  * generated list services use: exact, contains, starts with, ends with, regex, case insensitivity, ignored paths and
  * {@code matchingAll} / {@code matchingAny}.
  *
@@ -27,7 +27,7 @@ import org.springframework.data.support.ExampleMatcherAccessor;
  * string matcher of their path. Nested records are compared property by property.</p>
  */
 public final class ExamplePredicate {
-    private final MappingContext<? extends KeyValuePersistentEntity<?, ?>, ? extends KeyValuePersistentProperty<?>>
+    private final MappingContext<? extends PersistentEntity<?, ?>, ? extends PersistentProperty<?>>
             mappingContext;
     private final AggregateProperties properties;
 
@@ -40,7 +40,7 @@ public final class ExamplePredicate {
      *         reads aggregate properties
      */
     public ExamplePredicate(
-            MappingContext<? extends KeyValuePersistentEntity<?, ?>, ? extends KeyValuePersistentProperty<?>>
+            MappingContext<? extends PersistentEntity<?, ?>, ? extends PersistentProperty<?>>
                     mappingContext,
             AggregateProperties properties
     ) {

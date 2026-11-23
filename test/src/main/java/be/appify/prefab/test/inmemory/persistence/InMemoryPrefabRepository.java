@@ -13,7 +13,7 @@ import org.springframework.data.repository.PagingAndSortingRepository;
 
 /**
  * Base implementation of every in-memory repository: CRUD, paging and sorting, and Query by Example with a
- * {@code Pageable}, the only form the generated list services use, which Spring Data KeyValue lacks. Saving checks
+ * {@code Pageable}, the only form the generated list services use, which Spring Data Commons does not provide. Saving checks
  * and increments {@code @Version}, see {@link InMemoryStore}.
  *
  * @param <T>

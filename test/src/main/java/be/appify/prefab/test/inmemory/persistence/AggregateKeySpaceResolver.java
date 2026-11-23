@@ -2,19 +2,24 @@ package be.appify.prefab.test.inmemory.persistence;
 
 import java.util.Optional;
 import java.util.stream.Stream;
-import org.springframework.data.keyvalue.core.mapping.KeySpaceResolver;
 
 /**
  * Maps every aggregate type to the key space it is stored in. All implementations of a sealed aggregate share the
  * key space of the sealed root, so that the repository of the root finds every variant.
  */
-public final class AggregateKeySpaceResolver implements KeySpaceResolver {
+public final class AggregateKeySpaceResolver {
 
     /** Constructs a new AggregateKeySpaceResolver. */
     public AggregateKeySpaceResolver() {
     }
 
-    @Override
+    /**
+     * Resolves the key space of an aggregate type.
+     *
+     * @param type
+     *         the aggregate type, a variant or the sealed root
+     * @return the key space name
+     */
     public String resolveKeySpace(Class<?> type) {
         var root = type;
         for (var parent = sealedParentOf(root); parent.isPresent(); parent = sealedParentOf(root)) {

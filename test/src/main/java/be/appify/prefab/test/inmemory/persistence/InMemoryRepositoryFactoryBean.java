@@ -1,15 +1,12 @@
 package be.appify.prefab.test.inmemory.persistence;
 
-import org.springframework.data.keyvalue.core.KeyValueOperations;
-import org.springframework.data.keyvalue.repository.support.KeyValueRepositoryFactory;
-import org.springframework.data.keyvalue.repository.support.KeyValueRepositoryFactoryBean;
 import org.springframework.data.repository.Repository;
-import org.springframework.data.repository.query.RepositoryQuery;
-import org.springframework.data.repository.query.parser.AbstractQueryCreator;
+import org.springframework.data.repository.core.support.RepositoryFactoryBeanSupport;
+import org.springframework.data.repository.core.support.RepositoryFactorySupport;
 
 /**
- * {@link KeyValueRepositoryFactoryBean} that creates {@link InMemoryRepositoryFactory}. Registered for every
- * repository interface by {@link InMemoryRepositoriesRegistrar}.
+ * Creates one in-memory repository. Registered for every repository interface by
+ * {@link InMemoryRepositoriesRegistrar}.
  *
  * @param <T>
  *         the repository type
@@ -19,7 +16,7 @@ import org.springframework.data.repository.query.parser.AbstractQueryCreator;
  *         the identifier type
  */
 public class InMemoryRepositoryFactoryBean<T extends Repository<S, ID>, S, ID>
-        extends KeyValueRepositoryFactoryBean<T, S, ID> {
+        extends RepositoryFactoryBeanSupport<T, S, ID> {
     private InMemoryStore store;
     private ExamplePredicate examples;
 
@@ -54,11 +51,7 @@ public class InMemoryRepositoryFactoryBean<T extends Repository<S, ID>, S, ID>
     }
 
     @Override
-    protected KeyValueRepositoryFactory createRepositoryFactory(
-            KeyValueOperations operations,
-            Class<? extends AbstractQueryCreator<?, ?>> queryCreator,
-            Class<? extends RepositoryQuery> repositoryQueryType
-    ) {
-        return new InMemoryRepositoryFactory(operations, store, examples);
+    protected RepositoryFactorySupport createRepositoryFactory() {
+        return new InMemoryRepositoryFactory(store, examples);
     }
 }

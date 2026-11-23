@@ -2,38 +2,34 @@ package be.appify.prefab.test.inmemory.persistence;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.OptimisticLockingFailureException;
-import org.springframework.data.keyvalue.core.KeyValueAdapter;
-import org.springframework.data.keyvalue.core.mapping.KeySpaceResolver;
 
 /**
- * The aggregates of all in-memory repositories. Adds what Spring Data KeyValue lacks: {@code @Version} checking with
+ * The aggregates of all in-memory repositories. Adds {@code @Version} checking with
  * an incrementing version, under a lock per key space.
  */
 public final class InMemoryStore {
-    private final KeyValueAdapter adapter;
-    private final KeySpaceResolver keySpaces;
+    private final Map<String, Map<Object, Object>> keySpaces = new ConcurrentHashMap<>();
+    private final Map<String, ReentrantLock> locks = new ConcurrentHashMap<>();
+    private final AggregateKeySpaceResolver resolver;
     private final AggregateProperties properties;
-    private final ConcurrentHashMap<String, ReentrantLock> locks = new ConcurrentHashMap<>();
 
     /**
      * Constructs a new InMemoryStore.
      *
-     * @param adapter
-     *         the adapter that holds the aggregates
-     * @param keySpaces
+     * @param resolver
      *         resolves the key space of an aggregate type
      * @param properties
      *         reads and rewrites aggregate properties
      */
-    public InMemoryStore(KeyValueAdapter adapter, KeySpaceResolver keySpaces, AggregateProperties properties) {
-        this.adapter = adapter;
-        this.keySpaces = keySpaces;
+    public InMemoryStore(AggregateKeySpaceResolver resolver, AggregateProperties properties) {
+        this.resolver = resolver;
         this.properties = properties;
     }
 
@@ -62,19 +58,19 @@ public final class InMemoryStore {
      */
     public <T> T save(T entity) {
         var id = idOf(entity);
-        var keySpace = keySpaces.resolveKeySpace(entity.getClass());
+        var keySpace = resolver.resolveKeySpace(entity.getClass());
         return locked(keySpace, () -> {
             var saved = properties.versionOf(entity)
                     .map(version -> versioned(entity, id, keySpace, version))
                     .orElse(entity);
-            adapter.put(id, saved, keySpace);
+            mapOf(keySpace).put(id, saved);
             return saved;
         });
     }
 
     private <T> T versioned(T entity, Object id, String keySpace, AggregateProperties.Version version) {
         if (version.isNew()) {
-            if (adapter.contains(id, keySpace)) {
+            if (mapOf(keySpace).containsKey(id)) {
                 throw new DuplicateKeyException("%s with id %s already exists".formatted(
                         entity.getClass().getSimpleName(), id));
             }
@@ -85,7 +81,7 @@ public final class InMemoryStore {
     }
 
     private void assertStoredVersion(Object entity, Object id, String keySpace, AggregateProperties.Version version) {
-        var stored = Optional.ofNullable(adapter.get(id, keySpace))
+        var stored = Optional.ofNullable(mapOf(keySpace).get(id))
                 .flatMap(properties::versionOf)
                 .filter(AggregateProperties.Version::assigned);
         if (stored.map(AggregateProperties.Version::value).filter(value -> value == version.value()).isEmpty()) {
@@ -105,12 +101,12 @@ public final class InMemoryStore {
      */
     public void delete(Object entity) {
         var id = idOf(entity);
-        var keySpace = keySpaces.resolveKeySpace(entity.getClass());
+        var keySpace = resolver.resolveKeySpace(entity.getClass());
         locked(keySpace, () -> {
             properties.versionOf(entity)
                     .filter(version -> !version.isNew())
                     .ifPresent(version -> assertStoredVersion(entity, id, keySpace, version));
-            adapter.delete(id, keySpace);
+            mapOf(keySpace).remove(id);
         });
     }
 
@@ -123,8 +119,8 @@ public final class InMemoryStore {
      *         the aggregate type of the repository
      */
     public void deleteById(Object id, Class<?> type) {
-        var keySpace = keySpaces.resolveKeySpace(type);
-        locked(keySpace, () -> adapter.delete(id, keySpace));
+        var keySpace = resolver.resolveKeySpace(type);
+        locked(keySpace, () -> mapOf(keySpace).remove(id));
     }
 
     /**
@@ -134,8 +130,8 @@ public final class InMemoryStore {
      *         the aggregate type of the repository
      */
     public void deleteAll(Class<?> type) {
-        var keySpace = keySpaces.resolveKeySpace(type);
-        locked(keySpace, () -> adapter.deleteAllOf(keySpace));
+        var keySpace = resolver.resolveKeySpace(type);
+        locked(keySpace, () -> mapOf(keySpace).clear());
     }
 
     /**
@@ -150,7 +146,7 @@ public final class InMemoryStore {
      * @return the aggregate, if present
      */
     public <T> Optional<T> findById(Object id, Class<T> type) {
-        return Optional.ofNullable(adapter.get(id, keySpaces.resolveKeySpace(type), type));
+        return Optional.ofNullable(mapOf(resolver.resolveKeySpace(type)).get(id)).filter(type::isInstance).map(type::cast);
     }
 
     /**
@@ -164,7 +160,8 @@ public final class InMemoryStore {
      */
     public <T> List<T> findAll(Class<T> type) {
         var all = new ArrayList<T>();
-        adapter.getAllOf(keySpaces.resolveKeySpace(type), type).forEach(all::add);
+        mapOf(resolver.resolveKeySpace(type)).values().stream().filter(type::isInstance).map(type::cast)
+                .forEach(all::add);
         return all;
     }
 
@@ -177,6 +174,10 @@ public final class InMemoryStore {
      */
     public long count(Class<?> type) {
         return findAll(type).size();
+    }
+
+    private Map<Object, Object> mapOf(String keySpace) {
+        return keySpaces.computeIfAbsent(keySpace, ignored -> new ConcurrentHashMap<>());
     }
 
     private Object idOf(Object entity) {

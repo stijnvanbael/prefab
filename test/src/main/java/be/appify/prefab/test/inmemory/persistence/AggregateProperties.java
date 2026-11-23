@@ -4,8 +4,8 @@ import be.appify.prefab.core.service.Reference;
 import java.util.Comparator;
 import java.util.Optional;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.keyvalue.core.mapping.KeyValuePersistentEntity;
-import org.springframework.data.keyvalue.core.mapping.KeyValuePersistentProperty;
+import org.springframework.data.mapping.PersistentEntity;
+import org.springframework.data.mapping.PersistentProperty;
 import org.springframework.data.mapping.context.MappingContext;
 import org.springframework.data.mapping.PersistentPropertyAccessor;
 import org.springframework.data.mapping.model.EntityInstantiators;
@@ -20,7 +20,7 @@ import org.springframework.util.NumberUtils;
 public final class AggregateProperties {
     private static final EntityInstantiators INSTANTIATORS = new EntityInstantiators();
 
-    private final MappingContext<? extends KeyValuePersistentEntity<?, ?>, ? extends KeyValuePersistentProperty<?>>
+    private final MappingContext<? extends PersistentEntity<?, ?>, ? extends PersistentProperty<?>>
             mappingContext;
 
     /**
@@ -30,7 +30,7 @@ public final class AggregateProperties {
      *         the mapping context that describes the aggregates
      */
     public AggregateProperties(
-            MappingContext<? extends KeyValuePersistentEntity<?, ?>, ? extends KeyValuePersistentProperty<?>>
+            MappingContext<? extends PersistentEntity<?, ?>, ? extends PersistentProperty<?>>
                     mappingContext
     ) {
         this.mappingContext = mappingContext;
@@ -100,7 +100,7 @@ public final class AggregateProperties {
      */
     public <T> T withVersion(T bean, long version) {
         @SuppressWarnings("unchecked")
-        var entity = (KeyValuePersistentEntity<T, ?>) entityOf(bean);
+        var entity = (PersistentEntity<T, ?>) entityOf(bean);
         var property = entity.getRequiredVersionProperty();
         PersistentPropertyAccessor<T> accessor = new InstantiationAwarePropertyAccessor<>(
                 bean, entity::getPropertyAccessor, INSTANTIATORS);
@@ -149,7 +149,7 @@ public final class AggregateProperties {
         };
     }
 
-    private KeyValuePersistentEntity<?, ?> entityOf(Object bean) {
+    private PersistentEntity<?, ?> entityOf(Object bean) {
         return mappingContext.getRequiredPersistentEntity(bean.getClass());
     }
 

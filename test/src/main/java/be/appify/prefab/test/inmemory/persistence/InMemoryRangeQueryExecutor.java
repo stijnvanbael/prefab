@@ -2,7 +2,6 @@ package be.appify.prefab.test.inmemory.persistence;
 
 import be.appify.prefab.core.spring.data.RangeCondition;
 import be.appify.prefab.core.spring.data.RangeQueryExecutor;
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.function.Predicate;
 import org.springframework.data.domain.Example;
@@ -48,7 +47,7 @@ public class InMemoryRangeQueryExecutor implements RangeQueryExecutor {
 
     private Predicate<Object> matches(RangeCondition condition) {
         return candidate -> store.properties().read(candidate, condition.property())
-                .map(actual -> satisfies(condition, compare(actual, condition.value())))
+                .map(actual -> satisfies(condition, Comparisons.compare(actual, condition.value())))
                 .orElse(false);
     }
 
@@ -60,17 +59,5 @@ public class InMemoryRangeQueryExecutor implements RangeQueryExecutor {
             case LESS_THAN_OR_EQUAL -> comparison <= 0;
             default -> throw new IllegalArgumentException("Not a range operator: " + condition.operator());
         };
-    }
-
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private static int compare(Object actual, Object bound) {
-        if (actual instanceof Number number && bound instanceof Number other) {
-            return new BigDecimal(number.toString()).compareTo(new BigDecimal(other.toString()));
-        }
-        if (actual instanceof Comparable comparable && actual.getClass().isInstance(bound)) {
-            return comparable.compareTo(bound);
-        }
-        throw new IllegalArgumentException("Cannot compare %s with %s in a range condition".formatted(
-                actual.getClass().getName(), bound.getClass().getName()));
     }
 }

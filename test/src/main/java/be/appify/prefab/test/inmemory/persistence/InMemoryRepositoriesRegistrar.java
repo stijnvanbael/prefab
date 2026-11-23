@@ -15,7 +15,6 @@ import org.springframework.context.annotation.ClassPathScanningCandidateComponen
 import org.springframework.context.annotation.ImportBeanDefinitionRegistrar;
 import org.springframework.core.env.Environment;
 import org.springframework.core.type.AnnotationMetadata;
-import org.springframework.data.keyvalue.repository.query.KeyValuePartTreeQuery;
 import org.springframework.core.type.filter.AssignableTypeFilter;
 import org.springframework.data.repository.NoRepositoryBean;
 import org.springframework.data.repository.Repository;
@@ -23,13 +22,10 @@ import org.springframework.util.ClassUtils;
 
 /**
  * Registers an in-memory repository for every repository interface in the auto-configuration packages, that is, in
- * the packages of the application. Spring Data KeyValue's own configuration does not do this: it only claims
- * {@code KeyValueRepository} types and types with {@code @KeySpace} when another store such as JDBC or MongoDB is on
- * the classpath.
+ * the packages of the application. The beans are registered programmatically, not through a Spring Data store module,
+ * so that JDBC and MongoDB repository scanning is unaffected in containers mode.
  */
 public class InMemoryRepositoriesRegistrar implements ImportBeanDefinitionRegistrar, BeanFactoryAware, EnvironmentAware {
-    static final String KEY_VALUE_OPERATIONS = "inMemoryKeyValueTemplate";
-    static final String MAPPING_CONTEXT = "inMemoryMappingContext";
     static final String STORE = "inMemoryStore";
     static final String EXAMPLES = "inMemoryExamplePredicate";
 
@@ -71,12 +67,8 @@ public class InMemoryRepositoriesRegistrar implements ImportBeanDefinitionRegist
         }
         var definition = BeanDefinitionBuilder.rootBeanDefinition(InMemoryRepositoryFactoryBean.class)
                 .addConstructorArgValue(className)
-                .addPropertyReference("keyValueOperations", KEY_VALUE_OPERATIONS)
-                .addPropertyReference("mappingContext", MAPPING_CONTEXT)
                 .addPropertyValue("store", new RuntimeBeanReference(STORE))
                 .addPropertyValue("examples", new RuntimeBeanReference(EXAMPLES))
-                .addPropertyValue("queryCreator", ReferenceAwarePredicateQueryCreator.class)
-                .addPropertyValue("queryType", KeyValuePartTreeQuery.class)
                 .getBeanDefinition();
         var simpleName = Introspector.decapitalize(type.getSimpleName());
         registry.registerBeanDefinition(registry.containsBeanDefinition(simpleName) ? className : simpleName, definition);

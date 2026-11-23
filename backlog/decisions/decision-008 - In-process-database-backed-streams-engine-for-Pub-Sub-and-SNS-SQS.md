@@ -8,8 +8,8 @@ related_tasks:
   - TASK-341
   - TASK-342
   - TASK-340
-  - TASK-351
-  - TASK-352
+  - TASK-360
+  - TASK-361
 ---
 
 ## Context
@@ -53,7 +53,7 @@ brokers run on Postgres.
 ## Decision
 
 1. **One broker-neutral engine, two broker adapters.**
-   - `prefab-streams-engine` (TASK-351) implements `PrefabStreams` and `PrefabStream` by building an operator graph
+   - `prefab-streams-engine` (TASK-360) implements `PrefabStreams` and `PrefabStream` by building an operator graph
      from the DSL and interpreting it in the application process. It defines two small SPIs:
      - `StreamSource` / `StreamSink`: subscribe with a per-message callback, and publish with key, headers and
        event time.
@@ -67,7 +67,7 @@ brokers run on Postgres.
    moves to `prefab-streams` so both backends share it. Schema initialization works like Spring Batch's
    (`prefab.streams.state.initialize-schema=always|never`), and the DDL is published for teams that manage their own
    schema, so the engine never touches the application's Flyway version sequence. The Postgres repository is
-   TASK-352. MongoDB is a follow-up (TASK-353) that needs a replica set for multi-document transactions.
+   TASK-361. MongoDB is a follow-up (TASK-362) that needs a replica set for multi-document transactions.
 3. **One database transaction per input message.** For each delivered message the engine:
    1. checks and records the message in the inbox (`subscription`, message ID). A duplicate is acknowledged and
       skipped.
@@ -131,7 +131,7 @@ brokers run on Postgres.
     - `breakout` with an adapter for any other backend. The engine has no native stream API, so a topology with a
       Kafka breakout cannot run on it. The showcase keeps its breakout topology in a Kafka-only configuration.
     - Wall-clock punctuation through `StreamProcessorContext.schedule`. With shared state it must run on one
-      instance, behind a lease (TASK-354).
+      instance, behind a lease (TASK-363).
 
     The error message names the backend and the follow-up task.
 11. **Tests stay backend-neutral.** `prefab-streams-engine` registers a `TopologyTestHarness.Factory` that runs the
@@ -147,7 +147,7 @@ brokers run on Postgres.
 | `filter`, `map`, `flatMap`, `branch`, `merge`, `PrefabStreams.merge` | ✅ | ✅ | In memory, no state |
 | `process` without stores | ✅ | ✅ | |
 | `process` with stores (`StatefulStreamProcessor`), `aggregate(groupBy, …)` | ✅ | ✅ | Order-dependent logic needs ordered sources (SNS/SQS: TASK-340) |
-| `StreamProcessorContext.schedule` | ❌ | ❌ | TASK-354 |
+| `StreamProcessorContext.schedule` | ❌ | ❌ | TASK-363 |
 | `keyBy`, `repartition` | ✅ | ✅ | Logical, no topic |
 | `groupBy` + `aggregate` | ✅ | ✅ | |
 | `windowedAggregate` (tumbling, hopping, grace) | ✅ | ✅ | Stream time per key, see point 6 |
@@ -158,8 +158,8 @@ brokers run on Postgres.
 | Exactly-once / inbox deduplication | ✅ | ✅ | Inbox and outbox in the same transaction |
 | Tracing (message and correlation IDs) | ✅ | ✅ | Correlation IDs cut to fit attribute limits |
 | Topology tests through `TopologyTestHarness` | ✅ | ✅ | In memory |
-| State on Postgres | ✅ | ✅ | TASK-352 |
-| State on MongoDB | ❌ | ❌ | TASK-353 |
+| State on Postgres | ✅ | ✅ | TASK-361 |
+| State on MongoDB | ❌ | ❌ | TASK-362 |
 
 Most of this matrix comes from the engine. The broker tasks differ in ordering (FIFO on SNS/SQS needs TASK-340),
 attribute limits and provisioning. SNS/SQS creates one queue per source, subscribed to the topic. FIFO throughput

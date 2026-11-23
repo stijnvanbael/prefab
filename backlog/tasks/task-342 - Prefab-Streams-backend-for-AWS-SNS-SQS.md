@@ -12,8 +12,8 @@ labels:
 dependencies:
   - TASK-339
   - TASK-340
-  - TASK-351
-  - TASK-352
+  - TASK-360
+  - TASK-361
 priority: medium
 type: feature
 ordinal: 187000
@@ -28,7 +28,7 @@ Keyed operators (`groupBy`, `aggregate`, `join`) need per-key ordering, which SN
 
 ## Design (decided in TASK-339, see decision-008)
 
-Build the backend on the in-process, database-backed engine `prefab-streams-engine` (TASK-351), with state on Postgres (TASK-352). This module only adds the SNS/SQS parts:
+Build the backend on the in-process, database-backed engine `prefab-streams-engine` (TASK-360), with state on Postgres (TASK-361). This module only adds the SNS/SQS parts:
 - `SnsSqsStreamBackend.SNS_SQS` (`StreamBackend.named("sns-sqs")`) and auto-configuration that activates when `SqsUtil` and a `StreamStateRepository` are present.
 - `StreamSource`: one SQS queue per source node (`{application}-streams-{step-name}`, sanitized) subscribed to the source topic, and one shared queue per global store, with the existing DLQ redrive policy. FIFO topics and queues are used when the source is FIFO (TASK-340). Extend `SqsSubscriptionRequest` with a metadata-aware consumer (message ID, message attributes, `SentTimestamp`), and delete the message only after the engine's transaction commits. The visibility timeout must exceed the processing time, including the engine's conflict retries.
 - `StreamSink` used by the outbox relay: publish to SNS with `MessageGroupId` = record key and `MessageDeduplicationId` = `prefab-message-id` on FIFO topics, plus the attributes `prefab-message-id`, `prefab-event-time` and `prefab-correlation-ids`. That is at most three of SQS's ten message attributes. `to(String)` creates the topic.
@@ -45,7 +45,7 @@ First-version operators (decision-008):
   - Inner `join` with `JoinWindow`, and `deduplicate`
   - Global stores as shared tables, without history from before the first deployment
   - Exactly-once through the inbox and outbox, tracing, and topology tests through the in-memory harness
-- Not supported, failing at startup: `breakout` (Kafka-only) and `StreamProcessorContext.schedule` (TASK-354). In the showcase, declare these as specific gaps rather than as STREAMS.
+- Not supported, failing at startup: `breakout` (Kafka-only) and `StreamProcessorContext.schedule` (TASK-363). In the showcase, declare these as specific gaps rather than as STREAMS.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

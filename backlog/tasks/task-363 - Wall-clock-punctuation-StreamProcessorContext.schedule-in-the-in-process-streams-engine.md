@@ -1,5 +1,5 @@
 ---
-id: TASK-354
+id: TASK-363
 title: Wall-clock punctuation (StreamProcessorContext.schedule) in the in-process streams engine
 status: To Do
 assignee: []
@@ -8,8 +8,8 @@ labels:
   - streams
   - coverage-gap
 dependencies:
-  - TASK-351
-  - TASK-352
+  - TASK-360
+  - TASK-361
 priority: low
 type: feature
 ordinal: 200000

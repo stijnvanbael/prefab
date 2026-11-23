@@ -1,7 +1,7 @@
 ---
 id: TASK-360
 title: In-process Prefab Streams engine with in-memory test harness
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-21 10:00'
 labels:
@@ -48,3 +48,13 @@ Scope:
 - [ ] #5 breakout and schedule fail at topology start with a clear message
 - [ ] #6 Kafka key bytes are unchanged after moving the key encoding to prefab-streams
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Analysis:
+- Decision-008 is accepted and defines the runtime contract; this module owns graph interpretation and in-memory test doubles, while database-backed state and broker adapters are separate tasks.
+- `streams-kafka` contains backend-neutral topology tests plus a Kafka-only key serde implementation. The key encoder must move without changing its byte representation, and `TopologyTestHarness` discovers implementations through `ServiceLoader`.
+- Implementation must preserve the DSL's declarative operator types and support startup-time rejection for native breakout and wall-clock scheduling.
+- Extracted the key shape encoding to `prefab-streams.StreamKeyEncoding`; the Kafka serde now delegates to it. Existing Kafka key serde tests and new backend-neutral round-trip tests pass.
+<!-- SECTION:NOTES:END -->

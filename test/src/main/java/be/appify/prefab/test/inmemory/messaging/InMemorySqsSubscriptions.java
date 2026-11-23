@@ -1,6 +1,7 @@
 package be.appify.prefab.test.inmemory.messaging;
 
 import be.appify.prefab.core.sns.SqsMessageDecoder;
+import be.appify.prefab.core.sns.SqsSubscription;
 import be.appify.prefab.core.sns.SqsSubscriptionRequest;
 import be.appify.prefab.core.sns.SqsSubscriptions;
 import java.nio.charset.StandardCharsets;
@@ -30,12 +31,18 @@ public class InMemorySqsSubscriptions implements SqsSubscriptions {
     }
 
     @Override
-    public <T> void subscribe(SqsSubscriptionRequest<T> request) {
-        bus.getObject().subscribe(request.topic(), request.queueName(), message -> {
+    public <T> SqsSubscription subscribe(SqsSubscriptionRequest<T> request) {
+        if (request.messageConsumer().isPresent()) {
+            throw new UnsupportedOperationException(("SQS subscription on topic [%s] needs message metadata, which "
+                    + "only Prefab Streams uses; Prefab Streams does not run on the in-memory bus. "
+                    + "Use @IntegrationTest(containers = true) for this test.").formatted(request.topic()));
+        }
+        var subscription = bus.getObject().subscribe(request.topic(), request.queueName(), message -> {
             if (message.codec() instanceof SnsMessageCodec) {
                 var body = new String(message.payload(), StandardCharsets.UTF_8);
                 decoder.decode(request, body).ifPresent(request.consumer());
             }
         });
+        return subscription::close;
     }
 }

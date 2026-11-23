@@ -46,4 +46,5 @@ The `@Update void` mutable pattern contradicts Java records' immutability contra
 - The processor reports a method-associated warning for every void `@Update`, without changing generated behavior, including upserts, polymorphic aggregates and async commits.
 - The `@Update` Javadoc and developer guide deprecate the legacy form and recommend marking existing methods `@Deprecated(forRemoval = true)` with replacement Javadoc. Java cannot automatically apply `@Deprecated` to existing user methods based on return type; the annotation itself remains supported and is not deprecated. Acceptance criterion #1 remains open for this limitation.
 - Compilation tests cover warning severity and location, immutable and async migration, standalone annotation processing, upserts and polymorphic updates.
-- Targeted processor tests passed; the full Docker-dependent suite must run in CI.
+- The full reactor build passed with tests skipped after rebasing. Targeted update processor tests passed.
+- The broader processor suite had 569 passing tests and one unrelated Windows-only URI/path failure in `AgentContextPluginTest`, recorded as TASK-370. The full Docker-dependent suite must run in CI.

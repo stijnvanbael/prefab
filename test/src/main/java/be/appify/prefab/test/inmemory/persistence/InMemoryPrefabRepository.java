@@ -12,8 +12,9 @@ import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.PagingAndSortingRepository;
 
 /**
- * Base implementation of every in-memory repository: CRUD, paging and sorting, and Query by Example, which Spring
- * Data KeyValue lacks. Saving checks and increments {@code @Version}, see {@link InMemoryStore}.
+ * Base implementation of every in-memory repository: CRUD, paging and sorting, and Query by Example with a
+ * {@code Pageable}, the only form the generated list services use, which Spring Data KeyValue lacks. Saving checks
+ * and increments {@code @Version}, see {@link InMemoryStore}.
  *
  * @param <T>
  *         the aggregate type
@@ -128,60 +129,6 @@ public class InMemoryPrefabRepository<T, ID> implements CrudRepository<T, ID>, P
      */
     public <S extends T> Page<S> findAll(Example<S> example, Pageable pageable) {
         return page(matching(example), pageable);
-    }
-
-    /**
-     * Finds the aggregates that match an example.
-     *
-     * @param example
-     *         the example
-     * @param sort
-     *         the order of the result
-     * @param <S>
-     *         the aggregate type
-     * @return the matching aggregates
-     */
-    public <S extends T> List<S> findAll(Example<S> example, Sort sort) {
-        return sorted(matching(example), sort);
-    }
-
-    /**
-     * Finds the aggregates that match an example.
-     *
-     * @param example
-     *         the example
-     * @param <S>
-     *         the aggregate type
-     * @return the matching aggregates, in no particular order
-     */
-    public <S extends T> List<S> findAll(Example<S> example) {
-        return matching(example);
-    }
-
-    /**
-     * Counts the aggregates that match an example.
-     *
-     * @param example
-     *         the example
-     * @param <S>
-     *         the aggregate type
-     * @return the number of matching aggregates
-     */
-    public <S extends T> long count(Example<S> example) {
-        return matching(example).size();
-    }
-
-    /**
-     * Whether any aggregate matches an example.
-     *
-     * @param example
-     *         the example
-     * @param <S>
-     *         the aggregate type
-     * @return {@code true} if at least one aggregate matches
-     */
-    public <S extends T> boolean exists(Example<S> example) {
-        return !matching(example).isEmpty();
     }
 
     @SuppressWarnings("unchecked")

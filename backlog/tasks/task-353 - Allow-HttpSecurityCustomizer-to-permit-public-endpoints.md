@@ -37,3 +37,9 @@ checked anonymous requests, so they reported success.
 - [ ] #4 The benchmark task security-public-endpoints reference uses the documented mechanism
 - [ ] #5 Declaring an additional, path-scoped SecurityFilterChain does not silently remove Prefab's default chain, or Prefab fails at startup with an actionable message
 <!-- AC:END -->
+
+## Implementation Notes
+
+The showcase's `CategoryIntegrationTest.findCategories_listsThemByName` uses a generated client that sends an
+anonymous request for `@Security(enabled = false)`, but the default filter chain responds with 401. The test is
+temporarily disabled until this task makes public endpoints reachable anonymously; re-enable it as part of the fix.

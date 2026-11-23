@@ -31,6 +31,14 @@ markdown files in `backlog/` directly, keeping the same fields and format.
    `Done` task there. Only `To Do` / `In Progress` tasks stay in `backlog/tasks/`.
 6. Record significant decisions as ADRs in `backlog/decisions/`.
 
+### Starting or resuming a session
+
+Before doing any work, and again whenever you resume a session on an existing branch:
+
+1. `git fetch origin main && git rebase origin/main`, so you build on the latest code. Resolve conflicts by
+   keeping both sides' intent. Use `git push --force-with-lease` afterwards if the branch was already pushed.
+2. If the branch has an open pull request, subscribe to it (see "Watch the pull request").
+
 ### Branches and commits
 
 - Branch names describe the work: `feat/task-123-soft-delete`, `fix/flaky-category-stats-test`. Never use
@@ -49,6 +57,14 @@ When the work is done, do this yourself without waiting to be asked:
 3. `git push --force-with-lease -u origin <branch>` (plain `git push` if the branch was never pushed).
 4. Open a pull request against `main` titled in conventional-commits style. The description says *why* the
    change is needed and references the backlog task ID.
+5. Watch the pull request (below).
+
+### Watch the pull request
+
+Always watch every pull request you open or resume work on, without waiting to be asked: subscribe to its
+activity (`subscribe_pr_activity`) right after opening it, and again when resuming a session. Handle each event as
+it arrives: fix failing CI, answer review comments, and rebase when `main` moved. Do not poll or sleep. Stop
+watching (`unsubscribe_pr_activity`) only when the PR is merged or closed, or the owner says so.
 
 Checklist before saying "done":
 
@@ -57,7 +73,7 @@ Checklist before saying "done":
 - [ ] `backlog/docs/` updated if a feature, annotation, artefact, extension point or config property changed
 - [ ] Task is `Done`, has implementation notes, and is in `backlog/completed/`
 - [ ] Branch has a meaningful name and is rebased on the latest `origin/main`
-- [ ] Pull request opened
+- [ ] Pull request opened and being watched
 
 ## Skills
 

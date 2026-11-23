@@ -10,9 +10,11 @@ import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.event.ConsumerWriterSupport;
 import be.appify.prefab.processor.event.EventBindings;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 
@@ -25,7 +27,10 @@ public class EventSchemaDocumentationPlugin implements PrefabPlugin {
 
     private EventSchemaDocumentationWriter writer;
     private PrefabContext context;
-
+    // Events and consumed events of a round that deferred writing. Later rounds only see the generated sources, so
+    // without these the document would lose every event that is not generated from an AVSC file.
+    private final List<TypeManifest> deferredEvents = new ArrayList<>();
+    private final Set<TypeManifest> deferredConsumedEvents = new LinkedHashSet<>();
 
     @Override
     public void initContext(PrefabContext context) {
@@ -35,17 +40,27 @@ public class EventSchemaDocumentationPlugin implements PrefabPlugin {
 
     @Override
     public void writeAdditionalFiles(List<ClassManifest> manifests) {
-        var rawEvents = context.eventElementsIncludingConsumedDependencies()
-                .flatMap(element -> EventBindings.typesOf(element, context))
+        var rawEvents = Stream.concat(
+                        deferredEvents.stream(),
+                        context.eventElementsIncludingConsumedDependencies()
+                                .flatMap(element -> EventBindings.typesOf(element, context)))
+                .distinct()
                 .toList();
         if (rawEvents.isEmpty()) {
             return;
         }
+        var consumedEvents = Stream.concat(deferredConsumedEvents.stream(), consumedEventTypes().stream())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
         var resolvedEvents = resolveAvscEvents(rawEvents);
         if (resolvedEvents == null) {
+            deferredEvents.clear();
+            rawEvents.stream().filter(event -> !isAvscInterface(event)).forEach(deferredEvents::add);
+            deferredConsumedEvents.addAll(consumedEvents);
             return;
         }
-        writer.writeDocumentation(resolvedEvents, consumedEventTypes());
+        deferredEvents.clear();
+        deferredConsumedEvents.clear();
+        writer.writeDocumentation(resolvedEvents, consumedEvents);
     }
 
     @Override

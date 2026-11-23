@@ -119,7 +119,7 @@ slice sits next to the JSON events and is compiled only by variants that include
 |---|---|---|
 | Code-first Avro: schema, converters and registry subject generated from records | `PaymentEvent` (`Received`, `Refunded`) | `PaymentIntegrationTest` |
 | `@Decimal` (Avro decimal logical type for `BigDecimal`) | `PaymentEvent.Received.amount` | `PaymentIntegrationTest` |
-| Avro events consumed by `@EventHandler` (static creation and `@ByReference`) | `Receipt` | `PaymentIntegrationTest` |
+| Avro events consumed by `@EventHandler` (static creation and `@Multicast`) | `Receipt` | `PaymentIntegrationTest` |
 | Schema-first Avro: `@Avsc` + `@AvscFile(keyProperty)` generate the event record from a schema file | `ShipmentEvent`, `shipment-dispatched.avsc` | `ShipmentIntegrationTest` |
 | Schema registry in tests (`prefab.test.schema-registry.enabled`) | `application-test.yml` | both |
 

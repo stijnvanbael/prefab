@@ -1,8 +1,8 @@
 package be.appify.prefab.example.showcase.payment;
 
 import be.appify.prefab.core.annotations.Aggregate;
-import be.appify.prefab.core.annotations.ByReference;
 import be.appify.prefab.core.annotations.EventHandler;
+import be.appify.prefab.core.annotations.Multicast;
 import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.GetList;
@@ -52,7 +52,7 @@ public record Receipt(
      * @return the voided receipt
      */
     @EventHandler
-    @ByReference(property = "payment")
+    @Multicast(queryMethod = "findByPayment", parameters = "payment")
     public Receipt onPaymentRefunded(PaymentEvent.Refunded event) {
         return new Receipt(id, version, payment, amount, true);
     }

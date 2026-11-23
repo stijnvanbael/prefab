@@ -64,6 +64,14 @@ the project root cannot be derived. `ShipmentIntegrationTest` therefore calls th
 processor fix is TASK-368. Also found while building it: the `@Avsc` contract interface must be sealed and permit the
 generated record, and the Avro namespace must equal the package (both known, TASK-351 and TASK-354).
 
+CI exposed two more things. `@ByReference(property)` names the event property that holds the reference of the
+handling aggregate itself, so `Receipt` (a different aggregate from `Payment`) must use `@Multicast` with a repository
+query, like `Invoice.onOrderCancelled`. And the AsyncAPI plugin lost every event that is not generated from an AVSC
+file as soon as the module contained one: the document is written in a later processing round that only sees the
+generated sources. `EventSchemaDocumentationPlugin` now keeps the events and consumed events of the deferring round
+(covered by `AvscEventSchemaDocumentationTest`). A second mixing problem, the single AVSC file being applied to
+code-first events (wrong Avro namespace), is TASK-369.
+
 **Verification:** the showcase and `showcase-mongodb` compile without warnings (main and tests), the capability,
 coverage-matrix, event-platform and topology tests pass, and a throwaway test confirmed that the generated converters
 round-trip `PaymentEvent.Received` (including the decimal) and that the AVSC schema loads and validates. The

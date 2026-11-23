@@ -989,27 +989,25 @@ CREATE TABLE "memory_entry"
 When multiple events can update the same aggregate row (a "hot key"), parallel event handlers can produce
 `OptimisticLockingFailureException` retry noise and, under load, retry exhaustion.
 
-Use this strategy in event-driven aggregates:
-
-1. **Serialize handler execution per aggregate type** using `@EventHandlerConfig(concurrency = "1")` on aggregates
-   that receive hot-key updates (`@ByReference` / `@Multicast` handlers).
-2. **Prefer deterministic IDs in create-or-update projections** so duplicate create races collapse into one logical
-   aggregate record. For example, derive a summary ID from the source aggregate reference.
-3. **Combine static create handlers + update handlers** for the same event type to make first-write wins deterministic
-   while still allowing subsequent updates.
-4. **Design for idempotency** in projection handlers so that retries and duplicate deliveries do not cause incorrect
-   state or side effects.
-5. **For higher concurrency, partition by hot key first** at the platform level (e.g. Kafka partitioning key, Pub/Sub
-   ordering key) to ensure all events for the same aggregate are processed by the same consumer instance.
+Ordering can reduce races, but it does not replace idempotent handlers: every broker here can redeliver, and ordering is
+scoped to one key/partition/group rather than global. Prefer deterministic IDs in create-or-update projections, and
+design handlers so retries and duplicate deliveries do not cause incorrect state or side effects.
 
 ### Platform guidance
 
-- **Kafka**: partitioning already keeps a key ordered within a partition, but independent handlers can still race on
-  database updates for the same row. Keep hot-key handlers single-threaded when they target one aggregate table.
-- **Pub/Sub**: at-least-once delivery and parallel callback threads increase race risk; set handler concurrency to `1`
-  for hot-key aggregates and rely on deterministic IDs for projection upserts.
-- **SNS/SQS**: delivery fan-out can cause concurrent updates across consumers; use the same hot-key strategy as Pub/Sub
-  and keep projection creation idempotent with deterministic IDs.
+- **Kafka**: `@PartitioningKey` is the record key, so records with the same key go to the same partition and are read in
+  partition order. Kafka does not serialize independent handlers or consumers that update the same database row; use
+  `@EventHandlerConfig(concurrency = "1")` when those updates must not race.
+- **Pub/Sub**: `@PartitioningKey` is the ordering key, and Prefab enables message ordering on generated subscriptions.
+  Ordering is per key and is subject to Pub/Sub's ordering-key requirements and at-least-once redelivery behavior.
+- **SNS/SQS**: events with a registered `@PartitioningKey` automatically use SNS FIFO topics and SQS FIFO queues
+  (both provisioned with the required `.fifo` suffix). SNS receives the key as `MessageGroupId`; the SQS listener
+  processes messages sequentially, preserving delivery order for that group. Naming a topic with `.fifo` explicitly
+  also provisions FIFO resources; without a key, those messages share the `prefab-default` group. Events without a key
+  or `.fifo` topic keep using standard resources. A declared partitioning key must be non-blank and at most 128
+  characters. FIFO ordering is not global and has AWS throughput limits; Prefab's current single polling worker per
+  queue also serializes different groups. Retries preserve order while a message remains queued, but moving a failed
+  message to a dead-letter queue can let later messages proceed.
 
 ### Example
 

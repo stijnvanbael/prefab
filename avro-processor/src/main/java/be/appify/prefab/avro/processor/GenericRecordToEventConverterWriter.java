@@ -10,6 +10,7 @@ import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.error.PrefabProcessingException;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
@@ -395,7 +396,11 @@ class GenericRecordToEventConverterWriter {
         } else if (type.isStandardType()) {
             return CodeBlock.of("($T) $L", type.asBoxed().asTypeName(), value);
         } else {
-            throw new IllegalArgumentException("Unsupported field type: " + type);
+            throw new PrefabProcessingException(type.asElement(), "Avro",
+                    "event field type '%s' cannot be mapped to Avro.".formatted(type),
+                    "use a supported type (primitives, String, UUID, Instant, LocalDate, Duration, BigDecimal,"
+                            + " enums, records, List or single-value wrapper types) or provide an @Avsc schema",
+                    null);
         }
     }
 
@@ -435,7 +440,11 @@ class GenericRecordToEventConverterWriter {
                     type.asTypeName(),
                     fromScalar);
         } else {
-            throw new IllegalArgumentException("Unsupported logical type: " + type.asTypeName());
+            throw new PrefabProcessingException(type.asElement(), "Avro",
+                    "event field type '%s' cannot be mapped to Avro as a logical type.".formatted(type),
+                    "use a supported type (primitives, String, UUID, Instant, LocalDate, Duration, BigDecimal,"
+                            + " enums, records, List or single-value wrapper types) or provide an @Avsc schema",
+                    null);
         }
     }
 
@@ -484,7 +493,11 @@ class GenericRecordToEventConverterWriter {
         if (componentType.isEnum()) return ClassName.get(GenericData.EnumSymbol.class);
         if (componentType.is(List.class)) return ParameterizedTypeName.get(
                 ClassName.get(GenericData.Array.class), WildcardTypeName.subtypeOf(Object.class));
-        throw new IllegalStateException("Unsupported Avro union branch component type: " + componentType);
+        throw new PrefabProcessingException(componentType.asElement(), "Avro",
+                    "event field type '%s' cannot be mapped to Avro in a union branch.".formatted(componentType),
+                    "use a supported type (primitives, String, UUID, Instant, LocalDate, Duration, BigDecimal,"
+                            + " enums, records, List or single-value wrapper types) or provide an @Avsc schema",
+                    null);
     }
     private CodeBlock componentFromAvro(TypeManifest componentType, TypeManifest branchType) {
         if (componentType.is(String.class)) {

@@ -6,5 +6,5 @@ import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.example.snssqs.channel.Channel;
 
 @Event(topic = "${topics.message.name}")
-public record MessageSent(@PartitioningKey Reference<Message> id, Reference<Channel> channel) {
+public record MessageSent(Reference<Message> id, @PartitioningKey Reference<Channel> channel) {
 }

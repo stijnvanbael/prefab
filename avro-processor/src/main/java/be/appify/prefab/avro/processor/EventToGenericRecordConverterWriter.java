@@ -7,6 +7,7 @@ import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
+import be.appify.prefab.processor.error.PrefabProcessingException;
 import com.palantir.javapoet.*;
 
 import java.time.Duration;
@@ -240,7 +241,11 @@ class EventToGenericRecordConverterWriter {
         } else if (type.isStandardType()) {
             return CodeBlock.of("$L", value);
         } else {
-            throw new IllegalStateException("Unsupported field type: " + type);
+            throw new PrefabProcessingException(type.asElement(), "Avro",
+                    "event field type '%s' cannot be mapped to Avro.".formatted(type),
+                    "use a supported type (primitives, String, UUID, Instant, LocalDate, Duration, BigDecimal,"
+                            + " enums, records, List or single-value wrapper types) or provide an @Avsc schema",
+                    null);
         }
     }
 
@@ -262,7 +267,11 @@ class EventToGenericRecordConverterWriter {
         } else if (type.isSingleValueType()) {
             return CodeBlock.of("$L.$N()", value, type.singleValueAccessor());
         } else {
-            throw new IllegalStateException("Unsupported logical type: " + type);
+            throw new PrefabProcessingException(type.asElement(), "Avro",
+                    "event field type '%s' cannot be mapped to Avro as a logical type.".formatted(type),
+                    "use a supported type (primitives, String, UUID, Instant, LocalDate, Duration, BigDecimal,"
+                            + " enums, records, List or single-value wrapper types) or provide an @Avsc schema",
+                    null);
         }
     }
 

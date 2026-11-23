@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.dbmigration;
 
+import be.appify.prefab.processor.error.PrefabProcessingException;
 import be.appify.prefab.core.annotations.Text;
 import be.appify.prefab.processor.AnnotationManifest;
 import be.appify.prefab.processor.TypeManifest;
@@ -78,11 +79,13 @@ public interface DataType {
         } else if (type.is(List.class)) {
             return new Array(typeOf(type.parameters().getFirst(), annotations));
         } else {
-            throw new IllegalArgumentException(
-                    ("Unsupported type [%s]. If this is a custom domain type, annotate it with " +
-                    "@be.appify.prefab.core.annotations.CustomType to exclude it from database-column generation, " +
-                    "or implement a PrefabPlugin that returns a DataType from its dataTypeOf() method.")
-                            .formatted(type));
+            throw new PrefabProcessingException(null, "Prefab",
+                    "cannot map type [%s] to a database column.".formatted(type),
+                    "if this is a custom domain type, annotate it with "
+                            + "@be.appify.prefab.core.annotations.CustomType to exclude it from database-column "
+                            + "generation, or implement a PrefabPlugin that returns a DataType from its "
+                            + "dataTypeOf() method",
+                    null);
         }
     }
 

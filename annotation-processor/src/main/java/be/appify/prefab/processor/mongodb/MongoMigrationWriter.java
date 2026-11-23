@@ -3,6 +3,7 @@ package be.appify.prefab.processor.mongodb;
 import be.appify.prefab.core.annotations.DbRename;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.TypeManifest;
+import be.appify.prefab.processor.error.PrefabProcessingException;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -46,7 +47,10 @@ class MongoMigrationWriter {
             } catch (FileNotFoundException e) {
                 break;
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                throw new PrefabProcessingException(null, "Prefab",
+                        "cannot read the existing mongo migration V%d__generated.js: %s".formatted(i, e.getMessage()),
+                        "check that the mongo.migration resources are readable",
+                        e);
             }
         }
         return new MigrationState(applied, version);
@@ -145,7 +149,10 @@ class MongoMigrationWriter {
                 }
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new PrefabProcessingException(null, "Prefab",
+                    "cannot write the generated mongo migration V%d__generated.js: %s".formatted(version + 1, e.getMessage()),
+                    "check that the compiler output directory is writable and has free disk space",
+                    e);
         }
     }
 

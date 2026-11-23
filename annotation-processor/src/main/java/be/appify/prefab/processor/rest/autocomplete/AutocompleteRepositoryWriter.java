@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.rest.autocomplete;
 
 import be.appify.prefab.core.annotations.rest.Autocomplete;
+import be.appify.prefab.core.annotations.rest.AutocompleteQuery;
 import be.appify.prefab.core.annotations.rest.Filter.Weight;
 import be.appify.prefab.core.annotations.rest.MatchStrategy;
 import be.appify.prefab.core.annotations.rest.ScanMode;
@@ -51,6 +52,7 @@ class AutocompleteRepositoryWriter {
 
         return MethodSpec.methodBuilder(methodName)
                 .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
+                .addAnnotation(metadata(fieldName, scanMode, matchStrategy))
                 .addAnnotation(AnnotationSpec.builder(
                                 ClassName.get("org.springframework.data.jdbc.repository.query", "Query"))
                         .addMember("value", "$S", sql)
@@ -82,6 +84,7 @@ class AutocompleteRepositoryWriter {
 
         return MethodSpec.methodBuilder(methodName)
                 .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
+                .addAnnotation(metadata(fieldName, scanMode, matchStrategy))
                 .addAnnotation(AnnotationSpec.builder(
                                 ClassName.get("org.springframework.data.mongodb.repository", "Aggregation"))
                         .addMember("pipeline", "{$S, $S, $S}", matchStage, groupStage, sortStage)
@@ -89,6 +92,15 @@ class AutocompleteRepositoryWriter {
                 .addParameter(String.class, "query")
                 .addParameter(Pageable.class, "pageable")
                 .returns(ParameterizedTypeName.get(List.class, String.class))
+                .build();
+    }
+
+    // The runtime copy of the @Autocomplete settings, which have source retention, for backends that cannot run the query
+    private static AnnotationSpec metadata(String fieldName, ScanMode scanMode, MatchStrategy matchStrategy) {
+        return AnnotationSpec.builder(AutocompleteQuery.class)
+                .addMember("property", "$S", fieldName)
+                .addMember("scanMode", "$T.$L", ScanMode.class, scanMode.name())
+                .addMember("matchStrategy", "$T.$L", MatchStrategy.class, matchStrategy.name())
                 .build();
     }
 
@@ -163,6 +175,7 @@ class AutocompleteRepositoryWriter {
         }
         return MethodSpec.methodBuilder(methodNameFor(fieldName))
                 .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
+                .addAnnotation(metadata(fieldName, scanMode, matchStrategy))
                 .addParameter(String.class, "query")
                 .addParameter(Pageable.class, "pageable")
                 .returns(ParameterizedTypeName.get(List.class, String.class))

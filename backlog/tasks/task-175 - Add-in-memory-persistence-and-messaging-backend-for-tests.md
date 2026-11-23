@@ -26,7 +26,7 @@ Work is split into TASK-175.01 to TASK-175.05.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `@IntegrationTest` runs on an in-memory backend by default: every generated repository is backed by a ConcurrentHashMap (Spring Data KeyValue) and no container is started
+- [ ] #1 `@IntegrationTest` runs on an in-memory backend by default: every generated repository is backed by a ConcurrentHashMap (Prefab's own repository factory) and no container is started
 - [ ] #2 A synchronous in-process event bus replaces Kafka, Pub/Sub and SNS/SQS; every event is serialized and deserialized with the platform's own serializers (JSON and Avro, version headers and migrations included)
 - [ ] #3 `@IntegrationTest(containers = true)` runs a test class on Testcontainers as today; `prefab.test.containers=true` sets that default for a whole test module
 - [ ] #4 `@TestEventConsumer` and `EventConsumerAssert` work unchanged in both modes
@@ -53,17 +53,18 @@ Work is split into TASK-175.01 to TASK-175.05.
 | D2 | Event delivery | Synchronous. Interpreted as: in-process, after commit of the publishing transaction, handler failures recorded and reported on the test (not propagated into the publishing request) |
 | D3 | Serialization | Round-trip every event through the platform serializers, to cover as much ground as possible without containers |
 | D4 | Pub/Sub and SQS | In scope |
-| D5 | Repository technology | Spring Data KeyValue (delegated to the implementer; rationale below) |
+| D5 | Repository technology | Own repository factory on `spring-data-commons` (initially Spring Data KeyValue, dropped in TASK-175.02; rationale below) |
 
 Recorded in decision-011.
 
-**D5 rationale (spike on `spring-data-keyvalue` 4.1.3, the line managed by Boot 4.1).** KeyValue provides
-`MapKeyValueAdapter` (ConcurrentHashMap), `KeyValueRepositoryFactory`, derived queries from method names
-(`SpelQueryCreator` / `PredicateQueryCreator`), paging and sorting, and a settable `KeySpaceResolver` on
-`KeyValueMappingContext` (needed for sealed aggregates). It has **no** Query by Example and **no** optimistic
-locking, and its configuration extension only claims `KeyValueRepository` / `@KeySpace` types, so with JDBC or Mongo
-on the classpath (strict mode) it would not pick up generated repositories. Those three parts are added by Prefab;
-the rest is reused instead of rewriting derived-query evaluation in an own repository factory.
+**D5 rationale.** The first spike chose `spring-data-keyvalue` 4.1.x (`MapKeyValueAdapter`, derived queries, paging).
+It has no Query by Example and no optimistic locking, which Prefab would add itself. CI then showed the decisive
+problem: KeyValue's `spring.factories` registers a `RepositoryFactorySupport`, so Spring Data counts two store modules
+next to JDBC or MongoDB and enters strict mode, where only repositories of `@Table`/`@Document` types or of
+store-specific interfaces are claimed. Prefab's generated repositories are neither, so they vanish in containers mode,
+the default. There is no property to turn strict mode off. Prefab therefore implements the repository factory, derived
+queries and mapping context itself on `spring-data-commons`, and registers the repositories programmatically, without
+any `spring.factories` entry.
 
 ### Analysis
 
@@ -116,7 +117,7 @@ test runtime. Main dependencies (`prefab-postgres`, `prefab-kafka`, …) stay on
 1. **Location: inside `prefab-test`** (package `be.appify.prefab.test.inmemory`), not a separate module. It is the
    default, and it reuses `@IntegrationTest`, `EventConsumer`, `@TestEventConsumer` and the assertions; a separate
    `prefab-test-inmemory` would depend on `prefab-test` while `prefab-test` needs it as default (cycle). New
-   dependency: `spring-data-keyvalue` (version from the Boot BOM).
+   dependency: `spring-data-commons` (version from the Boot BOM); not `spring-data-keyvalue`, see D5.
 2. **Mode selection.**
    - `@IntegrationTest(containers = true)`: a `ContextCustomizerFactory` (registered in `spring.factories`) adds
      `prefab.test.containers=true` with highest precedence. The customizer takes part in the context cache key, so
@@ -131,18 +132,19 @@ test runtime. Main dependencies (`prefab-postgres`, `prefab-kafka`, …) stay on
      rename fails the build instead of silently starting a container. A filter is preferred over
      `spring.autoconfigure.exclude`, which would overwrite the user's own excludes.
    - prefab-test's broker test listeners and `MongoDbTestExecutionListener` skip unless containers mode is on.
-3. **Repositories (Spring Data KeyValue).**
+3. **Repositories (own factory on Spring Data Commons).**
    - Own `ImportBeanDefinitionRegistrar` that finds the generated repository interfaces in the auto-configuration
-     packages and registers a `KeyValueRepositoryFactoryBean` for each, bypassing strict mode.
-   - `KeyValueMappingContext` with a `KeySpaceResolver` that maps every implementation of a sealed aggregate to the
-     sealed root's keyspace.
-   - Base class `InMemoryPrefabRepository` (extends `SimpleKeyValueRepository`) adds Query by Example
-     (`findAll(Example[, Pageable|Sort])`, `count/exists(Example)`, evaluated with `ExampleMatcherAccessor` and a
-     property accessor) and optimistic locking: compare the stored `@Version` under a per-keyspace `ReentrantLock`,
-     store a copy with the incremented version (records via the mapping context's instantiating property accessor),
-     throw `OptimisticLockingFailureException` on a mismatch. New-entity detection matches JDBC.
-   - Own `QueryLookupStrategy`: derived queries → KeyValue's query creator; `autocompleteBy<Field>` → in-memory
-     autocomplete; a method with a JDBC `@Query` or Mongo `@Query`/`@Aggregation` → the bean is created, a WARN is
+     packages and registers an own `RepositoryFactoryBeanSupport` for each. The factory has no `spring.factories`
+     entry (a regression test guards this).
+   - An own mapping context and a keyspace resolver that maps every implementation of a sealed aggregate to the
+     sealed root's keyspace; a `ConcurrentHashMap` per keyspace in `InMemoryStore`.
+   - Base class `InMemoryPrefabRepository` adds CRUD, paging and sorting, Query by Example
+     (`findAll(Example, Pageable)`, evaluated with `ExampleMatcherAccessor` and a property accessor) and optimistic
+     locking: compare the stored `@Version` under a per-keyspace `ReentrantLock`, store a copy with the incremented
+     version (records via the instantiating property accessor), throw `OptimisticLockingFailureException` on a
+     mismatch. New-entity detection matches JDBC.
+   - Own `QueryLookupStrategy`: derived queries -> own `PartTree` evaluation; `autocompleteBy<Field>` -> in-memory
+     autocomplete; a method with a JDBC `@Query` or Mongo `@Query`/`@Aggregation` -> the bean is created, a WARN is
      logged at startup, and **invocation** throws `UnsupportedOperationException` naming the method and
      `@IntegrationTest(containers = true)`. Failing lazily keeps unrelated tests green.
    - In-memory `RangeQueryExecutor` (comparisons on `Comparable` properties) and `FullTextQueryExecutor`
@@ -236,7 +238,7 @@ coverage matrix.
 | Task | Scope | Depends on |
 |---|---|---|
 | TASK-175.01 | Mode switch: `@IntegrationTest(containers)`, `prefab.test.containers`, auto-configuration filter, gating of container auto-configs and listeners, transaction manager | - |
-| TASK-175.02 | In-memory repositories on Spring Data KeyValue, incl. autocomplete metadata in the processor | 175.01 |
+| TASK-175.02 | In-memory repositories on Spring Data Commons, incl. autocomplete metadata in the processor | 175.01 |
 | TASK-175.03 | In-memory event bus with Kafka serialization + `@TestEventConsumer` | 175.01 |
 | TASK-175.04 | Pub/Sub and SNS/SQS: subscription SPI, shared message codecs, in-memory subscriptions | 175.03 |
 | TASK-175.05 | Flip the default, migrate examples, `showcase-inmemory` variant, docs, timing | 175.02, 175.03, 175.04 |

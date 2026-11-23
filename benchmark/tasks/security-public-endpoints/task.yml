@@ -2,7 +2,5 @@ title: Make read endpoints public while writes stay protected
 category: security
 modules: [postgres, security]
 notes: >
-  Prefab's documented HttpSecurityCustomizer + requestMatchers(...).permitAll() fails at startup ("Can't configure
-  requestMatchers after anyRequest") because the default chain registers anyRequest() before the customizers run.
-  The reference therefore replaces the SecurityFilterChain bean. Revisit once that is fixed.
-  Tracked in TASK-353.
+  Use the documented HttpSecurityCustomizer + requestMatchers(...).permitAll() mechanism for public GET routes.
+  Keep the default chain in place so writes continue to require authentication. Regression coverage is in TASK-353.

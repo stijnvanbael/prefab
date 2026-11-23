@@ -1675,16 +1675,23 @@ String brand;
 
 ---
 
-To extend the default `WebSecurityConfiguration` without replacing Prefab's
-`SecurityFilterChain`, register an `HttpSecurityCustomizer` bean:
+To make selected endpoints public without replacing Prefab's default
+`SecurityFilterChain`, register an `HttpSecurityCustomizer` bean. Its matchers run
+before the default authenticated fallback:
 
 ```java
 @Bean
-HttpSecurityCustomizer docsCustomizer() {
+HttpSecurityCustomizer publicArticleReads() {
     return http -> http.authorizeHttpRequests(auth -> auth
-            .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll());
+            .requestMatchers(HttpMethod.GET, "/articles", "/articles/*").permitAll());
 }
 ```
+
+Import `org.springframework.http.HttpMethod` for the method-specific matcher.
+`@Security(enabled = false)` disables generated method-level authorization only; an
+anonymous request must also match a `permitAll()` rule in the filter chain. Extra
+path-scoped `SecurityFilterChain` beans do not remove Prefab's default chain. To replace
+it completely, name the replacement bean `prefabSecurityFilterChain`.
 
 ---
 
@@ -1826,7 +1833,8 @@ public record Category(...) { ... }
 `authority = "ROLE_ADMIN"` checks the exact authority; `role = "ADMIN"` uses Spring Security's `hasRole` semantics.
 They are mutually exclusive. `enabled = false` disables the generated method-level authorization only; the web
 security filter chain may still require authentication. To make an endpoint anonymously reachable, configure the
-filter chain with a suitable `HttpSecurityCustomizer` matcher as well.
+filter chain with a suitable `HttpSecurityCustomizer` matcher as well. Customizer request matchers are applied before
+Prefab's default `anyRequest().authenticated()` fallback.
 
 `@Security` enforces endpoint-level authorities or roles, not ownership of individual records. For row-level access,
 scope the data query to the principal or explicitly check ownership. The showcase keeps raw order and overview reads

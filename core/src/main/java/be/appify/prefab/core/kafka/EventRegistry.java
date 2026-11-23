@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.avro.Schema;
@@ -33,6 +34,7 @@ import org.apache.avro.generic.GenericRecord;
  */
 public class EventRegistry {
     private final Map<EventType<?>, Set<String>> concreteTopics = new ConcurrentHashMap<>();
+    private final Map<String, Set<String>> concreteTopicAliases = new ConcurrentHashMap<>();
     private final Map<String, EventType<?>> concreteTypes = new ConcurrentHashMap<>();
     private final Map<EventType<?>, PublishTo> concretePublishTo = new ConcurrentHashMap<>();
     private final Map<EventType<?>, Function<Object, String>> concreteKeys = new ConcurrentHashMap<>();
@@ -72,7 +74,7 @@ public class EventRegistry {
             throw new IllegalArgumentException("Conflicting serialization formats for topic: " + topic);
         }
         concreteTypes.putIfAbsent(type.id(), type);
-        concreteTopics.computeIfAbsent(type, ignored -> new LinkedHashSet<>()).add(topic);
+        concreteTopics.computeIfAbsent(type, ignored -> new CopyOnWriteArraySet<>()).add(topic);
         addToAllowedClassNames(type.rawType());
     }
 
@@ -141,11 +143,73 @@ public class EventRegistry {
      * @return a registered concrete token
      */
     public EventType<?> concreteTypeFor(String topic, String id) {
-        var type = concreteTypes.get(id);
-        if (type == null || !topicsForType(type).contains(topic)) {
+        var type = concreteTypeFor(id);
+        if (!topicsForType(type).contains(topic)
+                && !concreteTopicAliases.getOrDefault(id, Set.of()).contains(topic)) {
             throw new UnknownEventTypeException(id);
         }
         return type;
+    }
+
+    /**
+     * Resolves a locally registered concrete identity independently of its source topic.
+     *
+     * @param id canonical message identity
+     * @return the registered concrete token
+     * @throws UnknownEventTypeException if the identity is not registered
+     */
+    public EventType<?> concreteTypeFor(String id) {
+        var type = concreteTypes.get(id);
+        if (type == null) {
+            throw new UnknownEventTypeException(id);
+        }
+        return type;
+    }
+
+    /**
+     * Registers an explicit topic alias for stream output without changing an event's default dispatch topics.
+     *
+     * @param topic alias topic
+     * @param type event class
+     * @param serialization topic serialization
+     */
+    public void registerTopicAlias(String topic, Class<?> type, Event.Serialization serialization) {
+        registerAliasSerialization(topic, serialization);
+        addAliasTopicType(topic, type);
+    }
+
+    /**
+     * Registers a concrete event alias without changing its default dispatch topics.
+     *
+     * @param topic alias topic
+     * @param type registered concrete event binding
+     * @param serialization topic serialization
+     */
+    public void registerTopicAlias(String topic, EventType<?> type, Event.Serialization serialization) {
+        if (type.type() instanceof Class<?> raw) {
+            registerTopicAlias(topic, raw, serialization);
+            return;
+        }
+        concreteTypeFor(type.id());
+        registerAliasSerialization(topic, serialization);
+        concreteTopicAliases.computeIfAbsent(type.id(), ignored -> ConcurrentHashMap.newKeySet()).add(topic);
+    }
+
+    private void registerAliasSerialization(String topic, Event.Serialization serialization) {
+        var existing = serializations.putIfAbsent(topic, serialization);
+        if (existing != null && existing != serialization) {
+            throw new IllegalArgumentException("Conflicting serialization formats for topic: " + topic);
+        }
+    }
+
+    private void addAliasTopicType(String topic, Class<?> type) {
+        topicTypes.computeIfAbsent(topic, ignored -> new CopyOnWriteArraySet<>()).add(type);
+        addToAllowedClassNames(type);
+        if (type.isSealed()) {
+            for (var subtype : type.getPermittedSubclasses()) {
+                addAliasTopicType(topic, subtype);
+            }
+        }
     }
 
     /**
@@ -486,8 +550,8 @@ public class EventRegistry {
     }
 
     private void addToTopicTypes(String topic, Class<?> type) {
-        topicTypes.computeIfAbsent(topic, ignored -> new LinkedHashSet<>()).add(type);
-        typeTopics.computeIfAbsent(type, ignored -> new LinkedHashSet<>()).add(topic);
+        topicTypes.computeIfAbsent(topic, ignored -> new CopyOnWriteArraySet<>()).add(type);
+        typeTopics.computeIfAbsent(type, ignored -> new CopyOnWriteArraySet<>()).add(topic);
         addToAllowedClassNames(type);
         if (type.isSealed()) {
             for (Class<?> subtype : type.getPermittedSubclasses()) {

@@ -7,6 +7,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.DefaultTyping;
+import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
@@ -17,8 +19,15 @@ import tools.jackson.databind.node.ObjectNode;
 public final class JsonStreamStateCodec implements StreamStateCodec {
     private static final String TYPE = "type";
     private static final String VALUE = "value";
+    private static final String ENCODING = "encoding";
+    private static final String NESTED_TYPES = "nested-types-v1";
 
     private final JsonMapper mapper = JsonMapper.builder().findAndAddModules().build();
+    private final JsonMapper stateMapper = JsonMapper.builder().findAndAddModules()
+            .activateDefaultTypingAsProperty(
+                    BasicPolymorphicTypeValidator.builder().allowIfBaseType(Object.class).build(),
+                    DefaultTyping.OBJECT_AND_NON_CONCRETE, "@prefab-type")
+            .build();
     private final Map<Class<?>, StreamKeyEncoding<?>> keyEncodings = new ConcurrentHashMap<>();
 
     @Override
@@ -68,7 +77,8 @@ public final class JsonStreamStateCodec implements StreamStateCodec {
         }
         ObjectNode node = mapper.createObjectNode();
         node.put(TYPE, value.getClass().getName());
-        node.set(VALUE, mapper.valueToTree(value));
+        node.put(ENCODING, NESTED_TYPES);
+        node.set(VALUE, stateMapper.valueToTree(value));
         return node;
     }
 
@@ -77,9 +87,15 @@ public final class JsonStreamStateCodec implements StreamStateCodec {
             return null;
         }
         var typeName = node.get(TYPE).asString();
+        var encoding = node.path(ENCODING).asString();
+        if (!encoding.isEmpty() && !NESTED_TYPES.equals(encoding)) {
+            throw new IllegalStateException("Unknown stream state encoding " + encoding);
+        }
         try {
             var type = Class.forName(typeName, true, Thread.currentThread().getContextClassLoader());
-            return mapper.treeToValue(node.get(VALUE), type);
+            return NESTED_TYPES.equals(encoding)
+                    ? stateMapper.treeToValue(node.get(VALUE), type)
+                    : mapper.treeToValue(node.get(VALUE), type);
         } catch (ClassNotFoundException e) {
             throw new IllegalStateException("Stored stream state has unknown type " + typeName, e);
         }

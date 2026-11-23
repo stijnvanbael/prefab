@@ -1059,19 +1059,19 @@ public record ChannelSummary(
 
 ## 7.15 Streams DSL Baseline (Kafka Source/Sink)
 
-Prefab provides a backend-neutral Streams DSL (`prefab-streams`) and a Kafka Streams implementation of it
-(`prefab-streams-kafka`):
+Prefab provides a backend-neutral Streams DSL (`prefab-streams`) with Kafka and Pub/Sub backends:
 
 | Artifact               | Contains                                                                                                   | Depends on Kafka? |
 |------------------------|------------------------------------------------------------------------------------------------------------|-------------------|
 | `prefab-streams`       | The DSL (`PrefabStreams`, `PrefabStream`, `StreamDefinition`, `Store`, ...) and the backend-neutral test API (`be.appify.prefab.streams.testing`) | No                |
 | `prefab-streams-engine` | In-process operator engine, source/sink/state SPIs and in-memory topology test harness                     | No                |
 | `prefab-streams-postgres` | Postgres `StreamStateRepository` (state, inbox, outbox, relay lease) for the in-process engine | No                |
+| `prefab-streams-pubsub` | Pub/Sub adapter and topology-test factory for the in-process engine | No |
 | `prefab-streams-kafka` | `KafkaPrefabStreams`, serdes, `KafkaStreamBreakoutAdapter`, the Kafka test harness and the `StreamsConfiguration` auto-configuration | Yes               |
 
 Add `prefab-streams-kafka` to run the DSL on Kafka Streams; it brings `prefab-streams` along. Application code that
-only declares topologies compiles against `prefab-streams` and does not import any Kafka type. Future backends for
-other brokers are separate artifacts that implement the same DSL.
+only declares topologies compiles against `prefab-streams` and does not import any Kafka type. Broker backends are
+separate artifacts that implement the same DSL.
 
 ```xml
 <dependency>
@@ -1160,6 +1160,35 @@ Use instance `merge(...)` when the current stream type already represents the ta
 
 Use `join(...)` for KStream-KStream **inner join** composition with explicit windowing via `JoinWindow`.
 
+### Pub/Sub streams (`prefab-streams-pubsub`)
+
+Add `prefab-streams-pubsub` and `prefab-streams-postgres` alongside the application's Pub/Sub and JDBC
+configuration. The backend activates when `PubSubUtil` and a `StreamStateRepository` are available, unless a
+`PrefabStreams` bean already exists. The Postgres schema and initialization property are described below.
+Use `PubSubStreamBackend.PUBSUB` and `TopologyTestExtension.withBackend("pubsub")` to run backend-neutral topology
+tests with the in-memory engine; those tests do not exercise the broker or Postgres.
+
+Each `from` declaration has its own ordered subscription named
+`{spring.application.name}.streams.{source-name}`. Branches of the same declaration share it. Source identities
+are deterministic for a fixed topology; all instances must declare identical sources in the same order. Changing
+source declarations can create a new subscription and inbox namespace, so plan such changes as a topology migration.
+Global stores have one shared subscription per store and **do not contain history published before that subscription
+was created**. A tombstone has an empty body, a key, and the attribute `prefab-tombstone=true`.
+
+The engine commits state, inbox and outbox together before acknowledging input; input redelivery is skipped while
+its inbox identity is retained. The outbox may publish again after a crash between broker acceptance and outbox
+completion, so downstream consumers need message-ID deduplication. External side effects are not covered. The
+backend writes `prefab-message-id`, `prefab-event-time`, and bounded `prefab-correlation-ids` attributes; the
+oldest correlation IDs are removed until the encoded value fits 1024 UTF-8 bytes. Missing event time falls back to
+Pub/Sub publish time. Window stream time is tracked per key, unlike Kafka's per-partition stream time.
+
+Outputs use record keys as Pub/Sub ordering keys, and the supplied Spring publisher customizer enables ordering.
+Custom `PublisherFactory` implementations must also enable ordering. Ordering is per key, and order-dependent
+operators require ordered input. Logical repartitioning does not create broker topics. `breakout` and
+`StreamProcessorContext.schedule` are unsupported on this backend and fail at startup; scheduling is tracked by
+TASK-363. A `to(String)` output registers its topic as a serialization alias without changing the event's default
+publication topics.
+
 ### Postgres state for the in-process engine (`prefab-streams-postgres`)
 
 `prefab-streams-postgres` implements the engine's `StreamStateRepository` (decision-008) with `JdbcTemplate`. When
@@ -1173,14 +1202,17 @@ the application has a `JdbcTemplate` and a `PlatformTransactionManager`, auto-co
 | `prefab_stream_outbox` | Output records written in the message transaction, published by the relay in `seq` order. |
 | `prefab_stream_lease` | One relay lease per sink topic, with expiry. Another instance takes over after it expires. |
 
-Values are `bytea` (JSON with the concrete class name by default; provide a `StreamStateCodec` bean to change it).
+Values are `bytea` (JSON with concrete class names, including nested polymorphic values, by default; provide a
+`StreamStateCodec` bean to change it). State rows are trusted application data: the default codec resolves classes
+from stored metadata. Restrict write access to the state tables and use a stricter codec if database contents can be
+controlled by untrusted parties. Rows written by the previous JSON envelope remain readable.
 Keys use `StreamKeyEncoding`, shared with the Kafka backend. A conflicting write (stale `version`, claimed inbox
 identity or deadlock) throws `StreamStateRepository.OptimisticConflictException`, which the engine retries.
 
 | Property | Default | Description |
 |----------|---------|-------------|
 | `prefab.streams.state.initialize-schema` | `always` | `always` runs the idempotent DDL below on start; `never` leaves the tables to you. The application's Flyway `V{n}` sequence is not used. |
-| `prefab.streams.inbox-retention` | `7d` | Wall-clock retention of inbox rows (decision-008). The engine passes it to `cleanupExpired`; until a broker module binds the property, set it through the `InProcessPrefabStreams` constructor. |
+| `prefab.streams.inbox-retention` | `7d` | Wall-clock retention of inbox rows (decision-008), bound by the Pub/Sub backend. |
 
 Closed windows, join buffers and deduplication identities are removed by the engine through `deleteExpired` with the
 operator's stream time; expired relay leases are removed together with old inbox rows.

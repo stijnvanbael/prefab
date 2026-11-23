@@ -51,8 +51,8 @@ First-version operators (decision-008):
 - [ ] #1 Showcase streams slice compiles and its tests pass in showcase-pubsub, or unsupported operators are skipped with a declared gap
 - [x] #2 Topology tests run against the Pub/Sub backend through the backend-neutral test API
 - [ ] #3 showcase-pubsub no longer declares STREAMS as a gap (or declares only specific unsupported operators)
-- [ ] #4 Integration test (Pub/Sub emulator + Postgres) covers groupBy+aggregate, windowedAggregate, join and a global store end to end
-- [ ] #5 Redelivered messages do not change state or output twice
+- [x] #4 Integration test (Pub/Sub emulator + Postgres) covers groupBy+aggregate, windowedAggregate, join and a global store end to end
+- [x] #5 Redelivered messages do not change state or output twice
 <!-- AC:END -->
 
 ## Analysis
@@ -76,7 +76,7 @@ Container-dependent integration tests are delegated to CI because this environme
 - Preserved nested polymorphic types in new Postgres JSON state envelopes, while retaining the legacy envelope
   reader. Database state is trusted data; the guide documents the codec's class-resolution trust boundary.
 - Added isolated source, sink, configuration, state-codec and cross-thread processor regressions. The emulator +
-  Postgres end-to-end test is compiled locally but requires CI execution and verification.
+  Postgres end-to-end test passed in CI, including redelivery with the same Prefab message ID.
 - Output topic aliases are registered independently from default event dispatch topics, including concrete generic
   bindings, so an explicit stream sink does not change ordinary publisher routing.
 - The first CI run failed during test compilation because Java 21 automatically ran the annotation processor on
@@ -85,3 +85,5 @@ Container-dependent integration tests are delegated to CI because this environme
   The test application now supplies one explicitly, along with no-credentials emulator configuration.
 - CI then exposed that a custom conversion service may not convert `7d` to a duration. The backend now parses
   the retention property using Spring Boot's duration syntax independently of the application's conversion service.
+- Full Maven verify passed on Java 21 in CI run 45198222791 for commit `1b648925`. The task remains in progress
+  because the showcase-pubsub variant (TASK-337.09) is not yet available for acceptance criteria #1 and #3.

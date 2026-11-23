@@ -37,4 +37,6 @@ Run the full showcase suite. Known gaps to declare: STREAMS (no SNS/SQS streams 
 
 <!-- SECTION:NOTES:BEGIN -->
 Gap task IDs to put in showcase-capabilities.yml: STREAMS → TASK-342, ORDERED_DELIVERY → TASK-340, AVRO → TASK-275.
+
+Update from TASK-342: the SNS/SQS streams backend (`prefab-streams-sns-sqs`) exists, so this variant should include the streams slice and not declare STREAMS. Add `prefab-streams`, `prefab-streams-sns-sqs` and `prefab-streams-postgres` and set `showcase.streams.skip=false`; leave `showcase.kafka.streams.skip` true (the Kafka-native breakout topology stays out). The slice compiled and its topology tests passed on these dependencies in a scratch variant. `@PartitioningKey` events are now FIFO (TASK-340), so re-check whether ORDERED_DELIVERY is still a gap.
 <!-- SECTION:NOTES:END -->

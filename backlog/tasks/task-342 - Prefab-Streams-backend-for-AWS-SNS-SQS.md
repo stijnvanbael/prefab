@@ -1,9 +1,9 @@
 ---
 id: TASK-342
 title: Prefab Streams backend for AWS SNS/SQS
-status: To Do
+status: In Progress
 assignee: []
-updated_date: '2026-11-21 10:00'
+updated_date: '2026-11-23 15:30'
 created_date: '2026-11-20 19:48'
 labels:
   - streams
@@ -51,8 +51,66 @@ First-version operators (decision-008):
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Showcase streams slice compiles and its tests pass in showcase-sns-sqs, or unsupported operators are skipped with a declared gap
-- [ ] #2 Topology tests run against the SNS/SQS backend through the backend-neutral test API
+- [x] #2 Topology tests run against the SNS/SQS backend through the backend-neutral test API
 - [ ] #3 showcase-sns-sqs no longer declares STREAMS as a gap (or declares only specific unsupported operators)
-- [ ] #4 Integration test (LocalStack + Postgres) covers groupBy+aggregate, windowedAggregate, join and a global store end to end, on FIFO topics
-- [ ] #5 Redelivered messages do not change state or output twice
+- [x] #4 Integration test (LocalStack + Postgres) covers groupBy+aggregate, windowedAggregate, join and a global store end to end, on FIFO topics
+- [x] #5 Redelivered messages do not change state or output twice
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Analysis:
+- The engine groundwork (named per-source subscriptions through `StreamSource.SourceBinding`, one inbox per source,
+  relay request counting, nested-type codec) landed on `main` with the Pub/Sub backend (TASK-341) while this was in
+  progress. This branch was rebuilt on top of it and keeps no engine changes: only the SNS/SQS parts remain.
+- `SqsUtil` was too thin for the engine: it deleted the message after the consumer returned and passed only the
+  event. Added `SqsSubscriptionRequest.withMessageConsumer` (`SqsMessageConsumer`: event, `SqsMessageMetadata`,
+  acknowledgement), `withVisibilityTimeout`, `withFifo`, a `SqsSubscription` handle to stop polling,
+  `SqsDeserializer.parseNotification`, and system attributes on receive (`SentTimestamp`, `MessageGroupId`). The
+  existing consumer path is unchanged.
+- New module `streams-sns-sqs` (`prefab-streams-sns-sqs`): `SnsSqsStreamBackend`, `SnsSqsStreamSource`,
+  `SnsSqsStreamSink`, `SnsSqsTopicResolver`, `SnsSqsStreamsConfiguration` (needs `SqsUtil` and a
+  `StreamStateRepository`), `SnsSqsTopologyTestHarness` (backend `sns-sqs`, in-memory engine) and
+  `SnsSqsStreamsProperties`.
+
+Findings and decisions:
+- SNS refuses an empty message, so a tombstone is published with body `null` plus `prefab-tombstone=true` and
+  `prefab-key` (the key cannot come from the payload). Deviation from decision-008, which says "empty body".
+- The sink sets the SNS subject (class name) only for classes known to `EventRegistry`, because the reader throws
+  `UnknownEventTypeException` for unregistered subjects, and stream output types are not registered events.
+- A non-FIFO SNS topic cannot feed a FIFO queue, so FIFO is decided per topic: `.fifo` suffix or a registered
+  partitioning key, the same rule on the source and the sink. `ordered(topic)` uses the same rule, so the engine's
+  startup warning for stateful operators on unordered sources is accurate.
+- The sink never copies input headers to the output. It writes the three Prefab attributes, the event type and the
+  version attributes; at most eight attributes, within SQS's ten.
+- The visibility timeout defaults to 2 minutes (`prefab.streams.sns-sqs.visibility-timeout`), above the default
+  retry schedule of the dead-letter policy plus processing time.
+- Queue names come from the engine's source names (`source-{hash}-{n}`), so they are stable but not readable; they are
+  sanitized and shortened to 75 characters with a hash.
+
+Verification:
+- Unit tests with an in-memory SNS/SQS (`FakeSnsSqs`) run source, sink and engine together: group-by aggregate,
+  windowed aggregate on event time and on `SentTimestamp`, join, global store with tombstone, FIFO group and
+  deduplication ids, redelivery of every message (state and output unchanged), failed message not deleted, one queue
+  per source and global store, unsupported `breakout`. The same scenarios also run with state encoded by the
+  Postgres codec (`SnsSqsStreamsEngineOnPostgresCodecTest`).
+- `ConcurrentQueuesOnPostgresTest` runs the queues of a topology on separate threads against real Postgres: a join
+  matches whichever side is processed first (150 pairs), and every output is published without waiting for the next
+  message. It found the outbox relay race that `main` now fixes.
+- The shared `streams-kafka` topology suite runs on the `sns-sqs` harness (`-Dprefab.streams.test.backend=sns-sqs`
+  with the module jar on the test classpath): all pass except the documented Kafka-specific ones (Kafka key bytes,
+  cross-key late join).
+- The showcase streams slice compiles and its four topology tests pass with the SNS/SQS dependency set
+  (`prefab-sns-sqs`, `prefab-streams-sns-sqs`, `prefab-streams-postgres`) in a scratch variant of
+  `showcase-variant-parent` with `showcase.streams.skip=false`, without source changes. The scratch variant was not
+  committed: `examples/showcase-sns-sqs` is TASK-337.10, which also owns its capabilities file. When it lands it must
+  not declare STREAMS, and it needs those three dependencies plus `showcase.streams.skip=false`; the Kafka
+  breakout stays skipped (`showcase.kafka.streams.skip=true`).
+- `SnsSqsStreamsIntegrationTest` (LocalStack + Postgres, FIFO topics) covers group-by aggregate, windowed aggregate,
+  join, global store and a redelivered message. The authoring environment has no Docker, so it first ran on CI, where
+  it found the codec and relay bugs that `main` has since fixed independently.
+
+Open:
+- AC #1 and #3 need the `showcase-sns-sqs` variant (TASK-337.10). The task stays In Progress until it lands.
+<!-- SECTION:NOTES:END -->

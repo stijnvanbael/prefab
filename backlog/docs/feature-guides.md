@@ -1070,6 +1070,7 @@ Prefab provides a backend-neutral Streams DSL (`prefab-streams`) with Kafka and 
 | `prefab-streams-engine` | In-process operator engine, source/sink/state SPIs and in-memory topology test harness                     | No                |
 | `prefab-streams-postgres` | Postgres `StreamStateRepository` (state, inbox, outbox, relay lease) for the in-process engine | No                |
 | `prefab-streams-pubsub` | Pub/Sub adapter and topology-test factory for the in-process engine | No |
+| `prefab-streams-sns-sqs` | SNS/SQS source and sink, `StreamBackend` `sns-sqs` and auto-configuration for the in-process engine | No                |
 | `prefab-streams-kafka` | `KafkaPrefabStreams`, serdes, `KafkaStreamBreakoutAdapter`, the Kafka test harness and the `StreamsConfiguration` auto-configuration | Yes               |
 
 Add `prefab-streams-kafka` to run the DSL on Kafka Streams; it brings `prefab-streams` along. Application code that
@@ -1191,6 +1192,75 @@ operators require ordered input. Logical repartitioning does not create broker t
 `StreamProcessorContext.schedule` are unsupported on this backend and fail at startup; scheduling is tracked by
 TASK-363. A `to(String)` output registers its topic as a serialization alias without changing the event's default
 publication topics.
+
+### Streams on SNS/SQS (`prefab-streams-sns-sqs`)
+
+`prefab-streams-sns-sqs` runs the Streams DSL on AWS SNS/SQS (backend `sns-sqs`, `SnsSqsStreamBackend.SNS_SQS`). It is
+a thin adapter on the in-process engine (decision-008): sources and sinks for SNS/SQS, with state, inbox and outbox
+in your database. Add it together with `prefab-sns-sqs` and a state repository such as `prefab-streams-postgres`:
+
+```xml
+<dependency>
+    <groupId>be.appify.prefab</groupId>
+    <artifactId>prefab-streams-sns-sqs</artifactId>
+</dependency>
+<dependency>
+    <groupId>be.appify.prefab</groupId>
+    <artifactId>prefab-streams-postgres</artifactId>
+</dependency>
+```
+
+Auto-configuration activates when an `SqsUtil` and a `StreamStateRepository` bean exist. It provides `PrefabStreams`
+(an `InProcessPrefabStreams`), starts the topology after all `StreamDefinition` beans were created and stops it when
+the context closes. Topologies are declared exactly as for Kafka, so a `@Bean StreamDefinition` written against
+`prefab-streams` runs unchanged.
+
+**What happens per message.** One database transaction per message: inbox check, operators, state writes, and outputs
+to the outbox. Then the transaction commits, the message is deleted from the SQS queue and the relay publishes the
+outbox rows to SNS. A message that fails is not deleted. SQS delivers it again after the visibility timeout and, after
+`prefab.dlt.retries.limit` receives, moves it to the dead-letter queue, as for event handlers. A redelivered message
+(same `prefab-message-id`, or the same SQS message ID) is recognised by the inbox and changes neither state nor
+output.
+
+| Source / sink | Behaviour |
+|---------------|-----------|
+| `from(..)` | One SQS queue per `from` declaration, `{spring.application.name}-streams-{source-name}` (sanitized to the characters SQS allows, shortened with a hash beyond 75 characters), subscribed to the source topic with the existing dead-letter redrive policy. All instances share the queue. Source names are deterministic for a fixed topology, so all instances must declare the same sources in the same order; changing the declarations creates new queues and a new inbox namespace. |
+| Global store | One queue for the store, shared by all instances, feeding the shared table. A tombstone is a message with the attributes `prefab-tombstone=true` and `prefab-key`, and the placeholder body `null` because SNS refuses an empty message. |
+| `to(Class)`, `to(EventType)`, `to(String)` | Published to SNS by the outbox relay. `to(String)` creates the topic. |
+| FIFO | A source is FIFO when its topic ends in `.fifo` or its event declares a `@PartitioningKey`. Topic, queue and dead-letter queue are then FIFO. On a FIFO topic the sink sets `MessageGroupId` to the record key (hashed beyond 128 characters) and `MessageDeduplicationId` to `prefab-message-id`. |
+| Event time | The attribute `prefab-event-time` (ISO-8601), otherwise the SQS `SentTimestamp`. |
+| Attributes | The sink writes three of its own, `prefab-message-id`, `prefab-event-time` and `prefab-correlation-ids`, plus the event type and version attributes of the event. SQS delivers at most ten attributes. Tombstones add `prefab-tombstone` and `prefab-key`. |
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `prefab.streams.sns-sqs.visibility-timeout` | `2m` | Visibility timeout of the source queues. It must exceed the time to process one message, including the engine's conflict retries and the retries of the dead-letter policy; otherwise SQS delivers a message again while it is still being processed. |
+| `prefab.streams.inbox-retention` | `7d` | How long processed message IDs are remembered for deduplication. |
+| `prefab.streams.tracing.enabled`, `prefab.streams.tracing.max-correlation-ids` | `false`, `100` | Message and correlation IDs, as on Kafka. |
+| `prefab.dlt.*` | | Dead-letter queue name and retry policy, shared with event handlers. |
+
+**Operator support.** Everything in the engine matrix of decision-008 runs: `from`, `to`, `as`, `end`, `filter`,
+`map`, `flatMap`, `branch`, `merge`, `process` (also with stores), `aggregate`, `keyBy`/`repartition` (logical, no
+topics), `groupBy` with `aggregate` and `windowedAggregate` (with grace), inner `join` with `JoinWindow`,
+`deduplicate` and global stores. `breakout` and `StreamProcessorContext.schedule` fail at startup (TASK-363 for `schedule`); keep a Kafka-native `breakout` topology in a configuration that
+only loads with the Kafka backend.
+
+**Differences from Kafka that you must know about.**
+
+- *Ordering needs FIFO.* Per-key order comes from FIFO message groups. Without FIFO, state stays correct thanks to the
+  optimistic versions in the database, but an order-dependent aggregator can give a different result, and the engine
+  logs a startup warning naming the source and the operator. Declare `@PartitioningKey` on the events of such sources.
+- *FIFO limits.* FIFO topics and queues have throughput quotas per message group and per queue. A failing message
+  blocks its message group until it moves to the dead-letter queue.
+- *Stream time per key.* Windows and joins close per key, not per partition, so a record that Kafka drops because
+  another key advanced stream time is accepted here.
+- *Global stores start empty.* SNS/SQS cannot replay a topic, so a global store only holds the events published after
+  its queue was created.
+- *`breakout` and wall-clock punctuation are not available.*
+
+**Testing.** `TopologyTestHarness` finds the backend by name: `TopologyTestExtension.withBackend("sns-sqs")`, or
+`-Dprefab.streams.test.backend=sns-sqs` for a whole run. It runs the engine synchronously with in-memory state, so
+topology tests need neither LocalStack nor a database. The module's integration test runs the backend on LocalStack
+and Postgres.
 
 ### Postgres state for the in-process engine (`prefab-streams-postgres`)
 

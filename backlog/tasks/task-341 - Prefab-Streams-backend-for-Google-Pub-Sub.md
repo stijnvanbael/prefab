@@ -79,3 +79,5 @@ Container-dependent integration tests are delegated to CI because this environme
   Postgres end-to-end test is compiled locally but requires CI execution and verification.
 - Output topic aliases are registered independently from default event dispatch topics, including concrete generic
   bindings, so an explicit stream sink does not change ordinary publisher routing.
+- The first CI run failed during test compilation because Java 21 automatically ran the annotation processor on
+  private test fixtures. The module now disables test-scope processing; a clean Java 21 test compilation succeeds.

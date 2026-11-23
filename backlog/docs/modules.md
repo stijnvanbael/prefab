@@ -9,7 +9,8 @@
 | Module                 | Artifact ID                   | Required?          | Description                                    |
 |------------------------|-------------------------------|--------------------|------------------------------------------------|
 | `core`                 | `prefab-core`                 | **Always**         | Framework types, annotations, interfaces       |
-| `streams`              | `prefab-streams`              | Streams DSL        | Kafka-backed stream DSL source/sink baseline   |
+| `streams`              | `prefab-streams`              | Streams DSL        | Backend-neutral stream DSL and test API        |
+| `streams-kafka`        | `prefab-streams-kafka`        | Streams on Kafka   | Kafka Streams backend for the streams DSL      |
 | `annotation-processor` | `prefab-annotation-processor` | **Always**         | Compile-time code generator (APT)              |
 | `postgres`             | `prefab-postgres`             | PostgreSQL         | Spring Data JDBC + Flyway + PostgreSQL support |
 | `mongodb`              | `prefab-mongodb`              | MongoDB            | Spring Data MongoDB support                    |
@@ -35,7 +36,7 @@
 | Kafka JSON events       | `core`, `annotation-processor`, `kafka`                           |
 | Kafka Avro events       | `core`, `annotation-processor`, `kafka`, `avro`                   |
 | Kafka AVSC-first events | `core`, `annotation-processor`, `kafka`, `avro`, `avro-processor` |
-| Kafka Streams source/sink DSL | `core`, `annotation-processor`, `kafka`, `streams`          |
+| Kafka Streams source/sink DSL | `core`, `annotation-processor`, `kafka`, `streams`, `streams-kafka` |
 | GCP Pub/Sub events      | `core`, `annotation-processor`, `pubsub`                          |
 | AWS SNS/SQS events      | `core`, `annotation-processor`, `sns-sqs`                         |
 | Audit trail             | `core` (no extra module needed)                                   |
@@ -65,14 +66,17 @@ for the emitted resources and limits.
 
 ## Repository Example Modules
 
-| Module Path         | Purpose                                         |
-|---------------------|-------------------------------------------------|
-| `examples/avro`     | Avro and AVSC-first event examples              |
-| `examples/kafka`    | Kafka aggregate and projection examples          |
-| `examples/streams`  | Kafka streams DSL source/sink forwarding example |
-| `examples/pubsub`   | Google Cloud Pub/Sub examples                    |
-| `examples/sns-sqs`  | AWS SNS/SQS examples                             |
-| `examples/mongodb`  | MongoDB aggregate examples                       |
+| Module Path                         | Purpose                                                                                  |
+|-------------------------------------|------------------------------------------------------------------------------------------|
+| `examples/showcase`                 | Shop showcase on the reference stack (Postgres + Kafka, JSON)                            |
+| `examples/showcase-variant-parent`  | Shared build that recompiles the showcase sources and tests per variant (decision-007)   |
+| `examples/showcase-mongodb`         | Showcase variant on MongoDB + Kafka (configuration only)                                 |
+| `examples/avro`                     | Avro and AVSC-first event examples                                                       |
+| `examples/kafka`                    | Kafka aggregate and projection examples                                                  |
+| `examples/streams`                  | Kafka streams DSL source/sink forwarding example                                         |
+| `examples/pubsub`                   | Google Cloud Pub/Sub examples                                                            |
+| `examples/sns-sqs`                  | AWS SNS/SQS examples                                                                     |
+| `examples/mongodb`                  | MongoDB aggregate examples                                                               |
 
 ---
 

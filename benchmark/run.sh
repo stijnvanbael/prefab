@@ -16,8 +16,8 @@ if [[ "${BENCHMARK_SKIP_INSTALL:-0}" != "1" && "${1:-}" =~ ^(run|validate)$ ]]; 
   echo "Installing the current Prefab version into the local Maven repository (BENCHMARK_SKIP_INSTALL=1 skips this)..."
   # Example modules are not installed: agents would find and decompile them, which application developers can't.
   "$MVN" -q -B -ntp -f "$ROOT/pom.xml" install -DskipTests -Dmaven.javadoc.skip=true -Dgpg.skip \
-    -pl '!examples/avro,!examples/kafka,!examples/streams,!examples/pubsub,!examples/sns-sqs,!examples/mongodb,!benchmark'
-  rm -rf "$HOME"/.m2/repository/be/appify/prefab/*-example
+    -pl '!examples/avro,!examples/kafka,!examples/streams,!examples/pubsub,!examples/sns-sqs,!examples/mongodb,!examples/showcase,!examples/showcase-variant-parent,!examples/showcase-mongodb,!benchmark'
+  rm -rf "$HOME"/.m2/repository/be/appify/prefab/*-example "$HOME"/.m2/repository/be/appify/prefab/*showcase*
 else
   "$MVN" -q -B -ntp -f "$ROOT/benchmark/pom.xml" compile
 fi

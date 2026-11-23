@@ -18,6 +18,7 @@
     <modules>
         <module>core</module>
         <module>streams</module>
+        <module>streams-kafka</module>
         <module>annotation-processor</module>
         <module>avro</module>
         <module>avro-processor</module>
@@ -30,6 +31,9 @@
         <module>examples/pubsub</module>
         <module>examples/sns-sqs</module>
         <module>examples/mongodb</module>
+        <module>examples/showcase</module>
+        <module>examples/showcase-variant-parent</module>
+        <module>examples/showcase-mongodb</module>
         <module>kafka</module>
         <module>pubsub</module>
         <module>sns-sqs</module>
@@ -52,13 +56,13 @@
         <central-publishing-maven-plugin.version>0.12.0</central-publishing-maven-plugin.version>
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
-        <compile-testing.version>0.23.0</compile-testing.version>
+        <compile-testing.version>0.24.0</compile-testing.version>
         <confluent.version>8.4.1</confluent.version>
         <avro.version>1.12.2</avro.version>
         <commons-io.version>2.22.0</commons-io.version>
         <commons-compress.version>1.28.0</commons-compress.version>
         <jsr305.version>3.0.2</jsr305.version>
-        <jspecify.version>1.0.0</jspecify.version>
+        <jspecify.version>1.0.1</jspecify.version>
         <springdoc.version>3.2.0</springdoc.version>
         <jsqlparser.version>5.4</jsqlparser.version>
         <auto-service.version>1.1.1</auto-service.version>
@@ -131,6 +135,11 @@
             <dependency>
                 <groupId>be.appify.prefab</groupId>
                 <artifactId>prefab-streams</artifactId>
+                <version>${prefab.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>be.appify.prefab</groupId>
+                <artifactId>prefab-streams-kafka</artifactId>
                 <version>${prefab.version}</version>
             </dependency>
             <dependency>

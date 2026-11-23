@@ -2,8 +2,11 @@ package be.appify.prefab.processor.rest.binary;
 
 import be.appify.prefab.core.annotations.Exposure;
 import be.appify.prefab.core.annotations.rest.Download;
+import be.appify.prefab.core.annotations.validation.ContentType;
+import be.appify.prefab.core.annotations.validation.FileSize;
 import be.appify.prefab.core.domain.Binary;
 import be.appify.prefab.core.spring.StorageService;
+import be.appify.prefab.processor.AnnotationManifest;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.VariableManifest;
@@ -16,6 +19,7 @@ import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import javax.lang.model.element.TypeElement;
@@ -34,10 +38,20 @@ public class BinaryPlugin implements PrefabPlugin {
     @Override
     public Optional<ParameterSpec> requestMethodParameter(VariableManifest parameter) {
         if (parameter.type().is(Binary.class)) {
-            return Optional.of(ParameterSpec.builder(MultipartFile.class, parameter.name()).build());
+            return Optional.of(ParameterSpec.builder(MultipartFile.class, parameter.name())
+                    .addAnnotations(fileConstraintsOf(parameter))
+                    .build());
         } else {
             return Optional.empty();
         }
+    }
+
+    // Spring MVC validates constrained controller parameters, which rejects an invalid upload before it is stored
+    private static List<AnnotationSpec> fileConstraintsOf(VariableManifest parameter) {
+        return parameter.annotations().stream()
+                .filter(annotation -> annotation.type().is(ContentType.class) || annotation.type().is(FileSize.class))
+                .map(AnnotationManifest::asSpec)
+                .toList();
     }
 
     @Override

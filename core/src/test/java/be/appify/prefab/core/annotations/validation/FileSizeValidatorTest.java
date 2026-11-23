@@ -58,6 +58,13 @@ class FileSizeValidatorTest {
     }
 
     @Test
+    void missingFileIsLeftToNotNull() {
+        var validator = new FileSizeValidator();
+        validator.initialize(SMALL_SIZE_ANNOTATION);
+        assertTrue(validator.isValid(null, null));
+    }
+
+    @Test
     void emptyFileIsValidWhenMaxIsZero() throws IOException {
         var file = new File(tempDir, "empty.txt");
         Files.writeString(file.toPath(), ""); // 0 bytes

@@ -122,6 +122,22 @@ class PolymorphicRestWriterTest {
     }
 
     @Test
+    void polymorphicResponseTypeIsAPropertyOfEverySubtypeSoListsKeepIt() {
+        assertThat(shapeCompilation).succeeded();
+        var content = assertThat(shapeCompilation)
+                .generatedSourceFile("rest.polymorphic.infrastructure.http.ShapeResponse")
+                .contentsAsUtf8String();
+
+        content.contains("include = JsonTypeInfo.As.EXISTING_PROPERTY");
+        content.contains("""
+                        @JsonProperty("type")
+                                public String type() {
+                                    return "Circle";
+                                }""");
+        content.contains("return \"Rectangle\";");
+    }
+
+    @Test
     void polymorphicAggregateServiceContent() {
         assertThat(shapeCompilation).succeeded();
         var content = assertThat(shapeCompilation)

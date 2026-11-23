@@ -23,6 +23,7 @@ updates:
       - /security
       - /sns-sqs
       - /streams
+      - /streams-kafka
       - /terraform
       - /test
     schedule:

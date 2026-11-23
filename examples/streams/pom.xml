@@ -28,6 +28,10 @@
         </dependency>
         <dependency>
             <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-streams-kafka</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
             <artifactId>prefab-annotation-processor</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -43,7 +47,7 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>build-helper-maven-plugin</artifactId>
-                <version>3.4.0</version>
+                <version>3.8.0</version>
                 <executions>
                     <execution>
                         <id>add-main-as-test-source</id>
@@ -62,7 +66,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
+                <version>3.16.0</version>
                 <configuration>
                     <source>${maven.compiler.release}</source>
                     <target>${maven.compiler.release}</target>

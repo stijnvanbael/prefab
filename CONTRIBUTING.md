@@ -33,7 +33,8 @@ prefab/
 ├── avro-processor/     # AVSC schema → Java record code generation (annotation processor)
 ├── pubsub/             # Google Cloud Pub/Sub support
 ├── sns-sqs/            # AWS SNS publisher + SQS consumer support
-├── streams/            # Kafka Streams DSL (source/sink baseline)
+├── streams/            # Backend-neutral Streams DSL and topology test API
+├── streams-kafka/      # Kafka Streams backend for the Streams DSL
 ├── security/           # Spring Security + OAuth2 integration
 ├── openapi/            # SpringDoc OpenAPI / Swagger UI
 ├── async-api/          # AsyncAPI specification generation

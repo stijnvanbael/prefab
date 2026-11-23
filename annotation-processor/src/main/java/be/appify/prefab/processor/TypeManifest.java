@@ -7,6 +7,7 @@ import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.WildcardTypeName;
 import java.lang.annotation.Annotation;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -53,7 +54,8 @@ public class TypeManifest {
             typeMirror = processingEnvironment.getTypeUtils().erasure(typeMirror);
         }
         if (typeMirror.getKind().isPrimitive()) {
-            this.identity = new TypeIdentity("", typeMirror.toString(), List.of());
+            // The kind, not toString(): the string form includes type-use annotations such as @Positive.
+            this.identity = new TypeIdentity("", typeMirror.getKind().name().toLowerCase(Locale.ROOT), List.of());
             this.kind = null;
             this.element = null;
         } else if (typeMirror.getKind() == TypeKind.DECLARED || typeMirror.getKind() == TypeKind.ERROR) {

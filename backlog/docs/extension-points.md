@@ -22,14 +22,14 @@ defined conflict behaviour, regeneration safety). Everything not listed there, s
 |---|---|---|---|
 | Plugin selection | `-Aprefab.plugin.<id>.enabled`, `@Generate(plugin, enabled, target)` ([feature guide](feature-guides.md)) | Custom `PrefabPlugin` (§8.1) | — |
 | REST contracts and controllers | `@Aggregate(exposure, plural)`, operation `path` / `method` / `exposure`, `@Filter`, `@GetList(sorted)`, `@Doc`, `@ViewOf` ([annotation reference](annotation-reference.md)) | `PrefabPlugin.writeController`, `requestBodyParameter`, `mapRequestParameter`; handwritten adapters (§8.7) | §8.6 override |
-| Application services | `Exposure.INTERNAL` operations, `@Computed` | `PrefabPlugin.writeService`, `getServiceDependencies`; domain events and `@EventHandler`s for side effects | §8.6 override; no per-operation metrics yet (TASK-357) |
+| Application services | `Exposure.INTERNAL` operations, `@Computed` | `PrefabPlugin.writeService`, `getServiceDependencies`; domain events and `@EventHandler`s for side effects | §8.6 override; no per-operation metrics yet (TASK-366) |
 | Repositories and queries | `@Filter`, `@Indexed`, `@Autocomplete` | `@RepositoryMixin` (§8.2), `PrefabPlugin.writeRepository`, replaceable `RangeQueryExecutor` / `FullTextQueryExecutor` beans | Row-level read scoping is planned (TASK-322) |
 | Persistence and migrations | `@DbColumn`, `@DbRename`, `@DbDefaultValue`, `@DbDocument`, `@DbMigration(enabled)`, `@CustomType` | `PrefabPlugin.dataTypeOf`; manual `V{n}__*.sql` migrations ([database migrations](database-migrations.md)) | Applied generated migrations are immutable |
 | Messaging and serialization | `@Event(topic, platform, serialization, publishTo, version, compatibility)`, `@EventHandlerConfig`, `prefab.dlt.*` ([configuration](configuration.md)) | `EventRegistryCustomizer` (§8.5), event `Migration` beans, Kafka producer/consumer factory customizers, `ContainerCustomizer`, `CommonErrorHandler`; `PrefabPlugin.avroSchemaOf` / `toAvroValueOf` / `fromAvroValueOf` | New brokers need a provider SPI (TASK-180) |
 | Security | `@Security(enabled, authority, role)` | `HttpSecurityCustomizer`; replacing `SecurityFilterChain` | Field and row policies are planned (TASK-322) |
 | Tenancy and audit | `@TenantId`, audit fields | `TenantContextProvider` (§8.4), `AuditContextProvider` (§8.3) | — |
 | Tests | `@Generate(plugin = ..., target = OutputTarget.TEST)` | `PrefabPlugin.writeTestClient`; `prefab.test.*` container properties | Override `{Aggregate}Client` under `src/test/java` ([§6.9](generated-artefacts.md#69-generated-test-client)) |
-| Observability | `prefab.streams.tracing.*` for streams | Spring Boot HTTP and Kafka container observations via the beans above | Generated services and consumers only log; TASK-357 |
+| Observability | `prefab.streams.tracing.*` for streams | Spring Boot HTTP and Kafka container observations via the beans above | Generated services and consumers only log; TASK-366 |
 | Infrastructure | Terraform generation through `GcpTerraformPlugin` | `PrefabPlugin.writeGlobalFiles` for other targets | — |
 
 ---

@@ -39,6 +39,7 @@ request/response DTOs, event consumer, and database migration scripts at compile
 | [Extension Point Guide](extension-points.md)          | Customization coverage, `PrefabPlugin` API, `@RepositoryMixin`, provider overrides, escape hatch |
 | [Configuration Reference](configuration.md)           | Application properties, Kafka/Pub/Sub/SNS configuration            |
 | [Troubleshooting](troubleshooting.md)                 | Common errors and fixes                                            |
+| [Agent Cheat Sheet](agent-cheat-sheet.md)             | Compact guide for AI agents building Prefab apps; copy into the project's `AGENTS.md` |
 
 Generated records can be copied and modified with `toBuilder()`; see
 [Generated Artefacts: Copying generated records](generated-artefacts.md#copying-generated-records)

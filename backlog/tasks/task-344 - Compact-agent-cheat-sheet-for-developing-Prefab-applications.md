@@ -1,7 +1,7 @@
 ---
 id: TASK-344
 title: Compact agent cheat sheet for developing Prefab applications
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-20 20:13'
 labels:
@@ -27,13 +27,13 @@ This task delivers the always-loaded entry point for app developers (not framewo
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A cheat sheet for Prefab app development exists and is at most about 3,000 tokens
-- [ ] #2 It explains the mental model: what the developer writes (annotated domain records, handlers, mixins) versus what Prefab generates (controllers, services, repositories, request/response records, consumers, migrations, test helpers)
-- [ ] #3 It contains a lookup table from common intents (for example 'expose a filtered list', 'react to an event', 'add a custom query') to the annotations or types to use
-- [ ] #4 It contains an explicit 'do not' list that counters plain Spring Boot habits, including hand-written controllers, JPA entities, hand-written migrations and editing target/generated-sources
-- [ ] #5 It states when to stop: which documented extension points to use when the model can't express a requirement, and when to escalate to a human or stronger model instead of working around generated code
-- [ ] #6 It points to where deeper, task-specific guidance lives, without inlining it
-- [ ] #7 Deprecated APIs and alternative ways of doing the same thing are left out, so there is one recommended way per intent
+- [x] #1 A cheat sheet for Prefab app development exists and is at most about 3,000 tokens
+- [x] #2 It explains the mental model: what the developer writes (annotated domain records, handlers, mixins) versus what Prefab generates (controllers, services, repositories, request/response records, consumers, migrations, test helpers)
+- [x] #3 It contains a lookup table from common intents (for example 'expose a filtered list', 'react to an event', 'add a custom query') to the annotations or types to use
+- [x] #4 It contains an explicit 'do not' list that counters plain Spring Boot habits, including hand-written controllers, JPA entities, hand-written migrations and editing target/generated-sources
+- [x] #5 It states when to stop: which documented extension points to use when the model can't express a requirement, and when to escalate to a human or stronger model instead of working around generated code
+- [x] #6 It points to where deeper, task-specific guidance lives, without inlining it
+- [x] #7 Deprecated APIs and alternative ways of doing the same thing are left out, so there is one recommended way per intent
 - [ ] #8 Benchmark results from TASK-343 are recorded for Haiku with the cheat sheet compared to without it
 <!-- AC:END -->
 
@@ -44,3 +44,13 @@ This task delivers the always-loaded entry point for app developers (not framewo
 TASK-347 note: the cheat sheet's "do not" list should mention that Prefab reports hand-written controllers, JPA
 entities, repositories and migrations for aggregates at compile time (`generated-artefacts.md` §6.13), and that
 `@SuppressWarnings("prefab.handwritten")` / `-- prefab:manual` are for human decisions only.
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+- Cheat sheet: `backlog/docs/agent-cheat-sheet.md` (about 7.8 KB, roughly 2k tokens). Linked from the developer guide index.
+- Added benchmark context `benchmark/contexts/cheat-sheet` (cheat sheet only in CLAUDE.md) and documented it in `benchmark.md`.
+- **AC #8 is open**: this cloud session has no Docker daemon, so the benchmark's Testcontainers-based hidden tests cannot run. To finish, run
+  `benchmark/run.sh run --model claude-haiku-5-5 --context cheat-sheet --repeat 3 --parallel 3`, compare with the recorded `none`, `full-docs` and `docs-folder` baselines, and add the result to "Recorded baselines" in `benchmark.md`.
+- Deprecated APIs (`PublishesEvents.publish`, `@MongoMigration`, `ignoreCase`) are deliberately left out, except the one 'do not' line for event publishing.
+<!-- SECTION:NOTES:END -->

@@ -135,8 +135,9 @@ copy:                          # repository files or directories copied into the
 | `none` | Nothing beyond the project and the prompt. It can still read the Prefab jars in `~/.m2`, as any user can. |
 | `full-docs` | The readme and all developer guide chapters (about 250 KB, 60k tokens) inside CLAUDE.md, always loaded. |
 | `docs-folder` | The same docs copied to `docs/prefab/`, with a short CLAUDE.md that points to them. Read on demand. |
+| `cheat-sheet` | Only the [agent cheat sheet](agent-cheat-sheet.md) (about 2k tokens) in CLAUDE.md, always loaded. |
 
-When the compact agent cheat sheet (TASK-344) and the recipes (TASK-346) exist, add a context for each. Once
+The compact agent cheat sheet (TASK-344) has the `cheat-sheet` context. When the recipes (TASK-346) exist, add a context for them. Once
 TASK-350 delivers agent guidance to application projects, the benchmark must use that same delivery path. Then add a
 context that reproduces the setup step, so the benchmark measures what users get.
 

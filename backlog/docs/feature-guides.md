@@ -1160,7 +1160,7 @@ identity or deadlock) throws `StreamStateRepository.OptimisticConflictException`
 | Property | Default | Description |
 |----------|---------|-------------|
 | `prefab.streams.state.initialize-schema` | `always` | `always` runs the idempotent DDL below on start; `never` leaves the tables to you. The application's Flyway `V{n}` sequence is not used. |
-| `prefab.streams.inbox-retention` | `7d` | Wall-clock retention of inbox rows, removed by `cleanupExpired`. |
+| `prefab.streams.inbox-retention` | `7d` | Wall-clock retention of inbox rows (decision-008). The engine passes it to `cleanupExpired`; until a broker module binds the property, set it through the `InProcessPrefabStreams` constructor. |
 
 Closed windows, join buffers and deduplication identities are removed by the engine through `deleteExpired` with the
 operator's stream time; expired relay leases are removed together with old inbox rows.

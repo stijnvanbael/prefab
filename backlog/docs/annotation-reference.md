@@ -713,6 +713,9 @@ Binary attachment;
 
 **Generated endpoint:** `GET /orders/{id}/attachment` → streams the file with content-type header.
 
+The download looks the aggregate up through the service, so the aggregate must also be annotated with `@GetById`.
+Without it, compilation fails with `[@Download] field '...' on ... requires the aggregate to be annotated with @GetById`.
+
 ---
 
 ### `@Streaming`

@@ -1,7 +1,7 @@
 ---
 id: TASK-341
 title: Prefab Streams backend for Google Pub/Sub
-status: To Do
+status: In Progress
 assignee: []
 updated_date: '2026-11-21 10:00'
 created_date: '2026-11-20 19:48'
@@ -49,8 +49,31 @@ First-version operators (decision-008):
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Showcase streams slice compiles and its tests pass in showcase-pubsub, or unsupported operators are skipped with a declared gap
-- [ ] #2 Topology tests run against the Pub/Sub backend through the backend-neutral test API
+- [x] #2 Topology tests run against the Pub/Sub backend through the backend-neutral test API
 - [ ] #3 showcase-pubsub no longer declares STREAMS as a gap (or declares only specific unsupported operators)
 - [ ] #4 Integration test (Pub/Sub emulator + Postgres) covers groupBy+aggregate, windowedAggregate, join and a global store end to end
 - [ ] #5 Redelivered messages do not change state or output twice
 <!-- AC:END -->
+
+## Analysis
+
+Decision-008 assigns broker-neutral processing and transactional state to the existing streams-engine and
+streams-postgres modules. This task must add a Pub/Sub adapter without coupling the engine to the Pub/Sub SDK.
+The engine currently groups subscriptions by source topic and exposes neither the source type nor a subscription
+identity to its source SPI; the adapter needs an explicit subscription contract to decode concrete bindings,
+handle tombstones, and scope inbox identities correctly. PubSubUtil currently discards message metadata, so its
+consumer API must be extended while preserving existing handler behavior and retry/dead-letter semantics.
+
+The showcase streams slice (TASK-337.06) was merged to main while this work was in progress. The showcase-pubsub
+variant (TASK-337.09) is not yet available; its acceptance criteria cannot be verified until that task is integrated.
+Container-dependent integration tests are delegated to CI because this environment cannot run Testcontainers.
+
+## Implementation notes
+
+- Added the Pub/Sub source, outbox sink, Spring configuration and backend-neutral in-memory harness factory.
+- A source declaration has a stable subscription/inbox namespace separate from other declarations of the same
+  topic and type; all branches of the same source share that namespace. Global stores use separate subscriptions.
+- Preserved nested polymorphic types in new Postgres JSON state envelopes, while retaining the legacy envelope
+  reader. Database state is trusted data; the guide documents the codec's class-resolution trust boundary.
+- Added isolated source, sink, configuration, state-codec and cross-thread processor regressions. The emulator +
+  Postgres end-to-end test is compiled locally but requires CI execution and verification.

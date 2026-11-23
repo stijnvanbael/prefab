@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.avro.Schema;
@@ -72,7 +73,7 @@ public class EventRegistry {
             throw new IllegalArgumentException("Conflicting serialization formats for topic: " + topic);
         }
         concreteTypes.putIfAbsent(type.id(), type);
-        concreteTopics.computeIfAbsent(type, ignored -> new LinkedHashSet<>()).add(topic);
+        concreteTopics.computeIfAbsent(type, ignored -> new CopyOnWriteArraySet<>()).add(topic);
         addToAllowedClassNames(type.rawType());
     }
 
@@ -141,8 +142,23 @@ public class EventRegistry {
      * @return a registered concrete token
      */
     public EventType<?> concreteTypeFor(String topic, String id) {
+        var type = concreteTypeFor(id);
+        if (!topicsForType(type).contains(topic)) {
+            throw new UnknownEventTypeException(id);
+        }
+        return type;
+    }
+
+    /**
+     * Resolves a locally registered concrete identity independently of its source topic.
+     *
+     * @param id canonical message identity
+     * @return the registered concrete token
+     * @throws UnknownEventTypeException if the identity is not registered
+     */
+    public EventType<?> concreteTypeFor(String id) {
         var type = concreteTypes.get(id);
-        if (type == null || !topicsForType(type).contains(topic)) {
+        if (type == null) {
             throw new UnknownEventTypeException(id);
         }
         return type;
@@ -486,8 +502,8 @@ public class EventRegistry {
     }
 
     private void addToTopicTypes(String topic, Class<?> type) {
-        topicTypes.computeIfAbsent(topic, ignored -> new LinkedHashSet<>()).add(type);
-        typeTopics.computeIfAbsent(type, ignored -> new LinkedHashSet<>()).add(topic);
+        topicTypes.computeIfAbsent(topic, ignored -> new CopyOnWriteArraySet<>()).add(type);
+        typeTopics.computeIfAbsent(type, ignored -> new CopyOnWriteArraySet<>()).add(topic);
         addToAllowedClassNames(type);
         if (type.isSealed()) {
             for (Class<?> subtype : type.getPermittedSubclasses()) {

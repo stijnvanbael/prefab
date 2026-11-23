@@ -128,6 +128,58 @@ class GenericPubSubJsonTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void rawSubscriptionPassesMetadataAndAcknowledgesOnlyAfterConsumerReturns() {
+        var admin = mock(PubSubAdmin.class);
+        var subscriber = mock(PubSubSubscriberTemplate.class);
+        when(admin.getTopic(anyString())).thenReturn(com.google.pubsub.v1.Topic.getDefaultInstance());
+        when(admin.getSubscription(anyString())).thenReturn(Subscription.getDefaultInstance());
+        var util = new PubSubUtil("project", "app", "", 0, 1, 1, 1.0f,
+                admin, subscriber, deserializer, registry);
+        var message = mock(BasicAcknowledgeablePubsubMessage.class);
+        var payload = PubsubMessage.newBuilder().setMessageId("message-1")
+                .putAttributes("prefab-event-time", "2026-01-01T00:00:00Z").build();
+        when(message.getPubsubMessage()).thenReturn(payload);
+        var received = new ArrayList<PubsubMessage>();
+        util.subscribe(SubscriptionRequest.raw("shared", "raw", value -> {
+            verify(message, never()).ack();
+            received.add(value);
+        }));
+        ArgumentCaptor<Consumer<BasicAcknowledgeablePubsubMessage>> callback =
+                ArgumentCaptor.forClass(Consumer.class);
+        verify(subscriber).subscribe(anyString(), callback.capture());
+
+        callback.getValue().accept(message);
+
+        assertThat(received).containsExactly(payload);
+        verify(message).ack();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void rawSubscriptionNacksWhenConsumerFails() {
+        var admin = mock(PubSubAdmin.class);
+        var subscriber = mock(PubSubSubscriberTemplate.class);
+        when(admin.getTopic(anyString())).thenReturn(com.google.pubsub.v1.Topic.getDefaultInstance());
+        when(admin.getSubscription(anyString())).thenReturn(Subscription.getDefaultInstance());
+        var util = new PubSubUtil("project", "app", "", 0, 1, 1, 1.0f,
+                admin, subscriber, deserializer, registry);
+        util.subscribe(SubscriptionRequest.raw("shared", "raw", value -> {
+            throw new IllegalStateException("transaction failed");
+        }));
+        ArgumentCaptor<Consumer<BasicAcknowledgeablePubsubMessage>> callback =
+                ArgumentCaptor.forClass(Consumer.class);
+        verify(subscriber).subscribe(anyString(), callback.capture());
+        var message = mock(BasicAcknowledgeablePubsubMessage.class);
+        when(message.getPubsubMessage()).thenReturn(PubsubMessage.getDefaultInstance());
+
+        assertThatThrownBy(() -> callback.getValue().accept(message)).isInstanceOf(RuntimeException.class);
+
+        verify(message, never()).ack();
+        verify(message).nack();
+    }
+
+    @Test
     void publisherCarriesIdentityAndOriginalTypeAsAttributes() {
         var template = mock(PubSubTemplate.class);
         var util = mock(PubSubUtil.class);

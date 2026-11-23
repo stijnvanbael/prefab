@@ -3,6 +3,7 @@ package be.appify.prefab.core.pubsub;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.core.domain.EventType;
 import com.google.pubsub.v1.DeadLetterPolicy;
+import com.google.pubsub.v1.PubsubMessage;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
@@ -24,6 +25,7 @@ public class SubscriptionRequest<T> {
     private final Class<T> type;
     private final Consumer<T> consumer;
     private final Optional<EventType<T>> eventType;
+    private Consumer<PubsubMessage> rawConsumer;
     private RetryTemplate retryTemplate = null;
     private Executor executor = Runnable::run;
     private DeadLetterPolicy deadLetterPolicy = DEFAULT_DEAD_LETTER_POLICY;
@@ -73,6 +75,28 @@ public class SubscriptionRequest<T> {
     /** @return the concrete binding, empty for legacy class-based subscriptions */
     public Optional<EventType<T>> eventType() {
         return eventType;
+    }
+
+    /**
+     * Creates a request whose consumer receives the complete Pub/Sub message. The consumer must return only after
+     * processing has committed; failures are handled by the normal retry and dead-letter policy.
+     *
+     * @param topic source topic
+     * @param subscription independent subscription name
+     * @param consumer consumer of the message and its metadata
+     * @return the request
+     */
+    public static SubscriptionRequest<PubsubMessage> raw(
+            String topic, String subscription, Consumer<PubsubMessage> consumer
+    ) {
+        var request = new SubscriptionRequest<>(topic, subscription, PubsubMessage.class, consumer);
+        request.rawConsumer = consumer;
+        return request;
+    }
+
+    /** @return the metadata-aware consumer, if this is a raw request */
+    public Optional<Consumer<PubsubMessage>> rawConsumer() {
+        return Optional.ofNullable(rawConsumer);
     }
 
     /**

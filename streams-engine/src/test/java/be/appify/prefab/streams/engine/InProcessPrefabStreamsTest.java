@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -149,6 +150,57 @@ class InProcessPrefabStreamsTest {
             input.sendWithMessageId(new Word("1", "once"), "same-message");
 
             assertThat(topology.output(Word.class).values()).containsExactly(new Word("1", "once"));
+        }
+    }
+
+    @Test
+    void processorsReceiveContextOnTheBrokerDeliveryThread() {
+        var harness = new InMemoryTopologyTestHarness("engine");
+        var processor = new CountingProcessor();
+        harness.streams().from(Word.class).process(processor).to(Count.class);
+        try (var topology = harness.start()) {
+            var input = topology.input(Word.class);
+
+            CompletableFuture.runAsync(() -> input.send(new Word("1", "one"))).join();
+
+            assertThat(topology.output(Count.class).values()).containsExactly(new Count("1", 1));
+            assertThat(processor.initializations).hasValue(1);
+        }
+    }
+
+    @Test
+    void distinctSourceNodesHaveIndependentSubscriptionsAndInboxIdentities() {
+        var delivery = new InMemoryStreamSource();
+        var bindings = new ArrayList<StreamSource.SourceBinding>();
+        var source = new StreamSource() {
+            @Override
+            public Subscription subscribe(String topic, MessageHandler handler) {
+                return delivery.subscribe(topic, handler);
+            }
+
+            @Override
+            public Subscription subscribe(SourceBinding binding, MessageHandler handler) {
+                bindings.add(binding);
+                return delivery.subscribe(binding.topic(), handler);
+            }
+        };
+        var sink = new InMemoryStreamSink(delivery);
+        var engine = new InProcessPrefabStreams(source, sink, new InMemoryStreamStateRepository(),
+                new InMemoryTopologyTestHarness.InMemoryTopicResolver("engine"));
+        var shared = engine.from(Word.class);
+        shared.filter(word -> true).to("first-output");
+        shared.filter(word -> true).to("second-output");
+        engine.from(Word.class).to("third-output");
+        try (var topology = engine.start()) {
+            var input = new StreamMessage("id", "1", new Word("1", "one"), Map.of(), Instant.EPOCH);
+
+            delivery.deliver("engine-word", input);
+            delivery.deliver("engine-word", input);
+
+            assertThat(bindings).hasSize(2).extracting(StreamSource.SourceBinding::name).doesNotHaveDuplicates();
+            assertThat(sink.drain("first-output")).hasSize(1);
+            assertThat(sink.drain("second-output")).hasSize(1);
+            assertThat(sink.drain("third-output")).hasSize(1);
         }
     }
 
@@ -328,8 +380,16 @@ class InProcessPrefabStreamsTest {
     }
 
     private static final class CountingProcessor extends StatefulStreamProcessor<String, Word, String, Count> {
+        private final AtomicInteger initializations = new AtomicInteger();
+
         private CountingProcessor() {
             super(Count.class);
+        }
+
+        @Override
+        public void initContext(StreamProcessorContext<String, Count> context) {
+            initializations.incrementAndGet();
+            super.initContext(context);
         }
 
         @Override

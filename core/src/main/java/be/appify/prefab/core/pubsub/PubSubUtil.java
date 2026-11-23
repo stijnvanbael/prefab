@@ -3,6 +3,7 @@ package be.appify.prefab.core.pubsub;
 import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.kafka.EventRegistry;
 import com.google.cloud.spring.pubsub.PubSubAdmin;
+import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.cloud.spring.pubsub.core.subscriber.PubSubSubscriberTemplate;
 import com.google.cloud.spring.pubsub.support.BasicAcknowledgeablePubsubMessage;
 import com.google.protobuf.Duration;
@@ -113,13 +114,24 @@ public class PubSubUtil {
      * @param <T>     the type of the messages
      */
     public <T> void subscribe(SubscriptionRequest<T> request) {
+        subscribeWithHandle(request);
+    }
+
+    /**
+     * Subscribes with the normal provisioning and retry policy and returns a handle for stopping delivery.
+     *
+     * @param request subscription details
+     * @param <T> message type
+     * @return the running subscriber
+     */
+    public <T> Subscriber subscribeWithHandle(SubscriptionRequest<T> request) {
         var topicName = ensureTopicExists(request.topic());
         var subscriptionName = ensureSubscriptionExists(
                 request.subscription(),
                 topicName,
                 request.isUsingDefaultDeadLetterPolicy() ? deadLetterPolicy(deadLetterTopicName) : request.deadLetterPolicy()
         );
-        subscriberTemplate.subscribe(subscriptionName, message ->
+        return subscriberTemplate.subscribe(subscriptionName, message ->
                 request.executor().execute(() -> consume(request, message)));
     }
 
@@ -242,7 +254,9 @@ public class PubSubUtil {
             request.retryTemplate().orElse(this.retryTemplate).execute(() -> {
                 var pubsubMessage = message.getPubsubMessage();
                 try {
-                    if (request.eventType().isPresent()) {
+                    if (request.rawConsumer().isPresent()) {
+                        request.rawConsumer().orElseThrow().accept(pubsubMessage);
+                    } else if (request.eventType().isPresent()) {
                         consumeConcrete(request, pubsubMessage);
                     } else if (pubsubMessage.containsAttributes("type")) {
                         consumeTyped(request, pubsubMessage);

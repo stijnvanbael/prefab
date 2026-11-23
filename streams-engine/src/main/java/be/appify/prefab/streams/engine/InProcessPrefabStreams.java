@@ -3,6 +3,7 @@ package be.appify.prefab.streams.engine;
 import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.streams.AggregationWindow;
+import be.appify.prefab.streams.ContextualStreamProcessor;
 import be.appify.prefab.streams.GlobalStore;
 import be.appify.prefab.streams.GlobalStoreUpdater;
 import be.appify.prefab.streams.JoinWindow;
@@ -22,12 +23,16 @@ import be.appify.prefab.streams.tracing.TracingConfig;
 import java.time.Duration;
 import java.time.Instant;
 import java.lang.reflect.ParameterizedType;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -76,6 +81,7 @@ public final class InProcessPrefabStreams implements PrefabStreams {
     private final Set<String> repartitionNames = new LinkedHashSet<>();
     private final Set<String> sinkTopics = ConcurrentHashMap.newKeySet();
     private final AtomicInteger nameSequence = new AtomicInteger();
+    private final Map<String, AtomicInteger> sourceSequences = new ConcurrentHashMap<>();
     private final ReentrantLock declarationsLock = new ReentrantLock();
     private final ReentrantLock relayLock = new ReentrantLock();
     private final ThreadLocal<StreamStateRepository.Transaction> activeTransaction = new ThreadLocal<>();
@@ -164,8 +170,12 @@ public final class InProcessPrefabStreams implements PrefabStreams {
             Class<?> valueType,
             EventType<V> eventType
     ) {
+        var bindingId = bindingId(eventType);
+        var baseName = sourceName(topic, valueType, bindingId);
+        var name = baseName + "-" + sourceSequences.computeIfAbsent(baseName, ignored -> new AtomicInteger())
+                .incrementAndGet();
         return new EnginePrefabStream<>(this,
-                List.of(new Route(topic, bindingId(eventType), valueType, List.of())), valueType, eventType);
+                List.of(new Route(name, topic, bindingId, valueType, List.of())), valueType, eventType);
     }
 
     @Override
@@ -337,11 +347,21 @@ public final class InProcessPrefabStreams implements PrefabStreams {
             validateUnsupported(routes);
             initializeProcessors(routes);
             warnForUnorderedStatefulSources(routes);
-            var topics = new LinkedHashSet<String>();
-            routes.stream().map(Route::sourceTopic).forEach(topics::add);
-            globals.stream().map(GlobalDeclaration::topic).forEach(topics::add);
-            topics.forEach(topic -> subscriptions.add(source.subscribe(topic,
-                    (message, acknowledgement) -> processMessage(topic, message, acknowledgement, routes, globals))));
+            var bindings = new LinkedHashMap<StreamSource.SourceBinding, List<Route>>();
+            for (var route : routes) {
+                var binding = new StreamSource.SourceBinding(
+                        route.sourceName, route.sourceTopic, route.sourceValueType, route.sourceBindingId);
+                bindings.computeIfAbsent(binding, ignored -> new ArrayList<>()).add(route);
+            }
+            bindings.forEach((binding, sourceRoutes) -> subscriptions.add(source.subscribe(binding,
+                    (message, acknowledgement) ->
+                            processMessage(binding, message, acknowledgement, sourceRoutes, List.of()))));
+            for (var global : globals) {
+                var binding = new StreamSource.SourceBinding(
+                        "global-" + global.name, global.topic, global.sourceType, global.sourceBindingId);
+                subscriptions.add(source.subscribe(binding, (message, acknowledgement) ->
+                        processMessage(binding, message, acknowledgement, List.of(), List.of(global))));
+            }
             repository.cleanupExpired(Instant.now(), inboxRetention);
             relayOutbox();
             maintenance = Executors.newSingleThreadScheduledExecutor(task -> {
@@ -399,7 +419,7 @@ public final class InProcessPrefabStreams implements PrefabStreams {
     }
 
     private void processMessage(
-            String topic,
+            StreamSource.SourceBinding binding,
             StreamMessage original,
             StreamSource.Acknowledgement acknowledgement,
             List<Route> routes,
@@ -410,7 +430,7 @@ public final class InProcessPrefabStreams implements PrefabStreams {
             var transaction = repository.beginTransaction();
             var previousTransaction = activeTransaction.get();
             try {
-                if (!transaction.recordInbox(topic, message.messageId())) {
+                if (!transaction.recordInbox(binding.name(), message.messageId())) {
                     transaction.rollback();
                     relayOutbox();
                     acknowledgement.acknowledge();
@@ -418,12 +438,12 @@ public final class InProcessPrefabStreams implements PrefabStreams {
                 }
                 activeTransaction.set(transaction);
                 for (var declaration : globals) {
-                    if (declaration.topic.equals(topic) && declaration.accepts(message)) {
+                    if (declaration.accepts(message)) {
                         applyGlobalUpdate(declaration, message);
                     }
                 }
                 for (var route : routes) {
-                    if (route.sourceTopic.equals(topic) && route.accepts(message)) {
+                    if (route.accepts(message)) {
                         execute(route, message, transaction);
                     }
                 }
@@ -570,6 +590,16 @@ public final class InProcessPrefabStreams implements PrefabStreams {
 
     private static String bindingId(EventType<?> eventType) {
         return eventType != null && eventType.type() instanceof ParameterizedType ? eventType.id() : null;
+    }
+
+    private static String sourceName(String topic, Class<?> type, String bindingId) {
+        var identity = topic + "\n" + type.getName() + "\n" + (bindingId == null ? "" : bindingId);
+        try {
+            var hash = MessageDigest.getInstance("SHA-256").digest(identity.getBytes(StandardCharsets.UTF_8));
+            return "source-" + HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is required to name stream sources", e);
+        }
     }
 
     private List<String> aggregateCorrelationIds(AggregateState<?> previous, StreamMessage message) {
@@ -1198,6 +1228,9 @@ public final class InProcessPrefabStreams implements PrefabStreams {
 
         @Override
         public List<StreamMessage> apply(StreamMessage message, Execution execution) {
+            if (processor instanceof ContextualStreamProcessor<?, ?, ?, ?> contextual) {
+                ((ContextualStreamProcessor<KI, VI, KO, VO>) contextual).bindContext(context);
+            }
             context.begin(message);
             try {
                 processor.process(new StreamRecord<>((KI) message.key(), (VI) message.value(),
@@ -1425,19 +1458,22 @@ public final class InProcessPrefabStreams implements PrefabStreams {
         }
     }
 
-    private record Route(String sourceTopic, String sourceBindingId, Class<?> sourceValueType, List<Stage> stages) {
+    private record Route(
+            String sourceName, String sourceTopic, String sourceBindingId, Class<?> sourceValueType, List<Stage> stages
+    ) {
         private Route {
             stages = List.copyOf(stages);
         }
 
         private boolean accepts(StreamMessage message) {
-            return sourceBindingId == null || sourceBindingId.equals(message.headers().get(EventType.HEADER));
+            return (message.value() == null || sourceValueType.isInstance(message.value()))
+                    && (sourceBindingId == null || sourceBindingId.equals(message.headers().get(EventType.HEADER)));
         }
 
         private Route append(Stage stage) {
             var next = new ArrayList<>(stages);
             next.add(stage);
-            return new Route(sourceTopic, sourceBindingId, sourceValueType, next);
+            return new Route(sourceName, sourceTopic, sourceBindingId, sourceValueType, next);
         }
     }
 
@@ -1450,7 +1486,8 @@ public final class InProcessPrefabStreams implements PrefabStreams {
             GlobalUpdater updater
     ) {
         private boolean accepts(StreamMessage message) {
-            return sourceBindingId == null || sourceBindingId.equals(message.headers().get(EventType.HEADER));
+            return (message.value() == null || sourceType.isInstance(message.value()))
+                    && (sourceBindingId == null || sourceBindingId.equals(message.headers().get(EventType.HEADER)));
         }
     }
 

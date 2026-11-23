@@ -33,6 +33,15 @@ public abstract class ContextualStreamProcessor<KI, VI extends Keyed<KI>, KO, VO
 
     @Override
     public void initContext(StreamProcessorContext<KO, VO> context) {
+        bindContext(context);
+    }
+
+    /**
+     * Binds an already initialized context to the current delivery thread.
+     *
+     * @param context context initialized for this processor
+     */
+    public final void bindContext(StreamProcessorContext<KO, VO> context) {
         this.context.set(context);
     }
 

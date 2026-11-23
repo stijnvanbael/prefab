@@ -60,7 +60,8 @@ class ShowcaseSecurityAndDocumentationIntegrationTest {
         mockMvc.perform(get("/v3/api-docs").with(user("reader")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.openapi").exists())
-                .andExpect(jsonPath("$.paths['/products']").exists());
+                .andExpect(jsonPath("$.paths['/products']").exists())
+                .andExpect(jsonPath("$.paths['/customers/{customerId}/order-history']").exists());
         mockMvc.perform(get("/swagger-ui/index.html").with(user("reader")))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/async-api/asyncapi.json").with(user("reader")))

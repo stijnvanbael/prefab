@@ -1,6 +1,7 @@
 package be.appify.prefab.example.showcase.ordering;
 
 import be.appify.prefab.core.annotations.rest.GetList;
+import be.appify.prefab.core.annotations.rest.Security;
 import be.appify.prefab.core.annotations.rest.ViewOf;
 import be.appify.prefab.core.service.Reference;
 import java.math.BigDecimal;
@@ -16,7 +17,7 @@ import java.math.BigDecimal;
  * @param cancellable whether the customer can still cancel the order
  */
 @ViewOf(Order.class)
-@GetList
+@GetList(security = @Security(role = "ADMIN"))
 public record OrderOverview(
         Reference<Order> order,
         OrderStatus status,

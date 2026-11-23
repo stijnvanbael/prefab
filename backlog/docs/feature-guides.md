@@ -1828,6 +1828,12 @@ They are mutually exclusive. `enabled = false` disables the generated method-lev
 security filter chain may still require authentication. To make an endpoint anonymously reachable, configure the
 filter chain with a suitable `HttpSecurityCustomizer` matcher as well.
 
+`@Security` enforces endpoint-level authorities or roles, not ownership of individual records. For row-level access,
+scope the data query to the principal or explicitly check ownership. The showcase keeps raw order and overview reads
+admin-only and serves a customer's history at `/customers/{customerId}/order-history`, where a method-security rule
+requires the authenticated principal name to match the customer ID. It removes the generic generated history list so
+callers cannot select another customer's ID as a filter.
+
 Implement `AuditContextProvider` to populate `@CreatedBy` and `@LastModifiedBy` from the active principal:
 
 ```java

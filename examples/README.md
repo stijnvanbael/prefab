@@ -21,6 +21,7 @@ Sources in [`catalog`](showcase/src/main/java/be/appify/prefab/example/showcase/
 |---|---|---|
 | `@Create`, `@GetById`, `@Update`, `@Delete` | `Product` | `ProductIntegrationTest` |
 | Default authenticated reads and `@Security` role/authority checks on catalog writes | `Product`, `Category` | `ShowcaseSecurityAndDocumentationIntegrationTest` |
+| Customer-owned order history; direct order reads are admin-only | `CustomerOrderHistoryAccessController`, `Order`, `OrderOverview` | `CustomerOrderHistoryIntegrationTest` |
 | Jakarta Validation, `@ContentType`, `@FileSize` | `Product`, `Category`, `Promotion` | `ProductValidationIntegrationTest` |
 | `@GetList` with `@Filter` (equality, range, full text), paging, `@SortOrder` | `Product`, `Category` | `ProductListIntegrationTest`, `CategoryIntegrationTest` |
 | `@Text` (unbounded column) | `Product.description` | `ProductIntegrationTest` |
@@ -39,6 +40,9 @@ the shared variant build. Product creation and updates require the `ADMIN` role,
 `ROLE_ADMIN` authority, and normal product reads use Prefab's default authenticated access. Category listing disables
 endpoint-level security with `@Security(enabled = false)` and is still subject to the filter-chain authentication
 policy. The integration test checks the generated rules with both admin and customer principals.
+Order records and overviews are admin-only; customer history is available only at
+`/customers/{customerId}/order-history` when the authenticated principal name matches the customer ID. There is no
+generic customer-history list endpoint.
 
 The `local` and `test` profiles use HTTP Basic and Spring Boot's generated development user, so the app starts without
 real OAuth credentials or checked-in passwords. Outside those profiles Prefab's JWT resource-server configuration

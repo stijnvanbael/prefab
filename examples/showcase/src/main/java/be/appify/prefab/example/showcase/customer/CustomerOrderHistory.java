@@ -3,9 +3,6 @@ package be.appify.prefab.example.showcase.customer;
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.Multicast;
 import be.appify.prefab.core.annotations.EventHandler;
-import be.appify.prefab.core.annotations.rest.Filter;
-import be.appify.prefab.core.annotations.rest.GetById;
-import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.example.showcase.ordering.OrderEvent;
 import be.appify.prefab.example.showcase.ordering.OrderStatus;
@@ -13,8 +10,6 @@ import java.util.ArrayList;
 import java.util.List;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
-
-import static be.appify.prefab.core.annotations.rest.Filter.Operator.EQUAL;
 
 /**
  * Read model of the orders of one customer. It has no create endpoint and no writes of its own: it is built from the
@@ -30,12 +25,10 @@ import static be.appify.prefab.core.annotations.rest.Filter.Operator.EQUAL;
  * @param orders   the orders of the customer, oldest first
  */
 @Aggregate
-@GetById
-@GetList
 public record CustomerOrderHistory(
         @Id Reference<CustomerOrderHistory> id,
         @Version long version,
-        @Filter(operator = EQUAL) Reference<Customer> customer,
+        Reference<Customer> customer,
         List<Entry> orders
 ) {
 

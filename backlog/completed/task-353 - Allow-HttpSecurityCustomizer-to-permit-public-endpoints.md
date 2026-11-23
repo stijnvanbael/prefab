@@ -57,4 +57,6 @@ checked anonymous requests, so they reported success.
 
 - `mvn -q -pl security -am -Dtest=WebSecurityConfigurationTest,WebSecurityConfigurationActivationTest,WebSecurityConfigurationAutoConfigurationTest -Dsurefire.failIfNoSpecifiedTests=false test` passed.
 - `mvn -q -pl examples/showcase -am -Dtest=CategoryIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false test` passed (2 tests).
+- `mvn -q -DskipTests package` passed for all modules after rebasing.
+- `mvn -q test` was attempted twice but stopped in the unrelated Avro `SaleIntegrationTest` because Podman could not pull `confluentinc/cp-schema-registry:8.4.0` (connection reset / HTTP 416).
 - The benchmark reference's hidden `PublicArticlesAcceptanceTest` passed (2 tests). The benchmark validator then reported a Windows workspace-cleanup failure, so its overall validation command did not complete successfully.

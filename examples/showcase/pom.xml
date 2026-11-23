@@ -40,6 +40,10 @@
         </dependency>
         <dependency>
             <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-avro</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
             <artifactId>prefab-security</artifactId>
         </dependency>
         <dependency>
@@ -53,6 +57,11 @@
         <dependency>
             <groupId>be.appify.prefab</groupId>
             <artifactId>prefab-annotation-processor</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-avro-processor</artifactId>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -78,7 +87,22 @@
                             <sources>
                                 <source>${project.basedir}/src/streams/java</source>
                                 <source>${project.basedir}/src/streams-kafka/java</source>
+                                <source>${project.basedir}/src/avro/java</source>
                             </sources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>add-showcase-avro-resources</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>add-resource</goal>
+                        </goals>
+                        <configuration>
+                            <resources>
+                                <resource>
+                                    <directory>${project.basedir}/src/avro/resources</directory>
+                                </resource>
+                            </resources>
                         </configuration>
                     </execution>
                     <execution>
@@ -103,6 +127,7 @@
                             <sources>
                                 <source>${project.basedir}/src/streams-test/java</source>
                                 <source>${project.basedir}/src/streams-kafka-test/java</source>
+                                <source>${project.basedir}/src/avro-test/java</source>
                             </sources>
                         </configuration>
                     </execution>

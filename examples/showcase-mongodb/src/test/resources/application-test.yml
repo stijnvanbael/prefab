@@ -4,3 +4,6 @@ logging.level:
 prefab:
   dlt.retries:
     initial-interval-ms: 10
+  test:
+    schema-registry:
+      enabled: true

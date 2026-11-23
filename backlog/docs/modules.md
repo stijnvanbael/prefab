@@ -74,7 +74,7 @@ for the emitted resources and limits.
 
 | Module Path                         | Purpose                                                                                  |
 |-------------------------------------|------------------------------------------------------------------------------------------|
-| `examples/showcase`                 | Shop showcase on the reference stack (Postgres + Kafka, JSON), including order-stream analytics |
+| `examples/showcase`                 | Shop showcase on the reference stack (Postgres + Kafka, JSON), including order-stream analytics and Avro events |
 | `examples/showcase-variant-parent`  | Shared build that recompiles the showcase sources and tests per variant (decision-007)   |
 | `examples/showcase-mongodb`         | Showcase variant on MongoDB + Kafka (configuration only)                                 |
 | `examples/avro`                     | Avro and AVSC-first event examples                                                       |

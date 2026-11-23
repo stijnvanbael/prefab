@@ -30,6 +30,7 @@
         <showcase.source.directory>${project.basedir}/../showcase/src</showcase.source.directory>
         <showcase.streams.skip>true</showcase.streams.skip>
         <showcase.kafka.streams.skip>true</showcase.kafka.streams.skip>
+        <showcase.avro.skip>true</showcase.avro.skip>
     </properties>
 
     <dependencies>
@@ -191,6 +192,55 @@
                             </resources>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>copy-showcase-avro-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${showcase.avro.skip}</skip>
+                            <outputDirectory>${showcase.directory}/src/avro/java</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${showcase.source.directory}/avro/java</directory>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <!-- The annotation processor reads the Avro schemas from the classpath, so they are copied before compiling -->
+                    <execution>
+                        <id>copy-showcase-avro-schemas</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${showcase.avro.skip}</skip>
+                            <outputDirectory>${showcase.directory}/src/avro/resources</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${showcase.source.directory}/avro/resources</directory>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-showcase-avro-test-sources</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${showcase.avro.skip}</skip>
+                            <outputDirectory>${showcase.directory}/src/avro-test/java</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${showcase.source.directory}/avro-test/java</directory>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
             <plugin>
@@ -208,7 +258,22 @@
                                 <source>${showcase.directory}/src/main/java</source>
                                 <source>${showcase.directory}/src/streams/java</source>
                                 <source>${showcase.directory}/src/streams-kafka/java</source>
+                                <source>${showcase.directory}/src/avro/java</source>
                             </sources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>add-showcase-avro-resources</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>add-resource</goal>
+                        </goals>
+                        <configuration>
+                            <resources>
+                                <resource>
+                                    <directory>${showcase.directory}/src/avro/resources</directory>
+                                </resource>
+                            </resources>
                         </configuration>
                     </execution>
                     <execution>
@@ -222,6 +287,7 @@
                                 <source>${showcase.directory}/src/test/java</source>
                                 <source>${showcase.directory}/src/streams-test/java</source>
                                 <source>${showcase.directory}/src/streams-kafka-test/java</source>
+                                <source>${showcase.directory}/src/avro-test/java</source>
                                 <source>${showcase.directory}/target/prefab-test-sources</source>
                             </sources>
                         </configuration>

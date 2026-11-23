@@ -6,7 +6,17 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Annotate a method that should be exposed as an HTTP endpoint for updating the aggregate root. */
+/**
+ * Annotates a method exposed as an HTTP endpoint for updating the aggregate root.
+ *
+ * <p>Return an updated aggregate instance instead of mutating the existing instance. The legacy
+ * {@code void} update form is deprecated and scheduled for removal in the next major version;
+ * the annotation processor warns when it is used. Mark existing legacy methods with
+ * {@link Deprecated @Deprecated} and document their aggregate-returning replacement.
+ *
+ * <p>For async commits, publish the event and return the current aggregate; the generated service
+ * does not persist the return value.
+ */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.SOURCE)
 public @interface Update {

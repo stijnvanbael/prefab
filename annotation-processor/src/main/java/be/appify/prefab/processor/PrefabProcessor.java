@@ -52,6 +52,7 @@ import javax.tools.Diagnostic;
  */
 @SupportedAnnotationTypes({
         "be.appify.prefab.core.annotations.*",
+        "be.appify.prefab.core.annotations.rest.Update",
 })
 @SupportedOptions({"prefab.builder.setterPrefix", FullTextLanguages.OPTION, "prefab.events.baselineDir",
         "prefab.events.compatibility", ErrorReporter.STACKTRACE_OPTION, HandWrittenFindings.SEVERITY_OPTION})
@@ -116,6 +117,7 @@ public class PrefabProcessor extends AbstractProcessor {
 
     private void processRound(RoundEnvironment environment) {
         clearRoundCaches();
+        warnAboutVoidUpdates(environment);
         var plugins = detectPlugins();
         rememberCurrentCompilationTypeNames(environment);
         var context = new PrefabContext(
@@ -175,6 +177,19 @@ public class PrefabProcessor extends AbstractProcessor {
         // Only evict ERROR-kind (unresolved) type mirrors; stable, fully-resolved types survive across rounds.
         // Class-keyed and TypeElement-keyed caches never need eviction because those keys are stable.
         TypeManifest.clearUnresolvedTypeCache();
+    }
+
+    private void warnAboutVoidUpdates(RoundEnvironment environment) {
+        environment.getElementsAnnotatedWith(Update.class).stream()
+                .filter(ExecutableElement.class::isInstance)
+                .map(ExecutableElement.class::cast)
+                .filter(method -> method.getReturnType().getKind() == TypeKind.VOID)
+                .forEach(method -> processingEnv.getMessager().printMessage(
+                        Diagnostic.Kind.WARNING,
+                        "[@Update] " + method.getSimpleName() + ": void updates are deprecated and will be removed "
+                                + "in the next major version. Return an aggregate instance instead; for async commits, "
+                                + "publish the event and return the current aggregate.",
+                        method));
     }
 
     private void rememberCurrentCompilationTypeNames(RoundEnvironment environment) {

@@ -56,7 +56,7 @@ Analysis:
 
 Output:
 - The operator support matrix per broker is in decision-008.
-- New tasks: TASK-351 (broker-neutral `prefab-streams-engine` with in-memory topology test harness), TASK-352 (Postgres state, inbox and outbox), TASK-353 (MongoDB state, follow-up) and TASK-354 (`StreamProcessorContext.schedule`, follow-up).
-- TASK-341 (Pub/Sub) and TASK-342 (SNS/SQS) now describe the broker-specific design, carry the operator list, and depend on TASK-351 and TASK-352. TASK-342 still depends on TASK-340.
+- New tasks: TASK-360 (broker-neutral `prefab-streams-engine` with in-memory topology test harness), TASK-361 (Postgres state, inbox and outbox), TASK-362 (MongoDB state, follow-up) and TASK-363 (`StreamProcessorContext.schedule`, follow-up).
+- TASK-341 (Pub/Sub) and TASK-342 (SNS/SQS) now describe the broker-specific design, carry the operator list, and depend on TASK-360 and TASK-361. TASK-342 still depends on TASK-340.
 - TASK-337.06 notes that the showcase's `breakout` topology must stay Kafka-only.
 <!-- SECTION:NOTES:END -->

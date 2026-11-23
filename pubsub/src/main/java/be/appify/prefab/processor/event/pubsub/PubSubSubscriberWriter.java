@@ -3,7 +3,7 @@ package be.appify.prefab.processor.event.pubsub;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.core.annotations.OutputTarget;
-import be.appify.prefab.core.pubsub.PubSubUtil;
+import be.appify.prefab.core.pubsub.PubSubSubscriptions;
 import be.appify.prefab.core.pubsub.SubscriptionRequest;
 import be.appify.prefab.processor.CaseUtil;
 import be.appify.prefab.processor.OutputTargetFileOutput;
@@ -152,7 +152,7 @@ class PubSubSubscriberWriter {
                     .build());
         }
         fields.forEach(field -> constructor.addParameter(ParameterSpec.builder(field.type(), field.name()).build()));
-        constructor.addParameter(PubSubUtil.class, "pubSub");
+        constructor.addParameter(PubSubSubscriptions.class, "pubSub");
         if (hasCustomRetries(config)) {
             if (config.retryLimit().matches("\\$\\{.+}")) {
                 constructor.addParameter(configParameter(Integer.class, "maxRetries", config.retryLimit()));

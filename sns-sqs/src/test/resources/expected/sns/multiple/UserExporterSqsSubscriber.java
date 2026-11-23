@@ -1,7 +1,7 @@
 package sns.multiple.infrastructure.sns;
 
 import be.appify.prefab.core.sns.SqsSubscriptionRequest;
-import be.appify.prefab.core.sns.SqsUtil;
+import be.appify.prefab.core.sns.SqsSubscriptions;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
@@ -20,7 +20,7 @@ public class UserExporterSqsSubscriber {
     private final UserExporter userExporter;
 
     public UserExporterSqsSubscriber(@Value("${user-exporter.concurrency:4}") String concurrency,
-            UserExporter userExporter, SqsUtil sqsUtil,
+            UserExporter userExporter, SqsSubscriptions sqsUtil,
             @Value("${topic.user.name}") String[] userEventTopics) {
         executor = Executors.newFixedThreadPool(Integer.parseInt(concurrency));
         for (var topic : userEventTopics) {

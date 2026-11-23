@@ -1,6 +1,6 @@
 package pubsub.multitopic.infrastructure.pubsub;
 
-import be.appify.prefab.core.pubsub.PubSubUtil;
+import be.appify.prefab.core.pubsub.PubSubSubscriptions;
 import be.appify.prefab.core.pubsub.SubscriptionRequest;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
@@ -17,7 +17,7 @@ public class DayTotalPubSubSubscriber {
 
     private final DayTotalService dayTotalService;
 
-    public DayTotalPubSubSubscriber(DayTotalService dayTotalService, PubSubUtil pubSub,
+    public DayTotalPubSubSubscriber(DayTotalService dayTotalService, PubSubSubscriptions pubSub,
             @Value("${topic.sale.name}") String[] saleCreatedTopics,
             @Value("${topic.refund.name}") String[] refundCreatedTopics) {
         for (var topic : saleCreatedTopics) {

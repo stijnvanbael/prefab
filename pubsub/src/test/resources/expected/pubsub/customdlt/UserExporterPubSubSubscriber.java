@@ -1,6 +1,6 @@
 package pubsub.customdlt.infrastructure.pubsub;
 
-import be.appify.prefab.core.pubsub.PubSubUtil;
+import be.appify.prefab.core.pubsub.PubSubSubscriptions;
 import be.appify.prefab.core.pubsub.SubscriptionRequest;
 import com.google.pubsub.v1.DeadLetterPolicy;
 import java.time.Duration;
@@ -20,7 +20,7 @@ public class UserExporterPubSubSubscriber {
 
     private final UserExporter userExporter;
 
-    public UserExporterPubSubSubscriber(UserExporter userExporter, PubSubUtil pubSub,
+    public UserExporterPubSubSubscriber(UserExporter userExporter, PubSubSubscriptions pubSub,
             @Value("${prefab.dlt.retries.backoff-multiplier:1.5}") Double backoffMultiplier,
             @Value("${custom.dlt.name}") String deadLetterTopic,
             @Value("${topic.user.name}") String[] userEventTopics) {

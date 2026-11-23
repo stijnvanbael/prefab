@@ -1,7 +1,7 @@
 package sns.dltdisabled.infrastructure.sns;
 
 import be.appify.prefab.core.sns.SqsSubscriptionRequest;
-import be.appify.prefab.core.sns.SqsUtil;
+import be.appify.prefab.core.sns.SqsSubscriptions;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
@@ -19,7 +19,7 @@ public class UserExporterSqsSubscriber {
 
     private final UserExporter userExporter;
 
-    public UserExporterSqsSubscriber(UserExporter userExporter, SqsUtil sqsUtil,
+    public UserExporterSqsSubscriber(UserExporter userExporter, SqsSubscriptions sqsUtil,
             @Value("${topic.user.name}") String[] userEventTopics) {
         executor = Executors.newFixedThreadPool(1);
         for (var topic : userEventTopics) {

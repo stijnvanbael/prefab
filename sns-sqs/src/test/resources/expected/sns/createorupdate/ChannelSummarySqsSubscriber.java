@@ -1,7 +1,7 @@
 package sns.createorupdate.infrastructure.sns;
 
 import be.appify.prefab.core.sns.SqsSubscriptionRequest;
-import be.appify.prefab.core.sns.SqsUtil;
+import be.appify.prefab.core.sns.SqsSubscriptions;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
@@ -19,7 +19,7 @@ public class ChannelSummarySqsSubscriber {
 
     private final ChannelSummaryService channelSummaryService;
 
-    public ChannelSummarySqsSubscriber(ChannelSummaryService channelSummaryService, SqsUtil sqsUtil,
+    public ChannelSummarySqsSubscriber(ChannelSummaryService channelSummaryService, SqsSubscriptions sqsUtil,
             @Value("${topic.message.name}") String[] messageEventTopics) {
         executor = Executors.newFixedThreadPool(1);
         for (var topic : messageEventTopics) {

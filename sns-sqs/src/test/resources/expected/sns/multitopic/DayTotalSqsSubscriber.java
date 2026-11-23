@@ -1,7 +1,7 @@
 package sns.multitopic.infrastructure.sns;
 
 import be.appify.prefab.core.sns.SqsSubscriptionRequest;
-import be.appify.prefab.core.sns.SqsUtil;
+import be.appify.prefab.core.sns.SqsSubscriptions;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
@@ -20,7 +20,7 @@ public class DayTotalSqsSubscriber {
 
     private final DayTotalService dayTotalService;
 
-    public DayTotalSqsSubscriber(DayTotalService dayTotalService, SqsUtil sqsUtil,
+    public DayTotalSqsSubscriber(DayTotalService dayTotalService, SqsSubscriptions sqsUtil,
             @Value("${topic.sale.name}") String[] saleCreatedTopics,
             @Value("${topic.refund.name}") String[] refundCreatedTopics) {
         executor = Executors.newFixedThreadPool(1);

@@ -15,6 +15,8 @@ import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.StreamDefinition;
 import be.appify.prefab.streams.StreamRecord;
 import be.appify.prefab.streams.engine.StreamMessage;
+import com.google.api.gax.core.CredentialsProvider;
+import com.google.api.gax.core.NoCredentialsProvider;
 import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.pubsub.v1.PubsubMessage;
 import java.time.Duration;
@@ -139,6 +141,11 @@ class PubSubStreamsIntegrationTest {
     @EnableAutoConfiguration
     @Import(PrefabCoreConfiguration.class)
     static class Application {
+        @Bean
+        CredentialsProvider credentialsProvider() {
+            return NoCredentialsProvider.create();
+        }
+
         @Bean
         EventRegistryCustomizer events() {
             return registry -> {

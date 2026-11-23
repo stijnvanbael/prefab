@@ -77,6 +77,23 @@ public class ErrorReporter {
     }
 
     /**
+     * Reports a validation finding as a warning, in the same format as {@link #reportValidationError}.
+     *
+     * @param element the element the warning is about (may be null)
+     * @param annotation the annotation or component that triggered validation
+     * @param ruleViolated the rule that was violated
+     * @param suggestedFix the corrective action (may be null)
+     */
+    public void reportValidationWarning(
+            Element element,
+            String annotation,
+            String ruleViolated,
+            String suggestedFix
+    ) {
+        printMessage(Diagnostic.Kind.WARNING, formatMessage(annotation, element, ruleViolated, suggestedFix), element);
+    }
+
+    /**
      * Reports a validation warning with structured information.
      *
      * @param element the element where the warning occurred

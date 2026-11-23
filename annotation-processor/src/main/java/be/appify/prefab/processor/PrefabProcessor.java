@@ -16,6 +16,7 @@ import be.appify.prefab.core.annotations.rest.Streaming;
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.core.util.FullTextLanguages;
 import be.appify.prefab.processor.error.ErrorReporter;
+import be.appify.prefab.processor.handwritten.HandWrittenFindings;
 import be.appify.prefab.processor.error.ProcessingGuard;
 import be.appify.prefab.processor.event.EventBindings;
 import com.google.auto.service.AutoService;
@@ -53,7 +54,7 @@ import javax.tools.Diagnostic;
         "be.appify.prefab.core.annotations.*",
 })
 @SupportedOptions({"prefab.builder.setterPrefix", FullTextLanguages.OPTION, "prefab.events.baselineDir",
-        "prefab.events.compatibility", ErrorReporter.STACKTRACE_OPTION})
+        "prefab.events.compatibility", ErrorReporter.STACKTRACE_OPTION, HandWrittenFindings.SEVERITY_OPTION})
 @AutoService(Processor.class)
 @SuppressWarnings("unused")
 public class PrefabProcessor extends AbstractProcessor {

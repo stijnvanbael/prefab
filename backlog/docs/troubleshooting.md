@@ -158,6 +158,31 @@ and test-only reset limitations.
 
 ---
 
+## Error: `[Prefab] ...: this hand-written ... duplicates ...` (controller, entity or repository)
+
+**Cause:** Prefab found a hand-written `@RestController` handler, `@Entity` or Spring Data repository for an aggregate
+that Prefab already exposes, persists or generates. See
+[Generated Artefacts: Hand-Written Code Checks](generated-artefacts.md#613-hand-written-code-checks).
+
+**Fix:** Delete the hand-written class and change the `@Aggregate` type instead (`@Create`, `@Update`, `@GetList`,
+`@Filter`, ...); use `@RepositoryMixin` for extra queries. Only take over a generated class on purpose, with the
+[source-file override](generated-artefacts.md#611-overriding-a-generated-class-escape-hatch). To keep a legacy class
+while migrating, annotate it with `@SuppressWarnings("prefab.handwritten")`, or set
+`-Aprefab.handwritten.severity=warning`.
+
+---
+
+## Warning: `db/migration/V<n>__....sql is a hand-written migration that changes tables Prefab already manages`
+
+**Cause:** A versioned migration changes a table that Prefab derives from an aggregate.
+
+**Fix:** Change the aggregate and compile so that Prefab generates the migration. If the script is a copy of a
+generated one, keep the `__generated` suffix; if the DDL cannot be expressed in the model, name it
+`V<n>__<description>_manual.sql` or add the comment `-- prefab:manual`. See
+[Database Migration Lifecycle](database-migrations.md#hand-written-migrations-for-managed-tables).
+
+---
+
 ## Events not published in integration tests (silent drop)
 
 **Cause:** A plain unit test (without `@ExtendWith(PublishedEventsExtension.class)`) called

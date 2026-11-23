@@ -282,6 +282,8 @@ The entry point is [backlog/docs/developer-guide.md](backlog/docs/developer-guid
 3. **Write tests first** (TDD). The full test suite must remain green.
 4. **Commit in small, focused increments** with conventional-commit messages.
 5. **Update `backlog/docs/`** if your change affects any documented feature or extension point.
-6. **Open a pull request** against `main` — include a brief description of *why* the change is needed
+6. **Rebase on the latest `main`** (`git fetch origin main && git rebase origin/main`) and re-run the
+   full test suite.
+7. **Open a pull request** against `main` — include a brief description of *why* the change is needed
    and a reference to the backlog task ID.
 

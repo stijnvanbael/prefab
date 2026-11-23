@@ -116,6 +116,9 @@ Avoid: raw types, `StringBuffer`, old `Date`/`Calendar`, `synchronized` (prefer 
 - Javadoc on all public types/methods in shared code. Comment *why*, not *what*.
 - Capture significant decisions in ADRs (`backlog/decisions/`).
 - Small, focused commits; conventional-commits format (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`).
+- Use meaningful branch names that describe the work, e.g. `feat/task-123-soft-delete` or
+  `fix/flaky-category-stats-test` — never random or auto-generated names (unless the environment mandates one).
+- When a task is done, create a pull request right away — don't wait to be asked.
 - Leave the codebase better than you found it (Boy Scout Rule).
 
 ---
@@ -128,6 +131,7 @@ Avoid: raw types, `StringBuffer`, old `Date`/`Calendar`, `synchronized` (prefer 
 - [ ] Code reads naturally without explanation
 - [ ] Task file updated to `Done` with implementation notes and moved to `backlog/completed/`
 - [ ] Changes committed with a descriptive conventional-commit message
-- [ ] Pull request created for the branch (agents open the PR themselves when the work is done)
+- [ ] Branch has a meaningful name
+- [ ] Pull request created for the branch right away (agents open the PR themselves when the work is done)
 
 </CRITICAL_INSTRUCTION>

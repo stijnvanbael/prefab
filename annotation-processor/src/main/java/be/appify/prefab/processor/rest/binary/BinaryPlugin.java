@@ -2,12 +2,14 @@ package be.appify.prefab.processor.rest.binary;
 
 import be.appify.prefab.core.annotations.Exposure;
 import be.appify.prefab.core.annotations.rest.Download;
+import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.validation.ContentType;
 import be.appify.prefab.core.annotations.validation.FileSize;
 import be.appify.prefab.core.domain.Binary;
 import be.appify.prefab.core.spring.StorageService;
 import be.appify.prefab.processor.AnnotationManifest;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.rest.ExposureResolver;
@@ -31,8 +33,15 @@ public class BinaryPlugin implements PrefabPlugin {
     private final BinaryControllerWriter binaryControllerWriter = new BinaryControllerWriter();
     private final BinaryTestClientWriter binaryTestClientWriter = new BinaryTestClientWriter();
 
+    private PrefabContext context;
+
     /** Creates a new instance of BinaryPlugin. */
     public BinaryPlugin() {
+    }
+
+    @Override
+    public void initContext(PrefabContext context) {
+        this.context = context;
     }
 
     @Override
@@ -90,10 +99,18 @@ public class BinaryPlugin implements PrefabPlugin {
         if (!hasPublicAggregateExposure(manifest)) {
             return;
         }
-        manifest.fields().stream()
+        var downloads = manifest.fields().stream()
                 .filter(f -> f.type().is(Binary.class) && f.hasAnnotation(Download.class))
-                .forEach(field ->
-                        builder.addMethod(binaryControllerWriter.downloadMethod(manifest, field)));
+                .toList();
+        if (!downloads.isEmpty() && !hasGetById(manifest)) {
+            // The generated download endpoint looks the aggregate up through service.getById
+            downloads.forEach(field -> context.logError(
+                    "[@Download] field '%s' on %s requires the aggregate to be annotated with @GetById"
+                            .formatted(field.name(), manifest.simpleName()),
+                    manifest.element()));
+            return;
+        }
+        downloads.forEach(field -> builder.addMethod(binaryControllerWriter.downloadMethod(manifest, field)));
     }
 
     @Override
@@ -105,6 +122,10 @@ public class BinaryPlugin implements PrefabPlugin {
                 .filter(f -> f.type().is(Binary.class) && f.hasAnnotation(Download.class))
                 .forEach(field ->
                         builder.addMethod(binaryTestClientWriter.downloadMethod(manifest, field)));
+    }
+
+    private static boolean hasGetById(ClassManifest manifest) {
+        return !manifest.annotationsOfType(GetById.class).isEmpty();
     }
 
     private static boolean hasPublicAggregateExposure(ClassManifest manifest) {

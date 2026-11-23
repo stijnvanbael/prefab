@@ -33,7 +33,7 @@ request/response DTOs, event consumer, and database migration scripts at compile
 | [Module Dependency Matrix](modules.md)                | All modules, feature-to-module mapping, Maven snippets             |
 | [Annotation Reference](annotation-reference.md)       | Every annotation with attributes, rules, and examples              |
 | [Built-in Types](built-in-types.md)                   | `Reference<T>`, `Binary`, `AuditInfo`, `Page<T>`, provider interfaces, exceptions |
-| [Generated Artefacts](generated-artefacts.md)         | Controller, service, repository, DTOs, consumers, migrations, test helpers, escape hatch |
+| [Generated Artefacts](generated-artefacts.md)         | Controller, service, repository, DTOs, consumers, migrations, test helpers, escape hatch, per-project agent context file |
 | [Database Migration Lifecycle](database-migrations.md) | Schema diffing, generated/manual migrations, Flyway and MongoDB lifecycle               |
 | [Feature Guides](feature-guides.md)                   | REST CRUD, aggregate-bound views, events, Avro, audit, multi-tenancy, SSE, testing |
 | [Extension Point Guide](extension-points.md)          | Customization coverage, `PrefabPlugin` API, `@RepositoryMixin`, provider overrides, escape hatch |

@@ -558,3 +558,49 @@ ShipmentMother.builder().withoutOptionalItems().build();
 By default, all mother classes are written to `TARGET/prefab-test-sources` (test scope).
 Use `@Generate(plugin = MotherPlugin.class, target = OutputTarget.MAIN)` on an event type to write
 the mother to main sources instead.
+
+---
+
+## 6.12 Agent Context File
+
+At the end of every compilation that contains aggregates, Prefab writes a compact Markdown summary meant for AI
+coding agents. It describes only what applies to *this* project, so an agent does not have to read generic
+documentation or browse `target/generated-sources` (and is not tempted to edit generated files).
+
+| Compilation       | Location                          |
+|-------------------|-----------------------------------|
+| Main sources      | `target/prefab/agent-context.md`  |
+| Test sources      | `target/prefab/agent-context-test.md` |
+
+The location is stable and lives outside `target/classes`, so the file is never packaged in the jar.
+
+### Contents
+
+- **Active capabilities**: derived from the compile classpath (Postgres, MongoDB, Kafka, Pub/Sub, SNS/SQS,
+  Spring Security, OpenAPI, AsyncAPI, Kafka Streams). Capabilities that are not on the classpath are omitted.
+- **Aggregates**: per aggregate the HTTP endpoints (method and path), the events it handles with their topics,
+  the table or collection it is stored in, and the generated test helpers (`{Name}Client`, Mothers, assertions).
+- **Events**: every `@Event` type of the compilation with its topics and, for Avro, the serialization.
+- **Required configuration**: the application properties the active capabilities need at runtime.
+
+Events *published* by an aggregate are not attributed to it (publishing happens in method bodies); look them up
+in the **Events** section instead.
+
+### Determinism and size
+
+All lists are sorted and the file contains no timestamps or absolute paths, so compiling the same model twice
+gives identical output. Size budget: roughly 2.5 KB fixed plus 0.7 KB per aggregate; a test in
+`AgentContextPluginTest` enforces it on a representative project.
+
+### Turning it off
+
+```
+-Aprefab.plugin.agentcontext.enabled=false
+```
+
+See [Plugin selection](annotation-reference.md#generate) for the other ways to select plugins.
+
+### How agents should use it
+
+Read `target/prefab/agent-context.md` first, before opening generated sources. Treat it as the index of what
+exists: change behaviour by editing the annotated domain types and recompiling, never by editing generated code.

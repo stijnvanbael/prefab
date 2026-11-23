@@ -36,3 +36,7 @@ This task delivers the always-loaded entry point for app developers (not framewo
 - [ ] #7 Deprecated APIs and alternative ways of doing the same thing are left out, so there is one recommended way per intent
 - [ ] #8 Benchmark results from TASK-343 are recorded for Haiku with the cheat sheet compared to without it
 <!-- AC:END -->
+
+## Notes
+
+- Reference the per-project agent context file (`target/prefab/agent-context.md`, see TASK-345 and `generated-artefacts.md` §6.12) from the cheat sheet.

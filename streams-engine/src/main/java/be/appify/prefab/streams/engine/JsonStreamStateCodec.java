@@ -1,7 +1,6 @@
-package be.appify.prefab.streams.postgres;
+package be.appify.prefab.streams.engine;
 
 import be.appify.prefab.streams.StreamKeyEncoding;
-import be.appify.prefab.streams.engine.StreamMessage;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;

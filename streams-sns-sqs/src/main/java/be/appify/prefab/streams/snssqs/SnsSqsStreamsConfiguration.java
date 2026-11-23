@@ -24,13 +24,17 @@ import org.springframework.context.annotation.Bean;
 
 /**
  * Runs the Prefab Streams DSL on SNS/SQS with the in-process engine, when the application has SNS/SQS support and a
- * {@link StreamStateRepository}, for example the Postgres one of {@code prefab-streams-postgres}.
+ * {@link StreamStateRepository}, for example the Postgres one of {@code prefab-streams-postgres} or the MongoDB one of
+ * {@code prefab-streams-mongodb}.
  *
  * <p>The topology starts once all {@link StreamDefinition} beans exist, and stops with the application context.
  */
 @AutoConfiguration(
         after = SnsConfiguration.class,
-        afterName = "be.appify.prefab.streams.postgres.PostgresStreamsStateConfiguration")
+        afterName = {
+                "be.appify.prefab.streams.postgres.PostgresStreamsStateConfiguration",
+                "be.appify.prefab.streams.mongodb.MongoStreamsStateConfiguration"
+        })
 @ConditionalOnClass(SnsTemplate.class)
 @ConditionalOnBean({SqsUtil.class, StreamStateRepository.class})
 @EnableConfigurationProperties(SnsSqsStreamsProperties.class)

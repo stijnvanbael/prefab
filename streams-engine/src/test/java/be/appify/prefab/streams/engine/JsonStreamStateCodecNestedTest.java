@@ -1,6 +1,5 @@
-package be.appify.prefab.streams.postgres;
+package be.appify.prefab.streams.engine;
 
-import be.appify.prefab.streams.engine.StreamMessage;
 import java.time.Instant;
 import java.nio.charset.StandardCharsets;
 import java.util.List;

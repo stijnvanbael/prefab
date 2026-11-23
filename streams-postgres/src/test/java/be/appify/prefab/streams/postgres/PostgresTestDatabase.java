@@ -1,5 +1,6 @@
 package be.appify.prefab.streams.postgres;
 
+import be.appify.prefab.streams.engine.JsonStreamStateCodec;
 import javax.sql.DataSource;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.springframework.jdbc.core.JdbcTemplate;

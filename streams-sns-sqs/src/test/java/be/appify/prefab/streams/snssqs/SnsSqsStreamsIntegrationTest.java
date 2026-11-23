@@ -16,7 +16,7 @@ import be.appify.prefab.streams.GlobalStore;
 import be.appify.prefab.streams.JoinWindow;
 import be.appify.prefab.streams.engine.InProcessPrefabStreams;
 import be.appify.prefab.streams.engine.StreamMessage;
-import be.appify.prefab.streams.postgres.JsonStreamStateCodec;
+import be.appify.prefab.streams.engine.JsonStreamStateCodec;
 import be.appify.prefab.streams.postgres.PostgresStreamSchema;
 import be.appify.prefab.streams.postgres.PostgresStreamStateRepository;
 import be.appify.prefab.streams.snssqs.StreamFixtures.CategoryTotal;

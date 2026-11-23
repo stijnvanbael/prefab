@@ -6,7 +6,7 @@ import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.streams.JoinWindow;
 import be.appify.prefab.streams.engine.InProcessPrefabStreams;
-import be.appify.prefab.streams.postgres.JsonStreamStateCodec;
+import be.appify.prefab.streams.engine.JsonStreamStateCodec;
 import be.appify.prefab.streams.postgres.PostgresStreamSchema;
 import be.appify.prefab.streams.postgres.PostgresStreamStateRepository;
 import be.appify.prefab.streams.snssqs.StreamFixtures.CategoryTotal;

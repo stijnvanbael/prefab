@@ -2,6 +2,7 @@ package be.appify.prefab.core.sns;
 
 import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.core.domain.EventType;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
@@ -25,6 +26,9 @@ public class SqsSubscriptionRequest<T> {
     private RetryTemplate retryTemplate = null;
     private Executor executor = Runnable::run;
     private String deadLetterQueueName = DEFAULT_DEAD_LETTER_QUEUE_NAME;
+    private SqsMessageConsumer<T> messageConsumer = null;
+    private Duration visibilityTimeout = null;
+    private boolean fifo = false;
 
     /**
      * Creates a new SQS subscription request.
@@ -169,6 +173,68 @@ public class SqsSubscriptionRequest<T> {
      */
     public SqsSubscriptionRequest<T> withRetryTemplate(RetryTemplate retryTemplate) {
         this.retryTemplate = retryTemplate;
+        return this;
+    }
+
+    /**
+     * Gets the consumer that receives message metadata and acknowledges messages itself.
+     *
+     * @return the consumer, or empty when the plain consumer handles the events
+     */
+    public Optional<SqsMessageConsumer<T>> messageConsumer() {
+        return Optional.ofNullable(messageConsumer);
+    }
+
+    /**
+     * Gets the visibility timeout of the queue.
+     *
+     * @return the timeout, or empty to keep the queue's own setting
+     */
+    public Optional<Duration> visibilityTimeout() {
+        return Optional.ofNullable(visibilityTimeout);
+    }
+
+    /**
+     * Returns whether the subscription requires a FIFO topic and queue regardless of the registered event.
+     *
+     * @return whether FIFO is required
+     */
+    public boolean fifo() {
+        return fifo;
+    }
+
+    /**
+     * Handles deliveries with a consumer that receives the message metadata and decides when the message is
+     * deleted, instead of deleting it after the plain consumer returns.
+     *
+     * @param messageConsumer the metadata-aware consumer
+     * @return the subscription request
+     */
+    public SqsSubscriptionRequest<T> withMessageConsumer(SqsMessageConsumer<T> messageConsumer) {
+        this.messageConsumer = messageConsumer;
+        return this;
+    }
+
+    /**
+     * Sets the visibility timeout of the queue. It must exceed the time that handling a message can take,
+     * including retries.
+     *
+     * @param visibilityTimeout the timeout, with a resolution of one second
+     * @return the subscription request
+     */
+    public SqsSubscriptionRequest<T> withVisibilityTimeout(Duration visibilityTimeout) {
+        this.visibilityTimeout = visibilityTimeout;
+        return this;
+    }
+
+    /**
+     * Requires a FIFO topic and queue, also when the event has no partitioning key.
+     *
+     * @param fifo whether FIFO is required
+     * @return the subscription request
+     */
+    public SqsSubscriptionRequest<T> withFifo(boolean fifo) {
+        this.fifo = fifo;
         return this;
     }
 

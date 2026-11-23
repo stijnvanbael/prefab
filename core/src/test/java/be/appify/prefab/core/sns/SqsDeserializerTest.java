@@ -64,6 +64,29 @@ class SqsDeserializerTest {
         assertEquals("hello", event.field());
     }
 
+    @Test
+    void parseNotificationReadsPayloadSubjectAndAttributesWithoutDeserializing() {
+        var snsEnvelope = """
+                {"Message":"{\\"field\\":\\"value\\"}", "Subject":"com.example.UnknownEvent",
+                 "MessageAttributes":{"prefab-message-id":{"Type":"String","Value":"m-1"}}}
+                """;
+
+        var notification = deserializer.parseNotification(snsEnvelope);
+
+        assertEquals("{\"field\":\"value\"}", notification.payload());
+        assertEquals("com.example.UnknownEvent", notification.subject());
+        assertEquals("m-1", notification.attributes().get("prefab-message-id"));
+    }
+
+    @Test
+    void parseNotificationReturnsARawBodyAsThePayload() {
+        var notification = deserializer.parseNotification("plain body");
+
+        assertEquals("plain body", notification.payload());
+        assertEquals(null, notification.subject());
+        assertEquals(0, notification.attributes().size());
+    }
+
     private record KnownEvent(String field) {}
 }
 

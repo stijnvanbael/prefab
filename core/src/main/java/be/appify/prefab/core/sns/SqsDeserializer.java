@@ -95,7 +95,7 @@ public class SqsDeserializer {
         }
         var envelope = extractEnvelope(body);
         var serialization = eventRegistry.contains(topic) ? eventRegistry.serialization(topic) : Event.Serialization.JSON;
-        var eventType = resolveEventType(envelope.typeName(), type);
+        var eventType = resolveEventType(envelope.subject(), type);
         var plan = eventMigrator.plan(eventType, MessageVersions.from(envelope.attributes()::get));
         if (plan.isRequired()) {
             var tree = serialization == Event.Serialization.AVRO
@@ -105,7 +105,7 @@ public class SqsDeserializer {
         }
         return switch (serialization) {
             case AVRO -> conversionService.convert(readAvro(envelope.payload()), type);
-            case JSON -> deserializeJson(envelope.payload(), envelope.typeName(), type);
+            case JSON -> deserializeJson(envelope.payload(), envelope.subject(), type);
         };
     }
 
@@ -148,23 +148,31 @@ public class SqsDeserializer {
                 .filter(type::isAssignableFrom).orElse((Class) type);
     }
 
-    private record SnsEnvelope(String payload, String typeName, Map<String, String> attributes) {
+    /**
+     * Reads the SNS notification envelope of an SQS message body, without deserializing its payload. A body that is
+     * not an envelope (raw message delivery) is returned as the payload, without subject and attributes.
+     *
+     * @param body the raw SQS message body
+     * @return the envelope
+     */
+    public SqsNotification parseNotification(String body) {
+        return extractEnvelope(body);
     }
 
-    private SnsEnvelope extractEnvelope(String body) {
+    private SqsNotification extractEnvelope(String body) {
         if (!body.stripLeading().startsWith("{")) {
-            return new SnsEnvelope(body, null, Map.of());
+            return new SqsNotification(body, null, Map.of());
         }
         var parsed = jsonMapper.readTree(body);
         if (!parsed.isObject() || !parsed.has("Message")) {
-            return new SnsEnvelope(body, null, Map.of());
+            return new SqsNotification(body, null, Map.of());
         }
         var message = parsed.get("Message");
         if (!message.isString()) {
             throw new IllegalArgumentException("SNS notification Message must be a string");
         }
         var subject = parsed.get("Subject");
-        return new SnsEnvelope(message.asText(), subject == null ? null : subject.asText(),
+        return new SqsNotification(message.asText(), subject == null ? null : subject.asText(),
                 messageAttributes(parsed.get("MessageAttributes")));
     }
 

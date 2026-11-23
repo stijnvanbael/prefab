@@ -21,11 +21,14 @@ import software.amazon.awssdk.services.sqs.model.DeleteMessageRequest;
 import software.amazon.awssdk.services.sqs.model.GetQueueAttributesRequest;
 import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest;
 import software.amazon.awssdk.services.sqs.model.Message;
+import software.amazon.awssdk.services.sqs.model.MessageSystemAttributeName;
 import software.amazon.awssdk.services.sqs.model.QueueAttributeName;
 import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest;
 import software.amazon.awssdk.services.sqs.model.SetQueueAttributesRequest;
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -134,12 +137,14 @@ public class SqsUtil implements DisposableBean {
      *         the subscription request containing queue name, topic, type, and consumer
      * @param <T>
      *         the type of the messages
+     * @return a handle that stops polling the queue; the queue and its subscription to the topic are kept
      */
-    public <T> void subscribe(SqsSubscriptionRequest<T> request) {
+    public <T> SqsSubscription subscribe(SqsSubscriptionRequest<T> request) {
         var fifo = isFifoSubscription(request);
         var topicArn = ensureTopicExists(request.topic(), fifo);
         var queueUrl = ensureQueueExists(request.queueName(), fifo);
         var queueArn = getQueueArn(queueUrl);
+        request.visibilityTimeout().ifPresent(timeout -> setVisibilityTimeout(queueUrl, timeout));
 
         if (request.isUsingDefaultDeadLetterQueueName()) {
             configureDlq(queueUrl, deadLetterQueueName, maxRetries, fifo);
@@ -148,7 +153,7 @@ public class SqsUtil implements DisposableBean {
         }
 
         subscribeQueueToTopic(topicArn, queueArn);
-        startPolling(request, queueUrl);
+        return startPolling(request, queueUrl);
     }
 
     /**
@@ -286,8 +291,24 @@ public class SqsUtil implements DisposableBean {
         }
     }
 
+    private void setVisibilityTimeout(String queueUrl, Duration timeout) {
+        try {
+            sqsClient.setQueueAttributes(
+                    SetQueueAttributesRequest.builder()
+                            .queueUrl(queueUrl)
+                            .attributes(Map.of(QueueAttributeName.VISIBILITY_TIMEOUT,
+                                    Long.toString(Math.max(1, timeout.toSeconds()))))
+                            .build()
+            ).get();
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Failed to set the visibility timeout of queue [%s]".formatted(queueUrl), e);
+        }
+    }
+
     private boolean isFifoSubscription(SqsSubscriptionRequest<?> request) {
-        return request.topic().endsWith(".fifo")
+        return request.fifo()
+                || request.topic().endsWith(".fifo")
                 || request.eventType()
                         .map(eventRegistry::hasPartitioningKey)
                         .orElseGet(() -> eventRegistry.hasPartitioningKey(request.type()));
@@ -312,7 +333,7 @@ public class SqsUtil implements DisposableBean {
         }
     }
 
-    private <T> void startPolling(SqsSubscriptionRequest<T> request, String queueUrl) {
+    private <T> SqsSubscription startPolling(SqsSubscriptionRequest<T> request, String queueUrl) {
         var pollingExecutor = Executors.newSingleThreadExecutor(r -> {
             var thread = new Thread(r, "sqs-poller-" + request.queueName());
             thread.setDaemon(true);
@@ -328,6 +349,7 @@ public class SqsUtil implements DisposableBean {
                                     .maxNumberOfMessages(10)
                                     .waitTimeSeconds(20)
                                     .messageAttributeNames("All")
+                                    .messageSystemAttributeNames(MessageSystemAttributeName.ALL)
                                     .build()
                     ).get().messages();
                     for (var message : messages) {
@@ -340,12 +362,19 @@ public class SqsUtil implements DisposableBean {
                 }
             }
         });
+        return () -> {
+            pollingExecutor.shutdownNow();
+            pollingExecutors.remove(pollingExecutor);
+        };
     }
 
     <T> void processMessage(SqsSubscriptionRequest<T> request, String queueUrl, Message message) {
         T event;
+        var metadata = request.messageConsumer().map(ignored -> metadataOf(message));
         try {
-            if (request.eventType().isPresent()) {
+            if (metadata.filter(SqsMessageMetadata::tombstone).isPresent()) {
+                event = null;
+            } else if (request.eventType().isPresent()) {
                 var matching = sqsDeserializer.deserializeMatching(
                         request.topic(), message.body(), request.eventType().orElseThrow());
                 if (matching.isEmpty()) {
@@ -366,8 +395,13 @@ public class SqsUtil implements DisposableBean {
         try {
             request.retryTemplate().orElse(retryTemplate).execute(() -> {
                 try {
-                    request.consumer().accept(event);
-                    deleteMessage(queueUrl, message);
+                    if (metadata.isPresent()) {
+                        request.messageConsumer().orElseThrow()
+                                .accept(event, metadata.get(), () -> deleteMessage(queueUrl, message));
+                    } else {
+                        request.consumer().accept(event);
+                        deleteMessage(queueUrl, message);
+                    }
                 } catch (Exception e) {
                     log.warn("Error processing SQS message: {}, cause: {}", truncate(message.body(), 200),
                             e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
@@ -379,6 +413,19 @@ public class SqsUtil implements DisposableBean {
             log.error("Retries exhausted when processing SQS message: {}", message, e);
             throw new RuntimeException(e);
         }
+    }
+
+    private SqsMessageMetadata metadataOf(Message message) {
+        var systemAttributes = message.attributes();
+        var sentTimestamp = Optional.ofNullable(systemAttributes.get(MessageSystemAttributeName.SENT_TIMESTAMP))
+                .map(millis -> Instant.ofEpochMilli(Long.parseLong(millis)))
+                .orElseGet(Instant::now);
+        var groupId = Optional.ofNullable(systemAttributes.get(MessageSystemAttributeName.MESSAGE_GROUP_ID));
+        return new SqsMessageMetadata(
+                message.messageId(),
+                sqsDeserializer.parseNotification(message.body()).attributes(),
+                sentTimestamp,
+                groupId);
     }
 
     private void deleteMessage(String queueUrl, Message message) {

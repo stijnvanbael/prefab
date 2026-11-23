@@ -1,6 +1,9 @@
 package be.appify.prefab.core.kafka;
 
+import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.PreviousName;
+import be.appify.prefab.core.domain.EventType;
+import be.appify.prefab.core.domain.TypedEvent;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +41,30 @@ class EventRegistryTest {
         registry.registerType("my-topic", MySealedEvent.class, MySealedEvent::id);
 
         assertEquals(Optional.of("xyz"), registry.keyFor(new MySealedEvent.Concrete("xyz")));
+    }
+
+    @Test
+    void hasPartitioningKeyReturnsTrueForRegisteredExtractorAndSubtypes() {
+        registry.registerType("my-topic", MySealedEvent.class, MySealedEvent::id);
+
+        assertTrue(registry.hasPartitioningKey(MySealedEvent.Concrete.class));
+    }
+
+    @Test
+    void hasPartitioningKeyReturnsFalseWithoutRegisteredExtractor() {
+        registry.registerType("my-topic", MyEvent.class);
+
+        assertFalse(registry.hasPartitioningKey(MyEvent.class));
+    }
+
+    @Test
+    void typedEventResolvesItsRegisteredPartitioningKey() {
+        var type = new EventType<GenericEvent<String>>() {};
+        registry.register("my-topic", type, Event.Serialization.JSON, GenericEvent::id);
+        var event = new GenericEvent<>("aggregate-1", "payload");
+
+        assertTrue(registry.hasPartitioningKey(new TypedEvent<>(type, event)));
+        assertEquals(Optional.of("aggregate-1"), registry.keyFor(new TypedEvent<>(type, event)));
     }
 
     @Test
@@ -98,6 +125,8 @@ class EventRegistryTest {
     }
 
     private record MyEvent(String id) {}
+
+    private record GenericEvent<T>(String id, T payload) {}
 
     private sealed interface MySealedEvent permits MySealedEvent.Concrete {
         String id();

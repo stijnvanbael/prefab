@@ -1,5 +1,6 @@
 package be.appify.prefab.core.sns;
 
+import io.awspring.cloud.sns.core.SnsNotification;
 import io.awspring.cloud.sns.core.SnsTemplate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -12,8 +13,12 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -36,7 +41,12 @@ class GenericSnsPublisherTest {
     @BeforeEach
     void setUp() {
         publisher = new GenericSnsPublisher(snsTemplate, sqsUtil, snsSerializer);
-        when(sqsUtil.ensureTopicExists(anyString())).thenAnswer(inv -> "arn:aws:sns:us-east-1:000000000000:" + inv.getArgument(0));
+        lenient().when(sqsUtil.ensureTopicExists(anyString())).thenAnswer(inv ->
+                "arn:aws:sns:us-east-1:000000000000:" + inv.getArgument(0));
+        lenient().when(sqsUtil.ensureTopicExists(anyString(), anyBoolean())).thenAnswer(inv ->
+                "arn:aws:sns:us-east-1:000000000000:" + inv.getArgument(0)
+                        + ((Boolean) inv.getArgument(1)
+                        && !((String) inv.getArgument(0)).endsWith(".fifo") ? ".fifo" : ""));
         when(snsSerializer.serialize(anyString(), any())).thenReturn("{\"id\":\"test\"}");
     }
 
@@ -103,5 +113,37 @@ class GenericSnsPublisherTest {
                 "{\"id\":\"test\"}",
                 TestEvent.class.getName());
     }
-}
 
+    @Test
+    @DisplayName("dispatch_givenPartitioningKey_publishesToFifoTopicWithMessageGroup")
+    void dispatch_givenPartitioningKey_publishesToFifoTopicWithMessageGroup() {
+        var event = new TestEvent("5");
+        when(sqsUtil.topicsForDispatch(event)).thenReturn(List.of("registered-topic"));
+        when(sqsUtil.hasPartitioningKey(event)).thenReturn(true);
+        when(sqsUtil.keyFor(event)).thenReturn(Optional.of("aggregate-1"));
+
+        publisher.dispatch(event);
+
+        verify(sqsUtil).ensureTopicExists("registered-topic", true);
+        verify(snsTemplate).sendNotification(
+                eq("arn:aws:sns:us-east-1:000000000000:registered-topic.fifo"),
+                argThat((SnsNotification<?> notification) ->
+                        notification.getGroupId().equals("aggregate-1")
+                                && notification.getDeduplicationId() != null
+                                && notification.getSubject().equals(TestEvent.class.getName())));
+    }
+
+    @Test
+    @DisplayName("dispatch_givenFifoTopicWithoutPartitioningKey_usesDefaultMessageGroup")
+    void dispatch_givenFifoTopicWithoutPartitioningKey_usesDefaultMessageGroup() {
+        publisher.dispatch(new TestEvent("6"), "orders.fifo");
+
+        verify(sqsUtil).ensureTopicExists("orders.fifo", true);
+        verify(snsTemplate).sendNotification(
+                eq("arn:aws:sns:us-east-1:000000000000:orders.fifo"),
+                argThat((SnsNotification<?> notification) ->
+                                notification.getGroupId().equals("prefab-default")
+                                        && notification.getDeduplicationId() != null));
+    }
+
+}

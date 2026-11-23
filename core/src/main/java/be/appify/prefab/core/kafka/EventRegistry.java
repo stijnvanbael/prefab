@@ -371,9 +371,45 @@ public class EventRegistry {
     public Optional<String> keyFor(Object event) {
         if (event instanceof TypedEvent<?> typed) {
             var extractor = concreteKeys.get(typed.type());
-            return extractor == null ? Optional.empty() : Optional.ofNullable(extractor.apply(typed.value()));
+            if (extractor != null) {
+                return Optional.ofNullable(extractor.apply(typed.value()));
+            }
+            return findExtractor(typed.type().rawType()).map(keyExtractor -> keyExtractor.apply(typed.value()));
         }
         return findExtractor(event.getClass()).map(extractor -> extractor.apply(event));
+    }
+
+    /**
+     * Checks whether a partitioning-key extractor is registered for the event type.
+     *
+     * @param event event instance or typed publication
+     * @return whether the event is configured for per-key ordering
+     */
+    public boolean hasPartitioningKey(Object event) {
+        if (event instanceof TypedEvent<?> typed) {
+            return hasPartitioningKey(typed.type());
+        }
+        return hasPartitioningKey(event.getClass());
+    }
+
+    /**
+     * Checks whether a partitioning-key extractor is registered for a concrete event binding.
+     *
+     * @param type event binding
+     * @return whether a matching extractor is registered
+     */
+    public boolean hasPartitioningKey(EventType<?> type) {
+        return concreteKeys.containsKey(type) || hasPartitioningKey(type.rawType());
+    }
+
+    /**
+     * Checks whether a partitioning-key extractor is registered for the type or one of its supertypes.
+     *
+     * @param type event class
+     * @return whether a matching extractor is registered
+     */
+    public boolean hasPartitioningKey(Class<?> type) {
+        return keyExtractors.keySet().stream().anyMatch(registeredType -> registeredType.isAssignableFrom(type));
     }
 
     private Optional<Function<Object, String>> findExtractor(Class<?> type) {

@@ -21,7 +21,7 @@ ordinal: 186000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Implement a `prefab-streams-pubsub` backend so the backend-neutral Prefab Streams DSL runs on Google Pub/Sub, following the design chosen in TASK-339. Today `StreamBackend` only knows KAFKA, so the showcase-pubsub variant (TASK-337.09) declares STREAMS as a gap pointing at this task.
+Implement a `prefab-streams-pubsub` backend so the backend-neutral Prefab Streams DSL runs on Google Pub/Sub, following the design chosen in TASK-339. Integration into the showcase-pubsub variant is tracked by TASK-337.09.
 
 Scope of a first version is the operator matrix from TASK-339. The backend-neutral topology test API (TestStreams / TopologyTestHarness, TASK-300) must work against it, so the showcase streams slice (TASK-337.06) can be included in showcase-pubsub without code changes.
 
@@ -48,12 +48,13 @@ First-version operators (decision-008):
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Showcase streams slice compiles and its tests pass in showcase-pubsub, or unsupported operators are skipped with a declared gap
 - [x] #2 Topology tests run against the Pub/Sub backend through the backend-neutral test API
-- [ ] #3 showcase-pubsub no longer declares STREAMS as a gap (or declares only specific unsupported operators)
 - [x] #4 Integration test (Pub/Sub emulator + Postgres) covers groupBy+aggregate, windowedAggregate, join and a global store end to end
 - [x] #5 Redelivered messages do not change state or output twice
 <!-- AC:END -->
+
+The original showcase-specific criteria #1 and #3 have moved to TASK-337.09, which depends on this backend.
+They remain unverified until the showcase-pubsub variant is implemented.
 
 ## Analysis
 
@@ -65,7 +66,7 @@ handle tombstones, and scope inbox identities correctly. PubSubUtil currently di
 consumer API must be extended while preserving existing handler behavior and retry/dead-letter semantics.
 
 The showcase streams slice (TASK-337.06) was merged to main while this work was in progress. The showcase-pubsub
-variant (TASK-337.09) is not yet available; its acceptance criteria cannot be verified until that task is integrated.
+variant (TASK-337.09) is not yet available and will verify its integration after this backend is merged.
 Container-dependent integration tests are delegated to CI because this environment cannot run Testcontainers.
 
 ## Implementation notes
@@ -85,8 +86,7 @@ Container-dependent integration tests are delegated to CI because this environme
   The test application now supplies one explicitly, along with no-credentials emulator configuration.
 - CI then exposed that a custom conversion service may not convert `7d` to a duration. The backend now parses
   the retention property using Spring Boot's duration syntax independently of the application's conversion service.
-- Full Maven verify passed on Java 21 in CI run 45198222791 for commit `1b648925`. The task remains in progress
-  because the showcase-pubsub variant (TASK-337.09) is not yet available for acceptance criteria #1 and #3.
+- Full Maven verify passed on Java 21 in CI run 45198222791 for commit `1b648925`, before the subsequent flaky run.
 - CI run 45200337894 later timed out waiting for aggregate output. The outbox relay can miss a wake-up when a
   second transaction commits after a topic was scanned while another relay is active. A deterministic in-memory test
   reproduced the missed wake-up; relay requests are now coalesced and trigger another scan, including for

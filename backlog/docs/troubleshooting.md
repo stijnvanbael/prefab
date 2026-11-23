@@ -65,7 +65,17 @@ permanently fail are routed to the DLT rather than blocking the consumer.
 
 **Cause:** The uploaded file's MIME type is not in the `@ContentType` whitelist.
 
-**Fix:** Either use an allowed MIME type, or expand the `@ContentType` values on the field.
+**Fix:** Either use an allowed MIME type, or expand the `@ContentType` values on the parameter.
+
+---
+
+## Binary upload returns `400 Bad Request` for a missing part
+
+**Cause:** The request does not follow the generated multipart format. The non-binary fields must be in a JSON part
+named `body` (not plain form fields) and the file in a part named after the `Binary` parameter.
+
+**Fix:** See [Generated Artefacts, 6.1](generated-artefacts.md#61-controller) for the request format and a `curl`
+example.
 
 ---
 

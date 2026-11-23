@@ -30,6 +30,35 @@ Sources in [`catalog`](showcase/src/main/java/be/appify/prefab/example/showcase/
 | Optimistic locking (`@Version`) | `Product.version` | `ProductOptimisticLockingIntegrationTest` |
 | `@RepositoryMixin` | `ProductRepositoryMixin` | `ProductRepositoryMixinIntegrationTest` |
 
+### Customers, ordering and invoicing: events
+
+Sources in [`customer`](showcase/src/main/java/be/appify/prefab/example/showcase/customer),
+[`ordering`](showcase/src/main/java/be/appify/prefab/example/showcase/ordering),
+[`inventory`](showcase/src/main/java/be/appify/prefab/example/showcase/inventory) and
+[`invoicing`](showcase/src/main/java/be/appify/prefab/example/showcase/invoicing). Placing an order publishes
+`OrderEvent.Placed`; stock is reserved, an invoice is created and the order history of the customer is updated, each by
+its own event handler. No event names a messaging platform, so the same sources publish to Kafka, Pub/Sub or SNS/SQS.
+
+| Feature | Where | Test |
+|---|---|---|
+| `@Event` with the platform derived from the classpath (`Platform.DERIVED`) | all events | `EventPlatformTest` |
+| `@PartitioningKey` | `OrderEvent.order()`, `CustomerRegistered.customer` | `CustomerOrderHistoryIntegrationTest` (ordered delivery, needs `ORDERED_DELIVERY`) |
+| Sealed event hierarchy | `OrderEvent` (`Placed`, `Cancelled`) | `StockLevelIntegrationTest`, `InvoiceIntegrationTest` |
+| `@EventHandler` updating another aggregate | `StockLevel` (order placed: stock reserved) | `StockLevelIntegrationTest` |
+| `@EventHandler` on a static method creates an aggregate | `Invoice` (order placed: invoice created) | `InvoiceIntegrationTest` |
+| `@ByReference` | `Invoice.onInvoicePaid` | `InvoiceIntegrationTest` |
+| Projection with repository mixin | `CustomerOrderHistory`, `CustomerOrderHistoryRepositoryMixin` | `CustomerOrderHistoryIntegrationTest` |
+| `@Multicast` | `Order.onCustomerDeactivated`, `StockLevel`, `Invoice`, `CustomerOrderHistory` | `OrderCancellationOnDeactivationIntegrationTest` |
+| `@AsyncCommit` | `Invoice.pay` (`202 Accepted`, applied when the invoice handles its own event) | `InvoiceIntegrationTest` |
+| `@EventHandlerConfig` (concurrency, retries) | `StockLevel` | `StockLevelIntegrationTest` |
+| Event versioning: `@Event(version)`, `@EventMigration` and a snapshot record | `CustomerRegistered`, `CustomerRegisteredV1`, `CustomerRegisteredMigration` | `CustomerRegisteredMigrationTest` |
+| `@ViewOf` aggregate-bound view model | `OrderOverview` | `OrderOverviewIntegrationTest` |
+
+Not shown: `@TenantId`. Tenant isolation needs a `TenantContextProvider` and a tenant on every request, which would
+touch every other showcase test; the technique is covered by the annotation processor tests.
+A `@Multicast` fails (and dead-letters) when its query finds no aggregates, so the showcase only targets aggregates
+that exist, see TASK-357.
+
 ## Technology coverage
 
 Not every feature works on every stack. A variant lists what it lacks in

@@ -6,3 +6,4 @@ be.appify.prefab.test.sns.SnsTestAutoConfiguration
 be.appify.prefab.test.mongodb.MongoDbTestAutoConfiguration
 be.appify.prefab.test.security.SecurityMockMvcTestAutoConfiguration
 be.appify.prefab.test.inmemory.InMemoryTestAutoConfiguration
+be.appify.prefab.test.inmemory.InMemoryPersistenceAutoConfiguration

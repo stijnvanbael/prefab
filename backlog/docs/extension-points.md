@@ -259,6 +259,10 @@ To revert, delete the file from `src/main/java/` and the processor regenerates i
 > **Keep overrides in sync manually.** Prefab never updates an override file. If the aggregate's API
 > changes (new `@Create`, `@Update`, etc.) you must update the override yourself.
 
+Prefab reports hand-written controllers, entities, repositories and migrations that *duplicate* generated code,
+but not overrides like this one or other documented extension points; see
+[Hand-Written Code Checks](generated-artefacts.md#613-hand-written-code-checks).
+
 For full details, worked examples, and a decision matrix on when to use this approach, see
 [Generated Artefacts — §6.11 Overriding a Generated Class](generated-artefacts.md#611-overriding-a-generated-class-escape-hatch).
 

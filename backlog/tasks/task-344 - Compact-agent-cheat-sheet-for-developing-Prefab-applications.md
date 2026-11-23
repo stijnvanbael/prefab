@@ -40,3 +40,7 @@ This task delivers the always-loaded entry point for app developers (not framewo
 ## Notes
 
 - Reference the per-project agent context file (`target/prefab/agent-context.md`, see TASK-345 and `generated-artefacts.md` §6.12) from the cheat sheet.
+
+TASK-347 note: the cheat sheet's "do not" list should mention that Prefab reports hand-written controllers, JPA
+entities, repositories and migrations for aggregates at compile time (`generated-artefacts.md` §6.13), and that
+`@SuppressWarnings("prefab.handwritten")` / `-- prefab:manual` are for human decisions only.

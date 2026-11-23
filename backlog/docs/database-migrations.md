@@ -25,7 +25,8 @@ no generated file. This is compile-time generation, not execution. Package the c
 application; Spring Boot's Flyway integration executes pending versioned migrations at application startup.
 
 Generated SQL is a proposal, not a deployment plan. For reviewable, durable migration history, copy the generated
-script into `src/main/resources/db/migration/` under a unique versioned name and commit it before deployment. Treat
+script into `src/main/resources/db/migration/` under a unique versioned name (keep the `__generated` suffix, see
+[hand-written migrations](#hand-written-migrations-for-managed-tables)) and commit it before deployment. Treat
 that source-controlled file as immutable once applied. The generator reconstructs schema state from these files on
 subsequent builds, so retain every migration needed to describe the schema. Manual and generated SQL can coexist in
 the same Flyway directory; avoid making the same schema change in both.
@@ -34,6 +35,23 @@ This reconstruction is only as useful as the SQL parser's understanding of the s
 manual SQL compatible with the migration parser and compile after adding it. A Flyway-valid statement that the
 processor cannot interpret can prevent generation or make the reconstructed schema incomplete; a clean build and
 review of the generated delta are essential.
+
+### Hand-written migrations for managed tables
+
+Prefab reports a hand-written versioned migration that creates, alters or drops a table it manages for an aggregate
+(or creates an index on it) as a warning, because the schema of those tables is meant to follow the model; see
+[Generated Artefacts: Hand-Written Code Checks](generated-artefacts.md#613-hand-written-code-checks). A migration is
+not reported when:
+
+- its name ends in `generated`, `manual` or `baseline` (for example `V3__generated.sql`,
+  `V4__drop_legacy_column_manual.sql`, `V1__baseline.sql`), or
+- it contains the comment `-- prefab:manual`, or
+- it only changes data (`INSERT`, `UPDATE`, `DELETE`) or only touches tables Prefab does not manage.
+
+Keep the `__generated` suffix when you copy a generated script into `src/main/resources/db/migration/`, and mark DDL
+that the model cannot express (for example changing a column default, see below) as manual. Silence everything with
+`-Aprefab.plugin.handwrittencode.enabled=false`, or raise the finding to an error with
+`-Aprefab.handwritten.severity=error`.
 
 ### Reading and reviewing the generated delta
 

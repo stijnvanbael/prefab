@@ -11,6 +11,7 @@
 | `core`                 | `prefab-core`                 | **Always**         | Framework types, annotations, interfaces       |
 | `streams`              | `prefab-streams`              | Streams DSL        | Backend-neutral stream DSL and test API        |
 | `streams-engine`       | `prefab-streams-engine`       | Streams without Kafka | In-process streams engine and in-memory test harness |
+| `streams-postgres`     | `prefab-streams-postgres`     | Streams state on Postgres | Postgres state, inbox, outbox and relay lease for the in-process engine |
 | `streams-kafka`        | `prefab-streams-kafka`        | Streams on Kafka   | Kafka Streams backend for the streams DSL      |
 | `annotation-processor` | `prefab-annotation-processor` | **Always**         | Compile-time code generator (APT)              |
 | `postgres`             | `prefab-postgres`             | PostgreSQL         | Spring Data JDBC + Flyway + PostgreSQL support |

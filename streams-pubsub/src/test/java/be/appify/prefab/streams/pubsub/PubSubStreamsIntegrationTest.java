@@ -15,6 +15,7 @@ import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.StreamDefinition;
 import be.appify.prefab.streams.StreamRecord;
 import be.appify.prefab.streams.engine.StreamMessage;
+import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.pubsub.v1.PubsubMessage;
 import java.time.Duration;
 import java.time.Instant;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
@@ -52,6 +54,7 @@ class PubSubStreamsIntegrationTest {
     @Autowired PubSubStreamSink sink;
     @Autowired PubSubDeserializer deserializer;
     @Autowired GlobalStore<String, Profile> profiles;
+    private final List<Subscriber> outputSubscribers = new CopyOnWriteArrayList<>();
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
@@ -67,6 +70,11 @@ class PubSubStreamsIntegrationTest {
     static void stopContainers() {
         PUBSUB.stop();
         POSTGRES.stop();
+    }
+
+    @AfterEach
+    void stopOutputSubscribers() {
+        outputSubscribers.forEach(Subscriber::stopAsync);
     }
 
     @Test
@@ -102,7 +110,8 @@ class PubSubStreamsIntegrationTest {
 
     private List<PubsubMessage> subscribe(String topic) {
         var messages = new CopyOnWriteArrayList<PubsubMessage>();
-        util.subscribeWithHandle(SubscriptionRequest.raw(topic, "test-output-" + topic, messages::add));
+        outputSubscribers.add(util.subscribeWithHandle(
+                SubscriptionRequest.raw(topic, "test-output-" + topic, messages::add)));
         return messages;
     }
 

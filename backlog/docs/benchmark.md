@@ -352,6 +352,8 @@ What it shows:
   path-scoped `SecurityFilterChain`, which silently removes Prefab's `@ConditionalOnMissingBean` default chain, so
   authenticated writes return 401. Their own tests only checked anonymous requests. Classified `API_MISUSE` and
   added to TASK-353. Haiku without docs replaced the whole chain and passed.
+  TASK-353 makes the default chain coexist with path-scoped chains and updates the reference to use
+  `HttpSecurityCustomizer` for public reads.
 - One `TEST_OR_INFRASTRUCTURE` failure: the Postgres container died during Sonnet's `list-range-filter` hidden tests.
 
 **Margin.** With 8 tasks, one attempt each, the 95% interval is about ±25 percentage points, and with all 32

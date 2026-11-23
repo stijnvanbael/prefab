@@ -39,7 +39,9 @@ The showcase adds `prefab-security`, `prefab-openapi` and `prefab-async-api` to 
 the shared variant build. Product creation and updates require the `ADMIN` role, deletion requires the
 `ROLE_ADMIN` authority, and normal product reads use Prefab's default authenticated access. Category listing disables
 endpoint-level security with `@Security(enabled = false)` and is still subject to the filter-chain authentication
-policy. The integration test checks the generated rules with both admin and customer principals.
+policy unless a matching `HttpSecurityCustomizer` rule permits anonymous access. The showcase permits anonymous
+`GET /categories` requests while other category operations remain authenticated. The integration test checks the
+generated rules with both admin and customer principals.
 Order records and overviews are admin-only; customer history is available only at
 `/customers/{customerId}/order-history` when the authenticated principal name matches the customer ID. There is no
 generic customer-history list endpoint.

@@ -38,29 +38,28 @@ public class WebSecurityConfiguration {
      *   <li>Enforces {@code STATELESS} session management to prevent accidental session creation.</li>
      *   <li>Supports both browser OAuth2 login and programmatic API access via Bearer tokens.</li>
      *   <li>Adds restrictive security response headers (CSP, Referrer-Policy).</li>
-     *   <li>Applies all registered {@link HttpSecurityCustomizer} beans so adopters can extend the
-     *       default chain without replacing it.</li>
+     *   <li>Applies all registered {@link HttpSecurityCustomizer} beans before the authenticated fallback rule.</li>
      * </ul>
      * <p>
      * Adopters who embed a Swagger UI must loosen the {@code Content-Security-Policy} (e.g. allow {@code 'unsafe-inline'} for styles).
-     * Override this bean with {@code @Bean @Primary} or rely on {@code @ConditionalOnMissingBean} to supply a custom chain.
+     * Add path-scoped {@link SecurityFilterChain} beans alongside this default chain. To replace it entirely,
+     * define a bean named {@code prefabSecurityFilterChain}.
      * </p>
      */
-    @Bean
-    @ConditionalOnMissingBean
-    SecurityFilterChain securityFilterChain(
+    @Bean("prefabSecurityFilterChain")
+    @ConditionalOnMissingBean(name = "prefabSecurityFilterChain")
+    SecurityFilterChain prefabSecurityFilterChain(
             HttpSecurity http,
             ObjectProvider<HttpSecurityCustomizer> customizers
     ) throws Exception {
         http.csrf(CsrfConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth ->
-                        auth.anyRequest().authenticated())
                 .oauth2ResourceServer(rs -> rs.jwt(withDefaults()))
                 .headers(headers -> headers
                         .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; frame-ancestors 'none'"))
                         .referrerPolicy(rp -> rp.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN)));
         applyCustomizers(http, customizers);
+        http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated());
         return http.build();
     }
 

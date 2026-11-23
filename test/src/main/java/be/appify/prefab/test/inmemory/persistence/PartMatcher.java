@@ -77,13 +77,13 @@ final class PartMatcher {
     private BiPredicate<Object, List<Object>> conditionOf(Part.Type type, String method) {
         return switch (type) {
             case SIMPLE_PROPERTY -> (actual, args) -> same(actual, args.getFirst());
-            case NEGATING_SIMPLE_PROPERTY -> (actual, args) -> !same(actual, args.getFirst());
+            case NEGATING_SIMPLE_PROPERTY -> (actual, args) -> actual != null && !same(actual, args.getFirst());
             case IN -> (actual, args) -> in(actual, args.getFirst());
-            case NOT_IN -> (actual, args) -> !in(actual, args.getFirst());
+            case NOT_IN -> (actual, args) -> actual != null && !in(actual, args.getFirst());
             case LIKE -> (actual, args) -> like(actual, args.getFirst());
-            case NOT_LIKE -> (actual, args) -> !like(actual, args.getFirst());
+            case NOT_LIKE -> (actual, args) -> actual != null && !like(actual, args.getFirst());
             case CONTAINING -> (actual, args) -> contains(actual, args.getFirst());
-            case NOT_CONTAINING -> (actual, args) -> !contains(actual, args.getFirst());
+            case NOT_CONTAINING -> (actual, args) -> actual != null && !contains(actual, args.getFirst());
             case STARTING_WITH -> (actual, args) -> text(actual, args.getFirst(), String::startsWith);
             case ENDING_WITH -> (actual, args) -> text(actual, args.getFirst(), String::endsWith);
             case GREATER_THAN, AFTER -> (actual, args) -> actual != null && Comparisons.compare(actual, args.getFirst()) > 0;

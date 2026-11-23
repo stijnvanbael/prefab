@@ -37,9 +37,9 @@ class DerivedQueryTest {
     static Stream<Arguments> keywords() {
         return Stream.of(
                 query("simple property", repository -> repository.findByCategory("coffee"), "i1", "i2"),
-                query("negating simple property", repository -> repository.findByCategoryNot("coffee"), "i3", "i4"),
+                query("negating simple property", repository -> repository.findByCategoryNot("coffee"), "i3"),
                 query("in", repository -> repository.findByCategoryIn(List.of("tea", "coffee")), "i1", "i2", "i3"),
-                query("not in", repository -> repository.findByCategoryNotIn(List.of("coffee")), "i3", "i4"),
+                query("not in", repository -> repository.findByCategoryNotIn(List.of("coffee")), "i3"),
                 query("like", repository -> repository.findByNameLike("Esp%"), "i1"),
                 query("like with single character wildcard", repository -> repository.findByNameLike("M_g"), "i4"),
                 query("not like", repository -> repository.findByNameNotLike("Esp%"), "i2", "i3", "i4"),

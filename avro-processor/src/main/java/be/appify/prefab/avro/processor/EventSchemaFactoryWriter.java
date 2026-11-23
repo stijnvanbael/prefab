@@ -13,6 +13,7 @@ import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.error.PrefabProcessingException;
 import be.appify.prefab.processor.event.EventBindings;
 import com.palantir.javapoet.*;
 import org.jspecify.annotations.Nullable;
@@ -200,8 +201,11 @@ class EventSchemaFactoryWriter {
                     return Optional.empty();
                 }
                 return Optional.of(new Schema.Parser().parse(stream));
-            } catch (IOException | RuntimeException ignored) {
-                return Optional.empty();
+            } catch (IOException | RuntimeException e) {
+                throw new PrefabProcessingException(null, "Avro",
+                        "AVSC file '%s' cannot be read or parsed: %s".formatted(path, e.getMessage()),
+                        "fix the schema so that it is valid Avro JSON",
+                        e);
             }
         });
     }
@@ -249,18 +253,10 @@ class EventSchemaFactoryWriter {
     }
 
     private boolean matchesRecordName(String avscPath, String recordSimpleName) {
-        try {
-            return cachedAvscSchema(avscPath)
-                    .map(parsedSchema -> avroTypeNames(recordSimpleName)
-                            .anyMatch(typeName -> containsNamedType(parsedSchema, typeName)))
-                    .orElse(false);
-        } catch (RuntimeException e) {
-            context.processingEnvironment().getMessager().printMessage(
-                    javax.tools.Diagnostic.Kind.WARNING,
-                    "Could not read or parse AVSC file '%s' while resolving schema for '%s': %s"
-                            .formatted(avscPath, recordSimpleName, e.getMessage()));
-            return false;
-        }
+        return cachedAvscSchema(avscPath)
+                .map(parsedSchema -> avroTypeNames(recordSimpleName)
+                        .anyMatch(typeName -> containsNamedType(parsedSchema, typeName)))
+                .orElse(false);
     }
 
     private Stream<String> avroTypeNames(String javaSimpleName) {
@@ -533,7 +529,11 @@ class EventSchemaFactoryWriter {
                     precision,
                     scale);
         }
-        throw new IllegalArgumentException("Unsupported type " + type);
+        throw new PrefabProcessingException(type.asElement(), "Avro",
+                    "event field type '%s' cannot be mapped to Avro.".formatted(type),
+                    "use a supported type (primitives, String, UUID, Instant, LocalDate, Duration, BigDecimal,"
+                            + " enums, records, List or single-value wrapper types) or provide an @Avsc schema",
+                    null);
     }
 
     private static Optional<Schema> decimalSchemaOf(@Nullable Schema schema) {

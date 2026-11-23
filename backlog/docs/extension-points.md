@@ -278,3 +278,64 @@ in-process collaborators; a separately deployed BFF must use versioned network c
 their local database transaction. In-process composition also does not grant authorization automatically:
 derive identity from the authenticated principal, and explicitly scope custom repository queries for tenant
 and row-level access.
+
+## 8.8 Compiler Diagnostics and Failure Handling
+
+The annotation processor never lets an expected problem surface as a raw processor stack trace. Every failure is
+classified at the closest boundary that knows its context (the aggregate being generated, or the plugin hook being
+called) and reported as a compiler diagnostic through `ErrorReporter`.
+
+| Category | Examples | Reported as |
+|----------|----------|-------------|
+| Expected input | unsupported field type, type without a database column mapping, invalid `@Computed` or `@Security` use, circular foreign keys, `@AvscInterface` type that cannot be resolved | One `ERROR` on the offending element: `[tag] Element: rule violated` + `Suggested fix: ...` |
+| Resource | malformed or unreadable AVSC file, existing `db/migration` SQL that Prefab cannot interpret | One `ERROR` that names the file, the cause and the fix |
+| Infrastructure | generated file cannot be written (disk full, read-only output directory), migration or `asyncapi.json` cannot be written | One `ERROR` with the I/O cause and a hint to check the output directory |
+| Programming / plugin bug | any other `RuntimeException` from Prefab or a plugin | One `ERROR` `[Prefab] Internal error in plugin <FQCN>` (or `the Prefab annotation processor`) with the full cause chain |
+| Fatal JVM failure | `OutOfMemoryError`, `StackOverflowError`, `LinkageError`, `AssertionError` | Never caught; javac reports it and stops |
+
+Compilation always fails when an error is reported; there is no success-shaped fallback.
+
+**Independent errors are all reported, consequent errors are suppressed.** Each aggregate, polymorphic aggregate,
+view and plugin hook runs behind its own `ProcessingGuard`, so a failure in one aggregate does not hide a failure
+in another. The files of an aggregate are buffered while it is generated and are only emitted when all of its layers
+succeeded, so a failed aggregate does not trigger a wave of `cannot find symbol` errors from half-generated code.
+Identical errors reached through several code paths are reported once.
+
+### Getting detailed evidence for an internal failure
+
+Internal errors show the exception chain but not the stack trace. To get the full stack trace, re-run the
+compilation with `-Aprefab.diagnostics.stacktrace=true`:
+
+```xml
+<compilerArgs>
+    <arg>-Aprefab.diagnostics.stacktrace=true</arg>
+</compilerArgs>
+```
+
+Include that output when reporting a bug. The cause chain and the failing plugin or component are always printed.
+
+### Obligations for plugin authors
+
+* **Report invalid user input with `PrefabProcessingException`**, not with `IllegalStateException`,
+  `IllegalArgumentException` or a manual `Messager` call followed by a return:
+
+  ```java
+  throw new PrefabProcessingException(
+          element,                       // where the error is shown (null = the aggregate being processed)
+          "@MyAnnotation",               // tag in brackets
+          "value() must not be empty",   // what is wrong
+          "set value() to a topic name", // how to fix it (may be null)
+          cause);                        // optional underlying exception
+  ```
+
+  The processor turns it into exactly one `ERROR`. Do not also print your own message.
+* **Wrap I/O and resource failures** (unreadable files, `IOException` from the `Filer`) in a
+  `PrefabProcessingException` with the file name and a corrective action. Never swallow them, never print them to
+  `System.err`, and never continue generating output that depends on the failed step.
+* **Let programming errors escape.** Do not catch `RuntimeException` to "keep going": the processor reports it as an
+  internal error that names your plugin and keeps the cause. Never catch `Error`s.
+* **Use `context.guard()`** when you run user-supplied or independent work yourself and want one failure not to stop
+  the rest: `context.guard().run("plugin " + getClass().getName(), element, () -> ...)` reports failures with the same
+  rules and returns `false` instead of throwing.
+* **Write files through `context.fileWriter(...)` / `testFileWriter(...)`**, so that output of a failed aggregate is
+  discarded.

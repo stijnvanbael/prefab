@@ -1,5 +1,11 @@
 package be.appify.prefab.processor.error;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.function.Consumer;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
@@ -14,6 +20,16 @@ import javax.tools.Diagnostic;
  * <p>All messages are emitted via the Messager to ensure proper IDE integration and error highlighting.
  */
 public class ErrorReporter {
+    /**
+     * Compiler option ({@code -Aprefab.diagnostics.stacktrace=true}) that appends the full stack trace of
+     * unexpected internal failures to the diagnostic.
+     */
+    public static final String STACKTRACE_OPTION = "prefab.diagnostics.stacktrace";
+
+    // Errors already reported per compilation, so that the same failure reached through several code paths
+    // (for example a malformed shared resource) is reported once.
+    private static final Map<ProcessingEnvironment, Set<String>> REPORTED_ERRORS = new WeakHashMap<>();
+
     private final ProcessingEnvironment processingEnvironment;
 
     /**
@@ -93,6 +109,66 @@ public class ErrorReporter {
     }
 
     /**
+     * Reports a failure that escaped from processor or plugin code as exactly one {@code ERROR} diagnostic.
+     *
+     * <p>A {@link PrefabProcessingException} is an expected failure and is reported with its rule, cause and
+     * suggested fix. Any other exception is an unexpected internal failure: the diagnostic names the failing
+     * component and the cause chain, and includes the full stack trace when
+     * {@code -A}{@value #STACKTRACE_OPTION}{@code =true} is set.
+     *
+     * @param component the processor or plugin that was running
+     * @param fallbackElement the element being processed, used when the failure carries no element (may be null)
+     * @param failure the failure to report
+     */
+    public void reportFailure(String component, Element fallbackElement, RuntimeException failure) {
+        if (failure instanceof PrefabProcessingException expected) {
+            var element = expected.element() != null ? expected.element() : fallbackElement;
+            var message = new StringBuilder(formatMessage(expected.annotation(), element,
+                    expected.ruleViolated(), expected.suggestedFix()));
+            if (expected.getCause() != null) {
+                message.append("\nCaused by: ").append(describe(expected.getCause()));
+            }
+            printMessage(Diagnostic.Kind.ERROR, message.toString(), element);
+            return;
+        }
+        var message = new StringBuilder("[Prefab] Internal error in ").append(component);
+        if (fallbackElement != null) {
+            message.append(" while processing ").append(fallbackElement.getSimpleName());
+        }
+        message.append(": ").append(describe(failure));
+        for (var cause = failure.getCause(); cause != null && cause != cause.getCause(); cause = cause.getCause()) {
+            message.append("\nCaused by: ").append(describe(cause));
+        }
+        message.append("\nThis is a bug in ").append(component)
+                .append(", not in your code. Please report it with this message");
+        if (Boolean.parseBoolean(processingEnvironment.getOptions().get(STACKTRACE_OPTION))) {
+            message.append("\n").append(stackTraceOf(failure));
+        } else {
+            message.append(". Re-run the compilation with -A").append(STACKTRACE_OPTION)
+                    .append("=true for the full stack trace");
+        }
+        printMessage(Diagnostic.Kind.ERROR, message.toString(), fallbackElement);
+    }
+
+    private Set<String> reportedErrors() {
+        synchronized (REPORTED_ERRORS) {
+            return REPORTED_ERRORS.computeIfAbsent(processingEnvironment, key -> new HashSet<>());
+        }
+    }
+
+    private static String describe(Throwable throwable) {
+        return throwable.getMessage() == null
+                ? throwable.getClass().getName()
+                : throwable.getClass().getName() + ": " + throwable.getMessage();
+    }
+
+    private static String stackTraceOf(Throwable throwable) {
+        var writer = new StringWriter();
+        throwable.printStackTrace(new PrintWriter(writer));
+        return writer.toString().stripTrailing();
+    }
+
+    /**
      * Collects multiple validation errors before reporting them all.
      *
      * <p>Returns a consumer that collects errors and a runnable that reports them all
@@ -109,7 +185,7 @@ public class ErrorReporter {
         sb.append("[").append(annotation).append("] ");
 
         // Add element name if available
-        if (element.getSimpleName() != null && !element.getSimpleName().toString().isEmpty()) {
+        if (element != null && element.getSimpleName() != null && !element.getSimpleName().toString().isEmpty()) {
             sb.append(element.getSimpleName()).append(": ");
         }
 
@@ -123,7 +199,14 @@ public class ErrorReporter {
     }
 
     private void printMessage(Diagnostic.Kind kind, String message, Element element) {
-        processingEnvironment.getMessager().printMessage(kind, message, element);
+        if (kind == Diagnostic.Kind.ERROR && !reportedErrors().add(element + "|" + message)) {
+            return;
+        }
+        if (element == null) {
+            processingEnvironment.getMessager().printMessage(kind, message);
+        } else {
+            processingEnvironment.getMessager().printMessage(kind, message, element);
+        }
     }
 
     /**

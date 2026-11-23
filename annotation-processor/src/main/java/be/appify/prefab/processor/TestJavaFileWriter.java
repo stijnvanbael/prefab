@@ -1,5 +1,7 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.processor.error.PrefabProcessingException;
+
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.TypeSpec;
 
@@ -43,6 +45,13 @@ public class TestJavaFileWriter implements FileOutput {
 
     @Override
     public void writeFile(String packagePrefix, String typeName, TypeSpec type) {
+        if (context == null || !GeneratedFiles.defer(context.processingEnvironment(),
+                () -> write(packagePrefix, typeName, type))) {
+            write(packagePrefix, typeName, type);
+        }
+    }
+
+    private void write(String packagePrefix, String typeName, TypeSpec type) {
         var packageName = !isBlank(packageSuffix) ? "%s.%s".formatted(packagePrefix, packageSuffix) : packagePrefix;
         var rootPath = getRootPath();
         if (rootPath.isPresent()) {
@@ -75,8 +84,11 @@ public class TestJavaFileWriter implements FileOutput {
                 return;
             }
             writeJavaTestClass(packageName, type, javaSourceFile);
-        } catch (Exception e) {
-            System.err.println(e.getMessage());
+        } catch (IOException e) {
+            throw new PrefabProcessingException(preferredElement, "Prefab",
+                    "cannot write generated test source %s.%s: %s".formatted(packageName, typeName, e.getMessage()),
+                    "check that target/prefab-test-sources is writable and has free disk space",
+                    e);
         }
     }
 
@@ -115,7 +127,10 @@ public class TestJavaFileWriter implements FileOutput {
                 JavaFile.builder(packageName, type).indent("    ").build().writeTo(writer);
             }
         } catch (IOException e) {
-            System.err.println(e.getMessage());
+            throw new PrefabProcessingException(preferredElement, "Prefab",
+                    "cannot write generated test source %s.%s: %s".formatted(packageName, typeName, e.getMessage()),
+                    "check that the compiler output directory is writable and has free disk space",
+                    e);
         }
     }
 

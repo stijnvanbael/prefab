@@ -5,6 +5,7 @@ import be.appify.prefab.core.annotations.Example;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
+import be.appify.prefab.processor.error.PrefabProcessingException;
 import be.appify.prefab.processor.event.EventBindings;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.core.util.DefaultIndenter;
@@ -351,7 +352,10 @@ class EventSchemaDocumentationWriter {
         } catch (FilerException e) {
             // File already written in a previous processing round; skip.
         } catch (IOException e) {
-            throw new java.io.UncheckedIOException("Failed to write asyncapi.json", e);
+            throw new PrefabProcessingException(null, "Prefab",
+                    "cannot write META-INF/async-api/asyncapi.json: %s".formatted(e.getMessage()),
+                    "check that the compiler output directory is writable and has free disk space",
+                    e);
         }
     }
 

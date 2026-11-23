@@ -15,6 +15,8 @@ import be.appify.prefab.core.annotations.rest.Security;
 import be.appify.prefab.core.annotations.rest.Streaming;
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.core.util.FullTextLanguages;
+import be.appify.prefab.processor.error.ErrorReporter;
+import be.appify.prefab.processor.error.ProcessingGuard;
 import be.appify.prefab.processor.event.EventBindings;
 import com.google.auto.service.AutoService;
 import java.lang.annotation.Annotation;
@@ -24,7 +26,9 @@ import java.util.List;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.Spliterators;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -49,7 +53,7 @@ import javax.tools.Diagnostic;
         "be.appify.prefab.core.annotations.*",
 })
 @SupportedOptions({"prefab.builder.setterPrefix", FullTextLanguages.OPTION, "prefab.events.baselineDir",
-        "prefab.events.compatibility"})
+        "prefab.events.compatibility", ErrorReporter.STACKTRACE_OPTION})
 @AutoService(Processor.class)
 @SuppressWarnings("unused")
 public class PrefabProcessor extends AbstractProcessor {
@@ -90,14 +94,26 @@ public class PrefabProcessor extends AbstractProcessor {
 
     // Tracking sets for deduplication across rounds (source elements are visible in every round).
     private final Set<String> processedAggregateNames = new LinkedHashSet<>();
+    private final Set<String> failedAggregateNames = new LinkedHashSet<>();
     private final Set<String> processedPolymorphicAggregateNames = new LinkedHashSet<>();
     private final Set<String> processedAdditionalFilesAggregates = new LinkedHashSet<>();
     private final Set<String> processedAdditionalFilesPolymorphicAggregates = new LinkedHashSet<>();
     private final Set<String> seenEventElementNames = new LinkedHashSet<>();
     private final Set<String> currentCompilationTypeNames = new LinkedHashSet<>();
 
+    // Plugins whose initContext failed; calling them again would only produce consequent errors.
+    private final Set<PrefabPlugin> failedPlugins = new LinkedHashSet<>();
+
+    private static final String PROCESSOR_COMPONENT = "the Prefab annotation processor";
+
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment environment) {
+        var guard = new ProcessingGuard(new ErrorReporter(processingEnv));
+        guard.run(PROCESSOR_COMPONENT, null, () -> processRound(environment));
+        return true;
+    }
+
+    private void processRound(RoundEnvironment environment) {
         clearRoundCaches();
         var plugins = detectPlugins();
         rememberCurrentCompilationTypeNames(environment);
@@ -116,34 +132,42 @@ public class PrefabProcessor extends AbstractProcessor {
                 .map(handler -> EventBindings.validateHandler(handler, context))
                 .toList().stream().allMatch(Boolean::booleanValue);
         if (!validEvents || !validHandlers) {
-            return true;
+            return;
         }
-        plugins.forEach(plugin -> plugin.initContext(context));
+        plugins.forEach(plugin -> {
+            if (!runPlugin(context, plugin, p -> p.initContext(context))) {
+                failedPlugins.add(plugin);
+            }
+        });
         if (hasAvscAnnotations(context) && !eventFilesWritten) {
             eventFilesWritten = true;
             plugins.stream()
                     .filter(plugin -> context.configuration().isPluginEnabled(plugin.getClass()))
-                    .forEach(PrefabPlugin::writeEventFiles);
+                    .forEach(plugin -> runPlugin(context, plugin, PrefabPlugin::writeEventFiles));
         }
-        var aggregates = resolveAggregates(environment);
-        var polymorphicAggregates = resolvePolymorphicAggregates(environment);
+        var aggregates = resolveAggregates(context, environment);
+        var polymorphicAggregates = resolvePolymorphicAggregates(context, environment);
         // Validate @Generate annotations eagerly to emit compile errors early
         validateGenerateAnnotationsEagerly(context, environment);
         validateComputedMethods(environment);
         validateSecurityAnnotations(environment);
-        writeAggregates(context, aggregates);
-        writePolymorphicAggregates(context, polymorphicAggregates);
-        viewWriter.writeViews(context, environment);
-        writeAdditionalFilesIfNeeded(context, plugins, aggregates, polymorphicAggregates);
-        allResolvedAggregates.addAll(aggregates);
-        allResolvedPolymorphicAggregates.addAll(polymorphicAggregates);
+        var writtenAggregates = writeAggregates(context, aggregates);
+        var writtenPolymorphicAggregates = writePolymorphicAggregates(context, polymorphicAggregates);
+        context.guard().run(PROCESSOR_COMPONENT, null, () -> viewWriter.writeViews(context, environment));
+        writeAdditionalFilesIfNeeded(context, plugins, writtenAggregates, writtenPolymorphicAggregates);
+        allResolvedAggregates.addAll(writtenAggregates);
+        allResolvedPolymorphicAggregates.addAll(writtenPolymorphicAggregates);
         if (!globalFilesWritten && deferredAggregates.isEmpty() && deferredPolymorphicAggregates.isEmpty()) {
             globalFilesWritten = true;
             writeGlobalFiles(context, plugins);
         }
         deferredEventHandlers.clear();
         deferredEventHandlers.addAll(context.newlyDeferredEventHandlers());
-        return true;
+    }
+
+    private boolean runPlugin(PrefabContext context, PrefabPlugin plugin, Consumer<PrefabPlugin> hook) {
+        return !failedPlugins.contains(plugin)
+                && context.guard().run("plugin " + plugin.getClass().getName(), null, () -> hook.accept(plugin));
     }
 
     private void clearRoundCaches() {
@@ -240,7 +264,7 @@ public class PrefabProcessor extends AbstractProcessor {
                 || !context.roundEnvironment().getElementsAnnotatedWith(EventSnapshot.class).isEmpty();
     }
 
-    private List<ClassManifest> resolveAggregates(RoundEnvironment environment) {
+    private List<ClassManifest> resolveAggregates(PrefabContext context, RoundEnvironment environment) {
         var aggregateElements = Stream.concat(
                         environment.getElementsAnnotatedWith(Aggregate.class).stream()
                                 .filter(e -> e.getKind().isClass() && !e.getModifiers().contains(Modifier.ABSTRACT))
@@ -250,7 +274,7 @@ public class PrefabProcessor extends AbstractProcessor {
 
         var aggregates = aggregateElements.stream()
                 .filter(element -> !ClassManifest.hasUnresolvedFields(element))
-                .map(element -> ClassManifest.of(element, processingEnv))
+                .flatMap(element -> guarded(context, element, () -> ClassManifest.of(element, processingEnv)))
                 .toList();
 
         deferredAggregates.clear();
@@ -260,7 +284,10 @@ public class PrefabProcessor extends AbstractProcessor {
         return aggregates;
     }
 
-    private List<PolymorphicAggregateManifest> resolvePolymorphicAggregates(RoundEnvironment environment) {
+    private List<PolymorphicAggregateManifest> resolvePolymorphicAggregates(
+            PrefabContext context,
+            RoundEnvironment environment
+    ) {
         var polymorphicAggregateElements = Stream.concat(
                         environment.getElementsAnnotatedWith(Aggregate.class).stream()
                                 .filter(e -> e.getModifiers().contains(Modifier.SEALED))
@@ -273,7 +300,7 @@ public class PrefabProcessor extends AbstractProcessor {
                         .filter(s -> s.getKind() == TypeKind.DECLARED)
                         .map(s -> (TypeElement) ((DeclaredType) s).asElement())
                         .noneMatch(ClassManifest::hasUnresolvedFields))
-                .map(element -> PolymorphicAggregateManifest.of(element, processingEnv))
+                .flatMap(element -> guarded(context, element, () -> PolymorphicAggregateManifest.of(element, processingEnv)))
                 .toList();
 
         deferredPolymorphicAggregates.clear();
@@ -286,30 +313,72 @@ public class PrefabProcessor extends AbstractProcessor {
         return polymorphicAggregates;
     }
 
-    private void writeAggregates(PrefabContext context, List<ClassManifest> aggregates) {
-        var testClientWriter = createTestClientWriter(context);
-        aggregates.stream()
-                .filter(manifest -> processedAggregateNames.add(manifest.qualifiedName()))
-                .forEach(manifest -> {
-                    new HttpWriter(context).writeHttpLayer(manifest);
-                    new ApplicationWriter(context).writeApplicationLayer(manifest);
-                    new PersistenceWriter(context).writePersistenceLayer(manifest);
-                    testClientWriter.writeTestSupport(manifest);
-                });
+    /**
+     * Evaluates a supplier behind the failure boundary; a failure is reported and yields an empty stream so that
+     * independent aggregates are still processed.
+     */
+    private <T> Stream<T> guarded(PrefabContext context, TypeElement element, Supplier<T> supplier) {
+        var result = new ArrayList<T>(1);
+        context.guard().run(PROCESSOR_COMPONENT, element, () -> result.add(supplier.get()));
+        return result.stream();
     }
 
-    private void writePolymorphicAggregates(PrefabContext context, List<PolymorphicAggregateManifest> polymorphicAggregates) {
+    private List<ClassManifest> writeAggregates(PrefabContext context, List<ClassManifest> aggregates) {
         var testClientWriter = createTestClientWriter(context);
-        polymorphicAggregates.stream()
-                .filter(manifest -> processedPolymorphicAggregateNames.add(
-                        manifest.packageName() + "." + manifest.simpleName()))
-                .forEach(manifest -> {
-                    new PersistenceWriter(context).writePolymorphicPersistenceLayer(manifest);
-                    new PolymorphicJdbcConverterWriter(context).writeConverters(manifest);
-                    new HttpWriter(context).writePolymorphicHttpLayer(manifest);
-                    new ApplicationWriter(context).writePolymorphicApplicationLayer(manifest);
-                    testClientWriter.writePolymorphicTestSupport(manifest);
-                });
+        var written = new ArrayList<ClassManifest>();
+        aggregates.forEach(manifest -> {
+            if (!processedAggregateNames.add(manifest.qualifiedName())) {
+                // Already handled in an earlier round: only keep it unless that attempt failed.
+                if (!failedAggregateNames.contains(manifest.qualifiedName())) {
+                    written.add(manifest);
+                }
+                return;
+            }
+            var succeeded = context.guard().run(PROCESSOR_COMPONENT, manifest.type().asElement(),
+                    () -> GeneratedFiles.buffered(processingEnv, () -> {
+                        new HttpWriter(context).writeHttpLayer(manifest);
+                        new ApplicationWriter(context).writeApplicationLayer(manifest);
+                        new PersistenceWriter(context).writePersistenceLayer(manifest);
+                        testClientWriter.writeTestSupport(manifest);
+                    }));
+            if (succeeded) {
+                written.add(manifest);
+            } else {
+                failedAggregateNames.add(manifest.qualifiedName());
+            }
+        });
+        return written;
+    }
+
+    private List<PolymorphicAggregateManifest> writePolymorphicAggregates(
+            PrefabContext context,
+            List<PolymorphicAggregateManifest> polymorphicAggregates
+    ) {
+        var testClientWriter = createTestClientWriter(context);
+        var written = new ArrayList<PolymorphicAggregateManifest>();
+        polymorphicAggregates.forEach(manifest -> {
+            var name = manifest.packageName() + "." + manifest.simpleName();
+            if (!processedPolymorphicAggregateNames.add(name)) {
+                if (!failedAggregateNames.contains(name)) {
+                    written.add(manifest);
+                }
+                return;
+            }
+            var succeeded = context.guard().run(PROCESSOR_COMPONENT, manifest.type().asElement(),
+                    () -> GeneratedFiles.buffered(processingEnv, () -> {
+                        new PersistenceWriter(context).writePolymorphicPersistenceLayer(manifest);
+                        new PolymorphicJdbcConverterWriter(context).writeConverters(manifest);
+                        new HttpWriter(context).writePolymorphicHttpLayer(manifest);
+                        new ApplicationWriter(context).writePolymorphicApplicationLayer(manifest);
+                        testClientWriter.writePolymorphicTestSupport(manifest);
+                    }));
+            if (succeeded) {
+                written.add(manifest);
+            } else {
+                failedAggregateNames.add(name);
+            }
+        });
+        return written;
     }
 
     protected TestClientWriter createTestClientWriter(PrefabContext context) {
@@ -380,19 +449,19 @@ public class PrefabProcessor extends AbstractProcessor {
                     }
                     if (defaultAggregates.isEmpty() && mainAggregates.isEmpty() && testAggregates.isEmpty()
                             && defaultPolymorphic.isEmpty() && mainPolymorphic.isEmpty() && testPolymorphic.isEmpty()) {
-                        plugin.writeGlobalFiles(List.of(), List.of());
+                        runPlugin(context, plugin, p -> p.writeGlobalFiles(List.of(), List.of()));
                         return;
                     }
                     if (!defaultAggregates.isEmpty() || !defaultPolymorphic.isEmpty()) {
-                        plugin.writeGlobalFiles(defaultAggregates, defaultPolymorphic);
+                        runPlugin(context, plugin, p -> p.writeGlobalFiles(defaultAggregates, defaultPolymorphic));
                     }
                     if (!mainAggregates.isEmpty() || !mainPolymorphic.isEmpty()) {
                         context.withOutputTarget(OutputTarget.MAIN,
-                                () -> plugin.writeGlobalFiles(mainAggregates, mainPolymorphic));
+                                () -> runPlugin(context, plugin, p -> p.writeGlobalFiles(mainAggregates, mainPolymorphic)));
                     }
                     if (!testAggregates.isEmpty() || !testPolymorphic.isEmpty()) {
                         context.withOutputTarget(OutputTarget.TEST,
-                                () -> plugin.writeGlobalFiles(testAggregates, testPolymorphic));
+                                () -> runPlugin(context, plugin, p -> p.writeGlobalFiles(testAggregates, testPolymorphic)));
                     }
                 });
     }
@@ -433,19 +502,19 @@ public class PrefabProcessor extends AbstractProcessor {
         }
         if (defaultAggregates.isEmpty() && mainAggregates.isEmpty() && testAggregates.isEmpty()
                 && defaultPolymorphic.isEmpty() && mainPolymorphic.isEmpty() && testPolymorphic.isEmpty()) {
-            plugin.writeAdditionalFiles(List.of(), List.of());
+            runPlugin(context, plugin, p -> p.writeAdditionalFiles(List.of(), List.of()));
             return;
         }
         if (!defaultAggregates.isEmpty() || !defaultPolymorphic.isEmpty()) {
-            plugin.writeAdditionalFiles(defaultAggregates, defaultPolymorphic);
+            runPlugin(context, plugin, p -> p.writeAdditionalFiles(defaultAggregates, defaultPolymorphic));
         }
         if (!mainAggregates.isEmpty() || !mainPolymorphic.isEmpty()) {
             context.withOutputTarget(OutputTarget.MAIN,
-                    () -> plugin.writeAdditionalFiles(mainAggregates, mainPolymorphic));
+                    () -> runPlugin(context, plugin, p -> p.writeAdditionalFiles(mainAggregates, mainPolymorphic)));
         }
         if (!testAggregates.isEmpty() || !testPolymorphic.isEmpty()) {
             context.withOutputTarget(OutputTarget.TEST,
-                    () -> plugin.writeAdditionalFiles(testAggregates, testPolymorphic));
+                    () -> runPlugin(context, plugin, p -> p.writeAdditionalFiles(testAggregates, testPolymorphic)));
         }
     }
 

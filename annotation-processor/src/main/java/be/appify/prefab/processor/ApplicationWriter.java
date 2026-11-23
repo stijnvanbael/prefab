@@ -97,7 +97,8 @@ class ApplicationWriter {
         return context.plugins().stream()
                 .filter(plugin -> context.isPluginEnabledFor(aggregateType, plugin.getClass()))
                 .filter(plugin -> context.getOutputTargetFor(aggregateType, plugin.getClass()) != OutputTarget.TEST)
-                .flatMap(plugin -> plugin.getPolymorphicServiceDependencies(manifest).stream())
+                .flatMap(plugin -> context.callPlugin(plugin, aggregateType,
+                        () -> plugin.getPolymorphicServiceDependencies(manifest)).stream())
                 .collect(Collectors.toSet());
     }
 
@@ -119,7 +120,8 @@ class ApplicationWriter {
         return Stream.concat(context.plugins().stream()
                                 .filter(plugin -> context.isPluginEnabledFor(aggregateType, plugin.getClass()))
                                 .filter(plugin -> context.getOutputTargetFor(aggregateType, plugin.getClass()) != OutputTarget.TEST)
-                                .flatMap(plugin -> plugin.getServiceDependencies(manifest).stream()),
+                                .flatMap(plugin -> context.callPlugin(plugin, aggregateType,
+                                        () -> plugin.getServiceDependencies(manifest)).stream()),
                         Stream.of(ClassName.get("%s.application".formatted(manifest.type().packageName()),
                                 "%sRepository".formatted(manifest.type().simpleName()))))
                 .collect(Collectors.toSet());

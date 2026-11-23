@@ -47,7 +47,9 @@ final class PluginContributions {
         for (var plugin : context.plugins()) {
             if (context.isPluginEnabledFor(aggregateType, plugin.getClass())
                     && context.getOutputTargetFor(aggregateType, plugin.getClass()) != excludedTarget) {
-                context.withPluginOutputTarget(aggregateType, plugin.getClass(), () -> hook.accept(plugin));
+                context.guard().runOrAbort("plugin " + plugin.getClass().getName(), aggregateType,
+                        () -> context.withPluginOutputTarget(aggregateType, plugin.getClass(),
+                                () -> hook.accept(plugin)));
                 var next = builder.build();
                 claim(aggregateType, current, next, plugin, owners);
                 current = next;

@@ -1,5 +1,6 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.processor.error.PrefabProcessingException;
 import be.appify.prefab.core.annotations.Aggregate;
 import be.appify.prefab.core.annotations.CustomType;
 import be.appify.prefab.core.annotations.Doc;
@@ -21,7 +22,6 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.WildcardType;
-import javax.tools.Diagnostic;
 import org.javalite.common.Inflector;
 import org.springframework.util.ClassUtils;
 
@@ -113,11 +113,11 @@ public class TypeManifest {
             this.kind = null;
             this.element = null;
         } else {
-            processingEnvironment.getMessager().printMessage(
-                    Diagnostic.Kind.ERROR,
-                    "Unsupported type: " + typeMirror
-            );
-            throw new IllegalArgumentException("Unsupported type: " + typeMirror);
+            throw new PrefabProcessingException(null, "Prefab",
+                    "unsupported type '%s' (%s).".formatted(typeMirror, typeMirror.getKind()),
+                    "use a class, record, enum, interface, array or primitive type for fields, parameters and"
+                            + " return types of Prefab-managed types",
+                    null);
         }
         this.annotations = new TypeAnnotations(element, processingEnvironment);
         this.members = new TypeMembers(element, processingEnvironment);
@@ -330,7 +330,11 @@ public class TypeManifest {
             }
             return TypeManifest.class.getClassLoader().loadClass(identity.fullyQualifiedName());
         } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
+            throw new PrefabProcessingException(null, "Prefab",
+                    "type %s cannot be loaded by the annotation processor.".formatted(identity.fullyQualifiedName()),
+                    "types used in annotation attributes that Prefab must load must be compiled before this module"
+                            + " or be on the annotation processor path",
+                    e);
         }
     }
 

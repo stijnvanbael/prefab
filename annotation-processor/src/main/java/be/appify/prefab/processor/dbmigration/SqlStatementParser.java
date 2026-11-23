@@ -1,5 +1,6 @@
 package be.appify.prefab.processor.dbmigration;
 
+
 import net.sf.jsqlparser.parser.CCJSqlParser;
 import net.sf.jsqlparser.statement.alter.Alter;
 import net.sf.jsqlparser.statement.create.index.CreateIndex;
@@ -97,7 +98,7 @@ class SqlStatementParser {
                 applyDropTable(drop, tables);
             }
         } catch (Exception e) {
-            throw new RuntimeException("Failed to parse SQL statement: " + sql, e);
+            throw new MigrationSqlException("statement '%s' failed: %s".formatted(sql, e.getMessage()), e);
         }
     }
 

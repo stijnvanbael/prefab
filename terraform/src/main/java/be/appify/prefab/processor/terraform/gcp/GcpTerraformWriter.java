@@ -9,6 +9,7 @@ import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.core.serialization.EventSubscriptionNames;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
+import be.appify.prefab.processor.error.PrefabProcessingException;
 import be.appify.prefab.processor.event.ConsumerWriterSupport;
 import be.appify.prefab.processor.event.EventBindings;
 import be.appify.prefab.processor.event.EventPlatformPluginSupport;
@@ -166,7 +167,10 @@ class GcpTerraformWriter {
         } catch (FilerException e) {
             // File already written in a previous processing round; skip.
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new PrefabProcessingException(null, "Terraform",
+                    "cannot write terraform/gcp/%s: %s".formatted(filename, e.getMessage()),
+                    "check that the compiler output directory is writable and has free disk space",
+                    e);
         }
     }
 

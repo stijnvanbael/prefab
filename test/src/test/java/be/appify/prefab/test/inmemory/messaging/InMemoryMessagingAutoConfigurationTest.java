@@ -5,6 +5,7 @@ import be.appify.prefab.core.domain.DomainEventDispatcher;
 import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.domain.TypedEvent;
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.core.spring.JsonUtil;
 import be.appify.prefab.test.inmemory.InMemoryTransactionManager;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +22,7 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -115,6 +117,8 @@ public class InMemoryMessagingAutoConfigurationTest {
                 .withConfiguration(AutoConfigurations.of(InMemoryMessagingAutoConfiguration.class))
                 .withBean(EventRegistry.class, registry)
                 .withBean(ConversionService.class, DefaultConversionService::new)
+                .withBean(JsonMapper.class, () -> JsonMapper.builder().build())
+                .withBean(JsonUtil.class, () -> new JsonUtil(JsonMapper.builder().build()))
                 .withPropertyValues("prefab.test.containers=false", "topics.users=users",
                         "topics.deleted=DELETED-USERS");
     }

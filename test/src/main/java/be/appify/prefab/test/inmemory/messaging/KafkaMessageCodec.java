@@ -39,7 +39,8 @@ public class KafkaMessageCodec implements MessageCodec {
 
     @Override
     public boolean supports(Class<?> eventType) {
-        return eventRegistry.hasTopicForType(eventType);
+        return eventRegistry.hasTopicForType(eventType)
+                && ConcreteEventSupport.usesPlatform(eventType, Event.Platform.KAFKA);
     }
 
     @Override

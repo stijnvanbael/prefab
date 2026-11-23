@@ -1,6 +1,7 @@
 package be.appify.prefab.core.kafka;
 
 import be.appify.prefab.core.annotations.Event;
+import be.appify.prefab.core.diagnostics.PrefabConfigurationException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -57,16 +58,14 @@ public final class KafkaSchemaRegistrySupport {
             properties.put(SCHEMA_REGISTRY_URL, MOCK_SCHEMA_REGISTRY_URL);
             return properties;
         }
-        throw new IllegalStateException("""
-                Missing Kafka property '%s' for AVRO event serialization.
-                Configure a real schema registry URL before starting the application.
-                Affected registrations: %s
-                For tests only, explicitly opt into the in-memory mock registry with \
-                'spring.kafka.properties.%s=true' (or the producer/consumer/streams-scoped equivalent).
-                """.formatted(SCHEMA_REGISTRY_URL, describeAffectedRegistrations(eventRegistry), MOCK_SCHEMA_REGISTRY_ENABLED)
-                .replace("\n", " ")
-                .replaceAll("\\s{2,}", " ")
-                .trim());
+        throw new PrefabConfigurationException(
+                "Missing Kafka property '%s' for AVRO event serialization. Affected registrations: %s"
+                        .formatted(SCHEMA_REGISTRY_URL, describeAffectedRegistrations(eventRegistry)),
+                "Configure a real schema registry URL (spring.kafka.properties.%s) before starting the application. "
+                        .formatted(SCHEMA_REGISTRY_URL)
+                        + "For tests only, explicitly opt into the in-memory mock registry with "
+                        + "'spring.kafka.properties.%s=true' (or the producer/consumer/streams-scoped equivalent)."
+                        .formatted(MOCK_SCHEMA_REGISTRY_ENABLED));
     }
 
     /**

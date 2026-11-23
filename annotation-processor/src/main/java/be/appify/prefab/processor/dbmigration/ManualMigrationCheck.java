@@ -39,9 +39,24 @@ public final class ManualMigrationCheck {
             "(?is)\\b(CREATE)\\s+(?:UNIQUE\\s+)?INDEX\\b[^;]*?\\bON\\s+(?:ONLY\\s+)?" + TABLE);
 
     private final PrefabContext context;
+    private final List<Path> handWrittenMigrations;
 
-    ManualMigrationCheck(PrefabContext context) {
+    private ManualMigrationCheck(PrefabContext context, List<Path> handWrittenMigrations) {
         this.context = context;
+        this.handWrittenMigrations = handWrittenMigrations;
+    }
+
+    /**
+     * Lists the hand-written migrations. Call this <em>before</em> the generated migration is written: once the
+     * processor has created a file in {@code db/migration}, the compiler refuses to look up the directory again.
+     *
+     * @param context
+     *         the processing context
+     * @return a check that can be run once the managed tables are known
+     */
+    static ManualMigrationCheck scan(PrefabContext context) {
+        var enabled = context.configuration().isPluginEnabled(HandWrittenCodePlugin.class);
+        return new ManualMigrationCheck(context, enabled ? handWrittenMigrations(context) : List.of());
     }
 
     /**
@@ -53,11 +68,11 @@ public final class ManualMigrationCheck {
      *         the simple names of the aggregates, used to name the aggregate that owns a table
      */
     void check(Set<String> managedTables, Collection<String> aggregateNames) {
-        if (!context.configuration().isPluginEnabled(HandWrittenCodePlugin.class) || managedTables.isEmpty()) {
+        if (handWrittenMigrations.isEmpty() || managedTables.isEmpty()) {
             return;
         }
         var findings = HandWrittenFindings.of(context, HandWrittenFindings.Severity.WARNING);
-        handWrittenMigrations().forEach(migration -> {
+        handWrittenMigrations.forEach(migration -> {
             var touched = touchedManagedTables(migration, managedTables);
             if (!touched.isEmpty()) {
                 findings.report(null, describe(migration, touched, aggregateNames), suggestedFix(migration));
@@ -65,7 +80,7 @@ public final class ManualMigrationCheck {
         });
     }
 
-    private List<Path> handWrittenMigrations() {
+    private static List<Path> handWrittenMigrations(PrefabContext context) {
         try {
             var directory = MigrationDirectory.locate(context.processingEnvironment());
             if (directory.isEmpty()) {

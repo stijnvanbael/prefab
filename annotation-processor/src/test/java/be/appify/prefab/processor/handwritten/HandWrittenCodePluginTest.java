@@ -2,7 +2,9 @@ package be.appify.prefab.processor.handwritten;
 
 import be.appify.prefab.processor.PrefabProcessor;
 import com.google.testing.compile.Compilation;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -11,7 +13,9 @@ import java.util.Map;
 import java.util.stream.Stream;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
+import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static be.appify.prefab.processor.test.ProcessorTestUtil.classpathOptionsWith;
 import static be.appify.prefab.processor.test.ProcessorTestUtil.sourceOf;
@@ -177,6 +181,39 @@ class HandWrittenCodePluginTest {
                 .asString()
                 .contains("db/migration/V6__add_priority.sql")
                 .contains("ALTER TABLE `order` (aggregate Order)");
+    }
+
+    @Test
+    void checksMigrationsWhenCompilingToAFileSystemDirectory(@TempDir Path temp) throws IOException {
+        var classes = Files.createDirectories(temp.resolve("target").resolve("classes"));
+        var migrations = Files.createDirectories(classes.resolve("db").resolve("migration"));
+        Files.writeString(migrations.resolve("V1__init_orders.sql"), ORDER_TABLE);
+        var source = temp.resolve("Order.java");
+        Files.writeString(source, sourceOf(PREFIX + "Order.java").getCharContent(true));
+        var output = new ByteArrayOutputStream();
+
+        var result = ToolProvider.getSystemJavaCompiler().run(null, null, output,
+                "-d", classes.toString(), "-processor", PrefabProcessor.class.getName(), source.toString());
+
+        assertThat(result).isZero();
+        assertThat(output.toString(StandardCharsets.UTF_8))
+                .contains("db/migration/V1__init_orders.sql is a hand-written migration");
+    }
+
+    @Test
+    void doesNotFailWhenTheProcessorWritesTheFirstMigrationToAFileSystemDirectory(@TempDir Path temp)
+            throws IOException {
+        var classes = Files.createDirectories(temp.resolve("target").resolve("classes"));
+        var source = temp.resolve("Order.java");
+        Files.writeString(source, sourceOf(PREFIX + "Order.java").getCharContent(true));
+        var output = new ByteArrayOutputStream();
+
+        var result = ToolProvider.getSystemJavaCompiler().run(null, null, output,
+                "-d", classes.toString(), "-processor", PrefabProcessor.class.getName(), source.toString());
+
+        assertThat(output.toString(StandardCharsets.UTF_8)).doesNotContain("[Prefab]");
+        assertThat(result).isZero();
+        assertThat(classes.resolve("db/migration/V1__generated.sql")).exists();
     }
 
     private static Compilation compile(String... resources) {

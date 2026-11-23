@@ -63,9 +63,10 @@ public class DbMigrationPlugin implements PrefabPlugin {
         if (!manifestFile.isComplete(classManifests, polyManifests)) {
             return;
         }
+        var manualMigrationCheck = ManualMigrationCheck.scan(context);
         var managedTables = dbMigrationWriter.writeDbMigration(
                 context.processingEnvironment(), classManifests, polyManifests);
-        new ManualMigrationCheck(context).check(managedTables, aggregateNames(classManifests, polyManifests));
+        manualMigrationCheck.check(managedTables, aggregateNames(classManifests, polyManifests));
         manifestFile.save(classManifests, polyManifests);
     }
 

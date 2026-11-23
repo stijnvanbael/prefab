@@ -1,7 +1,7 @@
 ---
 id: TASK-343
 title: Benchmark how well Claude Haiku builds Prefab applications
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-20 20:13'
@@ -31,9 +31,9 @@ Good sources of task material: the annotation-processor fixtures (annotation-pro
 <!-- AC:BEGIN -->
 - [x] #1 A set of at least 30 benchmark tasks covers the main Prefab use cases (REST CRUD, filters and paging, publishing and handling events, repository mixins, security, multi-tenancy, binary fields, Avro, testing), each with a starting project, a natural-language prompt and hidden acceptance tests the model cannot see
 - [x] #2 A single command runs the benchmark against a chosen model and context setup, and reports per task pass/fail, tokens used, number of turns/retries and wall-clock time
-- [ ] #3 Baseline results are recorded for Haiku with at least: no Prefab docs, the full current docs, and (once they exist) the curated agent context; Sonnet or Opus results are recorded as a reference ceiling
+- [x] #3 Baseline results are recorded for Haiku with at least: no Prefab docs, the full current docs, and (once they exist) the curated agent context; Sonnet or Opus results are recorded as a reference ceiling
 - [x] #4 Failures are classified (doc gap, misleading diagnostic, API misuse, fell back to plain Spring/JPA code, test or infrastructure problem) so each one can be turned into a follow-up
-- [ ] #5 A run never needs real cloud credentials, and runs are reproducible enough that the same setup gives a pass rate within a documented margin
+- [x] #5 A run never needs real cloud credentials, and runs are reproducible enough that the same setup gives a pass rate within a documented margin
 - [x] #6 How to run the benchmark, add a task and read the report is documented in backlog/docs
 <!-- AC:END -->
 
@@ -105,11 +105,16 @@ boolean, AVSC namespace), TASK-352 (upload constraints not enforced, wrong multi
 permit public endpoints, plus the extra-SecurityFilterChain trap from the baseline) and TASK-354 (event doc
 pitfalls, test consumer log flood). Each workaround is noted in the affected task.yml.
 
-Baseline (2026-11-21, 8-task subset chosen to fit the usage limit): Haiku none 8/8, Haiku full-docs 7/8, Sonnet
-full-docs 6/8 (one infrastructure failure). Docs cut Haiku's turns from 43 to 12 and its time from 5m to 1m10s, but
-did not change correctness measurably. Details are in backlog/docs/benchmark.md and benchmark/results/.
+Full baseline (2026-11-22, 32 tasks, details in backlog/docs/benchmark.md and benchmark/results/comparison-2026-11-22.md):
+Haiku none 30/32, Haiku full-docs 31/32 and 31/32 (repeat), Haiku docs-folder 29/32, Sonnet full-docs 32/32 (ceiling).
+Correctness differences are within the confidence intervals. Docs halve Haiku's turns and builds; always-loaded docs
+cost about 8x more than reading them on demand. The measured run-to-run margin is two tasks (about 6 percentage
+points). The curated agent context does not exist yet: add a context for it with TASK-344 and record it there (that
+task's AC #8).
 
-Open for AC #3: the full 32-task baselines and the `docs-folder` setup (run with an API key), and the curated context
-once TASK-344 exists. AC #5: the statistical margin is documented, but the empirical run-to-run margin needs a
-repeated run (`--repeat 3`).
+More harness fixes found during the full runs: per-attempt CLAUDE_CODE_TMPDIR (the isolation hid Claude Code's temp
+directory), a reaper for processes the agent leaves running, disabled Testcontainers reuse (it ignored container
+names across slots, TASK-356), summing follow-up queries in transcripts, `--resume` after usage limits, and a
+guardrail for hand-written message listeners. TASK-355 was filed after Haiku found that child endpoints ignore the
+parent id in the path.
 <!-- SECTION:NOTES:END -->

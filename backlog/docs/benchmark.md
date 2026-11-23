@@ -284,13 +284,50 @@ Recorded runs live in `benchmark/results/<run-id>/` (`report.md`, `report.json` 
 `classifications.yml`). The per-attempt logs are not committed.
 
 <!-- BASELINES:BEGIN -->
-> **Superseded.** The runs below and the first full Haiku `none` run (`20261122-065711`) were made with two harness
-> bugs, since fixed: (1) the isolation hid Claude Code's own temp directory behind a 1 MB tmpfs, so large tool output
-> failed with "no space left"; (2) build processes the agent left running in the background recreated and then removed
-> the slot's test containers in the middle of the hidden tests. Their pass rates are not comparable to later runs;
-> their qualitative findings (TASK-353, TASK-355) still hold.
+### 2026-11-22: full baseline, 32 tasks
 
-### 2026-11-21: first baseline, 8-task subset
+Prefab `0.13.3-SNAPSHOT`, one attempt per task, two attempts in parallel. Comparison:
+[`benchmark/results/comparison-2026-11-22.md`](../../benchmark/results/comparison-2026-11-22.md). Failures were reviewed
+and classified manually (`classifications.yml` per run).
+
+| Setup | Run | Passed | 95% CI | Cost | Median turns | Median builds | Median agent time |
+|---|---|---|---|---|---|---|---|
+| Haiku 5.5, `none` | `20261122-082637` | 30/32 | 80-98% | $2.12 | 24 | 6 | 1m51s |
+| Haiku 5.5, `full-docs` | `20261122-091726` | 31/32 | 84-99% | $6.42 | 13 | 3 | 1m06s |
+| Haiku 5.5, `full-docs` (repeat) | `20261122-235409` | 31/32 | 84-99% | $6.65 | 13 | 4 | 1m10s |
+| Haiku 5.5, `docs-folder` | `20261122-191511` | 29/32 | 76-97% | $0.77 | 18 | 4 | 1m22s |
+| Sonnet 5.5, `full-docs` (ceiling) | `20261122-195459` | 32/32 | 89-100% | $15.08 | 6 | 2 | 27s |
+
+What it shows:
+
+- **Haiku already builds Prefab applications well.** It passed 29-31 of 32 tasks in every setup, against 32/32 for
+  Sonnet. All differences are inside the confidence intervals: on correctness, no setup is measurably better.
+- **Docs buy speed and focus, not correctness.** With the full docs in CLAUDE.md, Haiku needs about half the turns
+  and builds of the no-docs run, and about 40% less time. Without docs it reverse-engineers Prefab from the jars in
+  `~/.m2`. Reading the docs on demand (`docs-folder`) sits in between, at an eighth of the cost of always-loaded docs,
+  because the 60k-token CLAUDE.md is re-read on every turn. A compact cheat sheet (TASK-344) should aim for the speed
+  of `full-docs` at the cost of `docs-folder`.
+- **Without docs, failures are plain-Spring fallbacks.** Haiku hand-wrote a repository and a `@KafkaListener`
+  instead of `@Multicast`, and replaced the generated `BookResponse`. With docs, those disappear.
+- **The most frequent failure is a Prefab bug, not a model problem.** In three runs (one of them superseded),
+  Haiku noticed that generated child endpoints ignore the parent id in the path, so a task is reachable through
+  another project's URL. It replaced them with a hand-written controller (TASK-355).
+- **Other findings:** sealed JSON events without `@JsonTypeInfo` (doc gap, TASK-354), and a wrong `@Security` import
+  that crashes the processor instead of giving a compile error (TASK-351). Two infrastructure failures came from the
+  harness bugs listed below, fixed between runs.
+
+**Margin.** Two identical Haiku `full-docs` runs both passed 31/32. Two of 32 tasks flipped between them: one
+infrastructure failure (since fixed) and one model choice (`rest-parent-child`). Treat pass-rate differences of up to
+two tasks (about 6 percentage points) between single runs as noise, and confirm larger ones per task with
+`--repeat 3`. The 95% intervals of single 32-task runs are about ±10 percentage points near these pass rates.
+
+### Superseded: 2026-11-21 first baseline (8-task subset) and run `20261122-065711`
+
+> These runs were made with harness bugs, since fixed: (1) the isolation hid Claude Code's own temp directory behind a
+> 1 MB tmpfs, so large tool output failed with "no space left"; (2) build processes the agent left running in the
+> background recreated and then removed the slot's test containers in the middle of the hidden tests; (3) Testcontainers
+> reuse let parallel slots share, and remove, each other's databases (TASK-356). Their pass rates are not comparable to
+> later runs; their qualitative findings (TASK-353, TASK-355) still hold.
 
 Prefab `0.13.3-SNAPSHOT` at commit `26ff283`. One attempt per task. The subset covers REST value objects, range
 filters, schema evolution, sealed event hierarchies, multicast handling, public endpoints, binary uploads and

@@ -83,3 +83,7 @@ gaps.
 **Verification:** clean focused builds on both `showcase` and `showcase-mongodb` passed 18 topology, capability,
 coverage-matrix and event-platform tests each. The full Testcontainers-dependent suite was not run locally; per the
 request, it is delegated to CI because Testcontainers time out on this machine.
+
+CI verification exposed that Kafka Streams needs the catalog global-store source topic to exist before the stream
+starts. The Kafka showcase now provisions that topic with a `NewTopic` bean, using the same topic constant as the
+`CatalogProduct` event declaration.

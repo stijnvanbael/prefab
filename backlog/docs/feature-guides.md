@@ -1305,7 +1305,8 @@ Behaviour and constraints:
   differs from the topic's records, use a distinct source type and a mapper:
   `globalStore(String name, Class<S> sourceType, Class<V> storeType, Function<S, V> mapper)`. A mapper result of
   `null` removes the key. Stores whose type differs from the source type are serialised as JSON.
-- The store has no changelog topic; on restart it is restored from the source topic. Use a compacted topic.
+- The store has no changelog topic; on restart it is restored from the source topic. Use a compacted topic, and ensure
+  the source topic exists before Kafka Streams starts (for example, provision it with a `NewTopic` bean).
 - A processor reads a global store by returning it from `StreamProcessor.globalStores()`; the framework binds it to the
   processor context. Returning a store
   that was not declared via `globalStore(...)` or `globalStoreFrom(...)` fails fast with an `IllegalArgumentException`.

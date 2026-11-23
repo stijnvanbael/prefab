@@ -107,7 +107,8 @@ class SnsSqsStreamsIntegrationTest {
 
         queueClient = sqsClient;
         registry = new EventRegistry();
-        registry.register("it-sales", Sale.class, Event.Serialization.JSON, Sale::saleId);
+        // Sales are totalled per category, so they are ordered per category: one FIFO message group per category.
+        registry.register("it-sales", Sale.class, Event.Serialization.JSON, Sale::category);
         registry.register("it-refunds", Refund.class, Event.Serialization.JSON, Refund::saleId);
         registry.register("it-products", Product.class, Event.Serialization.JSON, Product::category);
         registry.register("it-category-totals", CategoryTotal.class, Event.Serialization.JSON,
@@ -162,15 +163,16 @@ class SnsSqsStreamsIntegrationTest {
     void streamsRunOnFifoTopicsWithStateInPostgres() {
         var now = Instant.now();
 
-        publish("it-sales", "s-1", new Sale("s-1", "books", 5), now);
-        publish("it-sales", "s-2", new Sale("s-2", "games", 7), now);
-        publish("it-sales", "s-3", new Sale("s-3", "books", 10), now);
+        publish("it-sales", "books", new Sale("s-1", "books", 5), now);
+        publish("it-sales", "games", new Sale("s-2", "games", 7), now);
+        publish("it-sales", "books", new Sale("s-3", "books", 10), now);
         publish("it-refunds", "s-1", new Refund("s-1", "damaged"), now.plusSeconds(1));
         publish("it-products", "books", new Product("books", "Books"), now);
 
-        await("running total of books", () -> totals.stream().anyMatch(total -> total.equals(new CategoryTotal("books", 15))));
-        assertThat(totals).contains(new CategoryTotal("books", 5), new CategoryTotal("games", 7),
-                new CategoryTotal("books", 15));
+        await("all running totals", () -> totals.containsAll(List.of(
+                new CategoryTotal("books", 5), new CategoryTotal("games", 7), new CategoryTotal("books", 15))));
+        assertThat(totals.stream().filter(total -> total.category().equals("books")))
+                .containsExactly(new CategoryTotal("books", 5), new CategoryTotal("books", 15));
         await("three windowed totals", () -> windowedTotals.size() >= 3);
         await("refunded sale s-1", () -> refunded.contains(new RefundedSale("s-1", "books", "damaged")));
         await("product books in the global store", () -> products.get("books").isPresent());
@@ -185,7 +187,7 @@ class SnsSqsStreamsIntegrationTest {
         // Two different FIFO deduplication IDs make SNS accept both, as when SQS delivers a message again.
         publishWithDeduplication("it-sales", sale, messageId, UUID.randomUUID().toString());
         publishWithDeduplication("it-sales", sale, messageId, UUID.randomUUID().toString());
-        publish("it-sales", "s-after", new Sale("s-after", "music", 4), Instant.now());
+        publish("it-sales", "music", new Sale("s-after", "music", 4), Instant.now());
 
         await("music total of 7", () -> totals.contains(new CategoryTotal("music", 7)));
         assertThat(totals.stream().filter(total -> total.category().equals("music")))
@@ -200,7 +202,7 @@ class SnsSqsStreamsIntegrationTest {
         var arn = sqsUtil.ensureTopicExists(topic, true);
         snsTemplate.sendNotification(arn, SnsNotification.builder(jsonOf(sale))
                 .header("prefab-message-id", messageId)
-                .groupId(sale.saleId())
+                .groupId(sale.category())
                 .deduplicationId(deduplicationId)
                 .build());
     }

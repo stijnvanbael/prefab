@@ -1,5 +1,5 @@
 ---
-id: TASK-353
+id: TASK-359
 title: Allow @Download without @GetById
 status: To Do
 assignee: []

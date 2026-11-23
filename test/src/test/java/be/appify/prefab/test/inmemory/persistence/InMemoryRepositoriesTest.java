@@ -8,6 +8,7 @@ import be.appify.prefab.test.inmemory.persistence.fixture.Note;
 import be.appify.prefab.test.inmemory.persistence.fixture.NoteRepository;
 import be.appify.prefab.test.inmemory.persistence.fixture.Order;
 import be.appify.prefab.test.inmemory.persistence.fixture.OrderRepository;
+import be.appify.prefab.test.inmemory.persistence.fixture.ReportRepository;
 import be.appify.prefab.test.inmemory.persistence.fixture.Shape;
 import be.appify.prefab.test.inmemory.persistence.fixture.Shape.Circle;
 import be.appify.prefab.test.inmemory.persistence.fixture.Shape.Square;
@@ -141,6 +142,31 @@ class InMemoryRepositoriesTest {
             assertThatThrownBy(orders::findBigOrders)
                     .isInstanceOf(UnsupportedOperationException.class)
                     .hasMessageContaining("OrderRepository#findBigOrders")
+                    .hasMessageContaining("@IntegrationTest(containers = true)");
+        });
+    }
+
+    @Test
+    void autocompleteMethodsWithNativeQueries_doNotWarn(CapturedOutput output) {
+        runner.run(context -> {
+            assertThat(context).hasSingleBean(OrderRepository.class);
+
+            assertThat(output).doesNotContain("OrderRepository#autocompleteByName");
+        });
+    }
+
+    @Test
+    void mongoQueries_failWhenCalled(CapturedOutput output) {
+        runner.run(context -> {
+            var reports = context.getBean(ReportRepository.class);
+
+            assertThat(output).contains("ReportRepository#findWithMongoQuery")
+                    .contains("ReportRepository#findWithPipeline");
+            assertThatThrownBy(() -> reports.findWithMongoQuery("x"))
+                    .isInstanceOf(UnsupportedOperationException.class)
+                    .hasMessageContaining("ReportRepository#findWithMongoQuery");
+            assertThatThrownBy(() -> reports.findWithPipeline("x"))
+                    .isInstanceOf(UnsupportedOperationException.class)
                     .hasMessageContaining("@IntegrationTest(containers = true)");
         });
     }

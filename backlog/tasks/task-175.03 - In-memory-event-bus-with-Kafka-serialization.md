@@ -1,7 +1,7 @@
 ---
 id: TASK-175.03
 title: In-memory event bus with Kafka serialization
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-23 11:00'
 labels:

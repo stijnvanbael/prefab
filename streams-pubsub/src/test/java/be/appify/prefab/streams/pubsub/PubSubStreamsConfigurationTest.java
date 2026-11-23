@@ -11,7 +11,6 @@ import com.google.cloud.spring.pubsub.core.publisher.PublisherCustomizer;
 import com.google.cloud.spring.pubsub.support.PublisherFactory;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
-import org.springframework.boot.convert.ApplicationConversionService;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,8 +19,6 @@ import static org.mockito.Mockito.verify;
 
 class PubSubStreamsConfigurationTest {
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
-            .withInitializer(context -> context.getBeanFactory()
-                    .setConversionService(ApplicationConversionService.getSharedInstance()))
             .withConfiguration(AutoConfigurations.of(PubSubStreamsConfiguration.class))
             .withPropertyValues("spring.application.name=test");
 

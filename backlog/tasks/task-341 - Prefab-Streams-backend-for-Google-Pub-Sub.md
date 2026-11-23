@@ -83,3 +83,5 @@ Container-dependent integration tests are delegated to CI because this environme
   private test fixtures. The module now disables test-scope processing; a clean Java 21 test compilation succeeds.
 - A subsequent CI run reached the integration test but its non-web Spring context lacked a `ConversionService`.
   The test application now supplies one explicitly, along with no-credentials emulator configuration.
+- CI then exposed that a custom conversion service may not convert `7d` to a duration. The backend now parses
+  the retention property using Spring Boot's duration syntax independently of the application's conversion service.

@@ -12,12 +12,12 @@ import be.appify.prefab.streams.engine.StreamStateRepository;
 import be.appify.prefab.streams.tracing.TracingConfig;
 import com.google.cloud.spring.pubsub.core.publisher.PublisherCustomizer;
 import com.google.cloud.spring.pubsub.support.PublisherFactory;
-import java.time.Duration;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.convert.DurationStyle;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
 
@@ -57,10 +57,10 @@ public class PubSubStreamsConfiguration {
             EventRegistry registry,
             @Value("${prefab.streams.tracing.enabled:false}") boolean tracing,
             @Value("${prefab.streams.tracing.max-correlation-ids:100}") int maxCorrelationIds,
-            @Value("${prefab.streams.inbox-retention:7d}") Duration retention
+            @Value("${prefab.streams.inbox-retention:7d}") String retention
     ) {
         return new InProcessPrefabStreams(source, sink, repository, new PubSubStreamTopicResolver(registry),
-                new TracingConfig(tracing, maxCorrelationIds), retention);
+                new TracingConfig(tracing, maxCorrelationIds), DurationStyle.detectAndParse(retention));
     }
 
     @Bean

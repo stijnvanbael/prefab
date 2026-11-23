@@ -89,6 +89,11 @@ messages:
 Configure via `spring.cloud.aws.*` (standard Spring Cloud AWS properties). Prefab's `SnsConfiguration`
 auto-configures SNS publisher and SQS listener beans.
 
+With `prefab-streams-sns-sqs` and a `StreamStateRepository` (for example `prefab-streams-postgres`), the Streams DSL
+runs on SNS/SQS. Its properties (`prefab.streams.sns-sqs.visibility-timeout`, `prefab.streams.inbox-retention`,
+`prefab.streams.tracing.*`) are described in the
+[feature guide](feature-guides.md#streams-on-snssqs-prefab-streams-sns-sqs).
+
 ---
 
 ## `@EnablePrefab`
@@ -104,7 +109,7 @@ Auto-configurations (all gated on `PrefabCoreConfiguration`):
 - `KafkaConfiguration` – Kafka serializer/deserializer (if Kafka is on classpath)
 - `PubSubConfiguration` – Pub/Sub support (if GCP library is on classpath)
 - `SnsConfiguration` – SNS/SQS support (if AWS library is on classpath)
-- `PrefabJdbcConfiguration`, `PrefabMongoConfiguration`, `OpenApiAutoConfiguration`, `AsyncApiConfiguration`, `WebSecurityConfiguration`, `StreamsConfiguration` – activated by adding the matching module
+- `PrefabJdbcConfiguration`, `PrefabMongoConfiguration`, `OpenApiAutoConfiguration`, `AsyncApiConfiguration`, `WebSecurityConfiguration`, `StreamsConfiguration`, `SnsSqsStreamsConfiguration` – activated by adding the matching module
 
 ---
 

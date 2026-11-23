@@ -13,6 +13,7 @@
 | `streams-engine`       | `prefab-streams-engine`       | Streams without Kafka | In-process streams engine and in-memory test harness |
 | `streams-postgres`     | `prefab-streams-postgres`     | Streams state on Postgres | Postgres state, inbox, outbox and relay lease for the in-process engine |
 | `streams-pubsub`       | `prefab-streams-pubsub`       | Streams on Pub/Sub | Pub/Sub source and sink for the in-process engine |
+| `streams-sns-sqs`      | `prefab-streams-sns-sqs`      | Streams on SNS/SQS | SNS/SQS source and sink, backend `sns-sqs` and auto-configuration for the in-process engine |
 | `streams-kafka`        | `prefab-streams-kafka`        | Streams on Kafka   | Kafka Streams backend for the streams DSL      |
 | `annotation-processor` | `prefab-annotation-processor` | **Always**         | Compile-time code generator (APT)              |
 | `postgres`             | `prefab-postgres`             | PostgreSQL         | Spring Data JDBC + Flyway + PostgreSQL support |
@@ -42,6 +43,7 @@
 | Kafka Streams source/sink DSL | `core`, `annotation-processor`, `kafka`, `streams`, `streams-kafka` |
 | In-process Streams engine | `core`, `streams`, `streams-engine` |
 | Pub/Sub Streams         | `core`, `annotation-processor`, `pubsub`, `streams-pubsub`, `streams-postgres` |
+| SNS/SQS Streams         | `core`, `annotation-processor`, `sns-sqs`, `streams-sns-sqs`, `streams-postgres` |
 | GCP Pub/Sub events      | `core`, `annotation-processor`, `pubsub`                          |
 | AWS SNS/SQS events      | `core`, `annotation-processor`, `sns-sqs`                         |
 | Audit trail             | `core` (no extra module needed)                                   |

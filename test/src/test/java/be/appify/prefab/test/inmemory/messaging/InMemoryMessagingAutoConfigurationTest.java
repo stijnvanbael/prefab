@@ -5,16 +5,22 @@ import be.appify.prefab.core.domain.DomainEventDispatcher;
 import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.domain.TypedEvent;
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.test.inmemory.InMemoryTransactionManager;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.support.DefaultConversionService;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Header;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -60,6 +66,30 @@ public class InMemoryMessagingAutoConfigurationTest {
         @KafkaListener(topics = "customers", groupId = "customers")
         public void onCustomerChanged(Changed<Customer> event, @Header(EventType.HEADER) String eventType) {
             received.add("customer:" + event.payload().name() + ":" + eventType);
+        }
+    }
+
+    /** Mirrors a generated consumer: transactional, and publishing a follow-up event. */
+    public static class TransactionalConsumer {
+        private final DomainEventDispatcher dispatcher;
+
+        public TransactionalConsumer(DomainEventDispatcher dispatcher) {
+            this.dispatcher = dispatcher;
+        }
+
+        @Transactional
+        @KafkaListener(topics = "users", groupId = "transactional")
+        public void onUserCreated(UserCreated event) {
+            dispatcher.dispatch(new UserDeleted(event.id()));
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @EnableTransactionManagement
+    static class TransactionConfiguration {
+        @Bean
+        InMemoryTransactionManager transactionManager() {
+            return new InMemoryTransactionManager();
         }
     }
 
@@ -114,6 +144,22 @@ public class InMemoryMessagingAutoConfigurationTest {
             assertThat(context.getBean(UserConsumer.class).received)
                     .containsExactlyInAnyOrder("created:1", "audit:1", "deleted:2");
         });
+    }
+
+    @Test
+    void deliversEventsPublishedByTransactionalListeners() {
+        runner.withUserConfiguration(TransactionConfiguration.class)
+                .withBean(TransactionalConsumer.class)
+                .withBean(UserConsumer.class)
+                .run(context -> {
+                    var bus = context.getBean(InMemoryEventBus.class);
+                    var transaction = new TransactionTemplate(context.getBean(InMemoryTransactionManager.class));
+
+                    transaction.executeWithoutResult(status -> bus.dispatch(new UserCreated("1")));
+
+                    assertThat(context.getBean(UserConsumer.class).received).contains("deleted:1");
+                    assertThat(bus.failures()).isEmpty();
+                });
     }
 
     @Test

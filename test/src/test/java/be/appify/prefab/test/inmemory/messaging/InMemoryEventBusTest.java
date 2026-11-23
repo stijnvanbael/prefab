@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.core.convert.support.DefaultConversionService;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -40,8 +41,11 @@ class InMemoryEventBusTest {
         var conversion = new DefaultConversionService();
         var codec = new KafkaMessageCodec(new DynamicSerializer(properties, conversion, registry),
                 new DynamicDeserializer(properties, conversion, registry), registry);
-        bus = new InMemoryEventBus(registry, List.of(codec));
-        transaction = new TransactionTemplate(new InMemoryTransactionManager());
+        var transactionManager = new InMemoryTransactionManager();
+        var outsideTransaction = new TransactionTemplate(transactionManager);
+        outsideTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_NOT_SUPPORTED);
+        bus = new InMemoryEventBus(registry, List.of(codec), outsideTransaction);
+        transaction = new TransactionTemplate(transactionManager);
     }
 
     @Test
@@ -121,6 +125,17 @@ class InMemoryEventBusTest {
         });
 
         assertThat(received).containsExactly("in transaction", "delivered");
+    }
+
+    @Test
+    void deliversEventsPublishedByTransactionalHandlers() {
+        bus.subscribe("users", "transactional-handler", message ->
+                transaction.executeWithoutResult(status -> bus.dispatch(new UserDeleted("1"))));
+        bus.subscribe("deleted-users", "collector", message -> received.add(message.decode()));
+
+        transaction.executeWithoutResult(status -> bus.dispatch(new UserCreated("1")));
+
+        assertThat(received).containsExactly(new UserDeleted("1"));
     }
 
     @Test

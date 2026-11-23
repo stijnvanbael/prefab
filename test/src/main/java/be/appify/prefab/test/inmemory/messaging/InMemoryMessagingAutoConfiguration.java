@@ -19,6 +19,10 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionOperations;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Registers the in-memory event bus when {@code prefab.test.containers} is {@code false}.
@@ -37,8 +41,20 @@ public class InMemoryMessagingAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    InMemoryEventBus inMemoryEventBus(EventRegistry eventRegistry, ObjectProvider<MessageCodec> codecs) {
-        return new InMemoryEventBus(eventRegistry, codecs.orderedStream().toList());
+    InMemoryEventBus inMemoryEventBus(
+            EventRegistry eventRegistry,
+            ObjectProvider<MessageCodec> codecs,
+            ObjectProvider<PlatformTransactionManager> transactionManager
+    ) {
+        var outsideTransaction = transactionManager.getIfAvailable() instanceof PlatformTransactionManager manager
+                ? notSupported(manager) : TransactionOperations.withoutTransaction();
+        return new InMemoryEventBus(eventRegistry, codecs.orderedStream().toList(), outsideTransaction);
+    }
+
+    private static TransactionOperations notSupported(PlatformTransactionManager manager) {
+        var template = new TransactionTemplate(manager);
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_NOT_SUPPORTED);
+        return template;
     }
 
     /** Kafka support: the production serializers and the subscription of {@code @KafkaListener} methods. */

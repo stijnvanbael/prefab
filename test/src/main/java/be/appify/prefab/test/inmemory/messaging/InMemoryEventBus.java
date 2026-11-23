@@ -10,10 +10,12 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.transaction.support.TransactionOperations;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -31,13 +33,15 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 public class InMemoryEventBus implements DomainEventDispatcher {
     private static final Logger log = LoggerFactory.getLogger(InMemoryEventBus.class);
-    // ScopedValue is still a preview API in Java 25; the queue is removed again when the outermost delivery ends.
+    // ScopedValue is unavailable because the project compiles for release 21; the queue is removed again when the
+    // outermost delivery ends.
     private static final ThreadLocal<Deque<EncodedMessage>> DELIVERY_QUEUE = new ThreadLocal<>();
 
     private final EventRegistry eventRegistry;
     private final List<MessageCodec> codecs;
     private final Map<String, List<Subscription>> subscriptions = new ConcurrentHashMap<>();
     private final List<HandlerFailure> failures = new CopyOnWriteArrayList<>();
+    private final TransactionOperations outsideTransaction;
 
     /**
      * Constructs a bus.
@@ -46,8 +50,26 @@ public class InMemoryEventBus implements DomainEventDispatcher {
      * @param codecs        the codecs of the supported messaging platforms
      */
     public InMemoryEventBus(EventRegistry eventRegistry, List<MessageCodec> codecs) {
+        this(eventRegistry, codecs, TransactionOperations.withoutTransaction());
+    }
+
+    /**
+     * Constructs a bus that delivers outside the transaction that published the events.
+     *
+     * @param eventRegistry      the registry that resolves topics for events
+     * @param codecs             the codecs of the supported messaging platforms
+     * @param outsideTransaction runs a delivery with the current transaction suspended, so that a transactional
+     *                           handler starts a transaction of its own instead of joining the one that just
+     *                           committed
+     */
+    public InMemoryEventBus(
+            EventRegistry eventRegistry,
+            List<MessageCodec> codecs,
+            TransactionOperations outsideTransaction
+    ) {
         this.eventRegistry = eventRegistry;
         this.codecs = List.copyOf(codecs);
+        this.outsideTransaction = outsideTransaction;
     }
 
     @Override
@@ -116,18 +138,14 @@ public class InMemoryEventBus implements DomainEventDispatcher {
     }
 
     private void deliverAfterCommit(List<EncodedMessage> messages) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
             deliver(messages);
             return;
         }
-        // afterCompletion rather than afterCommit: the synchronizations are cleared by then, so a handler that
-        // starts its own transaction does not join the one that just completed.
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
-            public void afterCompletion(int status) {
-                if (status == STATUS_COMMITTED) {
-                    deliver(messages);
-                }
+            public void afterCommit() {
+                deliver(messages);
             }
         });
     }
@@ -141,11 +159,17 @@ public class InMemoryEventBus implements DomainEventDispatcher {
         var queue = new ArrayDeque<>(messages);
         DELIVERY_QUEUE.set(queue);
         try {
-            while (!queue.isEmpty()) {
-                deliverToSubscribers(queue.poll());
-            }
+            // The committed transaction is still bound while afterCommit runs; delivering outside of it keeps
+            // transactional handlers from joining it and lets their own events be delivered after their commit.
+            outsideTransaction.executeWithoutResult(status -> drain(queue));
         } finally {
             DELIVERY_QUEUE.remove();
+        }
+    }
+
+    private void drain(Queue<EncodedMessage> queue) {
+        while (!queue.isEmpty()) {
+            deliverToSubscribers(queue.poll());
         }
     }
 

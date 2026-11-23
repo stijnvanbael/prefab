@@ -101,14 +101,29 @@ public class SqsUtil implements DisposableBean {
      * @return the topic ARN
      */
     public String ensureTopicExists(String topicName) {
+        return ensureTopicExists(topicName, topicName.endsWith(".fifo"));
+    }
+
+    /**
+     * Ensures that the specified SNS topic exists, creating a FIFO topic when requested.
+     *
+     * @param topicName topic name, optionally ending in {@code .fifo}
+     * @param fifo whether the topic should use FIFO delivery
+     * @return the topic ARN
+     */
+    public String ensureTopicExists(String topicName, boolean fifo) {
+        var fifoTopic = fifo || topicName.endsWith(".fifo");
+        var effectiveTopicName = fifoTopic ? withFifoSuffix(topicName) : topicName;
         try {
-            var createResponse = snsClient.createTopic(
-                    CreateTopicRequest.builder().name(topicName).build()
-            );
+            var request = CreateTopicRequest.builder().name(effectiveTopicName);
+            if (fifoTopic) {
+                request.attributes(Map.of("FifoTopic", "true", "ContentBasedDeduplication", "false"));
+            }
+            var createResponse = snsClient.createTopic(request.build());
             return createResponse.topicArn();
         } catch (Exception e) {
             throw new IllegalStateException(
-                    "Failed to create SNS topic [%s], make sure SNS is available".formatted(topicName), e);
+                    "Failed to create SNS topic [%s], make sure SNS is available".formatted(effectiveTopicName), e);
         }
     }
 
@@ -121,14 +136,15 @@ public class SqsUtil implements DisposableBean {
      *         the type of the messages
      */
     public <T> void subscribe(SqsSubscriptionRequest<T> request) {
-        var topicArn = ensureTopicExists(request.topic());
-        var queueUrl = ensureQueueExists(request.queueName());
+        var fifo = isFifoSubscription(request);
+        var topicArn = ensureTopicExists(request.topic(), fifo);
+        var queueUrl = ensureQueueExists(request.queueName(), fifo);
         var queueArn = getQueueArn(queueUrl);
 
         if (request.isUsingDefaultDeadLetterQueueName()) {
-            configureDlq(queueUrl, deadLetterQueueName, maxRetries);
+            configureDlq(queueUrl, deadLetterQueueName, maxRetries, fifo);
         } else if (request.deadLetterQueueName() != null) {
-            configureDlq(queueUrl, request.deadLetterQueueName(), maxRetries);
+            configureDlq(queueUrl, request.deadLetterQueueName(), maxRetries, fifo);
         }
 
         subscribeQueueToTopic(topicArn, queueArn);
@@ -190,16 +206,43 @@ public class SqsUtil implements DisposableBean {
         return !eventRegistry.topicsForType(type).isEmpty();
     }
 
-    private String ensureQueueExists(String queueName) {
-        var sanitizedName = queueName.replaceAll("[^a-zA-Z0-9_-]", "-");
-        if (!sanitizedName.equals(queueName)) {
+    /**
+     * Checks whether a partitioning key is registered for the event.
+     *
+     * @param event event instance
+     * @return whether the event is configured for FIFO delivery
+     */
+    public boolean hasPartitioningKey(Object event) {
+        return eventRegistry.hasPartitioningKey(event);
+    }
+
+    /**
+     * Returns the partitioning key for the given event, when one is registered.
+     *
+     * @param event event instance
+     * @return the partitioning key, or empty when no key extractor is registered
+     */
+    public Optional<String> keyFor(Object event) {
+        return eventRegistry.keyFor(event);
+    }
+
+    private String ensureQueueExists(String queueName, boolean fifo) {
+        var fifoQueue = fifo || queueName.endsWith(".fifo");
+        var effectiveQueueName = fifoQueue ? withFifoSuffix(queueName) : queueName;
+        var queueStem = fifoQueue
+                ? effectiveQueueName.substring(0, effectiveQueueName.length() - ".fifo".length())
+                : effectiveQueueName;
+        var sanitizedName = queueStem.replaceAll("[^a-zA-Z0-9_-]", "-") + (fifoQueue ? ".fifo" : "");
+        if (!sanitizedName.equals(effectiveQueueName)) {
             log.warn("SQS queue name [{}] contains invalid characters and was sanitized to [{}]", queueName,
                     sanitizedName);
         }
         try {
-            return sqsClient.createQueue(
-                    CreateQueueRequest.builder().queueName(sanitizedName).build()
-            ).get().queueUrl();
+            var request = CreateQueueRequest.builder().queueName(sanitizedName);
+            if (fifoQueue) {
+                request.attributes(Map.of(QueueAttributeName.FIFO_QUEUE, "true"));
+            }
+            return sqsClient.createQueue(request.build()).get().queueUrl();
         } catch (Exception e) {
             try {
                 return sqsClient.getQueueUrl(
@@ -226,8 +269,8 @@ public class SqsUtil implements DisposableBean {
         }
     }
 
-    private void configureDlq(String queueUrl, String dlqName, Integer maxReceiveCount) {
-        var dlqUrl = ensureQueueExists(dlqName);
+    private void configureDlq(String queueUrl, String dlqName, Integer maxReceiveCount, boolean fifo) {
+        var dlqUrl = ensureQueueExists(dlqName, fifo);
         var dlqArn = getQueueArn(dlqUrl);
         var redrivePolicy = "{\"maxReceiveCount\":%d,\"deadLetterTargetArn\":\"%s\"}"
                 .formatted(maxReceiveCount, dlqArn);
@@ -241,6 +284,17 @@ public class SqsUtil implements DisposableBean {
         } catch (Exception e) {
             throw new IllegalStateException("Failed to configure DLQ for queue [%s]".formatted(queueUrl), e);
         }
+    }
+
+    private boolean isFifoSubscription(SqsSubscriptionRequest<?> request) {
+        return request.topic().endsWith(".fifo")
+                || request.eventType()
+                        .map(eventRegistry::hasPartitioningKey)
+                        .orElseGet(() -> eventRegistry.hasPartitioningKey(request.type()));
+    }
+
+    private static String withFifoSuffix(String name) {
+        return name.endsWith(".fifo") ? name : name + ".fifo";
     }
 
     private void subscribeQueueToTopic(String topicArn, String queueArn) {

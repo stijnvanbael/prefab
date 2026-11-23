@@ -8,9 +8,11 @@ import be.appify.prefab.core.serialization.ConcreteEventSupport;
 import be.appify.prefab.core.versioning.EventVersions;
 import io.awspring.cloud.sns.core.SnsNotification;
 import io.awspring.cloud.sns.core.SnsTemplate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -31,6 +33,7 @@ import org.springframework.stereotype.Component;
 @ConditionalOnClass(SnsTemplate.class)
 public class GenericSnsPublisher implements DomainEventDispatcher {
     private static final Logger log = LoggerFactory.getLogger(GenericSnsPublisher.class);
+    private static final String DEFAULT_FIFO_MESSAGE_GROUP_ID = "prefab-default";
 
     private final SnsTemplate snsTemplate;
     private final SqsUtil sqsUtil;
@@ -61,8 +64,23 @@ public class GenericSnsPublisher implements DomainEventDispatcher {
     }
 
     private void publishToTopics(Object event, List<String> topics) {
+        if (topics.isEmpty()) {
+            return;
+        }
+        var partitioned = sqsUtil.hasPartitioningKey(event);
+        var partitioningKey = partitioned ? sqsUtil.keyFor(event) : Optional.<String>empty();
+        if (partitioned && partitioningKey.filter(key -> !key.isBlank() && key.length() <= 128).isEmpty()) {
+            throw new IllegalStateException(
+                    "Partitioning key must be non-blank and at most 128 characters for FIFO SNS/SQS events");
+        }
         for (var resolvedTopic : topics) {
-            var topicArn = topicArnCache.computeIfAbsent(resolvedTopic, sqsUtil::ensureTopicExists);
+            var fifo = partitioned || resolvedTopic.endsWith(".fifo");
+            var cacheKey = fifo && !resolvedTopic.endsWith(".fifo") ? resolvedTopic + ".fifo" : resolvedTopic;
+            var topicArn = topicArnCache.computeIfAbsent(
+                    cacheKey,
+                    ignored -> fifo
+                            ? sqsUtil.ensureTopicExists(resolvedTopic, true)
+                            : sqsUtil.ensureTopicExists(resolvedTopic));
             log.debug("Publishing event {} on topic {}", event, topicArn);
             var payload = snsSerializer.serialize(resolvedTopic, event);
             var versionHeaders = new HashMap<>(EventVersions.headersFor(event));
@@ -71,13 +89,18 @@ public class GenericSnsPublisher implements DomainEventDispatcher {
             }
             var subject = TypedEvent.payload(event).getClass().getName();
             CompletableFuture.runAsync(() -> {
-                if (versionHeaders.isEmpty()) {
+                if (!fifo && versionHeaders.isEmpty()) {
                     snsTemplate.sendNotification(topicArn, payload, subject);
                 } else {
-                    snsTemplate.sendNotification(topicArn, SnsNotification.builder(payload)
-                            .subject(subject)
-                            .headers(Map.copyOf(versionHeaders))
-                            .build());
+                    var notification = SnsNotification.builder(payload).subject(subject);
+                    if (!versionHeaders.isEmpty()) {
+                        notification.headers(Map.copyOf(versionHeaders));
+                    }
+                    if (fifo) {
+                        notification.groupId(partitioningKey.orElse(DEFAULT_FIFO_MESSAGE_GROUP_ID))
+                                .deduplicationId(UUID.randomUUID().toString());
+                    }
+                    snsTemplate.sendNotification(topicArn, notification.build());
                 }
             }).join();
         }

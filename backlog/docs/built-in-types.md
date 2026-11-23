@@ -237,15 +237,10 @@ atomically before the `EventRegistry` bean is exposed to any consumer.
 public class MyCustomizer implements EventRegistryCustomizer {
     @Override
     public void customize(EventRegistry registry) {
-        registry.register("my-topic", MyEvent.class, Event.Serialization.JSON);
+        registry.register("my-topic", EventType.of(MyEvent.class), Event.Serialization.JSON);
     }
 }
 ```
-
-### `SerializationRegistry` _(deprecated)_
-
-`SerializationRegistry` (`be.appify.prefab.core.util`) is a deprecated backwards-compatibility
-wrapper that delegates to `EventRegistry`. Inject `EventRegistry` directly in new code.
 
 ---
 

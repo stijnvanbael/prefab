@@ -1,5 +1,5 @@
 ---
-id: TASK-352
+id: TASK-361
 title: 'Postgres state repository, inbox and outbox for the in-process streams engine'
 status: To Do
 assignee: []
@@ -9,7 +9,7 @@ labels:
   - postgres
   - coverage-gap
 dependencies:
-  - TASK-351
+  - TASK-360
 priority: medium
 type: feature
 ordinal: 198000
@@ -18,7 +18,7 @@ ordinal: 198000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Implement `StreamStateRepository` (TASK-351) on Postgres with `JdbcTemplate`, following decision-008:
+Implement `StreamStateRepository` (TASK-360) on Postgres with `JdbcTemplate`, following decision-008:
 - The `prefab_stream_store`, `prefab_stream_window`, `prefab_stream_join_buffer`, `prefab_stream_inbox`, `prefab_stream_outbox` and `prefab_stream_lease` tables. Every state row has a version column for optimistic concurrency. Values are stored as `bytea`, written with the broker serializers. Keys use the shared key encoding.
 - Schema initialization like Spring Batch's (`prefab.streams.state.initialize-schema=always|never`, default `always` for embedded and Testcontainers databases). The DDL is published in the developer guide for teams that manage their own schema. Do not use the application's Flyway `V{n}` sequence.
 - Use the Spring `PlatformTransactionManager` for the per-message transaction. On a version conflict (unique violation or a stale-version update count of 0), throw a dedicated exception that the engine retries.
@@ -27,7 +27,7 @@ Implement `StreamStateRepository` (TASK-351) on Postgres with `JdbcTemplate`, fo
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The StreamStateRepository contract suite from TASK-351 passes against Postgres (Testcontainers)
+- [ ] #1 The StreamStateRepository contract suite from TASK-360 passes against Postgres (Testcontainers)
 - [ ] #2 Concurrent updates to the same key from two engine instances lose no update (integration test)
 - [ ] #3 An output row is published even when the instance crashes between commit and publish (relay takes over after the lease expires)
 - [ ] #4 The developer guide documents the tables, schema initialization, retention properties and the DDL

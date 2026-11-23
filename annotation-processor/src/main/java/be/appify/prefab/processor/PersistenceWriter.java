@@ -62,8 +62,9 @@ class PersistenceWriter {
                 .addSuperinterface(ParameterizedTypeName.get(ClassName.get(PagingAndSortingRepository.class),
                         manifest.type().asTypeName(), ClassName.get(String.class)));
         mixins.forEach(mixinType -> type.addSuperinterface(mixinType.asType()));
-        applyPlugins(manifest.type().asElement(), plugin -> plugin.writeRepository(manifest, type));
         findByParentMethod(manifest, type);
+        new PluginContributions(context)
+                .apply(manifest.type().asElement(), type, OutputTarget.TEST, plugin -> plugin.writeRepository(manifest, type));
         fileWriter.writeFile(manifest.packageName(), repositoryName, type.build());
     }
 
@@ -120,10 +121,4 @@ class PersistenceWriter {
                         .build()));
     }
 
-    private void applyPlugins(TypeElement aggregateType, java.util.function.Consumer<PrefabPlugin> action) {
-        context.plugins().stream()
-                .filter(plugin -> context.isPluginEnabledFor(aggregateType, plugin.getClass()))
-                .filter(plugin -> context.getOutputTargetFor(aggregateType, plugin.getClass()) != OutputTarget.TEST)
-                .forEach(plugin -> context.withPluginOutputTarget(aggregateType, plugin.getClass(), () -> action.accept(plugin)));
-    }
 }

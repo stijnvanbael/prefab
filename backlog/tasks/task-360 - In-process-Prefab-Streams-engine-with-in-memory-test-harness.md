@@ -1,5 +1,5 @@
 ---
-id: TASK-351
+id: TASK-360
 title: In-process Prefab Streams engine with in-memory test harness
 status: To Do
 assignee: []
@@ -31,11 +31,11 @@ Scope:
   - `groupBy` + `aggregate`, and `windowedAggregate` with grace, using stream time per key.
   - Inner `join` with `JoinWindow`, `deduplicate`, and global stores as shared tables.
   - Tracing headers, with correlation IDs cut to a configurable maximum attribute size.
-- `breakout` with an adapter for another backend, and `StreamProcessorContext.schedule`, fail at startup with a message naming TASK-354.
+- `breakout` with an adapter for another backend, and `StreamProcessorContext.schedule`, fail at startup with a message naming TASK-363.
 - Outbox relay with a lease per sink topic, and scheduled cleanup of closed windows, join buffers, deduplication identities and inbox rows (`prefab.streams.inbox-retention`).
 - Move the shape-based key encoding (single-field record → plain string, otherwise JSON) from `prefab-streams-kafka` to `prefab-streams`, so both backends share it without changing Kafka's bytes.
 - In-memory `StreamStateRepository`, source and sink, plus a `TopologyTestHarness.Factory` registration, so `TopologyTestHarness` / `@TestStreams` tests run without containers.
-- A `StreamStateRepository` contract test suite that TASK-352 and TASK-353 reuse.
+- A `StreamStateRepository` contract test suite that TASK-361 and TASK-362 reuse.
 - An engine-specific startup warning when a stateful operator reads from an unordered source.
 <!-- SECTION:DESCRIPTION:END -->
 

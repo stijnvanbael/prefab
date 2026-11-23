@@ -18,9 +18,12 @@ Only edit backlog markdown files directly when the MCP tools are unavailable —
    implementation so anyone can resume it at any time with a fresh context
 4. **After each meaningful code change**: commit with a conventional-commits message
    (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`).
-5. **After completing a task**: set status to `Done` and add implementation notes — do
-   this before moving on to the next task.
-6. **When a plan changes mid-task** (user interrupts, pivots, or uncovers a side-issue):
+5. **After completing a task**: set status to `Done`, add implementation notes, and move the
+   task file from `backlog/tasks/` to `backlog/completed/` (`git mv`, or `task_complete` when
+   available) — do this before moving on to the next task.
+6. **Keep `backlog/tasks/` clean**: whenever you touch the backlog, move any task that is already
+   `Done` to `backlog/completed/`. Only open tasks (`To Do`, `In Progress`) stay in `backlog/tasks/`.
+7. **When a plan changes mid-task** (user interrupts, pivots, or uncovers a side-issue):
   - If the side-issue is out of scope → create a new task for it rather than silently
     doing the work.
   - Re-read *these* instructions before resuming so the workflow is fresh.
@@ -113,6 +116,9 @@ Avoid: raw types, `StringBuffer`, old `Date`/`Calendar`, `synchronized` (prefer 
 - Javadoc on all public types/methods in shared code. Comment *why*, not *what*.
 - Capture significant decisions in ADRs (`backlog/decisions/`).
 - Small, focused commits; conventional-commits format (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`).
+- Use meaningful branch names that describe the work, e.g. `feat/task-123-soft-delete` or
+  `fix/flaky-category-stats-test` — never random or auto-generated names (unless the environment mandates one).
+- When a task is done, create a pull request right away — don't wait to be asked.
 - Leave the codebase better than you found it (Boy Scout Rule).
 
 ---
@@ -123,8 +129,9 @@ Avoid: raw types, `StringBuffer`, old `Date`/`Calendar`, `synchronized` (prefer 
 - [ ] Zero compiler warnings; no unused imports or dead code
 - [ ] No TODO/FIXME comments in committed code
 - [ ] Code reads naturally without explanation
-- [ ] Task file updated to `Done` with implementation notes
+- [ ] Task file updated to `Done` with implementation notes and moved to `backlog/completed/`
 - [ ] Changes committed with a descriptive conventional-commit message
-- [ ] Pull request created for the branch (agents open the PR themselves when the work is done)
+- [ ] Branch has a meaningful name
+- [ ] Pull request created for the branch right away (agents open the PR themselves when the work is done)
 
 </CRITICAL_INSTRUCTION>

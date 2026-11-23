@@ -4,6 +4,36 @@
 
 ---
 
+## 8.0 Customization Coverage
+
+Prefab's opinions can be adjusted at four levels. Prefer the first one that fits:
+
+1. **Declarative**: annotations, `-Aprefab.*` compiler options and `prefab.*` properties.
+2. **Supported hook**: a documented interface, plugin callback or bean.
+3. **Whole-class override**: take over one generated class (§8.6). You maintain it from then on.
+4. **Not customizable**: identity, optimistic locking and applied migration history are protected invariants.
+
+[decision-009](../decisions/decision-009%20-%20Stable-extension-contracts-versus-internals.md) defines which of
+these are stable contracts and the rules every extension point follows (no-op default, deterministic order,
+defined conflict behaviour, regeneration safety). Everything not listed there, such as generated method bodies,
+`*Writer` classes and undocumented bean names, is internal.
+
+| Area | Declarative | Supported hooks | Escape hatch / gap |
+|---|---|---|---|
+| Plugin selection | `-Aprefab.plugin.<id>.enabled`, `@Generate(plugin, enabled, target)` ([feature guide](feature-guides.md)) | Custom `PrefabPlugin` (§8.1) | — |
+| REST contracts and controllers | `@Aggregate(exposure, plural)`, operation `path` / `method` / `exposure`, `@Filter`, `@GetList(sorted)`, `@Doc`, `@ViewOf` ([annotation reference](annotation-reference.md)) | `PrefabPlugin.writeController`, `requestBodyParameter`, `mapRequestParameter`; handwritten adapters (§8.7) | §8.6 override |
+| Application services | `Exposure.INTERNAL` operations, `@Computed` | `PrefabPlugin.writeService`, `getServiceDependencies`; domain events and `@EventHandler`s for side effects | §8.6 override; no per-operation metrics yet (TASK-357) |
+| Repositories and queries | `@Filter`, `@Indexed`, `@Autocomplete` | `@RepositoryMixin` (§8.2), `PrefabPlugin.writeRepository`, replaceable `RangeQueryExecutor` / `FullTextQueryExecutor` beans | Row-level read scoping is planned (TASK-322) |
+| Persistence and migrations | `@DbColumn`, `@DbRename`, `@DbDefaultValue`, `@DbDocument`, `@DbMigration(enabled)`, `@CustomType` | `PrefabPlugin.dataTypeOf`; manual `V{n}__*.sql` migrations ([database migrations](database-migrations.md)) | Applied generated migrations are immutable |
+| Messaging and serialization | `@Event(topic, platform, serialization, publishTo, version, compatibility)`, `@EventHandlerConfig`, `prefab.dlt.*` ([configuration](configuration.md)) | `EventRegistryCustomizer` (§8.5), event `Migration` beans, Kafka producer/consumer factory customizers, `ContainerCustomizer`, `CommonErrorHandler`; `PrefabPlugin.avroSchemaOf` / `toAvroValueOf` / `fromAvroValueOf` | New brokers need a provider SPI (TASK-180) |
+| Security | `@Security(enabled, authority, role)` | `HttpSecurityCustomizer`; replacing `SecurityFilterChain` | Field and row policies are planned (TASK-322) |
+| Tenancy and audit | `@TenantId`, audit fields | `TenantContextProvider` (§8.4), `AuditContextProvider` (§8.3) | — |
+| Tests | `@Generate(plugin = ..., target = OutputTarget.TEST)` | `PrefabPlugin.writeTestClient`; `prefab.test.*` container properties | Override `{Aggregate}Client` under `src/test/java` ([§6.9](generated-artefacts.md#69-generated-test-client)) |
+| Observability | `prefab.streams.tracing.*` for streams | Spring Boot HTTP and Kafka container observations via the beans above | Generated services and consumers only log; TASK-357 |
+| Infrastructure | Terraform generation through `GcpTerraformPlugin` | `PrefabPlugin.writeGlobalFiles` for other targets | — |
+
+---
+
 ## 8.1 PrefabPlugin Interface
 
 All Prefab code generation is driven by `PrefabPlugin` implementations loaded via the Java `ServiceLoader`
@@ -49,6 +79,7 @@ com.example.processor.MyCustomPlugin
 
 | Method                                              | When Called                | Purpose                                          |
 |-----------------------------------------------------|----------------------------|--------------------------------------------------|
+| `order()`                                           | Once at startup            | Position relative to other plugins (default `0`) |
 | `initContext(PrefabContext)`                        | Once at startup            | Inject processing environment                    |
 | `writeController(manifest, builder)`                | Per aggregate              | Add methods to controller                        |
 | `writeService(manifest, builder)`                   | Per aggregate              | Add methods to service                           |
@@ -65,6 +96,26 @@ com.example.processor.MyCustomPlugin
 | `avroSchemaOf(typeManifest)`                        | Per `@CustomType` field    | Provide Avro schema for custom types             |
 | `toAvroValueOf(type, value)`                        | Per `@CustomType` field    | Serialize custom type to Avro                    |
 | `fromAvroValueOf(type, value)`                      | Per `@CustomType` field    | Deserialize Avro to custom type                  |
+
+### Plugin order and member conflicts
+
+Plugins run in ascending `order()`, then by fully-qualified class name, whatever the order of jars on the
+processor path. All built-in plugins use `PrefabPlugin.DEFAULT_ORDER` (`0`). Return a positive value to run after
+them, so your methods appear later in generated types, or a negative value to run first and win hooks where the
+first non-empty result is used (`requestBodyParameter`, `mapRequestParameter`, `dataTypeOf`, `avroSchemaOf`, ...).
+
+Plugins only add to generated types. Adding a method with the same name and parameter types, a field or a nested
+type that Prefab or an earlier plugin already added to a generated controller, service, repository or test client
+fails compilation with an error on the aggregate:
+
+```
+Plugin com.example.processor.MetricsPlugin adds method metrics() to generated OrderService, but
+com.example.processor.AuditTrailPlugin already contributes it. Disable one of them for this aggregate with
+@Generate(plugin = ..., enabled = false) or give the member a distinct signature.
+```
+
+javac's own "already defined" error for the generated file follows it. A plugin that overrides no hook leaves
+generated output byte-identical, and recompiling unchanged sources regenerates identical files.
 
 ### Event discovery scope for plugins
 
@@ -171,16 +222,21 @@ Implement and register as a `@Component` or `@Bean` to provide the tenant ID. Se
 
 ---
 
-## 8.5 SerializationRegistryCustomizer
+## 8.5 EventRegistryCustomizer
 
-Implement to programmatically register topic → serialization format mappings:
+Implement as a bean to register topic → event type and serialization mappings that Prefab does not derive from
+`@Event`, for example for events owned by another service:
 
 ```java
 @Bean
-public SerializationRegistryCustomizer myCustomizer() {
-    return registry -> registry.register("my-topic", Event.Serialization.AVRO);
+EventRegistryCustomizer legacyTopics() {
+    return registry -> registry.register("legacy-orders", EventType.of(LegacyOrderPlaced.class),
+            Event.Serialization.JSON);
 }
 ```
+
+Customizers are applied in `@Order` order before the `EventRegistry` is exposed. See
+[Built-in Types — EventRegistryCustomizer](built-in-types.md#eventregistrycustomizer).
 
 ---
 

@@ -11,8 +11,8 @@ labels:
   - coverage-gap
 dependencies:
   - TASK-339
-  - TASK-351
-  - TASK-352
+  - TASK-360
+  - TASK-361
 priority: medium
 type: feature
 ordinal: 186000
@@ -27,7 +27,7 @@ Scope of a first version is the operator matrix from TASK-339. The backend-neutr
 
 ## Design (decided in TASK-339, see decision-008)
 
-Build the backend on the in-process, database-backed engine `prefab-streams-engine` (TASK-351), with state on Postgres (TASK-352). This module only adds the Pub/Sub parts:
+Build the backend on the in-process, database-backed engine `prefab-streams-engine` (TASK-360), with state on Postgres (TASK-361). This module only adds the Pub/Sub parts:
 - `PubSubStreamBackend.PUBSUB` (`StreamBackend.named("pubsub")`) and auto-configuration that activates when `PubSubUtil` and a `StreamStateRepository` are present.
 - `StreamSource`: one subscription per source node (`{application}.streams.{step-name}`) and one shared subscription per global store, provisioned through `PubSubUtil` with message ordering and the existing dead-letter policy. Extend `SubscriptionRequest` with a metadata-aware consumer (message ID, attributes, publish time), and ack only after the engine's transaction commits. Concrete `EventType` bindings are filtered as in `PubSubUtil.consumeConcrete`.
 - `StreamSink` used by the outbox relay: publish with ordering key = record key, attributes `prefab-message-id`, `prefab-event-time` and `prefab-correlation-ids`, the existing serializers, and `resumePublish` for the ordering key after a failed publish.
@@ -43,7 +43,7 @@ First-version operators (decision-008):
   - Inner `join` with `JoinWindow`, and `deduplicate`
   - Global stores as shared tables, without history from before the first deployment
   - Exactly-once through the inbox and outbox, tracing, and topology tests through the in-memory harness
-- Not supported, failing at startup: `breakout` (Kafka-only) and `StreamProcessorContext.schedule` (TASK-354). In the showcase, declare these as specific gaps rather than as STREAMS.
+- Not supported, failing at startup: `breakout` (Kafka-only) and `StreamProcessorContext.schedule` (TASK-363). In the showcase, declare these as specific gaps rather than as STREAMS.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

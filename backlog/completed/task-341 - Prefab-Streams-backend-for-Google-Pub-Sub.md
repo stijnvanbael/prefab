@@ -1,9 +1,9 @@
 ---
 id: TASK-341
 title: Prefab Streams backend for Google Pub/Sub
-status: In Progress
+status: Done
 assignee: []
-updated_date: '2026-11-21 10:00'
+updated_date: '2026-11-23 17:57'
 created_date: '2026-11-20 19:48'
 labels:
   - streams
@@ -90,4 +90,6 @@ Container-dependent integration tests are delegated to CI because this environme
 - CI run 45200337894 later timed out waiting for aggregate output. The outbox relay can miss a wake-up when a
   second transaction commits after a topic was scanned while another relay is active. A deterministic in-memory test
   reproduced the missed wake-up; relay requests are now coalesced and trigger another scan, including for
-  synchronously delivered downstream messages. CI must verify the container-backed suite after this fix.
+  synchronously delivered downstream messages.
+- Full Maven verify, including the Pub/Sub emulator and Postgres integration test, passed in CI run 45220448735
+  for commit `77a0a9aa` after the relay fix and rebase onto main. Showcase verification is deferred to TASK-337.09.

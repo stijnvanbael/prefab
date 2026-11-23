@@ -31,6 +31,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
@@ -52,6 +53,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sns.SnsClient;
 import software.amazon.awssdk.services.sqs.SqsAsyncClient;
+import software.amazon.awssdk.services.sqs.model.QueueAttributeName;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -66,6 +68,8 @@ class SnsSqsStreamsIntegrationTest {
     private static LocalStackContainer localstack;
     private static PostgreSQLContainer postgres;
 
+    private static JdbcTemplate stateJdbc;
+    private static SqsAsyncClient queueClient;
     private static SqsUtil sqsUtil;
     private static SnsTemplate snsTemplate;
     private static SnsSqsStreamSink sink;
@@ -86,6 +90,7 @@ class SnsSqsStreamsIntegrationTest {
                 .withServices(SNS, SQS);
         localstack.start();
         var jdbc = new JdbcTemplate(postgresDataSource());
+        stateJdbc = jdbc;
         jdbc.execute("DROP TABLE IF EXISTS prefab_stream_store, prefab_stream_inbox, "
                 + "prefab_stream_outbox, prefab_stream_lease");
         PostgresStreamSchema.initialize(jdbc);
@@ -100,6 +105,7 @@ class SnsSqsStreamsIntegrationTest {
         var sqsClient = SqsAsyncClient.builder().endpointOverride(localstack.getEndpointOverride(SQS))
                 .credentialsProvider(credentials).region(region).build();
 
+        queueClient = sqsClient;
         registry = new EventRegistry();
         registry.register("it-sales", Sale.class, Event.Serialization.JSON, Sale::saleId);
         registry.register("it-refunds", Refund.class, Event.Serialization.JSON, Refund::saleId);
@@ -162,12 +168,12 @@ class SnsSqsStreamsIntegrationTest {
         publish("it-refunds", "s-1", new Refund("s-1", "damaged"), now.plusSeconds(1));
         publish("it-products", "books", new Product("books", "Books"), now);
 
-        await(() -> totals.stream().anyMatch(total -> total.equals(new CategoryTotal("books", 15))));
+        await("running total of books", () -> totals.stream().anyMatch(total -> total.equals(new CategoryTotal("books", 15))));
         assertThat(totals).contains(new CategoryTotal("books", 5), new CategoryTotal("games", 7),
                 new CategoryTotal("books", 15));
-        await(() -> windowedTotals.size() >= 3);
-        await(() -> refunded.contains(new RefundedSale("s-1", "books", "damaged")));
-        await(() -> products.get("books").isPresent());
+        await("three windowed totals", () -> windowedTotals.size() >= 3);
+        await("refunded sale s-1", () -> refunded.contains(new RefundedSale("s-1", "books", "damaged")));
+        await("product books in the global store", () -> products.get("books").isPresent());
         assertThat(products.get("books")).contains(new Product("books", "Books"));
     }
 
@@ -181,7 +187,7 @@ class SnsSqsStreamsIntegrationTest {
         publishWithDeduplication("it-sales", sale, messageId, UUID.randomUUID().toString());
         publish("it-sales", "s-after", new Sale("s-after", "music", 4), Instant.now());
 
-        await(() -> totals.contains(new CategoryTotal("music", 7)));
+        await("music total of 7", () -> totals.contains(new CategoryTotal("music", 7)));
         assertThat(totals.stream().filter(total -> total.category().equals("music")))
                 .containsExactly(new CategoryTotal("music", 3), new CategoryTotal("music", 7));
     }
@@ -208,7 +214,7 @@ class SnsSqsStreamsIntegrationTest {
                 .withFifo(true));
     }
 
-    private static void await(Supplier<Boolean> condition) {
+    private static void await(String what, Supplier<Boolean> condition) {
         var deadline = Instant.now().plus(Duration.ofSeconds(90));
         while (Instant.now().isBefore(deadline)) {
             if (condition.get()) {
@@ -218,10 +224,44 @@ class SnsSqsStreamsIntegrationTest {
                 Thread.sleep(250);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new IllegalStateException("Interrupted while waiting for the streams", e);
+                throw new IllegalStateException("Interrupted while waiting for " + what, e);
             }
         }
-        throw new AssertionError("Condition not met within 90 seconds");
+        throw new AssertionError("Not seen within 90 seconds: %s%nState of the streams:%n%s"
+                .formatted(what, snapshot()));
+    }
+
+    /** Describes where messages are, so a timeout says what the streams were doing. */
+    private static String snapshot() {
+        var snapshot = new StringBuilder();
+        snapshot.append("inbox per source: ").append(stateJdbc.queryForList(
+                "SELECT subscription, count(*) AS messages FROM prefab_stream_inbox GROUP BY subscription"))
+                .append(System.lineSeparator());
+        snapshot.append("outbox per topic: ").append(stateJdbc.queryForList(
+                "SELECT topic, count(*) AS rows FROM prefab_stream_outbox GROUP BY topic"))
+                .append(System.lineSeparator());
+        snapshot.append("join state: ").append(stateJdbc.queryForList(
+                "SELECT namespace, convert_from(state_value, 'UTF8') AS state FROM prefab_stream_store "
+                        + "WHERE namespace LIKE '%join%'")).append(System.lineSeparator());
+        snapshot.append("queues: ").append(queueDepths()).append(System.lineSeparator());
+        snapshot.append("received: totals=").append(totals).append(" windowed=").append(windowedTotals)
+                .append(" refunded=").append(refunded);
+        return snapshot.toString();
+    }
+
+    private static Map<String, Map<String, String>> queueDepths() {
+        var depths = new TreeMap<String, Map<String, String>>();
+        try {
+            for (var url : queueClient.listQueues().get().queueUrls()) {
+                var attributes = queueClient.getQueueAttributes(builder -> builder.queueUrl(url).attributeNames(
+                        QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES,
+                        QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES_NOT_VISIBLE)).get().attributesAsStrings();
+                depths.put(url.substring(url.lastIndexOf('/') + 1), attributes);
+            }
+        } catch (Exception e) {
+            depths.put("unavailable", Map.of("reason", String.valueOf(e)));
+        }
+        return depths;
     }
 
     private static DataSource postgresDataSource() {

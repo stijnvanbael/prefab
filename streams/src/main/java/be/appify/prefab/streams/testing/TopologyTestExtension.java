@@ -35,6 +35,9 @@ import org.junit.jupiter.api.extension.ParameterResolver;
  *
  * <p>Register the extension with {@code @RegisterExtension} and {@link #withAppId(String)} to use another application
  * id than the default.
+ *
+ * <p>When multiple factories are on the classpath, {@link #withBackend(String)} selects one explicitly. The
+ * {@code prefab.streams.test.backend} system property provides the same selection for an entire test run.
  */
 public final class TopologyTestExtension implements BeforeEachCallback, AfterEachCallback, ParameterResolver {
     private static final Namespace NAMESPACE = Namespace.create(TopologyTestExtension.class);
@@ -42,15 +45,17 @@ public final class TopologyTestExtension implements BeforeEachCallback, AfterEac
 
     private final String appId;
     private final boolean tracing;
+    private final String backend;
 
     /** Constructs an extension that uses the default application id. */
     public TopologyTestExtension() {
-        this(DEFAULT_APP_ID, false);
+        this(DEFAULT_APP_ID, false, null);
     }
 
-    private TopologyTestExtension(String appId, boolean tracing) {
+    private TopologyTestExtension(String appId, boolean tracing, String backend) {
         this.appId = appId;
         this.tracing = tracing;
+        this.backend = backend;
     }
 
     /**
@@ -60,7 +65,7 @@ public final class TopologyTestExtension implements BeforeEachCallback, AfterEac
      * @return the extension
      */
     public static TopologyTestExtension withAppId(String appId) {
-        return new TopologyTestExtension(appId, false);
+        return new TopologyTestExtension(appId, false, null);
     }
 
     /**
@@ -69,7 +74,17 @@ public final class TopologyTestExtension implements BeforeEachCallback, AfterEac
      * @return the extension
      */
     public static TopologyTestExtension withTracing() {
-        return new TopologyTestExtension(DEFAULT_APP_ID, true);
+        return new TopologyTestExtension(DEFAULT_APP_ID, true, null);
+    }
+
+    /**
+     * Creates an extension that explicitly uses a named backend.
+     *
+     * @param backend the backend name
+     * @return the extension
+     */
+    public static TopologyTestExtension withBackend(String backend) {
+        return new TopologyTestExtension(DEFAULT_APP_ID, false, backend);
     }
 
     @Override
@@ -106,7 +121,10 @@ public final class TopologyTestExtension implements BeforeEachCallback, AfterEac
     }
 
     private Environment createEnvironment() {
-        var harness = TopologyTestHarness.create(appId, tracing);
+        var selectedBackend = backend != null ? backend : System.getProperty("prefab.streams.test.backend");
+        var harness = selectedBackend == null
+                ? TopologyTestHarness.create(appId, tracing)
+                : TopologyTestHarness.create(selectedBackend, appId, tracing);
         return new Environment(harness.streams(), new LazyTopologySession(harness::start));
     }
 
@@ -131,4 +149,3 @@ public final class TopologyTestExtension implements BeforeEachCallback, AfterEac
     private record Environment(PrefabStreams streams, TopologySession session) {
     }
 }
-

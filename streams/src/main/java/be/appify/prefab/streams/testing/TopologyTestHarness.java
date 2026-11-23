@@ -49,8 +49,42 @@ public interface TopologyTestHarness {
                 .create(appId, tracing);
     }
 
+    /**
+     * Creates a harness for the requested backend.
+     *
+     * @param backend the backend name
+     * @param appId the application id, used to derive topic names
+     * @param tracing whether message and correlation IDs are tracked
+     * @return a new harness
+     * @throws IllegalStateException when no matching backend is available
+     */
+    static TopologyTestHarness create(String backend, String appId, boolean tracing) {
+        if (backend == null || backend.isBlank()) {
+            throw new IllegalArgumentException("backend must not be blank");
+        }
+        var selectedBackend = backend.strip();
+        return ServiceLoader.load(Factory.class).stream()
+                .map(ServiceLoader.Provider::get)
+                .filter(factory -> factory.backendName().equalsIgnoreCase(selectedBackend))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                        "No TopologyTestHarness.Factory found for backend '%s'".formatted(backend)))
+                .create(appId, tracing);
+    }
+
     /** Creates harnesses for one backend. */
     interface Factory {
+        /**
+         * Returns the backend name used to explicitly select this factory.
+         *
+         * <p>Factories that do not override this method remain available through the default factory selection.
+         *
+         * @return the backend name
+         */
+        default String backendName() {
+            return getClass().getName();
+        }
+
         /**
          * Creates a harness.
          *

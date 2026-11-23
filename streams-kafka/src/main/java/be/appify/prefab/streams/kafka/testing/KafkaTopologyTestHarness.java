@@ -88,9 +88,13 @@ public final class KafkaTopologyTestHarness implements TopologyTestHarness {
     /** Registers {@link KafkaTopologyTestHarness} as the harness for Kafka Streams. */
     public static final class Factory implements TopologyTestHarness.Factory {
         @Override
+        public String backendName() {
+            return "kafka";
+        }
+
+        @Override
         public TopologyTestHarness create(String appId, boolean tracing) {
             return new KafkaTopologyTestHarness(appId, tracing);
         }
     }
 }
-

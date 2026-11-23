@@ -42,4 +42,15 @@ class GenericEventRegistryTest {
         assertThatThrownBy(() -> registry.topicsForDispatch(new Changed<>("key", "hello")))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("explicit EventType");
     }
+
+    @Test
+    void explicitTopicAliasesDoNotChangeDefaultDispatch() {
+        registry.register("strings", strings, Event.Serialization.JSON);
+        registry.registerTopicAlias("alias", strings, Event.Serialization.JSON);
+        var event = new TypedEvent<>(strings, new Changed<>("key", "hello"));
+
+        assertThat(registry.concreteTypeFor("alias", strings.id())).isEqualTo(strings);
+        assertThat(registry.topicsForDispatch(event)).containsExactly("strings");
+        assertThat(registry.topicForType(strings)).isEqualTo("strings");
+    }
 }

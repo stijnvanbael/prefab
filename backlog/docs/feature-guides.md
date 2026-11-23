@@ -1186,7 +1186,8 @@ Outputs use record keys as Pub/Sub ordering keys, and the supplied Spring publis
 Custom `PublisherFactory` implementations must also enable ordering. Ordering is per key, and order-dependent
 operators require ordered input. Logical repartitioning does not create broker topics. `breakout` and
 `StreamProcessorContext.schedule` are unsupported on this backend and fail at startup; scheduling is tracked by
-TASK-363.
+TASK-363. A `to(String)` output registers its topic as a serialization alias without changing the event's default
+publication topics.
 
 ### Postgres state for the in-process engine (`prefab-streams-postgres`)
 

@@ -77,11 +77,13 @@ final class PubSubStreamSink implements StreamSink, AutoCloseable {
             if (!registry.topicsForType(typed.type()).contains(topic)) {
                 var topics = registry.topicsForType(typed.type());
                 var serialization = serializationFor(topics);
-                registerConcrete(topic, typed.type(), serialization);
+                registry.registerTopicAlias(topic, typed.type(), serialization);
             }
-        } else if (!registry.contains(topic)) {
+        } else {
             var valueType = publication.getClass();
-            registry.register(topic, valueType, serializationFor(registry.topicsForType(valueType)));
+            var serialization = registry.contains(topic)
+                    ? registry.serialization(topic) : serializationFor(registry.topicsForType(valueType));
+            registry.registerTopicAlias(topic, valueType, serialization);
         }
     }
 
@@ -91,10 +93,6 @@ final class PubSubStreamSink implements StreamSink, AutoCloseable {
             throw new IllegalStateException("Output type has conflicting serialization formats: " + formats);
         }
         return formats.isEmpty() ? Event.Serialization.JSON : formats.getFirst();
-    }
-
-    private <T> void registerConcrete(String topic, EventType<T> type, Event.Serialization serialization) {
-        registry.register(topic, type, serialization);
     }
 
     @SuppressWarnings("unchecked")

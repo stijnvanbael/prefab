@@ -77,4 +77,17 @@ class PubSubStreamSinkTest {
                 .hasCauseInstanceOf(java.util.concurrent.ExecutionException.class);
         verify(publisher).resumePublish("key");
     }
+
+    @Test
+    void outputAliasesDoNotChangeAnEventsDefaultTopic() {
+        when(util.ensureTopicExists("alias")).thenReturn("projects/project/topics/alias");
+        when(factory.createPublisher("projects/project/topics/alias")).thenReturn(publisher);
+        when(serializer.serialize(eq("alias"), any())).thenReturn("payload".getBytes(StandardCharsets.UTF_8));
+        when(publisher.publish(any())).thenReturn(ApiFutures.immediateFuture("broker-id"));
+
+        sink.publish("alias", new StreamMessage("id", "key", new Result("key"), Map.of(), Instant.EPOCH));
+
+        assertThat(registry.topicForType(Result.class)).isEqualTo("output");
+        assertThat(registry.registeredTypesForTopic("alias")).contains(Result.class);
+    }
 }

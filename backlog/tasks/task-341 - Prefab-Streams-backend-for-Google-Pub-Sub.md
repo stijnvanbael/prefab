@@ -77,3 +77,5 @@ Container-dependent integration tests are delegated to CI because this environme
   reader. Database state is trusted data; the guide documents the codec's class-resolution trust boundary.
 - Added isolated source, sink, configuration, state-codec and cross-thread processor regressions. The emulator +
   Postgres end-to-end test is compiled locally but requires CI execution and verification.
+- Output topic aliases are registered independently from default event dispatch topics, including concrete generic
+  bindings, so an explicit stream sink does not change ordinary publisher routing.

@@ -16,6 +16,7 @@ import javax.lang.model.element.Modifier;
 import javax.tools.JavaFileObject;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Pageable;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
@@ -90,6 +91,48 @@ class PluginContributionsTest {
 
         assertThat(compilation).failed();
         assertThat(compilation).hadErrorContaining("adds field log to generated OrderService, but "
+                + PluginContributions.GENERATOR + " already contributes it");
+    }
+
+    @Test
+    @DisplayName("a plugin redefining the parent lookup of a child repository fails with an error naming Prefab")
+    void duplicateParentLookupNamesPrefab() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor(List.of(new ParentLookupPlugin())))
+                .compile(
+                        JavaFileObjects.forSourceString("test.contributions.Basket", """
+                                package test.contributions;
+
+                                import be.appify.prefab.core.annotations.Aggregate;
+                                import be.appify.prefab.core.service.Reference;
+                                import org.springframework.data.annotation.Id;
+                                import org.springframework.data.annotation.Version;
+
+                                @Aggregate
+                                public record Basket(@Id Reference<Basket> id, @Version long version) {
+                                }
+                                """),
+                        JavaFileObjects.forSourceString("test.contributions.BasketLine", """
+                                package test.contributions;
+
+                                import be.appify.prefab.core.annotations.Aggregate;
+                                import be.appify.prefab.core.annotations.rest.Parent;
+                                import be.appify.prefab.core.service.Reference;
+                                import org.springframework.data.annotation.Id;
+                                import org.springframework.data.annotation.Version;
+
+                                @Aggregate
+                                public record BasketLine(
+                                        @Id Reference<BasketLine> id,
+                                        @Version long version,
+                                        @Parent Reference<Basket> basket
+                                ) {
+                                }
+                                """));
+
+        assertThat(compilation).failed();
+        assertThat(compilation).hadErrorContaining("adds method findByBasket(java.lang.String, "
+                + "org.springframework.data.domain.Pageable) to generated BasketLineRepository, but "
                 + PluginContributions.GENERATOR + " already contributes it");
     }
 
@@ -220,6 +263,18 @@ class PluginContributionsTest {
         @Override
         public void writeService(ClassManifest manifest, TypeSpec.Builder builder) {
             builder.addField(FieldSpec.builder(String.class, "log", Modifier.PRIVATE).build());
+        }
+    }
+
+    static class ParentLookupPlugin implements PrefabPlugin {
+        @Override
+        public void writeRepository(ClassManifest manifest, TypeSpec.Builder builder) {
+            manifest.parent().ifPresent(parent -> builder.addMethod(MethodSpec.methodBuilder("findByBasket")
+                    .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
+                    .addParameter(String.class, "basket")
+                    .addParameter(Pageable.class, "pageable")
+                    .returns(Object.class)
+                    .build()));
         }
     }
 

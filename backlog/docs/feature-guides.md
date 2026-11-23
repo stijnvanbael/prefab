@@ -378,6 +378,9 @@ public record Customer(
 }
 ```
 
+The shop showcase shows both styles on Kafka with a schema registry: `PaymentEvent` is code-first, `ShipmentEvent` is
+AVSC-first (`examples/showcase/src/avro/java`, tests in `examples/showcase/src/avro-test/java`).
+
 ### AVSC-first
 
 Place `.avsc` files on the classpath and use `@Avsc` + `@Event`:

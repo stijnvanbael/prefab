@@ -16,6 +16,7 @@
     <properties>
         <showcase.streams.skip>false</showcase.streams.skip>
         <showcase.kafka.streams.skip>false</showcase.kafka.streams.skip>
+        <showcase.avro.skip>false</showcase.avro.skip>
     </properties>
 
     <dependencies>
@@ -34,6 +35,15 @@
         <dependency>
             <groupId>be.appify.prefab</groupId>
             <artifactId>prefab-streams-kafka</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-avro</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-avro-processor</artifactId>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 </project>

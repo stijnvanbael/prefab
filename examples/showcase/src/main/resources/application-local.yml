@@ -2,3 +2,8 @@ spring:
   security:
     user:
       roles: ADMIN,CUSTOMER
+
+  # Avro events (payments, shipments) need a schema registry next to Kafka
+  kafka:
+    properties:
+      schema.registry.url: http://localhost:8081

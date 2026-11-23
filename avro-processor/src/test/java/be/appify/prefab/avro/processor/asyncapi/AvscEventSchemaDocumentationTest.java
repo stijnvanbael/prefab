@@ -34,4 +34,21 @@ class AvscEventSchemaDocumentationTest {
                 .contentsAsUtf8String()
                 .contains("\"age\"");
     }
+
+    @Test
+    void avscEventDoesNotHideEventsThatAreNotGeneratedFromSchemas() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("event/avsc/asyncapimixed/source/MixedAvsc.java"),
+                        sourceOf("event/avsc/asyncapimixed/source/PlainJsonEvent.java"));
+        assertThat(compilation).succeeded();
+        var document = assertThat(compilation).generatedFile(
+                        javax.tools.StandardLocation.CLASS_OUTPUT,
+                        "META-INF/async-api/asyncapi.json"
+                )
+                .contentsAsUtf8String();
+        document.contains("\"mixed-avsc\"");
+        document.contains("\"mixed-json\"");
+    }
 }

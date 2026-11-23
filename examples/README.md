@@ -107,6 +107,28 @@ unless a variant enables the corresponding streams backend. Variants without Str
 `showcase-capabilities.yml`; Pub/Sub and SNS/SQS can run the common slice on their in-process backends while reporting
 Kafka-only breakout separately.
 
+### Avro: payments and shipments
+
+The optional sources in [`avro`](showcase/src/avro/java/be/appify/prefab/example/showcase) (with the schema in
+[`avro/resources`](showcase/src/avro/resources/avro)) and their tests in
+[`avro-test`](showcase/src/avro-test/java/be/appify/prefab/example/showcase) serialize two events as Avro. Serialization
+is chosen per event in source (`@Event(serialization = AVRO)`), so Avro cannot be a configuration-only variant; the
+slice sits next to the JSON events and is compiled only by variants that include it.
+
+| Feature | Where | Test |
+|---|---|---|
+| Code-first Avro: schema, converters and registry subject generated from records | `PaymentEvent` (`Received`, `Refunded`) | `PaymentIntegrationTest` |
+| `@Decimal` (Avro decimal logical type for `BigDecimal`) | `PaymentEvent.Received.amount` | `PaymentIntegrationTest` |
+| Avro events consumed by `@EventHandler` (static creation and `@Multicast`) | `Receipt` | `PaymentIntegrationTest` |
+| Schema-first Avro: `@Avsc` + `@AvscFile(keyProperty)` generate the event record from a schema file | `ShipmentEvent`, `shipment-dispatched.avsc` | `ShipmentIntegrationTest` |
+| Schema registry in tests (`prefab.test.schema-registry.enabled`) | `application-test.yml` | both |
+
+The tests produce and consume the events on a real Kafka and schema registry (Testcontainers) and check that the
+schemas are registered. Running the application locally needs a schema registry at `http://localhost:8081` next to
+Kafka. Variants that cannot decode Avro list `AVRO` as unsupported and leave the slice out: Pub/Sub and SNS/SQS write
+bare Avro binary without a writer schema (TASK-275), so `showcase-pubsub` and `showcase-sns-sqs` declare that gap and
+include the slice once it is fixed.
+
 ## Technology coverage
 
 Not every feature works on every stack. A variant lists what it lacks in
@@ -158,8 +180,10 @@ table, so after changing a capability file, paste that between the markers.
 1. Create `examples/showcase-<technology>` with a pom (parent `showcase-variant-parent`, only the technology
    dependencies), `application.yml`, `application-test.yml` and `showcase-capabilities.yml`. If the variant provides
    Prefab Streams, add its backend dependency and set `showcase.streams.skip` to `false`; set
-   `showcase.kafka.streams.skip` to `false` only when it also provides `prefab-streams-kafka`.
-2. Leave those source-copy properties at their default `true` for variants without Streams, and list `STREAMS` as an
-   unsupported capability with the relevant backlog task ID.
+   `showcase.kafka.streams.skip` to `false` only when it also provides `prefab-streams-kafka`. If it can decode Avro
+   events, add `prefab-avro` and `prefab-avro-processor` (provided), set `showcase.avro.skip` to `false`, enable
+   `prefab.test.schema-registry` in `application-test.yml` and configure `schema.registry.url`.
+2. Leave those source-copy properties at their default `true` for variants without Streams or Avro, and list
+   `STREAMS` or `AVRO` as an unsupported capability with the relevant backlog task ID.
 3. Register the module in the root `pom.xml` and add a `Showcase tests (<technology>)` run configuration in `.run/`.
 4. Run `CoverageMatrixTest` and paste the expected table into this file.

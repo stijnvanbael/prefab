@@ -7,6 +7,7 @@ related_tasks:
   - TASK-337
   - TASK-337.01
   - TASK-337.02
+  - TASK-337.07
 ---
 
 ## Context
@@ -46,8 +47,9 @@ therefore Postgres + Kafka code; a variant cannot reuse it.
    - Tests are written once and run on every variant. `@IntegrationTest` already selects Testcontainers from the
      classpath, so they need no per-variant code.
 3. **Configuration is per variant.** Only Java sources are copied; every variant owns its complete configuration.
-   Technology-neutral resources (Avro schemas, event contract baselines) will be copied the same way when the slices
-   that need them land (TASK-337.04, TASK-337.07).
+   Technology-neutral resources are copied the same way: the Avro schemas of the Avro slice (`src/avro/resources`,
+   TASK-337.07) are copied into the variant and added as a resource root before compiling, because the annotation
+   processor reads them from the classpath. Event contract baselines follow when the slices that need them land.
 4. **Optional slices.** Features that cannot compile on every stack (Prefab Streams needs Kafka; Avro is chosen per
    event in source) live in optional source folders (`src/streams/java`, `src/avro/java`), which only supporting
    variants copy.

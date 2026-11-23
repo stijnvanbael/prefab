@@ -2,6 +2,7 @@ package be.appify.prefab.test.kafka;
 
 import be.appify.prefab.test.EventConsumer;
 import be.appify.prefab.test.TestEventConsumer;
+import be.appify.prefab.test.inmemory.TestInfrastructureMode;
 
 import java.lang.reflect.Field;
 import java.time.Duration;
@@ -43,7 +44,7 @@ public class TestConsumerExecutionListener extends AbstractTestExecutionListener
 
     @Override
     public void prepareTestInstance(TestContext testContext) {
-        if (!isKafkaAvailable()) {
+        if (!isKafkaAvailable() || !TestInfrastructureMode.containersEnabled(testContext.getApplicationContext())) {
             return;
         }
         var eventConsumerFields = Arrays.stream(testContext.getTestClass().getDeclaredFields())

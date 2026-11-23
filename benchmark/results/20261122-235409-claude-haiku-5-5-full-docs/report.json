@@ -1,0 +1,1455 @@
+{
+  "runId" : "20261122-235409-claude-haiku-5-5-full-docs",
+  "startedAt" : "2026-11-22T23:54:09.670575531Z",
+  "agent" : "claude-code/claude-haiku-5-5",
+  "model" : "claude-haiku-5-5",
+  "context" : "full-docs",
+  "prefabVersion" : "0.13.3-SNAPSHOT",
+  "gitCommit" : "8dc14ab",
+  "repeat" : 1,
+  "results" : [ {
+    "taskId" : "audit-trail",
+    "category" : "audit",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 20,
+        "output" : 6353,
+        "cacheRead" : 1053648,
+        "cacheCreation" : 109325
+      },
+      "turns" : 10,
+      "buildAttempts" : 3,
+      "costUsd" : 0.17789989999999997,
+      "duration" : "PT1M14.430520247S",
+      "contaminated" : false,
+      "message" : "`GET /contracts/{id}` now returns an `audit` object with `createdBy`, `createdAt`, `lastModifiedBy` and `lastModifiedAt`. `mvn verify` passes, including two new integration tests against Postgres in Docker.\n\n**Changes**\n- **`Contract.java`**: added an `AuditInfo audit` component. The `@Create` constructor passes `new AuditInfo()` and `rename` (the `@Update`) carries `audit` forward. Prefab's generated service fills the values: on create it sets all four fields, and on update it only changes `lastModifiedBy`/`lastModifiedAt`.\n- **`SecurityAuditContextProvider.java`** (new): implements Prefab's `AuditContextProvider` and returns the authenticated Spring Security principal's name. Without it, Prefab would record `\"system\"`.\n- **`ContractAuditIntegrationTest.java`** (new): checks that create records the caller in both fields, and that an update by a different user keeps `createdBy`/`createdAt` while changing the `lastModified*` pair.\n\n**Decisions**\n- The principal name comes from `Authentication.getName()`. With a JWT that is the `sub` claim, so a different identity provider that puts the user elsewhere would need a different mapping.\n- A request with no authentication records `null` rather than failing. The endpoints are secured, so this shouldn't occur in practice, but say if you'd rather it be rejected.\n- Clients can't set these values because `audit` is not a request parameter on `@Create` or `@Update`."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/legal/Contract.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/legal/SecurityAuditContextProvider.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/legal/ContractAuditIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT17.282121063S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/audit-trail-1"
+  }, {
+    "taskId" : "avro-avsc-contract",
+    "category" : "avro",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/avro-avsc-contract-1"
+  }, {
+    "taskId" : "avro-publish-and-handle",
+    "category" : "avro",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 24,
+        "output" : 7371,
+        "cacheRead" : 1306358,
+        "cacheCreation" : 112410
+      },
+      "turns" : 16,
+      "buildAttempts" : 2,
+      "costUsd" : 0.19616740000000002,
+      "duration" : "PT1M33.166516165S",
+      "contaminated" : false,
+      "message" : "Paying a sale now publishes an Avro `SalePaid` event to the `sales` topic, and the cash register adds the amount to `cashInDrawer`. The project compiles and `mvn test` passes, including two new end-to-end tests that run against Kafka with the schema registry.\n\n**Changes**\n\n- **`SalePaid.java` (new):** `@Event(topic = \"sales\", serialization = AVRO)` record with `sale`, `cashRegister` (marked `@PartitioningKey`, so events partition by cash register) and `amount`.\n- **`Sale.java`:** `pay()` publishes `SalePaid` through a bound `EventPublisher` before returning the paid sale.\n- **`CashRegister.java`:** `@EventHandler @ByReference(property = \"cashRegister\")` handler returns the register with `cashInDrawer + event.amount()`.\n- **`src/test/java/com/example/retail/SalePaidIntegrationTest.java` (new):** pays one sale and checks the drawer total, then pays two sales on one register and checks they accumulate.\n\n`GET /cash-registers/{id}` already exposed `cashInDrawer`, so I left it unchanged.\n\n**Choices I made**\n\n- The event is published inside `pay()`, before the sale is saved. Prefab does not guarantee the event is delivered only after the commit, so a failed save could still leave a published event. If that matters, it is worth a follow-up.\n- I did not commit anything; the changes are in the working tree."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/retail/CashRegister.java"
+      }, {
+        "status" : "M",
+        "path" : "src/main/java/com/example/retail/Sale.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/retail/SalePaid.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/retail/SalePaidIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT25.345508596S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/avro-publish-and-handle-1"
+  }, {
+    "taskId" : "binary-upload-download",
+    "category" : "binary",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 46,
+        "output" : 21187,
+        "cacheRead" : 2969473,
+        "cacheCreation" : 140218
+      },
+      "turns" : 23,
+      "buildAttempts" : 9,
+      "costUsd" : 0.34168214999999996,
+      "duration" : "PT2M58.06925624S",
+      "contaminated" : false,
+      "message" : "Document uploads are in place. `mvn verify` passes, with 5 integration tests run against a Docker PostgreSQL container. Nothing is committed.\n\n**What's there**\n- `Document` (`com.example.documents`) is an `@Aggregate` with `@GetById`, `@Download` on `file`, and a `@Create` constructor taking `(title, Binary file)`. Prefab generates `POST /documents` (multipart with a `body` JSON part and a `file` part), `GET /documents/{id}` and `GET /documents/{id}/file`.\n- `POST` returns `201` with `Location: /documents/{id}`. `GET /{id}/file` returns the original bytes with the stored content type.\n- `BinaryJsonConfiguration` is a Jackson mixin that hides `Binary.data` from JSON. Without it, the metadata response exposed the server's temp file path.\n- `DocumentIntegrationTest` covers PDF create/get/download, PNG download, text upload rejected with `400`, a 1 MiB + 1 byte upload rejected with `400`, and a file of exactly 1 MiB accepted.\n\n**Things you should know**\n- **Prefab's generated upload path does not enforce `@ContentType`/`@FileSize`.** The generated request maps the file to `MultipartFile` and drops those constraints, so the first version of the test accepted a `text/plain` upload. I moved the check into the `@Create` constructor, which throws `BadRequestException` (400) before the document is saved. The annotations stay on the field as documentation. The constructor does run after the file has been written to a temp file, so a rejected upload leaves a temp file behind until the JVM exits.\n- **Storage is not durable.** The default `StorageService` writes to `java.io.tmpdir` with `deleteOnExit`. Documents survive only while the same JVM runs; after a restart the download fails. A real deployment needs a persistent `StorageService` (local disk, S3, GCS). I did not build one because the task did not specify a backend.\n\n**Files added** (all untracked): `src/main/java/com/example/documents/Document.java`, `BinaryJsonConfiguration.java`, and `src/test/java/com/example/documents/DocumentIntegrationTest.java`."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "4/4 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/documents/BinaryJsonConfiguration.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/documents/Document.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/documents/DocumentIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 4,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT17.082461289S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/binary-upload-download-1"
+  }, {
+    "taskId" : "diagnostic-fix-build",
+    "category" : "diagnostics",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 22,
+        "output" : 5858,
+        "cacheRead" : 1189254,
+        "cacheCreation" : 108343
+      },
+      "turns" : 13,
+      "buildAttempts" : 4,
+      "costUsd" : 0.1824617,
+      "duration" : "PT1M0.592932203S",
+      "contaminated" : false,
+      "message" : "The build compiles again and `mvn test` passes, including a new integration test that exercises the payment flow through Kafka.\n\n**Cause:** `Order.onPaymentReceived` had `@ByReference(property = \"orderId\")`, but `PaymentReceived` names its reference component `order`. Prefab's annotation processor rejected the property at compile time, which broke the build.\n\n**Fix:** In `src/main/java/com/example/ordering/Order.java`, I changed the annotation to `@ByReference(property = \"order\")`. The event and the payment API are unchanged.\n\n**Verification:**\n- The generated `OrderKafkaConsumer` listens on topic `payments` and calls `OrderService.onPaymentReceived`, which loads the order by `event.order().id()`, applies the handler, and saves it.\n- I added `src/test/java/com/example/ordering/OrderPaymentIntegrationTest.java`. It creates an order for 100.00, posts a payment of 40.00 and expects `OPEN` with `amountPaid` 40.00, then posts 60.00 and expects `PAID` with `amountPaid` 100.00. It polls up to 15 seconds for the Kafka round trip.\n- `mvn -B test` ran with Docker available: 1 test, 0 failures, `BUILD SUCCESS`.\n\nI haven't committed anything. The working tree has the one-line change plus the new test file."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/ordering/Order.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/ordering/OrderPaymentIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT22.389877038S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/diagnostic-fix-build-1"
+  }, {
+    "taskId" : "events-create-from-event",
+    "category" : "events-handling",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 28,
+        "output" : 9494,
+        "cacheRead" : 1549456,
+        "cacheCreation" : 114222
+      },
+      "turns" : 14,
+      "buildAttempts" : 5,
+      "costUsd" : 0.21544380000000005,
+      "duration" : "PT1M45.145138877S",
+      "contaminated" : false,
+      "message" : "The loyalty programme is in place and the full build passes: `mvn clean verify` runs 2 integration tests, both green.\n\nWhat I added, all in `src/main/java/com/example/loyalty/` plus one test file:\n\n- **`LoyaltyAccount.java`**: an `@Aggregate` with `@GetList`, no `@Create`, so the REST API can't create accounts.\n  - `@EventHandler` static method `onCustomerRegistered(CustomerRegistered)` creates the account with `points = 0`.\n  - The account id is deterministic (`Reference.fromId(\"loyalty-account-\" + customerId)`), so a redelivered `CustomerRegistered` event doesn't create a second account for the same customer.\n  - `customer` is `@Filter(operator = EQUAL)`, so `?customer=<id>` matches exactly. The default `CONTAINS` would also match partial ids.\n- **`src/test/java/com/example/loyalty/LoyaltyAccountIntegrationTest.java`**: runs against Kafka and Postgres via Testcontainers. It covers:\n  - Registering a customer produces one account with zero points.\n  - Two customers each get their own account, and the filter returns only the requested customer's account.\n  - `POST /loyalty-accounts` is rejected with a 4xx.\n\nDecisions and things to know:\n\n- I didn't commit anything, since you didn't ask for a commit.\n- The generated `loyalty_account` table is in the compiler output (`target/classes/db/migration/V1__generated.sql`), not in `src/main/resources`. That matches how the existing `customer` table is handled.\n- I ran `mvn clean` once because `target/prefab-test-sources` held stale files that Prefab was treating as manual overrides. `target/` is gitignored, so this doesn't affect the repo."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/loyalty/LoyaltyAccount.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/loyalty/LoyaltyAccountIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT20.892274548S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/events-create-from-event-1"
+  }, {
+    "taskId" : "events-multicast",
+    "category" : "events-handling",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 28,
+        "output" : 10414,
+        "cacheRead" : 1562652,
+        "cacheCreation" : 112774
+      },
+      "turns" : 14,
+      "buildAttempts" : 5,
+      "costUsd" : 0.21695560000000003,
+      "duration" : "PT1M35.424042386S",
+      "contaminated" : false,
+      "message" : "Every price watch is now updated when its product's `PriceChanged` event arrives. A clean `mvn verify` passes, including a new integration test that exercises the Kafka path end to end (Docker was available).\n\n**What I changed**\n\n- `watch/PriceWatchRepositoryMixin.java` (new): adds `findByProduct(Reference<Product>)` to the generated `PriceWatchRepository`.\n- `watch/PriceWatch.java`: adds a `withCurrentPrice(BigDecimal)` method that returns a copy with the new price.\n- `watch/PriceWatchPriceUpdater.java` (new): a `@Component` with an `@EventHandler` on `PriceChanged`. It finds the product's watches, sets their price, and saves them in one `saveAll`.\n- `src/test/java/com/example/watch/PriceWatchPriceUpdateTest.java` (new): creates two watches on one product and one on another. It then changes the price of an unwatched product, followed by the watched one. It asserts both watches of the changed product reach the new price, and the other product's watch keeps its price.\n\n**Decision: I did not use `@Multicast`**\n\nThe obvious solution is `@EventHandler @Multicast(queryMethod = \"findByProduct\", parameters = \"product\")` on `PriceWatch`. I generated that first and read the output. The generated service throws `IllegalStateException` when the query returns nothing. Most products have no watches, so each of their price changes would retry and then dead-letter. With concurrency 1, those retries would also delay events for other products on the `prices` topic. The component handler handles the empty case without error.\n\n**Not verified**\n\n- I did not test the dead-letter behaviour of the `@Multicast` alternative at runtime; the conclusion comes from reading the generated code.\n- Nothing is committed. The changes are in the working tree."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/watch/PriceWatch.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/watch/PriceWatchPriceUpdater.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/watch/PriceWatchRepositoryMixin.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/watch/PriceWatchPriceUpdateTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT24.900354646S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/events-multicast-1"
+  }, {
+    "taskId" : "events-publish-on-create",
+    "category" : "events-publishing",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 20,
+        "output" : 6016,
+        "cacheRead" : 1045067,
+        "cacheCreation" : 108052
+      },
+      "turns" : 11,
+      "buildAttempts" : 2,
+      "costUsd" : 0.17535535,
+      "duration" : "PT55.688755044S",
+      "contaminated" : false,
+      "message" : "`POST /orders` now publishes an `OrderPlaced` event to the `orders` topic. The project compiles and the full test suite passes, including a new Kafka integration test (1 run, 0 failures).\n\nWhat changed:\n\n- **`OrderPlaced.java`** (new): `@Event(topic = \"orders\", platform = KAFKA)` record with `@PartitioningKey Reference<Order> order`, `String customer`, `BigDecimal total`. Serialization is the default JSON.\n- **`Order.java`**: the `@Create` constructor publishes `new OrderPlaced(id, customer, total)` through a bound `EventPublisher`, using the same pattern as the Prefab event guide.\n- **`OrderPlacedIntegrationTest.java`** (new): creates an order through the generated `OrderClient`, then reads from the `orders` topic with `@TestEventConsumer` and asserts the payload.\n\nPartitioning: the generated registrar sets the Kafka key to `event.order().id()`, so all events for one order share a key and therefore a partition. The test checks the payload, not the partition itself.\n\nThings to be aware of:\n\n- The event is published inside the constructor, before the aggregate is saved. If the database save fails after the event is sent, consumers will see an order that was never persisted. If that matters, the Prefab async-commit pattern (`@AsyncCommit`) is the alternative; I did not change to it.\n- I did not commit anything."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/ordering/Order.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/ordering/OrderPlaced.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/ordering/OrderPlacedIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT25.564292195S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/events-publish-on-create-1"
+  }, {
+    "taskId" : "events-sealed-hierarchy",
+    "category" : "events-publishing",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 30,
+        "output" : 8728,
+        "cacheRead" : 1686429,
+        "cacheCreation" : 114408
+      },
+      "turns" : 17,
+      "buildAttempts" : 3,
+      "costUsd" : 0.22056445,
+      "duration" : "PT1M30.636026803S",
+      "contaminated" : false,
+      "message" : "Deposits and withdrawals now publish `AccountEvent` records to `account-events`, keyed by account. `mvn verify` passes, including a new integration test.\n\n- **`AccountEvent.java`** (new): a sealed interface with `Deposited` and `Withdrawn` records, each taking `(Reference<Account> account, BigDecimal amount)`. It is annotated `@Event(topic = \"account-events\")`, and `account()` is the `@PartitioningKey`. The generated registrar uses the account id as the Kafka key, so one account's events stay in order.\n- **`Account.java`**: `deposit` and `withdraw` publish through a bound `EventPublisher<AccountEvent>` before returning the updated account. The event is published before `repository.save()` runs, which is the pattern the Prefab docs show. If the save fails, the event has already been published.\n- **`AccountEventsIntegrationTest.java`** (new, since the project had no tests): creates an account, deposits 10, withdraws 3, and asserts that the `account-events` consumer receives both events in that order.\n\nI also added `@JsonTypeInfo(use = NAME)` to `AccountEvent` so the JSON carries the event type and consumers can deserialize it as `AccountEvent`. The changes are uncommitted."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/banking/Account.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/banking/AccountEvent.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/banking/AccountEventsIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT19.661366082S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/events-sealed-hierarchy-1"
+  }, {
+    "taskId" : "events-update-by-reference",
+    "category" : "events-handling",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 16,
+        "output" : 6797,
+        "cacheRead" : 821617,
+        "cacheCreation" : 106143
+      },
+      "turns" : 9,
+      "buildAttempts" : 3,
+      "costUsd" : 0.16422435,
+      "duration" : "PT59.087820981S",
+      "contaminated" : false,
+      "message" : "Orders now track `amountPaid` and move to `PAID` once payments cover the total. The project compiles and the full test suite passes, including a new integration test that runs the real Kafka path (Testcontainers, via Docker).\n\n**What changed**\n\n- **`src/main/java/com/example/ordering/Order.java`**\n  - New `amountPaid` component (`BigDecimal`, starts at `0`). It sits before `status`, and the `@Create` constructor initialises it.\n  - New handler `onPaymentReceived(PaymentReceived)`, annotated `@EventHandler @ByReference(property = \"order\")`. It adds the payment amount to `amountPaid` and returns a new `Order`, with `status` set to `PAID` when `amountPaid >= total` and `OPEN` otherwise.\n- **`src/test/java/com/example/ordering/OrderPaymentIntegrationTest.java`** (new). It creates an order with total 100, posts a payment of 40 (expects `OPEN`), then a payment of 60 (expects `amountPaid` 100 and `PAID`). It polls for the asynchronous Kafka update.\n\n`GET /orders/{id}` returns `amountPaid` and `status` automatically, since the aggregate is `@GetById`.\n\n**Choices I made**\n\n- `amountPaid` is a `BigDecimal`, matching `total` and the payment amount.\n- The status is derived from the running total on every payment. Since payments are `@Positive`, a paid order stays `PAID`.\n- I did not commit anything. The generated `V1__generated.sql` (which now includes `amount_paid`) is in `target/`, as the project has no committed migrations."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/ordering/Order.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/ordering/OrderPaymentIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT22.945658419S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/events-update-by-reference-1"
+  }, {
+    "taskId" : "list-autocomplete",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "RATE_LIMITED",
+      "usage" : {
+        "input" : 20,
+        "output" : 5136,
+        "cacheRead" : 1040223,
+        "cacheCreation" : 104064
+      },
+      "turns" : 13,
+      "buildAttempts" : 2,
+      "costUsd" : 0.16892515,
+      "duration" : "PT42.352348167S",
+      "contaminated" : false,
+      "message" : "You've hit your 5-hour limit · resets 4:40am (UTC)"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "You've hit your 5-hour limit · resets 4:40am (UTC)",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "rate limited: You've hit your 5-hour limit · resets 4:40am (UTC)",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/list-autocomplete-1"
+  }, {
+    "taskId" : "list-filters",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "RATE_LIMITED",
+      "usage" : {
+        "input" : 8,
+        "output" : 1716,
+        "cacheRead" : 346670,
+        "cacheCreation" : 98482
+      },
+      "turns" : 5,
+      "buildAttempts" : 2,
+      "costUsd" : 0.1201095,
+      "duration" : "PT19.130081703S",
+      "contaminated" : false,
+      "message" : "You've hit your 5-hour limit · resets 4:40am (UTC)"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "You've hit your 5-hour limit · resets 4:40am (UTC)",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "rate limited: You've hit your 5-hour limit · resets 4:40am (UTC)",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/list-filters-1"
+  }, {
+    "taskId" : "list-full-text-search",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/list-full-text-search-1"
+  }, {
+    "taskId" : "list-paged-sorted",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/list-paged-sorted-1"
+  }, {
+    "taskId" : "list-range-filter",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/list-range-filter-1"
+  }, {
+    "taskId" : "mixin-custom-sql",
+    "category" : "repository-mixins",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/mixin-custom-sql-1"
+  }, {
+    "taskId" : "mixin-derived-query",
+    "category" : "repository-mixins",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/mixin-derived-query-1"
+  }, {
+    "taskId" : "mongodb-crud",
+    "category" : "mongodb",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/mongodb-crud-1"
+  }, {
+    "taskId" : "persistence-evolve-schema",
+    "category" : "persistence",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/persistence-evolve-schema-1"
+  }, {
+    "taskId" : "rest-computed-field",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/rest-computed-field-1"
+  }, {
+    "taskId" : "rest-create-and-get",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/rest-create-and-get-1"
+  }, {
+    "taskId" : "rest-custom-action",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/rest-custom-action-1"
+  }, {
+    "taskId" : "rest-parent-child",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/rest-parent-child-1"
+  }, {
+    "taskId" : "rest-update-and-delete",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/rest-update-and-delete-1"
+  }, {
+    "taskId" : "rest-validation",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/rest-validation-1"
+  }, {
+    "taskId" : "rest-value-object",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/rest-value-object-1"
+  }, {
+    "taskId" : "security-public-endpoints",
+    "category" : "security",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/security-public-endpoints-1"
+  }, {
+    "taskId" : "security-role-based",
+    "category" : "security",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/security-role-based-1"
+  }, {
+    "taskId" : "tenancy-isolation",
+    "category" : "multi-tenancy",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/tenancy-isolation-1"
+  }, {
+    "taskId" : "testing-domain-events-unit",
+    "category" : "testing",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/testing-domain-events-unit-1"
+  }, {
+    "taskId" : "testing-integration-tests",
+    "category" : "testing",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/testing-integration-tests-1"
+  }, {
+    "taskId" : "view-model",
+    "category" : "views",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "SKIPPED",
+      "usage" : {
+        "input" : 0,
+        "output" : 0,
+        "cacheRead" : 0,
+        "cacheCreation" : 0
+      },
+      "turns" : 0,
+      "buildAttempts" : 0,
+      "costUsd" : 0.0,
+      "duration" : "PT0S",
+      "contaminated" : false,
+      "message" : "not started: an earlier attempt hit a usage or rate limit"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "agent",
+        "passed" : false,
+        "detail" : "not started: an earlier attempt hit a usage or rate limit",
+        "infrastructure" : true
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT0S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "heuristic",
+      "rationale" : "not started: an earlier attempt hit a usage or rate limit",
+      "evidence" : [ ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261122-235409-claude-haiku-5-5-full-docs/attempts/view-model-1"
+  } ]
+}

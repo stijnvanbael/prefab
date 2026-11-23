@@ -81,3 +81,5 @@ Container-dependent integration tests are delegated to CI because this environme
   bindings, so an explicit stream sink does not change ordinary publisher routing.
 - The first CI run failed during test compilation because Java 21 automatically ran the annotation processor on
   private test fixtures. The module now disables test-scope processing; a clean Java 21 test compilation succeeds.
+- A subsequent CI run reached the integration test but its non-web Spring context lacked a `ConversionService`.
+  The test application now supplies one explicitly, along with no-credentials emulator configuration.

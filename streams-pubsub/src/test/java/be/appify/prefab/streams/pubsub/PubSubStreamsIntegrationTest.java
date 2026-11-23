@@ -34,6 +34,8 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.convert.ConversionService;
+import org.springframework.core.convert.support.DefaultConversionService;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.gcloud.PubSubEmulatorContainer;
@@ -144,6 +146,11 @@ class PubSubStreamsIntegrationTest {
         @Bean
         CredentialsProvider credentialsProvider() {
             return NoCredentialsProvider.create();
+        }
+
+        @Bean
+        ConversionService conversionService() {
+            return new DefaultConversionService();
         }
 
         @Bean

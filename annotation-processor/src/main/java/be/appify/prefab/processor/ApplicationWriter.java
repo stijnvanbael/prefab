@@ -10,7 +10,6 @@ import be.appify.prefab.core.annotations.OutputTarget;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.Modifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,7 +59,8 @@ class ApplicationWriter {
         dependencies.forEach(
                 dependency -> constructor.addStatement("this.$N = $N", nameOf(dependency), nameOf(dependency)));
         type.addMethod(constructor.build());
-        applyPlugins(manifest.type().asElement(), plugin -> plugin.writeService(manifest, type));
+        new PluginContributions(context)
+                .apply(manifest.type().asElement(), type, OutputTarget.TEST, plugin -> plugin.writeService(manifest, type));
         fileWriter.writeFile(manifest.packageName(), serviceName, type.build());
     }
 
@@ -87,7 +87,8 @@ class ApplicationWriter {
         extraDependencies.forEach(dep -> constructor.addStatement("this.$N = $N", nameOf(dep), nameOf(dep)));
         type.addMethod(constructor.build());
 
-        applyPlugins(manifest.type().asElement(), plugin -> plugin.writePolymorphicService(manifest, type));
+        new PluginContributions(context)
+                .apply(manifest.type().asElement(), type, OutputTarget.TEST, plugin -> plugin.writePolymorphicService(manifest, type));
         fileWriter.writeFile(manifest.packageName(), serviceName, type.build());
     }
 
@@ -124,10 +125,4 @@ class ApplicationWriter {
                 .collect(Collectors.toSet());
     }
 
-    private void applyPlugins(TypeElement aggregateType, java.util.function.Consumer<PrefabPlugin> action) {
-        context.plugins().stream()
-                .filter(plugin -> context.isPluginEnabledFor(aggregateType, plugin.getClass()))
-                .filter(plugin -> context.getOutputTargetFor(aggregateType, plugin.getClass()) != OutputTarget.TEST)
-                .forEach(plugin -> context.withPluginOutputTarget(aggregateType, plugin.getClass(), () -> action.accept(plugin)));
-    }
 }

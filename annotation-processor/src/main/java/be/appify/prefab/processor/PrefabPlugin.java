@@ -6,12 +6,43 @@ import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-/** Interface for Prefab plugins to extend functionality. */
+/**
+ * Interface for Prefab plugins to extend functionality.
+ *
+ * <p>Plugins are discovered with {@link java.util.ServiceLoader} and executed in the deterministic order defined by
+ * {@link #EXECUTION_ORDER}, independent of the order in which jars appear on the processor path. Every hook has a
+ * no-op default, so a plugin only overrides the hooks it needs. A member added to a generated controller, service,
+ * repository or test client must not duplicate a member contributed by Prefab or another plugin; a duplicate is
+ * reported as a compiler error that names both contributors.
+ */
 public interface PrefabPlugin {
+
+    /** The {@link #order()} of every built-in Prefab plugin. */
+    int DEFAULT_ORDER = 0;
+
+    /**
+     * Execution order of plugins: ascending {@link #order()}, then ascending fully-qualified class name. The class
+     * name tie-break makes generated output independent of classpath order.
+     */
+    Comparator<PrefabPlugin> EXECUTION_ORDER = Comparator.comparingInt(PrefabPlugin::order)
+            .thenComparing(plugin -> plugin.getClass().getName());
+
+    /**
+     * Relative execution order of this plugin. Plugins with a lower value run first, so their contributions appear
+     * earlier in generated types and win "first non-empty result" hooks such as {@link #requestBodyParameter}.
+     * Built-in plugins use {@link #DEFAULT_ORDER}; return a positive value to run after them or a negative value to
+     * run before them.
+     *
+     * @return the execution order of this plugin; {@link #DEFAULT_ORDER} unless overridden
+     */
+    default int order() {
+        return DEFAULT_ORDER;
+    }
 
     /**
      * Initialize the plugin with the given context.

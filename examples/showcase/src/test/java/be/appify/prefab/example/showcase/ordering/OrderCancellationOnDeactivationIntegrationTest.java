@@ -13,7 +13,7 @@ import static org.awaitility.Awaitility.await;
 
 /**
  * {@code @Multicast}: one {@code CustomerDeactivated} event is delivered to every order of that customer. A multicast
- * fails when its query finds nothing, so only customers with orders are deactivated here (TASK-357).
+ * fails when its query finds nothing, so only customers with orders are deactivated here (TASK-365).
  */
 @IntegrationTest
 class OrderCancellationOnDeactivationIntegrationTest {

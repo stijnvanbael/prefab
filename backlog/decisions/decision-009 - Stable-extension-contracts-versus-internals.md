@@ -11,8 +11,8 @@ related_tasks:
   - TASK-181
   - TASK-284
   - TASK-322
-  - TASK-357
-  - TASK-358
+  - TASK-366
+  - TASK-367
 ---
 
 ## Context
@@ -47,7 +47,7 @@ interface or bean), **whole-class override** (§6.11 escape hatch), **missing ca
 | 8 | Organisation plugin adding a method to every generated service next to Prefab's Kafka/Avro plugins | Supported hook, previously unreliable | `PrefabPlugin.writeService`; now with deterministic `order()` and attributed conflicts (prototype) |
 | 9 | Data fix or column change that schema diffing cannot express | Supported hook | Manual `V{n}__*.sql` migration next to generated ones |
 | 10 | Users only see their own orders on generated `getById` / `getList` | Missing capability | Today: override the service or write an adapter plus mixin. Already planned as TASK-322 |
-| 11 | Latency and error metrics per generated operation and event consumer | Missing capability | Today: HTTP server metrics from Spring Boot and AOP on generated beans. TASK-357 |
+| 11 | Latency and error metrics per generated operation and event consumer | Missing capability | Today: HTTP server metrics from Spring Boot and AOP on generated beans. TASK-366 |
 | 12 | Change the generated controller of one aggregate beyond what annotations allow | Whole-class override | Copy to `src/main/java` (§6.11); Prefab stops generating it |
 | 13 | Change id generation, drop `@Version` locking, edit an applied generated migration | Protected invariant | Identity, optimistic locking and migration history are correctness guarantees |
 
@@ -68,7 +68,7 @@ release first.
   names and signatures, generated type names and packages, event topics and schemas.
 - The `PrefabPlugin` hooks, `order()` and `EXECUTION_ORDER`, the conflict rule below, `PrefabContext` event
   discovery methods and the read accessors of `ClassManifest`, `TypeManifest`, `VariableManifest` and
-  `PolymorphicAggregateManifest`. These are **provisional** until TASK-358 marks the plugin API surface and adds
+  `PolymorphicAggregateManifest`. These are **provisional** until TASK-367 marks the plugin API surface and adds
   binary-compatibility checks; until then they may change in a minor release with release notes. The plugin API
   exposes `com.palantir.javapoet` types, so the javapoet major version is part of this contract.
 
@@ -127,7 +127,7 @@ built-in plugins from service-file order to class-name order did not change any 
   same type. This is cosmetic.
 - TASK-227's per-plugin toggles are already implemented through `-Aprefab.plugin.<id>.enabled` and `@Generate`;
   only its "default values" part remains open.
-- Follow-ups: TASK-357 (Micrometer observations) and TASK-358 (mark and check the plugin API surface). Row-level
+- Follow-ups: TASK-366 (Micrometer observations) and TASK-367 (mark and check the plugin API surface). Row-level
   read authorization is already planned as TASK-322. TASK-180 (persistence/messaging provider SPIs) and TASK-127
   (exposure modules) remain the vehicles for backend and exposure extensibility; this decision adds no competing
   SPI.

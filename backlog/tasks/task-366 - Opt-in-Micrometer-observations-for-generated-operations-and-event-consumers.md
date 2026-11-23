@@ -1,5 +1,5 @@
 ---
-id: TASK-357
+id: TASK-366
 title: Opt-in Micrometer observations for generated operations and event consumers
 status: To Do
 assignee: []

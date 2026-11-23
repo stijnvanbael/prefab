@@ -82,7 +82,7 @@ its own event handler. No event names a messaging platform, so the same sources 
 Not shown: `@TenantId`. Tenant isolation needs a `TenantContextProvider` and a tenant on every request, which would
 touch every other showcase test; the technique is covered by the annotation processor tests.
 A `@Multicast` fails (and dead-letters) when its query finds no aggregates, so the showcase only targets aggregates
-that exist, see TASK-357.
+that exist, see TASK-365.
 
 ## Technology coverage
 

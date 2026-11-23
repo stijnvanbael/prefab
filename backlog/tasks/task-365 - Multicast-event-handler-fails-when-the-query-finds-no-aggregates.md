@@ -1,5 +1,5 @@
 ---
-id: TASK-357
+id: TASK-365
 title: '@Multicast event handler fails when the query finds no aggregates'
 status: To Do
 assignee: []

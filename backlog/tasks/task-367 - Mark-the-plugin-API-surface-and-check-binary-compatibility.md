@@ -1,5 +1,5 @@
 ---
-id: TASK-358
+id: TASK-367
 title: Mark the PrefabPlugin API surface and check binary compatibility
 status: To Do
 assignee: []

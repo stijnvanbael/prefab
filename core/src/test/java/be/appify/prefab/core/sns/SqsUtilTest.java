@@ -5,10 +5,17 @@ import be.appify.prefab.core.kafka.EventRegistry;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.services.sns.model.CreateTopicRequest;
+import software.amazon.awssdk.services.sns.model.CreateTopicResponse;
 import software.amazon.awssdk.services.sqs.SqsAsyncClient;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class SqsUtilTest {
     private static final SnsClient UNUSED_SNS_CLIENT = null;
@@ -40,6 +47,22 @@ class SqsUtilTest {
         eventRegistry.register("topic2", AmbiguousEvent.class, Event.Serialization.JSON);
 
         assertThrows(IllegalStateException.class, () -> sqsUtil.topicForType(AmbiguousEvent.class));
+    }
+
+    @Test
+    void ensureTopicExistsCreatesFifoTopicWhenPartitioningIsEnabled() {
+        var snsClient = mock(SnsClient.class);
+        when(snsClient.createTopic(any(CreateTopicRequest.class))).thenReturn(
+                CreateTopicResponse.builder().topicArn("arn:aws:sns:us-east-1:000000000000:orders.fifo").build());
+        var sqsUtil = new SqsUtil(
+                "app", "", 5, 1000, 30000, 1.5, snsClient, UNUSED_SQS_CLIENT, UNUSED_SQS_DESERIALIZER,
+                new EventRegistry());
+
+        assertEquals("arn:aws:sns:us-east-1:000000000000:orders.fifo", sqsUtil.ensureTopicExists("orders", true));
+        verify(snsClient).createTopic(argThat((CreateTopicRequest request) ->
+                request.name().equals("orders.fifo")
+                        && request.attributes().get("FifoTopic").equals("true")
+                        && request.attributes().get("ContentBasedDeduplication").equals("false")));
     }
 
     private static SqsUtil sqsUtil(EventRegistry eventRegistry) {

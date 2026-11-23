@@ -3,6 +3,7 @@ package be.appify.prefab.test.pubsub;
 import be.appify.prefab.core.pubsub.PubSubUtil;
 import be.appify.prefab.test.EventConsumer;
 import be.appify.prefab.test.TestEventConsumer;
+import be.appify.prefab.test.inmemory.TestInfrastructureMode;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.core.env.Environment;
 import org.springframework.test.context.TestContext;
@@ -32,6 +33,9 @@ public class TestSubscriberExecutionListener extends AbstractTestExecutionListen
 
     @Override
     public void prepareTestInstance(TestContext testContext) {
+        if (!TestInfrastructureMode.containersEnabled(testContext.getApplicationContext())) {
+            return;
+        }
         environment = testContext.getApplicationContext().getBean(Environment.class);
         testContext.getApplicationContext().getBeanProvider(PubSubUtil.class).ifAvailable(pubSubUtil -> {
             this.pubSubUtil = pubSubUtil;

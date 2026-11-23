@@ -10,3 +10,7 @@ org.springframework.boot.autoconfigure.service.connection.ConnectionDetailsFacto
   be.appify.prefab.test.pubsub.PubSubContainerConnectionDetailsFactory
 org.springframework.boot.EnvironmentPostProcessor=\
   be.appify.prefab.test.persistence.PostgresTestEnvironmentPostProcessor
+org.springframework.test.context.ContextCustomizerFactory=\
+  be.appify.prefab.test.inmemory.ContainersModeContextCustomizerFactory
+org.springframework.boot.autoconfigure.AutoConfigurationImportFilter=\
+  be.appify.prefab.test.inmemory.InMemoryAutoConfigurationFilter

@@ -108,6 +108,16 @@ Auto-configurations (all gated on `PrefabCoreConfiguration`):
 
 ---
 
+## Test Infrastructure Mode
+
+`prefab.test.containers` switches `@IntegrationTest` between real infrastructure (Testcontainers) and the in-memory backend.
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `prefab.test.containers` | `true` (changes to `false` with TASK-175.05) | `true` starts Testcontainers; `false` drops the store and broker auto-configurations (DataSource, JDBC, Flyway, Data JDBC, MongoDB, Kafka, Pub/Sub, SNS/SQS and their Prefab counterparts) and registers a resource-less transaction manager. |
+
+A single test class can force containers with `@IntegrationTest(containers = true)`, which takes precedence over the property and gets its own cached application context.
+
 ## Test Container Configuration
 
 Prefab test infrastructure automatically provisions Docker containers for Postgres, Kafka, LocalStack (SNS/SQS), and Pub/Sub when running integration tests annotated with `@IntegrationTest`. By default, each container is assigned a stable, predictable Docker name and may be reused across test runs on the same machine.

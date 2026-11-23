@@ -21,3 +21,4 @@ be.appify.prefab.processor.mother.MotherPlugin
 be.appify.prefab.processor.assertion.AssertionPlugin
 be.appify.prefab.processor.rest.stream.StreamPlugin
 be.appify.prefab.processor.agent.AgentContextPlugin
+be.appify.prefab.processor.handwritten.HandWrittenCodePlugin

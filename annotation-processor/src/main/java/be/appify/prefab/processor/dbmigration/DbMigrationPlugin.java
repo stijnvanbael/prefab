@@ -6,6 +6,7 @@ import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * Prefab plugin that generates database migration scripts based on the @DbMigration annotation.
@@ -62,8 +63,20 @@ public class DbMigrationPlugin implements PrefabPlugin {
         if (!manifestFile.isComplete(classManifests, polyManifests)) {
             return;
         }
-        dbMigrationWriter.writeDbMigration(context.processingEnvironment(), classManifests, polyManifests);
+        var manualMigrationCheck = ManualMigrationCheck.scan(context);
+        var managedTables = dbMigrationWriter.writeDbMigration(
+                context.processingEnvironment(), classManifests, polyManifests);
+        manualMigrationCheck.check(managedTables, aggregateNames(classManifests, polyManifests));
         manifestFile.save(classManifests, polyManifests);
+    }
+
+    private static List<String> aggregateNames(
+            List<ClassManifest> manifests,
+            List<PolymorphicAggregateManifest> polymorphicManifests
+    ) {
+        return Stream.concat(
+                manifests.stream().map(ClassManifest::simpleName),
+                polymorphicManifests.stream().map(PolymorphicAggregateManifest::simpleName)).toList();
     }
 
     private boolean isDbMigrationEnabled(ClassManifest manifest) {

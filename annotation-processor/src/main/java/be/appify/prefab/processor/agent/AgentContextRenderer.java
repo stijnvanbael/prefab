@@ -2,14 +2,10 @@ package be.appify.prefab.processor.agent;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandler;
-import be.appify.prefab.core.annotations.rest.Create;
-import be.appify.prefab.core.annotations.rest.Delete;
-import be.appify.prefab.core.annotations.rest.GetById;
-import be.appify.prefab.core.annotations.rest.GetList;
-import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
+import be.appify.prefab.processor.rest.AggregateEndpoints;
 import be.appify.prefab.processor.rest.ControllerUtil;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -106,49 +102,22 @@ final class AgentContextRenderer {
     }
 
     private void appendAggregate(StringBuilder out, ClassManifest manifest, List<Capability> active) {
-        var basePath = "/" + ControllerUtil.pathOf(manifest);
         out.append("### %s (`%s`)\n\n".formatted(manifest.simpleName(), manifest.packageName()));
         out.append("- Endpoints:\n");
-        endpoints(manifest, basePath).forEach(endpoint -> out.append("  - ").append(endpoint).append('\n'));
+        endpoints(manifest).forEach(endpoint -> out.append("  - ").append(endpoint).append('\n'));
         handledEvents(manifest).forEach(handled -> out.append("- Handles: ").append(handled).append('\n'));
         persistence(manifest, active).ifPresent(persistence -> out.append("- Persistence: ").append(persistence).append('\n'));
         out.append("- Test helpers: `%sClient` (MockMvc client), generated Mothers and AssertJ assertions\n\n"
                 .formatted(manifest.simpleName()));
     }
 
-    private List<String> endpoints(ClassManifest manifest, String basePath) {
-        var lines = new ArrayList<String>();
-        var type = manifest.element();
-        var typeCreate = type.getAnnotation(Create.class);
-        if (typeCreate != null) {
-            lines.add(endpoint(typeCreate.method(), basePath + typeCreate.path(), "create"));
-        }
-        manifest.constructorsWith(Create.class).forEach(constructor -> {
-            var create = constructor.getAnnotation(Create.class);
-            lines.add(endpoint(create.method(), basePath + create.path(), "create"));
-        });
-        manifest.methodsWith(Create.class).forEach(method -> {
-            var create = method.getAnnotation(Create.class);
-            lines.add(endpoint(create.method(), basePath + create.path(), "create via " + method.getSimpleName()));
-        });
-        Optional.ofNullable(type.getAnnotation(GetList.class))
-                .ifPresent(getList -> lines.add(endpoint(getList.method(), basePath + getList.path(), "list")));
-        Optional.ofNullable(type.getAnnotation(GetById.class))
-                .ifPresent(getById -> lines.add(endpoint(getById.method(), basePath + getById.path(), "get by id")));
-        manifest.methodsWith(Update.class).forEach(method -> {
-            var update = method.getAnnotation(Update.class);
-            lines.add(endpoint(update.method(), basePath + "/{id}" + update.path(), "update via " + method.getSimpleName()));
-        });
-        Optional.ofNullable(type.getAnnotation(Delete.class))
-                .ifPresent(delete -> lines.add(endpoint(delete.method(), basePath + delete.path(), "delete")));
-        manifest.methodsWith(Delete.class).forEach(method -> {
-            var delete = method.getAnnotation(Delete.class);
-            lines.add(endpoint(delete.method(), basePath + delete.path(), "delete via " + method.getSimpleName()));
-        });
-        if (lines.isEmpty()) {
-            lines.add("none");
-        }
-        return lines.stream().sorted().distinct().toList();
+    private List<String> endpoints(ClassManifest manifest) {
+        var lines = AggregateEndpoints.of(manifest).stream()
+                .map(endpoint -> endpoint(endpoint.method(), endpoint.path(), endpoint.description()))
+                .sorted()
+                .distinct()
+                .toList();
+        return lines.isEmpty() ? List.of("none") : lines;
     }
 
     private static String endpoint(String method, String path, String description) {

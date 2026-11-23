@@ -17,9 +17,7 @@ import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.FileSystemNotFoundException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -60,7 +58,7 @@ class DbMigrationWriter {
         writeDbMigration(processingEnvironment, classManifests, List.of());
     }
 
-    void writeDbMigration(
+    Set<String> writeDbMigration(
             ProcessingEnvironment processingEnvironment,
             List<ClassManifest> classManifests,
             List<PolymorphicAggregateManifest> polymorphicManifests
@@ -79,6 +77,7 @@ class DbMigrationWriter {
             writeChanges(processingEnvironment, classManifests, polymorphicManifests, changes,
                     currentDatabaseState.version());
         }
+        return desiredDatabaseState.stream().map(Table::name).collect(Collectors.toUnmodifiableSet());
     }
 
     private void warnUnconstrainedStringFields(List<ClassManifest> classManifests) {
@@ -208,16 +207,16 @@ class DbMigrationWriter {
 
     private static List<java.nio.file.Path> existingMigrations(ProcessingEnvironment processingEnvironment)
             throws IOException {
-        var migrationDir = migrationDirectory(processingEnvironment);
+        var migrationDir = MigrationDirectory.locate(processingEnvironment).orElse(null);
         if (migrationDir == null) {
             return List.of();
         }
         try (var paths = java.nio.file.Files.list(migrationDir)) {
             return paths
                     .filter(java.nio.file.Files::isRegularFile)
-                    .filter(path -> extractVersion(path.getFileName().toString()) >= 0)
+                    .filter(path -> MigrationDirectory.versionOf(path.getFileName().toString()) >= 0)
                     .sorted(Comparator
-                            .comparingInt((java.nio.file.Path path) -> extractVersion(path.getFileName().toString()))
+                            .comparingInt((java.nio.file.Path path) -> MigrationDirectory.versionOf(path.getFileName().toString()))
                             .thenComparing(path -> path.getFileName().toString()))
                     .toList();
         } catch (java.nio.file.NoSuchFileException e) {
@@ -226,92 +225,20 @@ class DbMigrationWriter {
     }
 
     private static int latestMigrationVersion(ProcessingEnvironment processingEnvironment) throws IOException {
-        var migrationDir = migrationDirectory(processingEnvironment);
+        var migrationDir = MigrationDirectory.locate(processingEnvironment).orElse(null);
         if (migrationDir == null) {
             return 0;
         }
         try (var paths = java.nio.file.Files.list(migrationDir)) {
             return paths
                     .map(p -> p.getFileName().toString())
-                    .map(DbMigrationWriter::extractVersion)
+                    .map(MigrationDirectory::versionOf)
                     .filter(v -> v >= 0)
                     .max(Integer::compareTo)
                     .orElse(0);
         } catch (java.nio.file.NoSuchFileException e) {
             return 0;
         }
-    }
-
-    private static java.nio.file.Path migrationDirectory(ProcessingEnvironment processingEnvironment)
-            throws IOException {
-        var fromClassPath = migrationDirectoryFromClassPath(processingEnvironment);
-        if (fromClassPath != null) {
-            return fromClassPath;
-        }
-        return migrationDirectoryFromClassOutput(processingEnvironment);
-    }
-
-    private static java.nio.file.Path migrationDirectoryFromClassPath(ProcessingEnvironment processingEnvironment)
-            throws IOException {
-        for (int i = 1; i <= MAX_VERSION_PROBE; i++) {
-            var dir = migrationDirectoryFromClassPathVersion(processingEnvironment, i);
-            if (dir != null) {
-                return dir;
-            }
-        }
-        return migrationDirectoryFromClasspathEntries();
-    }
-
-    private static java.nio.file.Path migrationDirectoryFromClassPathVersion(
-            ProcessingEnvironment processingEnvironment, int version) throws IOException {
-        for (String suffix : CLASSPATH_PROBE_SUFFIXES) {
-            try {
-                var file = processingEnvironment.getFiler().getResource(
-                        StandardLocation.CLASS_PATH, "db.migration",
-                        "V%d__%s.sql".formatted(version, suffix));
-                return java.nio.file.Path.of(file.toUri()).getParent();
-            } catch (FileNotFoundException | FileSystemNotFoundException ignored) {
-            }
-        }
-        return null;
-    }
-
-    private static final List<String> CLASSPATH_PROBE_SUFFIXES = List.of("generated", "manual", "init", "baseline");
-
-    private static java.nio.file.Path migrationDirectoryFromClasspathEntries() {
-        var classPath = System.getProperty("java.class.path");
-        if (classPath == null || classPath.isBlank()) {
-            return null;
-        }
-        for (String classPathEntry : classPath.split(java.io.File.pathSeparator)) {
-            try {
-                var candidate = java.nio.file.Path.of(classPathEntry).resolve("db").resolve("migration");
-                if (java.nio.file.Files.isDirectory(candidate)) {
-                    return candidate;
-                }
-            } catch (Exception ignored) {
-            }
-        }
-        return null;
-    }
-
-    private static java.nio.file.Path migrationDirectoryFromClassOutput(ProcessingEnvironment processingEnvironment)
-            throws IOException {
-        try {
-            var file = processingEnvironment.getFiler().getResource(
-                    StandardLocation.CLASS_OUTPUT, "", "db/migration/.probe");
-            var dir = java.nio.file.Path.of(file.toUri()).getParent();
-            return java.nio.file.Files.isDirectory(dir) ? dir : null;
-        } catch (FileNotFoundException | FileSystemNotFoundException ignored) {
-            return null;
-        }
-    }
-
-    private static final int MAX_VERSION_PROBE = 100;
-
-    private static int extractVersion(String filename) {
-        var matcher = java.util.regex.Pattern.compile("^V(\\d+)__.*\\.sql$").matcher(filename);
-        return matcher.matches() ? Integer.parseInt(matcher.group(1)) : -1;
     }
 
     private static void parseSql(java.nio.file.Path file, Map<String, Table> tables) {

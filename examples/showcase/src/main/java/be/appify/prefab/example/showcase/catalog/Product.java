@@ -9,6 +9,7 @@ import be.appify.prefab.core.annotations.rest.Download;
 import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.GetList;
+import be.appify.prefab.core.annotations.rest.Security;
 import be.appify.prefab.core.annotations.rest.SortOrder;
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.core.annotations.validation.ContentType;
@@ -50,7 +51,7 @@ import static be.appify.prefab.core.annotations.rest.Filter.Weight.A;
 @Aggregate
 @GetById
 @GetList(sorted = @SortOrder(property = "name"))
-@Delete
+@Delete(security = @Security(authority = "ROLE_ADMIN"))
 public record Product(
         @Id Reference<Product> id,
         @Version long version,
@@ -82,7 +83,7 @@ public record Product(
      * @param category    the category the product belongs to
      * @param price       unit price
      */
-    @Create
+    @Create(security = @Security(role = "ADMIN"))
     public Product(
             @NotBlank @Size(max = 255) String name,
             @Nullable @Size(max = MAX_DESCRIPTION_LENGTH) String description,
@@ -100,7 +101,7 @@ public record Product(
      * @param description new long description
      * @return the updated product
      */
-    @Update
+    @Update(security = @Security(role = "ADMIN"))
     public Product describe(
             @NotBlank @Size(max = 255) String name,
             @Nullable @Size(max = MAX_DESCRIPTION_LENGTH) String description
@@ -114,7 +115,7 @@ public record Product(
      * @param price new unit price
      * @return the updated product
      */
-    @Update(path = "/price")
+    @Update(path = "/price", security = @Security(role = "ADMIN"))
     public Product reprice(@NotNull @Positive BigDecimal price) {
         return new Product(id, version, name, description, brand, category, price, image, audit);
     }
@@ -125,7 +126,7 @@ public record Product(
      * @param image a PNG or JPEG image of at most {@link #MAX_IMAGE_SIZE} bytes
      * @return the updated product
      */
-    @Update(path = "/image")
+    @Update(path = "/image", security = @Security(role = "ADMIN"))
     public Product changeImage(
             @NotNull @ContentType({"image/png", "image/jpeg"}) @FileSize(max = MAX_IMAGE_SIZE) Binary image
     ) {

@@ -12,7 +12,7 @@ import static org.assertj.core.api.Assertions.within;
 
 /**
  * Audit fields ({@code @CreatedAt}, {@code @CreatedBy}, {@code @LastModifiedAt}, {@code @LastModifiedBy}, grouped in
- * {@code AuditInfo}) are maintained by Prefab. Without an {@code AuditContextProvider} bean the user is "system".
+ * {@code AuditInfo}) are maintained by Prefab from the authenticated principal.
  */
 @IntegrationTest
 class ProductAuditIntegrationTest {
@@ -32,9 +32,9 @@ class ProductAuditIntegrationTest {
 
         var audit = products.getProductById(productId).audit();
         assertThat(audit.createdAt()).isAfterOrEqualTo(before);
-        assertThat(audit.createdBy()).isEqualTo("system");
+        assertThat(audit.createdBy()).isEqualTo("test");
         assertThat(audit.lastModifiedAt()).isCloseTo(audit.createdAt(), within(1, ChronoUnit.SECONDS));
-        assertThat(audit.lastModifiedBy()).isEqualTo("system");
+        assertThat(audit.lastModifiedBy()).isEqualTo("test");
     }
 
     @Test
@@ -49,5 +49,6 @@ class ProductAuditIntegrationTest {
         assertThat(updated.createdAt()).isEqualTo(created.createdAt());
         assertThat(updated.createdBy()).isEqualTo(created.createdBy());
         assertThat(updated.lastModifiedAt()).isAfter(created.lastModifiedAt());
+        assertThat(updated.lastModifiedBy()).isEqualTo("test");
     }
 }

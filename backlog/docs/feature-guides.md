@@ -24,6 +24,7 @@
 - [7.16 Per-aggregate Plugin Overrides](#716-per-aggregate-plugin-overrides)
 - [7.17 Autocomplete Endpoints](#717-autocomplete-endpoints)
 - [7.18 Aggregate-bound frontend views](#718-aggregate-bound-frontend-views)
+- [7.19 Security and API Documentation](#719-security-and-api-documentation)
 
 ---
 
@@ -1798,3 +1799,64 @@ Use `ViewCommands<Aggregate>` when commands need custom mapping or orchestration
 The Kafka example demonstrates this pattern with `ChannelDashboardItem` and `ChannelDashboardAssembler`. List
 views of child aggregates that need a parent path are not currently supported; expose a parent-scoped query through
 a custom service instead.
+
+---
+
+## 7.19 Security and API Documentation
+
+Add `prefab-security` to enable Spring Security and method security on generated endpoints. By default, generated
+endpoints require an authenticated principal. Use `@Security` to require an authority or role, or to omit the
+generated method-level check for one endpoint:
+
+```java
+@Aggregate
+@GetById
+@GetList
+@Delete(security = @Security(authority = "ROLE_ADMIN"))
+public record Product(...) {
+    @Create(security = @Security(role = "ADMIN"))
+    public Product(...) { ... }
+}
+
+@Aggregate
+@GetList(security = @Security(enabled = false))
+public record Category(...) { ... }
+```
+
+`authority = "ROLE_ADMIN"` checks the exact authority; `role = "ADMIN"` uses Spring Security's `hasRole` semantics.
+They are mutually exclusive. `enabled = false` disables the generated method-level authorization only; the web
+security filter chain may still require authentication. To make an endpoint anonymously reachable, configure the
+filter chain with a suitable `HttpSecurityCustomizer` matcher as well.
+
+`@Security` enforces endpoint-level authorities or roles, not ownership of individual records. For row-level access,
+scope the data query to the principal or explicitly check ownership. The showcase keeps raw order and overview reads
+admin-only and serves a customer's history at `/customers/{customerId}/order-history`, where a method-security rule
+requires the authenticated principal name to match the customer ID. It removes the generic generated history list so
+callers cannot select another customer's ID as a filter.
+
+Implement `AuditContextProvider` to populate `@CreatedBy` and `@LastModifiedBy` from the active principal:
+
+```java
+@Component
+class PrincipalAuditContextProvider implements AuditContextProvider {
+    @Override
+    public String currentUserId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null && authentication.isAuthenticated()
+                && !(authentication instanceof AnonymousAuthenticationToken)
+                ? authentication.getName()
+                : "system";
+    }
+}
+```
+
+Add `prefab-openapi` for the generated OpenAPI document at `/v3/api-docs` and Swagger UI at
+`/swagger-ui/index.html`. Add `prefab-async-api` for the compile-time event contract at
+`/async-api/asyncapi.json` and its browser viewer at `/async-api`. OpenAPI annotations are also emitted during
+compilation when the module is on the classpath.
+
+The showcase defaults to the `local` profile, where it disables JWT resource-server authentication and enables HTTP
+Basic for local use. Spring Boot generates a development password at startup; no OAuth credentials or static
+passwords are stored in the repository. Its `test` profile uses the same mechanism with Spring Security's MockMvc
+test principals. Production profiles retain Prefab's JWT configuration. For applications embedding Swagger UI,
+review the default Content Security Policy before permitting inline styles or scripts.

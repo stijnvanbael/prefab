@@ -1,13 +1,14 @@
 package be.appify.prefab.example.showcase.support;
 
+import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.example.showcase.catalog.CategoryClient;
 import be.appify.prefab.example.showcase.catalog.ProductClient;
+import be.appify.prefab.example.showcase.customer.Customer;
 import be.appify.prefab.example.showcase.customer.CustomerClient;
-import be.appify.prefab.example.showcase.customer.CustomerOrderHistoryClient;
+import be.appify.prefab.example.showcase.customer.application.CustomerOrderHistoryRepository;
 import be.appify.prefab.example.showcase.inventory.StockLevelClient;
 import java.math.BigDecimal;
 import java.util.UUID;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import static java.time.Duration.ofSeconds;
@@ -21,14 +22,14 @@ import static org.awaitility.Awaitility.await;
 public class Shop {
 
     private final CustomerClient customers;
-    private final CustomerOrderHistoryClient histories;
+    private final CustomerOrderHistoryRepository histories;
     private final CategoryClient categories;
     private final ProductClient products;
     private final StockLevelClient stockLevels;
 
     Shop(
             CustomerClient customers,
-            CustomerOrderHistoryClient histories,
+            CustomerOrderHistoryRepository histories,
             CategoryClient categories,
             ProductClient products,
             StockLevelClient stockLevels
@@ -59,7 +60,7 @@ public class Shop {
     public String registerCustomer() throws Exception {
         var customerId = customers.createCustomer("Ada", "Lovelace", "ada-" + UUID.randomUUID() + "@example.com");
         await().atMost(ofSeconds(20)).until(
-                () -> !histories.findCustomerOrderHistories(Pageable.unpaged(), customerId).getContent().isEmpty());
+                () -> !histories.findByCustomer(Reference.<Customer>fromId(customerId)).isEmpty());
         return customerId;
     }
 

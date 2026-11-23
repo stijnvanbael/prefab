@@ -4,7 +4,7 @@ import be.appify.prefab.core.annotations.RepositoryMixin;
 import be.appify.prefab.core.service.Reference;
 import java.util.List;
 
-/** Query that {@link CustomerOrderHistory} uses to find the histories an order event is delivered to. */
+/** Query used by order-event projection, customer history reads and showcase tests. */
 @RepositoryMixin(CustomerOrderHistory.class)
 public interface CustomerOrderHistoryRepositoryMixin {
 

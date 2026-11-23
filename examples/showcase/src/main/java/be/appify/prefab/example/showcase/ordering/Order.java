@@ -7,6 +7,7 @@ import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.GetList;
+import be.appify.prefab.core.annotations.rest.Security;
 import be.appify.prefab.core.annotations.rest.Update;
 import be.appify.prefab.core.domain.EventPublisher;
 import be.appify.prefab.core.service.Reference;
@@ -36,8 +37,8 @@ import static be.appify.prefab.core.annotations.rest.Filter.Operator.EQUAL;
  * @param status   where the order is in its life cycle
  */
 @Aggregate
-@GetById
-@GetList
+@GetById(security = @Security(role = "ADMIN"))
+@GetList(security = @Security(role = "ADMIN"))
 public record Order(
         @Id Reference<Order> id,
         @Version long version,

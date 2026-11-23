@@ -1,6 +1,8 @@
 spring:
   application:
     name: prefab.showcase
+  profiles:
+    default: local
 
 error.handling:
   exception-logging: WITH_STACKTRACE

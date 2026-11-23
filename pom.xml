@@ -18,6 +18,7 @@
     <modules>
         <module>core</module>
         <module>streams</module>
+        <module>streams-engine</module>
         <module>streams-kafka</module>
         <module>annotation-processor</module>
         <module>avro</module>
@@ -135,6 +136,11 @@
             <dependency>
                 <groupId>be.appify.prefab</groupId>
                 <artifactId>prefab-streams</artifactId>
+                <version>${prefab.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>be.appify.prefab</groupId>
+                <artifactId>prefab-streams-engine</artifactId>
                 <version>${prefab.version}</version>
             </dependency>
             <dependency>

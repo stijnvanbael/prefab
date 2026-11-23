@@ -10,6 +10,7 @@
 |------------------------|-------------------------------|--------------------|------------------------------------------------|
 | `core`                 | `prefab-core`                 | **Always**         | Framework types, annotations, interfaces       |
 | `streams`              | `prefab-streams`              | Streams DSL        | Backend-neutral stream DSL and test API        |
+| `streams-engine`       | `prefab-streams-engine`       | Streams without Kafka | In-process streams engine and in-memory test harness |
 | `streams-kafka`        | `prefab-streams-kafka`        | Streams on Kafka   | Kafka Streams backend for the streams DSL      |
 | `annotation-processor` | `prefab-annotation-processor` | **Always**         | Compile-time code generator (APT)              |
 | `postgres`             | `prefab-postgres`             | PostgreSQL         | Spring Data JDBC + Flyway + PostgreSQL support |
@@ -37,6 +38,7 @@
 | Kafka Avro events       | `core`, `annotation-processor`, `kafka`, `avro`                   |
 | Kafka AVSC-first events | `core`, `annotation-processor`, `kafka`, `avro`, `avro-processor` |
 | Kafka Streams source/sink DSL | `core`, `annotation-processor`, `kafka`, `streams`, `streams-kafka` |
+| In-process Streams engine | `core`, `streams`, `streams-engine` |
 | GCP Pub/Sub events      | `core`, `annotation-processor`, `pubsub`                          |
 | AWS SNS/SQS events      | `core`, `annotation-processor`, `sns-sqs`                         |
 | Audit trail             | `core` (no extra module needed)                                   |

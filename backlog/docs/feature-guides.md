@@ -1050,6 +1050,7 @@ Prefab provides a backend-neutral Streams DSL (`prefab-streams`) and a Kafka Str
 | Artifact               | Contains                                                                                                   | Depends on Kafka? |
 |------------------------|------------------------------------------------------------------------------------------------------------|-------------------|
 | `prefab-streams`       | The DSL (`PrefabStreams`, `PrefabStream`, `StreamDefinition`, `Store`, ...) and the backend-neutral test API (`be.appify.prefab.streams.testing`) | No                |
+| `prefab-streams-engine` | In-process operator engine, source/sink/state SPIs and in-memory topology test harness                     | No                |
 | `prefab-streams-kafka` | `KafkaPrefabStreams`, serdes, `KafkaStreamBreakoutAdapter`, the Kafka test harness and the `StreamsConfiguration` auto-configuration | Yes               |
 
 Add `prefab-streams-kafka` to run the DSL on Kafka Streams; it brings `prefab-streams` along. Application code that
@@ -1432,8 +1433,11 @@ class OrderTopologyTest {
 - `topology.unwrap(...)` gives access to the backend facility, for example Kafka's `TopologyTestDriver`.
 - `TopologyTestExtension.withAppId("...")` (with `@RegisterExtension`) changes the application id used for topic names.
 - `@TestStreams` also works on test method parameters.
-- The extension picks the backend from the classpath, so the same tests run against every backend that registers a
-  `TopologyTestHarness.Factory`. The Kafka implementation lives in `prefab-streams-kafka` and needs `kafka-streams-test-utils` on the test classpath.
+- The extension picks a backend from the classpath by default. Use `TopologyTestExtension.withBackend("in-process")` or
+  run tests with `-Dprefab.streams.test.backend=in-process` to use the in-memory engine when multiple factories are
+  present. The same tests can run against every backend that registers a `TopologyTestHarness.Factory`; Kafka tests
+  need `kafka-streams-test-utils` on the test classpath. Tests that inspect serialized Kafka key bytes or unwrap
+  Kafka-specific facilities remain Kafka-backend tests.
 
 ### Message and correlation IDs (opt-in)
 

@@ -1,0 +1,4 @@
+org.springframework.boot.diagnostics.FailureAnalyzer=\
+  be.appify.prefab.mongodb.diagnostics.MongoBeanFailureAnalyzer,\
+  be.appify.prefab.mongodb.diagnostics.MongoConnectionFailureAnalyzer,\
+  be.appify.prefab.mongodb.diagnostics.MongoConnectionStringFailureAnalyzer

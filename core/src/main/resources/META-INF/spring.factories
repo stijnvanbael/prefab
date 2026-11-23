@@ -1,0 +1,7 @@
+org.springframework.boot.diagnostics.FailureAnalyzer=\
+  be.appify.prefab.core.diagnostics.PrefabConfigurationFailureAnalyzer,\
+  be.appify.prefab.core.diagnostics.PrefabNotEnabledFailureAnalyzer,\
+  be.appify.prefab.core.diagnostics.MessagingBeanFailureAnalyzer,\
+  be.appify.prefab.core.diagnostics.TenantContextProviderFailureAnalyzer,\
+  be.appify.prefab.core.diagnostics.MissingPropertyFailureAnalyzer,\
+  be.appify.prefab.core.diagnostics.UnknownClassFailureAnalyzer

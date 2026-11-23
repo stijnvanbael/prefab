@@ -1,3 +1,6 @@
 org.springframework.beans.BeanInfoFactory=be.appify.prefab.postgres.spring.data.jdbc.SealedAggregateInterfaceBeanInfoFactory
 org.springframework.boot.EnvironmentPostProcessor=\
   be.appify.prefab.postgres.spring.PostgresDriverEnvironmentPostProcessor
+org.springframework.boot.diagnostics.FailureAnalyzer=\
+  be.appify.prefab.postgres.diagnostics.JdbcBeanFailureAnalyzer,\
+  be.appify.prefab.postgres.diagnostics.PostgresConnectionFailureAnalyzer

@@ -13,13 +13,13 @@ public class Classes {
      *
      * @param name the fully qualified name of the desired class or interface
      * @return the {@link Class} object for the class or interface with the specified name
-     * @throws IllegalArgumentException if the class with the specified name cannot be found
+     * @throws UnknownClassException if the class with the specified name cannot be found
      */
     public static Class<?> classWithName(String name) {
         try {
             return Class.forName(name);
         } catch (ClassNotFoundException e) {
-            throw new IllegalArgumentException(e);
+            throw new UnknownClassException(name, e);
         }
     }
 }

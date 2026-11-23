@@ -1,5 +1,6 @@
 package be.appify.prefab.postgres.spring.data.jdbc;
 
+import be.appify.prefab.core.diagnostics.PrefabConfigurationException;
 import be.appify.prefab.core.spring.data.FullTextCondition;
 import be.appify.prefab.core.spring.data.FullTextQueryExecutor;
 import be.appify.prefab.core.annotations.rest.Filter.Weight;
@@ -109,7 +110,7 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
      * Verifies that the default text search configuration exists in the database, so that a misconfigured
      * application fails at startup instead of on the first search.
      *
-     * @throws IllegalStateException
+     * @throws PrefabConfigurationException
      *         if the database has no such text search configuration
      */
     public void validateConfiguration() {
@@ -117,9 +118,11 @@ public class JdbcFullTextQueryExecutor implements FullTextQueryExecutor {
                 "SELECT EXISTS (SELECT 1 FROM pg_ts_config WHERE cfgname = :configuration)",
                 new MapSqlParameterSource("configuration", configuration), Boolean.class);
         if (!Boolean.TRUE.equals(exists)) {
-            throw new IllegalStateException(
-                    "Unknown PostgreSQL text search configuration '%s' in property prefab.full-text.language"
-                            .formatted(configuration));
+            throw new PrefabConfigurationException(
+                    "Unknown PostgreSQL text search configuration '%s' in property prefab.full-text.language."
+                            .formatted(configuration),
+                    "Set prefab.full-text.language to the name of a text search configuration of the database, "
+                            + "for example english or simple. Run \\dF in psql to list them.");
         }
     }
 

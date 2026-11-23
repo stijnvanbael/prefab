@@ -226,7 +226,8 @@ public class TestClientWriter {
     private void writeTestClient(ClassManifest manifest) {
         var className = "%sClient".formatted(manifest.simpleName());
         var type = buildClientType(manifest.packageName(), className);
-        applyPlugins(manifest.type().asElement(), plugin -> plugin.writeTestClient(manifest, type));
+        new PluginContributions(context)
+                .apply(manifest.type().asElement(), type, OutputTarget.MAIN, plugin -> plugin.writeTestClient(manifest, type));
         fileWriter.setPreferredElement(manifest.type().asElement());
         fileWriter.writeFile(manifest.packageName(), className, type.build());
     }
@@ -234,7 +235,8 @@ public class TestClientWriter {
     private void writePolymorphicTestClient(PolymorphicAggregateManifest manifest) {
         var className = "%sClient".formatted(manifest.simpleName());
         var type = buildClientType(manifest.packageName(), className);
-        applyPlugins(manifest.type().asElement(), plugin -> plugin.writePolymorphicTestClient(manifest, type));
+        new PluginContributions(context)
+                .apply(manifest.type().asElement(), type, OutputTarget.MAIN, plugin -> plugin.writePolymorphicTestClient(manifest, type));
         fileWriter.setPreferredElement(manifest.type().asElement());
         fileWriter.writeFile(manifest.packageName(), className, type.build());
     }
@@ -329,10 +331,4 @@ public class TestClientWriter {
         return ParameterizedTypeName.get(ClassName.get(List.class), REQUEST_POST_PROCESSOR);
     }
 
-    private void applyPlugins(TypeElement aggregateType, java.util.function.Consumer<PrefabPlugin> action) {
-        context.plugins().stream()
-                .filter(plugin -> context.isPluginEnabledFor(aggregateType, plugin.getClass()))
-                .filter(plugin -> context.getOutputTargetFor(aggregateType, plugin.getClass()) != OutputTarget.MAIN)
-                .forEach(plugin -> context.withPluginOutputTarget(aggregateType, plugin.getClass(), () -> action.accept(plugin)));
-    }
 }

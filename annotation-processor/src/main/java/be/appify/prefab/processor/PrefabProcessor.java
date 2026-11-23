@@ -75,6 +75,19 @@ public class PrefabProcessor extends AbstractProcessor {
     // Plugin list is stable for the lifetime of the processor; detect once and reuse across rounds.
     private List<PrefabPlugin> cachedPlugins;
 
+    /** Creates a processor that discovers its plugins with {@link ServiceLoader}. */
+    public PrefabProcessor() {
+    }
+
+    /**
+     * Creates a processor with an explicit set of plugins instead of {@link ServiceLoader} discovery.
+     *
+     * @param plugins the plugins to run; they are executed in {@link PrefabPlugin#EXECUTION_ORDER}
+     */
+    PrefabProcessor(List<PrefabPlugin> plugins) {
+        cachedPlugins = sorted(plugins.stream());
+    }
+
     // Tracking sets for deduplication across rounds (source elements are visible in every round).
     private final Set<String> processedAggregateNames = new LinkedHashSet<>();
     private final Set<String> processedPolymorphicAggregateNames = new LinkedHashSet<>();
@@ -439,9 +452,12 @@ public class PrefabProcessor extends AbstractProcessor {
     private List<PrefabPlugin> detectPlugins() {
         if (cachedPlugins == null) {
             var loader = ServiceLoader.load(PrefabPlugin.class, getClass().getClassLoader()).iterator();
-            cachedPlugins = StreamSupport.stream(Spliterators.spliteratorUnknownSize(loader, 0), false)
-                    .toList();
+            cachedPlugins = sorted(StreamSupport.stream(Spliterators.spliteratorUnknownSize(loader, 0), false));
         }
         return cachedPlugins;
+    }
+
+    private static List<PrefabPlugin> sorted(Stream<PrefabPlugin> plugins) {
+        return plugins.sorted(PrefabPlugin.EXECUTION_ORDER).toList();
     }
 }

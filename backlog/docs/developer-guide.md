@@ -36,7 +36,7 @@ request/response DTOs, event consumer, and database migration scripts at compile
 | [Generated Artefacts](generated-artefacts.md)         | Controller, service, repository, DTOs, consumers, migrations, test helpers, escape hatch |
 | [Database Migration Lifecycle](database-migrations.md) | Schema diffing, generated/manual migrations, Flyway and MongoDB lifecycle               |
 | [Feature Guides](feature-guides.md)                   | REST CRUD, aggregate-bound views, events, Avro, audit, multi-tenancy, SSE, testing |
-| [Extension Point Guide](extension-points.md)          | `PrefabPlugin` API, `@RepositoryMixin`, provider overrides, source-file escape hatch |
+| [Extension Point Guide](extension-points.md)          | Customization coverage, `PrefabPlugin` API, `@RepositoryMixin`, provider overrides, escape hatch |
 | [Configuration Reference](configuration.md)           | Application properties, Kafka/Pub/Sub/SNS configuration            |
 | [Troubleshooting](troubleshooting.md)                 | Common errors and fixes                                            |
 

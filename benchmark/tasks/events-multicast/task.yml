@@ -1,0 +1,3 @@
+title: Update many aggregates from one event
+category: events-handling
+modules: [postgres, kafka]

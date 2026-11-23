@@ -1,0 +1,3 @@
+title: Publish and handle an Avro-serialized event
+category: avro
+modules: [postgres, kafka, avro]

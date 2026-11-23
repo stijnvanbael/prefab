@@ -1,0 +1,15 @@
+description: The complete current docs (readme and developer guide, about 60k tokens) loaded into CLAUDE.md.
+instructions:
+  - context: CLAUDE.md
+  - repo: readme.md
+  - repo: backlog/docs/developer-guide.md
+  - repo: backlog/docs/getting-started.md
+  - repo: backlog/docs/modules.md
+  - repo: backlog/docs/annotation-reference.md
+  - repo: backlog/docs/built-in-types.md
+  - repo: backlog/docs/generated-artefacts.md
+  - repo: backlog/docs/feature-guides.md
+  - repo: backlog/docs/extension-points.md
+  - repo: backlog/docs/configuration.md
+  - repo: backlog/docs/database-migrations.md
+  - repo: backlog/docs/troubleshooting.md

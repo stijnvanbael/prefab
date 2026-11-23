@@ -1,0 +1,3 @@
+title: A slim read-only view of an aggregate for a frontend
+category: views
+modules: [postgres]

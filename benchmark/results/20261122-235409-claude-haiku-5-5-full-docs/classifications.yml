@@ -1,0 +1,5 @@
+rest-parent-child#1:
+  category: PLAIN_SPRING_FALLBACK
+  note: >
+    Made Task Exposure.INTERNAL and hand-wrote the controller, because the generated get/complete endpoints ignore
+    {projectId} (TASK-355). Third run where an agent works around this bug.

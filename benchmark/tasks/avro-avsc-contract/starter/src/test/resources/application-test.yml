@@ -1,0 +1,12 @@
+spring:
+  flyway:
+    clean-disabled: false
+
+prefab:
+  flyway:
+    auto-clean-on-mismatch: true
+  dlt.retries:
+    initial-interval-ms: 10
+  test:
+    schema-registry:
+      enabled: true

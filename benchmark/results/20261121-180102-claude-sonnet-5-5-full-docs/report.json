@@ -1,0 +1,475 @@
+{
+  "runId" : "20261121-180102-claude-sonnet-5-5-full-docs",
+  "startedAt" : "2026-11-21T18:01:02.231019796Z",
+  "agent" : "claude-code/claude-sonnet-5-5",
+  "model" : "claude-sonnet-5-5",
+  "context" : "full-docs",
+  "prefabVersion" : "0.13.3-SNAPSHOT",
+  "gitCommit" : "26ff283-dirty",
+  "repeat" : 1,
+  "results" : [ {
+    "taskId" : "binary-upload-download",
+    "category" : "binary",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 30,
+        "output" : 6159,
+        "cacheRead" : 1663851,
+        "cacheCreation" : 111552
+      },
+      "turns" : 15,
+      "buildAttempts" : 5,
+      "costUsd" : 0.6742431,
+      "duration" : "PT1M44.457302217S",
+      "contaminated" : false,
+      "message" : "Document uploads are in place and `mvn verify` passes, including 3 integration tests I added.\n\n- **Upload:** `POST /documents` takes a multipart request with a JSON `body` part and a `file` part. It returns `201 Created` with a `Location` header ending in the document id.\n- **Metadata:** `GET /documents/{id}` returns the document as JSON, including `title`.\n- **Download:** `GET /documents/{id}/file` returns the original bytes with the stored content type.\n- **Validation:** only `application/pdf` and `image/png` files up to 1,048,576 bytes are accepted. Anything else gets `400 Bad Request`.\n\nThe `@ContentType` and `@FileSize` annotations did not enforce anything in this setup. Prefab generates no check for them, so an oversized file was accepted. I enforce the limits in `Document`'s constructor, which throws `BadRequestException` (400). I removed the two annotations from the aggregate.\n\nThe tests cover upload, metadata and download, a PDF of exactly 1 MB being accepted, and a wrong-type file and a file 1 byte over the limit both being rejected.\n\nThe code is in `src/main/java/com/example/documents/Document.java`, with the tests in `src/test/java/com/example/documents/DocumentIntegrationTest.java`."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "4/4 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/documents/Document.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/documents/DocumentIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 4,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT12.990296788S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261121-180102-claude-sonnet-5-5-full-docs/attempts/binary-upload-download-1"
+  }, {
+    "taskId" : "events-multicast",
+    "category" : "events-handling",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 6,
+        "output" : 1043,
+        "cacheRead" : 231379,
+        "cacheCreation" : 96533
+      },
+      "turns" : 3,
+      "buildAttempts" : 1,
+      "costUsd" : 0.4197119,
+      "duration" : "PT15.16701627S",
+      "contaminated" : false,
+      "message" : "When a `PriceChanged` event arrives, every `PriceWatch` of that product now gets its `currentPrice` set to the new price. `mvn verify` passed, but I didn't write a test for this handler, so the update itself hasn't been exercised.\n\nThere are two changes in `com.example.watch`:\n- **`PriceWatch`:** an `@EventHandler @Multicast(queryMethod = \"findByProduct\", parameters = \"product\")` method that returns the watch with the event's price. Watches of other products aren't touched.\n- **`PriceWatchRepositoryMixin`:** a new repository mixin that supplies the `findByProduct` query.\n\nIf a price changes for a product that has no watches, `@Multicast` throws `IllegalStateException` by design. The event is then retried and finally dead-lettered, so you may see retry noise for unwatched products."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/watch/PriceWatch.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/watch/PriceWatchRepositoryMixin.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT20.713412774S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261121-180102-claude-sonnet-5-5-full-docs/attempts/events-multicast-1"
+  }, {
+    "taskId" : "events-sealed-hierarchy",
+    "category" : "events-publishing",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 10,
+        "output" : 1954,
+        "cacheRead" : 454348,
+        "cacheCreation" : 96985
+      },
+      "turns" : 5,
+      "buildAttempts" : 1,
+      "costUsd" : 0.4529348,
+      "duration" : "PT20.14996473S",
+      "contaminated" : false,
+      "message" : "Every deposit and withdrawal on an `Account` now publishes an event to the Kafka topic `account-events`. The project compiles and `mvn test` passes, but there are no tests for the new events, and I didn't check that the producer and registrar classes were generated. The only generated output I looked at were the test-side Mother and Assert classes.\n\n- **`AccountEvent`:** a new sealed interface with the nested records `Deposited` and `Withdrawn`, both taking `Reference<Account> account` and `BigDecimal amount`. It carries `@Event(topic = \"account-events\")` and `@JsonTypeInfo(use = Id.NAME)`, so both event types share the one topic and consumers can read it as `AccountEvent`.\n- **Ordering:** `@PartitioningKey` sits on the interface's `account()` accessor, so all events for one account go to the same partition and stay in order.\n- **`Account`:** `deposit` publishes `Deposited` and `withdraw` publishes `Withdrawn`. They go through a static `EventPublisher<AccountEvent>` bound once to `AccountEvent.class`.\n\nDisk space on the `/tmp` volume briefly reported full at the start, but the build and tests ran without problems afterwards."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/banking/Account.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/banking/AccountEvent.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT18.38009557S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261121-180102-claude-sonnet-5-5-full-docs/attempts/events-sealed-hierarchy-1"
+  }, {
+    "taskId" : "list-range-filter",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 6,
+        "output" : 1133,
+        "cacheRead" : 232076,
+        "cacheCreation" : 95300
+      },
+      "turns" : 3,
+      "buildAttempts" : 1,
+      "costUsd" : 0.4157496,
+      "duration" : "PT16.268157558S",
+      "contaminated" : false,
+      "message" : "`GET /invoices` now returns a page of invoices with the three optional filters. I did not add a test for the new endpoint or call it, so the filters themselves are untested.\n\nI made the change in `Invoice.java`:\n- **Endpoint:** the `@GetList` annotation on `Invoice` adds `GET /invoices`.\n- **Amount filters:** `amount` has `@Filter` with `GREATER_THAN_OR_EQUAL` and `LESS_THAN_OR_EQUAL`, giving `amountGreaterThanOrEqual` and `amountLessThanOrEqual`. Either can be used alone, and the bounds are inclusive.\n- **Date filter:** `issuedOn` has `@Filter` with `GREATER_THAN_OR_EQUAL`, giving `issuedOnGreaterThanOrEqual`, which takes an ISO date.\n- **Combined filters:** when several filters are given, all of them must match.\n\nThe project compiled and `mvn -o test` passed. That run printed only the Java options warning and no test output, so I didn't see test counts, and it was offline.\n\nThe first shell call reported a full disk on the Claude temp volume. A later `df -h /tmp` showed 55G free, and nothing else failed."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : false,
+        "detail" : "0/3 passed; com.example.billing.InvoiceRangeAcceptanceTest.filtersByIssueDateAndAmount: Failed to load ApplicationContext for [WebMergedContextConfiguration@2c4eda3a testClass = com.example.billing.InvoiceRangeAcceptanceTest, locations = [], classes = [com.example.Application], contextInitializerClasses = [], activeProfiles = [\"test\"], propertySourceDescriptors = [], propertySourceProperties = [\"org.springframework.boot.test.context.SpringBootTestContextBootstrapper=true\"], contextCustomizers = [[ImportsContextCustomizer@466bf366 key = [org.springframework.boot.webmvc.test.autoconfigure.MockMvcWebDriverAutoConfiguration, org.springframework.boot.webmvc.test.autoconfigure.MockMvcWebClientAutoConfiguration, io.github.wimdeblauwe.errorhandlingspringbootstarter.servlet.ServletErrorHandlingConfiguration, be.appify.prefab.test.persistence.FlywayChecksumMismatchMigrationStrategy, org.springframework.boot.webmvc.test.autoconfigure.MockMvcAutoConfiguration]], org.springframework.boot.test.context.PropertyMappingContextCustomizer@2d298995, org.springframework.boot.test.context.filter.ExcludeFilterContextCustomizer@47874b25, org.springframework.boot.test.json.DuplicateJsonObjectContextCustomizerFactory$DuplicateJsonObjectContextCustomizer@5cc69cfe, org.springframework.boot.test.autoconfigure.OnFailureConditionReportContextCustomizerFactory$OnFailureConditionReportContextCustomizer@7997b197, org.springframework.boot.testcontainers.service.connection.ServiceConnectionContextCustomizer@0, org.springframework.boot.webmvc.test.autoconfigure.WebDriverContextCustomizer@7df587ef, ... | com.example.billing.InvoiceRangeAcceptanceTest.boundsCanBeUsedAlone: ApplicationContext failure threshold (1) exceeded: skipping repeated attempt to load context for [WebMergedContextConfiguration@2c4eda3a testClass = com.example.billing.InvoiceRangeAcceptanceTest, locations = [], classes = [com.example.Application], contextInitializerClasses = [], activeProfiles = [\"test\"], propertySourceDescriptors = [], propertySourceProperties = [\"org.springframework.boot.test.context.SpringBootTestContextBootstrapper=true\"], contextCustomizers = [[ImportsContextCustomizer@466bf366 key = [org.springframework.boot.webmvc.test.autoconfigure.MockMvcWebDriverAutoConfiguration, org.springframework.boot.webmvc.test.autoconfigure.MockMvcWebClientAutoConfiguration, io.github.wimdeblauwe.errorhandlingspringbootstarter.servlet.ServletErrorHandlingConfiguration, be.appify.prefab.test.persistence.FlywayChecksumMismatchMigrationStrategy, org.springframework.boot.webmvc.test.autoconfigure.MockMvcAutoConfiguration]], org.springframework.boot.test.context.PropertyMappingContextCustomizer@2d298995, org.springframework.boot.test.context.filter.ExcludeFilterContextCustomizer@47874b25, org.springframework.boot.test.json.DuplicateJsonObjectContextCustomizerFactory$DuplicateJsonObjectContextCustomizer@5cc69cfe, org.springframework.boot.test.autoconfigure.OnFailureConditionReportContextCustomizerFactory$OnFailureConditionReportContextCustomizer@7997b197, org.springframework.boot.testcontainers.service.connection.ServiceConnectionContextCustomizer@0, org.springframework.boot.webm... | com.example.billing.InvoiceRangeAcceptanceTest.filtersByAmountRangeInclusive: ApplicationContext failure threshold (1) exceeded: skipping repeated attempt to load context for [WebMergedContextConfiguration@2c4eda3a testClass = com.example.billing.InvoiceRangeAcceptanceTest, locations = [], classes = [com.example.Application], contextInitializerClasses = [], activeProfiles = [\"test\"], propertySourceDescriptors = [], propertySourceProperties = [\"org.springframework.boot.test.context.SpringBootTestContextBootstrapper=true\"], contextCustomizers = [[ImportsContextCustomizer@466bf366 key = [org.springframework.boot.webmvc.test.autoconfigure.MockMvcWebDriverAutoConfiguration, org.springframework.boot.webmvc.test.autoconfigure.MockMvcWebClientAutoConfiguration, io.github.wimdeblauwe.errorhandlingspringbootstarter.servlet.ServletErrorHandlingConfiguration, be.appify.prefab.test.persistence.FlywayChecksumMismatchMigrationStrategy, org.springframework.boot.webmvc.test.autoconfigure.MockMvcAutoConfiguration]], org.springframework.boot.test.context.PropertyMappingContextCustomizer@2d298995, org.springframework.boot.test.context.filter.ExcludeFilterContextCustomizer@47874b25, org.springframework.boot.test.json.DuplicateJsonObjectContextCustomizerFactory$DuplicateJsonObjectContextCustomizer@5cc69cfe, org.springframework.boot.test.autoconfigure.OnFailureConditionReportContextCustomizerFactory$OnFailureConditionReportContextCustomizer@7997b197, org.springframework.boot.testcontainers.service.connection.ServiceConnectionContextCustomizer@0, org.springframework.boot.webm...",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/billing/Invoice.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 3,
+        "failed" : 3,
+        "skipped" : 0,
+        "failures" : [ "com.example.billing.InvoiceRangeAcceptanceTest.filtersByIssueDateAndAmount: Failed to load ApplicationContext for [WebMergedContextConfiguration@2c4eda3a testClass = com.example.billing.InvoiceRangeAcceptanceTest, locations = [], classes = [com.example.Application], contextInitializerClasses = [], activeProfiles = [\"test\"], propertySourceDescriptors = [], propertySourceProperties = [\"org.springframework.boot.test.context.SpringBootTestContextBootstrapper=true\"], contextCustomizers = [[ImportsContextCustomizer@466bf366 key = [org.springframework.boot.webmvc.test.autoconfigure.MockMvcWebDriverAutoConfiguration, org.springframework.boot.webmvc.test.autoconfigure.MockMvcWebClientAutoConfiguration, io.github.wimdeblauwe.errorhandlingspringbootstarter.servlet.ServletErrorHandlingConfiguration, be.appify.prefab.test.persistence.FlywayChecksumMismatchMigrationStrategy, org.springframework.boot.webmvc.test.autoconfigure.MockMvcAutoConfiguration]], org.springframework.boot.test.context.PropertyMappingContextCustomizer@2d298995, org.springframework.boot.test.context.filter.ExcludeFilterContextCustomizer@47874b25, org.springframework.boot.test.json.DuplicateJsonObjectContextCustomizerFactory$DuplicateJsonObjectContextCustomizer@5cc69cfe, org.springframework.boot.test.autoconfigure.OnFailureConditionReportContextCustomizerFactory$OnFailureConditionReportContextCustomizer@7997b197, org.springframework.boot.testcontainers.service.connection.ServiceConnectionContextCustomizer@0, org.springframework.boot.webmvc.test.autoconfigure.WebDriverContextCustomizer@7df587ef, ...", "com.example.billing.InvoiceRangeAcceptanceTest.boundsCanBeUsedAlone: ApplicationContext failure threshold (1) exceeded: skipping repeated attempt to load context for [WebMergedContextConfiguration@2c4eda3a testClass = com.example.billing.InvoiceRangeAcceptanceTest, locations = [], classes = [com.example.Application], contextInitializerClasses = [], activeProfiles = [\"test\"], propertySourceDescriptors = [], propertySourceProperties = [\"org.springframework.boot.test.context.SpringBootTestContextBootstrapper=true\"], contextCustomizers = [[ImportsContextCustomizer@466bf366 key = [org.springframework.boot.webmvc.test.autoconfigure.MockMvcWebDriverAutoConfiguration, org.springframework.boot.webmvc.test.autoconfigure.MockMvcWebClientAutoConfiguration, io.github.wimdeblauwe.errorhandlingspringbootstarter.servlet.ServletErrorHandlingConfiguration, be.appify.prefab.test.persistence.FlywayChecksumMismatchMigrationStrategy, org.springframework.boot.webmvc.test.autoconfigure.MockMvcAutoConfiguration]], org.springframework.boot.test.context.PropertyMappingContextCustomizer@2d298995, org.springframework.boot.test.context.filter.ExcludeFilterContextCustomizer@47874b25, org.springframework.boot.test.json.DuplicateJsonObjectContextCustomizerFactory$DuplicateJsonObjectContextCustomizer@5cc69cfe, org.springframework.boot.test.autoconfigure.OnFailureConditionReportContextCustomizerFactory$OnFailureConditionReportContextCustomizer@7997b197, org.springframework.boot.testcontainers.service.connection.ServiceConnectionContextCustomizer@0, org.springframework.boot.webm...", "com.example.billing.InvoiceRangeAcceptanceTest.filtersByAmountRangeInclusive: ApplicationContext failure threshold (1) exceeded: skipping repeated attempt to load context for [WebMergedContextConfiguration@2c4eda3a testClass = com.example.billing.InvoiceRangeAcceptanceTest, locations = [], classes = [com.example.Application], contextInitializerClasses = [], activeProfiles = [\"test\"], propertySourceDescriptors = [], propertySourceProperties = [\"org.springframework.boot.test.context.SpringBootTestContextBootstrapper=true\"], contextCustomizers = [[ImportsContextCustomizer@466bf366 key = [org.springframework.boot.webmvc.test.autoconfigure.MockMvcWebDriverAutoConfiguration, org.springframework.boot.webmvc.test.autoconfigure.MockMvcWebClientAutoConfiguration, io.github.wimdeblauwe.errorhandlingspringbootstarter.servlet.ServletErrorHandlingConfiguration, be.appify.prefab.test.persistence.FlywayChecksumMismatchMigrationStrategy, org.springframework.boot.webmvc.test.autoconfigure.MockMvcAutoConfiguration]], org.springframework.boot.test.context.PropertyMappingContextCustomizer@2d298995, org.springframework.boot.test.context.filter.ExcludeFilterContextCustomizer@47874b25, org.springframework.boot.test.json.DuplicateJsonObjectContextCustomizerFactory$DuplicateJsonObjectContextCustomizer@5cc69cfe, org.springframework.boot.test.autoconfigure.OnFailureConditionReportContextCustomizerFactory$OnFailureConditionReportContextCustomizer@7997b197, org.springframework.boot.testcontainers.service.connection.ServiceConnectionContextCustomizer@0, org.springframework.boot.webm..." ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT12.956764171S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "manual",
+      "rationale" : "The Postgres test container died during the hidden tests (\"terminating connection due to unexpected postmaster exit\"). The code matches the reference; the agent did not run any build or test itself (3 turns).\n",
+      "evidence" : [ "hidden-tests: 0/3 passed; com.example.billing.InvoiceRangeAcceptanceTest.filtersByIssueDateAndAmount: Failed to load ApplicationContext for [WebMergedContextConfiguration@2c4eda3a testClass = com.example.billing.InvoiceRangeAcceptanceTest, locations = [], classes = [com.example.Application], contextInitializerClasses = [], activeProfiles = [\"test\"], propertySourceDescriptors = [], propertySourceProperties = [\"org.springframework.boot.test.context.SpringBootTestContextBootstrapper=true\"], contextCustomizers = [[ImportsContextCustomizer@466bf366 key = [org.springframework.boot.webmvc.test.autoconfigure.MockMvcWebDriverAutoConfiguration, org.springframework.boot.webmvc.test.autoconfigure.MockMvcWebClientAutoConfiguration, io.github.wimdeblauwe.errorhandlingspringbootstarter.servlet.ServletErrorHandlingConfiguration, be.appify.prefab.test.persistence.FlywayChecksumMismatchMigrationStrategy, org.springframework.boot.webmvc.test.autoconfigure.MockMvcAutoConfiguration]], org.springframework.boot.test.context.PropertyMappingContextCustomizer@2d298995, org.springframework.boot.test.context.filter.ExcludeFilterContextCustomizer@47874b25, org.springframework.boot.test.json.DuplicateJsonObjectContextCustomizerFactory$DuplicateJsonObjectContextCustomizer@5cc69cfe, org.springframework.boot.test.autoconfigure.OnFailureConditionReportContextCustomizerFactory$OnFailureConditionReportContextCustomizer@7997b197, org.springframework.boot.testcontainers.service.connection.ServiceConnectionContextCustomizer@0, org.springframework.boot.webmvc.test.autoconfigure.WebDriverContextCustomizer@7df587ef, ... | com.example.billing.InvoiceRangeAcceptanceTest.boundsCanBeUsedAlone: ApplicationContext failure threshold (1) exceeded: skipping repeated attempt to load context for [WebMergedContextConfiguration@2c4eda3a testClass = com.example.billing.InvoiceRangeAcceptanceTest, locations = [], classes = [com.example.Application], contextInitializerClasses = [], activeProfiles = [\"test\"], propertySourceDescriptors = [], propertySourceProperties = [\"org.springframework.boot.test.context.SpringBootTestContextBootstrapper=true\"], contextCustomizers = [[ImportsContextCustomizer@466bf366 key = [org.springframework.boot.webmvc.test.autoconfigure.MockMvcWebDriverAutoConfiguration, org.springframework.boot.webmvc.test.autoconfigure.MockMvcWebClientAutoConfiguration, io.github.wimdeblauwe.errorhandlingspringbootstarter.servlet.ServletErrorHandlingConfiguration, be.appify.prefab.test.persistence.FlywayChecksumMismatchMigrationStrategy, org.springframework.boot.webmvc.test.autoconfigure.MockMvcAutoConfiguration]], org.springframework.boot.test.context.PropertyMappingContextCustomizer@2d298995, org.springframework.boot.test.context.filter.ExcludeFilterContextCustomizer@47874b25, org.springframework.boot.test.json.DuplicateJsonObjectContextCustomizerFactory$DuplicateJsonObjectContextCustomizer@5cc69cfe, org.springframework.boot.test.autoconfigure.OnFailureConditionReportContextCustomizerFactory$OnFailureConditionReportContextCustomizer@7997b197, org.springframework.boot.testcontainers.service.connection.ServiceConnectionContextCustomizer@0, org.springframework.boot.webm... | com.example.billing.InvoiceRangeAcceptanceTest.filtersByAmountRangeInclusive: ApplicationContext failure threshold (1) exceeded: skipping repeated attempt to load context for [WebMergedContextConfiguration@2c4eda3a testClass = com.example.billing.InvoiceRangeAcceptanceTest, locations = [], classes = [com.example.Application], contextInitializerClasses = [], activeProfiles = [\"test\"], propertySourceDescriptors = [], propertySourceProperties = [\"org.springframework.boot.test.context.SpringBootTestContextBootstrapper=true\"], contextCustomizers = [[ImportsContextCustomizer@466bf366 key = [org.springframework.boot.webmvc.test.autoconfigure.MockMvcWebDriverAutoConfiguration, org.springframework.boot.webmvc.test.autoconfigure.MockMvcWebClientAutoConfiguration, io.github.wimdeblauwe.errorhandlingspringbootstarter.servlet.ServletErrorHandlingConfiguration, be.appify.prefab.test.persistence.FlywayChecksumMismatchMigrationStrategy, org.springframework.boot.webmvc.test.autoconfigure.MockMvcAutoConfiguration]], org.springframework.boot.test.context.PropertyMappingContextCustomizer@2d298995, org.springframework.boot.test.context.filter.ExcludeFilterContextCustomizer@47874b25, org.springframework.boot.test.json.DuplicateJsonObjectContextCustomizerFactory$DuplicateJsonObjectContextCustomizer@5cc69cfe, org.springframework.boot.test.autoconfigure.OnFailureConditionReportContextCustomizerFactory$OnFailureConditionReportContextCustomizer@7997b197, org.springframework.boot.testcontainers.service.connection.ServiceConnectionContextCustomizer@0, org.springframework.boot.webm..." ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261121-180102-claude-sonnet-5-5-full-docs/attempts/list-range-filter-1"
+  }, {
+    "taskId" : "persistence-evolve-schema",
+    "category" : "persistence",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 12,
+        "output" : 1981,
+        "cacheRead" : 566527,
+        "cacheCreation" : 97639
+      },
+      "turns" : 6,
+      "buildAttempts" : 4,
+      "costUsd" : 0.4670427,
+      "duration" : "PT36.821928424S",
+      "contaminated" : false,
+      "message" : "`Product` now has an optional `description` and an integer `stock`. Both are accepted on `POST /products` and returned by `GET /products/{id}`. `mvn clean verify` completed without errors in offline mode. I didn't check how many tests ran or add new tests for the two fields.\n\n- **Code:** In `Product.java`, `description` is a nullable text field (`@Text @Nullable String`) and `stock` is an `int` with `@DbDefaultValue(\"0\")`. The `@Create` constructor takes both.\n- **Schema:** I left the released `V1__create_product.sql` untouched. I added `V2__add_product_description_stock.sql`, which adds `description` as a nullable `TEXT` column and `stock` as `INTEGER NOT NULL DEFAULT 0`. The default is there so existing production rows get a value.\n- **`INTEGER` rather than `INT`:** I first wrote `INT`, but Prefab's SQL parser rejected it. `INTEGER` is accepted.\n- **Stale test sources:** An earlier non-clean build reused old generated test sources in `target/` and skipped regenerating them as \"manual overrides\". Running `clean` fixed that.\n\nTwice during the session the tool warned that the disk had 0 MB free. By the end `df` showed plenty of space, so it didn't affect the final build."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ {
+        "rule" : "hand-written-migration",
+        "severity" : "WARN",
+        "description" : "new SQL migration under src/main/resources/db/migration; Prefab generates migrations at compile time",
+        "file" : "src/main/resources/db/migration/V2__add_product_description_stock.sql",
+        "line" : 0
+      } ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/inventory/Product.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/resources/db/migration/V2__add_product_description_stock.sql"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT16.643320151S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261121-180102-claude-sonnet-5-5-full-docs/attempts/persistence-evolve-schema-1"
+  }, {
+    "taskId" : "rest-value-object",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 12,
+        "output" : 2359,
+        "cacheRead" : 571625,
+        "cacheCreation" : 99404
+      },
+      "turns" : 6,
+      "buildAttempts" : 4,
+      "costUsd" : 0.4783925,
+      "duration" : "PT51.693918463S",
+      "contaminated" : false,
+      "message" : "Customers with a postal address are in place under `com.example.crm`. The project compiles and its one integration test passes against a real database.\n\n- **Domain:** `Customer` has `name` and `address`. `Address` is a value object with `street`, `city`, `postalCode` and `country`, all `@NotNull`. Both are in `src/main/java/com/example/crm`.\n- **Endpoints:** Prefab generates them from the annotations.\n  - `POST /customers` creates a customer.\n  - `GET /customers/{id}` returns it.\n  - `PUT /customers/{id}/address` replaces the address.\n- **Test:** `CustomerIntegrationTest` creates a customer, reads it back, changes the address and reads it back again.\n\nI did not hit the three endpoints over raw HTTP or check their exact response bodies and status codes. The test goes through Prefab's generated test client, so it covers create, get and address change, but not the `Location` header, the `PUT` status code or the JSON field names.\n\nI left `@Valid` off the address parameters. Prefab adds it to the generated request records itself, and adding it again broke compilation."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/crm/Address.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/crm/Customer.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/crm/CustomerIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT14.923069057S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261121-180102-claude-sonnet-5-5-full-docs/attempts/rest-value-object-1"
+  }, {
+    "taskId" : "security-public-endpoints",
+    "category" : "security",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 26,
+        "output" : 4974,
+        "cacheRead" : 1394591,
+        "cacheCreation" : 108630
+      },
+      "turns" : 13,
+      "buildAttempts" : 6,
+      "costUsd" : 0.6237711,
+      "duration" : "PT1M27.120902565S",
+      "contaminated" : false,
+      "message" : "`GET /articles` and `GET /articles/{id}` now work without authentication, and `POST /articles` still returns `401 Unauthorized` for anonymous callers. `mvn verify` passes, including the three new integration tests.\n\nTwo changes were needed:\n\n- **`Article.java`:** `@GetById` and `@GetList` now use `security = @Security(enabled = false)`, so the generated controller methods are `permitAll()`.\n- **`PublicReadSecurity.java` (new):** Prefab's default security chain applies `anyRequest().authenticated()`, and an `HttpSecurityCustomizer` can't add a `permitAll` after that (Spring throws \"Can't configure requestMatchers after anyRequest\"). So I added a higher-priority `SecurityFilterChain` that only matches `GET /articles` and `GET /articles/*` and permits them. Every other request still goes through Prefab's JWT chain.\n\nOn those two public GET paths no token is processed, so a request with an invalid token is also served instead of rejected.\n\nThe new tests are in `ArticleSecurityTest.java`, using MockMvc. They check that the list returns 200, that get-by-id returns 404 for an unknown id (so it gets past security), and that an anonymous create returns 401."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : false,
+        "detail" : "1/2 passed; com.example.blog.PublicArticlesAcceptanceTest.anonymousReadersSeeArticles: Status expected:<201> but was:<401>",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/blog/Article.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/blog/PublicReadSecurity.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/blog/ArticleSecurityTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 1,
+        "skipped" : 0,
+        "failures" : [ "com.example.blog.PublicArticlesAcceptanceTest.anonymousReadersSeeArticles: Status expected:<201> but was:<401>" ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT11.822112706S",
+    "failure" : {
+      "category" : "API_MISUSE",
+      "source" : "manual",
+      "rationale" : "Same as Haiku: an extra @Order(HIGHEST_PRECEDENCE) SecurityFilterChain for the public GETs disables Prefab's @ConditionalOnMissingBean default chain, so authenticated writes get 401 (TASK-353).\n",
+      "evidence" : [ "hidden-tests: 1/2 passed; com.example.blog.PublicArticlesAcceptanceTest.anonymousReadersSeeArticles: Status expected:<201> but was:<401>" ]
+    },
+    "logs" : "/home/user/prefab/benchmark/results/20261121-180102-claude-sonnet-5-5-full-docs/attempts/security-public-endpoints-1"
+  }, {
+    "taskId" : "testing-domain-events-unit",
+    "category" : "testing",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 10,
+        "output" : 1775,
+        "cacheRead" : 457335,
+        "cacheCreation" : 97727
+      },
+      "turns" : 5,
+      "buildAttempts" : 2,
+      "costUsd" : 0.45441149999999997,
+      "duration" : "PT23.29678788S",
+      "contaminated" : false,
+      "message" : "I added `src/test/java/com/example/banking/AccountTest.java` with four plain JUnit tests that call `Account` directly. They run without Spring or Docker, and all four pass. I didn't touch the production code.\n\nThe tests use Prefab's `PublishedEventsExtension` and `CapturingDomainEventPublisher` to capture published events. They check:\n- **Deposit:** `deposit` publishes exactly one `AccountEvent.Deposited`, with the right amount and account reference, and the balance goes up.\n- **Withdrawal:** `withdraw` publishes exactly one `AccountEvent.Withdrawn` with the right amount, and the balance goes down.\n- **Overdraft:** withdrawing more than the balance (10.01 against 10) throws `ConflictException` and publishes nothing.\n- **Exact balance:** withdrawing exactly the balance is allowed and publishes one `Withdrawn`."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "main-unchanged",
+        "passed" : true,
+        "detail" : "src/main untouched",
+        "infrastructure" : false
+      }, {
+        "name" : "agent-tests-written",
+        "passed" : true,
+        "detail" : "[src/test/java/com/example/banking/AccountTest.java]",
+        "infrastructure" : false
+      }, {
+        "name" : "unit-tests-only",
+        "passed" : true,
+        "detail" : "no Spring context in the agent's tests",
+        "infrastructure" : false
+      }, {
+        "name" : "agent-tests-pass",
+        "passed" : true,
+        "detail" : "4 tests, 0 failed (need at least 3)",
+        "infrastructure" : false
+      }, {
+        "name" : "mutant-killed:withdraw-publishes-deposit",
+        "passed" : true,
+        "detail" : "2 of 4 tests failed on the mutant",
+        "infrastructure" : false
+      }, {
+        "name" : "mutant-killed:deposit-not-published",
+        "passed" : true,
+        "detail" : "1 of 4 tests failed on the mutant",
+        "infrastructure" : false
+      }, {
+        "name" : "mutant-killed:overdraft-allowed",
+        "passed" : true,
+        "detail" : "1 of 4 tests failed on the mutant",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/test/java/com/example/banking/AccountTest.java"
+      } ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT24.245414913S",
+    "failure" : null,
+    "logs" : "/home/user/prefab/benchmark/results/20261121-180102-claude-sonnet-5-5-full-docs/attempts/testing-domain-events-unit-1"
+  } ]
+}

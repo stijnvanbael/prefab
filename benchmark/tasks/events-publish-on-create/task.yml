@@ -1,0 +1,3 @@
+title: Publish a Kafka event when an aggregate is created
+category: events-publishing
+modules: [postgres, kafka]

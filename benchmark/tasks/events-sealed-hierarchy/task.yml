@@ -1,0 +1,6 @@
+title: Publish a family of events from update operations
+category: events-publishing
+modules: [postgres, kafka]
+notes: >
+  The sealed interface needs @JsonTypeInfo(use = NAME) for consumers of the supertype to deserialize events; the
+  docs do not say so yet (TASK-354).

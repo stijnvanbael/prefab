@@ -1,8 +1,9 @@
 ---
 id: TASK-343
 title: Benchmark how well Claude Haiku builds Prefab applications
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@claude'
 created_date: '2026-11-20 20:13'
 labels:
   - agents
@@ -28,10 +29,92 @@ Good sources of task material: the annotation-processor fixtures (annotation-pro
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A set of at least 30 benchmark tasks covers the main Prefab use cases (REST CRUD, filters and paging, publishing and handling events, repository mixins, security, multi-tenancy, binary fields, Avro, testing), each with a starting project, a natural-language prompt and hidden acceptance tests the model cannot see
-- [ ] #2 A single command runs the benchmark against a chosen model and context setup, and reports per task pass/fail, tokens used, number of turns/retries and wall-clock time
-- [ ] #3 Baseline results are recorded for Haiku with at least: no Prefab docs, the full current docs, and (once they exist) the curated agent context; Sonnet or Opus results are recorded as a reference ceiling
-- [ ] #4 Failures are classified (doc gap, misleading diagnostic, API misuse, fell back to plain Spring/JPA code, test or infrastructure problem) so each one can be turned into a follow-up
-- [ ] #5 A run never needs real cloud credentials, and runs are reproducible enough that the same setup gives a pass rate within a documented margin
-- [ ] #6 How to run the benchmark, add a task and read the report is documented in backlog/docs
+- [x] #1 A set of at least 30 benchmark tasks covers the main Prefab use cases (REST CRUD, filters and paging, publishing and handling events, repository mixins, security, multi-tenancy, binary fields, Avro, testing), each with a starting project, a natural-language prompt and hidden acceptance tests the model cannot see
+- [x] #2 A single command runs the benchmark against a chosen model and context setup, and reports per task pass/fail, tokens used, number of turns/retries and wall-clock time
+- [x] #3 Baseline results are recorded for Haiku with at least: no Prefab docs, the full current docs, and (once they exist) the curated agent context; Sonnet or Opus results are recorded as a reference ceiling
+- [x] #4 Failures are classified (doc gap, misleading diagnostic, API misuse, fell back to plain Spring/JPA code, test or infrastructure problem) so each one can be turned into a follow-up
+- [x] #5 A run never needs real cloud credentials, and runs are reproducible enough that the same setup gives a pass rate within a documented margin
+- [x] #6 How to run the benchmark, add a task and read the report is documented in backlog/docs
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Analysis (2026-11-21):
+- The `claude` CLI runs headless (`claude -p --output-format stream-json`) and its final `result` event reports
+  tokens, turns, cost and duration, so Claude Code itself is the agent under test. Haiku and Sonnet/Opus are
+  selected with `--model`.
+- Prefab integration tests need only Docker (Testcontainers for Postgres, Kafka, schema registry, MongoDB,
+  LocalStack). No real cloud credentials are involved anywhere.
+- prefab-test reuses containers with fixed names (`prefab_<type>`), so concurrent runs would share Kafka topics.
+  The harness gives every parallel slot its own container and network names through the
+  `prefab.test.*.container-name` properties (passed as environment variables, so the agent's own builds get them too).
+
+Design:
+1. New Maven module `benchmark/` (Java harness, built with the reactor so it never rots) plus data:
+   `benchmark/template` (standalone app skeleton), `benchmark/tasks/<id>/` (task.yml, prompt.md, starter/,
+   hidden/, reference/, optional mutants/), `benchmark/contexts/<name>/` (documentation setups),
+   `benchmark/results/` (recorded baselines).
+2. Per run: copy template + starter into a temp workspace outside the repo, apply the context setup, git-commit
+   the baseline, run the agent, then copy in the hidden acceptance tests and run them with Maven. Static
+   guardrail checks reject hand-written controllers, JPA entities, hand-written migrations, Lombok etc.
+   Testing tasks are checked by running the agent's tests against the correct code and against mutants.
+3. Agents: `claude` (Claude Code CLI), `reference` (applies the reference solution) and `noop` (leaves the
+   starter). `validate` = reference must pass and noop must fail for every task, which keeps tasks honest.
+4. Report: JSON + Markdown per run with pass/fail, checks, tokens, cost, turns, wall-clock, suggested failure
+   category from heuristics, optional LLM triage, manual overrides, and a `compare` command across runs.
+   Repeats give a pass-rate interval; the reproducibility margin is measured and documented.
+5. Tasks (30+) cover REST CRUD, validation, value objects, computed fields, parent/child, filters, range,
+   sorting/paging, full-text, publishing and handling events, repository mixins, security, multi-tenancy,
+   audit, binary fields, Avro, MongoDB and testing.
+6. Docs in backlog/docs/benchmark.md; baselines for Haiku (no docs, full docs) and a stronger reference model.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Delivered (see backlog/docs/benchmark.md for the full guide):
+
+- `benchmark/` Maven module (in the reactor, so it is compiled and unit-tested with every build): a Java harness
+  run through `benchmark/run.sh` with the commands `run`, `validate`, `list`, `compare` and `classify`.
+- **32 tasks** in `benchmark/tasks/`: REST CRUD (7), lists/filters/paging/full-text/autocomplete (5), persistence
+  (1), events publishing (2) and handling (3), repository mixins (2), security (2), multi-tenancy, audit, binary,
+  Avro (2), MongoDB, views, diagnostics, and testing (2, checked with mutants). Each has a starter, a prompt, hidden
+  HTTP-level acceptance tests and a reference solution. `validate` proves that every reference passes and every
+  starter fails; all 32 validate.
+- Agents: Claude Code headless (`claude -p`), plus `reference` and `noop` stand-ins. The report has pass/fail, checks,
+  tokens, cost, turns, Maven builds (the retry proxy) and wall-clock time, with Wilson 95% CIs. Failure
+  classification uses heuristics, then optional LLM triage (`--triage-model`), then manual `classifications.yml`.
+- Guardrails catch plain-Spring fallbacks (controllers, JPA, Spring Data repositories, JdbcTemplate, Lombok,
+  overriding generated classes; a new SQL migration is a warning).
+- Contexts: `none`, `full-docs` (60k tokens in CLAUDE.md) and `docs-folder` (read on demand). Add contexts for
+  TASK-344/346/350 as they land.
+
+Lessons built into the harness:
+- Haiku searched the file system and read the reference solution from the repo checkout. The agent now runs in a
+  private mount namespace with the repo and other workspaces hidden, and tool calls are still scanned for contamination.
+- With the example jars installed in ~/.m2, agents decompiled them, so `run.sh` installs Prefab without the examples.
+- Reused Testcontainers kept Kafka messages between attempts (poison pills). Slot containers are now removed before
+  each attempt and before acceptance, with per-run names.
+- A looping test consumer wrote 575 MB of log, so build logs are now capped and streamed.
+- Two parallel runs used up a subscription 5-hour limit. HTTP 429 now stops the run (exit code 3) instead of
+  recording bogus failures.
+
+Prefab issues found while building the tasks, filed as TASK-351 (processor failures: duplicate @Valid, @Filter on
+boolean, AVSC namespace), TASK-352 (upload constraints not enforced, wrong multipart docs), TASK-353 (no way to
+permit public endpoints, plus the extra-SecurityFilterChain trap from the baseline) and TASK-354 (event doc
+pitfalls, test consumer log flood). Each workaround is noted in the affected task.yml.
+
+Full baseline (2026-11-22, 32 tasks, details in backlog/docs/benchmark.md and benchmark/results/comparison-2026-11-22.md):
+Haiku none 30/32, Haiku full-docs 31/32 and 31/32 (repeat), Haiku docs-folder 29/32, Sonnet full-docs 32/32 (ceiling).
+Correctness differences are within the confidence intervals. Docs halve Haiku's turns and builds; always-loaded docs
+cost about 8x more than reading them on demand. The measured run-to-run margin is two tasks (about 6 percentage
+points). The curated agent context does not exist yet: add a context for it with TASK-344 and record it there (that
+task's AC #8).
+
+More harness fixes found during the full runs: per-attempt CLAUDE_CODE_TMPDIR (the isolation hid Claude Code's temp
+directory), a reaper for processes the agent leaves running, disabled Testcontainers reuse (it ignored container
+names across slots, TASK-356), summing follow-up queries in transcripts, `--resume` after usage limits, and a
+guardrail for hand-written message listeners. TASK-355 was filed after Haiku found that child endpoints ignore the
+parent id in the path.
+<!-- SECTION:NOTES:END -->

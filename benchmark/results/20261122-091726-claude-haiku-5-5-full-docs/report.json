@@ -1,0 +1,1803 @@
+{
+  "runId" : "20261122-091726-claude-haiku-5-5-full-docs",
+  "startedAt" : "2026-11-22T09:17:26.761558326Z",
+  "agent" : "claude-code/claude-haiku-5-5",
+  "model" : "claude-haiku-5-5",
+  "context" : "full-docs",
+  "prefabVersion" : "0.13.3-SNAPSHOT",
+  "gitCommit" : "fa2b6e9",
+  "repeat" : 1,
+  "results" : [ {
+    "taskId" : "audit-trail",
+    "category" : "audit",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 30,
+        "output" : 13119,
+        "cacheRead" : 1815405,
+        "cacheCreation" : 26284
+      },
+      "turns" : 15,
+      "buildAttempts" : 5,
+      "costUsd" : 0.14986675,
+      "duration" : "PT1M42.060266361S",
+      "contaminated" : false,
+      "message" : "`GET /contracts/{id}` now returns an `audit` object with `createdBy`, `createdAt`, `lastModifiedBy` and `lastModifiedAt`. `mvn clean verify` passes, and the new test class runs 2 tests with 0 failures.\n\nChanges:\n\n- **`Contract.java`**: added an `AuditInfo audit` component. The `@Create` constructor starts it as `new AuditInfo()`, and `rename` (the `@Update`) carries it forward. Prefab fills the values in the generated service. `createdBy`/`createdAt` are set once on create and never change. Clients can't set them because `audit` isn't a request parameter.\n- **`com/example/audit/AuthenticatedUserAuditContextProvider.java`** (new): an `AuditContextProvider` bean that returns the authenticated principal's name. It replaces Prefab's default, which records `\"system\"`.\n- **`src/test/java/com/example/legal/ContractAuditTest.java`** (new): two Testcontainers-backed tests using JWT test principals. One covers create, including a client trying to send `audit` values, which are ignored. The other covers update, checking that `createdBy`/`createdAt` stay fixed while `lastModifiedBy`/`lastModifiedAt` change.\n\nDecisions to review:\n\n- **The provider throws when there is no authenticated user.** Prefab's generated migration makes the audit columns `NOT NULL`, so returning `null` would fail the insert. I chose an explicit error over a silent placeholder. Secured endpoints shouldn't reach it anyway.\n- **I named the test `ContractAuditTest`, not `*IT`.** The Spring Boot parent doesn't configure failsafe, so surefire skipped `*IT` classes. My first attempt ran zero tests, and I only caught it by checking the reports.\n- **The migration changed.** The generated `V1__generated.sql` adds four audit columns to `contract`. Since the project has no committed migrations yet, nothing is already applied. Once one is applied, a new aggregate field would generate a new migration.\n\nNothing is committed; the changes are in the working tree."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : false,
+        "detail" : "0/1 passed; com.example.legal.ContractAuditAcceptanceTest.recordsCreatorAndLastModifier: Status expected:<201> but was:<500>",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/audit/AuthenticatedUserAuditContextProvider.java"
+      }, {
+        "status" : "M",
+        "path" : "src/main/java/com/example/legal/Contract.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/legal/ContractAuditTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 1,
+        "skipped" : 0,
+        "failures" : [ "com.example.legal.ContractAuditAcceptanceTest.recordsCreatorAndLastModifier: Status expected:<201> but was:<500>" ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT47.2766833S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "manual",
+      "rationale" : "The hidden test failed with \"Could not open JDBC Connection\": the database was gone. The agent's own two tests passed. This was the first attempt after a resume; processes of the previous, rate-limited invocation were not killed and shared its container names (both fixed afterwards).\n",
+      "evidence" : [ "hidden-tests: 0/1 passed; com.example.legal.ContractAuditAcceptanceTest.recordsCreatorAndLastModifier: Status expected:<201> but was:<500>" ]
+    },
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/audit-trail-1"
+  }, {
+    "taskId" : "avro-avsc-contract",
+    "category" : "avro",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 32,
+        "output" : 9221,
+        "cacheRead" : 1910585,
+        "cacheCreation" : 21944
+      },
+      "turns" : 16,
+      "buildAttempts" : 6,
+      "costUsd" : 0.14054175000000002,
+      "duration" : "PT1M58.584471071S",
+      "contaminated" : false,
+      "message" : "Dispatching a shipment now publishes a `ShipmentDispatched` Avro event on the `shipments` topic, keyed by `shipmentId`. `mvn verify` passes, including a new integration test that dispatches over HTTP and reads the event back from Kafka. The schema is unchanged.\n\n**What changed**\n\n- **`ShipmentEvent.java`** (new): a sealed interface annotated with `@Event(topic = \"shipments\", serialization = AVRO)` and `@Avsc(\"avro/shipment-dispatched.avsc\")`. Prefab generates `com.example.shipping.ShipmentDispatched` from the schema, so the record is not hand-written. `shipmentId()` is the `@PartitioningKey`.\n- **`Shipment.java`**: `dispatch` publishes `new ShipmentDispatched(id.id(), carrier, trackingNumber)` through a bound `EventPublisher` before returning the updated aggregate.\n- **`src/test/java/com/example/shipping/ShipmentDispatchedTest.java`** (new): creates a shipment, calls `POST /shipments/{id}/dispatch`, and asserts the consumed event equals the expected values.\n\n**Decisions to check**\n\n- **Sealed interface:** Prefab rejects non-sealed event contracts at startup, so `ShipmentEvent` is sealed and permits the generated record.\n- **Test file name:** the test is named `*Test` rather than `*IT`, because Failsafe is not bound in this project and Surefire would silently skip `*IT`.\n- **Publish timing:** the event is published inside the domain method, before the aggregate is saved. If the save fails, the event has already gone out. Moving publication to an `@AsyncCommit` flow or a transactional outbox would avoid that, but the task did not ask for it, so I left it.\n\nI did not commit anything."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/shipping/Shipment.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/shipping/ShipmentEvent.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/shipping/ShipmentDispatchedTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT28.266602186S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/avro-avsc-contract-1"
+  }, {
+    "taskId" : "avro-publish-and-handle",
+    "category" : "avro",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 22,
+        "output" : 6978,
+        "cacheRead" : 1186595,
+        "cacheCreation" : 111473
+      },
+      "turns" : 11,
+      "buildAttempts" : 3,
+      "costUsd" : 0.18825874999999997,
+      "duration" : "PT1M20.665743767S",
+      "contaminated" : false,
+      "message" : "Paying a sale now publishes `SalePaid` as Avro to the `sales` topic, partitioned by cash register. The cash register's handler adds the amount to `cashInDrawer`. `mvn verify` passes, including a new integration test that pays a sale and waits for the drawer total to update.\n\nChanges:\n\n- **`SalePaid.java`** (new): `@Event(topic = \"sales\", serialization = AVRO)` with `sale`, `cashRegister` (marked `@PartitioningKey`) and `amount`.\n- **`Sale.java`**: `pay()` publishes `SalePaid` through a bound `EventPublisher` before returning the paid sale.\n- **`CashRegister.java`**: `@EventHandler @ByReference(property = \"cashRegister\")` on `onSalePaid`, which returns a new register with `cashInDrawer + amount`, following the immutable-record pattern.\n- **`src/test/java/com/example/retail/SalePaidIntegrationTest.java`** (new): creates a register and a sale, pays, then polls `GET /cash-registers/{id}` until `cashInDrawer` reaches 12.5.\n\nThe changes are uncommitted in the working tree. I did not run the app manually."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/retail/CashRegister.java"
+      }, {
+        "status" : "M",
+        "path" : "src/main/java/com/example/retail/Sale.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/retail/SalePaid.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/retail/SalePaidIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT35.813334644S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/avro-publish-and-handle-1"
+  }, {
+    "taskId" : "binary-upload-download",
+    "category" : "binary",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 44,
+        "output" : 19121,
+        "cacheRead" : 2761503,
+        "cacheCreation" : 142980
+      },
+      "turns" : 22,
+      "buildAttempts" : 7,
+      "costUsd" : 0.32887965,
+      "duration" : "PT2M38.859308802S",
+      "contaminated" : false,
+      "message" : "The document upload feature is in place. The project compiles and `mvn test` passes (6 integration tests, 0 failures). I did not commit anything.\n\n**What's there**\n\n- **`Document`** (`com.example.documents`): an aggregate with `title`, a `Binary` `file`, `@GetById`, `@Download` on `file`, and a `@Create` constructor. Prefab generates the `POST /documents` multipart endpoint, which reads the `body` JSON part and the `file` part, and `201 Created` with `Location: /documents/{id}`. Generated `GET /documents/{id}` and `GET /documents/{id}/file` cover the other two endpoints.\n- **Upload rules** (`DocumentUploadRules` and `DocumentUploadInterceptor`, registered in `DocumentWebConfiguration`): an interceptor on `POST /documents` rejects non-PDF/PNG content types and files over 1,048,576 bytes with `BadRequestException`, which Prefab maps to `400`.\n- **`application.yml`**: raised the multipart limits to 10 MB and 11 MB. Spring's default 1 MB limit would otherwise reject oversized files before the rules run, with a different status.\n- **`DocumentUploadIntegrationTest`**: covers PDF and PNG round trips with byte-for-byte download, the exact 1 MB boundary (accepted), an oversized file (400), and `text/plain` and `image/jpeg` (400).\n\n**Why the rules are in an interceptor**\n\nThe generated `@ContentType` and `@FileSize` validators only run on a `Binary` value. The generated create endpoint receives a `MultipartFile`, so the annotations on `Document` never fire for uploads. The obvious fix, subclassing `StorageService` to check in `store()`, doesn't compile because its constructor is package-private in `prefab-core`. The interceptor is the smallest option that works without touching generated code. The annotations stay on `Document` for documentation and for any future `Binary` validation.\n\n**Things to know**\n\n- The `prefab-postgres` run uses a Testcontainers Postgres. In my first full `mvn test` run the reused container had disappeared, and every test failed to load the context. Rerunning gave a clean pass, so this was environmental, not a code problem.\n- The content type checked is the one the client sends in the part header. It is not sniffed from the file bytes."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "4/4 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/documents/Document.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/documents/DocumentUploadInterceptor.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/documents/DocumentUploadRules.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/documents/DocumentWebConfiguration.java"
+      }, {
+        "status" : "M",
+        "path" : "src/main/resources/application.yml"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/documents/DocumentUploadIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 4,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT17.836447189S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/binary-upload-download-1"
+  }, {
+    "taskId" : "diagnostic-fix-build",
+    "category" : "diagnostics",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 30,
+        "output" : 9801,
+        "cacheRead" : 1741815,
+        "cacheCreation" : 123298
+      },
+      "turns" : 17,
+      "buildAttempts" : 6,
+      "costUsd" : 0.23490625000000004,
+      "duration" : "PT1M58.910421345S",
+      "contaminated" : false,
+      "message" : "The build compiles again and the test suite passes, including a new integration test that exercises the payment-to-order flow end to end.\n\n**Cause:** `Order.onPaymentReceived` had `@ByReference(property = \"orderId\")`, but `PaymentReceived` has no `orderId` component. Its reference is called `order`. Prefab's annotation processor rejected the name at compile time, which broke the build.\n\n**Fix:** In `src/main/java/com/example/ordering/Order.java`, changed the annotation to `@ByReference(property = \"order\")`. I left the `PaymentReceived` event and the `Payment` API unchanged.\n\n**Verification:**\n- The handler logic is correct once it compiles: the generated `OrderService.onPaymentReceived` loads the order by `event.order().id()`, adds the payment to `amountPaid`, and sets `PAID` when `amountPaid >= total`.\n- I added `src/test/java/com/example/ordering/OrderPaymentIntegrationTest.java`. It creates an order for 100.00, pays 40.00 and checks the order is still `OPEN`, then pays 60.00 and checks it is `PAID` with `amountPaid` 100.00. It passes against the Testcontainers Postgres and Kafka.\n- `mvn clean test` passes: 1 test, 0 failures.\n\n**Note:** My first integration-test run failed with \"connection refused\" on the database. Prefab reused a Postgres test container that had disappeared between runs. Rerunning fixed it, and I did not change any containers. If you see this intermittently, it's the container-reuse setup in the local Docker state, not the feature."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/ordering/Order.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/ordering/OrderPaymentIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT25.43947139S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/diagnostic-fix-build-1"
+  }, {
+    "taskId" : "events-create-from-event",
+    "category" : "events-handling",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 36,
+        "output" : 12339,
+        "cacheRead" : 2132642,
+        "cacheCreation" : 125701
+      },
+      "turns" : 18,
+      "buildAttempts" : 8,
+      "costUsd" : 0.2631986,
+      "duration" : "PT2M20.568013825S",
+      "contaminated" : false,
+      "message" : "The loyalty programme is in place. The project compiles and `mvn verify` passes, including 3 new integration tests against real Postgres and Kafka containers.\n\n**What I added**\n\n- `src/main/java/com/example/loyalty/LoyaltyAccount.java`:\n  - `@Aggregate` with `id`, `version`, `customer` (`Reference<Customer>`) and `points` (`int`, starting at 0).\n  - A static `@EventHandler` for `CustomerRegistered` creates one account per registered customer.\n  - No `@Create`, so there is no REST create endpoint. The generated controller only has `GET /loyalty-accounts`.\n  - `@GetList` with `@Filter(operator = EQUAL, ignoreCase = false)` on `customer`, so `?customer=<id>` matches exactly.\n- `src/test/java/com/example/loyalty/LoyaltyAccountIntegrationTest.java`: registering a customer creates an account with 0 points; the list filter returns only that customer's account; an unknown customer gives an empty page.\n\n**Choices I made**\n\n- The account id is derived from the customer id (`loyalty-account-<customerId>`), not random. That makes it one account per customer by construction.\n- I chose the derived id over a random one, which would allow duplicate accounts on redelivery. The trade-off is that a redelivered event fails its insert on the primary key and goes through the normal retry/dead-letter path instead of being silently ignored. I did not add an existence check, so duplicate delivery produces a retry error rather than a no-op. Say if you'd rather have an explicit idempotency check.\n- The filter is exact-match, not Prefab's default `contains`. A substring match could return another customer's account.\n\n**Environment note**\n\nThe first test run failed because Testcontainers reused a Postgres container that no longer existed on Docker. I did not change the project config. I passed `-Dprefab.test.postgres.container-name=postgres_loyalty_fresh` on the command line and the tests passed. A plain `mvn verify` may hit the same stale-container problem on this machine until that stale reuse is cleared.\n\nNothing is committed; the new files are untracked in the working tree."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/loyalty/LoyaltyAccount.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/loyalty/LoyaltyAccountIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT23.354534643S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/events-create-from-event-1"
+  }, {
+    "taskId" : "events-multicast",
+    "category" : "events-handling",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 36,
+        "output" : 14116,
+        "cacheRead" : 2094530,
+        "cacheCreation" : 120418
+      },
+      "turns" : 26,
+      "buildAttempts" : 5,
+      "costUsd" : 0.26045250000000003,
+      "duration" : "PT2M3.755920981S",
+      "contaminated" : false,
+      "message" : "The price-watch update is in place. `mvn clean verify` passes, including 2 new integration tests against Kafka and Postgres in Docker.\n\n**What changed**\n\n- `PriceWatchRepositoryMixin` adds `findByProduct(Reference<Product>)`.\n- `PriceWatchPriceUpdater` is a `@Component` event handler for `PriceChanged`. It loads every watch of the event's product, sets `currentPrice` to the new price, and saves them. Watches of other products are not touched.\n- `PriceWatch` has a `withCurrentPrice` helper for the copy-with-new-price.\n- `PriceWatchPriceUpdaterIntegrationTest` covers two cases: a price change updates both watches of that product and leaves another product's watch at 30.00, and a price change for a product with no watches succeeds.\n\n**Decision: not `@Multicast`**\n\nI first wrote it as `@EventHandler @Multicast` on `PriceWatch`, as the Prefab guide suggests. The generated code throws `IllegalStateException` when the query finds nothing. A product with no watches is the normal case, so every such price change would retry and then go to the dead-letter topic. I switched to a handwritten handler, which skips that case quietly. The trade-off is that the handler is hand-maintained code instead of generated code.\n\nConcurrency is set to 1 on the handler, as the guide recommends for hot-key updates. This serializes handling of `PriceChanged` events.\n\nI did not commit anything."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/watch/PriceWatch.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/watch/PriceWatchPriceUpdater.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/watch/PriceWatchRepositoryMixin.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/watch/PriceWatchPriceUpdaterIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT24.366795492S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/events-multicast-1"
+  }, {
+    "taskId" : "events-publish-on-create",
+    "category" : "events-publishing",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 24,
+        "output" : 6533,
+        "cacheRead" : 1280257,
+        "cacheCreation" : 106524
+      },
+      "turns" : 13,
+      "buildAttempts" : 2,
+      "costUsd" : 0.18688134999999997,
+      "duration" : "PT1M1.188168952S",
+      "contaminated" : false,
+      "message" : "`POST /orders` now publishes an `OrderPlaced` event to the `orders` Kafka topic, and `mvn test` passes (BUILD SUCCESS, 1 integration test run against a Testcontainers Kafka).\n\nChanges:\n\n- **`OrderPlaced.java`** (new): `@Event(topic = \"orders\", platform = KAFKA)` record with `Reference<Order> order` marked `@PartitioningKey`, plus `String customer` and `BigDecimal total`. Serialization is the JSON default.\n- **`Order.java`**: the `@Create` constructor publishes through a bound `EventPublisher<OrderPlaced>` after the order's id is assigned, so the event carries the new order's reference.\n- **`OrderPlacedTest.java`** (new): posts an order through the generated `OrderClient`, then asserts that exactly one `OrderPlaced` arrives on `orders` with the expected order id, customer and total.\n\nPartitioning: the generated registrar keys each message with `event.order().id()`, so all events for one order share a Kafka key and therefore a partition. The test does not check the partition itself; that rests on the generated registrar code.\n\nI did not commit anything."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/ordering/Order.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/ordering/OrderPlaced.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/ordering/OrderPlacedTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT20.539513126S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/events-publish-on-create-1"
+  }, {
+    "taskId" : "events-sealed-hierarchy",
+    "category" : "events-publishing",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 26,
+        "output" : 9085,
+        "cacheRead" : 1447264,
+        "cacheCreation" : 115281
+      },
+      "turns" : 14,
+      "buildAttempts" : 3,
+      "costUsd" : 0.21036970000000002,
+      "duration" : "PT1M25.742876289S",
+      "contaminated" : false,
+      "message" : "Deposits and withdrawals now publish `AccountEvent`s to `account-events`, partitioned by account. `mvn verify` passes (exit 0), including a new integration test that checks both events arrive in order with the right payloads.\n\nWhat changed:\n\n- **`AccountEvent.java`** (new): `@Event(topic = \"account-events\")` sealed interface with `Deposited` and `Withdrawn` records, as specified. `@PartitioningKey` is on `account()`, and `@JsonTypeInfo(use = NAME)` lets consumers read the topic as `AccountEvent` with the concrete type preserved. The generated registrar keys each record by `account().id()`, so one account's events stay in order.\n- **`Account.java`**: `deposit` and `withdraw` each publish through a bound `EventPublisher<AccountEvent>` before returning the new account.\n- **`src/test/java/com/example/banking/AccountEventPublishingTest.java`** (new): an `@IntegrationTest` that creates an account, deposits 10, withdraws 3, and asserts the consumer receives `Deposited(10)` then `Withdrawn(3)`.\n\nI used JSON serialization because the project only has `prefab-kafka` and no schema registry.\n\nOne thing to be aware of: the event is published inside the domain method, before the aggregate is saved. If the save then fails (for example an optimistic-lock conflict), the event has already been sent. If that matters for your downstream services, the fix is to publish only after a successful commit, which I did not do here.\n\nI did not commit anything."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/banking/Account.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/banking/AccountEvent.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/banking/AccountEventPublishingTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT22.929076349S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/events-sealed-hierarchy-1"
+  }, {
+    "taskId" : "events-update-by-reference",
+    "category" : "events-handling",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 18,
+        "output" : 7397,
+        "cacheRead" : 946655,
+        "cacheCreation" : 108718
+      },
+      "turns" : 10,
+      "buildAttempts" : 2,
+      "costUsd" : 0.17455225000000002,
+      "duration" : "PT1M1.8669016S",
+      "contaminated" : false,
+      "message" : "Orders now track `amountPaid` and move to `PAID` once payments reach the total. The project compiles and the test suite passes (1 integration test, 0 failures).\n\n**Changes**\n\n- **`Order.java`**:\n  - New `amountPaid` field (`BigDecimal`), starting at `0` in the `@Create` constructor. `GET /orders/{id}` returns it along with `status`.\n  - New `@EventHandler @ByReference(property = \"order\") onPaymentReceived(PaymentReceived)`. It adds the payment amount to `amountPaid`, and sets `status` to `PAID` when the new total is at least `total`. Otherwise `status` is unchanged, so it stays `OPEN`.\n  - `@EventHandlerConfig(concurrency = \"1\")` on the aggregate. Payments for one order are a hot key, so this avoids optimistic-lock retries when several arrive together.\n- **`OrderPaymentIntegrationTest.java`** (new): creates an order for 100.00, posts a 40.00 payment and checks it is still `OPEN` with `amountPaid` 40.00, then posts 60.00 and checks `PAID` with `amountPaid` 100.00. It goes through the real Kafka path, so it needs Docker, which is available here.\n\n**Choices to be aware of**\n\n- Once an order is `PAID`, later payments still add to `amountPaid` and the status stays `PAID`.\n- If a payment references an order that does not exist, the handler throws and the event goes through the normal retry and dead-letter path.\n- I did not commit anything."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/ordering/Order.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/ordering/OrderPaymentIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT23.731978671S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/events-update-by-reference-1"
+  }, {
+    "taskId" : "list-autocomplete",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 26,
+        "output" : 5386,
+        "cacheRead" : 1396111,
+        "cacheCreation" : 105392
+      },
+      "turns" : 13,
+      "buildAttempts" : 3,
+      "costUsd" : 0.18867554999999997,
+      "duration" : "PT48.016482095S",
+      "contaminated" : false,
+      "message" : "`GET /products/name/autocomplete?query=<text>` now returns distinct product names that start with the query, ignoring case. The project compiles and `mvn test` passes, including a new integration test against a real Postgres container.\n\n**The change:** I added `@Autocomplete` to `name` in `Product.java`. I used the default `PREFIX` scan mode and `IGNORE_CASE` match strategy, which give the prefix behaviour you asked for. The processor generates `SELECT DISTINCT \"name\" ... WHERE LOWER(\"name\") LIKE LOWER(CONCAT(:query, '%')) ORDER BY \"name\"`, with `page` and `limit` parameters defaulting to 0 and 20.\n\n**The test:** `src/test/java/com/example/catalog/ProductAutocompleteTest.java` creates your example products plus a duplicate `Laptop`. It checks that `lap` returns `Laptop` and `laptop bag` without duplicates, that `LAPTOP` matches case-insensitively, that `lam` returns `Lamp`, and that a non-prefix match like `bag` returns nothing. I named it `*Test` rather than `*IT` because surefire's default pattern skips `*IT` and ran zero tests under that name.\n\nNothing is committed."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/catalog/Product.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/catalog/ProductAutocompleteTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT13.055869646S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/list-autocomplete-1"
+  }, {
+    "taskId" : "list-filters",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 30,
+        "output" : 8136,
+        "cacheRead" : 1661354,
+        "cacheCreation" : 109972
+      },
+      "turns" : 15,
+      "buildAttempts" : 5,
+      "costUsd" : 0.21339470000000002,
+      "duration" : "PT1M11.893884901S",
+      "contaminated" : false,
+      "message" : "`GET /products` now returns a page of products with the `category` and `name` filters, and the project builds and its tests pass (`mvn test`: 1 test run, 0 failures).\n\n**What changed**\n\n- `src/main/java/com/example/catalog/Product.java`:\n  - Added `@GetList`.\n  - `category` is `@Filter(operator = EQUAL)`, so it matches the whole value.\n  - `name` is `@Filter(operator = CONTAINS)`.\n  - Both filters are case-insensitive, which is Prefab's default for string filters.\n  - Filters are ANDed when combined.\n- `src/test/java/com/example/catalog/ProductListTest.java` (new): a Spring integration test using Prefab's `@IntegrationTest` and the generated `ProductClient`. It covers:\n  - an unfiltered list;\n  - a lower-case category matching `Books` but not `Ebooks`;\n  - a case-insensitive name substring;\n  - both filters combined;\n  - a combination with no matches.\n\n**Decisions to review**\n\n- I named the test `ProductListTest` rather than `*IT`. Surefire is the only test plugin configured here, and it doesn't pick up `*IT` classes, so an `IT` name would silently never run.\n- I left the generated `target/` output and git history alone. I did not commit anything."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "4/4 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/catalog/Product.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/catalog/ProductListTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 4,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT13.533816583S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/list-filters-1"
+  }, {
+    "taskId" : "list-full-text-search",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 24,
+        "output" : 7903,
+        "cacheRead" : 1289338,
+        "cacheCreation" : 109393
+      },
+      "turns" : 12,
+      "buildAttempts" : 4,
+      "costUsd" : 0.19362939999999998,
+      "duration" : "PT1M5.54262769S",
+      "contaminated" : false,
+      "message" : "The search endpoint is in place and the project builds. The full test suite passes (4 tests, 0 failures, including the new integration test that runs against a real PostgreSQL container).\n\n**What changed**\n\n- `src/main/java/com/example/blog/Article.java`: added `@GetList` and marked both `title` and `body` with `@Filter(operator = FULL_TEXT, parameter = \"query\")`. Both fields share one parameter, so Prefab searches them together.\n- `src/test/java/com/example/blog/ArticleSearchIntegrationTest.java` (new): covers no query (all articles), words split across title and body, case-insensitive matching, and a query where one word matches nothing.\n\n**Behaviour**\n\n- `GET /articles?query=spring postgres` returns the page with matching articles in `content`. The generated service uses PostgreSQL `to_tsvector`/`websearch_to_tsquery`, backed by a GIN index that Prefab generated in `V1__generated.sql`. No filtering happens in Java.\n- Without `query`, all articles are returned.\n\n**Decision to check: prefix matching.** I kept Prefab's default type-ahead matching, so a query word also matches the start of a longer word. Your example needs this: `postgres` has to match a body that says \"PostgreSQL\". Under strict whole-word matching it would not. The trade-off is that `spring` also matches \"springs\" or \"Springboard\". If you want whole words only, add `typeahead = false` to both `@Filter` annotations, but then the `postgres`/`PostgreSQL` example stops matching.\n\nI did not commit anything."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "3/3 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/blog/Article.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/blog/ArticleSearchIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 3,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT15.404329889S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/list-full-text-search-1"
+  }, {
+    "taskId" : "list-paged-sorted",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 20,
+        "output" : 5377,
+        "cacheRead" : 1043707,
+        "cacheCreation" : 104487
+      },
+      "turns" : 10,
+      "buildAttempts" : 1,
+      "costUsd" : 0.17012485000000002,
+      "duration" : "PT43.99201826S",
+      "contaminated" : false,
+      "message" : "`GET /products` is now a paged list endpoint, sorted by `name` ascending by default. The project compiles and all three new integration tests pass (`mvn test`, Testcontainers Postgres).\n\nChanges:\n\n- **`src/main/java/com/example/catalog/Product.java`**: added `@GetList(sorted = @SortOrder(property = \"name\"))`. Prefab generates the endpoint from this. The default sort applies only when the request has no `sort` parameter, so `?sort=price,desc` replaces it.\n- **`src/test/java/com/example/catalog/ProductListTest.java`** (new): covers the default name sort, `page`/`size` paging with `totalElements`, and an explicit `sort=price,desc`. I named it `*Test` rather than `*IT` because the pom has no Failsafe configuration, so Surefire would have skipped an `*IT` class. The test class is `@Transactional` so the products it creates roll back and don't leak into other tests.\n\nI did not commit anything."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/catalog/Product.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/catalog/ProductListTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT13.517707498S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/list-paged-sorted-1"
+  }, {
+    "taskId" : "list-range-filter",
+    "category" : "lists",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 34,
+        "output" : 7519,
+        "cacheRead" : 1893163,
+        "cacheCreation" : 108679
+      },
+      "turns" : 17,
+      "buildAttempts" : 3,
+      "costUsd" : 0.22215164999999998,
+      "duration" : "PT1M6.251621789S",
+      "contaminated" : false,
+      "message" : "`GET /invoices` now returns a paged list of invoices with the three filters. `mvn verify` passes, and the six new integration tests run and pass.\n\n**Change** (`src/main/java/com/example/billing/Invoice.java`):\n- Added `@GetList` to the aggregate.\n- Added two `@Filter(operator = GREATER_THAN_OR_EQUAL)` and `LESS_THAN_OR_EQUAL` annotations on `amount`, which generate `amountGreaterThanOrEqual` and `amountLessThanOrEqual`.\n- Added `@Filter(operator = GREATER_THAN_OR_EQUAL)` on `issuedOn`, which generates `issuedOnGreaterThanOrEqual`.\n\nEach bound is optional and the filters are combined with AND. Prefab's generated list endpoint handles the range comparison, so I didn't write any query code.\n\n**Tests** (`src/test/java/com/example/billing/InvoiceListFilterTest.java`, new): these cover no filters, the inclusive amount range, each amount bound on its own, the inclusive `issuedOn` bound, and all filters combined. The project had no tests before, so this file is the only test coverage.\n\nTwo things I chose: I put the endpoint on the aggregate itself rather than a separate view, and the test assertions only check this test's own fixtures, because the database is shared between tests."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "3/3 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/billing/Invoice.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/billing/InvoiceListFilterTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 3,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT15.438555462S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/list-range-filter-1"
+  }, {
+    "taskId" : "mixin-custom-sql",
+    "category" : "repository-mixins",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 20,
+        "output" : 5754,
+        "cacheRead" : 1047448,
+        "cacheCreation" : 107928
+      },
+      "turns" : 10,
+      "buildAttempts" : 3,
+      "costUsd" : 0.1746954,
+      "duration" : "PT1M3.659977804S",
+      "contaminated" : false,
+      "message" : "I added `totalRevenue(String status)` to the orders repository. It runs one `SUM` query in the database, and `mvn verify` passes with my new integration test green.\n\n- **Mixin, not a second repository:** `src/main/java/com/example/ordering/application/OrderRepositoryMixin.java` is a `@RepositoryMixin(Order.class)` interface. Prefab adds it to the generated `com.example.ordering.application.OrderRepository`. I couldn't reuse the name `OrderRepository` for the mixin in that package, because it would clash with the generated interface.\n- **Query:** `SELECT COALESCE(SUM(\"total\"), 0) FROM \"order\" WHERE \"status\" = :status`. The table name is quoted because `order` is a reserved word. `COALESCE` returns `0` when no orders match.\n- **Test:** `src/test/java/com/example/ordering/application/OrderRepositoryTest.java` runs against the Postgres test container. It checks the sum per status (SHIPPED 14.75, OPEN 100.00), and that a status with no orders returns zero.\n\nBoth new files are untracked; I haven't committed anything."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/ordering/application/OrderRepositoryMixin.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/ordering/application/OrderRepositoryTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT15.488399455S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/mixin-custom-sql-1"
+  }, {
+    "taskId" : "mixin-derived-query",
+    "category" : "repository-mixins",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 20,
+        "output" : 6480,
+        "cacheRead" : 1038244,
+        "cacheCreation" : 105572
+      },
+      "turns" : 12,
+      "buildAttempts" : 3,
+      "costUsd" : 0.17369420000000002,
+      "duration" : "PT55.156470344S",
+      "contaminated" : false,
+      "message" : "Both queries are on `com.example.ordering.application.OrderRepository`, and `mvn verify` passes with the two new integration tests green.\n\n`OrderRepository` isn't a hand-written file in this project. Prefab generates it, so I added the methods through a repository mixin rather than creating a second repository:\n\n- **New:** `src/main/java/com/example/ordering/application/OrderRepositoryMixin.java`, annotated `@RepositoryMixin(Order.class)`, declaring `List<Order> findByCustomerEmail(String customerEmail)` and `long countByStatus(OrderStatus status)`.\n- The generated `OrderRepository` now extends `OrderRepositoryMixin`, and Spring Data derives both queries from the method names.\n- **New:** `src/test/java/com/example/ordering/application/OrderRepositoryMixinTest.java`, an `@IntegrationTest` against the Postgres test container. It checks that `findByCustomerEmail` returns only that customer's orders, and that `countByStatus` moves by the expected delta for OPEN and SHIPPED. It uses deltas because the database is shared across tests.\n\nI did not commit anything."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/ordering/application/OrderRepositoryMixin.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/ordering/application/OrderRepositoryMixinTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT15.70962346S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/mixin-derived-query-1"
+  }, {
+    "taskId" : "mongodb-crud",
+    "category" : "mongodb",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 24,
+        "output" : 6390,
+        "cacheRead" : 1285983,
+        "cacheCreation" : 112070
+      },
+      "turns" : 12,
+      "buildAttempts" : 4,
+      "costUsd" : 0.19235615,
+      "duration" : "PT1M16.218292973S",
+      "contaminated" : false,
+      "message" : "The notes feature is in place and the full build passes: `mvn verify` succeeds with 2 integration tests passing against a real MongoDB container.\n\n**What I added**\n\n- `src/main/java/com/example/notes/Note.java`: a `@Aggregate` with `@GetById`, `@GetList`, and:\n  - `@Create` constructor taking `title` (`@NotNull`) and `text`, setting `archived` to `false`.\n  - `@Update(method = \"POST\", path = \"/archive\")` returning a copy with `archived = true`.\n  - `@Delete` (default `204 No Content`).\n  - `title` has `@Filter(operator = CONTAINS, ignoreCase = true)`, and `archived` has `@Filter(operator = EQUAL)`.\n- `src/test/java/com/example/notes/NoteIntegrationTest.java`: covers create (201 + `Location`), get, title filter, archived filter before and after archiving, archive, delete (204), 404 after delete, and a 400 for a missing title.\n\n**Decisions to know about**\n\n- **`archived` is `Boolean`, not `boolean`.** With a primitive `boolean` and `@Filter`, the annotation processor failed with `not a valid name: boolean`. The wrapper compiles and the filter works, so I kept it. This looks like a Prefab processor bug; I didn't investigate further.\n- The `ERROR` log line in the test output is the expected validation log from the missing-title test, not a failure.\n- Changes are uncommitted in the working tree; I didn't commit because you didn't ask for one."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/notes/Note.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/notes/NoteIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT15.367828671S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/mongodb-crud-1"
+  }, {
+    "taskId" : "persistence-evolve-schema",
+    "category" : "persistence",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 18,
+        "output" : 5692,
+        "cacheRead" : 935596,
+        "cacheCreation" : 108633
+      },
+      "turns" : 9,
+      "buildAttempts" : 3,
+      "costUsd" : 0.16965180000000002,
+      "duration" : "PT56.210281132S",
+      "contaminated" : false,
+      "message" : "`Product` now has `description` (optional) and `stock` (an `int`, defaulting to 0). Both are accepted on `POST /products` and returned by `GET /products/{id}`. The project compiles and both new integration tests pass.\n\n**Changes**\n- **`Product.java`**: added `@Nullable @Text String description` and `@DbDefaultValue(\"0\") int stock`. The create constructor takes both.\n- **`src/main/resources/db/migration/V2__add_product_description_and_stock.sql`**: the migration Prefab generated for the new fields:\n  ```sql\n  ALTER TABLE product\n  ADD COLUMN \"description\" TEXT,\n  ADD COLUMN \"stock\" INTEGER NOT NULL DEFAULT 0;\n  ```\n  V1 is untouched. The `DEFAULT 0` matters because production already has rows, and a plain `NOT NULL` column without a default would fail to apply.\n- **`src/test/java/com/example/inventory/ProductIntegrationTest.java`**: two tests, one that creates a product with a description and stock, and one that creates one with a `null` description.\n\n**Verification**\n- `mvn clean package` succeeds.\n- `mvn test` runs 2 tests, 0 failures, against a Testcontainers PostgreSQL. Flyway applies V1 and V2 cleanly.\n\n**Choices I made**\n- `stock` is required in the create body as an `int`. Jackson fills in 0 if it is omitted. If you want it strictly optional, or want a negative-value check, that is a small follow-up.\n- The description is a `TEXT` column (unbounded), not `VARCHAR(255)`."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ {
+        "rule" : "hand-written-migration",
+        "severity" : "WARN",
+        "description" : "new SQL migration under src/main/resources/db/migration; Prefab generates migrations at compile time",
+        "file" : "src/main/resources/db/migration/V2__add_product_description_and_stock.sql",
+        "line" : 0
+      } ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/inventory/Product.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/resources/db/migration/V2__add_product_description_and_stock.sql"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/inventory/ProductIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT14.885470096S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/persistence-evolve-schema-1"
+  }, {
+    "taskId" : "rest-computed-field",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 24,
+        "output" : 6727,
+        "cacheRead" : 1281378,
+        "cacheCreation" : 105713
+      },
+      "turns" : 12,
+      "buildAttempts" : 4,
+      "costUsd" : 0.18661140000000004,
+      "duration" : "PT59.805790736S",
+      "contaminated" : false,
+      "message" : "`Order` now exposes `total` and `lineCount` in the `GET /orders/{id}` response. The project compiles and `mvn test` passes, including 2 new tests that run against Docker-backed Postgres.\n\n**Changes**\n\n- `src/main/java/com/example/ordering/Order.java`: added two methods annotated `@Computed`:\n  - `BigDecimal total()` sums `unitPrice * quantity` over all lines, starting from zero, so an empty order gives `0`.\n  - `int lineCount()` returns `lines.size()`.\n- `src/test/java/com/example/ordering/OrderComputedFieldsTest.java`: new integration test. It checks that a two-line order (2 × 3.50 and 1 × 10.00) returns `lineCount` 2 and `total` 17.00, and that an empty order returns 0 and 0.\n\n**How it works**\n\n- Prefab generates the two fields into `OrderResponse` only. The generated `CreateOrderRequest` does not contain them, so clients cannot send them, and they are not stored in the database.\n\n**Decisions**\n\n- I named the test `...Test` rather than `...IT`. The build's Surefire run does not pick up `*IT` classes, and there is no Failsafe configuration, so an `IT` suffix would have silently skipped the test.\n- I did not commit the changes; they are in the working tree."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "3/3 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/ordering/Order.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/ordering/OrderComputedFieldsTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 3,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT13.01369322S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/rest-computed-field-1"
+  }, {
+    "taskId" : "rest-create-and-get",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 18,
+        "output" : 5518,
+        "cacheRead" : 926594,
+        "cacheCreation" : 108885
+      },
+      "turns" : 9,
+      "buildAttempts" : 3,
+      "costUsd" : 0.16901869999999997,
+      "duration" : "PT57.751151541S",
+      "contaminated" : false,
+      "message" : "The book catalogue is in place. `mvn verify` passes: the two new integration tests ran against a real PostgreSQL container and both succeeded. Nothing is committed.\n\n**What I added**\n\n- `src/main/java/com/example/catalog/Book.java`: a Prefab aggregate with `@GetById` and a `@Create` constructor. Prefab generates the controller, service, repository, Flyway migration (`book` table) and request/response records.\n- `src/test/java/com/example/catalog/BookIntegrationTest.java`: checks that `POST /books` returns `201` with a `Location` header whose last segment is the new id, that `GET /books/{id}` returns the stored fields, and that an unknown id returns `404`.\n\n**Decisions I made**\n\n- **`publicationYear` is a primitive `int`.** That makes it a whole number, but a request that omits it gets `0` rather than being rejected. If you want it required, the field should become `Integer` with `@NotNull`.\n- **`title` has `@Size(max = 200)`**, which Prefab maps to `VARCHAR(200)`. I did not test that an over-long title is rejected with a 400.\n- **`author` and `isbn` are `@NotNull` only.** I did not add ISBN format validation."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "3/3 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/catalog/Book.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/catalog/BookIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 3,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT17.196448203S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/rest-create-and-get-1"
+  }, {
+    "taskId" : "rest-custom-action",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 16,
+        "output" : 4569,
+        "cacheRead" : 814554,
+        "cacheCreation" : 107785
+      },
+      "turns" : 8,
+      "buildAttempts" : 2,
+      "costUsd" : 0.15994319999999998,
+      "duration" : "PT45.597381702S",
+      "contaminated" : false,
+      "message" : "I added `POST /orders/{id}/ship` and `POST /orders/{id}/cancel`. `mvn verify` passes, including four new integration tests against a real Postgres container.\n\nThe change is in `src/main/java/com/example/ordering/Order.java`:\n\n- **`ship()`** is an `@Update(path = \"/ship\", method = \"POST\")` that returns a new `Order` with status `SHIPPED`.\n- **`cancel()`** is an `@Update(path = \"/cancel\", method = \"POST\")` that throws `ConflictException` (409) if the status is `SHIPPED`. Otherwise it returns a new `Order` with status `CANCELLED`.\n\nBoth methods keep the `id` and `version` from the current record, so the aggregate's optimistic locking still applies. The generated controller exposes both paths without a request body and responds 200 on success. `GET /orders/{id}` already returns `status`, so no change was needed there.\n\nThe tests are in `src/test/java/com/example/ordering/OrderActionsIntegrationTest.java`. They cover:\n- a new order is `OPEN`;\n- ship sets `SHIPPED`;\n- cancel sets `CANCELLED`;\n- cancelling a shipped order returns 409 and leaves the status `SHIPPED`.\n\nI used MockMvc directly for the 409 case because the generated `OrderClient.cancel` helper asserts 200.\n\nBoth `Order.java` and the new test directory are uncommitted, as you didn't ask for a commit."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/ordering/Order.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/ordering/OrderActionsIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT12.681458378S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/rest-custom-action-1"
+  }, {
+    "taskId" : "rest-parent-child",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 30,
+        "output" : 7992,
+        "cacheRead" : 1664327,
+        "cacheCreation" : 112153
+      },
+      "turns" : 15,
+      "buildAttempts" : 4,
+      "costUsd" : 0.21536434999999998,
+      "duration" : "PT1M7.798271378S",
+      "contaminated" : false,
+      "message" : "Tasks are implemented as a `Task` aggregate in `com.example.planning`, and the project compiles with its test passing (`mvn test`, BUILD SUCCESS, including the new integration test against Docker Postgres).\n\n**What I added**\n- `src/main/java/com/example/planning/Task.java`: a `@Aggregate` with `@GetById` and `@GetList`, a `@Parent Reference<Project> project` field, `title` (`@NotNull`), and `done`. The create constructor sets `done` to `false`. `complete()` is an `@Update(path = \"/complete\", method = \"POST\")` that returns a copy with `done = true`.\n- `src/test/java/com/example/planning/TaskIntegrationTest.java`: creates tasks in two projects, completes one, and checks that the list endpoint returns only that project's tasks.\n\n**Gaps you should know about**\n- **By-ID lookups are not scoped to the project.** `GET /projects/{projectId}/tasks/{id}` and `POST .../{id}/complete` ignore `projectId`. A task ID from project A is returned under project B's URL. Only the list endpoint filters by project. Fixing this means replacing the generated `TaskController`, which then needs manual upkeep, so I left it alone. Say if you want that.\n- **`Location` header is `/tasks/{id}`**, not nested under the project. It ends with the task id, as specified, but the path is generator-defined.\n- Prefab's `@Parent` annotation lives in `be.appify.prefab.core.annotations.rest` in this build, and it can't go on a constructor parameter. The create constructor takes the `project` reference without an annotation.\n\nI haven't committed anything."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/planning/Task.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/planning/TaskIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT13.712652625S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/rest-parent-child-1"
+  }, {
+    "taskId" : "rest-update-and-delete",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 18,
+        "output" : 4969,
+        "cacheRead" : 930385,
+        "cacheCreation" : 104358
+      },
+      "turns" : 12,
+      "buildAttempts" : 2,
+      "costUsd" : 0.16330875,
+      "duration" : "PT42.228200229S",
+      "contaminated" : false,
+      "message" : "`Book` now has `PUT /books/{id}` and `DELETE /books/{id}`. `mvn verify` passes, including two new integration tests that exercise both endpoints against Postgres.\n\n**What changed**\n\n- `src/main/java/com/example/catalog/Book.java`:\n  - `@Update public Book update(title, author)` returns a new `Book` with the given title and author. The ISBN, publication year, id and version carry over unchanged. Prefab generates the `PUT /books/{id}` endpoint, which returns `200 OK` with the `BookResponse` body.\n  - `@Delete public void delete()` makes Prefab generate `DELETE /books/{id}`, which returns `204 No Content`.\n  - The `title` and `author` validation constraints from `@Create` are repeated on `update`, so the same rules apply to the request body.\n- `src/test/java/com/example/catalog/BookEndpointsTest.java` (new): an update test that checks the response body and a re-fetch, and a delete test that checks a follow-up `GET` returns `404`.\n\nI did not commit anything."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/catalog/Book.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/catalog/BookEndpointsTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT15.070109445S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/rest-update-and-delete-1"
+  }, {
+    "taskId" : "rest-validation",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 36,
+        "output" : 10123,
+        "cacheRead" : 2018633,
+        "cacheCreation" : 113103
+      },
+      "turns" : 20,
+      "buildAttempts" : 6,
+      "costUsd" : 0.23936015,
+      "duration" : "PT1M37.844725893S",
+      "contaminated" : false,
+      "message" : "`POST /customers` now rejects invalid input with `400 Bad Request` and stores nothing. A clean `mvn clean test` builds and passes all 8 new tests, which run against a real Postgres via Docker.\n\n**What changed**\n\n- **`src/main/java/com/example/crm/Customer.java`**: the `@Create` constructor parameters now carry the constraints:\n  - `name`: `@NotBlank @Size(max = 100)`\n  - `email`: `@NotBlank @Email`\n  \n  Prefab copies these onto the generated `CreateCustomerRequest`, and the generated controller already validates the body with `@Valid`. I put the constraints on the constructor, not the record components, so the database column definition doesn't change.\n- **`src/main/java/com/example/crm/Customer.java`**: I also added `@Example` values (`\"Jane Doe\"`, `\"jane.doe@example.com\"`). Without them the generated `CreateCustomerRequestMother` defaults `email` to the literal `\"email\"`, which now fails validation. This is a small addition beyond the request.\n- **`src/test/java/com/example/crm/CustomerValidationTest.java`** (new): a `@IntegrationTest` that calls the endpoint through MockMvc. For each rejected case it checks the response is 400 and the repository row count is unchanged. It covers:\n  - valid request → 201\n  - a name of exactly 100 characters → 201\n  - missing, blank, and 101-character names → 400\n  - missing, blank, and malformed emails → 400\n\n**Things to know**\n\n- Prefab's `target/prefab-test-sources` treats existing files as manual overrides. After changing the aggregate I had to run `mvn clean` before the mother regenerated. If you see stale test helpers, that's the cause.\n- The 400 responses come from Spring's default handling, which logs each violation at ERROR level. I didn't change that."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "7/7 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/crm/Customer.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/crm/CustomerValidationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 7,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT14.465272109S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/rest-validation-1"
+  }, {
+    "taskId" : "rest-value-object",
+    "category" : "rest-crud",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 18,
+        "output" : 6632,
+        "cacheRead" : 938521,
+        "cacheCreation" : 110636
+      },
+      "turns" : 9,
+      "buildAttempts" : 2,
+      "costUsd" : 0.17415105000000003,
+      "duration" : "PT48.886317721S",
+      "contaminated" : false,
+      "message" : "Customers with a postal address are implemented and `mvn verify` passes, including a new integration test that runs against a real PostgreSQL container.\n\n**What I added**\n\n- `src/main/java/com/example/crm/Address.java`: a value object record with `street`, `city`, `postalCode` and `country`, each `@NotNull`.\n- `src/main/java/com/example/crm/Customer.java`: an `@Aggregate` with `@GetById`, a `@Create` constructor taking `name` and `address`, and an `@Update(path = \"/address\")` method `changeAddress(Address)`. Prefab generates the three endpoints you specified (`POST /customers`, `GET /customers/{id}`, `PUT /customers/{id}/address`).\n- `src/test/java/com/example/crm/CustomerIntegrationTest.java`: creates a customer, checks the `201` and `Location` header ending in the id, reads it back, then replaces the address and checks the `200` response and the new values.\n\n**Choices I made**\n\n- `Address` is a top-level record in `com.example.crm`, not nested inside `Customer`. The JSON shape is the same either way.\n- The address is stored as flattened columns (`address_street`, `address_city`, `address_postal_code`, `address_country`) in the generated `customer` table.\n- Nothing is committed. The changes are untracked in the working tree.\n\n**Not covered**\n\n- `@NotNull` rejects null but not blank strings, so `\"\"` is accepted for any field. If you need non-blank, switch to `@NotBlank`.\n- I did not test that a request with a missing field returns `400`. I assumed Prefab's generated `@Valid` handling does this."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/crm/Address.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/crm/Customer.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/crm/CustomerIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT16.927369013S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/rest-value-object-1"
+  }, {
+    "taskId" : "security-public-endpoints",
+    "category" : "security",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 40,
+        "output" : 13258,
+        "cacheRead" : 2388608,
+        "cacheCreation" : 132520
+      },
+      "turns" : 20,
+      "buildAttempts" : 3,
+      "costUsd" : 0.2851154,
+      "duration" : "PT1M42.465428573S",
+      "contaminated" : false,
+      "message" : "Anonymous readers can now list and fetch articles, while `POST /articles` still returns `401` without a token. `mvn test` passes (3 tests, 0 failures).\n\n**What changed**\n\n- **`Article.java`**: `@GetById` and `@GetList` now carry `security = @Security(enabled = false)`, so the generated read endpoints have no `@PreAuthorize` check. `@Create` is untouched and still requires authentication.\n- **`security/SecurityConfiguration.java`** (new): an application-owned `SecurityFilterChain` that permits `GET /articles` and `GET /articles/{id}` before the catch-all `anyRequest().authenticated()` rule.\n- **`src/test/java/com/example/blog/ArticleSecurityTest.java`** (new): anonymous `GET /articles` returns 200, anonymous `GET /articles/{id}` reaches the controller (404 for an unknown id), and anonymous `POST /articles` returns 401.\n\n**Why the chain is replaced rather than customized**\n\nThe documented `HttpSecurityCustomizer` hook doesn't work for this. Prefab applies customizers after its own `anyRequest().authenticated()`, and Spring Security rejects matchers added after `anyRequest`. The context failed to start with \"Can't configure requestMatchers after anyRequest\". Prefab's default chain is `@ConditionalOnMissingBean` on `SecurityFilterChain`, so my bean takes its place. I copied the default settings from the bytecode: CSRF disabled, stateless sessions, the JWT resource server, and the same CSP and referrer headers. If Prefab's defaults change in a later version, this file will need to be kept in sync.\n\n**Caveat:** the test profile doesn't contact `login.example.com`. The 401 path never fetches the JWKS, so an authenticated POST is not covered by a test. I did not add a valid-token test.\n\nI did not commit anything."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/blog/Article.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/security/SecurityConfiguration.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/blog/ArticleSecurityTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT16.240830381S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/security-public-endpoints-1"
+  }, {
+    "taskId" : "security-role-based",
+    "category" : "security",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 26,
+        "output" : 7161,
+        "cacheRead" : 1431526,
+        "cacheCreation" : 114800
+      },
+      "turns" : 13,
+      "buildAttempts" : 5,
+      "costUsd" : 0.20429180000000002,
+      "duration" : "PT1M22.489164433S",
+      "contaminated" : false,
+      "message" : "The invoice API now enforces the three role rules, and a clean `mvn clean verify` passes with 4 new integration tests green.\n\n**Changes**\n\n- **`src/main/java/com/example/billing/Invoice.java`**\n  - The `@Create` constructor now has `@Security(role = \"ACCOUNTANT\")`, so `POST /invoices` generates `hasRole('ACCOUNTANT')`.\n  - Added a `delete()` method annotated `@Delete(security = @Security(role = \"ADMIN\"))`. It generates `DELETE /invoices/{id}` with `hasRole('ADMIN')` and returns `204 No Content`.\n  - `GET /invoices/{id}` and `GET /invoices` were left as they were. They generate `isAuthenticated()`, which is the \"any authenticated user\" rule.\n- **`src/test/java/com/example/billing/InvoiceSecurityIntegrationTest.java`** (new) covers:\n  - unauthenticated calls to all four endpoints get `401`;\n  - only `ROLE_ACCOUNTANT` can create (`201`), and `ROLE_ADMIN` alone gets `403`;\n  - any authenticated role can read (`200` on the list, `404` on a missing ID);\n  - only `ROLE_ADMIN` can delete (`204`), and `ROLE_ACCOUNTANT` gets `403`.\n\nThe test uses the `@IntegrationTest` annotation from `prefab-test` with a real PostgreSQL container, so Docker must be running. The \"Access Denied\" lines in the log are the expected output from the 403 cases.\n\nI did not commit anything."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "3/3 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/billing/Invoice.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/billing/InvoiceSecurityIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 3,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT12.86817339S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/security-role-based-1"
+  }, {
+    "taskId" : "tenancy-isolation",
+    "category" : "multi-tenancy",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 26,
+        "output" : 9443,
+        "cacheRead" : 1437461,
+        "cacheCreation" : 117136
+      },
+      "turns" : 13,
+      "buildAttempts" : 3,
+      "costUsd" : 0.21262955,
+      "duration" : "PT1M12.817311907S",
+      "contaminated" : false,
+      "message" : "Projects are now tenant-scoped. `mvn clean verify` passes, including a new tenant-isolation test (3 tests, 0 failures, 0 errors, read from the surefire report). I haven't committed anything.\n\n**What changed**\n\n- **`Project.java`**: added `@TenantId String tenantId`. The `@Create` constructor passes `null`, and Prefab's generated service fills in the requesting tenant on create. The client never sends it in the body.\n- **`tenancy/HeaderTenantContextProvider.java`** (new): a `TenantContextProvider` bean that reads `X-Tenant-Id` from the current request.\n  - Missing or blank header inside a request → `400 Bad Request`.\n  - Called outside an HTTP request → `null`, which is Prefab's \"no tenant filtering\" signal.\n- **`ProjectTenantIsolationTest.java`** (new, `@IntegrationTest` with Postgres via Testcontainers): covers these cases.\n  - Tenant B gets `404` for tenant A's project by ID.\n  - Each tenant's list contains only its own projects.\n  - A request without the header gets `400`.\n\n**What the generated code does**\n\n- Flyway gets a `tenant_id NOT NULL` column with an index.\n- `getById` filters out other tenants' rows, which gives `404`.\n- `getList` uses `findByTenantId`.\n\n**Things to know**\n\n- The generated `ProjectClient` test helper does not send `X-Tenant-Id`, so it can't be used against this API as-is. The new test calls MockMvc directly.\n- Outside an HTTP request the provider returns `null`, which means no tenant filtering. That is the framework's contract. If background code ever creates or reads projects, it will see or write across tenants. I chose this over failing, since nothing in the project runs outside HTTP today. If you want it stricter, make the provider throw when no request is bound.\n- The provider trusts the header as-is, because the gateway guarantees it. It does not validate the format."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "2/2 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/planning/Project.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/tenancy/HeaderTenantContextProvider.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/planning/ProjectTenantIsolationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 2,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT13.864712955S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/tenancy-isolation-1"
+  }, {
+    "taskId" : "testing-domain-events-unit",
+    "category" : "testing",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 14,
+        "output" : 4520,
+        "cacheRead" : 701127,
+        "cacheCreation" : 102783
+      },
+      "turns" : 8,
+      "buildAttempts" : 2,
+      "costUsd" : 0.14914635,
+      "duration" : "PT30.374003159S",
+      "contaminated" : false,
+      "message" : "I added `src/test/java/com/example/banking/AccountTest.java` with seven plain JUnit tests. They all pass (`mvn test`: 7 run, 0 failures, 0 errors), and no production code changed.\n\nThe tests use `@ExtendWith(PublishedEventsExtension.class)` and receive a `CapturingDomainEventPublisher` as a parameter, so there is no Spring context and no Docker. They cover:\n\n- **Deposit** publishes one `Deposited` event with the amount, and the balance increases.\n- **Withdrawal** publishes one `Withdrawn` event with the amount, and the balance decreases.\n- **Order:** a deposit followed by a withdrawal publishes both events in that order, and `publishedEventsOf` filters each type correctly.\n- **Exact-balance withdrawal** is allowed, publishes an event, and leaves a zero balance.\n- **Overdraft** throws `ConflictException` (\"Insufficient balance\") and publishes nothing, both on a funded account and on an empty one.\n- **Refused overdraft followed by a valid withdrawal:** only the valid withdrawal's event is captured.\n\nThe test class only exercises the aggregate's behaviour. I did not add tests for `@Create` or REST wiring, since the task was limited to deposit and withdrawal events."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "main-unchanged",
+        "passed" : true,
+        "detail" : "src/main untouched",
+        "infrastructure" : false
+      }, {
+        "name" : "agent-tests-written",
+        "passed" : true,
+        "detail" : "[src/test/java/com/example/banking/AccountTest.java]",
+        "infrastructure" : false
+      }, {
+        "name" : "unit-tests-only",
+        "passed" : true,
+        "detail" : "no Spring context in the agent's tests",
+        "infrastructure" : false
+      }, {
+        "name" : "agent-tests-pass",
+        "passed" : true,
+        "detail" : "7 tests, 0 failed (need at least 3)",
+        "infrastructure" : false
+      }, {
+        "name" : "mutant-killed:withdraw-publishes-deposit",
+        "passed" : true,
+        "detail" : "4 of 7 tests failed on the mutant",
+        "infrastructure" : false
+      }, {
+        "name" : "mutant-killed:deposit-not-published",
+        "passed" : true,
+        "detail" : "2 of 7 tests failed on the mutant",
+        "infrastructure" : false
+      }, {
+        "name" : "mutant-killed:overdraft-allowed",
+        "passed" : true,
+        "detail" : "3 of 7 tests failed on the mutant",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/test/java/com/example/banking/AccountTest.java"
+      } ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT31.204391214S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/testing-domain-events-unit-1"
+  }, {
+    "taskId" : "testing-integration-tests",
+    "category" : "testing",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 30,
+        "output" : 7969,
+        "cacheRead" : 1700111,
+        "cacheCreation" : 115253
+      },
+      "turns" : 15,
+      "buildAttempts" : 3,
+      "costUsd" : 0.22019605000000003,
+      "duration" : "PT1M14.625817804S",
+      "contaminated" : false,
+      "message" : "I added `InvoiceIntegrationTest` under `src/test/java/com/example/billing/`. It has three tests, all passing against a real PostgreSQL container, and the full `mvn test` build succeeds. Production code is unchanged.\n\nThe three tests cover:\n\n- **Create and read back:** creates an invoice with the generated `CreateInvoiceRequestMother`, then reads it via `GET /invoices/{id}` and checks id, version, customer, amount and status (`OPEN`).\n- **Pay:** `POST /invoices/{id}/pay` sets the status to `PAID`.\n- **Pay twice:** a second pay returns `409 Conflict` and leaves the invoice `PAID`.\n\nTwo things differ from what you might expect:\n\n- **Version starts at 1, not 0.** Spring Data JDBC stores the first version on insert. The test asserts 1 with a comment explaining why.\n- **Amount is compared with `isEqualByComparingTo`.** The column is `DECIMAL(19,4)`, so `1250.75` reads back with a different scale. The generated `hasAmount` uses `Objects.equals` and would fail on that, so I didn't use it.\n\nThe 409 case calls MockMvc directly. The generated `InvoiceClient.pay()` asserts 200, so it can't exercise the refusal. The other calls go through the generated client.\n\nI haven't committed anything."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "main-unchanged",
+        "passed" : true,
+        "detail" : "src/main untouched",
+        "infrastructure" : false
+      }, {
+        "name" : "agent-tests-written",
+        "passed" : true,
+        "detail" : "[src/test/java/com/example/billing/InvoiceIntegrationTest.java]",
+        "infrastructure" : false
+      }, {
+        "name" : "agent-tests-pass",
+        "passed" : true,
+        "detail" : "3 tests, 0 failed (need at least 3)",
+        "infrastructure" : false
+      }, {
+        "name" : "mutant-killed:pay-keeps-status",
+        "passed" : true,
+        "detail" : "2 of 3 tests failed on the mutant",
+        "infrastructure" : false
+      }, {
+        "name" : "mutant-killed:double-payment-allowed",
+        "passed" : true,
+        "detail" : "1 of 3 tests failed on the mutant",
+        "infrastructure" : false
+      }, {
+        "name" : "mutant-killed:amount-not-stored",
+        "passed" : true,
+        "detail" : "1 of 3 tests failed on the mutant",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/test/java/com/example/billing/InvoiceIntegrationTest.java"
+      } ],
+      "hiddenTests" : null,
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT49.695212404S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/testing-integration-tests-1"
+  }, {
+    "taskId" : "view-model",
+    "category" : "views",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 28,
+        "output" : 7008,
+        "cacheRead" : 1554382,
+        "cacheCreation" : 110924
+      },
+      "turns" : 15,
+      "buildAttempts" : 2,
+      "costUsd" : 0.20617709999999997,
+      "duration" : "PT56.101282857S",
+      "contaminated" : false,
+      "message" : "`GET /catalog-items` is now served by a read-only Prefab view, and `mvn clean verify` passes, including a new integration test.\n\n**What I added**\n- `src/main/java/com/example/catalog/CatalogItem.java`: a record `CatalogItem(String name, BigDecimal price, boolean inStock)` annotated `@ViewOf(Product.class)` and `@GetList`. A constructor taking a `Product` maps `inStock` to `stock() > 0`.\n- `src/test/java/com/example/catalog/CatalogItemIntegrationTest.java`: creates products through the generated `ProductClient`, then checks that `CatalogItemClient` returns only the requested category, with correct `inStock` flags and total count.\n\n**What I verified**\n- The generated `CatalogItemController` maps `/catalog-items`, with a `category` request parameter and a standard paged response.\n- The test passed (1 test, 0 failures). The integration test uses Docker, which was available.\n- `Product`, its controller and its endpoints are unchanged.\n\n**Choices I made**\n- The view uses `@GetList` with the default security, the same as `GET /products`. I did not add a separate security rule.\n- The `category` filter comes from the existing `@Filter` on `Product.category`, so the view needed no extra filter code."
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "3/3 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/catalog/CatalogItem.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/catalog/CatalogItemIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 3,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT16.487140587S",
+    "failure" : null,
+    "logs" : "benchmark/results/20261122-091726-claude-haiku-5-5-full-docs/attempts/view-model-1"
+  } ]
+}

@@ -1,0 +1,3 @@
+title: Update an existing aggregate from an event
+category: events-handling
+modules: [postgres, kafka]

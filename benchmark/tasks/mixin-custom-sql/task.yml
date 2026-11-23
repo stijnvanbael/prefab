@@ -1,0 +1,3 @@
+title: Add a custom SQL query to the generated repository
+category: repository-mixins
+modules: [postgres]

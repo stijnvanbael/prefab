@@ -1,0 +1,6 @@
+title: Add fields to an aggregate whose schema is already released
+category: persistence
+modules: [postgres]
+notes: >
+  Adding a non-null column to the released schema needs @DbDefaultValue; Prefab reports this as a processor crash
+  (TASK-354, TASK-323). A hand-written V2 migration would clash with the generated one.

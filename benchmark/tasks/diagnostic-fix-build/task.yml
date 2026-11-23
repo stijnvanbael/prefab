@@ -1,0 +1,3 @@
+title: Fix a build broken by a Prefab compile error
+category: diagnostics
+modules: [postgres, kafka]

@@ -1,0 +1,3 @@
+title: Multi-tenant data isolation
+category: multi-tenancy
+modules: [postgres]

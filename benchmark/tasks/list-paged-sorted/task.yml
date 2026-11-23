@@ -1,0 +1,3 @@
+title: Paged list endpoint with a default sort order
+category: lists
+modules: [postgres]

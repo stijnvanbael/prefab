@@ -193,6 +193,8 @@ public class MetricsPlugin implements PrefabPlugin {
 | `writeGlobalFiles(manifests, polymorphicManifests)` | Once, all rounds done      | Generate files that span all aggregates      |
 
 See the full table in [Extension Point Guide §8.1](backlog/docs/extension-points.md#81-prefabplugin-interface).
+Plugins run in ascending `order()` (default `0`, the same as built-in plugins), then by class name. Adding a member
+that Prefab or another plugin already added to a generated type is a compile error naming both plugins.
 
 ### Step 3 — Register via `ServiceLoader`
 

@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.lang.model.element.TypeElement;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -74,7 +73,8 @@ class HttpWriter {
                         .addStatement("this.service = service")
                         .build())
                 .addMethod(toResponseMethod(manifest));
-        applyPlugins(manifest.type().asElement(), plugin -> plugin.writeController(manifest, type));
+        new PluginContributions(context)
+                .apply(manifest.type().asElement(), type, OutputTarget.TEST, plugin -> plugin.writeController(manifest, type));
         fileWriter.writeFile(manifest.packageName(), "%sController".formatted(manifest.simpleName()), type.build());
     }
 
@@ -96,7 +96,8 @@ class HttpWriter {
                         .build())
                 .addMethod(polymorphicToResponseMethod(manifest, polymorphicResponseType));
 
-        applyPlugins(manifest.type().asElement(), plugin -> plugin.writePolymorphicController(manifest, type));
+        new PluginContributions(context)
+                .apply(manifest.type().asElement(), type, OutputTarget.TEST, plugin -> plugin.writePolymorphicController(manifest, type));
 
         fileWriter.writeFile(manifest.packageName(), "%sController".formatted(manifest.simpleName()), type.build());
     }
@@ -321,10 +322,4 @@ class HttpWriter {
         return dot < 0 ? simpleName : simpleName.substring(dot + 1);
     }
 
-    private void applyPlugins(TypeElement aggregateType, java.util.function.Consumer<PrefabPlugin> action) {
-        context.plugins().stream()
-                .filter(plugin -> context.isPluginEnabledFor(aggregateType, plugin.getClass()))
-                .filter(plugin -> context.getOutputTargetFor(aggregateType, plugin.getClass()) != OutputTarget.TEST)
-                .forEach(plugin -> context.withPluginOutputTarget(aggregateType, plugin.getClass(), () -> action.accept(plugin)));
-    }
 }

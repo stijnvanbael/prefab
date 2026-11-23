@@ -109,3 +109,10 @@ Key design points:
 - [ ] #9 Unit tests verify that each plugin is skipped when its enabled flag is set to false
 - [ ] #10 The configuration.md developer guide documents every supported option with its default value and an example Maven/Gradle snippet
 <!-- AC:END -->
+
+## Spike note (TASK-324, 2026-11-23)
+
+The plugin toggle part of this task is already implemented: `PrefabConfiguration` reads
+`-Aprefab.plugin.<id>.enabled` (fully-qualified, simple, normalized and package-segment aliases) and `@Generate`
+overrides it per aggregate. Only the "default values / flavours" goal remains open. Plugin execution order is now
+defined by `PrefabPlugin.order()` (decision-009).

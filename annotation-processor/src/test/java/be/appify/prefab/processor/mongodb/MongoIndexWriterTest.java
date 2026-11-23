@@ -97,4 +97,24 @@ class MongoIndexWriterTest {
                 .contentsAsUtf8String()
                 .contains("mongoTemplate.indexOps(Product.class).createIndex(new Index(\"price.currency\", Direction.ASC))");
     }
+
+    @Test
+    void aggregateResolvedInALaterRoundSharesTheSingleIndexConfiguration() {
+        var compilation = javac()
+                .withProcessors(new StampGeneratingProcessor(), new PrefabProcessor())
+                .compile(sourceOf("mongodb/deferred/source/Early.java"), sourceOf("mongodb/deferred/source/Late.java"));
+        assertThat(compilation).succeeded();
+        var configurations = compilation.generatedSourceFiles().stream()
+                .filter(file -> file.getName().endsWith("MongoIndexConfiguration.java"))
+                .toList();
+        org.assertj.core.api.Assertions.assertThat(configurations).hasSize(1);
+        assertThat(compilation)
+                .generatedSourceFile("mongodb.deferred.infrastructure.mongodb.MongoIndexConfiguration")
+                .contentsAsUtf8String()
+                .contains("indexOps(Early.class)");
+        assertThat(compilation)
+                .generatedSourceFile("mongodb.deferred.infrastructure.mongodb.MongoIndexConfiguration")
+                .contentsAsUtf8String()
+                .contains("indexOps(Late.class)");
+    }
 }

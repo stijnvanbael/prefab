@@ -5,6 +5,7 @@ import be.appify.prefab.core.annotations.rest.Filter;
 import be.appify.prefab.core.annotations.rest.Filters;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PrefabContext;
+import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabPlugin;
 
 import java.util.List;
@@ -37,8 +38,13 @@ public class MongoIndexPlugin implements PrefabPlugin {
         this.context = context;
     }
 
+    /**
+     * Writes the index configuration once, for the aggregates of all rounds. An aggregate that uses a type generated
+     * in an earlier round (for example an AVSC event) is processed in a later round; writing per round would create
+     * a second {@code MongoIndexConfiguration} that clashes with the first one as a Spring bean.
+     */
     @Override
-    public void writeAdditionalFiles(List<ClassManifest> manifests) {
+    public void writeGlobalFiles(List<ClassManifest> manifests, List<PolymorphicAggregateManifest> polymorphicManifests) {
         if (!MONGO_INCLUDED) {
             return;
         }

@@ -69,7 +69,10 @@ handling aggregate itself, so `Receipt` (a different aggregate from `Payment`) m
 query, like `Invoice.onOrderCancelled`. And the AsyncAPI plugin lost every event that is not generated from an AVSC
 file as soon as the module contained one: the document is written in a later processing round that only sees the
 generated sources. `EventSchemaDocumentationPlugin` now keeps the events and consumed events of the deferring round
-(covered by `AvscEventSchemaDocumentationTest`). A second mixing problem, the single AVSC file being applied to
+(covered by `AvscEventSchemaDocumentationTest`). On MongoDB, `Shipment` (processed in a later round because it uses the AVSC-generated event) made the processor write a
+second `MongoIndexConfiguration` in its own package next to the first one; the two beans clashed and no application
+context in `showcase-mongodb` could start. `MongoIndexPlugin` now writes the configuration once from
+`writeGlobalFiles`, for the aggregates of all rounds (covered by `MongoIndexWriterTest`). A second mixing problem, the single AVSC file being applied to
 code-first events (wrong Avro namespace), is TASK-369.
 
 **Verification:** the showcase and `showcase-mongodb` compile without warnings (main and tests), the capability,

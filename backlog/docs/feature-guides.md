@@ -584,13 +584,14 @@ public record Document(
         @Id Reference<Document> id,
         @Version long version,
         String title,
-        @Download
-        @ContentType({"application/pdf", "application/msword"})
-        @FileSize(max = 10 * 1024 * 1024)
-        Binary file
+        @Download Binary file
 ) {
     @Create
-    public Document(String title, Binary file) {
+    public Document(
+            String title,
+            @ContentType({"application/pdf", "application/msword"})
+            @FileSize(max = 10 * 1024 * 1024) Binary file
+    ) {
         this(Reference.create(), 0L, title, file);
     }
 }
@@ -598,8 +599,21 @@ public record Document(
 
 Generated endpoints:
 
-- `POST /documents` (multipart/form-data with `title` field and `file` file part)
+- `POST /documents` — `multipart/form-data` with a JSON part `body` holding the non-binary fields and a file part
+  named after the `Binary` parameter (`file`)
 - `GET  /documents/{id}/file` — download the binary
+
+Example request:
+
+```bash
+curl -X POST http://localhost:8080/documents \
+  -F 'body={"title": "Contract"};type=application/json' \
+  -F 'file=@contract.pdf;type=application/pdf'
+```
+
+Put `@ContentType` and `@FileSize` on the `@Create` constructor or `@Update` method parameter that receives the
+file. An upload that violates them, a missing part, or a malformed multipart request is rejected with
+`400 Bad Request`, and nothing is stored. See [Generated Artefacts, 6.1](generated-artefacts.md#61-controller).
 
 `StorageService` (from `prefab-core`) handles actual file storage. Configure a backend (local, S3, GCS) via
 Spring Boot auto-configuration.

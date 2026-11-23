@@ -49,4 +49,9 @@ class DocumentUploadAcceptanceTest {
         var file = new MockMultipartFile("file", "ok.png", "image/png", new byte[1024 * 1024]);
         new Api(mockMvc).multipartWithJson("/documents", "{\"title\": \"Ok\"}", List.of(file)).andExpect(status().isCreated());
     }
+
+    @Test
+    void missingFilePartIsABadRequest() throws Exception {
+        new Api(mockMvc).multipartWithJson("/documents", "{\"title\": \"No file\"}", List.of()).andExpect(status().isBadRequest());
+    }
 }

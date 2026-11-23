@@ -1545,7 +1545,7 @@ These annotations are in `be.appify.prefab.core.annotations.validation` and are 
 
 ### `@ContentType`
 
-**Target:** `FIELD`
+**Target:** `FIELD`, `PARAMETER`
 
 Restricts the allowed MIME content types for a `Binary` upload.
 
@@ -1555,15 +1555,18 @@ Restricts the allowed MIME content types for a `Binary` upload.
 
 ```java
 
-@ContentType({"image/jpeg", "image/png", "image/gif"})
-Binary profilePicture;
+@Create
+public Profile(@ContentType({"image/jpeg", "image/png", "image/gif"}) Binary profilePicture) { ... }
 ```
+
+Place the annotation on the `@Create` / `@Update` parameter that receives the upload: the generated controller
+enforces it and answers `400 Bad Request` for a violating file.
 
 ---
 
 ### `@FileSize`
 
-**Target:** `FIELD`
+**Target:** `FIELD`, `PARAMETER`
 
 Restricts the maximum file size for a `Binary` upload.
 
@@ -1573,8 +1576,8 @@ Restricts the maximum file size for a `Binary` upload.
 
 ```java
 
-@FileSize(max = 5 * 1024 * 1024)  // 5 MB
-Binary document;
+@Update(path = "/document")
+public Profile replaceDocument(@FileSize(max = 5 * 1024 * 1024) Binary document) { ... }  // 5 MB
 ```
 
 ---

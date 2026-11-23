@@ -2,6 +2,7 @@ package be.appify.prefab.example.showcase.ordering;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.PartitioningKey;
+import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.service.Reference;
 import be.appify.prefab.example.showcase.catalog.Product;
 import be.appify.prefab.example.showcase.customer.Customer;
@@ -16,7 +17,7 @@ import java.math.BigDecimal;
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
 @Event(topic = "showcase.order")
-public sealed interface OrderEvent permits OrderEvent.Placed, OrderEvent.Cancelled {
+public sealed interface OrderEvent extends Keyed<Reference<Order>> permits OrderEvent.Placed, OrderEvent.Cancelled {
 
     /**
      * The order the event is about.
@@ -25,6 +26,16 @@ public sealed interface OrderEvent permits OrderEvent.Placed, OrderEvent.Cancell
      */
     @PartitioningKey
     Reference<Order> order();
+
+    /**
+     * Uses the order reference as the stream record key, matching the event partitioning key.
+     *
+     * @return the order reference
+     */
+    @Override
+    default Reference<Order> key() {
+        return order();
+    }
 
     /**
      * A customer placed an order.

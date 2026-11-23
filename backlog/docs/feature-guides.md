@@ -1092,6 +1092,12 @@ Supported operations:
 - `to(String)`
 - `end()`
 
+The shop showcase demonstrates the operators together on its order events: category revenue aggregation and hourly
+windows are in `examples/showcase/src/streams/java`, with backend-neutral topology tests in
+`examples/showcase/src/streams-test/java`. Its Kafka-native breakout example is kept in a separate optional source
+root (`src/streams-kafka/java`) and guarded by the `KAFKA_STREAMS_BREAKOUT` capability; variants that provide another
+Streams backend can compile and run the common topology slice without the Kafka adapter.
+
 Serialization and deserialization reuse the existing Kafka dynamic serde infrastructure:
 
 - `DynamicDeserializer` for source records

@@ -86,6 +86,27 @@ touch every other showcase test; the technique is covered by the annotation proc
 A `@Multicast` fails (and dead-letters) when its query finds no aggregates, so the showcase only targets aggregates
 that exist, see TASK-365.
 
+### Streams: order sales analytics
+
+The optional sources in [`streams`](showcase/src/streams/java/be/appify/prefab/example/showcase/streams) and their
+backend-neutral tests in [`streams-test`](showcase/src/streams-test/java/be/appify/prefab/example/showcase/streams)
+demonstrate:
+
+| Operator or feature | Showcase topology |
+|---|---|
+| `filter`, `flatMap`, `process`, `globalStore` | Enrich placed order lines with category data from a replicated catalog |
+| `groupBy`, `aggregate` | Running revenue and unit count per category |
+| `windowedAggregate` | Hourly category revenue with a five-minute grace period |
+| KStream-KStream `join` | Match order events and payment confirmations within a `JoinWindow` |
+| `branch`, `merge` | Route placed and cancelled orders, then combine the typed branches |
+| Opt-in tracing | Verify source order IDs on aggregate messages |
+
+Kafka-native breakout is isolated in [`streams-kafka`](showcase/src/streams-kafka/java/be/appify/prefab/example/showcase/streams/kafka)
+and guarded by the `KAFKA_STREAMS_BREAKOUT` capability. The shared variant build leaves the optional source roots out
+unless a variant enables the corresponding streams backend. Variants without Streams list `STREAMS` in
+`showcase-capabilities.yml`; Pub/Sub and SNS/SQS can run the common slice on their in-process backends while reporting
+Kafka-only breakout separately.
+
 ## Technology coverage
 
 Not every feature works on every stack. A variant lists what it lacks in
@@ -102,6 +123,8 @@ unsupported:
 - A test that needs a capability declares `@RequiresCapability(Capability.STREAMS)`. On a variant without it, the test
   is skipped with a message like
   `showcase-pubsub: STREAMS not supported — no Pub/Sub backend for Prefab Streams (TASK-341)`.
+- Kafka-only native breakout tests declare `@RequiresCapability(Capability.KAFKA_STREAMS_BREAKOUT)` independently of
+  the broader `STREAMS` capability.
 - Capabilities whose code lives in optional source folders (streams, Avro) have no compiled tests on variants that lack
   them. `CapabilityGapsTest` reports one skipped test per unsupported capability instead, so gaps show up in every build.
 - An unknown capability, or a gap without a reason or backlog task, fails the build.
@@ -123,6 +146,7 @@ table, so after changing a capability file, paste that between the markers.
 | BINARY_DOWNLOAD | ✅ | ✅ |
 | ORDERED_DELIVERY | ✅ | ✅ |
 | STREAMS | ✅ | ✅ |
+| KAFKA_STREAMS_BREAKOUT | ✅ | ✅ |
 | AVRO | ✅ | ✅ |
 | SECURITY | ✅ | ✅ |
 | OPENAPI | ✅ | ✅ |
@@ -132,6 +156,10 @@ table, so after changing a capability file, paste that between the markers.
 ## Adding a variant
 
 1. Create `examples/showcase-<technology>` with a pom (parent `showcase-variant-parent`, only the technology
-   dependencies), `application.yml`, `application-test.yml` and `showcase-capabilities.yml`.
-2. Register the module in the root `pom.xml` and add a `Showcase tests (<technology>)` run configuration in `.run/`.
-3. Run `CoverageMatrixTest` and paste the expected table into this file.
+   dependencies), `application.yml`, `application-test.yml` and `showcase-capabilities.yml`. If the variant provides
+   Prefab Streams, add its backend dependency and set `showcase.streams.skip` to `false`; set
+   `showcase.kafka.streams.skip` to `false` only when it also provides `prefab-streams-kafka`.
+2. Leave those source-copy properties at their default `true` for variants without Streams, and list `STREAMS` as an
+   unsupported capability with the relevant backlog task ID.
+3. Register the module in the root `pom.xml` and add a `Showcase tests (<technology>)` run configuration in `.run/`.
+4. Run `CoverageMatrixTest` and paste the expected table into this file.

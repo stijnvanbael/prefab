@@ -13,6 +13,11 @@
     <artifactId>showcase-mongodb-example</artifactId>
     <name>Prefab Showcase Example: MongoDB + Kafka</name>
 
+    <properties>
+        <showcase.streams.skip>false</showcase.streams.skip>
+        <showcase.kafka.streams.skip>false</showcase.kafka.streams.skip>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>be.appify.prefab</groupId>
@@ -21,6 +26,14 @@
         <dependency>
             <groupId>be.appify.prefab</groupId>
             <artifactId>prefab-kafka</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-streams</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-streams-kafka</artifactId>
         </dependency>
     </dependencies>
 </project>

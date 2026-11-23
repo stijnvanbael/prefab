@@ -3,13 +3,9 @@ package be.appify.prefab.core.pubsub;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.DomainEventDispatcher;
 import be.appify.prefab.core.domain.EventType;
-import be.appify.prefab.core.domain.TypedEvent;
 import be.appify.prefab.core.serialization.ConcreteEventSupport;
-import be.appify.prefab.core.versioning.EventVersions;
 import com.google.cloud.spring.pubsub.PubSubAdmin;
 import com.google.cloud.spring.pubsub.core.PubSubTemplate;
-import com.google.protobuf.ByteString;
-import com.google.pubsub.v1.PubsubMessage;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -33,13 +29,13 @@ public class GenericPubSubPublisher implements DomainEventDispatcher {
 
     private final PubSubTemplate pubSubTemplate;
     private final PubSubUtil pubSubUtil;
-    private final PubSubSerializer serializer;
+    private final PubSubMessageEncoder encoder;
     private final ConcurrentMap<String, String> fullyQualifiedTopicCache = new ConcurrentHashMap<>();
 
     public GenericPubSubPublisher(PubSubTemplate pubSubTemplate, PubSubUtil pubSubUtil, PubSubSerializer serializer) {
         this.pubSubTemplate = pubSubTemplate;
         this.pubSubUtil = pubSubUtil;
-        this.serializer = serializer;
+        this.encoder = new PubSubMessageEncoder(serializer, event -> pubSubUtil.keyFor(event));
     }
 
     @Override
@@ -63,16 +59,8 @@ public class GenericPubSubPublisher implements DomainEventDispatcher {
         for (var resolvedTopic : topics) {
             var qualifiedTopic = fullyQualifiedTopicCache.computeIfAbsent(resolvedTopic, pubSubUtil::ensureTopicExists);
             log.debug("Publishing event {} on topic {}", event, qualifiedTopic);
-            var data = ByteString.copyFrom(serializer.serialize(PubSubUtil.simpleTopicName(qualifiedTopic), event));
-            var messageBuilder = PubsubMessage.newBuilder()
-                    .setData(data)
-                    .putAttributes("type", TypedEvent.payload(event).getClass().getName())
-                    .putAllAttributes(EventVersions.headersFor(event));
-            if (event instanceof TypedEvent<?> typed) {
-                messageBuilder.putAttributes(EventType.HEADER, typed.type().id());
-            }
-            pubSubUtil.keyFor(event).ifPresent(messageBuilder::setOrderingKey);
-            pubSubTemplate.publish(qualifiedTopic, messageBuilder.build()).join();
+            var message = encoder.encode(PubSubUtil.simpleTopicName(qualifiedTopic), event);
+            pubSubTemplate.publish(qualifiedTopic, message).join();
         }
     }
 }

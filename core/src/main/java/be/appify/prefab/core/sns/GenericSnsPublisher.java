@@ -3,12 +3,9 @@ package be.appify.prefab.core.sns;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.DomainEventDispatcher;
 import be.appify.prefab.core.domain.EventType;
-import be.appify.prefab.core.domain.TypedEvent;
 import be.appify.prefab.core.serialization.ConcreteEventSupport;
-import be.appify.prefab.core.versioning.EventVersions;
 import io.awspring.cloud.sns.core.SnsNotification;
 import io.awspring.cloud.sns.core.SnsTemplate;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,13 +34,13 @@ public class GenericSnsPublisher implements DomainEventDispatcher {
 
     private final SnsTemplate snsTemplate;
     private final SqsUtil sqsUtil;
-    private final SnsSerializer snsSerializer;
+    private final SnsMessageEncoder encoder;
     private final ConcurrentMap<String, String> topicArnCache = new ConcurrentHashMap<>();
 
     public GenericSnsPublisher(SnsTemplate snsTemplate, SqsUtil sqsUtil, SnsSerializer snsSerializer) {
         this.snsTemplate = snsTemplate;
         this.sqsUtil = sqsUtil;
-        this.snsSerializer = snsSerializer;
+        this.encoder = new SnsMessageEncoder(snsSerializer);
     }
 
     @Override
@@ -82,12 +79,10 @@ public class GenericSnsPublisher implements DomainEventDispatcher {
                             ? sqsUtil.ensureTopicExists(resolvedTopic, true)
                             : sqsUtil.ensureTopicExists(resolvedTopic));
             log.debug("Publishing event {} on topic {}", event, topicArn);
-            var payload = snsSerializer.serialize(resolvedTopic, event);
-            var versionHeaders = new HashMap<>(EventVersions.headersFor(event));
-            if (event instanceof TypedEvent<?> typed) {
-                versionHeaders.put(EventType.HEADER, typed.type().id());
-            }
-            var subject = TypedEvent.payload(event).getClass().getName();
+            var message = encoder.encode(resolvedTopic, event);
+            var payload = message.payload();
+            var versionHeaders = message.headers();
+            var subject = message.subject();
             CompletableFuture.runAsync(() -> {
                 if (!fifo && versionHeaders.isEmpty()) {
                     snsTemplate.sendNotification(topicArn, payload, subject);

@@ -10,7 +10,6 @@ import com.google.protobuf.Duration;
 import com.google.pubsub.v1.DeadLetterPolicy;
 import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.ProjectTopicName;
-import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.RetryPolicy;
 import com.google.pubsub.v1.Subscription;
 import java.util.List;
@@ -36,7 +35,7 @@ import static org.apache.commons.lang3.StringUtils.isEmpty;
  */
 @Component
 @ConditionalOnClass(PubSubAdmin.class)
-public class PubSubUtil {
+public class PubSubUtil implements PubSubSubscriptions {
     private static final Logger log = LoggerFactory.getLogger(PubSubUtil.class);
     private final String projectId;
     private final Integer maxRetries;
@@ -44,7 +43,7 @@ public class PubSubUtil {
     private final Integer maximumBackoff;
     private final PubSubAdmin pubSubAdmin;
     private final PubSubSubscriberTemplate subscriberTemplate;
-    private final PubSubDeserializer deserializer;
+    private final PubSubMessageDecoder decoder;
     private final EventRegistry eventRegistry;
     private final String deadLetterTopicName;
     private final RetryTemplate retryTemplate;
@@ -83,7 +82,7 @@ public class PubSubUtil {
         this.maximumBackoff = maximumBackoff;
         this.pubSubAdmin = pubSubAdmin;
         this.subscriberTemplate = subscriberTemplate;
-        this.deserializer = deserializer;
+        this.decoder = new PubSubMessageDecoder(deserializer, eventRegistry);
         this.eventRegistry = eventRegistry;
         this.deadLetterTopicName = !isEmpty(deadLetterTopicName) ? deadLetterTopicName : applicationName + ".dlt";
         this.retryTemplate = new RetryTemplate(org.springframework.core.retry.RetryPolicy.builder()
@@ -107,12 +106,7 @@ public class PubSubUtil {
         subscribe(new SubscriptionRequest<>(topic, subscription, type, consumer));
     }
 
-    /**
-     * Subscribes to a Pub/Sub topic using the provided subscription request.
-     *
-     * @param request the subscribe request containing subscription details
-     * @param <T>     the type of the messages
-     */
+    @Override
     public <T> void subscribe(SubscriptionRequest<T> request) {
         subscribeWithHandle(request);
     }
@@ -256,12 +250,8 @@ public class PubSubUtil {
                 try {
                     if (request.rawConsumer().isPresent()) {
                         request.rawConsumer().orElseThrow().accept(pubsubMessage);
-                    } else if (request.eventType().isPresent()) {
-                        consumeConcrete(request, pubsubMessage);
-                    } else if (pubsubMessage.containsAttributes("type")) {
-                        consumeTyped(request, pubsubMessage);
                     } else {
-                        request.consumer().accept(deserializer.deserialize(request.topic(), pubsubMessage.getData(), request.type(), pubsubMessage.getAttributesMap()));
+                        decoder.decode(request, pubsubMessage).ifPresent(request.consumer());
                     }
                     message.ack();
                 } catch (Exception e) {
@@ -275,34 +265,6 @@ public class PubSubUtil {
             message.nack();
             log.error("Retries exhausted when processing Pub/Sub message: {}", message, e);
             throw new RuntimeException(e);
-        }
-    }
-
-    private <T> void consumeConcrete(SubscriptionRequest<T> request, PubsubMessage message) {
-        var type = request.eventType().orElseThrow();
-        var identity = message.getAttributesMap().get(EventType.HEADER);
-        if (identity == null) {
-            throw new IllegalArgumentException("Generic event is missing " + EventType.HEADER);
-        }
-        var registered = eventRegistry.concreteTypeFor(request.topic(), identity);
-        if (!registered.equals(type)) {
-            log.debug("Skipping concrete event [{}] for Pub/Sub binding [{}]", registered, type);
-            return;
-        }
-        request.consumer().accept(deserializer.deserialize(
-                request.topic(), message.getData(), type, message.getAttributesMap()));
-    }
-
-    <T> void consumeTyped(SubscriptionRequest<T> request, PubsubMessage pubsubMessage) {
-        var typeName = pubsubMessage.getAttributesOrThrow("type");
-        var consumedType = eventRegistry.typeByClassName(typeName);
-        if (consumedType.isEmpty()) {
-            log.warn("Ignoring Pub/Sub message with unknown event type [{}] on topic [{}]",
-                    typeName, request.topic());
-            return;
-        }
-        if (request.type().isAssignableFrom(consumedType.get())) {
-            request.consumer().accept(deserializer.deserialize(request.topic(), pubsubMessage.getData(), request.type(), pubsubMessage.getAttributesMap()));
         }
     }
 

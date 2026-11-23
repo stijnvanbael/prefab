@@ -4,6 +4,7 @@ import be.appify.prefab.core.annotations.DbColumn;
 import be.appify.prefab.core.annotations.DbDocument;
 import be.appify.prefab.core.annotations.DbRename;
 import be.appify.prefab.core.annotations.Indexed;
+import be.appify.prefab.processor.error.PrefabProcessingException;
 import be.appify.prefab.processor.rest.getlist.FullTextFields;
 import be.appify.prefab.core.annotations.TenantId;
 import be.appify.prefab.core.annotations.rest.Autocomplete;
@@ -108,7 +109,11 @@ class DbMigrationWriter {
                 }
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new PrefabProcessingException(null, "Prefab",
+                    "cannot write the generated database migration V%d__generated.sql: %s"
+                            .formatted(version + 1, e.getMessage()),
+                    "check that the compiler output directory is writable and has free disk space",
+                    e);
         }
     }
 
@@ -194,7 +199,10 @@ class DbMigrationWriter {
             var latestVersion = latestMigrationVersion(processingEnvironment);
             return new DatabaseState(List.copyOf(tablesByName.values()), latestVersion);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new PrefabProcessingException(null, "Prefab",
+                    "cannot read the existing database migrations in db/migration: %s".formatted(e.getMessage()),
+                    "check that the db/migration directory and its V<n>__*.sql files are readable",
+                    e);
         }
     }
 
@@ -310,8 +318,17 @@ class DbMigrationWriter {
         try {
             var content = java.nio.file.Files.readString(file);
             new SqlStatementParser().parse(content, tables);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new PrefabProcessingException(null, "Prefab",
+                    "cannot read database migration %s: %s".formatted(file, e.getMessage()),
+                    "check that the file is readable and valid UTF-8", e);
+        } catch (MigrationSqlException e) {
+            throw new PrefabProcessingException(null, "Prefab",
+                    "cannot interpret database migration %s: %s".formatted(file, e.getMessage()),
+                    "fix the SQL in this migration so it only uses statements Prefab understands (CREATE TABLE,"
+                            + " ALTER TABLE on existing tables, CREATE/DROP INDEX, DROP TABLE), or move hand-written"
+                            + " SQL to a migration file that does not follow the V<n>__*.sql naming scheme",
+                    e);
         }
     }
 
@@ -811,7 +828,12 @@ class DbMigrationWriter {
                 }
             }
             if (!added) {
-                throw new IllegalArgumentException("Circular dependency detected between: " + dependencyTree.keySet());
+                throw new PrefabProcessingException(null, "Prefab",
+                        "circular foreign key dependency between tables %s.".formatted(
+                                dependencyTree.keySet().stream().map(Table::name).sorted().toList()),
+                        "break the cycle by making one of the references a plain id column instead of a"
+                                + " reference to another aggregate",
+                        null);
             }
         }
         return result;

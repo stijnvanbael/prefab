@@ -9,6 +9,7 @@ import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
+import be.appify.prefab.processor.error.PrefabProcessingException;
 import be.appify.prefab.processor.event.PartitioningKeySupport;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
@@ -181,7 +182,10 @@ public class AvscPlugin implements PrefabPlugin {
             var type = annotation.type();
             var typeElement = context.processingEnvironment().getElementUtils().getTypeElement(type.getCanonicalName());
             if (typeElement == null) {
-                throw new IllegalArgumentException("Unable to resolve @AvscInterface.type(): " + type.getCanonicalName());
+                throw new PrefabProcessingException(null, "@AvscInterface",
+                        "type() '%s' cannot be resolved.".formatted(type.getCanonicalName()),
+                        "make sure the interface exists, is spelled correctly and is on the compile classpath",
+                        null);
             }
             return typeElement.asType();
         } catch (MirroredTypeException e) {

@@ -1,5 +1,7 @@
 package be.appify.prefab.processor;
 
+import be.appify.prefab.processor.error.PrefabProcessingException;
+
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.TypeSpec;
 
@@ -61,6 +63,12 @@ public class JavaFileWriter implements FileOutput {
      */
     @Override
     public void writeFile(String packagePrefix, String typeName, TypeSpec type) {
+        if (!GeneratedFiles.defer(processingEnvironment, () -> write(packagePrefix, typeName, type))) {
+            write(packagePrefix, typeName, type);
+        }
+    }
+
+    private void write(String packagePrefix, String typeName, TypeSpec type) {
         try {
             var packageName = !isBlank(packageSuffix) ? "%s.%s".formatted(packagePrefix, packageSuffix) : packagePrefix;
             var qualifiedName = "%s.%s".formatted(packageName, typeName);
@@ -79,8 +87,11 @@ public class JavaFileWriter implements FileOutput {
                     }
                     return;
                 }
-                processingEnvironment.getMessager().printMessage(Diagnostic.Kind.ERROR, e.getMessage());
-                return;
+                throw new PrefabProcessingException(originatingElements.stream().findFirst().orElse(null), "Prefab",
+                        "cannot create generated source file %s: %s".formatted(qualifiedName, e.getMessage()),
+                        "check that no other annotation processor generates the same type and that the output"
+                                + " directory is writable",
+                        e);
             }
             try (var writer = builderFile.openWriter()) {
                 var javaFile = JavaFile
@@ -92,7 +103,10 @@ public class JavaFileWriter implements FileOutput {
             }
             markAsGeneratedByProcessor(qualifiedName);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new PrefabProcessingException(originatingElements.stream().findFirst().orElse(null), "Prefab",
+                    "cannot write generated source file %s.%s: %s".formatted(packagePrefix, typeName, e.getMessage()),
+                    "check that the compiler output directory exists, is writable and has free disk space",
+                    e);
         }
     }
 

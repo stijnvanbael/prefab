@@ -6,12 +6,15 @@ import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.annotations.Events;
 import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.util.FullTextLanguages;
+import be.appify.prefab.processor.error.ErrorReporter;
+import be.appify.prefab.processor.error.ProcessingGuard;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -37,6 +40,8 @@ public class PrefabContext {
     }
 
     private final ProcessingEnvironment processingEnvironment;
+    private final ErrorReporter errorReporter;
+    private final ProcessingGuard guard;
     private final RequestParameterBuilder requestParameterBuilder;
     private final List<PrefabPlugin> plugins;
     private final RequestParameterMapper requestParameterMapper;
@@ -116,6 +121,8 @@ public class PrefabContext {
             Set<String> currentCompilationTypeNames
     ) {
         this.processingEnvironment = processingEnvironment;
+        this.errorReporter = new ErrorReporter(processingEnvironment);
+        this.guard = new ProcessingGuard(errorReporter);
         this.plugins = plugins;
         this.roundEnvironment = roundEnvironment;
         this.inheritedDeferredEventHandlers = Set.copyOf(inheritedDeferredEventHandlers);
@@ -124,6 +131,38 @@ public class PrefabContext {
         this.configuration = new PrefabConfiguration(processingEnvironment.getOptions());
         requestParameterBuilder = new RequestParameterBuilder(plugins);
         requestParameterMapper = new RequestParameterMapper(plugins);
+    }
+
+    /**
+     * Gets the reporter used to emit compiler diagnostics.
+     *
+     * @return the error reporter
+     */
+    public ErrorReporter errorReporter() {
+        return errorReporter;
+    }
+
+    /**
+     * Gets the failure boundary that converts exceptions from processor and plugin code into diagnostics.
+     *
+     * @return the processing guard
+     */
+    public ProcessingGuard guard() {
+        return guard;
+    }
+
+    /**
+     * Calls a plugin hook that returns a value. A failure is reported as a diagnostic that names the plugin and
+     * aborts work on the element being processed.
+     *
+     * @param plugin  the plugin to call
+     * @param element the element being processed
+     * @param hook    the plugin call
+     * @param <T>     the result type
+     * @return the hook's result
+     */
+    public <T> T callPlugin(PrefabPlugin plugin, Element element, Supplier<T> hook) {
+        return guard.callOrAbort("plugin " + plugin.getClass().getName(), element, hook);
     }
 
     /**

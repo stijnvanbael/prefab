@@ -252,6 +252,13 @@ Place the fixture Java file at
 | `fileWriter(packageSuffix)`                | A `JavaFileWriter` for generating main-source files              |
 | `testFileWriter(packageSuffix)`            | A `TestJavaFileWriter` for generating test-support files         |
 
+### Failure handling in processors and plugins
+
+Report invalid input by throwing `PrefabProcessingException` (an actionable `ERROR` with element and suggested fix),
+let programming errors escape (they are reported as internal errors naming your plugin), and never swallow
+exceptions. See [Compiler Diagnostics and Failure Handling](backlog/docs/extension-points.md#88-compiler-diagnostics-and-failure-handling)
+for the conventions and `-Aprefab.diagnostics.stacktrace=true`.
+
 ---
 
 ## Coding Standards

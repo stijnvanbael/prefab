@@ -20,6 +20,7 @@
         <module>streams</module>
         <module>streams-engine</module>
         <module>streams-kafka</module>
+        <module>streams-postgres</module>
         <module>annotation-processor</module>
         <module>avro</module>
         <module>avro-processor</module>
@@ -146,6 +147,11 @@
             <dependency>
                 <groupId>be.appify.prefab</groupId>
                 <artifactId>prefab-streams-kafka</artifactId>
+                <version>${prefab.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>be.appify.prefab</groupId>
+                <artifactId>prefab-streams-postgres</artifactId>
                 <version>${prefab.version}</version>
             </dependency>
             <dependency>

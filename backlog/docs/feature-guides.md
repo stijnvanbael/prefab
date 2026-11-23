@@ -1052,6 +1052,7 @@ Prefab provides a backend-neutral Streams DSL (`prefab-streams`) and a Kafka Str
 |------------------------|------------------------------------------------------------------------------------------------------------|-------------------|
 | `prefab-streams`       | The DSL (`PrefabStreams`, `PrefabStream`, `StreamDefinition`, `Store`, ...) and the backend-neutral test API (`be.appify.prefab.streams.testing`) | No                |
 | `prefab-streams-engine` | In-process operator engine, source/sink/state SPIs and in-memory topology test harness                     | No                |
+| `prefab-streams-postgres` | Postgres `StreamStateRepository` (state, inbox, outbox, relay lease) for the in-process engine | No                |
 | `prefab-streams-kafka` | `KafkaPrefabStreams`, serdes, `KafkaStreamBreakoutAdapter`, the Kafka test harness and the `StreamsConfiguration` auto-configuration | Yes               |
 
 Add `prefab-streams-kafka` to run the DSL on Kafka Streams; it brings `prefab-streams` along. Application code that
@@ -1138,6 +1139,79 @@ Use instance `merge(...)` when the current stream type already represents the ta
 `PrefabStreams.merge(...)` when sibling streams should be widened into a declared common supertype.
 
 Use `join(...)` for KStream-KStream **inner join** composition with explicit windowing via `JoinWindow`.
+
+### Postgres state for the in-process engine (`prefab-streams-postgres`)
+
+`prefab-streams-postgres` implements the engine's `StreamStateRepository` (decision-008) with `JdbcTemplate`. When
+the application has a `JdbcTemplate` and a `PlatformTransactionManager`, auto-configuration registers a
+`PostgresStreamStateRepository`; define your own `StreamStateRepository` bean to replace it.
+
+| Table | Purpose |
+|-------|---------|
+| `prefab_stream_store` | Keyed state, windows, join buffers and deduplication identities. Every row has a `version` for optimistic concurrency. Windows, join buffers and identities carry an `expiry_key` and `expires_at` (event time). |
+| `prefab_stream_inbox` | Processed input messages (`subscription`, `message_id`), so redelivered messages are skipped. |
+| `prefab_stream_outbox` | Output records written in the message transaction, published by the relay in `seq` order. |
+| `prefab_stream_lease` | One relay lease per sink topic, with expiry. Another instance takes over after it expires. |
+
+Values are `bytea` (JSON with the concrete class name by default; provide a `StreamStateCodec` bean to change it).
+Keys use `StreamKeyEncoding`, shared with the Kafka backend. A conflicting write (stale `version`, claimed inbox
+identity or deadlock) throws `StreamStateRepository.OptimisticConflictException`, which the engine retries.
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `prefab.streams.state.initialize-schema` | `always` | `always` runs the idempotent DDL below on start; `never` leaves the tables to you. The application's Flyway `V{n}` sequence is not used. |
+| `prefab.streams.inbox-retention` | `7d` | Wall-clock retention of inbox rows (decision-008). The engine passes it to `cleanupExpired`; until a broker module binds the property, set it through the `InProcessPrefabStreams` constructor. |
+
+Closed windows, join buffers and deduplication identities are removed by the engine through `deleteExpired` with the
+operator's stream time; expired relay leases are removed together with old inbox rows.
+
+Limitation: a row deleted and recreated between one transaction's read and write is not detected, because deleted rows
+leave no version behind.
+
+DDL for teams that manage their own schema (`initialize-schema=never`):
+
+```sql
+-- Prefab Streams state schema for PostgreSQL. Idempotent; safe to run on every start.
+
+-- Keyed state, windows, join buffers and deduplication identities.
+-- Windows and join buffers are rows with an expiry (expiry_key + expires_at).
+CREATE TABLE IF NOT EXISTS prefab_stream_store (
+    namespace  TEXT        NOT NULL,
+    state_key  BYTEA       NOT NULL,
+    state_value BYTEA     NOT NULL,
+    version    BIGINT      NOT NULL,
+    expiry_key BYTEA,
+    expires_at TIMESTAMPTZ,
+    PRIMARY KEY (namespace, state_key)
+);
+CREATE INDEX IF NOT EXISTS prefab_stream_store_expiry
+    ON prefab_stream_store (namespace, expiry_key, expires_at) WHERE expiry_key IS NOT NULL;
+
+-- Processed input messages, for deduplication of redelivered messages.
+CREATE TABLE IF NOT EXISTS prefab_stream_inbox (
+    subscription TEXT        NOT NULL,
+    message_id   TEXT        NOT NULL,
+    recorded_at  TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (subscription, message_id)
+);
+CREATE INDEX IF NOT EXISTS prefab_stream_inbox_recorded_at ON prefab_stream_inbox (recorded_at);
+
+-- Output records waiting to be published. seq gives the publish order.
+CREATE TABLE IF NOT EXISTS prefab_stream_outbox (
+    seq     BIGSERIAL PRIMARY KEY,
+    id      TEXT  NOT NULL UNIQUE,
+    topic   TEXT  NOT NULL,
+    message BYTEA NOT NULL
+);
+CREATE INDEX IF NOT EXISTS prefab_stream_outbox_topic ON prefab_stream_outbox (topic, seq);
+
+-- One relay per sink topic, with expiry so another instance can take over.
+CREATE TABLE IF NOT EXISTS prefab_stream_lease (
+    topic      TEXT        PRIMARY KEY,
+    owner      TEXT        NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL
+);
+```
 
 ### Exactly-once processing and event deduplication
 

@@ -5,6 +5,7 @@ import be.appify.prefab.core.annotations.rest.Autocomplete;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.GetList;
+import be.appify.prefab.core.annotations.rest.Security;
 import be.appify.prefab.core.annotations.rest.SortOrder;
 import be.appify.prefab.core.service.Reference;
 import jakarta.validation.constraints.NotBlank;
@@ -21,7 +22,7 @@ import org.springframework.data.annotation.Version;
  */
 @Aggregate
 @GetById
-@GetList(sorted = @SortOrder(property = "name"))
+@GetList(sorted = @SortOrder(property = "name"), security = @Security(enabled = false))
 public record Category(
         @Id Reference<Category> id,
         @Version long version,

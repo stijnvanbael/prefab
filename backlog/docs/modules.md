@@ -43,6 +43,7 @@
 | AWS SNS/SQS events      | `core`, `annotation-processor`, `sns-sqs`                         |
 | Audit trail             | `core` (no extra module needed)                                   |
 | Multi-tenancy           | `core` (no extra module needed)                                   |
+| Endpoint security       | `core`, `annotation-processor`, `security`                         |
 | Binary uploads          | `core`, `annotation-processor`, persistence module                |
 | OpenAPI documentation   | `core`, `annotation-processor`, `openapi`                         |
 | AsyncAPI documentation  | `core`, `annotation-processor`, `async-api`                       |

@@ -152,13 +152,13 @@ public class KafkaPlugin implements PrefabPlugin {
                 context.logError(missingContractMethodMessage(definition.path(), missingContractMethod.orElseThrow()), element);
                 continue;
             }
-            var schemaPackage = schema.getNamespace() != null ? schema.getNamespace() : packageName;
-            var eventType = ClassName.get(schemaPackage, schema.getName());
+            // The record is generated next to the @Avsc contract, whatever namespace the schema declares.
+            var eventType = ClassName.get(packageName, schema.getName());
             var keyExtractor = definition.keyProperty()
                     .<CodeBlock>map(property -> CodeBlock.of("event.$L()", property))
                     .or(() -> sharedKeyExtractor);
             eventTypeRegistrarWriter.writeAvscRegistrar(
-                    schemaPackage,
+                    packageName,
                     eventType,
                     event.topic(),
                     event.publishTo(),

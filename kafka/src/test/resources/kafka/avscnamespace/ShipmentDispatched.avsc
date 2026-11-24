@@ -1,0 +1,9 @@
+{
+  "type": "record",
+  "name": "ShipmentDispatched",
+  "namespace": "kafka.logistics",
+  "fields": [
+    {"name": "shipmentId", "type": "string"},
+    {"name": "carrier", "type": "string"}
+  ]
+}

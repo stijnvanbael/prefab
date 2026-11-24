@@ -2,9 +2,8 @@ title: Publish an event defined by an AVSC schema contract
 category: avro
 modules: [postgres, kafka, avro, avro-processor]
 notes: >
-  The schema namespace equals the Java package on purpose: with a different namespace (e.g. com.example.logistics)
-  Prefab generates ShipmentDispatchedEventTypeRegistrar in the namespace package, importing a class that does not
-  exist, so the project does not compile. Switch to a different namespace once that is fixed.
+  The schema namespace (com.example.logistics) differs from the Java package of the contract on purpose: the
+  record is generated next to the @Avsc contract in com.example.shipping.
   The @Avsc contract interface must be sealed (permits the generated record): a non-sealed contract compiles but fails
   at startup with "Only sealed interfaces are supported for event types", while the docs show a non-sealed example.
-  Tracked in TASK-351, TASK-354.
+  Tracked in TASK-354.

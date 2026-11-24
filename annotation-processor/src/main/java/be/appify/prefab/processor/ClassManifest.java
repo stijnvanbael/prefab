@@ -53,7 +53,9 @@ public class ClassManifest {
 
 
     public static boolean hasUnresolvedFields(TypeElement typeElement) {
-        return hasUnresolvedFieldTypes(typeElement) || hasUnresolvedEventHandlerParameterTypes(typeElement);
+        return hasUnresolvedFieldTypes(typeElement)
+                || hasUnresolvedEventHandlerParameterTypes(typeElement)
+                || UnresolvedAnnotations.existsIn(typeElement);
     }
 
     private static boolean hasUnresolvedFieldTypes(TypeElement typeElement) {

@@ -220,7 +220,7 @@ benchmark/tasks/events-multicast/
 ```yaml
 title: Update many aggregates from one event
 category: events-handling      # used for per-category pass rates and --tasks selection
-modules: [postgres, kafka]     # postgres, mongodb, kafka, avro, avro-processor, security, openapi
+modules: [postgres, kafka]     # postgres, mongodb, kafka, avro, avro-processor, streams, streams-engine, security, openapi
 timeoutMinutes: 30             # default 30
 maxTurns: 100                  # default 100
 allowGuardrails: []            # guardrail rules this task legitimately breaks

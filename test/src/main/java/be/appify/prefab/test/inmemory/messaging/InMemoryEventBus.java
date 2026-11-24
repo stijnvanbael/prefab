@@ -8,6 +8,7 @@ import be.appify.prefab.core.kafka.UnknownEventTypeException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -88,6 +89,21 @@ public class InMemoryEventBus implements DomainEventDispatcher {
         var codec = codecFor(event);
         var messages = topics.stream().map(topic -> codec.encode(topic, event)).toList();
         deliverAfterCommit(messages);
+    }
+
+    /**
+     * Publishes an event to a single topic, with transport headers of the publisher next to the ones the codec
+     * writes. Prefab Streams uses this to carry its message identity and event time over the bus.
+     *
+     * @param event   the event, possibly wrapped in a {@code TypedEvent}
+     * @param topic   the topic to publish to
+     * @param headers additional transport headers; the headers of the codec take precedence
+     */
+    public void publish(Object event, String topic, Map<String, String> headers) {
+        var encoded = codecFor(event).encode(topic, event);
+        var merged = new HashMap<>(headers);
+        merged.putAll(encoded.headers());
+        deliverAfterCommit(List.of(new EncodedMessage(topic, merged, encoded.payload(), encoded.codec())));
     }
 
     /**

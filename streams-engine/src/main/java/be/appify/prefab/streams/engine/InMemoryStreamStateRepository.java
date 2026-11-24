@@ -109,6 +109,21 @@ public final class InMemoryStreamStateRepository implements StreamStateRepositor
         }
     }
 
+    /** Forgets all state, processed message identities and pending outbox records, so a test starts clean. */
+    public void clear() {
+        lock.lock();
+        try {
+            values.clear();
+            versions.clear();
+            expirations.clear();
+            inbox.clear();
+            outbox.clear();
+            relayLeases.clear();
+        } finally {
+            lock.unlock();
+        }
+    }
+
     private final class MemoryTransaction implements Transaction {
         private final Map<StateKey, Long> observedVersions = new LinkedHashMap<>();
         private final Map<StateKey, Change> changes = new LinkedHashMap<>();

@@ -8,6 +8,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import software.amazon.awssdk.services.sns.SnsClient;
 import software.amazon.awssdk.services.sns.model.CreateTopicRequest;
 import software.amazon.awssdk.services.sns.model.CreateTopicResponse;
@@ -75,6 +77,27 @@ class SqsUtilTest {
                 request.name().equals("orders.fifo")
                         && request.attributes().get("FifoTopic").equals("true")
                         && request.attributes().get("ContentBasedDeduplication").equals("false")));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "showcase.customer-registered, false, showcase-customer-registered",
+            "showcase.order, true, showcase-order.fifo",
+            "showcase.order.fifo, false, showcase-order.fifo",
+            "orders_v2-eu, false, orders_v2-eu"})
+    void ensureTopicExistsReplacesCharactersThatSnsDoesNotAllowInTopicNames(
+            String topic, boolean fifo, String expectedName
+    ) {
+        var snsClient = mock(SnsClient.class);
+        when(snsClient.createTopic(any(CreateTopicRequest.class))).thenReturn(
+                CreateTopicResponse.builder().topicArn("arn:aws:sns:us-east-1:000000000000:" + expectedName).build());
+        var sqsUtil = new SqsUtil(
+                "app", "", 5, 1000, 30000, 1.5, snsClient, UNUSED_SQS_CLIENT, UNUSED_SQS_DESERIALIZER,
+                new EventRegistry());
+
+        sqsUtil.ensureTopicExists(topic, fifo);
+
+        verify(snsClient).createTopic(argThat((CreateTopicRequest request) -> request.name().equals(expectedName)));
     }
 
     @Test

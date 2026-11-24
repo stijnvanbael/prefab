@@ -118,7 +118,7 @@ public class SqsUtil implements SqsSubscriptions, DisposableBean {
      */
     public String ensureTopicExists(String topicName, boolean fifo) {
         var fifoTopic = fifo || topicName.endsWith(".fifo");
-        var effectiveTopicName = fifoTopic ? withFifoSuffix(topicName) : topicName;
+        var effectiveTopicName = sanitized(fifoTopic ? withFifoSuffix(topicName) : topicName, fifoTopic, "SNS topic");
         try {
             var request = CreateTopicRequest.builder().name(effectiveTopicName);
             if (fifoTopic) {
@@ -236,15 +236,7 @@ public class SqsUtil implements SqsSubscriptions, DisposableBean {
 
     private String ensureQueueExists(String queueName, boolean fifo) {
         var fifoQueue = fifo || queueName.endsWith(".fifo");
-        var effectiveQueueName = fifoQueue ? withFifoSuffix(queueName) : queueName;
-        var queueStem = fifoQueue
-                ? effectiveQueueName.substring(0, effectiveQueueName.length() - ".fifo".length())
-                : effectiveQueueName;
-        var sanitizedName = queueStem.replaceAll("[^a-zA-Z0-9_-]", "-") + (fifoQueue ? ".fifo" : "");
-        if (!sanitizedName.equals(effectiveQueueName)) {
-            log.warn("SQS queue name [{}] contains invalid characters and was sanitized to [{}]", queueName,
-                    sanitizedName);
-        }
+        var sanitizedName = sanitized(fifoQueue ? withFifoSuffix(queueName) : queueName, fifoQueue, "SQS queue");
         try {
             var request = CreateQueueRequest.builder().queueName(sanitizedName);
             if (fifoQueue) {
@@ -315,6 +307,21 @@ public class SqsUtil implements SqsSubscriptions, DisposableBean {
                 || request.eventType()
                         .map(eventRegistry::hasPartitioningKey)
                         .orElseGet(() -> eventRegistry.hasPartitioningKey(request.type()));
+    }
+
+    /**
+     * SNS topics and SQS queues only allow letters, digits, hyphens and underscores (and the {@code .fifo} suffix of
+     * FIFO ones), while event topics such as {@code shop.order} commonly contain dots. Producers and consumers both
+     * resolve their resource through here, so they end up on the same name.
+     */
+    private String sanitized(String name, boolean fifo, String resource) {
+        var stem = fifo ? name.substring(0, name.length() - ".fifo".length()) : name;
+        var sanitizedName = stem.replaceAll("[^a-zA-Z0-9_-]", "-") + (fifo ? ".fifo" : "");
+        if (!sanitizedName.equals(name)) {
+            log.warn("{} name [{}] contains invalid characters and was sanitized to [{}]", resource, name,
+                    sanitizedName);
+        }
+        return sanitizedName;
     }
 
     private static String withFifoSuffix(String name) {

@@ -259,7 +259,7 @@ public class PrefabProcessor extends AbstractProcessor {
     ) {
         environment.getElementsAnnotatedWith(annotationType).forEach(element -> {
             var annotation = element.getAnnotation(annotationType);
-            if (annotation != null) {
+            if (annotation != null && !UnresolvedAnnotations.hasUnresolvedAnnotation(element)) {
                 validateSecurityConfiguration(element, securityExtractor.apply(annotation));
             }
         });

@@ -140,7 +140,19 @@ public class GetListUtil {
         }
         return field.type().isSingleValueType()
                 ? field.type().fields().getFirst().type().asBoxed().asTypeName()
-                : ClassName.get(field.type().packageName(), field.type().simpleName());
+                : declaredTypeName(field.type());
+    }
+
+    /**
+     * Returns the type name for an equality filter parameter. Primitives are boxed because query parameters are
+     * optional and a primitive has no valid class name.
+     *
+     * @param type the filtered field's type
+     * @return the type name of the filter parameter
+     */
+    static TypeName declaredTypeName(TypeManifest type) {
+        var boxed = type.asBoxed();
+        return ClassName.get(boxed.packageName(), boxed.simpleName());
     }
 
     static boolean isRangeComparable(TypeManifest type) {

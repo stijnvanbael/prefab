@@ -79,7 +79,8 @@ public class RequestParameterBuilder {
         var builder = ParameterSpec.builder(effectiveType.asTypeName(), parameter.name());
         var annotations = new ArrayList<>(
                 parameter.annotations().stream().map(AnnotationManifest::asSpec).toList());
-        if (!effectiveType.isStandardType() && !effectiveType.isEnum()) {
+        var alreadyValidated = parameter.annotations().stream().anyMatch(a -> a.type().is(Valid.class));
+        if (!effectiveType.isStandardType() && !effectiveType.isEnum() && !alreadyValidated) {
             annotations.add(AnnotationSpec.builder(Valid.class).build());
         } else if (effectiveType.is(String.class) && parameter.annotations().stream()
                 .noneMatch(a -> a.type().is(Size.class))) {

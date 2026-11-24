@@ -71,6 +71,8 @@ Checklist before saying "done":
 - [ ] Full test suite passes reliably (not just the changed tests); no failing or flaky tests
 - [ ] Zero compiler warnings, no unused imports or dead code, no TODO/FIXME in committed code
 - [ ] `backlog/docs/` updated if a feature, annotation, artefact, extension point or config property changed
+- [ ] If public behaviour changed: the affected agent cheat sheet entry and recipe are updated, and a benchmark
+      task is added or updated (see "Living document rule")
 - [ ] Task is `Done`, has implementation notes, and is in `backlog/completed/`
 - [ ] Branch has a meaningful name and is rebased on the latest `origin/main`
 - [ ] Pull request opened and being watched
@@ -104,5 +106,41 @@ Role skills live in `.agents/skills/` (also exposed at `.claude/skills/`). Use t
 
 ## Documentation
 
+### Living document rule
+
 When you change or add any Prefab feature, update the matching document in `backlog/docs/` in the same
 commit. Entry point: `backlog/docs/developer-guide.md`.
+
+AI agents build applications with Prefab, and small models copy whatever guidance they find, outdated or not.
+Agent-facing material is therefore part of the feature, not a follow-up. A change to Prefab's **public
+behaviour** (an annotation or attribute, generated artefact, extension point, configuration property, or
+deprecation/removal of any of these) is not finished until, in the same pull request:
+
+1. **Reference docs** in `backlog/docs/` are updated.
+2. **Cheat sheet**: the entry for the affected intent is added, corrected or removed (TASK-344), and a
+   deprecated way of doing something never stays in it.
+3. **Recipe**: the recipe covering the affected intent is updated, and its example still compiles (TASK-346).
+   Add a recipe if the feature introduces a new common intent.
+4. **Benchmark**: a task in `benchmark/tasks/` exercising the new or changed behaviour is added or updated
+   (`backlog/docs/benchmark.md`, "Adding a task").
+5. **Generated agent context**: if the change alters what is generated, check that the per-project agent
+   context file still describes it correctly (TASK-345, `generated-artefacts.md` §6.12).
+
+Items 2, 3 and 5 apply as soon as the artefact exists on `main`; until then, record the follow-up in the
+relevant backlog task. If a change does not warrant one of these, say why in the pull request description
+(for example "internal refactor, no public behaviour change").
+
+### Contributor versus app-developer guidance
+
+Two audiences, two sets of files; never mix them:
+
+- **Contributor instructions** (this file, `CLAUDE.md`, `.github/copilot-instructions.md`, `.agents/skills/`,
+  `.claude/skills/`) are for people and agents changing Prefab itself. They are loaded automatically in this
+  repository.
+- **App-developer guidance** (cheat sheet, recipes, generated agent context, benchmark preamble) is for
+  people and agents building applications *with* Prefab. It ships to application projects, so it must not be
+  placed in or referenced from the contributor files above, and it must not assume this repository's
+  conventions (backlog workflow, Java style rules, module layout).
+
+Do not copy app-developer rules into this file, or contributor rules into app-developer material, so that
+neither audience loads the other's instructions by mistake.

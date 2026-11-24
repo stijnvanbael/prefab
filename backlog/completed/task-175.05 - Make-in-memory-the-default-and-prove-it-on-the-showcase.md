@@ -25,7 +25,7 @@ Flip `prefab.test.containers` to default `false`, migrate this repository and do
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 `@IntegrationTest` runs in memory by default
-- [x] #2 Tests that call native `@Query` mixins (`examples/kafka`, `pubsub`, `sns-sqs`) use `containers = true`; the reference showcase and existing variants set `prefab.test.containers: true`
+- [x] #2 Tests that call native `@Query` mixins (`examples/kafka`, `pubsub`, `sns-sqs`) run on containers (module property, documented in a comment); the reference showcase and existing variants set `prefab.test.containers: true`
 - [x] #3 A configuration-only `examples/showcase-inmemory` variant passes with Docker unavailable; gaps (at least Prefab Streams) are declared in its capabilities file with a reason and task
 - [x] #4 Wall-clock time of the in-memory variant versus the reference showcase is recorded in TASK-175
 - [x] #5 `modules.md`, `feature-guides.md`, `configuration.md`, `annotation-reference.md`, `troubleshooting.md` and `examples/README.md` describe the in-memory backend, its semantics, gaps and the upgrade behaviour change
@@ -48,6 +48,12 @@ Flip `prefab.test.containers` to default `false`, migrate this repository and do
 - **Docs:** `feature-guides.md` (new 7.20), `configuration.md`, `annotation-reference.md` (4.10), `troubleshooting.md` (three entries), `modules.md`, `examples/README.md`, `developer-guide.md` index.
 - **Follow-ups created:** TASK-374 (Prefab Streams on the in-memory bus), TASK-375 (inspect registered schemas in memory).
 - Verification: `mvn install -DskipTests` for the whole reactor, unit and context tests of `core` and `test` (574 and 259 tests, Testcontainers tests excluded), `benchmark` tests, the variant. Container-based example modules cannot run here; they compile.
+- **CI hang after the first push.** The example tests that call the native mixin also had
+  `@IntegrationTest(containers = true)`, although their module already sets `prefab.test.containers: true`. That gave
+  them their own context cache key, so `examples/pubsub` started two containers contexts. The second Pub/Sub emulator
+  setup (`removeConflictingContainer`) force-removed the emulator of the first, and the first context's publish then
+  blocked forever in `ChannelSummaryIntegrationTest`. The redundant annotations were replaced by a comment. The
+  underlying problem is TASK-376.
 <!-- SECTION:NOTES:END -->
 
 ## Definition of Done

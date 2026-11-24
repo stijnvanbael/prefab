@@ -12,7 +12,10 @@ import org.springframework.data.domain.Pageable;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-@IntegrationTest(containers = true) // sending a message runs the native @Query of UserStatusRepositoryMixin
+// Needs containers: sending a message runs the native @Query of UserStatusRepositoryMixin.
+// The module already sets prefab.test.containers. Adding @IntegrationTest(containers = true) here would start a
+// second Spring context next to the module's, and a second Pub/Sub emulator setup breaks the first (TASK-376).
+@IntegrationTest
 public class ChannelSummaryIntegrationTest {
 
     @Autowired

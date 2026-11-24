@@ -2192,6 +2192,9 @@ class UserStatusIntegrationTest { ... }
 
 Tests that rely on one of these use `@IntegrationTest(containers = true)`. Keep most tests in memory and run the few
 that exercise infrastructure on containers: a test class with `containers = true` gets its own cached context.
+Do not add `containers = true` in a module whose `application-test.yml` already sets `prefab.test.containers: true`:
+it changes nothing but starts a second containers context, and a second Pub/Sub emulator setup currently removes
+the emulator of the first context (TASK-376).
 
 ### Upgrading
 

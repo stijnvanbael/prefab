@@ -57,7 +57,7 @@ class AsyncCreateControllerWriter {
         parentName.ifPresent(name -> {
             var parentParam = manifest.parent().orElseThrow();
             var aggregateTypeName = parentParam.type().parameters().getFirst().simpleName();
-            var pathVarSpec = ParameterSpec.builder(String.class, name + "Id")
+            var pathVarSpec = ParameterSpec.builder(String.class, ControllerUtil.parentPathVariable(parentParam))
                     .addAnnotation(PathVariable.class);
             ControllerUtil.pathParameterAnnotation("The " + aggregateTypeName + " ID")
                     .ifPresent(pathVarSpec::addAnnotation);
@@ -78,7 +78,7 @@ class AsyncCreateControllerWriter {
                     .build());
         }
         var serviceArgs = Stream.of(
-                        parentName.map(name -> name + "Id").orElse(""),
+                        manifest.parent().filter(p -> parentName.isPresent()).map(ControllerUtil::parentPathVariable).orElse(""),
                         pathVarArgs,
                         bodyParams.isEmpty() ? "" : "request")
                 .filter(s -> !s.isBlank())

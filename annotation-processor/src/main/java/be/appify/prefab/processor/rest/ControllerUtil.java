@@ -19,6 +19,8 @@ import java.util.Optional;
 import javax.lang.model.element.Modifier;
 
 import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 
@@ -35,6 +37,8 @@ public class ControllerUtil {
     private static final ClassName OPERATION = ClassName.get("io.swagger.v3.oas.annotations", "Operation");
     private static final ClassName PARAMETER = ClassName.get("io.swagger.v3.oas.annotations", "Parameter");
     private static final ClassName PARAMETER_IN = ClassName.get("io.swagger.v3.oas.annotations.enums", "ParameterIn");
+    /** Name of the generated service method that checks whether an aggregate belongs to a parent. */
+    public static final String BELONGS_TO_PARENT = "belongsToParent";
     /** Flag to indicate if Spring Security is included in the classpath. */
     public static final boolean SECURITY_INCLUDED = isSecurityIncluded();
     /** Flag to indicate if OpenAPI annotations (io.swagger.v3.oas.annotations) are on the classpath. */
@@ -86,9 +90,69 @@ public class ControllerUtil {
     }
 
     private static String parentPathSegment(VariableManifest parent) {
-        return "%s/{%sId}/".formatted(
+        return "%s/{%s}/".formatted(
                 toKebabCase(parent.type().parameters().getFirst().plural()),
-                uncapitalize(parent.name()));
+                parentPathVariable(parent));
+    }
+
+    /**
+     * Name of the path variable that holds the id of the parent aggregate. A parent field that is already called
+     * {@code projectId} keeps that name instead of becoming {@code projectIdId}.
+     *
+     * @param parent
+     *         the field annotated with {@code @Parent}
+     * @return the path variable name
+     */
+    public static String parentPathVariable(VariableManifest parent) {
+        var name = uncapitalize(parent.name());
+        return name.length() > 2 && name.endsWith("Id") ? name : name + "Id";
+    }
+
+    /**
+     * Builds the expression for the start of the {@code Location} header of a created child aggregate, such as
+     * {@code "/projects/" + projectId + "/tasks/"}; without a parent it is the plain collection path.
+     *
+     * @param parent
+     *         the parent field of the created aggregate, if any
+     * @param plural
+     *         the plural name of the created aggregate
+     * @return the code block that evaluates to the path prefix
+     */
+    public static CodeBlock locationPrefix(Optional<VariableManifest> parent, String plural) {
+        var ownPath = "/" + toKebabCase(plural) + "/";
+        return parent.filter(p -> !p.type().parameters().isEmpty())
+                .map(p -> CodeBlock.of("$S + $N + $S",
+                        "/" + toKebabCase(p.type().parameters().getFirst().plural()) + "/",
+                        parentPathVariable(p),
+                        ownPath))
+                .orElseGet(() -> CodeBlock.of("$S", ownPath));
+    }
+
+    /**
+     * Makes an endpoint on a child aggregate only reachable through the parent it belongs to: adds the parent path
+     * variable and answers 404 when the aggregate with the given {@code id} belongs to another parent.
+     *
+     * @param method
+     *         the endpoint method, which already has an {@code id} parameter and returns a {@code ResponseEntity}
+     * @param parent
+     *         the parent field of the aggregate, if any
+     */
+    public static void guardParent(MethodSpec.Builder method, Optional<VariableManifest> parent) {
+        parent.ifPresent(p -> {
+            var variable = parentPathVariable(p);
+            var parameter = ParameterSpec.builder(String.class, variable).addAnnotation(PathVariable.class);
+            pathParameterAnnotation("The " + parentTypeName(p) + " ID").ifPresent(parameter::addAnnotation);
+            method.addParameter(parameter.build());
+            method.beginControlFlow("if (!service.$N($N, id))", BELONGS_TO_PARENT, variable)
+                    .addStatement("return $T.notFound().build()", ResponseEntity.class)
+                    .endControlFlow();
+        });
+    }
+
+    private static String parentTypeName(VariableManifest parent) {
+        return parent.type().parameters().isEmpty()
+                ? parent.type().simpleName()
+                : parent.type().parameters().getFirst().simpleName();
     }
 
     /**

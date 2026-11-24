@@ -3,6 +3,7 @@ package be.appify.prefab.processor.rest.stream;
 import be.appify.prefab.core.annotations.rest.Streaming;
 import be.appify.prefab.core.problem.NotFoundException;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.rest.ControllerUtil;
 import be.appify.prefab.processor.TypeManifest;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.CodeBlock;
@@ -54,6 +55,7 @@ class StreamControllerWriter {
                 .ifPresent(methodBuilder::addAnnotation);
         securedAnnotation(annotation.security()).ifPresent(methodBuilder::addAnnotation);
 
+        guardParent(methodBuilder, manifest);
         methodBuilder.addStatement("var aggregate = service.getById(id).orElseThrow(() -> new $T(id))",
                 NotFoundException.class);
         methodBuilder.addStatement("var emitter = new $T(0L)", SseEmitter.class);
@@ -106,6 +108,7 @@ class StreamControllerWriter {
                 .ifPresent(methodBuilder::addAnnotation);
         securedAnnotation(annotation.security()).ifPresent(methodBuilder::addAnnotation);
 
+        guardParent(methodBuilder, manifest);
         methodBuilder.addStatement("var aggregate = service.getById(id).orElseThrow(() -> new $T(id))",
                 NotFoundException.class);
         methodBuilder.addStatement("var emitter = new $T(0L)", SseEmitter.class);
@@ -155,6 +158,7 @@ class StreamControllerWriter {
         operationAnnotation("Stream " + manifest.simpleName()).ifPresent(methodBuilder::addAnnotation);
         securedAnnotation(annotation.security()).ifPresent(methodBuilder::addAnnotation);
 
+        guardParent(methodBuilder, manifest);
         methodBuilder.addStatement("service.getById(id).orElseThrow(() -> new $T(id))",
                 NotFoundException.class);
         methodBuilder.addStatement("var emitter = new $T(0L)", SseEmitter.class);
@@ -175,6 +179,19 @@ class StreamControllerWriter {
                 .addMember("path", "$S", "/{id}" + path)
                 .addMember("produces", "$T.TEXT_EVENT_STREAM_VALUE", MediaType.class)
                 .build();
+    }
+
+    /** Streams of a child aggregate are only reachable through the parent it belongs to. */
+    private static void guardParent(MethodSpec.Builder method, ClassManifest manifest) {
+        manifest.parent().ifPresent(parent -> {
+            var variable = ControllerUtil.parentPathVariable(parent);
+            method.addParameter(ParameterSpec.builder(String.class, variable)
+                    .addAnnotation(PathVariable.class)
+                    .build());
+            method.beginControlFlow("if (!service.$N($N, id))", ControllerUtil.BELONGS_TO_PARENT, variable)
+                    .addStatement("throw new $T(id)", NotFoundException.class)
+                    .endControlFlow();
+        });
     }
 
     private ParameterSpec.Builder buildIdParameter(ClassManifest manifest) {

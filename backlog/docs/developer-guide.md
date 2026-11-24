@@ -1,14 +1,17 @@
 # Prefab Developer Guide
 
-**Version:** 0.7.x | **Framework:** Spring Boot 4.x | **Java:** 21+
-
 Prefab is an annotation-driven code-generation framework for Spring Boot applications built around the
 **Aggregate Root** pattern. You write a plain Java record annotated with a handful of Prefab annotations;
 the annotation processor generates a fully-wired Spring MVC controller, service, Spring Data repository,
 request/response DTOs, event consumer, and database migration scripts at compile time.
 
 > **Living document rule:** Any agent or developer that changes or adds a Prefab feature **must** update the
-> relevant section of the appropriate guide below in the same commit/PR. See [AGENTS.md](../../AGENTS.md) for the full rule.
+> relevant section of the appropriate guide below in the same commit/PR, together with the agent-facing material
+> (cheat sheet, recipe, benchmark task) it affects. See
+> [AGENTS.md, "Living document rule"](../../AGENTS.md#living-document-rule) for the full rule.
+>
+> Supported Java and Spring Boot versions are defined in the [readme](../../readme.md#quick-start); they are
+> intentionally not repeated here so they cannot go stale.
 
 ---
 
@@ -39,6 +42,7 @@ request/response DTOs, event consumer, and database migration scripts at compile
 | [Extension Point Guide](extension-points.md)          | Customization coverage, `PrefabPlugin` API, `@RepositoryMixin`, provider overrides, escape hatch |
 | [Configuration Reference](configuration.md)           | Application properties, Kafka/Pub/Sub/SNS configuration            |
 | [Troubleshooting](troubleshooting.md)                 | Common errors and fixes                                            |
+| [Agent Cheat Sheet](agent-cheat-sheet.md)             | Compact guide for AI agents building Prefab apps; copy into the project's `AGENTS.md` |
 
 Generated records can be copied and modified with `toBuilder()`; see
 [Generated Artefacts: Copying generated records](generated-artefacts.md#copying-generated-records)

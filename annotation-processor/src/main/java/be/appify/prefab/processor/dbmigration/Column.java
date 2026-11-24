@@ -8,6 +8,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import javax.lang.model.element.Element;
 import net.sf.jsqlparser.statement.alter.AlterExpression;
 import net.sf.jsqlparser.statement.create.table.ColDataType;
 import net.sf.jsqlparser.statement.create.table.ColumnDefinition;
@@ -18,10 +19,16 @@ record Column(
         boolean nullable,
         ForeignKeyReference foreignKey,
         String defaultValue,
-        String oldName
+        String oldName,
+        Element sourceElement
 ) {
     Column(String name, DataType type, boolean nullable, ForeignKeyReference foreignKey, String defaultValue) {
-        this(name, type, nullable, foreignKey, defaultValue, null);
+        this(name, type, nullable, foreignKey, defaultValue, null, null);
+    }
+
+    Column(String name, DataType type, boolean nullable, ForeignKeyReference foreignKey,
+           String defaultValue, String oldName) {
+        this(name, type, nullable, foreignKey, defaultValue, oldName, null);
     }
 
     private static final List<String> NOT_NULL = List.of("NOT", "NULL");
@@ -54,6 +61,7 @@ record Column(
                 Collections.indexOfSubList(columnSpecs, NOT_NULL) == -1,
                 columnSpecs.contains("REFERENCES") ? ForeignKeyReference.fromColumnSpecs(columnSpecs) : null,
                 rawDefault,
+                null,
                 null
         );
     }
@@ -81,7 +89,8 @@ record Column(
                 property.getAnnotation(DbDefaultValue.class)
                         .map(defaultValue -> defaultValue.value().value())
                         .orElse(null),
-                oldName
+                oldName,
+                property.element()
         );
     }
 
@@ -104,7 +113,8 @@ record Column(
                 nullable,
                 foreignKey,
                 defaultValue,
-                oldName
+                oldName,
+                sourceElement
         );
     }
 
@@ -115,7 +125,8 @@ record Column(
                 nullable,
                 foreignKey,
                 defaultValue,
-                oldName
+                oldName,
+                sourceElement
         );
     }
 

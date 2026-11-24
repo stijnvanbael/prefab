@@ -35,6 +35,16 @@ class InMemoryAutoConfigurationFilterTest {
         assertThat(result).containsExactly(false, true, false);
     }
 
+    @Test
+    void candidatesRejectedByAnEarlierFilterAreIgnored() {
+        var filter = filterFor("false");
+        var candidates = new String[]{null, REGISTRY};
+
+        var result = filter.match(candidates, null);
+
+        assertThat(result).containsExactly(true, true);
+    }
+
     @ParameterizedTest
     @MethodSource("modesThatKeepEverything")
     void containersModeKeepsEverything(String containers) {

@@ -1394,6 +1394,10 @@ String email;
 
 Maps a `String` field to an unbounded `TEXT` column (instead of the default `VARCHAR(255)`).
 
+Generated create and update requests do not add the default `@Size(max = 255)` to a `String` parameter whose
+name matches a `@Text` field, so long text is accepted over REST. Add an explicit `@Size(max = N)` on the parameter
+to set an API limit.
+
 Use Jakarta Validation's `@Size(max = N)` to generate `VARCHAR(N)`.
 
 ```java

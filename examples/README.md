@@ -130,7 +130,7 @@ slice sits next to the JSON events and is compiled only by variants that include
 | Schema registry in tests (`prefab.test.schema-registry.enabled`) | `application-test.yml` | both |
 
 The tests produce and consume the events on a real Kafka and schema registry (Testcontainers) and check that the
-schemas are registered. Running the application locally needs a schema registry at `http://localhost:8081` next to
+schemas are registered (in memory, Confluent's mock registry is used and the registry check is skipped). Running the application locally needs a schema registry at `http://localhost:8081` next to
 Kafka. Variants that cannot decode Avro list `AVRO` as unsupported and leave the slice out: Pub/Sub and SNS/SQS write
 bare Avro binary without a writer schema (TASK-275), so `showcase-pubsub` and `showcase-sns-sqs` declare that gap and
 include the slice once it is fixed.
@@ -180,6 +180,21 @@ table, so after changing a capability file, paste that between the markers.
 | OPENAPI | ✅ | ✅ | ✅ |
 | ASYNCAPI | ✅ | ✅ | ✅ |
 <!-- coverage-matrix:end -->
+
+### Test infrastructure
+
+`@IntegrationTest` runs on an in-memory backend by default (see
+[Feature Guides, 7.20](../backlog/docs/feature-guides.md#720-integration-tests-in-memory-or-containers)). To keep
+real-infrastructure coverage in CI, every example module, the reference `showcase` and `showcase-mongodb` set
+`prefab.test.containers: true` in their `application-test.yml`, so they run on Testcontainers. The tests that call the
+native `@Query` of `UserStatusRepositoryMixin` (`examples/kafka`, `examples/pubsub`, `examples/sns-sqs`) also say so
+with `@IntegrationTest(containers = true)`.
+
+`showcase-inmemory` is the exception and proves the in-memory backend: the same sources and tests as the reference
+showcase, generated for Postgres + Kafka (with the Avro slice), but without `prefab.test.containers`. Its tests pass
+**without Docker**. It leaves out the Streams slices and lists the gaps in its capabilities file: `STREAMS` and
+`KAFKA_STREAMS_BREAKOUT` (TASK-372) and `SCHEMA_REGISTRY_API` (TASK-373, the mock schema registry has no HTTP endpoint).
+The reference showcase and `showcase-inmemory` cover the same sources on real and in-memory infrastructure.
 
 ## Adding a variant
 

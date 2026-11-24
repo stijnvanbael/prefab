@@ -20,7 +20,7 @@ ordinal: 206000
 <!-- SECTION:DESCRIPTION:BEGIN -->
 The TASK-343 benchmark is saturated. Haiku passes 29-31 of 32 tasks in every documentation setup and Sonnet 32/32; all
 differences are inside the confidence intervals and the run-to-run margin is two tasks. It can no longer tell whether
-the cheat sheet (TASK-344), recipes (TASK-346), local runs (TASK-374) or conformance tests (TASK-375) make agents better.
+the cheat sheet (TASK-344), recipes (TASK-346), local runs (TASK-381) or conformance tests (TASK-375) make agents better.
 Every task is one feature on a tiny greenfield starter, done in about a minute.
 
 Real work looks different: a feature spanning several aggregates and events from a product-style spec, a change to an

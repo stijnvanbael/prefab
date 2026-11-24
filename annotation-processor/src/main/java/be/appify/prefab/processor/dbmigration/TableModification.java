@@ -5,6 +5,7 @@ import be.appify.prefab.core.util.IdentifierShortener;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import javax.lang.model.element.Element;
 
 interface TableModification {
     static List<TableModification> from(String table, Column original, Column desired) {
@@ -19,9 +20,9 @@ interface TableModification {
                     modifications.add(new AlterColumn(original.name(), new ColumnModification.DropNotNull()));
                 } else {
                     if (desired.formattedDefaultValue() == null) {
-                        throw new IllegalStateException(
+                        throw new MigrationValidationException(
                                 "Cannot set column [%s.%s] to NOT NULL without a default value. Annotate the corresponding field with @DbDefaultValue to specify it."
-                                        .formatted(table, original.name()));
+                                        .formatted(table, original.name()), desired.sourceElement());
                     }
                     modifications.add(new AlterColumn(original.name(),
                             new ColumnModification.SetDefault(desired.formattedDefaultValue())));
@@ -52,9 +53,9 @@ interface TableModification {
         @Override
         public String toSql() {
             if (!column.nullable() && column.defaultValue() == null) {
-                throw new IllegalStateException(
-                        "Cannot add a NOT NULL column [%s] without a default value. Annotate the corresponding field with @DbDefaultValue to specify it."
-                                .formatted(column.name()));
+                throw new MigrationValidationException(
+                        "Cannot add a NOT NULL column [%s] without a default value. Annotate the corresponding field with @DbDefaultValue to specify it.",
+                        column.sourceElement());
             }
             return "ADD COLUMN " + column;
         }
@@ -62,6 +63,19 @@ interface TableModification {
         @Override
         public String toString() {
             return toSql();
+        }
+    }
+
+    final class MigrationValidationException extends IllegalStateException {
+        private final Element element;
+
+        MigrationValidationException(String message, Element element) {
+            super(message);
+            this.element = element;
+        }
+
+        Element element() {
+            return element;
         }
     }
 

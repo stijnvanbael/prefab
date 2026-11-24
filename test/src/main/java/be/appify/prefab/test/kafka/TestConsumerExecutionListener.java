@@ -12,6 +12,10 @@ import java.util.Map;
 import java.time.Instant;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.RecordDeserializationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.core.env.Environment;
 import org.springframework.kafka.core.ConsumerFactory;
@@ -25,6 +29,7 @@ import org.springframework.util.ReflectionUtils;
  */
 public class TestConsumerExecutionListener extends AbstractTestExecutionListener {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(TestConsumerExecutionListener.class);
     private static final Map<Field, KafkaEventConsumerHolder<?>> eventConsumerByField = new HashMap<>();
 
     private Environment environment;
@@ -89,10 +94,17 @@ public class TestConsumerExecutionListener extends AbstractTestExecutionListener
                     try {
                         var records = kafkaConsumer.poll(Duration.ofMillis(100));
                         records.forEach(record -> eventConsumer.addMessage(record.value()));
+                    } catch (RecordDeserializationException e) {
+                        var topicPartition = e.topicPartition();
+                        LOGGER.error("Skipping Kafka test event that could not be deserialized at {}:{}",
+                                topicPartition.topic(), topicPartition.partition(), e);
+                        kafkaConsumer.seek(topicPartition, e.offset() + 1);
                     } catch (Exception e) {
                         if (Thread.currentThread().isInterrupted()) {
                             break;
                         }
+                        LOGGER.error("Kafka test event consumer stopped after an unexpected polling error", e);
+                        break;
                     }
                 }
             });
@@ -136,4 +148,3 @@ public class TestConsumerExecutionListener extends AbstractTestExecutionListener
         }
     }
 }
-

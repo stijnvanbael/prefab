@@ -66,16 +66,21 @@ class DbMigrationWriter {
         warnUnconstrainedStringFields(classManifests);
         var currentDatabaseState = currentDatabaseState(processingEnvironment);
         var desiredDatabaseState = desiredDatabaseState(classManifests, polymorphicManifests);
-        var changes = detectChanges(currentDatabaseState.tables(), desiredDatabaseState);
+        try {
+            var changes = detectChanges(currentDatabaseState.tables(), desiredDatabaseState);
 
-        // Add extension enabling if there are fuzzy autocomplete or fuzzy full-text fields
-        if (hasFuzzyAutocompleteFields(classManifests, polymorphicManifests) || hasFuzzyFullText(classManifests)) {
-            changes.add(0, new DatabaseChange.EnableExtension("pg_trgm"));
-        }
+            // Add extension enabling if there are fuzzy autocomplete or fuzzy full-text fields
+            if (hasFuzzyAutocompleteFields(classManifests, polymorphicManifests) || hasFuzzyFullText(classManifests)) {
+                changes.add(0, new DatabaseChange.EnableExtension("pg_trgm"));
+            }
 
-        if (!changes.isEmpty()) {
-            writeChanges(processingEnvironment, classManifests, polymorphicManifests, changes,
-                    currentDatabaseState.version());
+            if (!changes.isEmpty()) {
+                writeChanges(processingEnvironment, classManifests, polymorphicManifests, changes,
+                        currentDatabaseState.version());
+            }
+        } catch (TableModification.MigrationValidationException e) {
+            processingEnvironment.getMessager().printMessage(
+                    Diagnostic.Kind.ERROR, e.getMessage(), e.element());
         }
         return desiredDatabaseState.stream().map(Table::name).collect(Collectors.toUnmodifiableSet());
     }

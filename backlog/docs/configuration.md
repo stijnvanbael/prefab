@@ -119,9 +119,11 @@ Auto-configurations (all gated on `PrefabCoreConfiguration`):
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| `prefab.test.containers` | `true` (changes to `false` with TASK-175.05) | `true` starts Testcontainers; `false` drops the store and broker auto-configurations (DataSource, JDBC, Flyway, Data JDBC, MongoDB, Kafka, Pub/Sub, SNS/SQS and their Prefab counterparts) and registers a resource-less transaction manager. |
+| `prefab.test.containers` | `false` | `true` starts Testcontainers; `false` (the default) runs in memory: drops the store and broker auto-configurations (DataSource, JDBC, Flyway, Data JDBC, MongoDB, Kafka, Pub/Sub, SNS/SQS and their Prefab counterparts) and registers a resource-less transaction manager. |
 
-A single test class can force containers with `@IntegrationTest(containers = true)`, which takes precedence over the property and gets its own cached application context.
+In-memory is the default: without the property, `@IntegrationTest` needs no Docker. Set `prefab.test.containers: true` in `src/test/resources/application-test.yml` to run every test of a module on Testcontainers (the examples in this repository do this to keep real-infrastructure coverage).
+
+A single test class can force containers with `@IntegrationTest(containers = true)`, which takes precedence over the property and gets its own cached application context. In memory mode a configured Kafka `schema.registry.url` is ignored in favour of the mock registry. Semantics and known differences: [Feature Guides, 7.20](feature-guides.md#720-integration-tests-in-memory-or-containers).
 
 ## Test Container Configuration
 

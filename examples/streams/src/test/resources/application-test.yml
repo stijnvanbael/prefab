@@ -14,3 +14,7 @@ topics:
     join-left: streams.join.left.test
     join-right: streams.join.right.test
     joined: streams.joined.test
+
+prefab:
+  test:
+    containers: true

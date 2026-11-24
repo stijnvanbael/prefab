@@ -15,6 +15,7 @@
 - [4.7 Multi-tenancy Annotations](#47-multi-tenancy-annotations)
 - [4.8 Validation Annotations](#48-validation-annotations)
 - [4.9 Extension Annotations](#49-extension-annotations)
+- [4.10 Test Annotations](#410-test-annotations)
 - [Quick Reference Table](#quick-reference-table)
 
 ---
@@ -1610,6 +1611,35 @@ See [Feature Guides — Repository Mixins](feature-guides.md#710-repository-mixi
 
 ---
 
+## 4.10 Test Annotations
+
+### `@IntegrationTest`
+
+**Package:** `be.appify.prefab.test`
+**Target:** `TYPE`
+**Retention:** `RUNTIME`
+
+Combines `@SpringBootTest`, `@AutoConfigureMockMvc` and the `test` profile. By default the test runs on the in-memory
+backend (no Docker). See [Feature Guides, 7.20](feature-guides.md#720-integration-tests-in-memory-or-containers).
+
+| Attribute    | Type      | Default | Description |
+|--------------|-----------|---------|-------------|
+| `containers` | `boolean` | `false` | `true` runs the test class on Testcontainers (Postgres, MongoDB, Kafka, Pub/Sub, SNS/SQS). It sets `prefab.test.containers=true` with the highest precedence and gives the class its own cached application context. When `false`, the `prefab.test.containers` property of the test configuration decides (default `false`). |
+
+Use `containers = true` for tests that call native `@Query` methods of a `@RepositoryMixin`, depend on database
+constraints, rollbacks, retries or dead-letter topics, or run Prefab Streams topologies.
+
+### `@TestEventConsumer`
+
+**Package:** `be.appify.prefab.test`
+**Target:** `FIELD`
+**Retention:** `RUNTIME`
+
+Injects an `EventConsumer<T>` that collects the events published on a topic, for assertions with
+`EventConsumerAssert`. It works in both modes: on the broker with containers, on the in-memory bus otherwise.
+
+---
+
 ## Quick Reference Table
 
 | Annotation            | Target                    | Retention | Purpose                                                                                                                                                                                                                                                               |
@@ -1652,6 +1682,7 @@ See [Feature Guides — Repository Mixins](feature-guides.md#710-repository-mixi
 | `@LastModifiedBy`     | Field                     | RUNTIME   | Audit: last-modifier user ID                                                                                                                                                                                                                                          |
 | `@TenantId`           | Field                     | RUNTIME   | Multi-tenancy discriminator                                                                                                                                                                                                                                           |
 | `@RepositoryMixin`    | Type                      | RUNTIME   | Add custom query methods to repository                                                                                                                                                                                                                                |
+| `@IntegrationTest`    | Type                      | RUNTIME   | Full-context test on the in-memory backend, or on Testcontainers with `containers = true`                                                                                                                                                                             |
 | `@ContentType`        | Field                     | —         | Allowed MIME types for `Binary` uploads                                                                                                                                                                                                                               |
 | `@FileSize`           | Field                     | —         | Maximum file size for `Binary` uploads                                                                                                                                                                                                                                |
 

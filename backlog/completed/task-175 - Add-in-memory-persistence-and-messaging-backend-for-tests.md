@@ -1,10 +1,10 @@
 ---
 id: TASK-175
 title: Add in-memory persistence and messaging backend for tests
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-05-08 16:37'
-updated_date: '2026-11-23 11:00'
+updated_date: '2026-11-24 09:30'
 labels: []
 dependencies: []
 priority: high
@@ -26,20 +26,20 @@ Work is split into TASK-175.01 to TASK-175.05.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `@IntegrationTest` runs on an in-memory backend by default: every generated repository is backed by a ConcurrentHashMap (Prefab's own repository factory) and no container is started
-- [ ] #2 A synchronous in-process event bus replaces Kafka, Pub/Sub and SNS/SQS; every event is serialized and deserialized with the platform's own serializers (JSON and Avro, version headers and migrations included)
-- [ ] #3 `@IntegrationTest(containers = true)` runs a test class on Testcontainers as today; `prefab.test.containers=true` sets that default for a whole test module
-- [ ] #4 `@TestEventConsumer` and `EventConsumerAssert` work unchanged in both modes
-- [ ] #5 A repository method that cannot run in memory fails when called, with a message naming the method and `@IntegrationTest(containers = true)`; a failing event handler fails the test that triggered it
-- [ ] #6 The showcase test suite passes in memory without Docker; gaps are declared as capabilities
-- [ ] #7 The in-memory backend is documented in the Developer Guide
+- [x] #1 `@IntegrationTest` runs on an in-memory backend by default: every generated repository is backed by a ConcurrentHashMap (Prefab's own repository factory) and no container is started
+- [x] #2 A synchronous in-process event bus replaces Kafka, Pub/Sub and SNS/SQS; every event is serialized and deserialized with the platform's own serializers (JSON and Avro, version headers and migrations included)
+- [x] #3 `@IntegrationTest(containers = true)` runs a test class on Testcontainers as today; `prefab.test.containers=true` sets that default for a whole test module
+- [x] #4 `@TestEventConsumer` and `EventConsumerAssert` work unchanged in both modes
+- [x] #5 A repository method that cannot run in memory fails when called, with a message naming the method and `@IntegrationTest(containers = true)`; a failing event handler fails the test that triggered it
+- [x] #6 The showcase test suite passes in memory without Docker; gaps are declared as capabilities
+- [x] #7 The in-memory backend is documented in the Developer Guide
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 All acceptance criteria are tested
-- [ ] #2 The build is green
-- [ ] #3 Code is clean (refactored)
+- [x] #1 All acceptance criteria are tested
+- [x] #2 The build is green
+- [x] #3 Code is clean (refactored)
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -249,6 +249,25 @@ TASK-174 (`@PrefabSlice`, mocked repository) is complementary: a slice for one a
 full-context, cross-aggregate, event-driven tests. TASK-186 intends to use this backend for the playground.
 TASK-343 should measure the impact.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+`@IntegrationTest` now runs in memory by default and `examples/showcase-inmemory` proves it without Docker. Delivered in five subtasks:
+
+| Task | PR | Summary |
+|---|---|---|
+| TASK-175.01 | #218 | Mode switch: `@IntegrationTest(containers)`, `prefab.test.containers`, auto-configuration filter, gating of container auto-configurations and listeners, resource-less transaction manager |
+| TASK-175.02 | #221 | In-memory repositories on Spring Data Commons (own factory after Spring Data KeyValue turned out to trigger strict repository detection), derived queries, Query by Example, optimistic locking, range, full-text and autocomplete, runtime `@AutocompleteQuery` metadata from the processor |
+| TASK-175.03 | #219 | In-memory event bus with the Kafka serializers (JSON and Avro with mock registry), `@KafkaListener` subscription, `@TestEventConsumer`, handler failures failing the test |
+| TASK-175.04 | #222 | Pub/Sub and SNS/SQS: subscription SPI, shared message codecs, in-memory subscriptions |
+| TASK-175.05 | this PR | Default flipped, examples kept on containers, `showcase-inmemory`, documentation, timing |
+
+- Outcome of the first end-to-end run (TASK-175.05): three bugs fixed in `prefab-test` (a null candidate in the auto-configuration filter, `Reference` identifiers not matching String ids, a configured registry URL overriding the mock registry). The showcase passes in memory with 5 skipped tests: `STREAMS`, `KAFKA_STREAMS_BREAKOUT` (TASK-374) and `SCHEMA_REGISTRY_API` (TASK-375).
+- Timing (caveat: different machines): in-memory variant 21.9 s for the module including compilation, 14.1 s of test time, no Docker; reference showcase 24.1 s in CI run 45338081735 on `main`.
+- Documented in `backlog/docs/feature-guides.md` section 7.20 (semantics, known differences, upgrading), plus `configuration.md`, `annotation-reference.md`, `troubleshooting.md`, `modules.md` and `examples/README.md`.
+- Follow-ups: TASK-374 (Prefab Streams on the in-memory bus), TASK-375 (schema subjects in memory). TASK-343 (benchmark) should measure the impact on agents; the benchmark tasks now run in memory except `mixin-custom-sql`.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 

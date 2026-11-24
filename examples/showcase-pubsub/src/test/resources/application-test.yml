@@ -6,6 +6,9 @@ logging.level:
   be.appify.prefab.example: DEBUG
 
 prefab:
+  test:
+    # Keep the Pub/Sub emulator and Postgres: this variant proves the real technology (TASK-175.05).
+    containers: true
   flyway:
     auto-clean-on-mismatch: true
   # Pub/Sub retries with its own backoff properties (the Kafka property is initial-interval-ms). The defaults

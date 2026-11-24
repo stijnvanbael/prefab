@@ -1,0 +1,7 @@
+# No prefab.test.containers property: the tests run on the in-memory backend (the default), so no Docker is needed.
+logging.level:
+  be.appify.prefab.example: DEBUG
+
+prefab:
+  dlt.retries:
+    initial-interval-ms: 10

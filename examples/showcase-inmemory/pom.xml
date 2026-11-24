@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>be.appify.prefab</groupId>
+        <artifactId>showcase-variant-parent</artifactId>
+        <version>0.13.3-SNAPSHOT</version>
+        <relativePath>../showcase-variant-parent/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>showcase-inmemory-example</artifactId>
+    <name>Prefab Showcase Example: In-memory test backend, Postgres + Kafka</name>
+
+    <properties>
+        <showcase.streams.skip>true</showcase.streams.skip>
+        <showcase.kafka.streams.skip>true</showcase.kafka.streams.skip>
+        <showcase.avro.skip>false</showcase.avro.skip>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-postgres</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-kafka</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-avro</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-avro-processor</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+</project>

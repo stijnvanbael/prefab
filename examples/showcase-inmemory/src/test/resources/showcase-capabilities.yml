@@ -1,0 +1,10 @@
+# Capabilities this variant does not support. Every capability that is not listed is supported.
+# Each gap needs a reason and the backlog task that tracks it.
+variant: showcase-inmemory
+unsupported:
+  STREAMS:
+    reason: Prefab Streams topologies are not wired to the in-memory event bus
+    task: TASK-372
+  KAFKA_STREAMS_BREAKOUT:
+    reason: Kafka Streams breakout operators need a Kafka Streams runtime, which the in-memory backend does not provide
+    task: TASK-372

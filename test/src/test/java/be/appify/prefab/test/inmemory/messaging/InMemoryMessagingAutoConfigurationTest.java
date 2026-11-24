@@ -4,6 +4,7 @@ import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.domain.DomainEventDispatcher;
 import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.domain.TypedEvent;
+import be.appify.prefab.core.kafka.DynamicSerializer;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.spring.JsonUtil;
 import be.appify.prefab.test.inmemory.InMemoryTransactionManager;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -129,6 +131,20 @@ public class InMemoryMessagingAutoConfigurationTest {
             assertThat(context).hasSingleBean(InMemoryEventBus.class);
             assertThat(context.getBean(DomainEventDispatcher.class)).isSameAs(context.getBean(InMemoryEventBus.class));
         });
+    }
+
+    @Test
+    void replacesAConfiguredSchemaRegistryUrlByTheMockRegistry() {
+        runner.withPropertyValues("spring.kafka.properties.schema.registry.url=http://localhost:8081",
+                        "spring.kafka.producer.properties.schema.registry.url=http://localhost:8081")
+                .run(context -> {
+                    var kafka = context.getBean(KafkaProperties.class);
+
+                    assertThat(context).hasSingleBean(DynamicSerializer.class);
+                    assertThat(kafka.getProperties()).doesNotContainKey("schema.registry.url")
+                            .containsEntry("prefab.mock-schema-registry.enabled", "true");
+                    assertThat(kafka.getProducer().getProperties()).doesNotContainKey("schema.registry.url");
+                });
     }
 
     @Test

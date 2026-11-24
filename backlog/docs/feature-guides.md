@@ -154,6 +154,20 @@ public record OrderCreated(
 To assert that the correct events are published in a **unit test** (without a Spring context), see
 [7.12 Unit Testing Domain Events](#712-unit-testing-domain-events).
 
+For JSON events with a sealed interface or other polymorphic supertype, add Jackson's name-based type metadata
+to the contract:
+
+```java
+@Event(topic = "accounts")
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
+public sealed interface AccountEvent permits AccountOpened, AccountClosed {
+}
+```
+
+Consumers declared against `AccountEvent` (including `@TestEventConsumer EventConsumer<AccountEvent>`) need this
+metadata to select the concrete subtype during deserialization. Prefab does not add `@JsonTypeInfo` automatically;
+without it, publish-side serialization may succeed while consumer deserialization fails.
+
 Binding captures only immutable type information, not a Spring bean or broker connection.
 Every publication resolves the currently registered infrastructure publisher, including a
 test replacement. Binding before application startup is safe; publishing without a
@@ -403,6 +417,10 @@ public sealed interface SaleEvent permits SaleCreated, SalePaid {
 }
 ```
 
+An `@Avsc` event contract must be a `sealed interface` and must list every generated event type in its
+`permits` clause. This is required for runtime schema registration and dispatch; a non-sealed contract may compile
+but fails during startup with `Only sealed interfaces are supported for event types`.
+
 The processor generates `SaleCreated` and `SalePaid` records in the same Java package as `SaleEvent`.
 Generated Java type names are always capitalised. When the original Avro name starts with a lowercase
 letter (e.g. `saleCreated`), the generated record is capitalised (`SaleCreated`) and annotated with
@@ -419,7 +437,7 @@ original Avro `namespace` + `name`:
 @AvscInterface(type = LifecycleEvent.class, namespace = "be.example.sale", name = "saleCreated")
 @AvscInterface(type = LifecycleEvent.class, namespace = "be.example.sale", name = "salePaid")
 @AvscInterface(type = SaleStatus.class, namespace = "be.example.sale", name = "saleStatus")
-public interface SaleEvent {}
+public sealed interface SaleEvent permits SaleCreated, SalePaid {}
 
 interface LifecycleEvent {
     String saleId();
@@ -443,7 +461,7 @@ or be a derived default method:
 ```java
 @Event(topic = "sale", serialization = Event.Serialization.AVRO)
 @Avsc({"avro/sale-created.avsc", "avro/sale-paid.avsc"})
-public interface SaleEvent {
+public sealed interface SaleEvent permits SaleCreated, SalePaid {
     String tenantId();
     String saleId();
 

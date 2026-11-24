@@ -165,6 +165,19 @@ class EventHandlerWriterTest {
     }
 
     @Test
+    void multicastEventHandlerCanReturnWhenNoAggregatesFound() {
+        assertThat(multicastChannelCompilation).succeeded();
+        assertThat(multicastChannelCompilation)
+                .generatedSourceFile("event.handler.multicast.application.ChannelService")
+                .contentsAsUtf8String()
+                .contains("if (aggregates.isEmpty()) {");
+        assertThat(multicastChannelCompilation)
+                .generatedSourceFile("event.handler.multicast.application.ChannelService")
+                .contentsAsUtf8String()
+                .contains("return;");
+    }
+
+    @Test
     void multicastEventHandlerSavesAllAggregates() {
         assertThat(multicastChannelCompilation).succeeded();
         assertThat(multicastChannelCompilation)

@@ -1264,13 +1264,17 @@ by a repository query.
 |---------------|------------|------------------|---------------------------------------------------------------------|
 | `queryMethod` | `String`   | — **(required)** | Name of the repository method that fetches the target aggregates.   |
 | `parameters`  | `String[]` | `{}`             | Event field or zero-argument accessor names mapped to the query method parameters (in order). |
+| `failWhenEmpty` | `boolean` | `true` | Throw when no aggregates are found and no static companion handler exists. Set to `false` for a normal empty result. |
 
-If no aggregates are found, `IllegalStateException` is thrown to trigger retry.
+By default, if no aggregates are found and there is no static companion handler, `IllegalStateException` is thrown to
+trigger retry and eventually dead-letter handling. Set `failWhenEmpty = false` when an empty target set is expected;
+the generated handler returns without saving anything. A matching static companion handler still creates the aggregate
+when the query is empty.
 
 ```java
 
 @EventHandler
-@Multicast(queryMethod = "findByChannel", parameters = "channel")
+@Multicast(queryMethod = "findByChannel", parameters = "channel", failWhenEmpty = false)
 public ChannelSummary onMessageSent(MessageSent event) {
     return new ChannelSummary(id, version, channel, name, totalMessages + 1, totalSubscribers);
 }

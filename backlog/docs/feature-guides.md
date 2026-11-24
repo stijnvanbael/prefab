@@ -333,6 +333,11 @@ public interface ChannelSummaryRepositoryMixin {
 }
 ```
 
+By default, an empty query throws to trigger retry and eventually dead-letter handling, unless a matching static
+`@EventHandler` exists to create the aggregate. For a multicast where no targets is a normal outcome, set
+`@Multicast(failWhenEmpty = false)`; the generated handler returns without saving. A static companion continues to
+take precedence and creates the aggregate for an empty query.
+
 ### Create-or-Update Pattern
 
 Combine a static `@EventHandler` with a `@ByReference` or `@Multicast` handler for the same event type.

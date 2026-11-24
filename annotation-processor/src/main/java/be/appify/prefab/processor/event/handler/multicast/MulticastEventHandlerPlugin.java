@@ -48,6 +48,7 @@ public class MulticastEventHandlerPlugin implements EventHandlerPlugin {
                                     context,
                                     annotation.queryMethod(),
                                     annotation.parameters(),
+                                    annotation.failWhenEmpty(),
                                     findStaticCompanion(typeElement, eventType, context).orElse(null)
                             );
                         }));

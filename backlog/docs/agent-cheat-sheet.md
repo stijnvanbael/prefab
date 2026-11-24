@@ -71,7 +71,7 @@ Setup: `@EnablePrefab` on the `@SpringBootApplication` class. Add only the modul
 | Publish an event | `@Event(topic = "…")` record + `private static final EventPublisher<E> P = EventPublisher.bind(E.class)`, then `P.publish(event)` in a constructor or update method |
 | React to an event: create an aggregate | `@EventHandler public static Agg on(Event e)` |
 | React to an event: update one aggregate | `@EventHandler @ByReference(property = "ref")` instance method |
-| React to an event: update many aggregates | `@EventHandler @Multicast(queryMethod = "findByX", parameters = "x")` + `@RepositoryMixin` with `findByX` |
+| React to an event: update many aggregates | `@EventHandler @Multicast(queryMethod = "findByX", parameters = "x")` + `@RepositoryMixin` with `findByX`; set `failWhenEmpty = false` when no matches is normal (default fails/retries) |
 | A custom query | `@RepositoryMixin(Agg.class)` interface with a Spring Data derived method or `@Query` |
 | Require login, role or authority | `security = @Security(role = "ADMIN")` on the operation annotation |
 | Audit who/when | `AuditInfo audit` field (or `@CreatedAt`, `@CreatedBy`, `@LastModifiedAt`, `@LastModifiedBy`) |

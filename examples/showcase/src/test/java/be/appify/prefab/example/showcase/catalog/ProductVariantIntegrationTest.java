@@ -7,8 +7,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
+import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** {@code @Parent}: variants are a nested resource of their product, {@code /products/{productId}/product-variants}. */
 @IntegrationTest
@@ -22,6 +26,9 @@ class ProductVariantIntegrationTest {
 
     @Autowired
     CategoryClient categories;
+
+    @Autowired
+    MockMvc mockMvc;
 
     String kettle;
     String grinder;
@@ -54,5 +61,14 @@ class ProductVariantIntegrationTest {
 
         assertThat(kettleVariants.content()).extracting(ProductVariantResponse::sku)
                 .containsExactly("KET-BLK", "KET-WHT");
+    }
+
+    @Test
+    void getProductVariant_givenOtherProduct_isNotFound() throws Exception {
+        var variantId = variants.createProductVariant(kettle, "KET-BLK", "Black");
+
+        mockMvc.perform(get("/products/{productId}/product-variants/{id}", grinder, variantId)
+                        .with(user("test")))
+                .andExpect(status().isNotFound());
     }
 }

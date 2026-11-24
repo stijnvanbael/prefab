@@ -263,10 +263,10 @@ TASK-343 should measure the impact.
 | TASK-175.04 | #222 | Pub/Sub and SNS/SQS: subscription SPI, shared message codecs, in-memory subscriptions |
 | TASK-175.05 | this PR | Default flipped, examples kept on containers, `showcase-inmemory`, documentation, timing |
 
-- Outcome of the first end-to-end run (TASK-175.05): three bugs fixed in `prefab-test` (a null candidate in the auto-configuration filter, `Reference` identifiers not matching String ids, a configured registry URL overriding the mock registry). The showcase passes in memory with 5 skipped tests: `STREAMS`, `KAFKA_STREAMS_BREAKOUT` (TASK-372) and `SCHEMA_REGISTRY_API` (TASK-373).
+- Outcome of the first end-to-end run (TASK-175.05): three bugs fixed in `prefab-test` (a null candidate in the auto-configuration filter, `Reference` identifiers not matching String ids, a configured registry URL overriding the mock registry). The showcase passes in memory with 5 skipped tests: `STREAMS`, `KAFKA_STREAMS_BREAKOUT` (TASK-374) and `SCHEMA_REGISTRY_API` (TASK-375).
 - Timing (caveat: different machines): in-memory variant 21.9 s for the module including compilation, 14.1 s of test time, no Docker; reference showcase 24.1 s in CI run 45338081735 on `main`.
 - Documented in `backlog/docs/feature-guides.md` section 7.20 (semantics, known differences, upgrading), plus `configuration.md`, `annotation-reference.md`, `troubleshooting.md`, `modules.md` and `examples/README.md`.
-- Follow-ups: TASK-372 (Prefab Streams on the in-memory bus), TASK-373 (schema subjects in memory). TASK-343 (benchmark) should measure the impact on agents; the benchmark tasks now run in memory except `mixin-custom-sql`.
+- Follow-ups: TASK-374 (Prefab Streams on the in-memory bus), TASK-375 (schema subjects in memory). TASK-343 (benchmark) should measure the impact on agents; the benchmark tasks now run in memory except `mixin-custom-sql`.
 <!-- SECTION:NOTES:END -->
 
 ## Comments

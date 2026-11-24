@@ -166,19 +166,20 @@ unsupported:
 table, so after changing a capability file, paste that between the markers.
 
 <!-- coverage-matrix:begin -->
-| Capability | showcase | showcase-mongodb | showcase-pubsub |
-| --- | :---: | :---: | :---: |
-| FULL_TEXT_SEARCH | ✅ | ✅ | ✅ |
-| RANGE_FILTER | ✅ | ✅ | ✅ |
-| POLYMORPHIC_AGGREGATES | ✅ | ✅ | ✅ |
-| BINARY_DOWNLOAD | ✅ | ✅ | ✅ |
-| ORDERED_DELIVERY | ✅ | ✅ | ✅ |
-| STREAMS | ✅ | ✅ | ✅ |
-| KAFKA_STREAMS_BREAKOUT | ✅ | ✅ | ❌ [TASK-341](../backlog/completed/task-341%20-%20Prefab-Streams-backend-for-Google-Pub-Sub.md) |
-| AVRO | ✅ | ✅ | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) |
-| SECURITY | ✅ | ✅ | ✅ |
-| OPENAPI | ✅ | ✅ | ✅ |
-| ASYNCAPI | ✅ | ✅ | ✅ |
+| Capability | showcase | showcase-inmemory | showcase-mongodb | showcase-pubsub |
+| --- | :---: | :---: | :---: | :---: |
+| FULL_TEXT_SEARCH | ✅ | ✅ | ✅ | ✅ |
+| RANGE_FILTER | ✅ | ✅ | ✅ | ✅ |
+| POLYMORPHIC_AGGREGATES | ✅ | ✅ | ✅ | ✅ |
+| BINARY_DOWNLOAD | ✅ | ✅ | ✅ | ✅ |
+| ORDERED_DELIVERY | ✅ | ✅ | ✅ | ✅ |
+| STREAMS | ✅ | ❌ [TASK-374](../backlog/tasks/task-374%20-%20Prefab-Streams-on-the-in-memory-test-bus.md) | ✅ | ✅ |
+| KAFKA_STREAMS_BREAKOUT | ✅ | ❌ [TASK-374](../backlog/tasks/task-374%20-%20Prefab-Streams-on-the-in-memory-test-bus.md) | ✅ | ❌ [TASK-341](../backlog/completed/task-341%20-%20Prefab-Streams-backend-for-Google-Pub-Sub.md) |
+| AVRO | ✅ | ✅ | ✅ | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) |
+| SCHEMA_REGISTRY_API | ✅ | ❌ [TASK-375](../backlog/tasks/task-375%20-%20Inspect-registered-Avro-schemas-in-memory.md) | ✅ | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) |
+| SECURITY | ✅ | ✅ | ✅ | ✅ |
+| OPENAPI | ✅ | ✅ | ✅ | ✅ |
+| ASYNCAPI | ✅ | ✅ | ✅ | ✅ |
 <!-- coverage-matrix:end -->
 
 ### Test infrastructure
@@ -193,7 +194,7 @@ with `@IntegrationTest(containers = true)`.
 `showcase-inmemory` is the exception and proves the in-memory backend: the same sources and tests as the reference
 showcase, generated for Postgres + Kafka (with the Avro slice), but without `prefab.test.containers`. Its tests pass
 **without Docker**. It leaves out the Streams slices and lists the gaps in its capabilities file: `STREAMS` and
-`KAFKA_STREAMS_BREAKOUT` (TASK-372) and `SCHEMA_REGISTRY_API` (TASK-373, the mock schema registry has no HTTP endpoint).
+`KAFKA_STREAMS_BREAKOUT` (TASK-374) and `SCHEMA_REGISTRY_API` (TASK-375, the mock schema registry has no HTTP endpoint).
 The reference showcase and `showcase-inmemory` cover the same sources on real and in-memory infrastructure.
 
 ## Adding a variant

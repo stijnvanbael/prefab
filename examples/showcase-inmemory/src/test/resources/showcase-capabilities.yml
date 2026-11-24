@@ -4,10 +4,10 @@ variant: showcase-inmemory
 unsupported:
   STREAMS:
     reason: Prefab Streams topologies are not wired to the in-memory event bus
-    task: TASK-372
+    task: TASK-374
   KAFKA_STREAMS_BREAKOUT:
     reason: Kafka Streams breakout operators need a Kafka Streams runtime, which the in-memory backend does not provide
-    task: TASK-372
+    task: TASK-374
   SCHEMA_REGISTRY_API:
     reason: Avro events use the mock schema registry in memory, which has no HTTP endpoint to list subjects
-    task: TASK-373
+    task: TASK-375

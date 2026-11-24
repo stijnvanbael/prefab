@@ -1,5 +1,5 @@
 ---
-id: TASK-373
+id: TASK-375
 title: Inspect registered Avro schemas in memory
 status: To Do
 assignee: []

@@ -2186,8 +2186,8 @@ class UserStatusIntegrationTest { ... }
 | Rollback | Writes of a rolled-back transaction are **not** undone | Rolled back |
 | Retries, dead-letter topics, `@EventHandlerConfig` retry settings, `@AsyncCommit` | Not emulated | Real broker behaviour |
 | Partitions, offsets, consumer groups, concurrency | None: one delivery per listener method | Real |
-| Prefab Streams topologies | Not available (TASK-372) | Run |
-| Schema registry HTTP API | None (mock registry), TASK-373 | Real registry |
+| Prefab Streams topologies | Not available (TASK-374) | Run |
+| Schema registry HTTP API | None (mock registry), TASK-375 | Real registry |
 | Code injecting `DataSource`, `JdbcTemplate`, `MongoTemplate` or `KafkaTemplate` | No such beans | Available |
 
 Tests that rely on one of these use `@IntegrationTest(containers = true)`. Keep most tests in memory and run the few

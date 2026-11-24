@@ -43,3 +43,7 @@ request/response DTOs, event consumer, and database migration scripts at compile
 Generated records can be copied and modified with `toBuilder()`; see
 [Generated Artefacts: Copying generated records](generated-artefacts.md#copying-generated-records)
 for builder options and copy semantics.
+
+For aggregate updates, prefer returning a new aggregate instance. The legacy `@Update void` form is
+deprecated and scheduled for removal in the next major version; see the
+[`@Update` reference](annotation-reference.md#update) for migration and async-commit guidance.

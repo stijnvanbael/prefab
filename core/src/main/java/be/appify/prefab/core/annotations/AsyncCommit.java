@@ -6,7 +6,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks an aggregate class, a {@code @Create} static factory method, or an {@code @Update} void method
+ * Marks an aggregate class, a {@code @Create} static factory method, or an {@code @Update} method
  * as using the async-commit (listen-to-self) pattern.
  *
  * <p>When placed on an aggregate class, all {@code @Create} and {@code @Update} methods on that class
@@ -14,12 +14,11 @@ import java.lang.annotation.Target;
  *
  * <p>Async-commit semantics:
  * <ul>
- *   <li>A {@code @Create} static factory method must return the event type. The processor generates a REST
- *       endpoint that calls the method, publishes the returned event, and returns {@code 202 Accepted}.
- *       No aggregate is persisted at this point.</li>
- *   <li>An {@code @Update} void method calls {@code publish()} internally. The processor generates a REST
- *       endpoint that loads the aggregate, calls the method, and returns {@code 202 Accepted} without saving.
- *       </li>
+ *   <li>A {@code @Create} static factory method must return {@code void} and publish the event itself.
+ *       The generated endpoint returns {@code 202 Accepted} without persisting an aggregate.</li>
+ *   <li>An {@code @Update} method publishes the event and returns the current aggregate. The generated
+ *       endpoint returns {@code 202 Accepted} without saving the return value. Void updates are deprecated
+ *       and scheduled for removal in the next major version.</li>
  *   <li>{@code @EventHandler} methods on an {@code @AsyncCommit} aggregate automatically receive a
  *       deduplication guard in the generated broker consumer. The deduplication key is taken from the
  *       {@code @EventId}-annotated field on the event record.</li>
@@ -31,4 +30,3 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.SOURCE)
 public @interface AsyncCommit {
 }
-

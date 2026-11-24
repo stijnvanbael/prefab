@@ -91,11 +91,12 @@ An `@EventHandler` on the same aggregate then persists it when the event arrives
 |-----------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
 | On the aggregate **type**               | All `@Create` **and** all `@Update` methods are async — they return `202 Accepted` and do **not** call `repository.save()` |
 | On a specific **`@Create` method**      | Only that method is async                                                                                                  |
-| On a specific **`@Update void` method** | Only that method is async                                                                                                  |
+| On a specific **`@Update` method**      | Only that method is async                                                                                                  |
 
 > **ℹ Note**: Placing `@AsyncCommit` at the type level means the entire aggregate follows the
-> listen-to-self pattern. Every `@Create` and `@Update` method must publish an event instead of
-> returning a value, and state is persisted exclusively via `@EventHandler` consumers.
+> listen-to-self pattern. Every `@Create` and `@Update` method must publish an event, and state is
+> persisted exclusively via `@EventHandler` consumers. An update returns the current aggregate;
+> its return value is not persisted.
 > If only selected methods should be asynchronous, place `@AsyncCommit` on those methods individually
 > rather than on the type.
 
@@ -104,8 +105,8 @@ An `@EventHandler` on the same aggregate then persists it when the event arrives
 - On `@Create` static factory method: must have `void` return type and call `PublishesEvents.publishEvent(event)`
   internally; the generated endpoint returns `202 Accepted`. The event is routed through the Spring application event
   bus to the generated Kafka (or Pub/Sub, SNS) producer.
-- On `@Update void` method: method must call `PublishesEvents.publishEvent(event)` internally; generates `202 Accepted`;
-  `repository.save()` is **not** called.
+- On `@Update` method: publish the event and return the current aggregate; the endpoint returns `202 Accepted` and
+  `repository.save()` is **not** called. Returning `void` is deprecated and produces a compiler warning.
 - `@EventHandler` methods on an `@AsyncCommit` aggregate receive a deduplication guard in the generated consumer.
 
 > **⚠ Warning**: A `@Create @AsyncCommit` method with a non-void return type will cause a **compile-time error**.
@@ -128,8 +129,9 @@ public record Order(
     }
 
     @Update
-    public void cancel() {
+    public Order cancel() {
         PublishesEvents.publishEvent(new OrderCancelled(id));
+        return this;
     }
 
     @EventHandler
@@ -306,22 +308,34 @@ Exposes an instance method as an HTTP update endpoint.
 | `path`     | `String`    | `""`        | Path suffix appended after `/{id}`. E.g. `"/lines"` → `PUT /orders/{id}/lines`. |
 | `security` | `@Security` | `@Security` | Security settings.                                                              |
 
-The method may either return `void` (mutable record update via field replacement) or return a new
-instance of the aggregate (immutable pattern). Parameters become the request body fields.
+Return a new aggregate instance without mutating the original. Parameters become the request body fields.
+The generated service persists the returned instance for synchronous updates.
 
 ```java
 
-@Update(path = "/lines", method = "POST")
-public void addLine(String product, double quantity, double price) {
-    lines.add(new Line(product, quantity, price));
-}
-
-// Or immutable:
 @Update
 public Order update(String customerName) {
     return new Order(id, version, customerName);
 }
 ```
+
+The legacy `void` form, which may mutate the existing aggregate or its mutable contents, is deprecated
+and scheduled for removal in the next major version. Prefab emits a compile-time warning but preserves
+its existing behavior for now. Annotate legacy methods with `@Deprecated(forRemoval = true)` and document
+their replacement, then migrate to an aggregate-returning method. Java cannot deprecate only the
+`void` use of `@Update`, so the `@Update` annotation itself is not deprecated.
+
+```java
+/** @deprecated Return a new Order from an immutable update method instead. */
+@Deprecated(forRemoval = true)
+@Update(path = "/lines", method = "POST")
+public void addLine(Line line) {
+    lines.add(line);
+}
+```
+
+For `@AsyncCommit` updates, continue publishing the event and return `this`; the generated service does
+not save the return value. Void async updates also receive the deprecation warning.
 
 ---
 

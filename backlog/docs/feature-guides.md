@@ -75,6 +75,11 @@ Generated endpoints:
 - `PUT    /products/{id}/description` — update description
 - `DELETE /products/{id}`        — delete
 
+Return a new aggregate from every `@Update` instead of mutating the existing instance. Legacy `void`
+updates produce a compiler warning and are scheduled for removal in the next major version. For
+`@AsyncCommit`, publish the event and return `this`; the service does not persist the return value.
+See the [`@Update` reference](annotation-reference.md#update) for migration details.
+
 To get a stable order (and stable paging), declare a default sort order on `@GetList`:
 `@GetList(sorted = @SortOrder(property = "name"))`. It applies only when the request has no `sort` parameter;
 an explicit `?sort=price,desc` replaces it entirely. It combines with filters, paging, tenant and parent.

@@ -16,6 +16,9 @@ habits here.
 `Repository`, `Create…Request`/`Update…Request`/`{Aggregate}Response` records, event producers and consumers,
 Flyway migrations (`V…__*.sql`), and `{Aggregate}Client` test helpers (`target/prefab-test-sources`).
 
+After a compile, read `target/prefab/agent-context.md` first: it lists this project's aggregates, endpoints,
+events, tables and test helpers, so you need not browse generated sources.
+
 Business rules live in the record's methods. Change behaviour by changing annotations or the record, then run
 `mvn compile` and read the compiler output: Prefab errors say what to fix.
 
@@ -78,7 +81,7 @@ Setup: `@EnablePrefab` on the `@SpringBootApplication` class. Add only the modul
 | Rename a column, set a default | `@DbRename`, `@DbDefaultValue` |
 | Hide an aggregate's HTTP endpoints | `@Aggregate(exposure = Exposure.INTERNAL)` |
 | Test one aggregate's logic and events | Plain JUnit; `@ExtendWith(PublishedEventsExtension.class)` + `CapturingDomainEventPublisher` parameter |
-| Test through HTTP | `@IntegrationTest` (prefab-test) and `@Autowired {Aggregate}Client` |
+| Test through HTTP | `@IntegrationTest` (prefab-test) and `@Autowired {Aggregate}Client`. Runs in memory, no Docker; add `containers = true` only for a test that needs real database or broker behaviour |
 
 ## Do not
 
@@ -92,6 +95,9 @@ Setup: `@EnablePrefab` on the `@SpringBootApplication` class. Add only the modul
 - Do **not** hand-write request/response DTOs. Use the generated `Create…Request` and `…Response` records.
 - Do **not** use deprecated `PublishesEvents.publish(...)` / `DomainEventPublisher.publish(...)`.
 - Do **not** add setters, `getX()` accessors or mutable fields. Records are immutable; accessors are `name()`.
+- Do **not** add `@SuppressWarnings("prefab.handwritten")` or `-- prefab:manual` to make a warning go away.
+  Prefab reports hand-written controllers, entities, repositories and migrations that duplicate an aggregate at
+  compile time; those opt-outs are for human decisions.
 - Do **not** silence a Prefab compiler error by deleting the annotation. Read the message and fix the cause.
 
 ## When Prefab can't express it

@@ -12,7 +12,7 @@ import org.springframework.data.domain.Pageable;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-@IntegrationTest
+@IntegrationTest(containers = true) // sending a message runs the native @Query of UserStatusRepositoryMixin
 class ChannelSummaryIntegrationTest {
 
     @Autowired

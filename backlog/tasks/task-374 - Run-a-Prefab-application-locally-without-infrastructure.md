@@ -1,5 +1,5 @@
 ---
-id: TASK-373
+id: TASK-374
 title: Run a Prefab application locally without infrastructure
 status: To Do
 assignee: []

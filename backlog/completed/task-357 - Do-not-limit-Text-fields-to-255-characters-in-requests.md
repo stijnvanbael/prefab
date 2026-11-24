@@ -1,7 +1,7 @@
 ---
 id: TASK-357
 title: Do not limit @Text fields to 255 characters in requests
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-21 18:10'
 labels:
@@ -30,6 +30,14 @@ parameters, and skip the default `@Size(max = 255)` for such parameters.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A create or update parameter for a @Text field accepts more than 255 characters without an explicit @Size
-- [ ] #2 Covered by an annotation processor test
+- [x] #1 A create or update parameter for a @Text field accepts more than 255 characters without an explicit @Size
+- [x] #2 Covered by an annotation processor test
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+`RequestParameterBuilder` now looks up the field or record component with the same name in the type declaring the
+create/update method; when it carries `@Text`, the default `@Size(max = 255)` is skipped. An explicit `@Size` on the
+parameter still wins. Covered by `RestWriterTest.textFieldParametersAreNotLimitedTo255Characters`. The showcase `Product` keeps its explicit `@Size(max = MAX_DESCRIPTION_LENGTH)`, which is a deliberate API limit.
+<!-- SECTION:NOTES:END -->

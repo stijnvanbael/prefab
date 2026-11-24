@@ -72,6 +72,20 @@ class RestWriterTest {
     }
 
     @Test
+    void textFieldParametersAreNotLimitedTo255Characters() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("rest/textfield/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+        var request = assertThat(compilation)
+                .generatedSourceFile("rest.textfield.application.CreateProductRequest")
+                .contentsAsUtf8String();
+        request.contains("@Size(max = 255) String name");
+        request.doesNotContain("@Size(max = 255) String description");
+    }
+
+    @Test
     void nonStringValueTypeParametersUseInnerFieldType() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

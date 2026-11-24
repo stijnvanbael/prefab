@@ -17,9 +17,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import javax.sql.DataSource;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.TransactionAwareDataSourceProxy;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -29,6 +33,11 @@ import org.springframework.transaction.support.TransactionTemplate;
  * database transaction on {@link Transaction#commit()}: inbox identities, state rows guarded by a version, and
  * outbox rows. A stale version, a concurrently claimed inbox identity or a deadlock raises an
  * {@link OptimisticConflictException}, which the engine retries.
+ *
+ * <p>The transaction manager must manage the {@link DataSource} object of the {@link JdbcTemplate}. Otherwise every
+ * statement would autocommit on its own, and a conflict halfway through a commit would leave the inbox identity and
+ * part of the state behind while the remaining state and the outbox rows were lost. The repository therefore refuses
+ * such a combination.
  */
 public final class PostgresStreamStateRepository implements StreamStateRepository {
     private static final String SELECT_STATE =
@@ -53,7 +62,11 @@ public final class PostgresStreamStateRepository implements StreamStateRepositor
             ON CONFLICT (topic) DO UPDATE SET owner = EXCLUDED.owner, expires_at = EXCLUDED.expires_at
             WHERE prefab_stream_lease.owner = EXCLUDED.owner OR prefab_stream_lease.expires_at <= ?""";
 
+    private static final String DATA_SOURCE_MISMATCH = "The transaction manager must manage the same DataSource "
+            + "object as the JdbcTemplate, so a message's inbox, state and outbox changes commit atomically";
+
     private final JdbcTemplate jdbc;
+    private final DataSource dataSource;
     private final TransactionTemplate transactions;
     private final StreamStateCodec codec;
 
@@ -61,8 +74,10 @@ public final class PostgresStreamStateRepository implements StreamStateRepositor
      * Creates a repository.
      *
      * @param jdbc the template of the database holding the {@code prefab_stream_*} tables
-     * @param transactionManager the manager for that database, used for the per-message transaction
+     * @param transactionManager the manager of the template's {@link DataSource}, used for the per-message
+     *         transaction
      * @param codec the value and key codec
+     * @throws IllegalArgumentException if the transaction manager manages another {@link DataSource}
      */
     public PostgresStreamStateRepository(
             JdbcTemplate jdbc,
@@ -70,9 +85,18 @@ public final class PostgresStreamStateRepository implements StreamStateRepositor
             StreamStateCodec codec
     ) {
         this.jdbc = Objects.requireNonNull(jdbc, "jdbc must not be null");
-        this.transactions = new TransactionTemplate(
-                Objects.requireNonNull(transactionManager, "transactionManager must not be null"));
+        this.dataSource = unwrap(Objects.requireNonNull(jdbc.getDataSource(), "jdbc must have a DataSource"));
+        Objects.requireNonNull(transactionManager, "transactionManager must not be null");
+        if (transactionManager instanceof DataSourceTransactionManager manager
+                && unwrap(manager.getDataSource()) != dataSource) {
+            throw new IllegalArgumentException(DATA_SOURCE_MISMATCH);
+        }
+        this.transactions = new TransactionTemplate(transactionManager);
         this.codec = Objects.requireNonNull(codec, "codec must not be null");
+    }
+
+    private static DataSource unwrap(DataSource dataSource) {
+        return dataSource instanceof TransactionAwareDataSourceProxy proxy ? proxy.getTargetDataSource() : dataSource;
     }
 
     @Override
@@ -237,6 +261,9 @@ public final class PostgresStreamStateRepository implements StreamStateRepositor
         }
 
         private void apply() {
+            if (!TransactionSynchronizationManager.hasResource(dataSource)) {
+                throw new IllegalStateException(DATA_SOURCE_MISMATCH);
+            }
             var now = Timestamp.from(Instant.now());
             for (var inbox : pendingInbox) {
                 if (jdbc.update(INSERT_INBOX, inbox.subscription(), inbox.messageId(), now) == 0) {

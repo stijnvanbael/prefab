@@ -89,13 +89,14 @@ class SnsSqsStreamsIntegrationTest {
         localstack = new LocalStackContainer(DockerImageName.parse("localstack/localstack:4"))
                 .withServices(SNS, SQS);
         localstack.start();
-        var jdbc = new JdbcTemplate(postgresDataSource());
+        var dataSource = postgresDataSource();
+        var jdbc = new JdbcTemplate(dataSource);
         stateJdbc = jdbc;
         jdbc.execute("DROP TABLE IF EXISTS prefab_stream_store, prefab_stream_inbox, "
                 + "prefab_stream_outbox, prefab_stream_lease");
         PostgresStreamSchema.initialize(jdbc);
         var repository = new PostgresStreamStateRepository(
-                jdbc, new DataSourceTransactionManager(postgresDataSource()), new JsonStreamStateCodec());
+                jdbc, new DataSourceTransactionManager(dataSource), new JsonStreamStateCodec());
 
         var credentials = StaticCredentialsProvider.create(
                 AwsBasicCredentials.create(localstack.getAccessKey(), localstack.getSecretKey()));

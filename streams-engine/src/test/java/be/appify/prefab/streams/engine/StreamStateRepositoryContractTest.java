@@ -20,41 +20,73 @@ public abstract class StreamStateRepositoryContractTest {
     @Test
     void optimisticWritesRejectAStaleVersion() {
         var repository = createRepository();
-        var first = repository.beginTransaction();
-        var second = repository.beginTransaction();
-        first.get("counts", "key");
-        second.get("counts", "key");
-        first.put("counts", "key", 1);
-        second.put("counts", "key", 2);
+        try (var first = repository.beginTransaction(); var second = repository.beginTransaction()) {
+            first.get("counts", "key");
+            second.get("counts", "key");
+            first.put("counts", "key", 1);
+            second.put("counts", "key", 2);
 
-        first.commit();
+            first.commit();
 
-        assertThatThrownBy(second::commit)
-                .isInstanceOf(StreamStateRepository.OptimisticConflictException.class);
-        var verification = repository.beginTransaction();
-        assertThat(verification.get("counts", "key")).contains(1);
-        verification.rollback();
+            assertThatThrownBy(second::commit)
+                    .isInstanceOf(StreamStateRepository.OptimisticConflictException.class);
+        }
+        try (var verification = repository.beginTransaction()) {
+            assertThat(verification.get("counts", "key")).contains(1);
+            verification.rollback();
+        }
+    }
+
+    @Test
+    void optimisticReadsRejectAStaleVersionEvenWithoutAWrite() {
+        var repository = createRepository();
+        try (var initial = repository.beginTransaction()) {
+            initial.put("counts", "key", 0);
+            initial.commit();
+        }
+        try (var reader = repository.beginTransaction(); var writer = repository.beginTransaction()) {
+            assertThat(reader.get("counts", "key")).contains(0);
+            writer.put("counts", "key", 1);
+            writer.commit();
+
+            assertThatThrownBy(reader::commit)
+                    .isInstanceOf(StreamStateRepository.OptimisticConflictException.class);
+        }
+    }
+
+    @Test
+    void deletingAnAbsentKeyRejectsAConcurrentInsert() {
+        var repository = createRepository();
+        try (var deleter = repository.beginTransaction(); var writer = repository.beginTransaction()) {
+            deleter.delete("counts", "key");
+            writer.put("counts", "key", 1);
+            writer.commit();
+
+            assertThatThrownBy(deleter::commit)
+                    .isInstanceOf(StreamStateRepository.OptimisticConflictException.class);
+        }
     }
 
     @Test
     void inboxStateAndOutboxCommitAtomically() {
         var repository = createRepository();
         var message = new StreamMessage("message", "key", "value", Map.of(), Instant.EPOCH);
-        var transaction = repository.beginTransaction();
-        assertThat(transaction.recordInbox("topic", "message")).isTrue();
-        transaction.put("counts", "key", 3);
-        transaction.enqueue("output", message);
-        transaction.commit();
-
-        var duplicate = repository.beginTransaction();
-        assertThat(duplicate.recordInbox("topic", "message")).isFalse();
-        duplicate.rollback();
+        try (var transaction = repository.beginTransaction()) {
+            assertThat(transaction.recordInbox("topic", "message")).isTrue();
+            transaction.put("counts", "key", 3);
+            transaction.enqueue("output", message);
+            transaction.commit();
+        }
+        try (var duplicate = repository.beginTransaction()) {
+            assertThat(duplicate.recordInbox("topic", "message")).isFalse();
+            duplicate.rollback();
+        }
         var leased = repository.leaseOutbox("output", "test-owner", Instant.now(), Duration.ofSeconds(30), 10);
-        var verification = repository.beginTransaction();
-
-        assertThat(verification.get("counts", "key")).contains(3);
-        assertThat(leased).extracting(StreamStateRepository.OutboxRecord::topic).containsExactly("output");
-        verification.rollback();
+        try (var verification = repository.beginTransaction()) {
+            assertThat(verification.get("counts", "key")).contains(3);
+            assertThat(leased).extracting(StreamStateRepository.OutboxRecord::topic).containsExactly("output");
+            verification.rollback();
+        }
     }
 
     @Test

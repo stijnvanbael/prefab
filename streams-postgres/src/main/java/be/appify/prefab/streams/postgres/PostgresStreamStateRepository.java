@@ -4,11 +4,13 @@ import be.appify.prefab.streams.engine.StreamMessage;
 import be.appify.prefab.streams.engine.StreamStateCodec;
 import be.appify.prefab.streams.engine.StreamStateRepository;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -264,6 +266,7 @@ public final class PostgresStreamStateRepository implements StreamStateRepositor
             if (!TransactionSynchronizationManager.hasResource(dataSource)) {
                 throw new IllegalStateException(DATA_SOURCE_MISMATCH);
             }
+            validateObservedVersions();
             var now = Timestamp.from(Instant.now());
             for (var inbox : pendingInbox) {
                 if (jdbc.update(INSERT_INBOX, inbox.subscription(), inbox.messageId(), now) == 0) {
@@ -275,6 +278,39 @@ public final class PostgresStreamStateRepository implements StreamStateRepositor
                 jdbc.update("INSERT INTO prefab_stream_outbox (id, topic, message) VALUES (?, ?, ?)",
                         record.id(), record.topic(), codec.encodeMessage(record.message()));
             }
+        }
+
+        private void validateObservedVersions() {
+            observedVersions.keySet().stream()
+                    .map(this::advisoryLockKey)
+                    .distinct()
+                    .sorted()
+                    .forEach(lockKey -> jdbc.query(
+                            "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
+                            rs -> { },
+                            lockKey));
+            observedVersions.forEach((key, expected) -> {
+                var actual = jdbc.query(
+                                "SELECT version FROM prefab_stream_store "
+                                        + "WHERE namespace = ? AND state_key = ? FOR SHARE",
+                                (rs, row) -> rs.getLong("version"),
+                                key.namespace(),
+                                key.bytes())
+                        .stream()
+                        .findFirst()
+                        .orElse(0L);
+                if (actual != expected.longValue()) {
+                    throw new OptimisticConflictException(
+                            "State changed concurrently in namespace '%s'".formatted(key.namespace()));
+                }
+            });
+        }
+
+        private String advisoryLockKey(StateKey key) {
+            var encodedNamespace = Base64.getEncoder()
+                    .encodeToString(key.namespace().getBytes(StandardCharsets.UTF_8));
+            var encodedKey = Base64.getEncoder().encodeToString(key.bytes());
+            return encodedNamespace + ":" + encodedKey;
         }
 
         private void applyChange(StateKey key, Change change) {

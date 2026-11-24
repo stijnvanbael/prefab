@@ -3,9 +3,10 @@ id: TASK-372
 title: >-
   Validate versions of read-only and absent-deleted keys in the Postgres stream
   state repository
-status: To Do
+status: In Progress
 assignee: []
-created_date: '2026-11-24 06:16'
+created_date: '2026-11-24T06:16:00Z'
+updated_date: '2026-11-24T15:08:26Z'
 labels:
   - streams
   - postgres
@@ -27,3 +28,9 @@ Found while fixing TASK-371. `PostgresStreamStateRepository` only checks version
 - [ ] #2 If needed, the commit raises OptimisticConflictException when such a key changed concurrently, with a test reproducing it
 - [ ] #3 Contract test covers the behaviour so other repositories match
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Operator analysis: the engine uses observed state to make decisions, not only to supply values for writes. `deduplicate` suppresses a message on a read-only branch when its identity is present; windowed aggregation reads stream-time state before expiry/acceptance decisions; joins can drop an old message after reading join state; and user processors can read `Store`/`GlobalStore` without writing. Aggregate and join/window success paths also read then update state. Therefore every observed version must be validated at commit, including absent reads and absent-key deletes. Implementation plan: validate all observed versions within each backend's commit transaction; serialize Postgres commits by deterministic transaction-scoped advisory locks for observed state keys (including absent keys), then compare versions while row-locking existing rows. Extend the shared repository contract with stale read-only and absent-delete scenarios, and update each repository implementation to preserve the contract.
+<!-- SECTION:NOTES:END -->

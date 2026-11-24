@@ -31,7 +31,7 @@ public interface StreamStateRepository {
          */
         boolean recordInbox(String subscription, String messageId);
 
-        /** Reads a value and captures its optimistic version. */
+        /** Reads a value and captures its optimistic version for validation at commit. */
         Optional<Object> get(String namespace, Object key);
 
         /** Writes a value using the version captured by this transaction. */
@@ -49,7 +49,9 @@ public interface StreamStateRepository {
         /** Adds an output to the transactional outbox. */
         void enqueue(String topic, StreamMessage message);
 
-        /** Commits all inbox, state and outbox changes atomically. */
+        /**
+         * Validates every observed state version and commits all inbox, state and outbox changes atomically.
+         */
         void commit();
 
         /** Rolls back any uncommitted changes. */

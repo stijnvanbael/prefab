@@ -226,10 +226,10 @@ public final class InMemoryStreamStateRepository implements StreamStateRepositor
                 if (pendingInbox.stream().anyMatch(inbox::containsKey)) {
                     throw new OptimisticConflictException("Inbox identity was concurrently claimed");
                 }
-                for (var entry : changes.entrySet()) {
+                for (var entry : observedVersions.entrySet()) {
                     var actual = versions.getOrDefault(entry.getKey(), 0L);
-                    var expected = observedVersions.getOrDefault(entry.getKey(), actual);
-                    if (actual != expected) {
+                    var expected = entry.getValue();
+                    if (!actual.equals(expected)) {
                         throw new OptimisticConflictException(
                                 "State changed concurrently in namespace '%s' for key %s"
                                         .formatted(entry.getKey().namespace, entry.getKey().key));

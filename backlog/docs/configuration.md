@@ -19,6 +19,12 @@
 Prefab includes Spring Boot Actuator by default through `prefab-core`.
 If you need to expose more or fewer endpoints, override these with your own application properties.
 
+On Pub/Sub and SNS/SQS, a message whose retries are exhausted is logged at error level and handed back to the broker
+(nack on Pub/Sub; on SQS the message stays on the queue until its visibility timeout expires). The broker then
+redelivers it or moves it to the dead-letter topic or queue. Nothing is thrown on the subscriber thread, so such a
+failure never surfaces as an uncaught exception in an unrelated thread or test. The Pub/Sub emulator does not
+dead-letter: an event that can never succeed is redelivered for as long as the context runs.
+
 ---
 
 ## Kafka Configuration

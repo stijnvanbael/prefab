@@ -8,5 +8,8 @@ logging.level:
 prefab:
   flyway:
     auto-clean-on-mismatch: true
+  # Pub/Sub retries with its own backoff properties (the Kafka property is initial-interval-ms). The defaults
+  # (1s, growing to 30s) let a failing message outlive the test that published it.
   dlt.retries:
-    initial-interval-ms: 10
+    minimum-backoff-ms: 10
+    maximum-backoff-ms: 100

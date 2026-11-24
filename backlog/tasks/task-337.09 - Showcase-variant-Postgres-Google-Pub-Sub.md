@@ -68,4 +68,17 @@ This environment has no Docker, so the Pub/Sub emulator + Postgres suite could n
   tests without the streams slice, which is TASK-175.05's job to prove on the showcase.
 - Acceptance criteria #2 and #4 stay open until CI has run the full suite on the real stack; then set the task to
   Done and move it to `backlog/completed/`.
+
+**CI findings (first run on the real stack)**
+
+The first run failed in `prefab-streams-sns-sqs` (TASK-371, unrelated). The re-run reached `showcase-pubsub` and
+11 of 91 tests failed (ordering, inventory, invoicing). Causes found in the log:
+- `application-test.yml` used Kafka's `prefab.dlt.retries.initial-interval-ms`; Pub/Sub reads `minimum-backoff-ms` and
+  `maximum-backoff-ms` (defaults 1s to 30s), so failing messages outlived the test that published them.
+- Nothing in the application publishes `CatalogProduct`, so `CatalogEnrichmentProcessor` threw for every order. Kafka
+  hides that; on the Pub/Sub emulator, which has no dead-lettering, the nacked message is redelivered forever and its
+  uncaught exception (`PubSubUtil.consume` rethrows after retries) fails whichever Awaitility call is running. Sales
+  of products missing from the replicated catalog now count as `uncategorized`.
+- Remaining suspicion, not yet confirmed: events of one test reaching their handlers after the next test's
+  `PersistenceTestExecutionListener` wiped the repositories (`@Multicast` finds nothing, TASK-365).
 <!-- SECTION:NOTES:END -->

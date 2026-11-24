@@ -101,6 +101,10 @@ demonstrate:
 | `branch`, `merge` | Route placed and cancelled orders, then combine the typed branches |
 | Opt-in tracing | Verify source order IDs on aggregate messages |
 
+The catalog is replicated asynchronously, so an order can arrive before its product: such sales are counted in the
+`uncategorized` category instead of failing, because a failing message is redelivered forever on brokers without
+dead-lettering (the Pub/Sub emulator).
+
 Kafka-native breakout is isolated in [`streams-kafka`](showcase/src/streams-kafka/java/be/appify/prefab/example/showcase/streams/kafka)
 and guarded by the `KAFKA_STREAMS_BREAKOUT` capability. The shared variant build leaves the optional source roots out
 unless a variant enables the corresponding streams backend. Variants without Streams list `STREAMS` in

@@ -8,3 +8,4 @@ be.appify.prefab.test.security.SecurityMockMvcTestAutoConfiguration
 be.appify.prefab.test.inmemory.InMemoryTestAutoConfiguration
 be.appify.prefab.test.inmemory.InMemoryPersistenceAutoConfiguration
 be.appify.prefab.test.inmemory.messaging.InMemoryMessagingAutoConfiguration
+be.appify.prefab.test.inmemory.streams.InMemoryStreamsAutoConfiguration

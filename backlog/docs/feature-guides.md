@@ -1103,7 +1103,8 @@ Prefab provides a backend-neutral Streams DSL (`prefab-streams`) with Kafka and 
 | `prefab-streams-sns-sqs` | SNS/SQS source and sink, `StreamBackend` `sns-sqs` and auto-configuration for the in-process engine | No                |
 | `prefab-streams-kafka` | `KafkaPrefabStreams`, serdes, `KafkaStreamBreakoutAdapter`, the Kafka test harness and the `StreamsConfiguration` auto-configuration | Yes               |
 
-Add `prefab-streams-kafka` to run the DSL on Kafka Streams; it brings `prefab-streams` along. Application code that
+Applications that only test in memory need `prefab-streams-engine` instead of a broker backend, see
+[Prefab Streams in memory](#prefab-streams-in-memory). Add `prefab-streams-kafka` to run the DSL on Kafka Streams; it brings `prefab-streams` along. Application code that
 only declares topologies compiles against `prefab-streams` and does not import any Kafka type. Broker backends are
 separate artifacts that implement the same DSL.
 
@@ -2205,6 +2206,36 @@ class UserStatusIntegrationTest { ... }
   **fails the test** that triggered it, with the handler as the cause. A test that expects a handler to fail clears
   the recorded failures with `InMemoryEventBus.drainFailures()`. Retries and dead-letter topics are not emulated.
 
+### Prefab Streams in memory
+
+With `prefab-streams` and `prefab-streams-engine` on the classpath (test scope is enough), the topologies of the
+application run in memory on the in-process engine, so applications with streams get container-free integration tests.
+Do not add `prefab-streams-kafka` for this: in memory mode its `StreamsConfiguration` is dropped, because Kafka Streams
+needs a broker, and the engine runs instead. The auto-configuration (`InMemoryStreamsAutoConfiguration`) wires:
+
+- **Sources** subscribe to the topic of their event type on the in-memory bus (`InMemoryBusStreamSource`). The topic is
+  the one of the `@Event`, exactly as it is for the generated listeners, so a topology sees the events that
+  aggregates publish. The bus delivers synchronously and in publication order, so every source is ordered. An event has
+  no broker timestamp: its event time (for windows and joins) is the moment of delivery, unless a stream published it.
+- **Sinks** publish on the bus (`InMemoryBusStreamSink`) with the serializer of the event's platform, so the output
+  has the bytes a real broker would carry. A topic named with `to("topic")` becomes an alias of the output type in the
+  `EventRegistry`; other topologies and `@KafkaListener` methods can read it.
+- **State** (aggregations, stores, global stores, join buffers, the inbox and outbox of the engine) lives in an
+  `InMemoryStreamStateRepository` and is cleared before every test, like the aggregates. Provide your own
+  `StreamStateRepository` bean to replace it.
+- The topology starts once all `StreamDefinition` beans exist, and stops with the application context. A handler
+  failure is recorded on the bus and fails the test, like any other event handler.
+- Repartition topics and changelog topics do not exist: the engine keeps state in the repository and `repartition()`
+  is a no-op.
+- `breakout(...)` hands over the Kafka Streams API, which the engine does not have, so a topology that uses it fails to
+  start ("The in-process streams backend does not support breakout; use a backend-native topology"). Keep such
+  operators in a separate configuration and run the tests of that topology with `@IntegrationTest(containers = true)`
+  on `prefab-streams-kafka`, as the showcase does (`KAFKA_STREAMS_BREAKOUT`).
+- The bus carries events, so a record without a value (a tombstone) cannot be published; the sources never receive one.
+
+Test a topology without Spring, in milliseconds, with `TopologyTestExtension` (see the Streams DSL guide); use an
+`@IntegrationTest` when the test must go through the REST API and the generated listeners.
+
 ### Known differences
 
 | Area | In memory | With containers |
@@ -2214,7 +2245,7 @@ class UserStatusIntegrationTest { ... }
 | Rollback | Writes of a rolled-back transaction are **not** undone | Rolled back |
 | Retries, dead-letter topics, `@EventHandlerConfig` retry settings, `@AsyncCommit` | Not emulated | Real broker behaviour |
 | Partitions, offsets, consumer groups, concurrency | None: one delivery per listener method | Real |
-| Prefab Streams topologies | Not available (TASK-374) | Run |
+| Prefab Streams topologies | Run on the in-process engine over the in-memory bus, with state in memory; `breakout` and tombstones are not available | Run on the configured backend |
 | Schema registry HTTP API | None (mock registry), TASK-375 | Real registry |
 | Code injecting `DataSource`, `JdbcTemplate`, `MongoTemplate` or `KafkaTemplate` | No such beans | Available |
 

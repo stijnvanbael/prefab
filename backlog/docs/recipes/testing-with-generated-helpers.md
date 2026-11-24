@@ -2,7 +2,7 @@
 
 **Budget:** 750 tokens. **Verified example:** [Product generated-client integration tests](../../../examples/showcase/src/test/java/be/appify/prefab/example/showcase/catalog/ProductIntegrationTest.java) and [test configuration](../../../examples/showcase/src/main/java/be/appify/prefab/example/showcase/ShowcaseApplication.java).
 
-Add `prefab-test` in test scope and annotate an integration test with `@IntegrationTest`. Prefab generates an `{Aggregate}Client` for HTTP operations; inject it to exercise the generated endpoints without hand-written request code. Tests use in-memory persistence and messaging by default.
+Add `prefab-test` in test scope and annotate an integration test with `@IntegrationTest`. Prefab generates an `{Aggregate}Client` for HTTP operations; inject it to exercise the generated endpoints without hand-written request code. Tests use in-memory persistence and messaging by default; with `prefab-streams-engine` on the classpath, Prefab Streams topologies run in memory too.
 
 **Rules**
 - Use the generated client for endpoint behavior and plain JUnit tests for isolated domain logic.

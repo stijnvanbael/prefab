@@ -81,7 +81,7 @@ Setup: `@EnablePrefab` on the `@SpringBootApplication` class. Add only the modul
 | Rename a column, set a default | `@DbRename`, `@DbDefaultValue` |
 | Hide an aggregate's HTTP endpoints | `@Aggregate(exposure = Exposure.INTERNAL)` |
 | Test one aggregate's logic and events | Plain JUnit; `@ExtendWith(PublishedEventsExtension.class)` + `CapturingDomainEventPublisher` parameter |
-| Test through HTTP | `@IntegrationTest` (prefab-test) and `@Autowired {Aggregate}Client`. Runs in memory, no Docker; add `containers = true` only for a test that needs real database or broker behaviour |
+| Test through HTTP | `@IntegrationTest` (prefab-test) and `@Autowired {Aggregate}Client`. Runs in memory, no Docker; Prefab Streams topologies run in memory too when `prefab-streams-engine` is on the classpath. Add `containers = true` only for a test that needs real database or broker behaviour |
 
 ## Do not
 

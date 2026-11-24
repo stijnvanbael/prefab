@@ -13,6 +13,8 @@ import be.appify.prefab.test.inmemory.persistence.fixture.Shape;
 import be.appify.prefab.test.inmemory.persistence.fixture.Shape.Circle;
 import be.appify.prefab.test.inmemory.persistence.fixture.Shape.Square;
 import be.appify.prefab.test.inmemory.persistence.fixture.ShapeRepository;
+import be.appify.prefab.test.inmemory.persistence.fixture.Ticket;
+import be.appify.prefab.test.inmemory.persistence.fixture.TicketRepository;
 import be.appify.prefab.test.inmemory.persistence.fixture.Widget;
 import be.appify.prefab.test.inmemory.persistence.fixture.WidgetRepository;
 import java.util.List;
@@ -67,6 +69,19 @@ class InMemoryRepositoriesTest {
             assertThat(orders.count()).isEqualTo(1);
             assertThat(orders.findAll()).containsExactly(saved);
             assertThat(orders.findAllById(List.of("o1", "missing"))).containsExactly(saved);
+        });
+    }
+
+    @Test
+    void aggregateIdentifiedByAReference_isFoundAndDeletedByItsPlainIdentifier() {
+        runner.run(context -> {
+            var tickets = context.getBean(TicketRepository.class);
+
+            var saved = tickets.save(Ticket.create("Broken grinder"));
+
+            assertThat(tickets.findById(saved.id().id())).contains(saved);
+            tickets.deleteById(saved.id().id());
+            assertThat(tickets.findById(saved.id().id())).isEmpty();
         });
     }
 

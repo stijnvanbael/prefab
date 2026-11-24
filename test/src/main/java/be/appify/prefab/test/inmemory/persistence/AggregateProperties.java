@@ -67,7 +67,9 @@ public final class AggregateProperties {
      * @return the identifier, empty when it is not assigned
      */
     public Optional<Object> idOf(Object bean) {
-        return Optional.ofNullable(entityOf(bean).getIdentifierAccessor(bean).getIdentifier());
+        // Prefab aggregates are identified by a Reference, while their repositories are keyed by the plain String
+        return Optional.ofNullable(entityOf(bean).getIdentifierAccessor(bean).getIdentifier())
+                .map(id -> id instanceof Reference<?> reference ? reference.id() : id);
     }
 
     /**

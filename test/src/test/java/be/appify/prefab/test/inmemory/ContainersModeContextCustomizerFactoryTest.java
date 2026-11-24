@@ -72,7 +72,7 @@ class ContainersModeContextCustomizerFactoryTest {
     }
 
     @Test
-    void containersAreEnabledByDefault() {
-        assertThat(TestInfrastructureMode.containersEnabled(new GenericApplicationContext())).isTrue();
+    void inMemoryIsTheDefault() {
+        assertThat(TestInfrastructureMode.containersEnabled(new GenericApplicationContext())).isFalse();
     }
 }

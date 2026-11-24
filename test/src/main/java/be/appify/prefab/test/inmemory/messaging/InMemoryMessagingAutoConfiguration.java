@@ -84,7 +84,7 @@ public class InMemoryMessagingAutoConfiguration {
                 ConversionService conversionService,
                 EventRegistry eventRegistry
         ) {
-            useMockSchemaRegistryWithoutRegistryUrl(kafkaProperties);
+            useMockSchemaRegistry(kafkaProperties);
             return new DynamicSerializer(kafkaProperties, conversionService, eventRegistry);
         }
 
@@ -96,7 +96,7 @@ public class InMemoryMessagingAutoConfiguration {
                 EventRegistry eventRegistry,
                 ObjectProvider<EventMigrator> eventMigrator
         ) {
-            useMockSchemaRegistryWithoutRegistryUrl(kafkaProperties);
+            useMockSchemaRegistry(kafkaProperties);
             return new DynamicDeserializer(kafkaProperties, conversionService, eventRegistry,
                     eventMigrator.getIfAvailable(EventMigrator::none));
         }
@@ -115,10 +115,13 @@ public class InMemoryMessagingAutoConfiguration {
             return new KafkaListenerSubscriber(bus);
         }
 
-        private static void useMockSchemaRegistryWithoutRegistryUrl(KafkaProperties kafkaProperties) {
-            if (!kafkaProperties.getProperties().containsKey(KafkaSchemaRegistrySupport.SCHEMA_REGISTRY_URL)) {
-                KafkaSchemaRegistrySupport.enableMockSchemaRegistry(kafkaProperties);
-            }
+        // No registry runs in memory: a URL configured for the real application (e.g. http://localhost:8081)
+        // would only make the first Avro event fail with a connection error.
+        private static void useMockSchemaRegistry(KafkaProperties kafkaProperties) {
+            kafkaProperties.getProperties().remove(KafkaSchemaRegistrySupport.SCHEMA_REGISTRY_URL);
+            kafkaProperties.getProducer().getProperties().remove(KafkaSchemaRegistrySupport.SCHEMA_REGISTRY_URL);
+            kafkaProperties.getConsumer().getProperties().remove(KafkaSchemaRegistrySupport.SCHEMA_REGISTRY_URL);
+            KafkaSchemaRegistrySupport.enableMockSchemaRegistry(kafkaProperties);
         }
     }
 

@@ -40,6 +40,7 @@
         <module>examples/showcase-variant-parent</module>
         <module>examples/showcase-mongodb</module>
         <module>examples/showcase-pubsub</module>
+        <module>examples/showcase-inmemory</module>
         <module>kafka</module>
         <module>pubsub</module>
         <module>sns-sqs</module>

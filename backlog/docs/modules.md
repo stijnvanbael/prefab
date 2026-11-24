@@ -27,7 +27,7 @@
 | `security`             | `prefab-security`             | Security           | Spring Security + OAuth2 integration           |
 | `openapi`              | `prefab-openapi`              | OpenAPI docs       | SpringDoc OpenAPI / Swagger UI                 |
 | `async-api`            | `prefab-async-api`            | AsyncAPI docs      | AsyncAPI specification generation              |
-| `test`                 | `prefab-test`                 | Testing            | Testcontainers-based integration test support  |
+| `test`                 | `prefab-test`                 | Testing            | `@IntegrationTest` on an in-memory backend (default) or Testcontainers, test event consumers and assertions; see [Feature Guides 7.20](feature-guides.md#720-integration-tests-in-memory-or-containers) |
 | `terraform`            | `prefab-terraform`            | GCP infra          | Compile-time GCP Terraform configuration generation |
 
 ---
@@ -53,7 +53,7 @@
 | Binary uploads          | `core`, `annotation-processor`, persistence module                |
 | OpenAPI documentation   | `core`, `annotation-processor`, `openapi`                         |
 | AsyncAPI documentation  | `core`, `annotation-processor`, `async-api`                       |
-| Integration testing     | `test`, plus one or more messaging modules                        |
+| Integration testing     | `test` (in memory by default; Docker only with `containers = true`), plus the persistence and messaging modules of the application |
 
 ---
 

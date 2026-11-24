@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "ShipmentDispatched",
-  "namespace": "com.example.shipping",
+  "namespace": "com.example.logistics",
   "doc": "A shipment left the warehouse.",
   "fields": [
     {"name": "shipmentId", "type": "string"},

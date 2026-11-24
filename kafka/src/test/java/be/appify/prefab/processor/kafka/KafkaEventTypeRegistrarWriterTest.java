@@ -182,6 +182,20 @@ class KafkaEventTypeRegistrarWriterTest {
     }
 
     @Test
+    void avscEventRegistrarUsesTheContractPackageWhenTheSchemaNamespaceDiffers() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(
+                        sourceOf("kafka/avscnamespace/ShipmentEvent.java"),
+                        sourceOf("kafka/avscnamespace/ShipmentProcessor.java"));
+        assertThat(compilation).succeeded();
+        var source = generatedSourceOf(compilation,
+                "kafka.avscnamespace.infrastructure.event.ShipmentDispatchedEventTypeRegistrar");
+        assertThat(source).contains("import kafka.avscnamespace.ShipmentDispatched;");
+        assertThat(source).doesNotContain("kafka.logistics");
+    }
+
+    @Test
     void syntheticPartitioningKeyMethodOnRegularEventUsesMethodExtractor() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

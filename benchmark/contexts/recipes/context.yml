@@ -1,0 +1,49 @@
+description: The compact agent cheat sheet plus verified task recipes available on demand.
+instructions:
+  - repo: backlog/docs/agent-cheat-sheet.md
+  - repo: backlog/docs/recipes/index.md
+copy:
+  - from: backlog/docs/recipes
+    to: docs/prefab/recipes
+  - from: examples/showcase/src/main/java/be/appify/prefab/example/showcase/catalog/Product.java
+    to: examples/showcase/src/main/java/be/appify/prefab/example/showcase/catalog/Product.java
+  - from: examples/showcase/src/main/java/be/appify/prefab/example/showcase/catalog/ProductRepositoryMixin.java
+    to: examples/showcase/src/main/java/be/appify/prefab/example/showcase/catalog/ProductRepositoryMixin.java
+  - from: examples/showcase/src/main/java/be/appify/prefab/example/showcase/customer/Customer.java
+    to: examples/showcase/src/main/java/be/appify/prefab/example/showcase/customer/Customer.java
+  - from: examples/showcase/src/main/java/be/appify/prefab/example/showcase/customer/CustomerRegistered.java
+    to: examples/showcase/src/main/java/be/appify/prefab/example/showcase/customer/CustomerRegistered.java
+  - from: examples/showcase/src/main/java/be/appify/prefab/example/showcase/ordering/Order.java
+    to: examples/showcase/src/main/java/be/appify/prefab/example/showcase/ordering/Order.java
+  - from: examples/showcase/src/main/java/be/appify/prefab/example/showcase/ordering/OrderRepositoryMixin.java
+    to: examples/showcase/src/main/java/be/appify/prefab/example/showcase/ordering/OrderRepositoryMixin.java
+  - from: examples/showcase/src/main/java/be/appify/prefab/example/showcase/invoicing/Invoice.java
+    to: examples/showcase/src/main/java/be/appify/prefab/example/showcase/invoicing/Invoice.java
+  - from: examples/showcase/src/main/java/be/appify/prefab/example/showcase/PrincipalAuditContextProvider.java
+    to: examples/showcase/src/main/java/be/appify/prefab/example/showcase/PrincipalAuditContextProvider.java
+  - from: examples/showcase/src/main/java/be/appify/prefab/example/showcase/ShowcaseApplication.java
+    to: examples/showcase/src/main/java/be/appify/prefab/example/showcase/ShowcaseApplication.java
+  - from: examples/showcase/src/test/java/be/appify/prefab/example/showcase/catalog/ProductIntegrationTest.java
+    to: examples/showcase/src/test/java/be/appify/prefab/example/showcase/catalog/ProductIntegrationTest.java
+  - from: examples/showcase/src/test/java/be/appify/prefab/example/showcase/catalog/ProductListIntegrationTest.java
+    to: examples/showcase/src/test/java/be/appify/prefab/example/showcase/catalog/ProductListIntegrationTest.java
+  - from: examples/showcase/src/test/java/be/appify/prefab/example/showcase/catalog/ProductRepositoryMixinIntegrationTest.java
+    to: examples/showcase/src/test/java/be/appify/prefab/example/showcase/catalog/ProductRepositoryMixinIntegrationTest.java
+  - from: examples/showcase/src/test/java/be/appify/prefab/example/showcase/catalog/ProductImageIntegrationTest.java
+    to: examples/showcase/src/test/java/be/appify/prefab/example/showcase/catalog/ProductImageIntegrationTest.java
+  - from: examples/showcase/src/test/java/be/appify/prefab/example/showcase/catalog/ProductAuditIntegrationTest.java
+    to: examples/showcase/src/test/java/be/appify/prefab/example/showcase/catalog/ProductAuditIntegrationTest.java
+  - from: examples/showcase/src/test/java/be/appify/prefab/example/showcase/customer/CustomerIntegrationTest.java
+    to: examples/showcase/src/test/java/be/appify/prefab/example/showcase/customer/CustomerIntegrationTest.java
+  - from: examples/showcase/src/test/java/be/appify/prefab/example/showcase/ordering/OrderIntegrationTest.java
+    to: examples/showcase/src/test/java/be/appify/prefab/example/showcase/ordering/OrderIntegrationTest.java
+  - from: examples/showcase/src/test/java/be/appify/prefab/example/showcase/ordering/OrderCancellationOnDeactivationIntegrationTest.java
+    to: examples/showcase/src/test/java/be/appify/prefab/example/showcase/ordering/OrderCancellationOnDeactivationIntegrationTest.java
+  - from: examples/showcase/src/test/java/be/appify/prefab/example/showcase/invoicing/InvoiceIntegrationTest.java
+    to: examples/showcase/src/test/java/be/appify/prefab/example/showcase/invoicing/InvoiceIntegrationTest.java
+  - from: examples/showcase/src/test/java/be/appify/prefab/example/showcase/ShowcaseSecurityAndDocumentationIntegrationTest.java
+    to: examples/showcase/src/test/java/be/appify/prefab/example/showcase/ShowcaseSecurityAndDocumentationIntegrationTest.java
+  - from: annotation-processor/src/test/resources/tenant/project/source/Project.java
+    to: annotation-processor/src/test/resources/tenant/project/source/Project.java
+  - from: annotation-processor/src/test/java/be/appify/prefab/processor/tenant/TenantPluginTest.java
+    to: annotation-processor/src/test/java/be/appify/prefab/processor/tenant/TenantPluginTest.java

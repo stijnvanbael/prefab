@@ -127,8 +127,12 @@ A clearly reported limitation beats a workaround that breaks on the next build.
 
 ## Where to read more
 
-Read only what the task needs. Under `docs/prefab/` or in the Prefab repository (`backlog/docs/`):
+Read only what the task needs. First choose one recipe from `docs/prefab/recipes/index.md` (or
+`backlog/docs/recipes/index.md` in the Prefab repository); do not load the whole recipe set. Each recipe links to a
+complete example source that is compiled or exercised by the Prefab build. For reference details, see `docs/prefab/`
+or, in the Prefab repository, `backlog/docs/`:
 
+- `recipes/index.md`: intent lookup; open only the matching task recipe
 - `annotation-reference.md`: every annotation, its attributes and rules (look up one section, don't read it all)
 - `feature-guides.md`: events, handlers, Avro, audit, tenancy, files, mixins, testing, security
 - `generated-artefacts.md`: what gets generated, and the test client

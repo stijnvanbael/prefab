@@ -136,8 +136,14 @@ copy:                          # repository files or directories copied into the
 | `full-docs` | The readme and all developer guide chapters (about 250 KB, 60k tokens) inside CLAUDE.md, always loaded. |
 | `docs-folder` | The same docs copied to `docs/prefab/`, with a short CLAUDE.md that points to them. Read on demand. |
 | `cheat-sheet` | Only the [agent cheat sheet](agent-cheat-sheet.md) (about 2k tokens) in CLAUDE.md, always loaded. |
+| `recipes` | Cheat sheet plus the recipe index in CLAUDE.md; recipes and their verified source examples are copied and opened on demand. |
 
-The compact agent cheat sheet (TASK-344) has the `cheat-sheet` context. When the recipes (TASK-346) exist, add a context for them. Once
+The `recipes` context is configured but does not yet have a recorded Haiku run; see TASK-346 AC #6. Do not treat
+the cheat-sheet or full-docs baselines as results for this context.
+
+The compact agent cheat sheet (TASK-344) has the `cheat-sheet` context. The `recipes` context makes the TASK-346
+recipe index available in the always-loaded instructions and copies recipe files to `docs/prefab/recipes/`, with
+their linked showcase and processor-test sources at repository-relative paths for on-demand reading. Once
 TASK-350 delivers agent guidance to application projects, the benchmark must use that same delivery path. Then add a
 context that reproduces the setup step, so the benchmark measures what users get.
 

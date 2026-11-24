@@ -37,14 +37,22 @@ class WorkspaceFactoryTest {
     void contextsAssembleTheirInstructions() throws Exception {
         var none = ContextSetup.load(PATHS.contexts(), "none");
         var fullDocs = ContextSetup.load(PATHS.contexts(), "full-docs");
+        var recipes = ContextSetup.load(PATHS.contexts(), "recipes");
 
         none.applyTo(PATHS, directory.resolve("none"));
         fullDocs.applyTo(PATHS, directory.resolve("full"));
+        recipes.applyTo(PATHS, directory.resolve("recipes"));
 
         assertThat(directory.resolve("none/CLAUDE.md")).doesNotExist();
         assertThat(Files.readString(directory.resolve("full/CLAUDE.md")))
                 .contains("# Annotation Reference")
                 .contains("# Feature Guides");
+        assertThat(Files.readString(directory.resolve("recipes/CLAUDE.md")))
+                .contains("# Prefab Task Recipes");
+        assertThat(directory.resolve("recipes/docs/prefab/recipes/aggregate-rest-crud.md")).exists();
+        assertThat(directory.resolve(
+                "recipes/examples/showcase/src/main/java/be/appify/prefab/example/showcase/catalog/Product.java"))
+                .exists();
     }
 
     @Test

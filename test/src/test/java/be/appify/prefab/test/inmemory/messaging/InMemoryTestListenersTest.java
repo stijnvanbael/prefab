@@ -2,6 +2,7 @@ package be.appify.prefab.test.inmemory.messaging;
 
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.kafka.EventRegistry;
+import be.appify.prefab.core.spring.JsonUtil;
 import be.appify.prefab.test.EventConsumer;
 import be.appify.prefab.test.TestEventConsumer;
 import java.util.HashMap;
@@ -13,6 +14,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.support.DefaultConversionService;
 import org.springframework.test.context.TestContext;
+import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -41,6 +43,8 @@ public class InMemoryTestListenersTest {
                 return registry;
             })
             .withBean(ConversionService.class, DefaultConversionService::new)
+            .withBean(JsonMapper.class, () -> JsonMapper.builder().build())
+            .withBean(JsonUtil.class, () -> new JsonUtil(JsonMapper.builder().build()))
             .withPropertyValues("topics.users=users");
 
     private static TestContext testContext(ApplicationContext context, Fixture instance) {

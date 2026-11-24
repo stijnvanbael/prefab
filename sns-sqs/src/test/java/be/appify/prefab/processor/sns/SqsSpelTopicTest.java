@@ -1,7 +1,7 @@
 package be.appify.prefab.processor.sns;
 
 import be.appify.prefab.core.sns.SqsSubscriptionRequest;
-import be.appify.prefab.core.sns.SqsUtil;
+import be.appify.prefab.core.sns.SqsSubscriptions;
 import be.appify.prefab.processor.PrefabProcessor;
 import com.google.testing.compile.Compilation;
 import java.io.IOException;
@@ -51,13 +51,13 @@ class SqsSpelTopicTest {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     void spelTopicExpressionExpandingToMultipleTopicsSubscribesToEachResolvedTopic() throws Exception {
         var classLoader = classLoaderOf(compilation);
-        var sqsUtil = mock(SqsUtil.class);
+        var sqsUtil = mock(SqsSubscriptions.class);
         try (var applicationContext = new AnnotationConfigApplicationContext()) {
             applicationContext.setClassLoader(classLoader);
             applicationContext.getEnvironment().getPropertySources().addFirst(new MapPropertySource("test", Map.of(
                     "topic.user.names", "prefab.user.created,prefab.user.updated",
                     "topic.prefix", "prefab")));
-            applicationContext.registerBean(SqsUtil.class, () -> sqsUtil);
+            applicationContext.registerBean(SqsSubscriptions.class, () -> sqsUtil);
             applicationContext.registerBean(classLoader.loadClass("sns.speltopic.UserService"));
             applicationContext.registerBean(classLoader.loadClass(SUBSCRIBER));
             applicationContext.refresh();

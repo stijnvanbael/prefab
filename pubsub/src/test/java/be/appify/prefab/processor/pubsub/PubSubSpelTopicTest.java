@@ -1,6 +1,6 @@
 package be.appify.prefab.processor.pubsub;
 
-import be.appify.prefab.core.pubsub.PubSubUtil;
+import be.appify.prefab.core.pubsub.PubSubSubscriptions;
 import be.appify.prefab.core.pubsub.SubscriptionRequest;
 import be.appify.prefab.processor.PrefabProcessor;
 import com.google.testing.compile.Compilation;
@@ -53,13 +53,13 @@ class PubSubSpelTopicTest {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     void spelTopicExpressionExpandingToMultipleTopicsSubscribesToEachResolvedTopicWithItsOwnSubscription() throws Exception {
         var classLoader = classLoaderOf(compilation);
-        var pubSub = mock(PubSubUtil.class);
+        var pubSub = mock(PubSubSubscriptions.class);
         try (var applicationContext = new AnnotationConfigApplicationContext()) {
             applicationContext.setClassLoader(classLoader);
             applicationContext.getEnvironment().getPropertySources().addFirst(new MapPropertySource("test", Map.of(
                     "topic.user.names", "prefab.user.created,prefab.user.updated",
                     "topic.prefix", "prefab")));
-            applicationContext.registerBean(PubSubUtil.class, () -> pubSub);
+            applicationContext.registerBean(PubSubSubscriptions.class, () -> pubSub);
             applicationContext.registerBean(classLoader.loadClass("pubsub.speltopic.UserService"));
             applicationContext.registerBean(classLoader.loadClass(SUBSCRIBER));
             applicationContext.refresh();

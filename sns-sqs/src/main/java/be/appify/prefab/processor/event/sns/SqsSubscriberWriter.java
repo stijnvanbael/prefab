@@ -4,7 +4,7 @@ import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.sns.SqsSubscriptionRequest;
-import be.appify.prefab.core.sns.SqsUtil;
+import be.appify.prefab.core.sns.SqsSubscriptions;
 import be.appify.prefab.processor.CaseUtil;
 import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
@@ -148,7 +148,7 @@ class SqsSubscriberWriter {
         constructor.addStatement("executor = $T.newFixedThreadPool($L)", ClassName.get(Executors.class),
                 concurrency.matches("\\$\\{.+}") ? "Integer.parseInt(concurrency)" : concurrency);
         fields.forEach(field -> constructor.addParameter(ParameterSpec.builder(field.type(), field.name()).build()));
-        constructor.addParameter(SqsUtil.class, "sqsUtil");
+        constructor.addParameter(SqsSubscriptions.class, "sqsUtil");
         if (hasCustomRetries(config)) {
             if (config.retryLimit().matches("\\$\\{.+}")) {
                 constructor.addParameter(configParameter(Integer.class, "maxRetries", config.retryLimit()));

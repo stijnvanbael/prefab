@@ -1,6 +1,6 @@
 package pubsub.createorupdate.infrastructure.pubsub;
 
-import be.appify.prefab.core.pubsub.PubSubUtil;
+import be.appify.prefab.core.pubsub.PubSubSubscriptions;
 import be.appify.prefab.core.pubsub.SubscriptionRequest;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
@@ -17,7 +17,7 @@ public class ChannelSummaryPubSubSubscriber {
     private final ChannelSummaryService channelSummaryService;
 
     public ChannelSummaryPubSubSubscriber(ChannelSummaryService channelSummaryService,
-            PubSubUtil pubSub, @Value("${topic.message.name}") String[] messageEventTopics) {
+            PubSubSubscriptions pubSub, @Value("${topic.message.name}") String[] messageEventTopics) {
         for (var topic : messageEventTopics) {
             pubSub.subscribe(new SubscriptionRequest<MessageEvent>(topic, "channel-summary-on-message-event-" + topic, MessageEvent.class, this::onMessageEvent)
                     .withExecutor(Executors.newFixedThreadPool(1)));

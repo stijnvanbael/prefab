@@ -5,6 +5,7 @@ import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.domain.TypedEvent;
 import be.appify.prefab.core.kafka.EventRegistry;
 import be.appify.prefab.core.versioning.EventVersions;
+import java.util.Arrays;
 
 /** Shared publication validation for transports carrying concrete event identity as metadata. */
 public final class ConcreteEventSupport {
@@ -20,6 +21,37 @@ public final class ConcreteEventSupport {
     public static boolean usesPlatform(EventType<?> type, Event.Platform platform) {
         var declared = EventVersions.declarationFor(type).platform();
         return declared == platform || declared == Event.Platform.DERIVED;
+    }
+
+    /**
+     * Checks the platform declared by an event class, with the same rule as for a concrete binding. The
+     * {@link Event} declaration is read from the class, or from the nearest supertype that has one. An event without
+     * any declaration, such as one registered by hand, is not tied to a platform.
+     *
+     * @param type event class
+     * @param platform dispatcher platform
+     * @return whether the class selects the platform, derives it from application configuration, or declares none
+     */
+    public static boolean usesPlatform(Class<?> type, Event.Platform platform) {
+        var declarations = declarationsFor(type);
+        return declarations.length == 0 || Arrays.stream(declarations)
+                .anyMatch(declared -> declared.platform() == platform || declared.platform() == Event.Platform.DERIVED);
+    }
+
+    private static Event[] declarationsFor(Class<?> type) {
+        for (var candidate = type; candidate != null; candidate = candidate.getSuperclass()) {
+            var declarations = candidate.getAnnotationsByType(Event.class);
+            if (declarations.length > 0) {
+                return declarations;
+            }
+            for (var parent : candidate.getInterfaces()) {
+                var inherited = declarationsFor(parent);
+                if (inherited.length > 0) {
+                    return inherited;
+                }
+            }
+        }
+        return new Event[0];
     }
 
     /**

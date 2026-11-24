@@ -1,6 +1,6 @@
 package pubsub.single.infrastructure.pubsub;
 
-import be.appify.prefab.core.pubsub.PubSubUtil;
+import be.appify.prefab.core.pubsub.PubSubSubscriptions;
 import be.appify.prefab.core.pubsub.SubscriptionRequest;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
@@ -15,7 +15,7 @@ public class UserExporterPubSubSubscriber {
 
     private final UserExporter userExporter;
 
-    public UserExporterPubSubSubscriber(UserExporter userExporter, PubSubUtil pubSub) {
+    public UserExporterPubSubSubscriber(UserExporter userExporter, PubSubSubscriptions pubSub) {
         pubSub.subscribe(new SubscriptionRequest<UserCreated>("user", "user-exporter-on-user-created-user", UserCreated.class, this::onUserCreated)
                 .withExecutor(Executors.newFixedThreadPool(2)));
         this.userExporter = userExporter;

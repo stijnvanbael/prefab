@@ -1270,6 +1270,12 @@ and Postgres.
 the application has a `JdbcTemplate` and a `PlatformTransactionManager`, auto-configuration registers a
 `PostgresStreamStateRepository`; define your own `StreamStateRepository` bean to replace it.
 
+The transaction manager must manage the same `DataSource` object as the `JdbcTemplate`. Otherwise each statement
+would autocommit on its own, and a version conflict halfway through a commit would keep the message's inbox entry and
+part of its state while losing the rest of the state and its outputs. The repository rejects a
+`DataSourceTransactionManager` for another `DataSource` at construction, and fails a commit, before writing anything,
+when the transaction does not hold a connection for the template's `DataSource`.
+
 | Table | Purpose |
 |-------|---------|
 | `prefab_stream_store` | Keyed state, windows, join buffers and deduplication identities. Every row has a `version` for optimistic concurrency. Windows, join buffers and identities carry an `expiry_key` and `expires_at` (event time). |

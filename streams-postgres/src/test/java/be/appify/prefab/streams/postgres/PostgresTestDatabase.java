@@ -14,7 +14,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
  */
 final class PostgresTestDatabase {
     private static final PostgreSQLContainer CONTAINER = startContainerUnlessExternal();
-    private static final DataSource DATA_SOURCE = dataSource();
+    private static final DataSource DATA_SOURCE = newDataSource();
 
     private PostgresTestDatabase() {
     }
@@ -32,6 +32,21 @@ final class PostgresTestDatabase {
         return new JdbcTemplate(DATA_SOURCE);
     }
 
+    /** Returns a new {@link DataSource} object for the shared database, distinct from the one the repositories use. */
+    static DataSource newDataSource() {
+        var source = new PGSimpleDataSource();
+        if (CONTAINER == null) {
+            source.setUrl(System.getenv("PREFAB_TEST_POSTGRES_URL"));
+            source.setUser(System.getenv("PREFAB_TEST_POSTGRES_USER"));
+            source.setPassword(System.getenv("PREFAB_TEST_POSTGRES_PASSWORD"));
+        } else {
+            source.setUrl(CONTAINER.getJdbcUrl());
+            source.setUser(CONTAINER.getUsername());
+            source.setPassword(CONTAINER.getPassword());
+        }
+        return source;
+    }
+
     static PostgresStreamStateRepository newInstance() {
         return new PostgresStreamStateRepository(
                 new JdbcTemplate(DATA_SOURCE), new DataSourceTransactionManager(DATA_SOURCE), new JsonStreamStateCodec());
@@ -44,19 +59,5 @@ final class PostgresTestDatabase {
         var container = new PostgreSQLContainer("postgres:16-alpine");
         container.start();
         return container;
-    }
-
-    private static DataSource dataSource() {
-        var source = new PGSimpleDataSource();
-        if (CONTAINER == null) {
-            source.setUrl(System.getenv("PREFAB_TEST_POSTGRES_URL"));
-            source.setUser(System.getenv("PREFAB_TEST_POSTGRES_USER"));
-            source.setPassword(System.getenv("PREFAB_TEST_POSTGRES_PASSWORD"));
-        } else {
-            source.setUrl(CONTAINER.getJdbcUrl());
-            source.setUser(CONTAINER.getUsername());
-            source.setPassword(CONTAINER.getPassword());
-        }
-        return source;
     }
 }

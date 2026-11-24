@@ -108,10 +108,10 @@ dead-lettering (the Pub/Sub emulator).
 Kafka-native breakout is isolated in [`streams-kafka`](showcase/src/streams-kafka/java/be/appify/prefab/example/showcase/streams/kafka)
 and guarded by the `KAFKA_STREAMS_BREAKOUT` capability. The shared variant build leaves the optional source roots out
 unless a variant enables the corresponding streams backend. Variants without Streams list `STREAMS` in
-`showcase-capabilities.yml`. `showcase-pubsub` runs the common slice on the in-process engine
-(`prefab-streams-pubsub` with Postgres state, decision-008) and lists only `KAFKA_STREAMS_BREAKOUT` as unsupported,
-because `breakout` hands over the Kafka Streams API. The showcase uses no wall-clock punctuation
-(`StreamProcessorContext.schedule`, TASK-363). SNS/SQS can run the common slice the same way once its variant lands.
+`showcase-capabilities.yml`. `showcase-pubsub` and `showcase-sns-sqs` run the common slice on the in-process engine
+(`prefab-streams-pubsub` or `prefab-streams-sns-sqs`, both with Postgres state, decision-008) and list only
+`KAFKA_STREAMS_BREAKOUT` as unsupported, because `breakout` hands over the Kafka Streams API. The showcase uses no
+wall-clock punctuation (`StreamProcessorContext.schedule`, TASK-363).
 
 ### Avro: payments and shipments
 
@@ -166,20 +166,20 @@ unsupported:
 table, so after changing a capability file, paste that between the markers.
 
 <!-- coverage-matrix:begin -->
-| Capability | showcase | showcase-inmemory | showcase-mongodb | showcase-pubsub |
-| --- | :---: | :---: | :---: | :---: |
-| FULL_TEXT_SEARCH | ✅ | ✅ | ✅ | ✅ |
-| RANGE_FILTER | ✅ | ✅ | ✅ | ✅ |
-| POLYMORPHIC_AGGREGATES | ✅ | ✅ | ✅ | ✅ |
-| BINARY_DOWNLOAD | ✅ | ✅ | ✅ | ✅ |
-| ORDERED_DELIVERY | ✅ | ✅ | ✅ | ✅ |
-| STREAMS | ✅ | ❌ [TASK-374](../backlog/tasks/task-374%20-%20Prefab-Streams-on-the-in-memory-test-bus.md) | ✅ | ✅ |
-| KAFKA_STREAMS_BREAKOUT | ✅ | ❌ [TASK-374](../backlog/tasks/task-374%20-%20Prefab-Streams-on-the-in-memory-test-bus.md) | ✅ | ❌ [TASK-341](../backlog/completed/task-341%20-%20Prefab-Streams-backend-for-Google-Pub-Sub.md) |
-| AVRO | ✅ | ✅ | ✅ | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) |
-| SCHEMA_REGISTRY_API | ✅ | ❌ [TASK-375](../backlog/tasks/task-375%20-%20Inspect-registered-Avro-schemas-in-memory.md) | ✅ | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) |
-| SECURITY | ✅ | ✅ | ✅ | ✅ |
-| OPENAPI | ✅ | ✅ | ✅ | ✅ |
-| ASYNCAPI | ✅ | ✅ | ✅ | ✅ |
+| Capability | showcase | showcase-inmemory | showcase-mongodb | showcase-pubsub | showcase-sns-sqs |
+| --- | :---: | :---: | :---: | :---: | :---: |
+| FULL_TEXT_SEARCH | ✅ | ✅ | ✅ | ✅ | ✅ |
+| RANGE_FILTER | ✅ | ✅ | ✅ | ✅ | ✅ |
+| POLYMORPHIC_AGGREGATES | ✅ | ✅ | ✅ | ✅ | ✅ |
+| BINARY_DOWNLOAD | ✅ | ✅ | ✅ | ✅ | ✅ |
+| ORDERED_DELIVERY | ✅ | ✅ | ✅ | ✅ | ✅ |
+| STREAMS | ✅ | ❌ [TASK-374](../backlog/tasks/task-374%20-%20Prefab-Streams-on-the-in-memory-test-bus.md) | ✅ | ✅ | ✅ |
+| KAFKA_STREAMS_BREAKOUT | ✅ | ❌ [TASK-374](../backlog/tasks/task-374%20-%20Prefab-Streams-on-the-in-memory-test-bus.md) | ✅ | ❌ [TASK-341](../backlog/completed/task-341%20-%20Prefab-Streams-backend-for-Google-Pub-Sub.md) | ❌ [TASK-342](../backlog/tasks/task-342%20-%20Prefab-Streams-backend-for-AWS-SNS-SQS.md) |
+| AVRO | ✅ | ✅ | ✅ | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) |
+| SCHEMA_REGISTRY_API | ✅ | ❌ [TASK-375](../backlog/tasks/task-375%20-%20Inspect-registered-Avro-schemas-in-memory.md) | ✅ | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) |
+| SECURITY | ✅ | ✅ | ✅ | ✅ | ✅ |
+| OPENAPI | ✅ | ✅ | ✅ | ✅ | ✅ |
+| ASYNCAPI | ✅ | ✅ | ✅ | ✅ | ✅ |
 <!-- coverage-matrix:end -->
 
 ### Test infrastructure

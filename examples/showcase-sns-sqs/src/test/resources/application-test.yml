@@ -1,0 +1,15 @@
+spring:
+  flyway:
+    clean-disabled: false
+
+logging.level:
+  be.appify.prefab.example: DEBUG
+
+prefab:
+  test:
+    # Keep LocalStack and Postgres: this variant proves the real technology (TASK-175.05).
+    containers: true
+  flyway:
+    auto-clean-on-mismatch: true
+  dlt.retries:
+    initial-interval-ms: 10

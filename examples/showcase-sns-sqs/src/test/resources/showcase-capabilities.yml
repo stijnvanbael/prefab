@@ -1,0 +1,16 @@
+# Capabilities this variant does not support. Every capability that is not listed is supported.
+# Each gap needs a reason and the backlog task that tracks it.
+#
+# STREAMS is supported: the common streams slice runs on the in-process engine with Postgres state. Only the
+# operators the engine cannot provide are declared (decision-008).
+variant: showcase-sns-sqs
+unsupported:
+  KAFKA_STREAMS_BREAKOUT:
+    reason: breakout hands over the Kafka Streams API, which the SNS/SQS backend does not have
+    task: TASK-342
+  AVRO:
+    reason: SNS/SQS payloads are bare Avro binary without a writer schema
+    task: TASK-275
+  SCHEMA_REGISTRY_API:
+    reason: there is no Kafka schema registry on SNS/SQS, and the Avro slice does not run here
+    task: TASK-275

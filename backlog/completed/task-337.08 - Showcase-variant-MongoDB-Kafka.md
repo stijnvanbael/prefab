@@ -41,8 +41,8 @@ TASK-337.01 to TASK-337.07. What remained was the full run of the shared suite o
 
 This environment has no Docker daemon, so the Testcontainers suite can only run in CI. A local run with
 `-Dprefab.test.containers=false` is the only way to execute anything here, and it exposed two in-memory problems
-(not showcase gaps): the NPE in `InMemoryAutoConfigurationFilter` (fixed here, with a test) and the generated
-`MongoIndexConfiguration` requiring a `MongoTemplate` that in-memory mode excludes (TASK-372).
+(not showcase gaps): the NPE in `InMemoryAutoConfigurationFilter` (fixed upstream by TASK-175.05) and the generated
+`MongoIndexConfiguration` requiring a `MongoTemplate` that in-memory mode excludes (TASK-381).
 
 ## Implementation Notes
 
@@ -53,6 +53,6 @@ variant declares no unsupported capabilities (`showcase-capabilities.yml` stays 
 
 Found on the way, because this environment has no Docker and the suite was run in memory (`-Dprefab.test.containers=false`):
 `InMemoryAutoConfigurationFilter` threw an NPE on the `null` entries Spring Boot leaves for candidates that an earlier filter
-dropped (fixed, with a test). The generated `MongoIndexConfiguration` then fails in memory mode because it needs a
-`MongoTemplate`; tracked as TASK-372 and a prerequisite for making in-memory the default for MongoDB (TASK-175.05).
+dropped (fixed in this branch; the identical fix landed on main with TASK-175.05, so the branch took main's version). The generated `MongoIndexConfiguration` then fails in memory mode because it needs a
+`MongoTemplate`; tracked as TASK-381. `showcase-mongodb` runs on containers (`prefab.test.containers: true`) until it is fixed.
 No flaky equivalent of TASK-153 showed up in the showcase run (a single CI run, so no proof); that task stays open.

@@ -1,7 +1,7 @@
 ---
 id: TASK-342
 title: Prefab Streams backend for AWS SNS/SQS
-status: In Progress
+status: Done
 assignee: []
 updated_date: '2026-11-23 15:30'
 created_date: '2026-11-20 19:48'
@@ -50,9 +50,9 @@ First-version operators (decision-008):
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Showcase streams slice compiles and its tests pass in showcase-sns-sqs, or unsupported operators are skipped with a declared gap
+- [x] #1 Showcase streams slice compiles and its tests pass in showcase-sns-sqs, or unsupported operators are skipped with a declared gap
 - [x] #2 Topology tests run against the SNS/SQS backend through the backend-neutral test API
-- [ ] #3 showcase-sns-sqs no longer declares STREAMS as a gap (or declares only specific unsupported operators)
+- [x] #3 showcase-sns-sqs no longer declares STREAMS as a gap (or declares only specific unsupported operators)
 - [x] #4 Integration test (LocalStack + Postgres) covers groupBy+aggregate, windowedAggregate, join and a global store end to end, on FIFO topics
 - [x] #5 Redelivered messages do not change state or output twice
 <!-- AC:END -->
@@ -111,6 +111,7 @@ Verification:
   join, global store and a redelivered message. The authoring environment has no Docker, so it first ran on CI, where
   it found the codec and relay bugs that `main` has since fixed independently.
 
-Open:
-- AC #1 and #3 need the `showcase-sns-sqs` variant (TASK-337.10). The task stays In Progress until it lands.
+Closed by TASK-337.10: `examples/showcase-sns-sqs` runs the streams slice on this backend with the full showcase suite
+green on LocalStack and Postgres. It declares only `KAFKA_STREAMS_BREAKOUT` as a streams gap (plus the Avro gaps of
+TASK-275), not `STREAMS`.
 <!-- SECTION:NOTES:END -->

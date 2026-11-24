@@ -138,9 +138,13 @@ Postgres and Mongo, and document the Kafka semantic differences and any required
 - Updated the decision record, feature guide, cheat sheet and benchmark task. No generated artefact changed.
   `TASK-346` is still in progress on a separate branch; add or verify the Streams punctuation recipe when that recipe
   catalog is integrated.
-- Targeted engine and repository contract tests pass, including concurrent MongoDB member joins; Postgres and MongoDB
-  integration tests pass. The benchmark reference acceptance test passes when run directly in its generated Maven
+- Post-rebase containerless stream tests pass for engine, Kafka, Pub/Sub and SNS/SQS, and the changed modules and tests
+  compile. Postgres and MongoDB repository tests passed earlier with Testcontainers, but were excluded from the final
+  containerless run. The benchmark reference acceptance test passes when run directly in its generated Maven
   workspace; the benchmark CLI cannot launch `mvn` as a child process on this Windows environment.
+- The full reactor test remains blocked by a pre-existing Windows path failure in
+  `AgentContextPluginTest.writesBelowTargetWhenOutputIsAFileSystemDirectory`. The benchmark module also has unrelated
+  environment-sensitive failures in `IsolationTest` (Linux paths) and `ReportTest` (locale-specific decimal output).
 <!-- SECTION:NOTES:END -->
 
 ## Acceptance Criteria

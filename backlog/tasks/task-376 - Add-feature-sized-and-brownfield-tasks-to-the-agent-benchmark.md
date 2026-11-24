@@ -1,0 +1,40 @@
+---
+id: TASK-376
+title: Add feature-sized and brownfield tasks to the agent benchmark
+status: To Do
+assignee: []
+created_date: '2026-11-24 10:00'
+labels:
+  - agents
+  - testing
+  - productivity
+dependencies:
+  - TASK-343
+priority: high
+type: task
+ordinal: 206000
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+The TASK-343 benchmark is saturated. Haiku passes 29-31 of 32 tasks in every documentation setup and Sonnet 32/32; all
+differences are inside the confidence intervals and the run-to-run margin is two tasks. It can no longer tell whether
+the cheat sheet (TASK-344), recipes (TASK-346), local runs (TASK-373) or conformance tests (TASK-374) make agents better.
+Every task is one feature on a tiny greenfield starter, done in about a minute.
+
+Real work looks different: a feature spanning several aggregates and events from a product-style spec, a change to an
+existing app the agent did not write, evolving a schema that has data in it, fixing a failing build or test. That is
+where small models drift, fall back to plain Spring or work around generated code, and where Prefab's guidance pays off.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 At least 8 feature-sized tasks (several aggregates, events and handlers, security or tenancy combined), each written as a user story with acceptance criteria rather than Prefab vocabulary
+- [ ] #2 At least 6 brownfield tasks start from a copy of the showcase (TASK-337) or another non-trivial app: add a feature, change a contract with backward compatibility, evolve a schema with existing data, fix a failing test, find and fix a bug from a report
+- [ ] #3 Tasks are tagged by tier so `run` and `compare` report per tier; the existing 32 tasks stay as the quick tier
+- [ ] #4 The report adds time-to-first-green-build and the number of generated classes overridden or hand-written alternatives, alongside pass rate
+- [ ] #5 Baselines for Haiku (full docs, docs on demand) and a stronger model show a measurable gap on the new tiers, or the task records why there is none
+- [ ] #6 A documented, opt-in way to run the quick tier on a schedule (for example a manually triggered GitHub workflow with a repository secret) tracks regressions between releases
+- [ ] #7 `benchmark.md` describes the tiers and how to add a brownfield task
+<!-- AC:END -->

@@ -415,8 +415,9 @@ public class SqsUtil implements SqsSubscriptions, DisposableBean {
                 return null;
             });
         } catch (RetryException e) {
+            // Not rethrown: the message stays on the queue and SQS redelivers it or routes it to the dead-letter
+            // queue once its visibility timeout expires. Rethrowing would only skip the rest of the polled batch.
             log.error("Retries exhausted when processing SQS message: {}", message, e);
-            throw new RuntimeException(e);
         }
     }
 

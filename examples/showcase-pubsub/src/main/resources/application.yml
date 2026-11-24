@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: prefab.showcase-pubsub
+  cloud:
+    gcp:
+      project-id: prefab-showcase-pubsub
+      pubsub:
+        publisher:
+          enable-message-ordering: true
+
+error.handling:
+  exception-logging: WITH_STACKTRACE

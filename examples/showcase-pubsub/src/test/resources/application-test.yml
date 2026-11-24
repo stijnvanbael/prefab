@@ -1,0 +1,12 @@
+spring:
+  flyway:
+    clean-disabled: false
+
+logging.level:
+  be.appify.prefab.example: DEBUG
+
+prefab:
+  flyway:
+    auto-clean-on-mismatch: true
+  dlt.retries:
+    initial-interval-ms: 10

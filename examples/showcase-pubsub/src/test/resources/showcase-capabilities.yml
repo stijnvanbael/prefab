@@ -1,0 +1,13 @@
+# Capabilities this variant does not support. Every capability that is not listed is supported.
+# Each gap needs a reason and the backlog task that tracks it.
+#
+# STREAMS is supported: the common streams slice runs on the in-process engine with Postgres state. Only the
+# operators the engine cannot provide are declared (decision-008).
+variant: showcase-pubsub
+unsupported:
+  KAFKA_STREAMS_BREAKOUT:
+    reason: breakout hands over the Kafka Streams API, which the Pub/Sub backend does not have
+    task: TASK-341
+  AVRO:
+    reason: Pub/Sub payloads are bare Avro binary without a writer schema
+    task: TASK-275

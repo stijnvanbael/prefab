@@ -1,0 +1,12 @@
+spring:
+  security:
+    user:
+      roles: ADMIN,CUSTOMER
+
+  # Run against a local LocalStack (https://localstack.cloud/), which accepts any credentials
+  cloud:
+    aws:
+      endpoint: http://localhost:4566
+      credentials:
+        access-key: test
+        secret-key: test

@@ -89,6 +89,10 @@ messages:
 Configure via `spring.cloud.aws.*` (standard Spring Cloud AWS properties). Prefab's `SnsConfiguration`
 auto-configures SNS publisher and SQS listener beans.
 
+SNS topics and SQS queues only allow letters, digits, hyphens and underscores (plus the `.fifo` suffix of FIFO ones).
+Event topics such as `shop.order` are therefore created as `shop-order`: Prefab replaces any other character with a
+hyphen and logs a warning. Producers, consumers and streams share this naming, so they agree on the resource.
+
 With `prefab-streams-sns-sqs` and a `StreamStateRepository` (`prefab-streams-postgres` or `prefab-streams-mongodb`), the Streams DSL
 runs on SNS/SQS. Its properties (`prefab.streams.sns-sqs.visibility-timeout`, `prefab.streams.inbox-retention`,
 `prefab.streams.tracing.*`) are described in the

@@ -41,6 +41,18 @@ class OrderSalesAnalyticsTopologyTest {
     }
 
     @Test
+    void shouldCountSalesOfProductsOutsideTheCatalogAsUncategorized() {
+        new OrderSalesAnalyticsConfiguration().orderSalesAnalytics(streams);
+
+        var output = topology.output(CategoryRevenue.class);
+        topology.input(OrderEvent.class).send(placed("order-1", 1, "10.00"));
+
+        assertThat(output.values()).containsExactly(
+                new CategoryRevenue("uncategorized", new BigDecimal("10.00"), 1)
+        );
+    }
+
+    @Test
     void shouldAggregateHourlyRevenueAndAcceptLateOrdersWithinGrace() {
         new OrderSalesAnalyticsConfiguration().orderSalesAnalytics(streams);
         addCatalogProduct();

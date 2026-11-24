@@ -101,11 +101,17 @@ demonstrate:
 | `branch`, `merge` | Route placed and cancelled orders, then combine the typed branches |
 | Opt-in tracing | Verify source order IDs on aggregate messages |
 
+The catalog is replicated asynchronously, so an order can arrive before its product: such sales are counted in the
+`uncategorized` category instead of failing, because a failing message is redelivered forever on brokers without
+dead-lettering (the Pub/Sub emulator).
+
 Kafka-native breakout is isolated in [`streams-kafka`](showcase/src/streams-kafka/java/be/appify/prefab/example/showcase/streams/kafka)
 and guarded by the `KAFKA_STREAMS_BREAKOUT` capability. The shared variant build leaves the optional source roots out
 unless a variant enables the corresponding streams backend. Variants without Streams list `STREAMS` in
-`showcase-capabilities.yml`; Pub/Sub and SNS/SQS can run the common slice on their in-process backends while reporting
-Kafka-only breakout separately.
+`showcase-capabilities.yml`. `showcase-pubsub` runs the common slice on the in-process engine
+(`prefab-streams-pubsub` with Postgres state, decision-008) and lists only `KAFKA_STREAMS_BREAKOUT` as unsupported,
+because `breakout` hands over the Kafka Streams API. The showcase uses no wall-clock punctuation
+(`StreamProcessorContext.schedule`, TASK-363). SNS/SQS can run the common slice the same way once its variant lands.
 
 ### Avro: payments and shipments
 
@@ -137,14 +143,14 @@ Not every feature works on every stack. A variant lists what it lacks in
 ```yaml
 variant: showcase-pubsub
 unsupported:
-  STREAMS:
-    reason: no Pub/Sub backend for Prefab Streams
-    task: TASK-341
+  AVRO:
+    reason: Pub/Sub payloads are bare Avro binary without a writer schema
+    task: TASK-275
 ```
 
 - A test that needs a capability declares `@RequiresCapability(Capability.STREAMS)`. On a variant without it, the test
   is skipped with a message like
-  `showcase-pubsub: STREAMS not supported — no Pub/Sub backend for Prefab Streams (TASK-341)`.
+  `showcase-pubsub: AVRO not supported — Pub/Sub payloads are bare Avro binary without a writer schema (TASK-275)`.
 - Kafka-only native breakout tests declare `@RequiresCapability(Capability.KAFKA_STREAMS_BREAKOUT)` independently of
   the broader `STREAMS` capability.
 - Capabilities whose code lives in optional source folders (streams, Avro) have no compiled tests on variants that lack
@@ -160,19 +166,19 @@ unsupported:
 table, so after changing a capability file, paste that between the markers.
 
 <!-- coverage-matrix:begin -->
-| Capability | showcase | showcase-mongodb |
-| --- | :---: | :---: |
-| FULL_TEXT_SEARCH | ✅ | ✅ |
-| RANGE_FILTER | ✅ | ✅ |
-| POLYMORPHIC_AGGREGATES | ✅ | ✅ |
-| BINARY_DOWNLOAD | ✅ | ✅ |
-| ORDERED_DELIVERY | ✅ | ✅ |
-| STREAMS | ✅ | ✅ |
-| KAFKA_STREAMS_BREAKOUT | ✅ | ✅ |
-| AVRO | ✅ | ✅ |
-| SECURITY | ✅ | ✅ |
-| OPENAPI | ✅ | ✅ |
-| ASYNCAPI | ✅ | ✅ |
+| Capability | showcase | showcase-mongodb | showcase-pubsub |
+| --- | :---: | :---: | :---: |
+| FULL_TEXT_SEARCH | ✅ | ✅ | ✅ |
+| RANGE_FILTER | ✅ | ✅ | ✅ |
+| POLYMORPHIC_AGGREGATES | ✅ | ✅ | ✅ |
+| BINARY_DOWNLOAD | ✅ | ✅ | ✅ |
+| ORDERED_DELIVERY | ✅ | ✅ | ✅ |
+| STREAMS | ✅ | ✅ | ✅ |
+| KAFKA_STREAMS_BREAKOUT | ✅ | ✅ | ❌ [TASK-341](../backlog/completed/task-341%20-%20Prefab-Streams-backend-for-Google-Pub-Sub.md) |
+| AVRO | ✅ | ✅ | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) |
+| SECURITY | ✅ | ✅ | ✅ |
+| OPENAPI | ✅ | ✅ | ✅ |
+| ASYNCAPI | ✅ | ✅ | ✅ |
 <!-- coverage-matrix:end -->
 
 ## Adding a variant

@@ -82,7 +82,9 @@ public class InMemoryAutoConfigurationFilter implements AutoConfigurationImportF
     public boolean[] match(String[] autoConfigurationClasses, AutoConfigurationMetadata autoConfigurationMetadata) {
         var matches = new boolean[autoConfigurationClasses.length];
         for (var i = 0; i < matches.length; i++) {
-            matches[i] = !(inMemory && EXCLUDED.contains(autoConfigurationClasses[i]));
+            // Spring Boot passes null for candidates that an earlier filter already rejected
+            var candidate = autoConfigurationClasses[i];
+            matches[i] = candidate == null || !(inMemory && EXCLUDED.contains(candidate));
         }
         return matches;
     }

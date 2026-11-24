@@ -9,6 +9,7 @@ import be.appify.prefab.example.showcase.customer.application.CustomerOrderHisto
 import be.appify.prefab.example.showcase.inventory.StockLevelClient;
 import java.math.BigDecimal;
 import java.util.UUID;
+import org.awaitility.Awaitility;
 import org.springframework.stereotype.Component;
 
 import static java.time.Duration.ofSeconds;
@@ -20,6 +21,14 @@ import static org.awaitility.Awaitility.await;
  */
 @Component
 public class Shop {
+
+    static {
+        // Events outlive the test that placed the order and can meet the empty tables of the next test, where their
+        // handler fails for good. Kafka dead-letters such an event quietly; Pub/Sub rethrows after its retries on the
+        // subscriber thread. Awaitility would then fail whichever test is waiting at that moment, so tests only
+        // assert on their own outcome.
+        Awaitility.doNotCatchUncaughtExceptionsByDefault();
+    }
 
     private final CustomerClient customers;
     private final CustomerOrderHistoryRepository histories;

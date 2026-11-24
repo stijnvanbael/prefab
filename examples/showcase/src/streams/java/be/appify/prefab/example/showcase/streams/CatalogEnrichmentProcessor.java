@@ -11,6 +11,9 @@ import java.util.List;
 
 final class CatalogEnrichmentProcessor
         implements StreamProcessor<Reference<Order>, OrderLine, String, CategorySale> {
+    /** Category of sales whose product is not (yet) in the replicated catalog. */
+    static final String UNCATEGORIZED = "uncategorized";
+
     private final GlobalStore<String, CatalogProduct> catalog;
     private StreamProcessorContext<String, CategorySale> context;
 
@@ -20,10 +23,12 @@ final class CatalogEnrichmentProcessor
 
     @Override
     public void process(StreamRecord<Reference<Order>, OrderLine> record) {
-        var product = catalog.get(record.value().productId()).orElseThrow(() ->
-                new IllegalStateException("No catalog entry for product '%s' in order '%s'"
-                        .formatted(record.value().productId(), record.value().order().id())));
-        var sale = new CategorySale(product.categoryId(), record.value().revenue());
+        // The replicated catalog is eventually consistent: an order can arrive before its product. Failing here
+        // would make the message a poison message that is redelivered forever on brokers without dead-lettering.
+        var categoryId = catalog.get(record.value().productId())
+                .map(CatalogProduct::categoryId)
+                .orElse(UNCATEGORIZED);
+        var sale = new CategorySale(categoryId, record.value().revenue());
         context.forward(new StreamRecord<>(sale.key(), sale, record.timestamp(), record.headers()));
     }
 

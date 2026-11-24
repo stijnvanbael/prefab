@@ -27,7 +27,7 @@ A Maven archetype (or an equivalent generator) published with each release gives
 with the backend choices as parameters.
 
 Related: TASK-024 (starter pom, which would make the generated pom smaller), TASK-350 (agent guidance, which the
-scaffold should include), TASK-381 (local run, which the scaffold should configure).
+scaffold should include), TASK-382 (local run, which the scaffold should configure).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

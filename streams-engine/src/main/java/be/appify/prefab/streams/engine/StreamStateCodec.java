@@ -1,9 +1,7 @@
-package be.appify.prefab.streams.postgres;
-
-import be.appify.prefab.streams.engine.StreamMessage;
+package be.appify.prefab.streams.engine;
 
 /**
- * Converts state values and outbox messages to and from the bytes stored in Postgres.
+ * Converts state values and outbox messages to and from the bytes stored by a database-backed repository.
  *
  * <p>Implementations must be able to restore the exact Java type that was written, because state values are
  * handed back to operators without type information.

@@ -67,7 +67,7 @@ brokers run on Postgres.
    moves to `prefab-streams` so both backends share it. Schema initialization works like Spring Batch's
    (`prefab.streams.state.initialize-schema=always|never`), and the DDL is published for teams that manage their own
    schema, so the engine never touches the application's Flyway version sequence. The Postgres repository is
-   TASK-361. MongoDB is a follow-up (TASK-362) that needs a replica set for multi-document transactions.
+   TASK-361. The MongoDB repository is TASK-362; it needs a replica set for multi-document transactions.
 3. **One database transaction per input message.** For each delivered message the engine:
    1. checks and records the message in the inbox (`subscription`, message ID). A duplicate is acknowledged and
       skipped.
@@ -159,7 +159,7 @@ brokers run on Postgres.
 | Tracing (message and correlation IDs) | ✅ | ✅ | Correlation IDs cut to fit attribute limits |
 | Topology tests through `TopologyTestHarness` | ✅ | ✅ | In memory |
 | State on Postgres | ✅ | ✅ | TASK-361 |
-| State on MongoDB | ❌ | ❌ | TASK-362 |
+| State on MongoDB | ✅ | ✅ | TASK-362, needs a replica set |
 
 Most of this matrix comes from the engine. The broker tasks differ in ordering (FIFO on SNS/SQS needs TASK-340),
 attribute limits and provisioning. SNS/SQS creates one queue per source, subscribed to the topic. FIFO throughput

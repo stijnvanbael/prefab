@@ -1,5 +1,7 @@
 package be.appify.prefab.streams.postgres;
 
+import be.appify.prefab.streams.engine.JsonStreamStateCodec;
+import be.appify.prefab.streams.engine.StreamStateCodec;
 import be.appify.prefab.streams.engine.StreamStateRepository;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;

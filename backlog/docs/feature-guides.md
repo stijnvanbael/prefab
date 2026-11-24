@@ -1069,6 +1069,7 @@ Prefab provides a backend-neutral Streams DSL (`prefab-streams`) with Kafka and 
 | `prefab-streams`       | The DSL (`PrefabStreams`, `PrefabStream`, `StreamDefinition`, `Store`, ...) and the backend-neutral test API (`be.appify.prefab.streams.testing`) | No                |
 | `prefab-streams-engine` | In-process operator engine, source/sink/state SPIs and in-memory topology test harness                     | No                |
 | `prefab-streams-postgres` | Postgres `StreamStateRepository` (state, inbox, outbox, relay lease) for the in-process engine | No                |
+| `prefab-streams-mongodb` | MongoDB `StreamStateRepository` (state, inbox, outbox, relay lease) for the in-process engine; needs a replica set | No                |
 | `prefab-streams-pubsub` | Pub/Sub adapter and topology-test factory for the in-process engine | No |
 | `prefab-streams-sns-sqs` | SNS/SQS source and sink, `StreamBackend` `sns-sqs` and auto-configuration for the in-process engine | No                |
 | `prefab-streams-kafka` | `KafkaPrefabStreams`, serdes, `KafkaStreamBreakoutAdapter`, the Kafka test harness and the `StreamsConfiguration` auto-configuration | Yes               |
@@ -1197,7 +1198,8 @@ publication topics.
 
 `prefab-streams-sns-sqs` runs the Streams DSL on AWS SNS/SQS (backend `sns-sqs`, `SnsSqsStreamBackend.SNS_SQS`). It is
 a thin adapter on the in-process engine (decision-008): sources and sinks for SNS/SQS, with state, inbox and outbox
-in your database. Add it together with `prefab-sns-sqs` and a state repository such as `prefab-streams-postgres`:
+in your database. Add it together with `prefab-sns-sqs` and a state repository such as `prefab-streams-postgres` or
+`prefab-streams-mongodb`:
 
 ```xml
 <dependency>
@@ -1337,6 +1339,55 @@ CREATE TABLE IF NOT EXISTS prefab_stream_lease (
     expires_at TIMESTAMPTZ NOT NULL
 );
 ```
+
+### MongoDB state for the in-process engine (`prefab-streams-mongodb`)
+
+`prefab-streams-mongodb` is the MongoDB counterpart of `prefab-streams-postgres`: it implements the engine's
+`StreamStateRepository` (decision-008) with `MongoTemplate`. When the application has a `MongoTemplate`,
+auto-configuration registers a `MongoStreamStateRepository`; define your own `StreamStateRepository` bean to replace
+it. Use it with `prefab-streams-pubsub` or `prefab-streams-sns-sqs` instead of `prefab-streams-postgres`.
+
+```xml
+<dependency>
+    <groupId>be.appify.prefab</groupId>
+    <artifactId>prefab-streams-mongodb</artifactId>
+</dependency>
+```
+
+**Transactions are required.** Every input message is processed in one multi-document transaction (inbox, state and
+outbox together), so the deployment must be a replica set or a sharded cluster. A standalone `mongod` is rejected at
+startup with `MongoTransactionsUnavailableException`, reported by a Spring Boot failure analyzer that explains how to
+run a replica set. A single-node replica set is enough for development; the Testcontainers `MongoDBContainer` is
+started as one with `withReplicaSet()`.
+
+The repository uses a private `MongoTransactionManager`; it does not register one, so your application's transaction
+management is unaffected.
+
+| Collection | Purpose |
+|------------|---------|
+| `prefab_stream_store` | Keyed state, windows, join buffers and deduplication identities, with `_id` `{namespace, key}`. Every document has a `version` for optimistic concurrency. Windows, join buffers and identities carry `expiryKey` and `expiresAt` (event time). |
+| `prefab_stream_inbox` | Processed input messages, with `_id` `{subscription, messageId}` and `recordedAt`, so redelivered messages are skipped. |
+| `prefab_stream_outbox` | Output records written in the message transaction, published by the relay in `seq` order per topic. |
+| `prefab_stream_lease` | One relay lease per sink topic (`_id`), with `owner` and `expiresAt`. Another instance takes over after it expires. |
+
+Values, keys, the `StreamStateCodec` and the retention of expired data work as described for Postgres. A conflicting
+write (stale `version`, claimed inbox identity or transient transaction error) throws
+`StreamStateRepository.OptimisticConflictException`, which the engine retries.
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `prefab.streams.state.initialize-schema` | `always` | `always` creates the collections and indexes on start (idempotent); `never` leaves them to you. |
+
+Indexes created by `initialize-schema=always`:
+
+| Collection | Index | Purpose |
+|------------|-------|---------|
+| `prefab_stream_store` | `expiry`: `_id.namespace`, `expiryKey`, `expiresAt`, partial on `expiryKey` existing | Expiry scans of windows, join buffers and identities |
+| `prefab_stream_inbox` | `recordedAt` | Retention cleanup |
+| `prefab_stream_outbox` | `topicSeq`: `topic`, `seq` | Relay ordering |
+
+The collections themselves are created up front because a transaction cannot implicitly create a collection on every
+MongoDB version.
 
 ### Exactly-once processing and event deduplication
 

@@ -22,6 +22,7 @@
         <module>streams-kafka</module>
         <module>streams-pubsub</module>
         <module>streams-postgres</module>
+        <module>streams-mongodb</module>
         <module>streams-sns-sqs</module>
         <module>annotation-processor</module>
         <module>avro</module>
@@ -159,6 +160,11 @@
             <dependency>
                 <groupId>be.appify.prefab</groupId>
                 <artifactId>prefab-streams-postgres</artifactId>
+                <version>${prefab.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>be.appify.prefab</groupId>
+                <artifactId>prefab-streams-mongodb</artifactId>
                 <version>${prefab.version}</version>
             </dependency>
             <dependency>

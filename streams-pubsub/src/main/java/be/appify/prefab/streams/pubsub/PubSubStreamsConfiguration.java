@@ -23,7 +23,10 @@ import org.springframework.context.annotation.Bean;
 
 /** Configures the in-process Streams engine for Pub/Sub and transactional state. */
 @AutoConfiguration(after = PubSubConfiguration.class,
-        afterName = "be.appify.prefab.streams.postgres.PostgresStreamsStateConfiguration")
+        afterName = {
+                "be.appify.prefab.streams.postgres.PostgresStreamsStateConfiguration",
+                "be.appify.prefab.streams.mongodb.MongoStreamsStateConfiguration"
+        })
 @ConditionalOnBean({PubSubUtil.class, StreamStateRepository.class})
 @ConditionalOnMissingBean(PrefabStreams.class)
 public class PubSubStreamsConfiguration {

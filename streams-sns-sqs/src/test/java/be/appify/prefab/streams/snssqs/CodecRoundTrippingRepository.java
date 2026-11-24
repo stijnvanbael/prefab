@@ -3,7 +3,7 @@ package be.appify.prefab.streams.snssqs;
 import be.appify.prefab.streams.engine.InMemoryStreamStateRepository;
 import be.appify.prefab.streams.engine.StreamMessage;
 import be.appify.prefab.streams.engine.StreamStateRepository;
-import be.appify.prefab.streams.postgres.JsonStreamStateCodec;
+import be.appify.prefab.streams.engine.JsonStreamStateCodec;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;

@@ -89,7 +89,7 @@ messages:
 Configure via `spring.cloud.aws.*` (standard Spring Cloud AWS properties). Prefab's `SnsConfiguration`
 auto-configures SNS publisher and SQS listener beans.
 
-With `prefab-streams-sns-sqs` and a `StreamStateRepository` (for example `prefab-streams-postgres`), the Streams DSL
+With `prefab-streams-sns-sqs` and a `StreamStateRepository` (`prefab-streams-postgres` or `prefab-streams-mongodb`), the Streams DSL
 runs on SNS/SQS. Its properties (`prefab.streams.sns-sqs.visibility-timeout`, `prefab.streams.inbox-retention`,
 `prefab.streams.tracing.*`) are described in the
 [feature guide](feature-guides.md#streams-on-snssqs-prefab-streams-sns-sqs).

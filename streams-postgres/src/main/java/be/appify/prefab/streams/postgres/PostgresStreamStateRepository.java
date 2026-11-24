@@ -1,6 +1,7 @@
 package be.appify.prefab.streams.postgres;
 
 import be.appify.prefab.streams.engine.StreamMessage;
+import be.appify.prefab.streams.engine.StreamStateCodec;
 import be.appify.prefab.streams.engine.StreamStateRepository;
 import java.nio.ByteBuffer;
 import java.sql.Timestamp;

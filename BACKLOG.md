@@ -364,7 +364,9 @@ A task is **Done** only when **ALL** of the following are complete:
 ### ✅ Via Code/Testing:
 
 4. **Tests pass**: Run test suite and linting
-5. **Documentation updated**: Update relevant docs if needed
+5. **Documentation updated**: Update relevant docs if needed. For a change to Prefab's public behaviour this
+   includes the agent cheat sheet entry, the affected recipe and a benchmark task (see "Living document rule" in
+   AGENTS.md)
 6. **Code reviewed**: Self-review your changes
 7. **No regressions**: Performance, security checks pass
 

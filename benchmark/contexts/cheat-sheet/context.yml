@@ -1,0 +1,3 @@
+description: Only the compact agent cheat sheet (about 2k tokens) in CLAUDE.md, always loaded.
+instructions:
+  - repo: backlog/docs/agent-cheat-sheet.md

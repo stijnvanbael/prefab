@@ -135,8 +135,9 @@ copy:                          # repository files or directories copied into the
 | `none` | Nothing beyond the project and the prompt. It can still read the Prefab jars in `~/.m2`, as any user can. |
 | `full-docs` | The readme and all developer guide chapters (about 250 KB, 60k tokens) inside CLAUDE.md, always loaded. |
 | `docs-folder` | The same docs copied to `docs/prefab/`, with a short CLAUDE.md that points to them. Read on demand. |
+| `cheat-sheet` | Only the [agent cheat sheet](agent-cheat-sheet.md) (about 2k tokens) in CLAUDE.md, always loaded. |
 
-When the compact agent cheat sheet (TASK-344) and the recipes (TASK-346) exist, add a context for each. Once
+The compact agent cheat sheet (TASK-344) has the `cheat-sheet` context. When the recipes (TASK-346) exist, add a context for them. Once
 TASK-350 delivers agent guidance to application projects, the benchmark must use that same delivery path. Then add a
 context that reproduces the setup step, so the benchmark measures what users get.
 
@@ -360,4 +361,23 @@ What it shows:
 tasks about ±15. No repeated run of the same setup has been recorded yet, so the empirical run-to-run margin is still
 open. Until it is measured, compare setups per task with `--repeat 3`, and treat total pass-rate differences inside
 the confidence intervals as noise.
+### 2026-11-24: compact cheat sheet (TASK-344), 32 tasks
+
+Prefab `0.13.3-SNAPSHOT`, Haiku 5.5, one attempt per task, three attempts in parallel, run in a cloud container
+**without Docker** on the in-memory test backend (TASK-175). Runs: `20261124-104627-claude-haiku-5-5-cheat-sheet`
+and `20261124-111212-claude-haiku-5-5-none`.
+
+| Setup | Passed | 95% CI | Cost | Median turns | Median builds | Median agent time |
+|---|---|---|---|---|---|---|
+| Haiku 5.5, `none` | 21/32 | 48-80% | $1.08 | 25 | 5 | 2m00s |
+| Haiku 5.5, `cheat-sheet` | 24/32 | 58-87% | $0.60 | 16 | 4 | 1m19s |
+
+- **The cheat sheet is faster and cheaper.** About a third fewer turns, 35% less time and 45% lower cost than no
+  docs, with a pass rate inside the same confidence interval.
+- **Plain-Spring fallbacks dropped from 4 attempts to 1** (`events-multicast` fell back in both setups).
+  Without docs, `list-full-text-search`, `rest-computed-field` and `rest-parent-child` also failed the guardrails.
+- **These pass rates are not comparable with the 2026-11-22 baselines.** Without Docker, hidden tests that need
+  real infrastructure (`mixin-custom-sql`, `mongodb-crud`, the Avro tasks) fail in both setups for reasons that
+  have nothing to do with the agent. The `none` run was also flagged contaminated on `avro-publish-and-handle`.
+  Repeat both setups on a machine with Docker, with `--repeat 3`, before drawing conclusions about correctness.
 <!-- BASELINES:END -->

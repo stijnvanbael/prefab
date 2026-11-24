@@ -2,12 +2,16 @@ package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Doc;
 import be.appify.prefab.core.annotations.Example;
+import be.appify.prefab.core.annotations.Text;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.ParameterSpec;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -72,6 +76,19 @@ public class RequestParameterBuilder {
         return Optional.of(ParameterSpec.builder(effectiveType.asTypeName(), parameter.name()).build());
     }
 
+    /**
+     * {@code @Text} cannot be placed on parameters, so a parameter inherits it from the field of the same name
+     * in the declaring type; such a column is unbounded and must not get the default length limit.
+     */
+    private static boolean initialisesTextField(VariableManifest parameter) {
+        return parameter.element().getEnclosingElement() instanceof ExecutableElement executable
+                && executable.getEnclosingElement() instanceof TypeElement type
+                && type.getEnclosedElements().stream()
+                .filter(e -> e.getKind() == ElementKind.FIELD || e.getKind() == ElementKind.RECORD_COMPONENT)
+                .filter(e -> e.getSimpleName().contentEquals(parameter.name()))
+                .anyMatch(e -> e.getAnnotation(Text.class) != null);
+    }
+
     private static Optional<ParameterSpec> defaultParameters(VariableManifest parameter) {
         var effectiveType = parameter.type().isSingleValueType()
                 ? parameter.type().fields().getFirst().type().asBoxed()
@@ -83,7 +100,7 @@ public class RequestParameterBuilder {
         if (!effectiveType.isStandardType() && !effectiveType.isEnum() && !alreadyValidated) {
             annotations.add(AnnotationSpec.builder(Valid.class).build());
         } else if (effectiveType.is(String.class) && parameter.annotations().stream()
-                .noneMatch(a -> a.type().is(Size.class))) {
+                .noneMatch(a -> a.type().is(Size.class)) && !initialisesTextField(parameter)) {
             annotations.add(AnnotationSpec.builder(Size.class).addMember("max", "255").build());
         }
         if (OPENAPI_INCLUDED) {

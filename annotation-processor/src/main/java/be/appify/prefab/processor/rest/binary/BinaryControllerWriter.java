@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.lang.model.element.Modifier;
 
+import static be.appify.prefab.processor.rest.ControllerUtil.guardParent;
 import static be.appify.prefab.processor.rest.ControllerUtil.operationAnnotation;
 import static be.appify.prefab.processor.rest.ControllerUtil.pathParameterAnnotation;
 import static be.appify.prefab.processor.rest.ControllerUtil.securedAnnotation;
@@ -37,8 +38,9 @@ class BinaryControllerWriter {
         operationAnnotation("Download " + capitalize(field.name()) + " for " + manifest.simpleName()).ifPresent(method::addAnnotation);
         var security = field.getAnnotation(Download.class).map(AnnotationManifest::value).orElseThrow().security();
         securedAnnotation(security).ifPresent(method::addAnnotation);
+        method.addParameter(idParameter.build());
+        guardParent(method, manifest.parent());
         return method
-                .addParameter(idParameter.build())
                 .addStatement("""
                                 return service.getById(id)
                                 .map($T::$N)

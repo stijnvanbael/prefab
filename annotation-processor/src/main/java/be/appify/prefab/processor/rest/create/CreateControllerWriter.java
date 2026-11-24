@@ -26,7 +26,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestPart;
 
-import static be.appify.prefab.processor.CaseUtil.toKebabCase;
 import static be.appify.prefab.processor.rest.ControllerUtil.operationAnnotation;
 import static be.appify.prefab.processor.rest.ControllerUtil.requestMapping;
 import static be.appify.prefab.processor.rest.ControllerUtil.securedAnnotation;
@@ -38,7 +37,7 @@ class CreateControllerWriter {
         var create = constructor.getAnnotation(Create.class);
         var subtypeName = manifest.simpleName();
         return buildCreateMethod("create", manifest, subtypeName, manifest.packageName(), manifest.simpleName(),
-                toKebabCase("/" + manifest.plural() + "/"), constructor, create, context);
+                ControllerUtil.locationPrefix(manifest.parent(), manifest.plural()), constructor, create, context);
     }
 
     MethodSpec createDispatchMethodForPolymorphic(
@@ -48,7 +47,7 @@ class CreateControllerWriter {
         var create = group.getFirst().getValue().getAnnotation(Create.class);
         var unionName = "Create%sRequest".formatted(polymorphic.simpleName());
         var unionClass = ClassName.get(polymorphic.packageName() + ".application", unionName);
-        var redirectPath = toKebabCase("/" + polymorphic.plural() + "/");
+        var redirectPath = ControllerUtil.locationPrefix(polymorphic.parent(), polymorphic.plural());
         var parentName = polymorphic.parent()
                 .filter(p -> !p.type().parameters().isEmpty())
                 .map(VariableManifest::name);
@@ -66,7 +65,7 @@ class CreateControllerWriter {
         parentName.ifPresent(name -> {
             var parentParam = polymorphic.parent().orElseThrow();
             var aggregateTypeName = parentParam.type().parameters().getFirst().simpleName();
-            var pathVarSpec = ParameterSpec.builder(String.class, name + "Id")
+            var pathVarSpec = ParameterSpec.builder(String.class, ControllerUtil.parentPathVariable(parentParam))
                     .addAnnotation(PathVariable.class);
             ControllerUtil.pathParameterAnnotation("The " + aggregateTypeName + " ID")
                     .ifPresent(pathVarSpec::addAnnotation);
@@ -77,7 +76,7 @@ class CreateControllerWriter {
                 .addAnnotation(AnnotationSpec.builder(RequestBody.class).build())
                 .build());
         method.addStatement("var id = switch (request) {\n$L;\n}", switchCases);
-        method.addStatement("return $T.created($T.create($S + id)).build()",
+        method.addStatement("return $T.created($T.create($L + id)).build()",
                 ResponseEntity.class, URI.class, redirectPath);
         return method.build();
     }
@@ -92,7 +91,7 @@ class CreateControllerWriter {
         var nestedClass = ClassName.get(polymorphic.packageName() + ".application", unionName,
                 "Create%sRequest".formatted(leafName));
         var serviceArgs = parentName
-                .map(pn -> pn + "Id, r")
+                .map(pn -> polymorphic.parent().map(ControllerUtil::parentPathVariable).orElse(pn + "Id") + ", r")
                 .orElse("r");
         return CodeBlock.of("case $T r -> service.create$L(" + serviceArgs + ")", nestedClass, leafName);
     }
@@ -106,7 +105,8 @@ class CreateControllerWriter {
         var create = constructor.getAnnotation(Create.class);
         var leafName = leafName(subtype.simpleName());
         var methodName = "create" + leafName;
-        var redirectPath = toKebabCase("/" + polymorphic.plural() + "/");
+        var redirectPath = ControllerUtil.locationPrefix(subtype.parent().or(polymorphic::parent),
+                polymorphic.plural());
         return buildCreateMethod(methodName, subtype, leafName, subtype.packageName(), leafName,
                 redirectPath, constructor, create, context);
     }
@@ -117,7 +117,7 @@ class CreateControllerWriter {
             String operationLabel,
             String packageName,
             String requestRecordPrefix,
-            String redirectBasePath,
+            CodeBlock redirectBasePath,
             ExecutableElement constructor,
             Create create,
             PrefabContext context
@@ -149,7 +149,7 @@ class CreateControllerWriter {
                 var aggregateTypeName = parentParam.type().parameters().isEmpty()
                         ? parentParam.type().simpleName()
                         : parentParam.type().parameters().getFirst().simpleName();
-                var pathVarSpec = ParameterSpec.builder(String.class, parentParam.name() + "Id")
+                var pathVarSpec = ParameterSpec.builder(String.class, ControllerUtil.parentPathVariable(parentParam))
                         .addAnnotation(PathVariable.class);
                 ControllerUtil.pathParameterAnnotation("The " + aggregateTypeName + " ID")
                         .ifPresent(pathVarSpec::addAnnotation);
@@ -174,7 +174,7 @@ class CreateControllerWriter {
             method.addStatement("var id = service.$N($L)", methodName, serviceArgs);
         }
         return method
-                .addStatement("return $T.created($T.create($S + id)).build()",
+                .addStatement("return $T.created($T.create($L + id)).build()",
                         ResponseEntity.class, URI.class, redirectBasePath)
                 .build();
     }
@@ -186,7 +186,8 @@ class CreateControllerWriter {
             Set<String> pathVarNames
     ) {
         var parentArg = parentName.map(name -> params.stream()
-                .filter(p -> name.equals(p.name())).findFirst().orElseThrow().name() + "Id")
+                .filter(p -> name.equals(p.name())).findFirst().orElseThrow())
+                .map(ControllerUtil::parentPathVariable)
                 .orElse("");
         var pathVarArgs = params.stream()
                 .map(VariableManifest::name)

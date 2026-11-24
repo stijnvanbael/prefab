@@ -114,6 +114,38 @@ that the `SerializationRegistryConfiguration` generated bean is loaded (check co
 
 ---
 
+## Kafka test consumer repeatedly logs a deserialization error
+
+**Cause:** `@TestEventConsumer` received a record that does not match its declared event type. A Kafka consumer
+cannot advance past a record that its value deserializer rejects, so an incorrectly configured test consumer can
+otherwise retry the same poison-pill record indefinitely.
+
+**Fix:** Correct the consumer's generic event type, topic, and JSON/Avro contract. The test listener skips the
+unreadable record after logging one error and continues with later records. For sealed JSON hierarchies, annotate
+the contract with `@JsonTypeInfo(use = JsonTypeInfo.Id.NAME)`; see [Feature Guides, 7.2](feature-guides.md#72-event-publishing).
+
+---
+
+## Startup failure: `Only sealed interfaces are supported for event types`
+
+**Cause:** An `@Avsc` event contract is not sealed. Prefab uses the permitted subtype list to register and dispatch
+the generated event types.
+
+**Fix:** Declare the contract as a `sealed interface` and list every generated event type in its `permits` clause.
+See [Feature Guides, 7.4](feature-guides.md#74-avro--avsc-first-events).
+
+---
+
+## Compilation error: `Cannot add a NOT NULL column [...] without a default value`
+
+**Cause:** A released database schema is gaining a non-null column, but existing rows have no value for it.
+
+**Fix:** Annotate the corresponding aggregate field with `@DbDefaultValue("...")`, or stage the rollout by adding the
+field as nullable, backfilling it, and then making it non-null. The annotation processor reports this error on the
+field that needs the default. See [Database Migration Lifecycle](database-migrations.md).
+
+---
+
 ## Error: `[X] was not found` (HTTP 404)
 
 **Cause:** `NotFoundException` is thrown when `findById(id)` returns empty.

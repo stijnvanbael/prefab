@@ -7,6 +7,7 @@ import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import be.appify.prefab.core.annotations.OutputTarget;
+import be.appify.prefab.processor.rest.ControllerUtil;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -59,6 +60,8 @@ class ApplicationWriter {
         dependencies.forEach(
                 dependency -> constructor.addStatement("this.$N = $N", nameOf(dependency), nameOf(dependency)));
         type.addMethod(constructor.build());
+        manifest.parent().ifPresent(parent -> type.addMethod(belongsToParentMethod(
+                parent, uncapitalize(manifest.simpleName()) + "Repository")));
         new PluginContributions(context)
                 .apply(manifest.type().asElement(), type, OutputTarget.TEST, plugin -> plugin.writeService(manifest, type));
         fileWriter.writeFile(manifest.packageName(), serviceName, type.build());
@@ -86,10 +89,25 @@ class ApplicationWriter {
         constructor.addStatement("this.$N = $N", repositoryName, repositoryName);
         extraDependencies.forEach(dep -> constructor.addStatement("this.$N = $N", nameOf(dep), nameOf(dep)));
         type.addMethod(constructor.build());
+        manifest.parent().ifPresent(parent -> type.addMethod(belongsToParentMethod(parent, repositoryName)));
 
         new PluginContributions(context)
                 .apply(manifest.type().asElement(), type, OutputTarget.TEST, plugin -> plugin.writePolymorphicService(manifest, type));
         fileWriter.writeFile(manifest.packageName(), serviceName, type.build());
+    }
+
+    /**
+     * Lets controllers of a child aggregate refuse access through the path of another parent.
+     */
+    private static MethodSpec belongsToParentMethod(VariableManifest parent, String repositoryName) {
+        return MethodSpec.methodBuilder(ControllerUtil.BELONGS_TO_PARENT)
+                .addModifiers(Modifier.PUBLIC)
+                .returns(boolean.class)
+                .addParameter(String.class, "parentId")
+                .addParameter(String.class, "id")
+                .addStatement("return $N.findById(id).map(aggregate -> parentId.equals(aggregate.$N().id()))"
+                        + ".orElse(false)", repositoryName, parent.name())
+                .build();
     }
 
     private Set<TypeName> collectPolymorphicExtraDependencies(PolymorphicAggregateManifest manifest) {

@@ -834,6 +834,12 @@ public record OrderLine(
 
 **Generated base path:** `/orders/{orderId}/order-lines`
 
+The path variable is the parent field name plus `Id`; a field that already ends in `Id` (such as `orderId`) keeps its
+name. Child endpoints are scoped to their parent: `GET`, `@Update`, `@Delete`, `@Download` and `@Streaming` answer
+`404 Not Found` when the aggregate belongs to another parent than the one in the path. The generated service exposes
+`belongsToParent(parentId, id)` for this check. A created child responds with
+`Location: /orders/{orderId}/order-lines/{id}`.
+
 ---
 
 ### `@Security`
@@ -1387,6 +1393,10 @@ String email;
 **Retention:** `SOURCE`
 
 Maps a `String` field to an unbounded `TEXT` column (instead of the default `VARCHAR(255)`).
+
+Generated create and update requests do not add the default `@Size(max = 255)` to a `String` parameter whose
+name matches a `@Text` field, so long text is accepted over REST. Add an explicit `@Size(max = N)` on the parameter
+to set an API limit.
 
 Use Jakarta Validation's `@Size(max = N)` to generate `VARCHAR(N)`.
 

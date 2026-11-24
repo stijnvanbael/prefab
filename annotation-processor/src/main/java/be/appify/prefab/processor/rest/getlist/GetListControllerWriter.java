@@ -3,6 +3,7 @@ package be.appify.prefab.processor.rest.getlist;
 import be.appify.prefab.core.annotations.rest.GetList;
 import be.appify.prefab.core.annotations.rest.SortOrder;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.rest.ControllerUtil;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.AnnotationSpec;
@@ -94,7 +95,7 @@ class GetListControllerWriter {
     }
 
     private ParameterSpec parentParameter(VariableManifest parent) {
-        return ParameterSpec.builder(String.class, uncapitalize(parent.name()) + "Id")
+        return ParameterSpec.builder(String.class, ControllerUtil.parentPathVariable(parent))
                 .addAnnotation(PathVariable.class)
                 .build();
     }
@@ -105,7 +106,7 @@ class GetListControllerWriter {
 
     private static String getListParameters(ClassManifest manifest) {
         var parameters = new ArrayList<>(List.of("pageable"));
-        manifest.parent().ifPresent(parent -> parameters.add(uncapitalize(parent.name()) + "Id"));
+        manifest.parent().ifPresent(parent -> parameters.add(ControllerUtil.parentPathVariable(parent)));
         return String.join(", ", parameters);
     }
 
@@ -122,7 +123,7 @@ class GetListControllerWriter {
         manifest.parent().ifPresent(parent -> method.addParameter(parentParameter(parent)));
         method.addParameter(pageableParameter(getList));
         var serviceArgs = manifest.parent()
-                .map(parent -> uncapitalize(parent.name()) + "Id, pageable")
+                .map(parent -> ControllerUtil.parentPathVariable(parent) + ", pageable")
                 .orElse("pageable");
         return method
                 .addStatement("return $T.ok(new $T(service.getList($L).map($T::from)))",

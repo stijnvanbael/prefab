@@ -120,6 +120,14 @@ non-null:
 String status
 ```
 
+When a new non-null field is added to a released schema without `@DbDefaultValue`, compilation fails and the
+diagnostic is attached to that field:
+
+```
+Cannot add a NOT NULL column [stock] without a default value. Annotate the corresponding field with @DbDefaultValue
+to specify it.
+```
+
 The value is quoted according to the column type. For a populated table, a generated default is not a substitute for
 a domain-specific backfill or a staged rollout. A change to the default on an existing column by itself is not
 currently emitted as an `ALTER COLUMN` change; write and review a manual SQL migration for that case. Likewise,

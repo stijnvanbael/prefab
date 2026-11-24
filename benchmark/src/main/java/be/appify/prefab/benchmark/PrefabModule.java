@@ -14,7 +14,9 @@ enum PrefabModule {
     AVRO("prefab-avro", "compile"),
     AVRO_PROCESSOR("prefab-avro-processor", "provided"),
     SECURITY("prefab-security", "compile"),
-    OPENAPI("prefab-openapi", "compile");
+    OPENAPI("prefab-openapi", "compile"),
+    STREAMS("prefab-streams", "compile"),
+    STREAMS_ENGINE("prefab-streams-engine", "compile");
 
     private final String artifactId;
     private final String scope;

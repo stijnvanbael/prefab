@@ -22,7 +22,8 @@ final class PostgresTestDatabase {
     static PostgresStreamStateRepository freshRepository() {
         var jdbc = new JdbcTemplate(DATA_SOURCE);
         jdbc.execute("DROP TABLE IF EXISTS prefab_stream_store, prefab_stream_inbox, "
-                + "prefab_stream_outbox, prefab_stream_lease");
+                + "prefab_stream_outbox, prefab_stream_lease, prefab_stream_schedule, "
+                + "prefab_stream_member, prefab_stream_member_group");
         PostgresStreamSchema.initialize(jdbc);
         return new PostgresStreamStateRepository(
                 jdbc, new DataSourceTransactionManager(DATA_SOURCE), new JsonStreamStateCodec());

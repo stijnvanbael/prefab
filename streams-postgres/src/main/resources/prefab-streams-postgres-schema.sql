@@ -38,3 +38,31 @@ CREATE TABLE IF NOT EXISTS prefab_stream_lease (
     owner      TEXT        NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL
 );
+
+-- Live in-process engine members, used to assign scheduled processor registrations.
+CREATE TABLE IF NOT EXISTS prefab_stream_member_group (
+    group_id    TEXT PRIMARY KEY,
+    topology_id TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS prefab_stream_member (
+    group_id   TEXT        NOT NULL,
+    member_id  TEXT        NOT NULL,
+    topology_id TEXT       NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (group_id, member_id)
+);
+CREATE INDEX IF NOT EXISTS prefab_stream_member_expiry
+    ON prefab_stream_member (group_id, expires_at);
+
+-- One durable wall-clock schedule per processor registration, fenced at commit.
+CREATE TABLE IF NOT EXISTS prefab_stream_schedule (
+    schedule_id       TEXT        PRIMARY KEY,
+    group_id          TEXT        NOT NULL,
+    interval_millis   BIGINT      NOT NULL,
+    next_due          TIMESTAMPTZ NOT NULL,
+    lease_owner       TEXT,
+    lease_expires_at  TIMESTAMPTZ,
+    fencing_token     BIGINT      NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS prefab_stream_schedule_due
+    ON prefab_stream_schedule (group_id, next_due);

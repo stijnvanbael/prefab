@@ -8,6 +8,7 @@ import be.appify.prefab.streams.testing.TopologyInspection;
 import be.appify.prefab.streams.testing.TopologyOutput;
 import be.appify.prefab.streams.testing.TopologySession;
 import be.appify.prefab.streams.tracing.MessageTracing;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +26,7 @@ public final class InMemoryTopologySession implements TopologySession {
     private final InMemoryStreamSource source;
     private final InMemoryStreamSink sink;
     private final InMemoryStreamStateRepository repository;
+    private final AdjustableClock clock;
     private final InProcessPrefabStreams.RunningTopology topology;
     private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -34,6 +36,7 @@ public final class InMemoryTopologySession implements TopologySession {
             InMemoryStreamSource source,
             InMemoryStreamSink sink,
             InMemoryStreamStateRepository repository,
+            AdjustableClock clock,
             InProcessPrefabStreams.RunningTopology topology
     ) {
         this.appId = appId;
@@ -41,6 +44,7 @@ public final class InMemoryTopologySession implements TopologySession {
         this.source = source;
         this.sink = sink;
         this.repository = repository;
+        this.clock = clock;
         this.topology = topology;
     }
 
@@ -111,6 +115,12 @@ public final class InMemoryTopologySession implements TopologySession {
     }
 
     @Override
+    public void advanceWallClock(Duration duration) {
+        clock.advance(duration);
+        topology.runScheduledTasks();
+    }
+
+    @Override
     public <T> T unwrap(Class<T> type) {
         if (type.isInstance(source)) {
             return type.cast(source);
@@ -161,7 +171,7 @@ public final class InMemoryTopologySession implements TopologySession {
 
         @Override
         public TopologyInput<K, V> send(K key, V value) {
-            return send(key, value, Instant.now());
+            return send(key, value, clock.instant());
         }
 
         @Override
@@ -172,13 +182,13 @@ public final class InMemoryTopologySession implements TopologySession {
 
         @Override
         public TopologyInput<K, V> sendTombstone(K key) {
-            deliver(key, null, Instant.now(), UUID.randomUUID().toString(), Map.of());
+            deliver(key, null, clock.instant(), UUID.randomUUID().toString(), Map.of());
             return this;
         }
 
         @Override
         public TopologyInput<K, V> sendWithMessageId(V value, String messageId) {
-            return sendWithMessageId(value, messageId, Instant.now());
+            return sendWithMessageId(value, messageId, clock.instant());
         }
 
         @Override

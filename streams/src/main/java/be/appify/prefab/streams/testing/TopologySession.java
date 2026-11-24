@@ -3,6 +3,7 @@ package be.appify.prefab.streams.testing;
 import be.appify.prefab.core.domain.Keyed;
 import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.streams.GlobalStore;
+import java.time.Duration;
 import java.util.Optional;
 
 /**
@@ -100,6 +101,16 @@ public interface TopologySession extends AutoCloseable {
      * @return the inspection
      */
     TopologyInspection inspect();
+
+    /**
+     * Advances the test session's wall clock, allowing wall-clock punctuations to run deterministically.
+     *
+     * @param duration the positive amount of time to advance
+     * @throws UnsupportedOperationException when the backend test driver cannot advance wall-clock time
+     */
+    default void advanceWallClock(Duration duration) {
+        throw new UnsupportedOperationException("This topology test backend cannot advance wall-clock time");
+    }
 
     /**
      * Gives access to the backend-specific test facility, for assertions that only make sense for one backend.

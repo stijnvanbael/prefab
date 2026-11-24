@@ -1,7 +1,7 @@
 ---
 id: TASK-363
 title: Wall-clock punctuation (StreamProcessorContext.schedule) in the in-process streams engine
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-21 10:00'
 labels:
@@ -18,9 +18,9 @@ ordinal: 200000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-`StreamProcessorContext.schedule(interval, task)` runs a wall-clock punctuation on Kafka once per task (partition), over that partition's stores. In the in-process engine (decision-008), state is shared by all instances, so running the task on every instance would duplicate its output. The first engine version rejects `schedule` at startup.
+`StreamProcessorContext.schedule(interval, task)` runs a wall-clock punctuation on Kafka once per task (partition), over that partition's stores. In the in-process engine (decision-008), state is shared by all instances, so running the task on every instance would duplicate its output.
 
-Support it by running each scheduled task on one instance at a time, behind a database lease per processor. Each run happens in one transaction, and its output goes through the outbox. Document the semantic difference: one run over all keys instead of one run per partition.
+Support each registration as a logical work partition assigned by rendezvous hashing across live application members. Rebalance when membership changes; use a database lease and fencing token to commit callback state and outbox output atomically. Document the semantic difference: one run over shared state instead of one run per key partition.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Investigation
@@ -96,12 +96,57 @@ the current ACs pending that decision. Add deterministic tests for two instances
 overlap and fencing after lease expiry, crash before/after commit, conflict retries, duplicate outbox delivery,
 downstream branching, stop/restart, and time advances. Exercise the shared repository contract on in-memory,
 Postgres and Mongo, and document the Kafka semantic differences and any required schema/configuration changes.
+
+### Implementation decisions
+
+- Implement membership-aware reassignment, not just opportunistic lease races. Members heartbeat into the shared
+  state repository; each scheduled registration is assigned to one live member with rendezvous hashing. A joining
+  member only moves registrations for which it wins the hash; a departed member's registrations move after its
+  membership lease expires. All clocks used for leases must be within a documented bound.
+- Use a persisted registration identity derived from the configured application/topology group, processor class,
+  source bindings, stable declaration ordinal and normalized interval. Same-version replicas must build the same
+  identities.
+  Persist a topology fingerprint at member heartbeat; reject a changed declaration while another version remains
+  live or an old schedule lease is active, then allow an incompatible version after the group is drained.
+- Lease and fence an individual due occurrence, not merely a processor forever. Callback work runs once per
+  occurrence at a time; the fencing generation is checked in the same repository transaction as its state and
+  outbox writes. Callback retries after failure are allowed; duplicate committed output for one occurrence is not.
+- Use Kafka-like best-effort wall-clock semantics: first run after one interval, skip missed ticks rather than burst
+  catch-up, and make the next occurrence eligible on the next aligned interval. A task may be attempted again after
+  owner failure; external side effects are outside the transaction guarantee.
+- The test harness gets a controllable clock/advance hook. Punctuation has no input record metadata; forwards use a
+  fresh message identity and continue through each downstream branch in the graph.
+- Extend the repository contract for membership heartbeat/snapshot and schedule registration/claim/fenced commit,
+  implementing it consistently for memory, Postgres and MongoDB. Add the schedule, member and group-fingerprint
+  tables/collections through the existing idempotent engine schema initialization. No keyed state partitioning or
+  store iteration is introduced.
 <!-- SECTION:ANALYSIS:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+- Implemented wall-clock scheduling as one logical work partition per registration. Rendezvous hashing assigns each
+  registration to one live member; member and schedule leases support reassignment, and fencing is checked atomically
+  with state and outbox writes.
+- Registration IDs include the normalized interval, so a changed interval creates a new registration. A topology
+  fingerprint prevents mixed-version members from starting until the previous membership and callback leases drain.
+- In-memory, Postgres and MongoDB repositories implement membership, schedule leases and fenced completion. Postgres
+  DDL and MongoDB collection/index initialization include the new coordination records.
+- Punctuation runs in a transaction-bound processor context, forwards through finalized downstream branches and
+  commits outputs through the outbox. Missed intervals are skipped; the test harness advances a controllable wall
+  clock.
+- Updated the decision record, feature guide, cheat sheet and benchmark task. No generated artefact changed.
+  `TASK-346` is still in progress on a separate branch; add or verify the Streams punctuation recipe when that recipe
+  catalog is integrated.
+- Targeted engine and repository contract tests pass, including concurrent MongoDB member joins; Postgres and MongoDB
+  integration tests pass. The benchmark reference acceptance test passes when run directly in its generated Maven
+  workspace; the benchmark CLI cannot launch `mvn` as a child process on this Windows environment.
+<!-- SECTION:NOTES:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A scheduled task runs on exactly one instance per interval, proven with two engine instances
-- [ ] #2 Output of a scheduled task is published through the outbox
-- [ ] #3 The topology test harness can advance wall-clock time to trigger scheduled tasks
-- [ ] #4 The decision-008 operator matrix is updated
+- [x] #1 A scheduled task occurrence is committed by exactly one assigned member; membership joins and departures reassign registrations, proven with at least two engine instances
+- [x] #2 Output of a scheduled task is published through the outbox
+- [x] #3 The topology test harness can advance wall-clock time to trigger scheduled tasks
+- [x] #4 The decision-008 operator matrix is updated
 <!-- AC:END -->

@@ -1218,10 +1218,15 @@ Pub/Sub publish time. Window stream time is tracked per key, unlike Kafka's per-
 
 Outputs use record keys as Pub/Sub ordering keys, and the supplied Spring publisher customizer enables ordering.
 Custom `PublisherFactory` implementations must also enable ordering. Ordering is per key, and order-dependent
-operators require ordered input. Logical repartitioning does not create broker topics. `breakout` and
-`StreamProcessorContext.schedule` are unsupported on this backend and fail at startup; scheduling is tracked by
-TASK-363. A `to(String)` output registers its topic as a serialization alias without changing the event's default
-publication topics.
+operators require ordered input. Logical repartitioning does not create broker topics. `breakout` is unsupported.
+`StreamProcessorContext.schedule` runs once per registration across the live application members, not once per key
+partition: the callback has shared-store access, no input-record metadata, and its forwards run through downstream
+operators and the transactional outbox. Membership uses the application name, database heartbeats and rendezvous
+assignment; callback leases fence state/outbox commits. The first run is after one interval, missed intervals are
+skipped, and a failed callback may be retried. Keep instance clocks within one second. The engine rejects a changed
+topology fingerprint while an older member or callback lease is active; drain old instances and leases before changing
+scheduled declarations. A `to(String)` output registers its topic as a serialization alias without changing the
+event's default publication topics.
 
 ### Streams on SNS/SQS (`prefab-streams-sns-sqs`)
 
@@ -1272,8 +1277,12 @@ output.
 **Operator support.** Everything in the engine matrix of decision-008 runs: `from`, `to`, `as`, `end`, `filter`,
 `map`, `flatMap`, `branch`, `merge`, `process` (also with stores), `aggregate`, `keyBy`/`repartition` (logical, no
 topics), `groupBy` with `aggregate` and `windowedAggregate` (with grace), inner `join` with `JoinWindow`,
-`deduplicate` and global stores. `breakout` and `StreamProcessorContext.schedule` fail at startup (TASK-363 for `schedule`); keep a Kafka-native `breakout` topology in a configuration that
-only loads with the Kafka backend.
+`deduplicate`, global stores and wall-clock `StreamProcessorContext.schedule`. A scheduled registration is assigned
+to one live application member and fenced in the same database transaction as state and outbox writes. It runs once
+over shared state, not once per Kafka-style key partition. Intervals must be at least one millisecond. Punctuation is
+best effort: first run after one interval, skip missed intervals, retry failed work after lease expiry, and assume
+clocks differ by no more than one second.
+`breakout` remains unsupported; keep a Kafka-native breakout topology in a configuration that only loads with Kafka.
 
 **Differences from Kafka that you must know about.**
 
@@ -1286,7 +1295,9 @@ only loads with the Kafka backend.
   another key advanced stream time is accepted here.
 - *Global stores start empty.* SNS/SQS cannot replay a topic, so a global store only holds the events published after
   its queue was created.
-- *`breakout` and wall-clock punctuation are not available.*
+- *Punctuation is application-wide.* One scheduled callback runs across all live instances, sees shared stores, and
+  has no Kafka partition-scoped key ownership. It cannot safely scan a subset of keys unless the application models
+  that subset explicitly.
 
 **Testing.** `TopologyTestHarness` finds the backend by name: `TopologyTestExtension.withBackend("sns-sqs")`, or
 `-Dprefab.streams.test.backend=sns-sqs` for a whole run. It runs the engine synchronously with in-memory state, so
@@ -1311,6 +1322,9 @@ when the transaction does not hold a connection for the template's `DataSource`.
 | `prefab_stream_inbox` | Processed input messages (`subscription`, `message_id`), so redelivered messages are skipped. |
 | `prefab_stream_outbox` | Output records written in the message transaction, published by the relay in `seq` order. |
 | `prefab_stream_lease` | One relay lease per sink topic, with expiry. Another instance takes over after it expires. |
+| `prefab_stream_member_group` | Application group topology fingerprint, serialized with member heartbeats to reject incompatible rolling declarations. |
+| `prefab_stream_member` | Live engine members per application group, with topology identity and lease expiry, used for schedule assignment. |
+| `prefab_stream_schedule` | Stable schedule registrations, next due time, current owner lease and fencing token. |
 
 Values are `bytea` (JSON with concrete class names, including nested polymorphic values, by default; provide a
 `StreamStateCodec` bean to change it). State rows are trusted application data: the default codec resolves classes
@@ -1373,6 +1387,34 @@ CREATE TABLE IF NOT EXISTS prefab_stream_lease (
     owner      TEXT        NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL
 );
+
+-- Live in-process engine members, used to assign scheduled processor registrations.
+CREATE TABLE IF NOT EXISTS prefab_stream_member_group (
+    group_id    TEXT PRIMARY KEY,
+    topology_id TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS prefab_stream_member (
+    group_id   TEXT        NOT NULL,
+    member_id  TEXT        NOT NULL,
+    topology_id TEXT       NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (group_id, member_id)
+);
+CREATE INDEX IF NOT EXISTS prefab_stream_member_expiry
+    ON prefab_stream_member (group_id, expires_at);
+
+-- One durable wall-clock schedule per processor registration, fenced at commit.
+CREATE TABLE IF NOT EXISTS prefab_stream_schedule (
+    schedule_id       TEXT        PRIMARY KEY,
+    group_id          TEXT        NOT NULL,
+    interval_millis   BIGINT      NOT NULL,
+    next_due          TIMESTAMPTZ NOT NULL,
+    lease_owner       TEXT,
+    lease_expires_at  TIMESTAMPTZ,
+    fencing_token     BIGINT      NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS prefab_stream_schedule_due
+    ON prefab_stream_schedule (group_id, next_due);
 ```
 
 ### MongoDB state for the in-process engine (`prefab-streams-mongodb`)
@@ -1404,6 +1446,9 @@ management is unaffected.
 | `prefab_stream_inbox` | Processed input messages, with `_id` `{subscription, messageId}` and `recordedAt`, so redelivered messages are skipped. |
 | `prefab_stream_outbox` | Output records written in the message transaction, published by the relay in `seq` order per topic. |
 | `prefab_stream_lease` | One relay lease per sink topic (`_id`), with `owner` and `expiresAt`. Another instance takes over after it expires. |
+| `prefab_stream_member_group` | Application group topology fingerprint, serialized with member heartbeats to reject incompatible rolling declarations. |
+| `prefab_stream_member` | Live engine members per application group, with topology identity and lease expiry, used for schedule assignment. |
+| `prefab_stream_schedule` | Stable schedule registrations, next due time, current owner lease and fencing token. |
 
 Values, keys, the `StreamStateCodec` and the retention of expired data work as described for Postgres. A conflicting
 write (stale `version`, claimed inbox identity or transient transaction error) throws
@@ -1420,6 +1465,8 @@ Indexes created by `initialize-schema=always`:
 | `prefab_stream_store` | `expiry`: `_id.namespace`, `expiryKey`, `expiresAt`, partial on `expiryKey` existing | Expiry scans of windows, join buffers and identities |
 | `prefab_stream_inbox` | `recordedAt` | Retention cleanup |
 | `prefab_stream_outbox` | `topicSeq`: `topic`, `seq` | Relay ordering |
+| `prefab_stream_member` | `groupExpiry`: `groupId`, `expiresAt` | Live-member lookup and expiry cleanup |
+| `prefab_stream_schedule` | `groupDue`: `groupId`, `nextDue` | Due schedule lookup |
 
 The collections themselves are created up front because a transaction cannot implicitly create a collection on every
 MongoDB version.

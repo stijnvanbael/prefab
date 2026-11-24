@@ -40,6 +40,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * such a combination.
  */
 public final class PostgresStreamStateRepository implements StreamStateRepository {
+    private static final Duration CLOCK_SKEW_GUARD = Duration.ofSeconds(1);
     private static final String SELECT_STATE =
             "SELECT state_value, version FROM prefab_stream_store WHERE namespace = ? AND state_key = ?";
     private static final String INSERT_STATE = """
@@ -105,6 +106,115 @@ public final class PostgresStreamStateRepository implements StreamStateRepositor
     }
 
     @Override
+    public void heartbeatMember(String groupId, String memberId, String topologyId, Instant now, Duration lease) {
+        requireIdentity(groupId, "groupId");
+        requireIdentity(memberId, "memberId");
+        requireIdentity(topologyId, "topologyId");
+        requirePositive(lease, "lease");
+        transactions.executeWithoutResult(status -> {
+            jdbc.update("""
+                    INSERT INTO prefab_stream_member_group (group_id, topology_id) VALUES (?, ?)
+                    ON CONFLICT (group_id) DO NOTHING""", groupId, topologyId);
+            var registeredTopology = jdbc.queryForObject("""
+                    SELECT topology_id FROM prefab_stream_member_group WHERE group_id = ? FOR UPDATE""",
+                    String.class, groupId);
+            if (!topologyId.equals(registeredTopology)) {
+                var activeMember = Boolean.TRUE.equals(jdbc.queryForObject("""
+                        SELECT EXISTS (
+                            SELECT 1 FROM prefab_stream_member
+                            WHERE group_id = ? AND member_id <> ? AND topology_id = ? AND expires_at > ?)""",
+                        Boolean.class, groupId, memberId, registeredTopology,
+                        Timestamp.from(now.minus(CLOCK_SKEW_GUARD))));
+                var activeSchedule = Boolean.TRUE.equals(jdbc.queryForObject("""
+                        SELECT EXISTS (
+                            SELECT 1 FROM prefab_stream_schedule
+                            WHERE group_id = ? AND lease_expires_at > ?)""",
+                        Boolean.class, groupId, Timestamp.from(now.minus(CLOCK_SKEW_GUARD))));
+                if (activeMember || activeSchedule) {
+                    throw new IllegalStateException(
+                            "Topology declaration changed while group members or callbacks are still active: "
+                                    + groupId);
+                }
+                jdbc.update("UPDATE prefab_stream_member_group SET topology_id = ? WHERE group_id = ?",
+                        topologyId, groupId);
+            }
+            jdbc.update("""
+                    INSERT INTO prefab_stream_member (group_id, member_id, topology_id, expires_at)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT (group_id, member_id) DO UPDATE
+                    SET topology_id = EXCLUDED.topology_id, expires_at = EXCLUDED.expires_at""",
+                    groupId, memberId, topologyId, Timestamp.from(now.plus(lease)));
+        });
+    }
+
+    @Override
+    public List<String> activeMembers(String groupId, Instant now) {
+        return jdbc.queryForList("""
+                SELECT member_id FROM prefab_stream_member
+                WHERE group_id = ? AND expires_at > ? ORDER BY member_id""",
+                String.class, groupId, Timestamp.from(now.minus(CLOCK_SKEW_GUARD)));
+    }
+
+    @Override
+    public void removeMember(String groupId, String memberId) {
+        jdbc.update("DELETE FROM prefab_stream_member WHERE group_id = ? AND member_id = ?", groupId, memberId);
+    }
+
+    @Override
+    public void registerScheduledTask(String groupId, String scheduleId, Duration interval, Instant now) {
+        requireIdentity(groupId, "groupId");
+        requireIdentity(scheduleId, "scheduleId");
+        requirePositive(interval, "interval");
+        var intervalMillis = interval.toMillis();
+        if (intervalMillis < 1) {
+            throw new IllegalArgumentException("interval must be at least one millisecond");
+        }
+        jdbc.update("""
+                INSERT INTO prefab_stream_schedule (schedule_id, group_id, interval_millis, next_due)
+                VALUES (?, ?, ?, ?) ON CONFLICT (schedule_id) DO NOTHING""",
+                scheduleId, groupId, intervalMillis, Timestamp.from(now.plusMillis(intervalMillis)));
+        var existing = jdbc.queryForMap("""
+                SELECT group_id, interval_millis FROM prefab_stream_schedule WHERE schedule_id = ?""", scheduleId);
+        if (!groupId.equals(existing.get("group_id"))
+                || intervalMillis != ((Number) existing.get("interval_millis")).longValue()) {
+            throw new IllegalStateException("Scheduled task identity or interval changed: " + scheduleId);
+        }
+    }
+
+    @Override
+    public Optional<ScheduledTaskLease> claimScheduledTask(
+            String groupId, String scheduleId, String owner, Instant now, Duration lease
+    ) {
+        requirePositive(lease, "lease");
+        return jdbc.query("""
+                UPDATE prefab_stream_schedule
+                SET lease_owner = ?, lease_expires_at = ?, fencing_token = fencing_token + 1
+                WHERE schedule_id = ? AND group_id = ? AND next_due <= ?
+                  AND (lease_owner IS NULL OR lease_expires_at <= ?)
+                RETURNING group_id, schedule_id, lease_owner, fencing_token, next_due, interval_millis""",
+                (rs, row) -> new ScheduledTaskLease(
+                        rs.getString("group_id"),
+                        rs.getString("schedule_id"),
+                        rs.getString("lease_owner"),
+                        rs.getLong("fencing_token"),
+                        rs.getTimestamp("next_due").toInstant(),
+                        Duration.ofMillis(rs.getLong("interval_millis"))),
+                owner, Timestamp.from(now.plus(lease)), scheduleId, groupId, Timestamp.from(now),
+                Timestamp.from(now.minus(CLOCK_SKEW_GUARD))).stream().findFirst();
+    }
+
+    @Override
+    public boolean renewScheduledTask(ScheduledTaskLease lease, Instant now, Duration duration) {
+        requirePositive(duration, "duration");
+        return jdbc.update("""
+                UPDATE prefab_stream_schedule SET lease_expires_at = ?
+                WHERE schedule_id = ? AND group_id = ? AND lease_owner = ? AND fencing_token = ?
+                  AND next_due = ? AND lease_expires_at > ?""",
+                Timestamp.from(now.plus(duration)), lease.scheduleId(), lease.groupId(), lease.owner(),
+                lease.fencingToken(), Timestamp.from(lease.dueTime()), Timestamp.from(now.plus(CLOCK_SKEW_GUARD))) == 1;
+    }
+
+    @Override
     public void cleanupExpired(Instant now, Duration inboxRetention) {
         if (now == null || inboxRetention == null || inboxRetention.isNegative()) {
             throw new IllegalArgumentException("now and non-negative inboxRetention are required");
@@ -112,6 +222,8 @@ public final class PostgresStreamStateRepository implements StreamStateRepositor
         jdbc.update("DELETE FROM prefab_stream_inbox WHERE recorded_at < ?",
                 Timestamp.from(now.minus(inboxRetention)));
         jdbc.update("DELETE FROM prefab_stream_lease WHERE expires_at <= ?", Timestamp.from(now));
+        jdbc.update("DELETE FROM prefab_stream_member WHERE expires_at <= ?",
+                Timestamp.from(now.minus(CLOCK_SKEW_GUARD)));
     }
 
     @Override
@@ -158,6 +270,7 @@ public final class PostgresStreamStateRepository implements StreamStateRepositor
         private final Map<StateKey, Change> changes = new LinkedHashMap<>();
         private final Set<InboxKey> pendingInbox = new LinkedHashSet<>();
         private final List<OutboxRecord> pendingOutbox = new ArrayList<>();
+        private ScheduleCompletion scheduleCompletion;
         private boolean complete;
 
         @Override
@@ -249,6 +362,18 @@ public final class PostgresStreamStateRepository implements StreamStateRepositor
         }
 
         @Override
+        public void completeScheduledTask(ScheduledTaskLease lease, Instant nextDue, Instant now) {
+            ensureOpen();
+            if (scheduleCompletion != null) {
+                throw new IllegalStateException("A transaction can complete only one scheduled occurrence");
+            }
+            if (!nextDue.isAfter(lease.dueTime())) {
+                throw new IllegalArgumentException("nextDue must be after the completed occurrence");
+            }
+            scheduleCompletion = new ScheduleCompletion(lease, nextDue, now);
+        }
+
+        @Override
         public void commit() {
             ensureOpen();
             try {
@@ -268,6 +393,20 @@ public final class PostgresStreamStateRepository implements StreamStateRepositor
             for (var inbox : pendingInbox) {
                 if (jdbc.update(INSERT_INBOX, inbox.subscription(), inbox.messageId(), now) == 0) {
                     throw new OptimisticConflictException("Inbox identity was concurrently claimed: " + inbox);
+                }
+            }
+            if (scheduleCompletion != null) {
+                var lease = scheduleCompletion.lease();
+                var updated = jdbc.update("""
+                        UPDATE prefab_stream_schedule
+                        SET next_due = ?, lease_owner = NULL, lease_expires_at = NULL
+                        WHERE schedule_id = ? AND group_id = ? AND lease_owner = ? AND fencing_token = ?
+                          AND next_due = ? AND lease_expires_at > ?""",
+                        Timestamp.from(scheduleCompletion.nextDue()), lease.scheduleId(), lease.groupId(),
+                        lease.owner(), lease.fencingToken(), Timestamp.from(lease.dueTime()),
+                        Timestamp.from(scheduleCompletion.now().plus(CLOCK_SKEW_GUARD)));
+                if (updated != 1) {
+                    throw new ScheduleLeaseLostException(lease.scheduleId());
                 }
             }
             changes.forEach(this::applyChange);
@@ -305,6 +444,7 @@ public final class PostgresStreamStateRepository implements StreamStateRepositor
             changes.clear();
             pendingInbox.clear();
             pendingOutbox.clear();
+            scheduleCompletion = null;
         }
 
         private StateKey stateKey(String namespace, Object key) {
@@ -340,5 +480,20 @@ public final class PostgresStreamStateRepository implements StreamStateRepositor
     }
 
     private record StoredKey(byte[] key, long version) {
+    }
+
+    private record ScheduleCompletion(ScheduledTaskLease lease, Instant nextDue, Instant now) {
+    }
+
+    private static void requireIdentity(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
+    }
+
+    private static void requirePositive(Duration value, String name) {
+        if (value == null || value.isZero() || value.isNegative()) {
+            throw new IllegalArgumentException(name + " must be positive");
+        }
     }
 }

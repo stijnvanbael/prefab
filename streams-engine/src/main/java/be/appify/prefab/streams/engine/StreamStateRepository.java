@@ -15,6 +15,26 @@ public interface StreamStateRepository {
     /** Begins a transaction for one input message. */
     Transaction beginTransaction();
 
+    /** Records this live topology member until its membership lease expires. */
+    void heartbeatMember(String groupId, String memberId, String topologyId, Instant now, Duration lease);
+
+    /** Lists live members in a topology group in stable order. */
+    List<String> activeMembers(String groupId, Instant now);
+
+    /** Removes a member during graceful shutdown. */
+    void removeMember(String groupId, String memberId);
+
+    /** Creates a schedule once; replicas must agree on its interval. */
+    void registerScheduledTask(String groupId, String scheduleId, Duration interval, Instant now);
+
+    /** Claims one due occurrence, or returns empty if it is not due or another member owns it. */
+    Optional<ScheduledTaskLease> claimScheduledTask(
+            String groupId, String scheduleId, String owner, Instant now, Duration lease
+    );
+
+    /** Extends a live schedule lease without changing its fencing token. */
+    boolean renewScheduledTask(ScheduledTaskLease lease, Instant now, Duration duration);
+
     /** Removes inbox entries past retention and releases expired relay leases using wall-clock time. */
     void cleanupExpired(Instant now, Duration inboxRetention);
 
@@ -49,6 +69,9 @@ public interface StreamStateRepository {
         /** Adds an output to the transactional outbox. */
         void enqueue(String topic, StreamMessage message);
 
+        /** Fences this scheduled occurrence and advances its next due time in this transaction. */
+        void completeScheduledTask(ScheduledTaskLease lease, Instant nextDue, Instant now);
+
         /** Commits all inbox, state and outbox changes atomically. */
         void commit();
 
@@ -65,10 +88,28 @@ public interface StreamStateRepository {
     record OutboxRecord(String id, String topic, StreamMessage message) {
     }
 
+    /** Ownership token for one due occurrence of a scheduled processor callback. */
+    record ScheduledTaskLease(
+            String groupId,
+            String scheduleId,
+            String owner,
+            long fencingToken,
+            Instant dueTime,
+            Duration interval
+    ) {
+    }
+
     /** Indicates a concurrent optimistic write conflict. */
     final class OptimisticConflictException extends RuntimeException {
         public OptimisticConflictException(String message) {
             super(message);
+        }
+    }
+
+    /** Indicates the scheduled occurrence was fenced by a newer owner before commit. */
+    final class ScheduleLeaseLostException extends RuntimeException {
+        public ScheduleLeaseLostException(String scheduleId) {
+            super("Schedule lease was lost before completing occurrence: " + scheduleId);
         }
     }
 }

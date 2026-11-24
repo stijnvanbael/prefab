@@ -5,6 +5,8 @@ import be.appify.prefab.core.versioning.EventVersions;
 import be.appify.prefab.streams.PrefabStreams;
 import be.appify.prefab.streams.tracing.TracingConfig;
 import be.appify.prefab.streams.testing.TopologyTestHarness;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -14,6 +16,7 @@ public final class InMemoryTopologyTestHarness implements TopologyTestHarness {
     private final InMemoryStreamSource source = new InMemoryStreamSource();
     private final InMemoryStreamSink sink = new InMemoryStreamSink(source);
     private final InMemoryStreamStateRepository repository = new InMemoryStreamStateRepository();
+    private final AdjustableClock clock = new AdjustableClock(Instant.now());
     private final InMemoryTopicResolver topicResolver;
     private final InProcessPrefabStreams streams;
     private final String appId;
@@ -32,7 +35,11 @@ public final class InMemoryTopologyTestHarness implements TopologyTestHarness {
                 sink,
                 repository,
                 topicResolver,
-                tracing ? TracingConfig.withTracing() : TracingConfig.disabled());
+                tracing ? TracingConfig.withTracing() : TracingConfig.disabled(),
+                Duration.ofDays(7),
+                appId,
+                clock,
+                false);
     }
 
     @Override
@@ -42,7 +49,7 @@ public final class InMemoryTopologyTestHarness implements TopologyTestHarness {
 
     @Override
     public InMemoryTopologySession start() {
-        return new InMemoryTopologySession(appId, topicResolver, source, sink, repository, streams.start());
+        return new InMemoryTopologySession(appId, topicResolver, source, sink, repository, clock, streams.start());
     }
 
     /** Registers the in-memory implementation as a test harness factory. */

@@ -60,10 +60,11 @@ public class PubSubStreamsConfiguration {
             EventRegistry registry,
             @Value("${prefab.streams.tracing.enabled:false}") boolean tracing,
             @Value("${prefab.streams.tracing.max-correlation-ids:100}") int maxCorrelationIds,
-            @Value("${prefab.streams.inbox-retention:7d}") String retention
+            @Value("${prefab.streams.inbox-retention:7d}") String retention,
+            @Value("${spring.application.name}") String application
     ) {
         return new InProcessPrefabStreams(source, sink, repository, new PubSubStreamTopicResolver(registry),
-                new TracingConfig(tracing, maxCorrelationIds), DurationStyle.detectAndParse(retention));
+                new TracingConfig(tracing, maxCorrelationIds), DurationStyle.detectAndParse(retention), application);
     }
 
     @Bean

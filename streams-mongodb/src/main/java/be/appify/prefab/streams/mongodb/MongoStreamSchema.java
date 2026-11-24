@@ -19,6 +19,12 @@ public final class MongoStreamSchema {
     public static final String OUTBOX = "prefab_stream_outbox";
     /** Collection holding the relay lease per topic. */
     public static final String LEASE = "prefab_stream_lease";
+    /** Collection holding live in-process engine members. */
+    public static final String MEMBER = "prefab_stream_member";
+    /** Collection serializing topology-version checks while members join. */
+    public static final String MEMBER_GROUP = "prefab_stream_member_group";
+    /** Collection holding durable wall-clock schedule registrations. */
+    public static final String SCHEDULE = "prefab_stream_schedule";
 
     private MongoStreamSchema() {
     }
@@ -44,7 +50,8 @@ public final class MongoStreamSchema {
      * @param template the template of the target database
      */
     public static void initialize(MongoTemplate template) {
-        List.of(STORE, INBOX, OUTBOX, LEASE).forEach(collection -> createCollection(template, collection));
+        List.of(STORE, INBOX, OUTBOX, LEASE, MEMBER, MEMBER_GROUP, SCHEDULE)
+                .forEach(collection -> createCollection(template, collection));
         template.indexOps(STORE).createIndex(new Index()
                 .named("expiry")
                 .on("_id.namespace", Sort.Direction.ASC)
@@ -56,6 +63,14 @@ public final class MongoStreamSchema {
                 .named("topicSeq")
                 .on("topic", Sort.Direction.ASC)
                 .on("seq", Sort.Direction.ASC));
+        template.indexOps(MEMBER).createIndex(new Index()
+                .named("groupExpiry")
+                .on("groupId", Sort.Direction.ASC)
+                .on("expiresAt", Sort.Direction.ASC));
+        template.indexOps(SCHEDULE).createIndex(new Index()
+                .named("groupDue")
+                .on("groupId", Sort.Direction.ASC)
+                .on("nextDue", Sort.Direction.ASC));
     }
 
     private static void createCollection(MongoTemplate template, String collection) {

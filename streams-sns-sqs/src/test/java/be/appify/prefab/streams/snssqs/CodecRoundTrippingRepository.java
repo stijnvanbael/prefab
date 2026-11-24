@@ -23,6 +23,38 @@ final class CodecRoundTrippingRepository implements StreamStateRepository {
     }
 
     @Override
+    public void heartbeatMember(String groupId, String memberId, String topologyId, Instant now, Duration lease) {
+        delegate.heartbeatMember(groupId, memberId, topologyId, now, lease);
+    }
+
+    @Override
+    public List<String> activeMembers(String groupId, Instant now) {
+        return delegate.activeMembers(groupId, now);
+    }
+
+    @Override
+    public void removeMember(String groupId, String memberId) {
+        delegate.removeMember(groupId, memberId);
+    }
+
+    @Override
+    public void registerScheduledTask(String groupId, String scheduleId, Duration interval, Instant now) {
+        delegate.registerScheduledTask(groupId, scheduleId, interval, now);
+    }
+
+    @Override
+    public Optional<ScheduledTaskLease> claimScheduledTask(
+            String groupId, String scheduleId, String owner, Instant now, Duration lease
+    ) {
+        return delegate.claimScheduledTask(groupId, scheduleId, owner, now, lease);
+    }
+
+    @Override
+    public boolean renewScheduledTask(ScheduledTaskLease lease, Instant now, Duration duration) {
+        return delegate.renewScheduledTask(lease, now, duration);
+    }
+
+    @Override
     public void cleanupExpired(Instant now, Duration inboxRetention) {
         delegate.cleanupExpired(now, inboxRetention);
     }
@@ -77,6 +109,11 @@ final class CodecRoundTrippingRepository implements StreamStateRepository {
         @Override
         public void enqueue(String topic, StreamMessage message) {
             inner.enqueue(topic, codec.decodeMessage(codec.encodeMessage(message)));
+        }
+
+        @Override
+        public void completeScheduledTask(ScheduledTaskLease lease, Instant nextDue, Instant now) {
+            inner.completeScheduledTask(lease, nextDue, now);
         }
 
         @Override

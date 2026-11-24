@@ -10,6 +10,16 @@ import java.util.function.Consumer;
 public interface StreamProcessorContext<K, V extends Keyed<K>> {
     void forward(StreamRecord<K, V> value);
 
+    /**
+     * Schedules a wall-clock callback after the supplied interval.
+     *
+     * <p>Callbacks are best effort and may run again after a failed attempt. Backends can differ in their ownership
+     * model; the in-process backend runs one callback per registration across live application instances and does
+     * not provide Kafka-style key-partition access.
+     *
+     * @param interval positive time between callback occurrences, at least one millisecond
+     * @param task callback receiving the wall-clock time at invocation
+     */
     void schedule(Duration interval, Consumer<Instant> task);
 
     /**

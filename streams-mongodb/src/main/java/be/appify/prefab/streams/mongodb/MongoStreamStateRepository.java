@@ -35,7 +35,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import static be.appify.prefab.streams.mongodb.MongoStreamSchema.INBOX;
 import static be.appify.prefab.streams.mongodb.MongoStreamSchema.LEASE;
+import static be.appify.prefab.streams.mongodb.MongoStreamSchema.MEMBER;
+import static be.appify.prefab.streams.mongodb.MongoStreamSchema.MEMBER_GROUP;
 import static be.appify.prefab.streams.mongodb.MongoStreamSchema.OUTBOX;
+import static be.appify.prefab.streams.mongodb.MongoStreamSchema.SCHEDULE;
 import static be.appify.prefab.streams.mongodb.MongoStreamSchema.STORE;
 import static org.springframework.data.mongodb.core.query.Criteria.where;
 
@@ -53,6 +56,8 @@ import static org.springframework.data.mongodb.core.query.Criteria.where;
 public final class MongoStreamStateRepository implements StreamStateRepository {
     private static final int WRITE_CONFLICT = 112;
     private static final int DUPLICATE_KEY = 11000;
+    private static final int MAX_MEMBER_HEARTBEAT_ATTEMPTS = 8;
+    private static final Duration CLOCK_SKEW_GUARD = Duration.ofSeconds(1);
 
     private final MongoTemplate mongo;
     private final TransactionTemplate transactions;
@@ -78,12 +83,146 @@ public final class MongoStreamStateRepository implements StreamStateRepository {
     }
 
     @Override
+    public void heartbeatMember(String groupId, String memberId, String topologyId, Instant now, Duration lease) {
+        requireIdentity(groupId, "groupId");
+        requireIdentity(memberId, "memberId");
+        requireIdentity(topologyId, "topologyId");
+        requirePositive(lease, "lease");
+        for (var attempt = 1; ; attempt++) {
+            try {
+                transactions.executeWithoutResult(status -> {
+                    var groupQuery = Query.query(where("_id").is(groupId));
+                    mongo.upsert(groupQuery, new Update()
+                            .setOnInsert("topologyId", topologyId)
+                            .setOnInsert("version", 0L), MEMBER_GROUP);
+                    mongo.updateFirst(groupQuery, new Update().inc("version", 1L), MEMBER_GROUP);
+                    var group = mongo.findOne(groupQuery, Document.class, MEMBER_GROUP);
+                    var registeredTopology = group == null ? null : group.getString("topologyId");
+                    if (!topologyId.equals(registeredTopology)) {
+                        var activeMember = mongo.exists(Query.query(where("groupId").is(groupId)
+                                .and("expiresAt").gt(Date.from(now.minus(CLOCK_SKEW_GUARD)))), MEMBER);
+                        var activeSchedule = mongo.exists(Query.query(where("groupId").is(groupId)
+                                .and("leaseExpiresAt").gt(Date.from(now.minus(CLOCK_SKEW_GUARD)))), SCHEDULE);
+                        if (activeMember || activeSchedule) {
+                            throw new IllegalStateException(
+                                    "Topology declaration changed while group members or callbacks are still active: "
+                                            + groupId);
+                        }
+                        mongo.updateFirst(groupQuery, new Update().set("topologyId", topologyId), MEMBER_GROUP);
+                    }
+                    var memberIdDocument = new Document("groupId", groupId).append("memberId", memberId);
+                    mongo.upsert(Query.query(where("_id").is(memberIdDocument)),
+                            new Update().set("groupId", groupId)
+                                    .set("topologyId", topologyId)
+                                    .set("expiresAt", Date.from(now.plus(lease))), MEMBER);
+                });
+                return;
+            } catch (RuntimeException failure) {
+                if (!isConflict(failure) || attempt == MAX_MEMBER_HEARTBEAT_ATTEMPTS) {
+                    throw failure;
+                }
+                pauseBeforeMemberHeartbeatRetry(attempt);
+            }
+        }
+    }
+
+    private static void pauseBeforeMemberHeartbeatRetry(int attempt) {
+        try {
+            Thread.sleep(Math.min(50L, attempt * 5L));
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while retrying a MongoDB member heartbeat", interrupted);
+        }
+    }
+
+    @Override
+    public List<String> activeMembers(String groupId, Instant now) {
+        var query = Query.query(where("groupId").is(groupId)
+                .and("expiresAt").gt(Date.from(now.minus(CLOCK_SKEW_GUARD))));
+        return mongo.find(query, Document.class, MEMBER).stream()
+                .map(document -> document.get("_id", Document.class).getString("memberId"))
+                .sorted()
+                .toList();
+    }
+
+    @Override
+    public void removeMember(String groupId, String memberId) {
+        var memberIdDocument = new Document("groupId", groupId).append("memberId", memberId);
+        mongo.remove(Query.query(where("_id").is(memberIdDocument)), MEMBER);
+    }
+
+    @Override
+    public void registerScheduledTask(String groupId, String scheduleId, Duration interval, Instant now) {
+        requireIdentity(groupId, "groupId");
+        requireIdentity(scheduleId, "scheduleId");
+        requirePositive(interval, "interval");
+        var intervalMillis = interval.toMillis();
+        if (intervalMillis < 1) {
+            throw new IllegalArgumentException("interval must be at least one millisecond");
+        }
+        var query = Query.query(where("_id").is(scheduleId));
+        mongo.upsert(query, new Update()
+                .setOnInsert("groupId", groupId)
+                .setOnInsert("intervalMillis", intervalMillis)
+                .setOnInsert("nextDue", Date.from(now.plusMillis(intervalMillis)))
+                .setOnInsert("fencingToken", 0L), SCHEDULE);
+        var existing = mongo.findOne(query, Document.class, SCHEDULE);
+        if (existing == null || !groupId.equals(existing.getString("groupId"))
+                || intervalMillis != existing.get("intervalMillis", Number.class).longValue()) {
+            throw new IllegalStateException("Scheduled task identity or interval changed: " + scheduleId);
+        }
+    }
+
+    @Override
+    public Optional<ScheduledTaskLease> claimScheduledTask(
+            String groupId, String scheduleId, String owner, Instant now, Duration lease
+    ) {
+        requirePositive(lease, "lease");
+        var claimable = Query.query(new Criteria().andOperator(
+                where("_id").is(scheduleId),
+                where("groupId").is(groupId),
+                where("nextDue").lte(Date.from(now)),
+                new Criteria().orOperator(
+                        where("leaseOwner").exists(false),
+                        where("leaseExpiresAt").lte(Date.from(now.minus(CLOCK_SKEW_GUARD))))));
+        var claimed = mongo.findAndModify(claimable,
+                new Update().set("leaseOwner", owner)
+                        .set("leaseExpiresAt", Date.from(now.plus(lease)))
+                        .inc("fencingToken", 1L),
+                FindAndModifyOptions.options().returnNew(true), Document.class, SCHEDULE);
+        if (claimed == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new ScheduledTaskLease(
+                claimed.getString("groupId"),
+                claimed.getString("_id"),
+                claimed.getString("leaseOwner"),
+                claimed.get("fencingToken", Number.class).longValue(),
+                claimed.getDate("nextDue").toInstant(),
+                Duration.ofMillis(claimed.get("intervalMillis", Number.class).longValue())));
+    }
+
+    @Override
+    public boolean renewScheduledTask(ScheduledTaskLease lease, Instant now, Duration duration) {
+        requirePositive(duration, "duration");
+        var renewed = mongo.updateFirst(Query.query(where("_id").is(lease.scheduleId())
+                        .and("groupId").is(lease.groupId())
+                        .and("leaseOwner").is(lease.owner())
+                        .and("fencingToken").is(lease.fencingToken())
+                        .and("nextDue").is(Date.from(lease.dueTime()))
+                        .and("leaseExpiresAt").gt(Date.from(now.plus(CLOCK_SKEW_GUARD)))),
+                new Update().set("leaseExpiresAt", Date.from(now.plus(duration))), SCHEDULE);
+        return renewed.getMatchedCount() == 1;
+    }
+
+    @Override
     public void cleanupExpired(Instant now, Duration inboxRetention) {
         if (now == null || inboxRetention == null || inboxRetention.isNegative()) {
             throw new IllegalArgumentException("now and non-negative inboxRetention are required");
         }
         mongo.remove(Query.query(where("recordedAt").lt(Date.from(now.minus(inboxRetention)))), INBOX);
         mongo.remove(Query.query(where("expiresAt").lte(Date.from(now))), LEASE);
+        mongo.remove(Query.query(where("expiresAt").lte(Date.from(now.minus(CLOCK_SKEW_GUARD)))), MEMBER);
     }
 
     @Override
@@ -171,6 +310,7 @@ public final class MongoStreamStateRepository implements StreamStateRepository {
         private final Map<StateKey, Change> changes = new LinkedHashMap<>();
         private final Set<InboxKey> pendingInbox = new LinkedHashSet<>();
         private final List<OutboxRecord> pendingOutbox = new ArrayList<>();
+        private ScheduleCompletion scheduleCompletion;
         private boolean complete;
 
         @Override
@@ -260,6 +400,18 @@ public final class MongoStreamStateRepository implements StreamStateRepository {
         }
 
         @Override
+        public void completeScheduledTask(ScheduledTaskLease lease, Instant nextDue, Instant now) {
+            ensureOpen();
+            if (scheduleCompletion != null) {
+                throw new IllegalStateException("A transaction can complete only one scheduled occurrence");
+            }
+            if (!nextDue.isAfter(lease.dueTime())) {
+                throw new IllegalArgumentException("nextDue must be after the completed occurrence");
+            }
+            scheduleCompletion = new ScheduleCompletion(lease, nextDue, now);
+        }
+
+        @Override
         public void commit() {
             ensureOpen();
             try {
@@ -284,6 +436,23 @@ public final class MongoStreamStateRepository implements StreamStateRepository {
                     mongo.insert(new Document("_id", inbox.id()).append("recordedAt", now), INBOX);
                 } catch (DuplicateKeyException e) {
                     throw new OptimisticConflictException("Inbox identity was concurrently claimed: " + inbox);
+                }
+            }
+            if (scheduleCompletion != null) {
+                var lease = scheduleCompletion.lease();
+                var completed = mongo.updateFirst(Query.query(where("_id").is(lease.scheduleId())
+                                .and("groupId").is(lease.groupId())
+                                .and("leaseOwner").is(lease.owner())
+                                .and("fencingToken").is(lease.fencingToken())
+                                .and("nextDue").is(Date.from(lease.dueTime()))
+                                .and("leaseExpiresAt").gt(
+                                        Date.from(scheduleCompletion.now().plus(CLOCK_SKEW_GUARD)))),
+                        new Update().set("nextDue", Date.from(scheduleCompletion.nextDue()))
+                                .unset("leaseOwner")
+                                .unset("leaseExpiresAt"),
+                        SCHEDULE);
+                if (completed.getMatchedCount() != 1) {
+                    throw new ScheduleLeaseLostException(lease.scheduleId());
                 }
             }
             changes.forEach(this::applyChange);
@@ -361,6 +530,7 @@ public final class MongoStreamStateRepository implements StreamStateRepository {
             changes.clear();
             pendingInbox.clear();
             pendingOutbox.clear();
+            scheduleCompletion = null;
         }
 
         private StateKey stateKey(String namespace, Object key) {
@@ -392,6 +562,21 @@ public final class MongoStreamStateRepository implements StreamStateRepository {
     private record Expiration(byte[] key, Instant expiresAt) {
         boolean matches(byte[] expiryKey, Instant streamTime) {
             return Arrays.equals(key, expiryKey) && !expiresAt.isAfter(streamTime);
+        }
+    }
+
+    private record ScheduleCompletion(ScheduledTaskLease lease, Instant nextDue, Instant now) {
+    }
+
+    private static void requireIdentity(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
+    }
+
+    private static void requirePositive(Duration value, String name) {
+        if (value == null || value.isZero() || value.isNegative()) {
+            throw new IllegalArgumentException(name + " must be positive");
         }
     }
 }

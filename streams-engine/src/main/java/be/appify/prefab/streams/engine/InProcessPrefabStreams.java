@@ -22,6 +22,7 @@ import be.appify.prefab.streams.tracing.MessageTracing;
 import be.appify.prefab.streams.tracing.TracingConfig;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.Clock;
 import java.lang.reflect.ParameterizedType;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -39,6 +40,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -64,6 +66,10 @@ public final class InProcessPrefabStreams implements PrefabStreams {
     private static final int MAX_CONFLICT_ATTEMPTS = 3;
     private static final int MAX_OUTBOX_BATCH = 256;
     private static final Duration DEFAULT_INBOX_RETENTION = Duration.ofDays(7);
+    private static final Duration MEMBER_LEASE = Duration.ofSeconds(15);
+    private static final Duration MEMBER_HEARTBEAT = Duration.ofSeconds(3);
+    private static final Duration SCHEDULE_LEASE = Duration.ofSeconds(30);
+    private static final Duration MAINTENANCE_INTERVAL = Duration.ofMillis(250);
     private static final System.Logger LOGGER = System.getLogger(InProcessPrefabStreams.class.getName());
 
     private final StreamSource source;
@@ -72,6 +78,10 @@ public final class InProcessPrefabStreams implements PrefabStreams {
     private final StreamTopicResolver topicResolver;
     private final TracingConfig tracing;
     private final Duration inboxRetention;
+    private final String configuredGroupId;
+    private final Clock clock;
+    private final boolean backgroundScheduling;
+    private final String memberId = UUID.randomUUID().toString();
     private final String relayOwner = UUID.randomUUID().toString();
     private final CopyOnWriteArrayList<Route> declaredRoutes = new CopyOnWriteArrayList<>();
     private final Map<String, EngineGlobalStore<?, ?>> globalStores = new LinkedHashMap<>();
@@ -82,10 +92,19 @@ public final class InProcessPrefabStreams implements PrefabStreams {
     private final Set<String> sinkTopics = ConcurrentHashMap.newKeySet();
     private final AtomicInteger nameSequence = new AtomicInteger();
     private final Map<String, AtomicInteger> sourceSequences = new ConcurrentHashMap<>();
+    private final Map<String, AtomicInteger> processorSequences = new ConcurrentHashMap<>();
+    private final List<PunctuationRegistration> punctuations = new CopyOnWriteArrayList<>();
+    private final Map<String, ActiveSchedule> activeSchedules = new ConcurrentHashMap<>();
+    private final Set<String> punctuationMessageIds = ConcurrentHashMap.newKeySet();
     private final ReentrantLock declarationsLock = new ReentrantLock();
     private final AtomicInteger relayRequests = new AtomicInteger();
     private final ThreadLocal<StreamStateRepository.Transaction> activeTransaction = new ThreadLocal<>();
     private final AtomicBoolean started = new AtomicBoolean();
+    private volatile ExecutorService punctuationWorkers;
+    private volatile String groupId;
+    private volatile String topologyId;
+    private volatile Instant nextMemberHeartbeat = Instant.MIN;
+    private volatile Instant nextCleanup = Instant.MIN;
 
     /**
      * Creates an engine bound to source and sink adapters.
@@ -141,6 +160,43 @@ public final class InProcessPrefabStreams implements PrefabStreams {
             TracingConfig tracing,
             Duration inboxRetention
     ) {
+        this(source, sink, repository, topicResolver, tracing, inboxRetention, null, Clock.systemUTC(), true);
+    }
+
+    /**
+     * Creates an engine with a stable application group for cross-instance scheduled-task assignment.
+     *
+     * @param source broker source adapter
+     * @param sink broker sink adapter
+     * @param repository transactional state repository
+     * @param topicResolver maps event types to broker topics
+     * @param tracing message-tracing configuration
+     * @param inboxRetention how long processed message identities are retained
+     * @param applicationId stable application name shared by replicas
+     */
+    public InProcessPrefabStreams(
+            StreamSource source,
+            StreamSink sink,
+            StreamStateRepository repository,
+            StreamTopicResolver topicResolver,
+            TracingConfig tracing,
+            Duration inboxRetention,
+            String applicationId
+    ) {
+        this(source, sink, repository, topicResolver, tracing, inboxRetention, applicationId, Clock.systemUTC(), true);
+    }
+
+    InProcessPrefabStreams(
+            StreamSource source,
+            StreamSink sink,
+            StreamStateRepository repository,
+            StreamTopicResolver topicResolver,
+            TracingConfig tracing,
+            Duration inboxRetention,
+            String applicationId,
+            Clock clock,
+            boolean backgroundScheduling
+    ) {
         this.source = Objects.requireNonNull(source, "source must not be null");
         this.sink = Objects.requireNonNull(sink, "sink must not be null");
         this.repository = Objects.requireNonNull(repository, "repository must not be null");
@@ -148,6 +204,12 @@ public final class InProcessPrefabStreams implements PrefabStreams {
         this.tracing = Objects.requireNonNull(tracing, "tracing must not be null");
         requirePositive(inboxRetention, "inboxRetention");
         this.inboxRetention = inboxRetention;
+        if (applicationId != null && applicationId.isBlank()) {
+            throw new IllegalArgumentException("applicationId must not be blank");
+        }
+        this.configuredGroupId = applicationId;
+        this.clock = Objects.requireNonNull(clock, "clock must not be null");
+        this.backgroundScheduling = backgroundScheduling;
     }
 
     @Override
@@ -341,11 +403,19 @@ public final class InProcessPrefabStreams implements PrefabStreams {
         }
         var subscriptions = new ArrayList<StreamSource.Subscription>();
         ScheduledExecutorService maintenance = null;
+        ExecutorService workers = null;
         try {
             var routes = List.copyOf(declaredRoutes);
             var globals = snapshotGlobalDeclarations();
+            groupId = configuredGroupId == null ? topologyGroupId(routes) : configuredGroupId;
+            punctuations.clear();
+            activeSchedules.clear();
             validateUnsupported(routes);
             initializeProcessors(routes);
+            topologyId = topologyIdentity();
+            var now = clock.instant();
+            repository.heartbeatMember(groupId, memberId, topologyId, now, MEMBER_LEASE);
+            nextMemberHeartbeat = now.plus(MEMBER_HEARTBEAT);
             warnForUnorderedStatefulSources(routes);
             var bindings = new LinkedHashMap<StreamSource.SourceBinding, List<Route>>();
             for (var route : routes) {
@@ -362,19 +432,35 @@ public final class InProcessPrefabStreams implements PrefabStreams {
                 subscriptions.add(source.subscribe(binding, (message, acknowledgement) ->
                         processMessage(binding, message, acknowledgement, List.of(), List.of(global))));
             }
-            repository.cleanupExpired(Instant.now(), inboxRetention);
+            repository.cleanupExpired(now, inboxRetention);
             relayOutbox();
             maintenance = Executors.newSingleThreadScheduledExecutor(task -> {
                 var thread = new Thread(task, "prefab-streams-engine-maintenance");
                 thread.setDaemon(true);
                 return thread;
             });
-            maintenance.scheduleWithFixedDelay(this::runMaintenance, 1, 1, TimeUnit.MINUTES);
-            return new RunningTopology(subscriptions, routes, maintenance);
+            workers = Executors.newVirtualThreadPerTaskExecutor();
+            punctuationWorkers = workers;
+            nextCleanup = now.plus(Duration.ofMinutes(1));
+            if (backgroundScheduling) {
+                maintenance.scheduleWithFixedDelay(
+                        this::runMaintenance,
+                        1_000,
+                        MAINTENANCE_INTERVAL.toMillis(),
+                        TimeUnit.MILLISECONDS);
+            }
+            return new RunningTopology(subscriptions, routes, maintenance, workers);
         } catch (RuntimeException e) {
             subscriptions.forEach(StreamSource.Subscription::close);
             if (maintenance != null) {
                 maintenance.shutdownNow();
+            }
+            if (workers != null) {
+                workers.shutdownNow();
+            }
+            punctuationWorkers = null;
+            if (groupId != null) {
+                repository.removeMember(groupId, memberId);
             }
             started.set(false);
             throw e;
@@ -401,10 +487,53 @@ public final class InProcessPrefabStreams implements PrefabStreams {
     }
 
     private void initializeProcessors(List<Route> routes) {
-        var initialized = new LinkedHashSet<Operator>();
-        routes.stream().flatMap(route -> route.stages.stream()).map(Stage::operator)
-                .filter(Objects::nonNull).filter(initialized::add)
-                .forEach(Operator::start);
+        var processors = new LinkedHashSet<ProcessorOperator<?, ?, ?, ?>>();
+        for (var route : routes) {
+            for (var index = 0; index < route.stages.size(); index++) {
+                var operator = route.stages.get(index).operator;
+                if (operator instanceof ProcessorOperator<?, ?, ?, ?> processor) {
+                    processor.addContinuation(route.stages.subList(index + 1, route.stages.size()));
+                    processors.add(processor);
+                }
+            }
+        }
+        processors.forEach(ProcessorOperator::start);
+    }
+
+    private String processorRegistrationId(
+            List<Route> routes,
+            StreamProcessor<?, ?, ?, ?> processor,
+            Collection<Store<?, ?>> stores
+    ) {
+        var routeIdentity = routes.stream()
+                .map(route -> route.sourceName + "|" + route.sourceBindingId + "|"
+                        + route.stages.stream().map(Stage::name).toList())
+                .sorted()
+                .toList();
+        var identity = processor.getClass().getName() + "|" + stores.stream().map(Store::name).sorted().toList()
+                + "|" + routeIdentity;
+        var ordinal = processorSequences.computeIfAbsent(identity, ignored -> new AtomicInteger()).incrementAndGet();
+        return stableHash(identity + "|" + ordinal);
+    }
+
+    private String topologyGroupId(List<Route> routes) {
+        var identity = routes.stream()
+                .map(route -> route.sourceTopic + "|" + route.sourceBindingId + "|"
+                        + route.stages.stream().map(Stage::name).toList())
+                .sorted()
+                .toList();
+        return "prefab-streams-" + stableHash(identity.toString());
+    }
+
+    private String topologyIdentity() {
+        var scheduleIdentity = punctuations.stream()
+                .map(registration -> registration.scheduleId + "|" + registration.interval + "|"
+                        + registration.processor.continuations().stream()
+                                .map(stages -> stages.stream().map(Stage::name).toList())
+                                .toList())
+                .sorted()
+                .toList();
+        return stableHash(groupId + "|" + scheduleIdentity);
     }
 
     private void warnForUnorderedStatefulSources(List<Route> routes) {
@@ -487,9 +616,15 @@ public final class InProcessPrefabStreams implements PrefabStreams {
     }
 
     private void execute(Route route, StreamMessage initial, StreamStateRepository.Transaction transaction) {
+        executeStages(route.stages, initial, transaction);
+    }
+
+    private void executeStages(
+            List<Stage> stages, StreamMessage initial, StreamStateRepository.Transaction transaction
+    ) {
         var current = List.of(initial);
         var execution = new Execution(transaction);
-        for (var stage : route.stages) {
+        for (var stage : stages) {
             if (stage.operator == null) {
                 continue;
             }
@@ -546,11 +681,150 @@ public final class InProcessPrefabStreams implements PrefabStreams {
 
     private void runMaintenance() {
         try {
-            repository.cleanupExpired(Instant.now(), inboxRetention);
+            var now = clock.instant();
+            if (!now.isBefore(nextMemberHeartbeat)) {
+                repository.heartbeatMember(groupId, memberId, topologyId, now, MEMBER_LEASE);
+                nextMemberHeartbeat = now.plus(MEMBER_HEARTBEAT);
+            }
+            punctuateDueTasks(repository.activeMembers(groupId, now), now);
+            if (!now.isBefore(nextCleanup)) {
+                repository.cleanupExpired(now, inboxRetention);
+                nextCleanup = now.plus(Duration.ofMinutes(1));
+            }
             relayOutbox();
         } catch (RuntimeException failure) {
             LOGGER.log(System.Logger.Level.ERROR, "Streams engine maintenance failed", failure);
         }
+    }
+
+    private void punctuateDueTasks(List<String> members, Instant now) {
+        if (members.isEmpty()) {
+            return;
+        }
+        for (var entry : activeSchedules.entrySet()) {
+            var active = entry.getValue();
+            if (memberId.equals(assignedMember(active.registration.scheduleId, members))
+                    && !now.isBefore(active.renewAt)) {
+                if (repository.renewScheduledTask(active.lease, now, SCHEDULE_LEASE)) {
+                    activeSchedules.replace(entry.getKey(), active,
+                            new ActiveSchedule(active.registration, active.lease, now.plus(SCHEDULE_LEASE.dividedBy(3))));
+                } else {
+                    activeSchedules.remove(entry.getKey(), active);
+                }
+            }
+        }
+        for (var registration : punctuations) {
+            if (!memberId.equals(assignedMember(registration.scheduleId, members))
+                    || activeSchedules.containsKey(registration.scheduleId)) {
+                continue;
+            }
+            repository.claimScheduledTask(
+                    groupId, registration.scheduleId, memberId, now, SCHEDULE_LEASE)
+                    .ifPresent(lease -> launchPunctuation(registration, lease, now));
+        }
+    }
+
+    private void launchPunctuation(
+            PunctuationRegistration registration, StreamStateRepository.ScheduledTaskLease lease, Instant now
+    ) {
+        var active = new ActiveSchedule(registration, lease, now.plus(SCHEDULE_LEASE.dividedBy(3)));
+        if (activeSchedules.putIfAbsent(registration.scheduleId, active) != null) {
+            return;
+        }
+        if (!backgroundScheduling) {
+            runPunctuation(active);
+            return;
+        }
+        try {
+            punctuationWorkers.execute(() -> runPunctuation(active));
+        } catch (RuntimeException failure) {
+            activeSchedules.remove(registration.scheduleId, active);
+            throw failure;
+        }
+    }
+
+    private void runPunctuation(ActiveSchedule active) {
+        var registration = active.registration;
+        try {
+            for (var attempt = 1; attempt <= MAX_CONFLICT_ATTEMPTS; attempt++) {
+                var now = clock.instant();
+                var transaction = repository.beginTransaction();
+                var previousTransaction = activeTransaction.get();
+                var punctuationMessageId = UUID.randomUUID().toString();
+                punctuationMessageIds.add(punctuationMessageId);
+                try {
+                    activeTransaction.set(transaction);
+                    var forwarded = registration.processor.invokePunctuation(
+                            registration.task, now, punctuationMessageId);
+                    for (var message : forwarded) {
+                        for (var continuation : registration.processor.continuations()) {
+                            executeStages(continuation, message, transaction);
+                        }
+                    }
+                    transaction.completeScheduledTask(
+                            active.lease, nextDue(active.lease.dueTime(), active.lease.interval(), now), now);
+                    transaction.commit();
+                    relayOutbox();
+                    return;
+                } catch (StreamStateRepository.OptimisticConflictException conflict) {
+                    transaction.rollback();
+                    if (attempt == MAX_CONFLICT_ATTEMPTS) {
+                        throw conflict;
+                    }
+                } catch (RuntimeException failure) {
+                    transaction.rollback();
+                    throw failure;
+                } finally {
+                    punctuationMessageIds.remove(punctuationMessageId);
+                    if (previousTransaction == null) {
+                        activeTransaction.remove();
+                    } else {
+                        activeTransaction.set(previousTransaction);
+                    }
+                }
+            }
+        } catch (RuntimeException failure) {
+            LOGGER.log(System.Logger.Level.ERROR,
+                    "Scheduled stream callback failed for registration " + registration.scheduleId, failure);
+        } finally {
+            activeSchedules.computeIfPresent(registration.scheduleId, (ignored, current) ->
+                    current.lease.fencingToken() == active.lease.fencingToken() ? null : current);
+        }
+    }
+
+    private void registerPunctuation(
+            ProcessorOperator<?, ?, ?, ?> processor,
+            String processorId,
+            int registrationNumber,
+            Duration interval,
+            java.util.function.Consumer<Instant> task
+    ) {
+        requirePositive(interval, "interval");
+        var intervalMillis = interval.toMillis();
+        if (intervalMillis < 1) {
+            throw new IllegalArgumentException("interval must be at least one millisecond");
+        }
+        var normalizedInterval = Duration.ofMillis(intervalMillis);
+        var scheduleId = stableHash(
+                groupId + "|" + processorId + "|" + registrationNumber + "|" + normalizedInterval);
+        var now = clock.instant();
+        repository.registerScheduledTask(groupId, scheduleId, normalizedInterval, now);
+        punctuations.add(new PunctuationRegistration(scheduleId, normalizedInterval, task, processor));
+    }
+
+    static String assignedMember(String scheduleId, List<String> members) {
+        return members.stream()
+                .max(java.util.Comparator.comparing(member -> stableHash(scheduleId + "|" + member)))
+                .orElseThrow();
+    }
+
+    private static Instant nextDue(Instant dueTime, Duration interval, Instant now) {
+        var next = dueTime.plus(interval);
+        if (!next.isAfter(now)) {
+            var skipped = Duration.between(next, now).dividedBy(interval) + 1;
+            next = next.plus(interval.multipliedBy(skipped));
+        }
+        return next;
     }
 
     private void register(List<Route> routes) {
@@ -603,11 +877,15 @@ public final class InProcessPrefabStreams implements PrefabStreams {
 
     private static String sourceName(String topic, Class<?> type, String bindingId) {
         var identity = topic + "\n" + type.getName() + "\n" + (bindingId == null ? "" : bindingId);
+        return "source-" + stableHash(identity);
+    }
+
+    private static String stableHash(String identity) {
         try {
             var hash = MessageDigest.getInstance("SHA-256").digest(identity.getBytes(StandardCharsets.UTF_8));
-            return "source-" + HexFormat.of().formatHex(hash);
+            return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is required to name stream sources", e);
+            throw new IllegalStateException("SHA-256 is required for stable stream identities", e);
         }
     }
 
@@ -691,16 +969,23 @@ public final class InProcessPrefabStreams implements PrefabStreams {
         private final List<StreamSource.Subscription> subscriptions;
         private final List<Route> routes;
         private final ScheduledExecutorService maintenance;
+        private final ExecutorService workers;
         private final AtomicBoolean closed = new AtomicBoolean();
 
         private RunningTopology(
                 List<StreamSource.Subscription> subscriptions,
                 List<Route> routes,
-                ScheduledExecutorService maintenance
+                ScheduledExecutorService maintenance,
+                ExecutorService workers
         ) {
             this.subscriptions = List.copyOf(subscriptions);
             this.routes = List.copyOf(routes);
             this.maintenance = maintenance;
+            this.workers = workers;
+        }
+
+        void runScheduledTasks() {
+            runMaintenance();
         }
 
         /** Returns a backend-neutral description of this topology. */
@@ -725,9 +1010,16 @@ public final class InProcessPrefabStreams implements PrefabStreams {
         @Override
         public void close() {
             if (closed.compareAndSet(false, true)) {
-                subscriptions.forEach(StreamSource.Subscription::close);
-                maintenance.shutdownNow();
-                started.set(false);
+                try {
+                    subscriptions.forEach(StreamSource.Subscription::close);
+                    maintenance.shutdownNow();
+                    workers.shutdownNow();
+                    repository.removeMember(groupId, memberId);
+                } finally {
+                    activeSchedules.clear();
+                    punctuationWorkers = null;
+                    started.set(false);
+                }
             }
         }
     }
@@ -944,7 +1236,8 @@ public final class InProcessPrefabStreams implements PrefabStreams {
                     throw new IllegalArgumentException("Global store '%s' is not declared".formatted(store.name()));
                 }
             }
-            var operation = new ProcessorOperator<>(processor, stores, global);
+            var operation = new ProcessorOperator<>(
+                    processor, stores, global, owner.processorRegistrationId(routes, processor, stores));
             var storeNames = stores.stream().map(Store::name).toList();
             var stageName = storeNames.isEmpty() ? "process" : "process(" + String.join(",", storeNames) + ")";
             var outputValueType = ResolvableType.forClass(processor.getClass())
@@ -994,7 +1287,7 @@ public final class InProcessPrefabStreams implements PrefabStreams {
                 }
                 var messageId = UUID.randomUUID().toString();
                 headers.put(MessageTracing.MESSAGE_ID_HEADER, messageId);
-                if (tracing.enabled()) {
+                if (tracing.enabled() && !punctuationMessageIds.contains(message.messageId())) {
                     var correlation = boundedCorrelationIds(
                             MessageTracing.decode(headers.get(MessageTracing.CORRELATION_IDS_HEADER)),
                             List.of(message.messageId()));
@@ -1216,23 +1509,41 @@ public final class InProcessPrefabStreams implements PrefabStreams {
         private final StreamProcessor<KI, VI, KO, VO> processor;
         private final Collection<Store<?, ?>> stores;
         private final Collection<GlobalStore<?, ?>> globals;
-        private final EngineProcessorContext<KO, VO> context = new EngineProcessorContext<>();
+        private final String processorId;
+        private final LinkedHashSet<List<Stage>> continuations = new LinkedHashSet<>();
+        private final EngineProcessorContext<KO, VO> context;
 
         private ProcessorOperator(
                 StreamProcessor<KI, VI, KO, VO> processor,
                 Collection<Store<?, ?>> stores,
-                Collection<GlobalStore<?, ?>> globals
+                Collection<GlobalStore<?, ?>> globals,
+                String processorId
         ) {
             this.processor = processor;
             this.stores = stores;
             this.globals = globals;
+            this.processorId = processorId;
+            this.context = new EngineProcessorContext<>(this);
+        }
+
+        private void addContinuation(List<Stage> stages) {
+            continuations.add(List.copyOf(stages));
+        }
+
+        private List<List<Stage>> continuations() {
+            return List.copyOf(continuations);
         }
 
         @Override
         public void start() {
-            processor.initContext(context);
-            stores.forEach(store -> store.init(context));
-            globals.forEach(store -> store.init(context));
+            context.beginInitialization();
+            try {
+                processor.initContext(context);
+                stores.forEach(store -> store.init(context));
+                globals.forEach(store -> store.init(context));
+            } finally {
+                context.endInitialization();
+            }
         }
 
         @Override
@@ -1249,10 +1560,41 @@ public final class InProcessPrefabStreams implements PrefabStreams {
                 context.end();
             }
         }
+
+        private List<StreamMessage> invokePunctuation(
+                java.util.function.Consumer<Instant> task, Instant now, String messageId
+        ) {
+            if (processor instanceof ContextualStreamProcessor<?, ?, ?, ?> contextual) {
+                ((ContextualStreamProcessor<KI, VI, KO, VO>) contextual).bindContext(context);
+            }
+            context.begin(new StreamMessage(messageId, null, null, Map.of(), now));
+            try {
+                task.accept(now);
+                return context.takeForwarded();
+            } finally {
+                context.end();
+            }
+        }
     }
 
     private final class EngineProcessorContext<K, V extends Keyed<K>> implements StreamProcessorContext<K, V> {
+        private final ProcessorOperator<?, ?, K, V> processor;
         private final ThreadLocal<ProcessorInvocation> invocation = new ThreadLocal<>();
+        private boolean initializing;
+        private int scheduleSequence;
+
+        private EngineProcessorContext(ProcessorOperator<?, ?, K, V> processor) {
+            this.processor = processor;
+        }
+
+        private void beginInitialization() {
+            initializing = true;
+            scheduleSequence = 0;
+        }
+
+        private void endInitialization() {
+            initializing = false;
+        }
 
         private void begin(StreamMessage input) {
             invocation.set(new ProcessorInvocation(input, new ArrayList<>()));
@@ -1281,8 +1623,11 @@ public final class InProcessPrefabStreams implements PrefabStreams {
 
         @Override
         public void schedule(Duration interval, java.util.function.Consumer<Instant> task) {
-            throw new IllegalStateException(
-                    "StreamProcessorContext.schedule is unsupported by the in-process backend; see TASK-363");
+            Objects.requireNonNull(task, "task must not be null");
+            if (!initializing) {
+                throw new IllegalStateException("Scheduled callbacks must be declared during processor initialization");
+            }
+            registerPunctuation(processor, processor.processorId, scheduleSequence++, interval, task);
         }
 
         @Override
@@ -1484,6 +1829,21 @@ public final class InProcessPrefabStreams implements PrefabStreams {
             next.add(stage);
             return new Route(sourceName, sourceTopic, sourceBindingId, sourceValueType, next);
         }
+    }
+
+    private record PunctuationRegistration(
+            String scheduleId,
+            Duration interval,
+            java.util.function.Consumer<Instant> task,
+            ProcessorOperator<?, ?, ?, ?> processor
+    ) {
+    }
+
+    private record ActiveSchedule(
+            PunctuationRegistration registration,
+            StreamStateRepository.ScheduledTaskLease lease,
+            Instant renewAt
+    ) {
     }
 
     private record GlobalDeclaration(

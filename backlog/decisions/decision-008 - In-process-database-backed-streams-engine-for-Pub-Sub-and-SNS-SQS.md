@@ -130,14 +130,23 @@ brokers run on Postgres.
 10. **Unsupported in the first version, and a startup error when used:**
     - `breakout` with an adapter for any other backend. The engine has no native stream API, so a topology with a
       Kafka breakout cannot run on it. The showcase keeps its breakout topology in a Kafka-only configuration.
-    - Wall-clock punctuation through `StreamProcessorContext.schedule`. With shared state it must run on one
-      instance, behind a lease (TASK-363).
 
     The error message names the backend and the follow-up task.
 11. **Tests stay backend-neutral.** `prefab-streams-engine` registers a `TopologyTestHarness.Factory` that runs the
     engine with an in-memory source, sink and state repository, synchronously and with deterministic time. A single
-    repository contract test suite runs against both the in-memory and the Postgres repository, so topology tests
-    that pass in memory also hold on Postgres.
+    repository contract test suite runs against in-memory, Postgres and MongoDB repositories.
+
+12. **Wall-clock punctuation is shared-work ownership, not Kafka partitioning.** A scheduled registration is one
+    logical work partition and rendezvous hashing assigns it to one live engine member in the application group.
+    Members heartbeat in the shared database; registration ownership changes when the member roster changes. A
+    per-occurrence lease and fencing token are checked in the same transaction as processor state and outbox writes,
+    so a stale owner cannot commit after takeover. The callback sees shared stores, not a key shard, and runs once
+    over the application's state. Hosts must keep their clocks within one second of each other for lease expiry.
+    The first occurrence is due after one interval; callbacks are best effort and missed intervals are skipped, not
+    replayed in a burst. Failures can cause callback retries, while only one state/outbox transaction can commit for
+    an occurrence. The outbox may still publish again if a relay dies after broker acceptance. Replicas validate a
+    topology fingerprint when joining; a changed declaration is rejected while another version or an old callback
+    lease is active, so drain old members and leases before rolling out schedule/topology changes.
 
 ### Operator support in the first version
 
@@ -147,7 +156,7 @@ brokers run on Postgres.
 | `filter`, `map`, `flatMap`, `branch`, `merge`, `PrefabStreams.merge` | ✅ | ✅ | In memory, no state |
 | `process` without stores | ✅ | ✅ | |
 | `process` with stores (`StatefulStreamProcessor`), `aggregate(groupBy, …)` | ✅ | ✅ | Order-dependent logic needs ordered sources (SNS/SQS: TASK-340) |
-| `StreamProcessorContext.schedule` | ❌ | ❌ | TASK-363 |
+| `StreamProcessorContext.schedule` | ✅ | ✅ | One callback owner per registration; shared state, not per-key partitions; best-effort wall clock, see point 12 |
 | `keyBy`, `repartition` | ✅ | ✅ | Logical, no topic |
 | `groupBy` + `aggregate` | ✅ | ✅ | |
 | `windowedAggregate` (tumbling, hopping, grace) | ✅ | ✅ | Stream time per key, see point 6 |
@@ -182,15 +191,16 @@ quotas apply, and a failing message blocks its group until it moves to the dead-
 
 ## Consequences
 
-- Pub/Sub and SNS/SQS applications can use the whole DSL except `breakout` and wall-clock punctuation. Most
+- Pub/Sub and SNS/SQS applications can use the whole DSL except `breakout`. Most
   operators are written once, in the engine.
 - Throughput is limited by the database: one transaction per message, plus outbox writes. That suits the event
   volumes of typical Prefab applications. Batching several messages per transaction is a possible later optimization,
   not part of the first version.
 - Per-key order depends on the broker: ordering keys on Pub/Sub, and FIFO (TASK-340) on SNS/SQS. A poison message
   blocks its key until it moves to the dead letter queue, on both brokers.
-- Semantics differ from the Kafka backend in documented ways: stream time per key, no global store history, no
-  `breakout`. Topology tests written against the backend-neutral API run on both backends, except tests that rely on
+- Semantics differ from the Kafka backend in documented ways: stream time per key, no global store history,
+  application-wide rather than per-partition punctuation, and no `breakout`. Topology tests written against the
+  backend-neutral API run on both backends, except tests that rely on
   those differences.
 - The showcase's native `breakout` topology must stay in a configuration that only loads with the Kafka backend, so
   that showcase-pubsub and showcase-sns-sqs can include the streams slice (TASK-337.06).

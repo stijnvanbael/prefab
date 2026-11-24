@@ -89,10 +89,12 @@ public class SnsSqsStreamsConfiguration {
             StreamStateRepository repository,
             SnsSqsTopicResolver topicResolver,
             TracingConfig tracing,
-            @Value("${prefab.streams.inbox-retention:7d}") String inboxRetention
+            @Value("${prefab.streams.inbox-retention:7d}") String inboxRetention,
+            @Value("${spring.application.name}") String application
     ) {
         return new InProcessPrefabStreams(
-                source, sink, repository, topicResolver, tracing, DurationStyle.detectAndParse(inboxRetention));
+                source, sink, repository, topicResolver, tracing, DurationStyle.detectAndParse(inboxRetention),
+                application);
     }
 
     /**

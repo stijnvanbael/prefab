@@ -14,6 +14,7 @@ import be.appify.prefab.streams.testing.TopologyOutput;
 import be.appify.prefab.streams.testing.TopologySession;
 import be.appify.prefab.streams.tracing.MessageTracing;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -142,6 +143,11 @@ final class KafkaTopologySession implements TopologySession {
                 storeNames,
                 description.globalStores().size(),
                 description.subtopologies().size());
+    }
+
+    @Override
+    public void advanceWallClock(Duration duration) {
+        driver.advanceWallClockTime(duration);
     }
 
     private static Stream<String> storesOf(TopologyDescription.Node node) {

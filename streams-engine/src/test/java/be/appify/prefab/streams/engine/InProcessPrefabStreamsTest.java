@@ -14,6 +14,7 @@ import be.appify.prefab.streams.StreamProcessorContext;
 import be.appify.prefab.streams.StreamRecord;
 import be.appify.prefab.streams.testing.TopologySession;
 import be.appify.prefab.streams.testing.TopologyTestHarness;
+import be.appify.prefab.streams.tracing.TracingConfig;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -242,7 +243,7 @@ class InProcessPrefabStreamsTest {
     }
 
     @Test
-    void breakoutAndScheduleAreRejectedWhenTopologyStarts() {
+    void breakoutIsRejectedWhenTopologyStarts() {
         var breakoutHarness = new InMemoryTopologyTestHarness("engine");
         breakoutHarness.streams().from(Word.class)
                 .breakout(new TestBreakoutAdapter())
@@ -251,12 +252,120 @@ class InProcessPrefabStreamsTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("in-process")
                 .hasMessageContaining("breakout");
+    }
 
-        var scheduleHarness = new InMemoryTopologyTestHarness("engine");
-        scheduleHarness.streams().from(Word.class).process(new SchedulingProcessor()).to(Word.class);
-        assertThatThrownBy(scheduleHarness::start)
+    @Test
+    void wallClockPunctuationForwardsAndSkipsMissedIntervals() {
+        var harness = new InMemoryTopologyTestHarness("engine");
+        var executions = new AtomicInteger();
+        harness.streams().from(Word.class).process(new SchedulingProcessor(executions)).to("timer-output");
+
+        try (var topology = harness.start()) {
+            topology.advanceWallClock(Duration.ofSeconds(1));
+            assertThat(executions).hasValue(1);
+            assertThat(topology.output("timer-output", Word.class).values())
+                    .containsExactly(new Word("timer", "1"));
+
+            topology.advanceWallClock(Duration.ofSeconds(5));
+            assertThat(executions).hasValue(2);
+            assertThat(topology.output("timer-output", Word.class).values())
+                    .containsExactly(new Word("timer", "2"));
+
+            topology.advanceWallClock(Duration.ofSeconds(1));
+            assertThat(executions).hasValue(3);
+        }
+    }
+
+    @Test
+    void scheduledOccurrencesRebalanceAfterJoiningAndLeavingMembers() {
+        var now = Instant.parse("2030-01-01T00:00:00Z");
+        var clock = new AdjustableClock(now);
+        var repository = new InMemoryStreamStateRepository();
+        var firstSource = new InMemoryStreamSource();
+        var secondSource = new InMemoryStreamSource();
+        var firstSink = new InMemoryStreamSink();
+        var secondSink = new InMemoryStreamSink();
+        var firstResolver = new InMemoryTopologyTestHarness.InMemoryTopicResolver("punctuation-group");
+        var secondResolver = new InMemoryTopologyTestHarness.InMemoryTopicResolver("punctuation-group");
+        var executions = new AtomicInteger();
+        var firstEngine = testEngine(firstSource, firstSink, repository, firstResolver, clock);
+        var secondEngine = testEngine(secondSource, secondSink, repository, secondResolver, clock);
+        firstEngine.from(Word.class).process(new SchedulingProcessor(executions)).to("timer-output");
+        secondEngine.from(Word.class).process(new SchedulingProcessor(executions)).to("timer-output");
+
+        var firstTopology = firstEngine.start();
+        var secondTopology = secondEngine.start();
+        try {
+            clock.advance(Duration.ofSeconds(1));
+            firstTopology.runScheduledTasks();
+            secondTopology.runScheduledTasks();
+            firstTopology.runScheduledTasks();
+            secondTopology.runScheduledTasks();
+            assertThat(executions).hasValue(1);
+            var firstMemberOwned = !firstSink.isEmpty("timer-output");
+            var secondMemberOwned = !secondSink.isEmpty("timer-output");
+            assertThat(firstMemberOwned ^ secondMemberOwned)
+                    .as("first member owns output: %s, second member owns output: %s",
+                            firstMemberOwned, secondMemberOwned)
+                    .isTrue();
+
+            if (firstMemberOwned) {
+                firstTopology.close();
+                clock.advance(Duration.ofSeconds(1));
+                secondTopology.runScheduledTasks();
+            } else {
+                secondTopology.close();
+                clock.advance(Duration.ofSeconds(1));
+                firstTopology.runScheduledTasks();
+            }
+            assertThat(executions).hasValue(2);
+        } finally {
+            firstTopology.close();
+            secondTopology.close();
+        }
+
+        var beforeJoin = List.of("member-a");
+        var afterJoin = List.of("member-a", "member-b");
+        var movedToJoiner = java.util.stream.LongStream.range(0, 100)
+                .mapToObj(index -> "registration-" + index)
+                .anyMatch(registration -> InProcessPrefabStreams.assignedMember(registration, afterJoin)
+                        .equals("member-b"));
+        assertThat(movedToJoiner).isTrue();
+        assertThat(InProcessPrefabStreams.assignedMember("registration-1", beforeJoin))
+                .isEqualTo("member-a");
+    }
+
+    @Test
+    void changedScheduleIntervalJoinsAfterTheOldTopologyDrains() {
+        var clock = new AdjustableClock(Instant.parse("2030-01-01T00:00:00Z"));
+        var repository = new InMemoryStreamStateRepository();
+        var executions = new AtomicInteger();
+        var firstEngine = testEngine(new InMemoryStreamSource(), new InMemoryStreamSink(), repository,
+                new InMemoryTopologyTestHarness.InMemoryTopicResolver("punctuation-group"), clock);
+        firstEngine.from(Word.class)
+                .process(new SchedulingProcessor(executions, Duration.ofSeconds(1)))
+                .to("timer-output");
+        var firstTopology = firstEngine.start();
+
+        var changedEngine = testEngine(new InMemoryStreamSource(), new InMemoryStreamSink(), repository,
+                new InMemoryTopologyTestHarness.InMemoryTopicResolver("punctuation-group"), clock);
+        changedEngine.from(Word.class)
+                .process(new SchedulingProcessor(executions, Duration.ofSeconds(2)))
+                .to("timer-output");
+        assertThatThrownBy(changedEngine::start)
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("TASK-363");
+                .hasMessageContaining("Topology declaration changed");
+
+        firstTopology.close();
+        var changedTopology = changedEngine.start();
+        try {
+            clock.advance(Duration.ofSeconds(2));
+            changedTopology.runScheduledTasks();
+
+            assertThat(executions).hasValue(1);
+        } finally {
+            changedTopology.close();
+        }
     }
 
     @Test
@@ -298,6 +407,18 @@ class InProcessPrefabStreamsTest {
 
             assertThat(topology.output(Answer.class).value()).isEqualTo(new Answer("customer-1", "gold"));
         }
+    }
+
+    private static InProcessPrefabStreams testEngine(
+            InMemoryStreamSource source,
+            InMemoryStreamSink sink,
+            InMemoryStreamStateRepository repository,
+            InMemoryTopologyTestHarness.InMemoryTopicResolver resolver,
+            AdjustableClock clock
+    ) {
+        return new InProcessPrefabStreams(
+                source, sink, repository, resolver, TracingConfig.disabled(), Duration.ofDays(7),
+                "punctuation-group", clock, false);
     }
 
     private record Word(String id, String text) implements Keyed<String> {
@@ -403,6 +524,18 @@ class InProcessPrefabStreamsTest {
     }
 
     private static final class SchedulingProcessor extends ContextualStreamProcessor<String, Word, String, Word> {
+        private final AtomicInteger executions;
+        private final Duration interval;
+
+        private SchedulingProcessor(AtomicInteger executions) {
+            this(executions, Duration.ofSeconds(1));
+        }
+
+        private SchedulingProcessor(AtomicInteger executions, Duration interval) {
+            this.executions = executions;
+            this.interval = interval;
+        }
+
         @Override
         public void process(StreamRecord<String, Word> record) {
             forward(record);
@@ -411,7 +544,10 @@ class InProcessPrefabStreamsTest {
         @Override
         public void initContext(StreamProcessorContext<String, Word> context) {
             super.initContext(context);
-            context.schedule(Duration.ofSeconds(1), ignored -> {});
+            context.schedule(interval, now -> {
+                var sequence = executions.incrementAndGet();
+                forward(new StreamRecord<>("timer", new Word("timer", Integer.toString(sequence)), now, Map.of()));
+            });
         }
     }
 

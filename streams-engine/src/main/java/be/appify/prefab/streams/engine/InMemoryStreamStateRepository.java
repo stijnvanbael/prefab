@@ -17,6 +17,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * Thread-safe repository for deterministic tests and local topology execution.
  */
 public final class InMemoryStreamStateRepository implements StreamStateRepository {
+    private static final Duration CLOCK_SKEW_GUARD = Duration.ofSeconds(1);
+
     private final ReentrantLock lock = new ReentrantLock();
     private final Map<StateKey, Object> values = new LinkedHashMap<>();
     private final Map<StateKey, Long> versions = new LinkedHashMap<>();
@@ -24,10 +26,134 @@ public final class InMemoryStreamStateRepository implements StreamStateRepositor
     private final Map<InboxKey, Instant> inbox = new LinkedHashMap<>();
     private final Map<String, LeasedOutbox> outbox = new LinkedHashMap<>();
     private final Map<String, RelayLease> relayLeases = new LinkedHashMap<>();
+    private final Map<MemberKey, MemberLease> members = new LinkedHashMap<>();
+    private final Map<String, String> topologyIds = new LinkedHashMap<>();
+    private final Map<String, ScheduledTask> scheduledTasks = new LinkedHashMap<>();
 
     @Override
     public Transaction beginTransaction() {
         return new MemoryTransaction();
+    }
+
+    @Override
+    public void heartbeatMember(String groupId, String memberId, String topologyId, Instant now, Duration lease) {
+        requireIdentity(groupId, "groupId");
+        requireIdentity(memberId, "memberId");
+        requireIdentity(topologyId, "topologyId");
+        requireTime(now);
+        requirePositive(lease, "lease");
+        lock.lock();
+        try {
+            var registeredTopology = topologyIds.get(groupId);
+            if (registeredTopology != null && !registeredTopology.equals(topologyId)) {
+                var activeMember = members.entrySet().stream()
+                        .anyMatch(entry -> entry.getKey().groupId.equals(groupId)
+                                && !entry.getKey().memberId.equals(memberId)
+                                && entry.getValue().expiresAt.isAfter(now.minus(CLOCK_SKEW_GUARD)));
+                var activeSchedule = scheduledTasks.values().stream()
+                        .anyMatch(task -> task.groupId.equals(groupId)
+                                && task.leaseExpiresAt.isAfter(now.minus(CLOCK_SKEW_GUARD)));
+                if (activeMember || activeSchedule) {
+                    throw new IllegalStateException(
+                            "Topology declaration changed while group members or callbacks are still active: "
+                                    + groupId);
+                }
+            }
+            topologyIds.put(groupId, topologyId);
+            members.put(new MemberKey(groupId, memberId), new MemberLease(topologyId, now.plus(lease)));
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public List<String> activeMembers(String groupId, Instant now) {
+        requireIdentity(groupId, "groupId");
+        requireTime(now);
+        var staleAt = now.minus(CLOCK_SKEW_GUARD);
+        lock.lock();
+        try {
+            return members.entrySet().stream()
+                    .filter(entry -> entry.getKey().groupId.equals(groupId))
+                    .filter(entry -> entry.getValue().expiresAt.isAfter(staleAt))
+                    .map(entry -> entry.getKey().memberId)
+                    .sorted()
+                    .toList();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public void removeMember(String groupId, String memberId) {
+        requireIdentity(groupId, "groupId");
+        requireIdentity(memberId, "memberId");
+        lock.lock();
+        try {
+            members.remove(new MemberKey(groupId, memberId));
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public void registerScheduledTask(String groupId, String scheduleId, Duration interval, Instant now) {
+        requireIdentity(groupId, "groupId");
+        requireIdentity(scheduleId, "scheduleId");
+        requirePositive(interval, "interval");
+        requireTime(now);
+        lock.lock();
+        try {
+            var task = scheduledTasks.get(scheduleId);
+            if (task == null) {
+                scheduledTasks.put(scheduleId, new ScheduledTask(groupId, interval, now.plus(interval)));
+            } else if (!task.groupId.equals(groupId) || !task.interval.equals(interval)) {
+                throw new IllegalStateException("Scheduled task identity or interval changed: " + scheduleId);
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public Optional<ScheduledTaskLease> claimScheduledTask(
+            String groupId, String scheduleId, String owner, Instant now, Duration lease
+    ) {
+        requireIdentity(owner, "owner");
+        requireTime(now);
+        requirePositive(lease, "lease");
+        lock.lock();
+        try {
+            var task = scheduledTasks.get(scheduleId);
+            if (task == null || !task.groupId.equals(groupId) || task.nextDue.isAfter(now)
+                    || task.leaseExpiresAt.isAfter(now.minus(CLOCK_SKEW_GUARD))) {
+                return Optional.empty();
+            }
+            task.owner = owner;
+            task.leaseExpiresAt = now.plus(lease);
+            task.fencingToken++;
+            return Optional.of(new ScheduledTaskLease(
+                    groupId, scheduleId, owner, task.fencingToken, task.nextDue, task.interval));
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public boolean renewScheduledTask(ScheduledTaskLease lease, Instant now, Duration duration) {
+        requireTime(now);
+        requirePositive(duration, "duration");
+        lock.lock();
+        try {
+            var task = scheduledTasks.get(lease.scheduleId());
+            if (!ownsLiveLease(task, lease, now)) {
+                return false;
+            }
+            task.leaseExpiresAt = now.plus(duration);
+            return true;
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override
@@ -114,6 +240,7 @@ public final class InMemoryStreamStateRepository implements StreamStateRepositor
         private final Map<StateKey, Change> changes = new LinkedHashMap<>();
         private final Set<InboxKey> pendingInbox = new LinkedHashSet<>();
         private final List<OutboxRecord> pendingOutbox = new ArrayList<>();
+        private ScheduleCompletion scheduleCompletion;
         private boolean complete;
 
         @Override
@@ -219,6 +346,20 @@ public final class InMemoryStreamStateRepository implements StreamStateRepositor
         }
 
         @Override
+        public void completeScheduledTask(ScheduledTaskLease lease, Instant nextDue, Instant now) {
+            ensureOpen();
+            if (scheduleCompletion != null) {
+                throw new IllegalStateException("A transaction can complete only one scheduled occurrence");
+            }
+            requireTime(nextDue);
+            requireTime(now);
+            if (!nextDue.isAfter(lease.dueTime())) {
+                throw new IllegalArgumentException("nextDue must be after the completed occurrence");
+            }
+            scheduleCompletion = new ScheduleCompletion(lease, nextDue, now);
+        }
+
+        @Override
         public void commit() {
             ensureOpen();
             lock.lock();
@@ -234,6 +375,13 @@ public final class InMemoryStreamStateRepository implements StreamStateRepositor
                                 "State changed concurrently in namespace '%s' for key %s"
                                         .formatted(entry.getKey().namespace, entry.getKey().key));
                     }
+                }
+                if (scheduleCompletion != null
+                        && !ownsLiveLease(
+                                scheduledTasks.get(scheduleCompletion.lease.scheduleId()),
+                                scheduleCompletion.lease,
+                                scheduleCompletion.now)) {
+                    throw new ScheduleLeaseLostException(scheduleCompletion.lease.scheduleId());
                 }
                 pendingInbox.forEach(key -> inbox.put(key, Instant.now()));
                 changes.forEach((key, change) -> {
@@ -254,6 +402,12 @@ public final class InMemoryStreamStateRepository implements StreamStateRepositor
                 pendingOutbox.forEach(record -> outbox.put(
                         record.id(),
                         new LeasedOutbox(null, Instant.MIN, record)));
+                if (scheduleCompletion != null) {
+                    var task = scheduledTasks.get(scheduleCompletion.lease.scheduleId());
+                    task.nextDue = scheduleCompletion.nextDue;
+                    task.owner = null;
+                    task.leaseExpiresAt = Instant.MIN;
+                }
                 complete = true;
             } finally {
                 lock.unlock();
@@ -266,6 +420,7 @@ public final class InMemoryStreamStateRepository implements StreamStateRepositor
             changes.clear();
             pendingInbox.clear();
             pendingOutbox.clear();
+            scheduleCompletion = null;
         }
 
         private void observeVersion(StateKey key) {
@@ -297,5 +452,56 @@ public final class InMemoryStreamStateRepository implements StreamStateRepositor
     }
 
     private record RelayLease(String owner, Instant expiresAt) {
+    }
+
+    private record MemberKey(String groupId, String memberId) {
+    }
+
+    private record MemberLease(String topologyId, Instant expiresAt) {
+    }
+
+    private static final class ScheduledTask {
+        private final String groupId;
+        private final Duration interval;
+        private Instant nextDue;
+        private String owner;
+        private Instant leaseExpiresAt = Instant.MIN;
+        private long fencingToken;
+
+        private ScheduledTask(String groupId, Duration interval, Instant nextDue) {
+            this.groupId = groupId;
+            this.interval = interval;
+            this.nextDue = nextDue;
+        }
+    }
+
+    private record ScheduleCompletion(ScheduledTaskLease lease, Instant nextDue, Instant now) {
+    }
+
+    private static boolean ownsLiveLease(ScheduledTask task, ScheduledTaskLease lease, Instant now) {
+        return task != null
+                && task.groupId.equals(lease.groupId())
+                && Objects.equals(task.owner, lease.owner())
+                && task.fencingToken == lease.fencingToken()
+                && task.nextDue.equals(lease.dueTime())
+                && task.leaseExpiresAt.isAfter(now.plus(CLOCK_SKEW_GUARD));
+    }
+
+    private static void requireIdentity(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
+    }
+
+    private static void requireTime(Instant value) {
+        if (value == null) {
+            throw new IllegalArgumentException("time must not be null");
+        }
+    }
+
+    private static void requirePositive(Duration value, String name) {
+        if (value == null || value.isZero() || value.isNegative()) {
+            throw new IllegalArgumentException(name + " must be positive");
+        }
     }
 }

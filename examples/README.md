@@ -173,8 +173,8 @@ table, so after changing a capability file, paste that between the markers.
 | POLYMORPHIC_AGGREGATES | ✅ | ✅ | ✅ | ✅ | ✅ |
 | BINARY_DOWNLOAD | ✅ | ✅ | ✅ | ✅ | ✅ |
 | ORDERED_DELIVERY | ✅ | ✅ | ✅ | ✅ | ✅ |
-| STREAMS | ✅ | ❌ [TASK-374](../backlog/tasks/task-374%20-%20Prefab-Streams-on-the-in-memory-test-bus.md) | ✅ | ✅ | ✅ |
-| KAFKA_STREAMS_BREAKOUT | ✅ | ❌ [TASK-374](../backlog/tasks/task-374%20-%20Prefab-Streams-on-the-in-memory-test-bus.md) | ✅ | ❌ [TASK-341](../backlog/completed/task-341%20-%20Prefab-Streams-backend-for-Google-Pub-Sub.md) | ❌ [TASK-342](../backlog/completed/task-342%20-%20Prefab-Streams-backend-for-AWS-SNS-SQS.md) |
+| STREAMS | ✅ | ❌ [TASK-374](../backlog/tasks/task-374%20-%20Run-a-Prefab-application-locally-without-infrastructure.md) | ✅ | ✅ | ✅ |
+| KAFKA_STREAMS_BREAKOUT | ✅ | ❌ [TASK-374](../backlog/tasks/task-374%20-%20Run-a-Prefab-application-locally-without-infrastructure.md) | ✅ | ❌ [TASK-341](../backlog/completed/task-341%20-%20Prefab-Streams-backend-for-Google-Pub-Sub.md) | ❌ [TASK-342](../backlog/completed/task-342%20-%20Prefab-Streams-backend-for-AWS-SNS-SQS.md) |
 | AVRO | ✅ | ✅ | ✅ | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) |
 | SCHEMA_REGISTRY_API | ✅ | ❌ [TASK-375](../backlog/tasks/task-375%20-%20Inspect-registered-Avro-schemas-in-memory.md) | ✅ | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) |
 | SECURITY | ✅ | ✅ | ✅ | ✅ | ✅ |

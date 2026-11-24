@@ -1,5 +1,5 @@
 ---
-id: TASK-375
+id: TASK-378
 title: Generate conformance tests that check the wiring of a Prefab application
 status: To Do
 assignee: []

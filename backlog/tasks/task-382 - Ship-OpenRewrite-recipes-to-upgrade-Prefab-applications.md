@@ -1,5 +1,5 @@
 ---
-id: TASK-379
+id: TASK-382
 title: Ship OpenRewrite recipes to upgrade Prefab applications
 status: To Do
 assignee: []

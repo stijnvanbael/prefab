@@ -2,7 +2,6 @@ package be.appify.prefab.test.asserts;
 
 import be.appify.prefab.test.EventConsumer;
 import org.assertj.core.api.AbstractAssert;
-import org.assertj.core.api.ListAssert;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -44,15 +43,13 @@ class EventConsumerWhereStepTest {
 
     @Test
     void customAssertClassPropagatesAssertionFailures() {
-        var consumer = fixedConsumer(EVENTS);
+        EventConsumerWhereStep<String> whereStep = assertion -> assertion.accept(assertThat(EVENTS));
 
         assertThatThrownBy(() ->
-                EventConsumerAssert.assertThat(consumer)
-                        .hasReceivedMessages(2)
-                        .within(1, TimeUnit.SECONDS)
-                        .where(TestEventListAssert.class, assert_ ->
-                                assertThat(assert_.actualEvents()).containsExactly("wrong-event"))
-        ).cause().isInstanceOf(AssertionError.class);
+                whereStep.where(TestEventListAssert.class, assert_ ->
+                        assertThat(assert_.actualEvents()).containsExactly("wrong-event"))
+        ).isInstanceOf(AssertionError.class)
+                .hasMessageContaining("wrong-event");
     }
 
     @Test

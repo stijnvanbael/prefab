@@ -834,6 +834,12 @@ public record OrderLine(
 
 **Generated base path:** `/orders/{orderId}/order-lines`
 
+The path variable is the parent field name plus `Id`; a field that already ends in `Id` (such as `orderId`) keeps its
+name. Child endpoints are scoped to their parent: `GET`, `@Update`, `@Delete`, `@Download` and `@Streaming` answer
+`404 Not Found` when the aggregate belongs to another parent than the one in the path. The generated service exposes
+`belongsToParent(parentId, id)` for this check. A created child responds with
+`Location: /orders/{orderId}/order-lines/{id}`.
+
 ---
 
 ### `@Security`

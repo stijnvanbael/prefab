@@ -46,4 +46,19 @@ class ProjectTasksAcceptanceTest {
 
         api.get("/projects/{projectId}/tasks/{id}", project, task).andExpect(jsonPath("$.done").value(true));
     }
+
+    @Test
+    void taskIsOnlyReachableThroughItsOwnProject() throws Exception {
+        var api = new Api(mockMvc);
+        var website = api.create("/projects", "{\"name\": \"Website\"}");
+        var app = api.create("/projects", "{\"name\": \"App\"}");
+        var task = api.create("/projects/{projectId}/tasks", "{\"title\": \"Design\"}", website);
+
+        api.get("/projects/{projectId}/tasks/{id}", app, task).andExpect(status().isNotFound());
+        api.postEmpty("/projects/{projectId}/tasks/{id}/complete", app, task).andExpect(status().isNotFound());
+
+        api.get("/projects/{projectId}/tasks/{id}", website, task)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.done").value(false));
+    }
 }

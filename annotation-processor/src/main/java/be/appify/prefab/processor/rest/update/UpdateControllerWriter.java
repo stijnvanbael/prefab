@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static be.appify.prefab.processor.rest.ControllerUtil.guardParent;
 import static be.appify.prefab.processor.rest.ControllerUtil.operationAnnotation;
 import static be.appify.prefab.processor.rest.ControllerUtil.pathParameterAnnotation;
 import static be.appify.prefab.processor.rest.ControllerUtil.requestMapping;
@@ -51,6 +52,7 @@ class UpdateControllerWriter {
         });
         var idAndPathArgs = buildIdAndPathArgs(update);
         if (update.requestParameters().isEmpty()) {
+            guardParent(method, manifest.parent());
             if (update.asyncCommit()) {
                 method.addStatement("return service.$N($L).map(it -> $T.accepted().<$T>build()).orElse($T.notFound().build())",
                         update.operationName(), idAndPathArgs, ResponseEntity.class, responseType, ResponseEntity.class);
@@ -70,6 +72,7 @@ class UpdateControllerWriter {
                                     .build())
                     .build());
             requestParts.forEach(method::addParameter);
+            guardParent(method, manifest.parent());
             var withArgs = requestParts.stream()
                     .map(param -> ".with%s(%s)".formatted(capitalize(param.name()), param.name()))
                     .collect(Collectors.joining());
@@ -116,6 +119,7 @@ class UpdateControllerWriter {
                 .addParameter(idParameter.build());
         operationAnnotation(capitalize(update.operationName()) + " " + polymorphic.simpleName()).ifPresent(method::addAnnotation);
         securedAnnotation(update.security()).ifPresent(method::addAnnotation);
+        guardParent(method, polymorphic.parent());
         method.addParameter(ParameterSpec.builder(unionClass, "request")
                 .addAnnotation(Valid.class)
                 .addAnnotation(AnnotationSpec.builder(RequestBody.class).build())
@@ -164,6 +168,7 @@ class UpdateControllerWriter {
                 .addParameter(idParameter.build());
         operationAnnotation(capitalize(update.operationName()) + " " + leafName).ifPresent(method::addAnnotation);
         securedAnnotation(update.security()).ifPresent(method::addAnnotation);
+        guardParent(method, polymorphic.parent());
         if (update.requestParameters().isEmpty()) {
             method.addStatement("return toResponse(service.$N(id))", uncapitalize(operationName));
         } else {

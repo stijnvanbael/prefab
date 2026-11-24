@@ -10,6 +10,7 @@ import com.palantir.javapoet.ParameterizedTypeName;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 
+import static be.appify.prefab.processor.rest.ControllerUtil.guardParent;
 import static be.appify.prefab.processor.rest.ControllerUtil.operationAnnotation;
 import static be.appify.prefab.processor.rest.ControllerUtil.pathParameterAnnotation;
 import static be.appify.prefab.processor.rest.ControllerUtil.requestMapping;
@@ -27,10 +28,11 @@ class GetByIdControllerWriter {
         var idParameter = ParameterSpec.builder(String.class, "id")
                 .addAnnotation(PathVariable.class);
         pathParameterAnnotation("The " + manifest.simpleName() + " ID").ifPresent(idParameter::addAnnotation);
-        return method
-                .returns(ParameterizedTypeName.get(ClassName.get(ResponseEntity.class),
+        method.returns(ParameterizedTypeName.get(ClassName.get(ResponseEntity.class),
                         responseType(manifest)))
-                .addParameter(idParameter.build())
+                .addParameter(idParameter.build());
+        guardParent(method, manifest.parent());
+        return method
                 .addStatement("return toResponse(service.getById(id))")
                 .build();
     }
@@ -44,10 +46,11 @@ class GetByIdControllerWriter {
         var idParameter = ParameterSpec.builder(String.class, "id")
                 .addAnnotation(PathVariable.class);
         pathParameterAnnotation("The " + manifest.simpleName() + " ID").ifPresent(idParameter::addAnnotation);
-        return method
-                .returns(ParameterizedTypeName.get(ClassName.get(ResponseEntity.class),
+        method.returns(ParameterizedTypeName.get(ClassName.get(ResponseEntity.class),
                         responseType(manifest)))
-                .addParameter(idParameter.build())
+                .addParameter(idParameter.build());
+        guardParent(method, manifest.parent());
+        return method
                 .addStatement("return toResponse(service.getById(id))")
                 .build();
     }

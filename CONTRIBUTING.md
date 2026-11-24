@@ -40,7 +40,7 @@ prefab/
 ├── async-api/          # AsyncAPI specification generation
 ├── test/               # Testcontainers-based integration test support + test utilities
 ├── terraform/          # GCP Terraform configuration generation
-├── examples/           # Runnable example projects (avro, kafka, mongodb, pubsub, sns-sqs, streams)
+├── examples/           # Shop showcase and its technology variants (see examples/README.md)
 ├── benchmark/          # Agent benchmark: how well AI agents build Prefab apps (backlog/docs/benchmark.md)
 └── backlog/            # Project backlog, decisions, and developer guide
     └── docs/           # Developer Guide (index: backlog/docs/developer-guide.md)
@@ -122,12 +122,12 @@ Test source fixtures live under `annotation-processor/src/test/resources/` and a
 
 ### Integration tests (require Docker)
 
-Integration tests live in the `examples/` modules and use Testcontainers to spin up real PostgreSQL,
-Kafka, or MongoDB instances:
+Integration tests live in the `examples/showcase*` modules (one test suite, recompiled per technology variant)
+and use Testcontainers to spin up real PostgreSQL, Kafka, MongoDB, Pub/Sub or SNS/SQS instances:
 
 ```bash
 # Run all integration tests — Docker must be running
-mvn verify -pl examples/kafka,examples/mongodb,examples/avro
+mvn verify -pl examples/showcase,examples/showcase-mongodb,examples/showcase-pubsub,examples/showcase-sns-sqs
 ```
 
 ---

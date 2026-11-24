@@ -186,11 +186,10 @@ table, so after changing a capability file, paste that between the markers.
 
 `@IntegrationTest` runs on an in-memory backend by default (see
 [Feature Guides, 7.20](../backlog/docs/feature-guides.md#720-integration-tests-in-memory-or-containers)). To keep
-real-infrastructure coverage in CI, every example module, the reference `showcase`, `showcase-mongodb` and
-`showcase-pubsub` set `prefab.test.containers: true` in their `application-test.yml`, so they run on Testcontainers.
-The tests that call the native `@Query` of `UserStatusRepositoryMixin` (`examples/kafka`, `examples/pubsub`,
-`examples/sns-sqs`) say so in a comment rather than with `@IntegrationTest(containers = true)`: in a module that already
-sets the property, the annotation would only start a second Spring context.
+real-infrastructure coverage in CI, the reference `showcase`, `showcase-mongodb`, `showcase-pubsub` and `showcase-sns-sqs` set
+`prefab.test.containers: true` in their `application-test.yml`, so they run on Testcontainers. A test that needs real
+infrastructure in a module that already sets the property says so in a comment rather than with
+`@IntegrationTest(containers = true)`: the annotation would only start a second Spring context.
 
 `showcase-inmemory` is the exception and proves the in-memory backend: the same sources and tests as the reference
 showcase, generated for Postgres + Kafka (with the Avro slice), but without `prefab.test.containers`. Its tests pass

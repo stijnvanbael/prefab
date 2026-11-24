@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: prefab.showcase-sns-sqs
+  profiles:
+    default: local
+
+  cloud:
+    aws:
+      region:
+        static: eu-west-1
+      credentials:
+        access-key: ${AWS_ACCESS_KEY_ID}
+        secret-key: ${AWS_SECRET_ACCESS_KEY}
+
+error.handling:
+  exception-logging: WITH_STACKTRACE

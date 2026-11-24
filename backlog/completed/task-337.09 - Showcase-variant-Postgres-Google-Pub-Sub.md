@@ -1,10 +1,10 @@
 ---
 id: TASK-337.09
 title: 'Showcase variant: Postgres + Google Pub/Sub'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-20 19:47'
-updated_date: '2026-11-24 06:30'
+updated_date: '2026-11-24 07:45'
 labels:
   - examples
   - pubsub
@@ -30,9 +30,9 @@ Run the full showcase suite, including the backend-neutral streams tests. Declar
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Module contains no Java sources
-- [ ] #2 Full showcase suite passes or skips with declared gaps, each linked to a backlog task
+- [x] #2 Full showcase suite passes or skips with declared gaps, each linked to a backlog task
 - [x] #3 Coverage matrix updated
-- [ ] #4 Showcase streams slice compiles and its tests pass in showcase-pubsub, or unsupported operators are skipped with a declared gap
+- [x] #4 Showcase streams slice compiles and its tests pass in showcase-pubsub, or unsupported operators are skipped with a declared gap
 - [x] #5 showcase-pubsub does not declare STREAMS as a gap; only specific unsupported operators are declared
 <!-- AC:END -->
 
@@ -63,11 +63,12 @@ This environment has no Docker, so the Pub/Sub emulator + Postgres suite could n
 - Verified locally: the variant compiles with the annotation processor (including the streams slice), the four
   backend-neutral streams topology tests pass against the Pub/Sub harness, and `CapabilityGapsTest`,
   `VariantCapabilitiesTest`, `CoverageMatrixTest` and `EventPlatformTest` pass.
-- Not verifiable here: the integration tests. In-memory mode (`-Dprefab.test.containers=false`) is no substitute: it has
+- Not verifiable in the authoring environment (no Docker): the integration tests. In-memory mode (`-Dprefab.test.containers=false`) is no substitute: it has
   no `StreamStateRepository` or Streams on the in-memory bus (TASK-175.05 #6), and it failed 30 of 85 integration
   tests without the streams slice, which is TASK-175.05's job to prove on the showcase.
-- Acceptance criteria #2 and #4 stay open until CI has run the full suite on the real stack; then set the task to
-  Done and move it to `backlog/completed/`.
+- Verified by CI on the real stack (Pub/Sub emulator + Postgres): the full showcase suite passed on the merged head
+  `f5da25f` (PR #226), after the fixes below. Criteria #2 and #4 are met; the streams slice runs without a `STREAMS`
+  gap, and the declared gaps are `KAFKA_STREAMS_BREAKOUT` and `AVRO`.
 
 **CI findings (first run on the real stack)**
 

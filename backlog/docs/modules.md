@@ -81,6 +81,7 @@ for the emitted resources and limits.
 | `examples/showcase-variant-parent`  | Shared build that recompiles the showcase sources and tests per variant (decision-007)   |
 | `examples/showcase-mongodb`         | Showcase variant on MongoDB + Kafka (configuration only)                                 |
 | `examples/showcase-pubsub`          | Showcase variant on Postgres + Google Pub/Sub, with the common streams slice (configuration only) |
+| `examples/showcase-sns-sqs`         | Showcase variant on Postgres + AWS SNS/SQS, with streams on SNS/SQS (configuration only)  |
 | `examples/avro`                     | Avro and AVSC-first event examples                                                       |
 | `examples/kafka`                    | Kafka aggregate and projection examples                                                  |
 | `examples/streams`                  | Standalone Kafka Streams DSL example (legacy energy domain; shop analytics live in `examples/showcase`) |

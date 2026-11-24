@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>be.appify.prefab</groupId>
+        <artifactId>showcase-variant-parent</artifactId>
+        <version>0.13.3-SNAPSHOT</version>
+        <relativePath>../showcase-variant-parent/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>showcase-sns-sqs-example</artifactId>
+    <name>Prefab Showcase Example: Postgres + AWS SNS/SQS</name>
+
+    <properties>
+        <showcase.streams.skip>false</showcase.streams.skip>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-postgres</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-sns-sqs</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-streams</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-streams-sns-sqs</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-streams-postgres</artifactId>
+        </dependency>
+    </dependencies>
+</project>

@@ -28,7 +28,7 @@ Prefab knows all of this at compile time. Two candidates:
 2. A generated admin UI (in the spirit of Django admin) for aggregates: list with filters and paging, detail,
    create/update forms from request records, actions from `@Update` endpoints, respecting `@Security`.
 
-Related: TASK-320 (backend-for-frontend spike, done), TASK-096 (OpenAPI), TASK-127 (exposure strategies), TASK-374
+Related: TASK-320 (backend-for-frontend spike, done), TASK-096 (OpenAPI), TASK-127 (exposure strategies), TASK-382
 (local run as the backend for frontend development).
 <!-- SECTION:DESCRIPTION:END -->
 

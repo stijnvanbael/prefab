@@ -8,3 +8,6 @@ unsupported:
   KAFKA_STREAMS_BREAKOUT:
     reason: Kafka Streams breakout operators need a Kafka Streams runtime, which the in-memory backend does not provide
     task: TASK-372
+  SCHEMA_REGISTRY_API:
+    reason: Avro events use the mock schema registry in memory, which has no HTTP endpoint to list subjects
+    task: TASK-373

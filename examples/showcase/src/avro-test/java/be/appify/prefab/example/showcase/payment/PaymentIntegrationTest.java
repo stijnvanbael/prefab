@@ -1,6 +1,7 @@
 package be.appify.prefab.example.showcase.payment;
 
 import be.appify.prefab.example.showcase.payment.infrastructure.http.ReceiptResponse;
+import be.appify.prefab.example.showcase.capability.RequiresCapability;
 import be.appify.prefab.test.IntegrationTest;
 import java.math.BigDecimal;
 import java.net.URI;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 
+import static be.appify.prefab.example.showcase.capability.Capability.SCHEMA_REGISTRY_API;
 import static java.time.Duration.ofSeconds;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -28,7 +30,8 @@ class PaymentIntegrationTest {
     PaymentClient payments;
     @Autowired
     ReceiptClient receipts;
-    @Value("${spring.kafka.producer.properties.schema.registry.url}")
+    // Only configured when a real registry runs: not in memory
+    @Value("${spring.kafka.producer.properties.schema.registry.url:}")
     String schemaRegistryUrl;
 
     @Test
@@ -42,6 +45,7 @@ class PaymentIntegrationTest {
     }
 
     @Test
+    @RequiresCapability(SCHEMA_REGISTRY_API)
     void createPayment_registersTheEventSchemaInTheSchemaRegistry() throws Exception {
         var paymentId = payments.createPayment(invoiceId(), BigDecimal.TEN, PaymentMethod.CASH);
         receiptOf(paymentId);

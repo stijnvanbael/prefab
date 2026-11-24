@@ -79,6 +79,10 @@ The first run failed in `prefab-streams-sns-sqs` (TASK-371, unrelated). The re-r
   hides that; on the Pub/Sub emulator, which has no dead-lettering, the nacked message is redelivered forever and its
   uncaught exception (`PubSubUtil.consume` rethrows after retries) fails whichever Awaitility call is running. Sales
   of products missing from the replicated catalog now count as `uncategorized`.
-- Remaining suspicion, not yet confirmed: events of one test reaching their handlers after the next test's
-  `PersistenceTestExecutionListener` wiped the repositories (`@Multicast` finds nothing, TASK-365).
+- Confirmed in the second CI run (after main fixed the SNS/SQS flake, TASK-371): events of one test reach their
+  handlers after the next test's `PersistenceTestExecutionListener` wiped the repositories, so `@Multicast` finds no
+  aggregates (TASK-365) and the message can never succeed. Concurrent handlers also collide on the optimistic lock
+  (`STOCK_LEVEL`, `CUSTOMER_ORDER_HISTORY`), which needs a bigger retry budget (`prefab.dlt.retries.limit: 20`).
+  `PubSubUtil.consume` rethrows after the nack, which Awaitility reports in an unrelated test; the showcase `Shop`
+  disables Awaitility's uncaught-exception catching and TASK-373 tracks the Prefab side.
 <!-- SECTION:NOTES:END -->

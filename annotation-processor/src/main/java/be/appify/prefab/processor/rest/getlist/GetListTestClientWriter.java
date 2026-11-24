@@ -93,7 +93,7 @@ class GetListTestClientWriter {
         var type = filter.field().type();
         return filter.isRange()
                 ? type.asBoxed().asTypeName()
-                : ClassName.get(type.packageName(), type.simpleName());
+                : GetListUtil.declaredTypeName(type);
     }
 
     private static void createRequest(ClassManifest manifest, MethodSpec.Builder method, GetList getList) {

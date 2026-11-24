@@ -82,12 +82,7 @@ for the emitted resources and limits.
 | `examples/showcase-mongodb`         | Showcase variant on MongoDB + Kafka (configuration only)                                 |
 | `examples/showcase-pubsub`          | Showcase variant on Postgres + Google Pub/Sub, with the common streams slice (configuration only) |
 | `examples/showcase-sns-sqs`         | Showcase variant on Postgres + AWS SNS/SQS, with streams on SNS/SQS (configuration only)  |
-| `examples/avro`                     | Avro and AVSC-first event examples                                                       |
-| `examples/kafka`                    | Kafka aggregate and projection examples                                                  |
-| `examples/streams`                  | Standalone Kafka Streams DSL example (legacy energy domain; shop analytics live in `examples/showcase`) |
-| `examples/pubsub`                   | Google Cloud Pub/Sub examples                                                            |
-| `examples/sns-sqs`                  | AWS SNS/SQS examples                                                                     |
-| `examples/mongodb`                  | MongoDB aggregate examples                                                               |
+| `examples/showcase-inmemory`        | Showcase variant on the in-memory test backend: no Docker needed (configuration only)    |
 
 ---
 

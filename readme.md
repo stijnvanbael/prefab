@@ -113,31 +113,32 @@ code. These examples are drawn from working repository examples and supported ex
 
 ### Build an event-driven projection with a custom query
 
-The [`ChannelSummary` example](examples/kafka/src/main/java/be/appify/prefab/example/kafka/channelsummary/ChannelSummary.java)
-combines event handlers, multicast updates, and a generated list endpoint. A handler can ask Prefab to find all
+The [`CustomerOrderHistory` example](examples/showcase/src/main/java/be/appify/prefab/example/showcase/customer/CustomerOrderHistory.java)
+combines event handlers, multicast updates, and a generated read model. A handler can ask Prefab to find all
 matching projection rows, then update each row as an event arrives:
 
 ```java
 @EventHandler
-@Multicast(queryMethod = "findByChannel", parameters = "channel")
-public ChannelSummary applyMessageSent(MessageSent event) {
-    return new ChannelSummary(
-            id, version, channel, name, totalMessages + 1, totalSubscribers);
+@Multicast(queryMethod = "findByCustomer", parameters = "customer")
+public CustomerOrderHistory onOrderPlaced(OrderEvent.Placed event) {
+    var updated = new ArrayList<>(orders);
+    updated.add(new Entry(event.order(), OrderStatus.PLACED));
+    return new CustomerOrderHistory(id, version, customer, List.copyOf(updated));
 }
 ```
 
 The matching query stays in an ordinary Spring Data mixin, not the generated repository:
 
 ```java
-@RepositoryMixin(ChannelSummary.class)
-public interface ChannelSummaryRepositoryMixin {
-    List<ChannelSummary> findByChannel(Reference<Channel> channel);
+@RepositoryMixin(CustomerOrderHistory.class)
+public interface CustomerOrderHistoryRepositoryMixin {
+    List<CustomerOrderHistory> findByCustomer(Reference<Customer> customer);
 }
 ```
 
-Prefab includes the mixin in the generated repository; the handler uses `findByChannel` to select the records it
-updates. See the [complete aggregate](examples/kafka/src/main/java/be/appify/prefab/example/kafka/channelsummary/ChannelSummary.java),
-[mixin source](examples/kafka/src/main/java/be/appify/prefab/example/kafka/channelsummary/ChannelSummaryRepositoryMixin.java),
+Prefab includes the mixin in the generated repository; the handler uses `findByCustomer` to select the records it
+updates. See the [complete aggregate](examples/showcase/src/main/java/be/appify/prefab/example/showcase/customer/CustomerOrderHistory.java),
+[mixin source](examples/showcase/src/main/java/be/appify/prefab/example/showcase/customer/CustomerOrderHistoryRepositoryMixin.java),
 and [repository mixin guide](backlog/docs/extension-points.md#82-repository-mixins). Use a custom `@Query` mixin
 when a derived method name is not enough.
 
@@ -204,15 +205,14 @@ application and handle missing or invalid tenant claims according to your securi
 operation-level authorization on the domain method rather than editing a generated controller:
 
 ```java
-@Create(security = @Security(authority = "ROLE_CUSTOMER_WRITE"))
-public Customer(@NotNull PersonName name, @NotNull String email) {
-    this(Reference.create(), 0L, name, email);
-    publish(new Created(id, name, email));
+@Create(security = @Security(role = "ADMIN"))
+public Product(@NotBlank String name, @NotNull BigDecimal price) {
+    this(Reference.create(), 0L, name, price);
 }
 ```
 
 This authorization pattern is used in the
-[Customer example](examples/avro/src/main/java/be/appify/prefab/example/avro/customer/Customer.java).
+[Product example](examples/showcase/src/main/java/be/appify/prefab/example/showcase/catalog/Product.java).
 Provide an [`AuditContextProvider`](backlog/docs/built-in-types.md#auditcontextprovider) bean to populate audit
 identities and an [`HttpSecurityCustomizer`](security/src/main/java/be/appify/prefab/core/security/HttpSecurityCustomizer.java)
 bean to extend Prefab's default Spring Security chain. See the guides for [audit](backlog/docs/feature-guides.md#75-audit-trail),

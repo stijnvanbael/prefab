@@ -113,7 +113,7 @@ The workflow, immutable request/result records, validation policy, transaction a
 hand-authored. The test compiles the generated endpoint with the JDK compiler, compares it with a checked-in output
 snapshot, and separately tests the workflow using a fake port.
 
-The product DDD reference is `examples/kafka` (`Product.java`, generated `ProductService`, `ProductController`, and
+The product DDD reference was the former `examples/kafka` module, removed with TASK-337 (`Product.java`, generated `ProductService`, `ProductController`, and
 `CreateProductRequest`), compiled successfully for this spike. Its generated code is for single-product CRUD: the
 create service constructs and saves one `Product`, and the controller exposes its resource operations. Reusing that
 architecture for a batch requires a hand-written transaction-owning orchestrator and a batch HTTP adapter (or a

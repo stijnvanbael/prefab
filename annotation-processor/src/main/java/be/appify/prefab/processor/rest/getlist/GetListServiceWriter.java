@@ -311,7 +311,7 @@ class GetListServiceWriter {
         }
         return field.type().isSingleValueType()
                 ? field.type().fields().getFirst().type().asBoxed().asTypeName()
-                : field.type().asTypeName();
+                : field.type().asBoxed().asTypeName();
     }
 
     private CodeBlock parentField(ClassManifest manifest, VariableManifest field) {

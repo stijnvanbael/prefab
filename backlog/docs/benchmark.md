@@ -361,4 +361,23 @@ What it shows:
 tasks about ±15. No repeated run of the same setup has been recorded yet, so the empirical run-to-run margin is still
 open. Until it is measured, compare setups per task with `--repeat 3`, and treat total pass-rate differences inside
 the confidence intervals as noise.
+### 2026-11-24: compact cheat sheet (TASK-344), 32 tasks
+
+Prefab `0.13.3-SNAPSHOT`, Haiku 5.5, one attempt per task, three attempts in parallel, run in a cloud container
+**without Docker** on the in-memory test backend (TASK-175). Runs: `20261124-104627-claude-haiku-5-5-cheat-sheet`
+and `20261124-111212-claude-haiku-5-5-none`.
+
+| Setup | Passed | 95% CI | Cost | Median turns | Median builds | Median agent time |
+|---|---|---|---|---|---|---|
+| Haiku 5.5, `none` | 21/32 | 48-80% | $1.08 | 25 | 5 | 2m00s |
+| Haiku 5.5, `cheat-sheet` | 24/32 | 58-87% | $0.60 | 16 | 4 | 1m19s |
+
+- **The cheat sheet is faster and cheaper.** About a third fewer turns, 35% less time and 45% lower cost than no
+  docs, with a pass rate inside the same confidence interval.
+- **Plain-Spring fallbacks dropped from 4 attempts to 1** (`events-multicast` fell back in both setups).
+  Without docs, `list-full-text-search`, `rest-computed-field` and `rest-parent-child` also failed the guardrails.
+- **These pass rates are not comparable with the 2026-11-22 baselines.** Without Docker, hidden tests that need
+  real infrastructure (`mixin-custom-sql`, `mongodb-crud`, the Avro tasks) fail in both setups for reasons that
+  have nothing to do with the agent. The `none` run was also flagged contaminated on `avro-publish-and-handle`.
+  Repeat both setups on a machine with Docker, with `--repeat 3`, before drawing conclusions about correctness.
 <!-- BASELINES:END -->

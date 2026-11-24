@@ -1,7 +1,7 @@
 ---
 id: TASK-344
 title: Compact agent cheat sheet for developing Prefab applications
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-20 20:13'
 labels:
@@ -34,7 +34,7 @@ This task delivers the always-loaded entry point for app developers (not framewo
 - [x] #5 It states when to stop: which documented extension points to use when the model can't express a requirement, and when to escalate to a human or stronger model instead of working around generated code
 - [x] #6 It points to where deeper, task-specific guidance lives, without inlining it
 - [x] #7 Deprecated APIs and alternative ways of doing the same thing are left out, so there is one recommended way per intent
-- [ ] #8 Benchmark results from TASK-343 are recorded for Haiku with the cheat sheet compared to without it
+- [x] #8 Benchmark results from TASK-343 are recorded for Haiku with the cheat sheet compared to without it
 <!-- AC:END -->
 
 ## Notes
@@ -50,7 +50,6 @@ entities, repositories and migrations for aggregates at compile time (`generated
 <!-- SECTION:NOTES:BEGIN -->
 - Cheat sheet: `backlog/docs/agent-cheat-sheet.md` (about 7.8 KB, roughly 2k tokens). Linked from the developer guide index.
 - Added benchmark context `benchmark/contexts/cheat-sheet` (cheat sheet only in CLAUDE.md) and documented it in `benchmark.md`.
-- **AC #8 is open**: this cloud session has no Docker daemon, so the benchmark's Testcontainers-based hidden tests cannot run. To finish, run
-  `benchmark/run.sh run --model claude-haiku-5-5 --context cheat-sheet --repeat 3 --parallel 3`, compare with the recorded `none`, `full-docs` and `docs-folder` baselines, and add the result to "Recorded baselines" in `benchmark.md`.
+- AC #8: Haiku 5.5 with the cheat sheet passed 24/32 against 21/32 without docs, with 16 vs 25 median turns, 1m19s vs 2m00s and $0.60 vs $1.08. Recorded in `benchmark.md` under "Recorded baselines". Run in a container without Docker, so Docker-dependent tasks fail in both setups and the pass rates are not comparable with earlier baselines. A repeat on a Docker machine with `--repeat 3` is still worthwhile.
 - Deprecated APIs (`PublishesEvents.publish`, `@MongoMigration`, `ignoreCase`) are deliberately left out, except the one 'do not' line for event publishing.
 <!-- SECTION:NOTES:END -->

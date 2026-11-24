@@ -15,7 +15,7 @@ public final class TestInfrastructureMode {
     public static final String PROPERTY = "prefab.test.containers";
 
     /** Value used when {@value #PROPERTY} is not configured. */
-    static final boolean DEFAULT_CONTAINERS = true;
+    static final boolean DEFAULT_CONTAINERS = false;
 
     private TestInfrastructureMode() {
     }

@@ -1,5 +1,6 @@
 package be.appify.prefab.example.showcase.shipping;
 
+import be.appify.prefab.example.showcase.capability.RequiresCapability;
 import be.appify.prefab.example.showcase.ordering.OrderClient;
 import be.appify.prefab.example.showcase.support.Shop;
 import be.appify.prefab.test.EventConsumer;
@@ -18,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
+import static be.appify.prefab.example.showcase.capability.Capability.SCHEMA_REGISTRY_API;
 import static java.time.Duration.ofSeconds;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -43,7 +45,8 @@ class ShipmentIntegrationTest {
     Shop shop;
     @TestEventConsumer(topic = "showcase.shipment")
     EventConsumer<ShipmentDispatched> dispatched;
-    @Value("${spring.kafka.producer.properties.schema.registry.url}")
+    // Only configured when a real registry runs: not in memory
+    @Value("${spring.kafka.producer.properties.schema.registry.url:}")
     String schemaRegistryUrl;
 
     @Test
@@ -73,7 +76,22 @@ class ShipmentIntegrationTest {
             assertThat(event.carrier()).isEqualTo("DHL");
             assertThat(event.trackingNumber()).isEqualTo("JD0001");
         }));
-        assertThat(registrySubjects()).as("schema registry subjects").containsIgnoringCase("showcase.shipment");
+    }
+
+    @Test
+    @RequiresCapability(SCHEMA_REGISTRY_API)
+    void dispatch_registersTheEventSchemaInTheSchemaRegistry() throws Exception {
+        var orderId = placeOrder();
+        var shipmentId = shipmentOf(orderId).path("id").asString();
+
+        mockMvc.perform(post("/shipments/{id}/dispatch", shipmentId)
+                        .with(user("test"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"carrier\": \"DHL\", \"trackingNumber\": \"JD0002\"}"))
+                .andExpect(status().isOk());
+
+        await().atMost(ofSeconds(30)).untilAsserted(() ->
+                assertThat(registrySubjects()).as("schema registry subjects").containsIgnoringCase("showcase.shipment"));
     }
 
     private String placeOrder() throws Exception {

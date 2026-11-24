@@ -45,19 +45,23 @@ class InMemoryAutoConfigurationFilterTest {
         assertThat(result).containsExactly(true, true);
     }
 
-    @ParameterizedTest
-    @MethodSource("modesThatKeepEverything")
-    void containersModeKeepsEverything(String containers) {
-        var filter = filterFor(containers);
+    @Test
+    void inMemoryIsTheDefaultWhenThePropertyIsAbsent() {
+        var filter = filterFor(null);
+
+        var result = filter.match(new String[]{"org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration"}, null);
+
+        assertThat(result).containsExactly(false);
+    }
+
+    @Test
+    void containersModeKeepsEverything() {
+        var filter = filterFor("true");
         var candidates = InMemoryAutoConfigurationFilter.EXCLUDED.toArray(String[]::new);
 
         var result = filter.match(candidates, null);
 
         assertThat(result).doesNotContain(false);
-    }
-
-    static Stream<String> modesThatKeepEverything() {
-        return Stream.of("true", null);
     }
 
     private static InMemoryAutoConfigurationFilter filterFor(String containers) {

@@ -69,6 +69,41 @@ A report is a `FailureAnalyzer` that returns a `FailureReport(description, actio
 
 ---
 
+## Error: `... has a native query that cannot run against the in-memory test backend`
+
+**Cause:** An `@IntegrationTest` called a `@RepositoryMixin` method that has a store-specific `@Query` or
+`@Aggregation`. The in-memory backend cannot execute SQL or Mongo pipelines. The method fails only when it is called; a
+warning is logged at startup for each such method.
+
+**Fix:** Run the test class on real infrastructure with `@IntegrationTest(containers = true)`, or replace the native
+query by a derived query (`findByCustomer`, `countByCategory`, ...), which works in memory.
+
+---
+
+## Test fails with `N event handler(s) failed during the test`
+
+**Cause:** In memory, an event handler (`@EventHandler`, `@KafkaListener`, Pub/Sub or SQS subscriber) threw while
+handling an event published during the test. The publishing request is not affected, because a real broker would not
+propagate the failure either, but the test fails after it finishes, with the handler's exception as the cause. With
+containers the same failure would end in retries and the dead-letter topic, and go unnoticed.
+
+**Fix:** Fix the handler. A test that expects a handler to fail calls `InMemoryEventBus.drainFailures()` to clear the
+recorded failures.
+
+---
+
+## My tests behave differently after upgrading
+
+**Cause:** `@IntegrationTest` runs in memory by default now: no Postgres, MongoDB or broker container is started.
+Tests that depend on database constraints (unique indexes, foreign keys, column sizes), rollbacks, native queries,
+broker retries or dead-letter topics, Prefab Streams or a real schema registry pass or fail differently.
+
+**Fix:** Add `containers = true` to those test classes (`@IntegrationTest(containers = true)`), or set
+`prefab.test.containers: true` in `application-test.yml` to keep the previous behaviour for the whole module. See
+[Feature Guides, 7.20](feature-guides.md#720-integration-tests-in-memory-or-containers) for the list of differences.
+
+---
+
 ## Error: `No serialization format registered for topic [X]`
 
 **Cause:** An event is being consumed or produced but the topic has not been registered in

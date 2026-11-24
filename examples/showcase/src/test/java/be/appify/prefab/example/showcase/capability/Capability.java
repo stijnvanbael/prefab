@@ -24,6 +24,8 @@ public enum Capability {
     KAFKA_STREAMS_BREAKOUT,
     /** Events serialized as Avro. */
     AVRO,
+    /** Schema registry that answers over HTTP, so that tests can inspect the registered subjects. */
+    SCHEMA_REGISTRY_API,
     /** Spring Security integration. */
     SECURITY,
     /** Generated OpenAPI documentation. */

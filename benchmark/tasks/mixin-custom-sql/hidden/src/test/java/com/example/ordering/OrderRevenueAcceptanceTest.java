@@ -9,7 +9,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@IntegrationTest
+@IntegrationTest(containers = true) // native SQL @Query: cannot run in memory
 class OrderRevenueAcceptanceTest {
     @Autowired
     MockMvc mockMvc;

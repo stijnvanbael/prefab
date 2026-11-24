@@ -516,7 +516,8 @@ orderService.getList(OrderQuery.newQuery()
 **Target:** `FIELD`, `RECORD_COMPONENT`
 **Repeatable:** Yes (container: `@Filters`)
 
-Enables filtering on a field in the `@GetList` endpoint.
+Enables filtering on a field in the `@GetList` endpoint. The field can be a primitive such as `boolean` or `int`;
+the query parameter is then optional and uses the boxed type (`Boolean`, `Integer`).
 
 | Attribute    | Type              | Default    | Description                                    |
 |--------------|-------------------|------------|------------------------------------------------|
@@ -973,6 +974,8 @@ public sealed interface UserEvent permits UserEvent.Created, UserEvent.Updated {
 **Retention:** `CLASS`
 
 AVSC-first event generation. Must be combined with `@Event(serialization = AVRO)` on the same interface.
+Prefab generates the Java records, and their event type registrars, in the package of the annotated interface, even
+when the `namespace` in the schema is different. The schema namespace is kept in the Avro schema itself.
 
 | Attribute | Type         | Default | Description                                                                                  |
 |-----------|--------------|---------|----------------------------------------------------------------------------------------------|
@@ -1585,6 +1588,12 @@ public Profile(@ContentType({"image/jpeg", "image/png", "image/gif"}) Binary pro
 
 Place the annotation on the `@Create` / `@Update` parameter that receives the upload: the generated controller
 enforces it and answers `400 Bad Request` for a violating file.
+
+### Nested records and `@Valid`
+
+A `@Create` / `@Update` parameter whose type is a record is validated as a nested object: Prefab adds `@Valid` to
+the parameter of the generated request record. Writing `@Valid` on the parameter yourself is allowed and has the same
+effect; Prefab does not add it twice.
 
 ---
 

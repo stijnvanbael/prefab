@@ -21,7 +21,7 @@ public record Note(
         @Version long version,
         @Filter @NotNull String title,
         @Nullable String text,
-        @Filter(operator = Filter.Operator.EQUAL) @NotNull Boolean archived
+        @Filter(operator = Filter.Operator.EQUAL) boolean archived
 ) {
     @Create
     public Note(@NotNull String title, @Nullable String text) {

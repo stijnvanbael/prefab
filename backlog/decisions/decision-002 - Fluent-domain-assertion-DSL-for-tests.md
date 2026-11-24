@@ -317,8 +317,8 @@ depth, and the domain vocabulary is lost entirely.
 - TASK-142 acceptance criteria #4 (`EventConsumerWhereStep` typed overload) is retained as-is: the
   existing `where(Consumer<ListAssert<V>>)` is sufficient when combined with hand-written assert classes;
   no new overload is required.
-- Example assertion classes are added to at least one example module (`examples/kafka` or
-  `examples/sns-sqs`) to demonstrate the pattern for both a REST response and an event payload.
+- Example assertion classes are added to at least one example module (since TASK-337:
+  `examples/showcase`) to demonstrate the pattern for both a REST response and an event payload.
 - The `prefab-test` module documentation is updated with a short usage guide showing the nested and
   list navigation patterns.
 - No changes are required to the annotation processor.

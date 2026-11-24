@@ -273,7 +273,7 @@ inject Prefab-generated aggregate services. Use generated services for ordinary 
 `@RepositoryMixin` for a purpose-built batch read; keep presentation DTOs out of aggregate write records and
 avoid per-item repository lookups. The [BFF composition decision](../decisions/decision-005%20-%20Backend-for-frontend-composition.md)
 records transaction, authorization, tenant, timeout and deployment boundaries. Runnable examples and focused
-tests are in `examples/kafka` under `dashboard` and `product/application`.
+tests are in `examples/showcase` (`OrderOverview` and its integration test).
 
 This is the escape hatch. The preferred direction is declarative: an aggregate-bound view model
 (planned in TASK-326, with reference expansion in TASK-327) will generate the mapper, endpoint and tests so

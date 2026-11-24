@@ -228,30 +228,10 @@ construction, before its repository save.
 
 ## Runnable examples
 
-`examples/kafka/src/main/java/be/appify/prefab/example/kafka/dashboard/ChannelDashboardItem.java` is a
-`@ViewOf(ChannelSummary.class)` list contract. Prefab's generated view service reuses the filtered, sorted and
-paged `ChannelSummaryService`; `ChannelDashboardAssembler` enriches its batch with one
-`UserStatusRepository.findByUser(...)` lookup. The generated view preserves page metadata and avoids one query per
-channel. If the asynchronous status projection is absent, the item marks `unreadStatusAvailable` false instead of
-implying that the count is authoritative. Repository failures are not converted into successful-looking empty
-results.
-
-`examples/kafka/src/main/java/be/appify/prefab/example/kafka/product/application/ProductCommandService.java`
-composes generated `ProductService.create(...)` and `addTag(...)` calls. Its outer `@Transactional` boundary
-joins the generated services' default REQUIRED transaction on the same PostgreSQL transaction manager.
-`Product` does not publish events, so the demonstrated writes are covered by that local transaction. An
-empty result during the follow-up update raises an exception and rolls back when called through the Spring
-proxy. It does not claim atomicity across aggregate roots, databases, or a message broker.
-
-Focused, runnable tests:
-
-```shell
-mvn -pl :kafka-example -am "-Dtest=ChannelDashboardAssemblerTest,ProductCommandServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
-```
-
-The dashboard tests verify batch mapping, missing versus empty projection state, and one repository lookup per
-assembler batch. The generated view service supplies filtering, stable paging and page metadata. The command tests
-verify generated-operation ordering and explicit failure handling.
+The original runnable examples (a channel dashboard `@ViewOf` view and a transactional `ProductCommandService`)
+lived in the former `examples/kafka` module, which TASK-337 replaced by `examples/showcase`. The generated-view
+pattern is demonstrated there by `OrderOverview`, a `@ViewOf(Order.class)` list contract with a derived field, and
+its integration test.
 
 ## Operational contract
 

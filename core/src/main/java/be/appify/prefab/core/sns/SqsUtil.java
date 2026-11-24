@@ -44,7 +44,7 @@ import java.util.concurrent.Executors;
  */
 @Component
 @ConditionalOnClass(SnsTemplate.class)
-public class SqsUtil implements DisposableBean {
+public class SqsUtil implements SqsSubscriptions, DisposableBean {
     private static final Logger log = LoggerFactory.getLogger(SqsUtil.class);
 
     private final String deadLetterQueueName;
@@ -52,6 +52,7 @@ public class SqsUtil implements DisposableBean {
     private final SnsClient snsClient;
     private final SqsAsyncClient sqsClient;
     private final SqsDeserializer sqsDeserializer;
+    private final SqsMessageDecoder decoder;
     private final RetryTemplate retryTemplate;
     private final List<ExecutorService> pollingExecutors = new CopyOnWriteArrayList<>();
     private final EventRegistry eventRegistry;
@@ -87,6 +88,7 @@ public class SqsUtil implements DisposableBean {
         this.snsClient = snsClient;
         this.sqsClient = sqsClient;
         this.sqsDeserializer = sqsDeserializer;
+        this.decoder = new SqsMessageDecoder(sqsDeserializer);
         this.eventRegistry = eventRegistry;
         this.retryTemplate = new RetryTemplate(org.springframework.core.retry.RetryPolicy.builder()
                 .maxRetries(maxRetries)
@@ -139,6 +141,7 @@ public class SqsUtil implements DisposableBean {
      *         the type of the messages
      * @return a handle that stops polling the queue; the queue and its subscription to the topic are kept
      */
+    @Override
     public <T> SqsSubscription subscribe(SqsSubscriptionRequest<T> request) {
         var fifo = isFifoSubscription(request);
         var topicArn = ensureTopicExists(request.topic(), fifo);
@@ -369,29 +372,24 @@ public class SqsUtil implements DisposableBean {
     }
 
     <T> void processMessage(SqsSubscriptionRequest<T> request, String queueUrl, Message message) {
-        T event;
         var metadata = request.messageConsumer().map(ignored -> metadataOf(message));
+        var tombstone = metadata.filter(SqsMessageMetadata::tombstone).isPresent();
+        Optional<T> decoded;
         try {
-            if (metadata.filter(SqsMessageMetadata::tombstone).isPresent()) {
-                event = null;
-            } else if (request.eventType().isPresent()) {
-                var matching = sqsDeserializer.deserializeMatching(
-                        request.topic(), message.body(), request.eventType().orElseThrow());
-                if (matching.isEmpty()) {
-                    log.debug("Skipping SQS message for another concrete binding on topic [{}]", request.topic());
-                    deleteMessage(queueUrl, message);
-                    return;
-                }
-                event = matching.orElseThrow();
-            } else {
-                event = sqsDeserializer.deserialize(request.topic(), message.body(), request.type());
-            }
+            decoded = tombstone ? Optional.empty() : decoder.decode(request, message.body());
         } catch (UnknownEventTypeException e) {
             log.warn("Ignoring SQS message with unknown event type [{}] on topic [{}]",
                     e.eventTypeName(), request.topic());
             deleteMessage(queueUrl, message);
             return;
         }
+        if (!tombstone && decoded.isEmpty()) {
+            log.debug("Skipping SQS message for another concrete binding on topic [{}]", request.topic());
+            deleteMessage(queueUrl, message);
+            return;
+        }
+        // A tombstone carries no payload: message consumers receive null together with its metadata.
+        var event = decoded.orElse(null);
         try {
             request.retryTemplate().orElse(retryTemplate).execute(() -> {
                 try {

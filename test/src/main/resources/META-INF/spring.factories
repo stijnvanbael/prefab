@@ -1,5 +1,7 @@
 org.springframework.test.context.TestExecutionListener=\
   be.appify.prefab.test.kafka.TestConsumerExecutionListener,\
+  be.appify.prefab.test.inmemory.messaging.InMemoryBusTestExecutionListener,\
+  be.appify.prefab.test.inmemory.messaging.InMemoryEventConsumerExecutionListener,\
   be.appify.prefab.test.pubsub.TestSubscriberExecutionListener,\
   be.appify.prefab.test.sns.TestSqsSubscriberExecutionListener,\
   be.appify.prefab.test.persistence.PersistenceTestExecutionListener,\

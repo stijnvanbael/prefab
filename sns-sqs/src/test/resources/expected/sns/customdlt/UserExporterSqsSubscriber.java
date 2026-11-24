@@ -1,7 +1,7 @@
 package sns.customdlt.infrastructure.sns;
 
 import be.appify.prefab.core.sns.SqsSubscriptionRequest;
-import be.appify.prefab.core.sns.SqsUtil;
+import be.appify.prefab.core.sns.SqsSubscriptions;
 import java.time.Duration;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -22,7 +22,7 @@ public class UserExporterSqsSubscriber {
 
     private final UserExporter userExporter;
 
-    public UserExporterSqsSubscriber(UserExporter userExporter, SqsUtil sqsUtil,
+    public UserExporterSqsSubscriber(UserExporter userExporter, SqsSubscriptions sqsUtil,
             @Value("${prefab.dlt.retries.backoff-multiplier:1.5}") Double backoffMultiplier,
             @Value("${custom.dlt.name}") String deadLetterTopic,
             @Value("${topic.user.name}") String[] userEventTopics) {

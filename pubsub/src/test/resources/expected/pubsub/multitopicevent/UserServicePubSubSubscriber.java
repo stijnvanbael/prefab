@@ -1,6 +1,6 @@
 package pubsub.multitopicevent.infrastructure.pubsub;
 
-import be.appify.prefab.core.pubsub.PubSubUtil;
+import be.appify.prefab.core.pubsub.PubSubSubscriptions;
 import be.appify.prefab.core.pubsub.SubscriptionRequest;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
@@ -16,7 +16,7 @@ public class UserServicePubSubSubscriber {
 
     private final UserService userService;
 
-    public UserServicePubSubSubscriber(UserService userService, PubSubUtil pubSub,
+    public UserServicePubSubSubscriber(UserService userService, PubSubSubscriptions pubSub,
             @Value("${topic.user.primary}") String[] userEvent0Topics,
             @Value("${topic.user.secondary}") String[] userEvent1Topics) {
         for (var topic : userEvent0Topics) {

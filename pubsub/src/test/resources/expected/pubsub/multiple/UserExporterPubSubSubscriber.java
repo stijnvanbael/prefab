@@ -1,6 +1,6 @@
 package pubsub.multiple.infrastructure.pubsub;
 
-import be.appify.prefab.core.pubsub.PubSubUtil;
+import be.appify.prefab.core.pubsub.PubSubSubscriptions;
 import be.appify.prefab.core.pubsub.SubscriptionRequest;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
@@ -17,7 +17,7 @@ public class UserExporterPubSubSubscriber {
     private final UserExporter userExporter;
 
     public UserExporterPubSubSubscriber(@Value("${user-exporter.concurrency:4}") String concurrency,
-            UserExporter userExporter, PubSubUtil pubSub,
+            UserExporter userExporter, PubSubSubscriptions pubSub,
             @Value("${topic.user.name}") String[] userEventTopics) {
         for (var topic : userEventTopics) {
             pubSub.subscribe(new SubscriptionRequest<UserEvent>(topic, "user-exporter-on-user-event-" + topic, UserEvent.class, this::onUserEvent)

@@ -28,11 +28,13 @@ code; it has to run the already generated artefacts against other infrastructure
    Spring contexts.
 2. **The backend lives in `prefab-test`.** It is the default and reuses the test API (`EventConsumer`,
    `@TestEventConsumer`, assertions); a separate module would form a dependency cycle with `prefab-test`.
-3. **Repositories build on Spring Data KeyValue** (`MapKeyValueAdapter`, derived queries, paging and sorting).
-   Prefab adds what KeyValue lacks: registration of the generated repositories despite Spring Data's strict mode,
-   Query by Example, optimistic locking for `@Version`, one keyspace per sealed aggregate, the full-text and range
-   query executors and autocomplete. Native `@Query`/`@Aggregation` methods fail when called, naming the method and
-   the `containers = true` remedy.
+3. **Repositories are Prefab's own repository factory on `spring-data-commons`**, backed by a map per keyspace.
+   Spring Data KeyValue is not used: its `spring.factories` registers a second repository factory, which makes Spring
+   Data JDBC and MongoDB enter strict mode and stop claiming Prefab's generated repositories in containers mode (found
+   by CI in TASK-175.02). Prefab implements registration of the generated repositories, derived queries, paging and
+   sorting, Query by Example, optimistic locking for `@Version`, one keyspace per sealed aggregate, the full-text and
+   range query executors and autocomplete. Native `@Query`/`@Aggregation` methods fail when called, naming the method
+   and the `containers = true` remedy.
 4. **Events are delivered synchronously and in-process, after commit** of the publishing transaction (immediately
    without one), in FIFO order per thread. Handler failures are recorded and fail the test that triggered them; they
    do not propagate into the publishing request.
@@ -50,7 +52,7 @@ code; it has to run the already generated artefacts against other infrastructure
 | Opt-in by adding a separate `prefab-test-inmemory` dependency | Keeps the slow path as the default; dependency cycle with `prefab-test` |
 | Inline delivery with exceptions propagating to the publisher | A handler bug would show up as a failure of an unrelated HTTP call; real brokers decouple the two |
 | Passing events by reference | Misses serialization, versioning and migration bugs, which are a large part of what container tests catch |
-| An own Spring Data repository factory | Rewrites derived-query evaluation, sorting and paging that KeyValue already provides |
+| Spring Data KeyValue | Its `spring.factories` entry for `RepositoryFactorySupport` makes JDBC and MongoDB enter strict mode, so the generated repositories (no `@Table`/`@Document`, no store interface) are no longer found in containers mode |
 | Subclassing `PubSubUtil`/`SqsUtil` with dummy cloud clients | Couples the test backend to constructor internals of cloud clients |
 | An embedded database (H2) instead of maps | Still needs schema handling and diverges from Postgres SQL anyway; does not solve MongoDB |
 

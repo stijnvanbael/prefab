@@ -1,7 +1,7 @@
 package sns.single.infrastructure.sns;
 
 import be.appify.prefab.core.sns.SqsSubscriptionRequest;
-import be.appify.prefab.core.sns.SqsUtil;
+import be.appify.prefab.core.sns.SqsSubscriptions;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
@@ -18,7 +18,7 @@ public class UserExporterSqsSubscriber {
 
     private final UserExporter userExporter;
 
-    public UserExporterSqsSubscriber(UserExporter userExporter, SqsUtil sqsUtil) {
+    public UserExporterSqsSubscriber(UserExporter userExporter, SqsSubscriptions sqsUtil) {
         executor = Executors.newFixedThreadPool(2);
         sqsUtil.subscribe(new SqsSubscriptionRequest<UserCreated>("user", "user-exporter-on-user-created", UserCreated.class, this::onUserCreated)
                 .withExecutor(executor));

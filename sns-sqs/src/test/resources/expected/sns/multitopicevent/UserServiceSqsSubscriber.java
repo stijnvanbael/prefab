@@ -1,7 +1,7 @@
 package sns.multitopicevent.infrastructure.sns;
 
 import be.appify.prefab.core.sns.SqsSubscriptionRequest;
-import be.appify.prefab.core.sns.SqsUtil;
+import be.appify.prefab.core.sns.SqsSubscriptions;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
@@ -19,7 +19,7 @@ public class UserServiceSqsSubscriber {
 
     private final UserService userService;
 
-    public UserServiceSqsSubscriber(UserService userService, SqsUtil sqsUtil,
+    public UserServiceSqsSubscriber(UserService userService, SqsSubscriptions sqsUtil,
             @Value("${topic.user.primary}") String[] userEvent0Topics,
             @Value("${topic.user.secondary}") String[] userEvent1Topics) {
         executor = Executors.newFixedThreadPool(1);

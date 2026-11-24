@@ -231,4 +231,34 @@ class AutocompleteRepositoryWriterTest {
         assertTrue(source.contains("'$group'"));
         assertTrue(source.contains("'$sort'"));
     }
+
+    @ParameterizedTest
+    @EnumSource(MatchStrategy.class)
+    @DisplayName("JDBC method carries runtime metadata with the declared scan mode and match strategy")
+    void jdbcCarriesRuntimeMetadata(MatchStrategy strategy) {
+        var source = AutocompleteRepositoryWriter
+                .autocompleteJdbcMethod("brand", "product", ScanMode.CONTAINS, strategy)
+                .toString();
+
+        assertMetadata(source, ScanMode.CONTAINS, strategy);
+    }
+
+    @ParameterizedTest
+    @EnumSource(MatchStrategy.class)
+    @DisplayName("Mongo method carries runtime metadata with the declared scan mode and match strategy")
+    void mongoCarriesRuntimeMetadata(MatchStrategy strategy) {
+        var source = AutocompleteRepositoryWriter
+                .autocompleteMongoMethod("brand", ScanMode.PREFIX, strategy)
+                .toString();
+
+        assertMetadata(source, ScanMode.PREFIX, strategy);
+    }
+
+    private static void assertMetadata(String source, ScanMode scanMode, MatchStrategy strategy) {
+        assertTrue(source.contains("@be.appify.prefab.core.annotations.rest.AutocompleteQuery("));
+        assertTrue(source.contains("property = \"brand\""));
+        assertTrue(source.contains("scanMode = be.appify.prefab.core.annotations.rest.ScanMode." + scanMode.name()));
+        assertTrue(source.contains(
+                "matchStrategy = be.appify.prefab.core.annotations.rest.MatchStrategy." + strategy.name()));
+    }
 }

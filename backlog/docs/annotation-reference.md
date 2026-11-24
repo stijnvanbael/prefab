@@ -683,6 +683,15 @@ String brand;
 Generated controllers also accept `page` and `limit` request parameters. `page` defaults to `0`;
 `limit` defaults to the annotation's `limit()` value.
 
+#### Runtime metadata
+
+`@Autocomplete` has source retention, so it is not visible at runtime. The processor therefore repeats its settings on
+every generated `autocompleteBy<Field>` repository method with the runtime-retained
+`be.appify.prefab.core.annotations.rest.AutocompleteQuery(property, scanMode, matchStrategy)`, whichever persistence
+variant is generated (JDBC, MongoDB or neither). Backends that cannot run the generated native query read it instead:
+the in-memory test backend uses it to return the distinct, sorted values of `property` that match the query term
+according to the scan mode and match strategy. The annotation is generated; do not add it by hand.
+
 #### Migration from `ignoreCase`
 
 The old `boolean ignoreCase` attribute has been removed. Replace it as follows:

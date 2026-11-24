@@ -30,4 +30,11 @@ public @interface Multicast {
      * @return The names of the event properties to map on the query parameters, in the order of the query parameters.
      */
     String[] parameters() default {};
+
+    /**
+     * Whether to throw when the query finds no aggregate and there is no static companion handler.
+     *
+     * @return {@code true} to throw and trigger retry; {@code false} to treat an empty result as a no-op.
+     */
+    boolean failWhenEmpty() default true;
 }

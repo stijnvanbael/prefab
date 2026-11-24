@@ -25,4 +25,9 @@ public record Channel(
     public Channel onMessageSent(MessageSent event) {
         return new Channel(id, version, messageCount + 1);
     }
+
+    @EventHandler
+    @Multicast(queryMethod = "findByChannel", parameters = "channel", failWhenEmpty = false)
+    public void onMessageSentWhenNoChannels(MessageSent event) {
+    }
 }

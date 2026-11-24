@@ -16,8 +16,8 @@ import static java.time.Duration.ofSeconds;
 import static org.awaitility.Awaitility.await;
 
 /**
- * Sets up the data an order needs, through the generated test clients. Event handlers that find no aggregate for an
- * event fail and retry, so a test only places orders for customers and products that have their projections.
+ * Sets up the data an order needs, through the generated test clients. Multicast handlers use the default fail-and-retry behavior for
+ * empty results unless they explicitly opt out, so a test only places orders for customers and products that have their projections.
  */
 @Component
 public class Shop {

@@ -92,7 +92,7 @@ public record Order(
      * @return the cancelled order
      */
     @EventHandler
-    @Multicast(queryMethod = "findByCustomer", parameters = "customer")
+    @Multicast(queryMethod = "findByCustomer", parameters = "customer", failWhenEmpty = false)
     public Order onCustomerDeactivated(CustomerDeactivated event) {
         return cancel();
     }

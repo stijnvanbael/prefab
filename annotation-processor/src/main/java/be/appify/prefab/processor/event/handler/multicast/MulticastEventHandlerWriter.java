@@ -101,6 +101,13 @@ class MulticastEventHandlerWriter {
                     manifest.type().asTypeName(),
                     eventHandler.staticCompanionMethodName());
         }
+        if (!eventHandler.failWhenEmpty()) {
+            return CodeBlock.of("""
+                    if (aggregates.isEmpty()) {
+                        return;
+                    }
+                    """);
+        }
         return CodeBlock.of("""
                 if (aggregates.isEmpty()) {
                     throw new $T("No aggregates found for event: " + event);

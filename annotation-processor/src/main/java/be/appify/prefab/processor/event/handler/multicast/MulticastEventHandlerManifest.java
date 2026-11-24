@@ -11,6 +11,7 @@ record MulticastEventHandlerManifest(
         PrefabContext context,
         String queryMethod,
         String[] paramMapping,
+        boolean failWhenEmpty,
         String staticCompanionMethodName
 ) {
     String methodName() {

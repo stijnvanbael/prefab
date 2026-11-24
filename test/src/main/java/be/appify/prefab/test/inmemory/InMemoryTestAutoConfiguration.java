@@ -34,7 +34,7 @@ public class InMemoryTestAutoConfiguration {
     }
 
     /** Matches when tests run in memory. */
-    static class InMemoryModeCondition implements Condition {
+    public static class InMemoryModeCondition implements Condition {
         @Override
         public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
             return TestInfrastructureMode.inMemory(context.getEnvironment());

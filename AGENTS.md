@@ -119,8 +119,14 @@ deprecation/removal of any of these) is not finished until, in the same pull req
 1. **Reference docs** in `backlog/docs/` are updated.
 2. **Cheat sheet**: the entry for the affected intent is added, corrected or removed (TASK-344), and a
    deprecated way of doing something never stays in it.
-3. **Recipe**: the recipe covering the affected intent is updated, and its example still compiles (TASK-346).
-   Add a recipe if the feature introduces a new common intent.
+3. **Recipe**: update the recipe in `backlog/docs/recipes/` for the affected intent in the same change
+   (TASK-346). Also review it when a linked example or its tests change, even if public behaviour has not
+   changed: compilation alone does not check that its instructions, rules and fixes still match the example.
+   Keep examples build-verified and on the current recommended API; update links when sources move. Add a
+   recipe for a new common intent, add or remove index entries when recipes change, and respect the documented
+   budget. Keep `benchmark/contexts/recipes/` copy paths aligned with the examples recipes link to. Run
+   `RecipeDocumentationTest` and `WorkspaceFactoryTest`, plus the relevant example compilation and behavioural
+   tests.
 4. **Benchmark**: a task in `benchmark/tasks/` exercising the new or changed behaviour is added or updated
    (`backlog/docs/benchmark.md`, "Adding a task").
 5. **Generated agent context**: if the change alters what is generated, check that the per-project agent

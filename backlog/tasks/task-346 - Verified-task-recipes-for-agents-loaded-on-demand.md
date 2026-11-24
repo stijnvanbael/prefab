@@ -39,6 +39,8 @@ Related: TASK-148 AC #5 (extract compilable snippets from examples), TASK-337 (s
   a 750-token Markdown proxy.
 - Add a benchmark context that makes the recipe files and linked examples available on demand, then record results
   against the cheat-sheet-only and full-docs contexts.
+- Extend the contributor living-document rule to cover semantic drift when recipe examples or their supporting
+  tests change, as well as the recipe index, budget, and benchmark-context copies.
 <!-- SECTION:ANALYSIS:END -->
 
 ## Implementation Notes
@@ -49,6 +51,8 @@ Related: TASK-148 AC #5 (extract compilable snippets from examples), TASK-337 (s
   the recipe budget and validates each source link.
 - Linked the recipe index from the developer guide and cheat sheet. Added a `recipes` benchmark context that copies
   the recipes and linked example sources for on-demand use; `WorkspaceFactoryTest` verifies the context.
+- Expanded `AGENTS.md`'s living-document rule: review recipes when linked sources or tests change, keep their
+  guidance and links consistent, and maintain the index, budget, benchmark copies and relevant verification.
 - Validation: `mvn -pl annotation-processor,benchmark -am -Dtest=RecipeDocumentationTest,WorkspaceFactoryTest,TenantPluginTest -Dsurefire.failIfNoSpecifiedTests=false test` passes; `mvn -pl examples/showcase -am -DskipTests test` compiles the linked showcase examples.
 - Attempting the linked showcase integration tests failed when Testcontainers could not pull the Schema Registry image
   (connection reset while reading the image); this is an environment/network failure, not a test assertion failure.

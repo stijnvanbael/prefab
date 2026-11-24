@@ -71,6 +71,11 @@ substitute here (no Streams on the in-memory bus, TASK-374).
   names, so creating the topic failed at startup. Kafka and Pub/Sub accept dots, and the old `examples/sns-sqs` used
   dot-free topic names, so nothing had hit this. Topic names are now sanitized in `ensureTopicExists`, which every
   producer, subscriber and the streams sink go through. Covered by `SqsUtilTest`; CI went green with this change.
+- With the context failure gone, 1 of 93 tests (`StockLevelIntegrationTest.cancelOrder_releasesTheReservedQuantity`)
+  timed out on CI: a stock-level handler lost an optimistic-lock race and its retry waited 1.5 s, 2.3 s, 3.4 s ... on
+  `SqsUtil`'s defaults, longer than the test waits. `application-test.yml` set Kafka's `initial-interval-ms`, which
+  `SqsUtil` ignores; it reads `limit`, `minimum-backoff-ms`, `maximum-backoff-ms` and `multiplier`. The variant now
+  uses the same budget as the Pub/Sub variant (20 attempts, 10 to 100 ms).
 - Rebasing on main brought the Pub/Sub variant's fixes for the shared showcase sources (uncategorized sales,
   Awaitility uncaught exceptions), which this variant needs as well because `SqsUtil` also rethrows after retries
   (TASK-373).

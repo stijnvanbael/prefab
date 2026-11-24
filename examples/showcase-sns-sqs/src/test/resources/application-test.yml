@@ -11,5 +11,11 @@ prefab:
     containers: true
   flyway:
     auto-clean-on-mismatch: true
+  # SQS retries with its own backoff properties (the Kafka property is initial-interval-ms). The defaults (5 attempts,
+  # 1s growing by 1.5x) let a failing message outlive the test that published it. Concurrent handlers of the same
+  # stock level or order history collide on the optimistic lock, so the retries must be quick and outlast that
+  # contention.
   dlt.retries:
-    initial-interval-ms: 10
+    limit: 20
+    minimum-backoff-ms: 10
+    maximum-backoff-ms: 100

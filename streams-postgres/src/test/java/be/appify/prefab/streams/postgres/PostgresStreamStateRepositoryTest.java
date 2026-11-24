@@ -1,5 +1,6 @@
 package be.appify.prefab.streams.postgres;
 
+import be.appify.prefab.streams.engine.JsonStreamStateCodec;
 import be.appify.prefab.streams.engine.StreamMessage;
 import be.appify.prefab.streams.engine.StreamStateRepository;
 import be.appify.prefab.streams.engine.StreamStateRepositoryContractTest;
@@ -10,9 +11,15 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class PostgresStreamStateRepositoryTest extends StreamStateRepositoryContractTest {
     @Override
@@ -80,6 +87,98 @@ class PostgresStreamStateRepositoryTest extends StreamStateRepositoryContractTes
 
         assertThat(PostgresTestDatabase.jdbc().queryForObject(
                 "SELECT count(*) FROM prefab_stream_store", Integer.class)).isZero();
+    }
+
+    @Test
+    void aConflictOnOneStateRowCommitsNothingOfTheMessage() {
+        var repository = PostgresTestDatabase.freshRepository();
+
+        var outcome = commitWithConflictOnSecondRow(repository);
+
+        assertThat(outcome).isInstanceOf(StreamStateRepository.OptimisticConflictException.class);
+        assertNothingOfTheConflictingMessageCommitted(repository);
+    }
+
+    @Test
+    void refusesATransactionManagerForAnotherDataSourceBeforeWritingAnything() {
+        var repository = PostgresTestDatabase.freshRepository();
+        // Two DataSource objects for one database: the JdbcTemplate would autocommit outside the transaction.
+        var miswired = new PostgresStreamStateRepository(PostgresTestDatabase.jdbc(),
+                new UnknownResourceTransactionManager(PostgresTestDatabase.newDataSource()),
+                new JsonStreamStateCodec());
+
+        var outcome = commitWithConflictOnSecondRow(miswired);
+
+        assertThat(outcome).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("same DataSource");
+        assertNothingOfTheConflictingMessageCommitted(repository);
+    }
+
+    @Test
+    void rejectsADataSourceTransactionManagerForAnotherDataSource() {
+        var jdbc = PostgresTestDatabase.jdbc();
+        var transactionManager = new DataSourceTransactionManager(PostgresTestDatabase.newDataSource());
+        var codec = new JsonStreamStateCodec();
+
+        assertThatThrownBy(() -> new PostgresStreamStateRepository(jdbc, transactionManager, codec))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("same DataSource");
+    }
+
+    /** Commits a message that writes the inbox, two state rows and an outbox row; the second row is stale. */
+    private static RuntimeException commitWithConflictOnSecondRow(StreamStateRepository repository) {
+        var transaction = repository.beginTransaction();
+        transaction.recordInbox("sales", "s-1");
+        transaction.put("aggregate", "books", 5);
+        transaction.get("join", "s-1");
+        try (var concurrent = PostgresTestDatabase.newInstance().beginTransaction()) {
+            concurrent.recordInbox("refunds", "r-1");
+            concurrent.put("join", "s-1", "refund");
+            concurrent.commit();
+        }
+        transaction.put("join", "s-1", "sale");
+        transaction.enqueue("totals", new StreamMessage("s-1", "books", 5, Map.of(), Instant.EPOCH));
+        try {
+            transaction.commit();
+            throw new AssertionError("The commit should have failed");
+        } catch (RuntimeException failure) {
+            transaction.rollback();
+            return failure;
+        }
+    }
+
+    private static void assertNothingOfTheConflictingMessageCommitted(StreamStateRepository repository) {
+        try (var verification = repository.beginTransaction()) {
+            assertThat(verification.recordInbox("sales", "s-1")).isTrue();
+            assertThat(verification.get("aggregate", "books")).isEmpty();
+            assertThat(verification.get("join", "s-1")).contains("refund");
+            verification.rollback();
+        }
+        assertThat(repository.leaseOutbox("totals", "verifier", Instant.now(), Duration.ofSeconds(5), 10)).isEmpty();
+    }
+
+    /** A transaction manager whose resource the repository cannot inspect upfront, such as a JTA manager. */
+    private static final class UnknownResourceTransactionManager implements PlatformTransactionManager {
+        private final DataSourceTransactionManager delegate;
+
+        private UnknownResourceTransactionManager(DataSource dataSource) {
+            delegate = new DataSourceTransactionManager(dataSource);
+        }
+
+        @Override
+        public TransactionStatus getTransaction(TransactionDefinition definition) {
+            return delegate.getTransaction(definition);
+        }
+
+        @Override
+        public void commit(TransactionStatus status) {
+            delegate.commit(status);
+        }
+
+        @Override
+        public void rollback(TransactionStatus status) {
+            delegate.rollback(status);
+        }
     }
 
     private static void incrementWithRetry(StreamStateRepository repository) {

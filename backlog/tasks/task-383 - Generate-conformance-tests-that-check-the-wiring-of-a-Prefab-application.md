@@ -71,6 +71,9 @@ Generated tests are emitted to `target/prefab-test-sources` alongside the existi
   engine transitively: otherwise forcing in-memory mode leaves its `PrefabStreams` dependency unsatisfied.
   The showcase smoke passed for the generated customer event and security classes with
   `application-test.yml` still selecting containers, alongside the generator regression tests.
+- Mixed-mode CI follow-up: Spring Test pauses cached contexts when switching between container-backed tests and
+  in-memory conformance tests. CI reported a Kafka Streams state-directory lock on restart. The Kafka showcase
+  disables pause-on-switch in its test resources only; both contexts remain cached and close normally at shutdown.
 - Added the default-enabled `conformanceTest` opt-out to `@Aggregate` and `@Event`.
 - Added `ConformanceTestPlugin`: one generated security test class per aggregate checks anonymous and authenticated
   access for its exposed endpoints; one event test class per event binding round-trips each concrete record through

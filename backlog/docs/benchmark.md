@@ -502,9 +502,8 @@ benchmark/run.sh run --model claude-haiku-5-5 --context docs-folder --tasks feat
 benchmark/run.sh run --model claude-sonnet-5-5 --context full-docs --tasks feature,brownfield --repeat 3
 ```
 
-Writing the tasks already surfaced three problems an agent would hit: the annotation reference documents
-`@DbRename(oldName = ...)`, which does not compile, and suggests quoting `@DbDefaultValue` string values, which stores
-the quotes (TASK-386); two equality filters on one field with different parameter names do not compile (TASK-387); and
-a generated migration re-adds a foreign key that an earlier migration declared inline (TASK-388). Recording the
-baselines is TASK-389.
+Writing the tasks already surfaced three problems an agent would hit: the annotation reference used an unsupported
+named attribute for `@DbRename` and showed already-quoted `@DbDefaultValue` string values (corrected by TASK-386);
+two equality filters on one field with different parameter names do not compile (TASK-387); and a generated migration
+re-adds a foreign key that an earlier migration declared inline (TASK-388). Recording the baselines is TASK-389.
 <!-- BASELINES:END -->

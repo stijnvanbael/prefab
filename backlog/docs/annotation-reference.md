@@ -1334,17 +1334,19 @@ List<Tag> tags
 **Target:** `FIELD`
 **Retention:** `SOURCE`
 
-Sets a database-level default value on the generated column.
+Sets a database-level default value on the generated column. Provide the plain value; Prefab adds SQL quotes for
+string and enum columns.
 
-| Attribute | Type     | Description                                                         |
-|-----------|----------|---------------------------------------------------------------------|
-| `value`   | `String` | SQL default value expression (e.g. `"0"`, `"NOW()"`, `"'PENDING'"`) |
+| Attribute | Type     | Description                                                                     |
+|-----------|----------|---------------------------------------------------------------------------------|
+| `value`   | `String` | Plain default value (e.g. `"0"` or `"PENDING"`); string values are quoted by Prefab. |
 
 ```java
-
-@DbDefaultValue("'PENDING'")
+@DbDefaultValue("PENDING")
 Status status;
 ```
+
+For this string field, the generated column definition includes `DEFAULT 'PENDING'`.
 
 ---
 
@@ -1354,16 +1356,19 @@ Status status;
 **Target:** `FIELD`
 **Retention:** `SOURCE`
 
-Generates a migration script that renames the column from `oldName` to the current field name.
+Generates a migration script that renames a column from its previous name to the current field name.
 
-| Attribute | Type     | Description                           |
-|-----------|----------|---------------------------------------|
-| `oldName` | `String` | Previous column name in the database. |
+| Attribute | Type     | Description                            |
+|-----------|----------|----------------------------------------|
+| `value`   | `String` | Previous column name in the database. |
 
 ```java
+import be.appify.prefab.core.annotations.DbRename;
 
-@DbRename(oldName = "full_name")
-String customerName;
+class Customer {
+    @DbRename("full_name")
+    String customerName;
+}
 ```
 
 ---

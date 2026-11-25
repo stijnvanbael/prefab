@@ -278,6 +278,7 @@ public final class MongoStreamStateRepository implements StreamStateRepository {
         }
 
         private void apply() {
+            validateObservedVersions();
             var now = new Date();
             for (var inbox : pendingInbox) {
                 try {
@@ -296,6 +297,35 @@ public final class MongoStreamStateRepository implements StreamStateRepository {
                         .append("topic", record.topic())
                         .append("message", new Binary(codec.encodeMessage(record.message()))), OUTBOX);
             }
+        }
+
+        private void validateObservedVersions() {
+            observedVersions.forEach((key, expected) -> {
+                var stateId = stateId(key);
+                if (expected == 0) {
+                    if (mongo.exists(Query.query(where("_id").is(stateId)), STORE)) {
+                        throw stateConflict(key);
+                    }
+                    // This transient row makes a concurrent insert conflict without leaving a tombstone.
+                    mongo.insert(new Document("_id", stateId)
+                            .append("version", 0L)
+                            .append("value", new Binary(new byte[0])), STORE);
+                    mongo.remove(Query.query(where("_id").is(stateId)), STORE);
+                    return;
+                }
+                // MongoDB has no read lock, so this internal write guards an existing observed row until commit.
+                var locked = mongo.updateFirst(versioned(key, expected),
+                                new Update().inc("_prefabValidationLock", 1L), STORE)
+                        .getMatchedCount() == 1;
+                if (!locked) {
+                    throw stateConflict(key);
+                }
+            });
+        }
+
+        private OptimisticConflictException stateConflict(StateKey key) {
+            return new OptimisticConflictException(
+                    "State changed concurrently in namespace '%s'".formatted(key.namespace()));
         }
 
         // Microsecond wall clock, but always above what the topic already holds so a skewed clock cannot reorder

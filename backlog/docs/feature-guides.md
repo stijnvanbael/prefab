@@ -1317,8 +1317,9 @@ Values are `bytea` (JSON with concrete class names, including nested polymorphic
 `StreamStateCodec` bean to change it). State rows are trusted application data: the default codec resolves classes
 from stored metadata. Restrict write access to the state tables and use a stricter codec if database contents can be
 controlled by untrusted parties. Rows written by the previous JSON envelope remain readable.
-Keys use `StreamKeyEncoding`, shared with the Kafka backend. A conflicting write (stale `version`, claimed inbox
-identity or deadlock) throws `StreamStateRepository.OptimisticConflictException`, which the engine retries.
+Keys use `StreamKeyEncoding`, shared with the Kafka backend. Commit validates every state version observed while
+processing a message, including read-only observations and keys observed as absent; a changed version, claimed inbox
+identity or deadlock throws `StreamStateRepository.OptimisticConflictException`, which the engine retries.
 
 | Property | Default | Description |
 |----------|---------|-------------|
@@ -1406,8 +1407,9 @@ management is unaffected.
 | `prefab_stream_outbox` | Output records written in the message transaction, published by the relay in `seq` order per topic. |
 | `prefab_stream_lease` | One relay lease per sink topic (`_id`), with `owner` and `expiresAt`. Another instance takes over after it expires. |
 
-Values, keys, the `StreamStateCodec` and the retention of expired data work as described for Postgres. A conflicting
-write (stale `version`, claimed inbox identity or transient transaction error) throws
+Values, keys, the `StreamStateCodec` and the retention of expired data work as described for Postgres. Commit validates
+every state version observed while processing a message, including read-only observations and keys observed as absent;
+a changed version, claimed inbox identity or transient transaction error throws
 `StreamStateRepository.OptimisticConflictException`, which the engine retries.
 
 | Property | Default | Description |

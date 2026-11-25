@@ -1,8 +1,12 @@
 package be.appify.prefab.benchmark;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -52,6 +56,75 @@ final class ProcessRunner {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Interrupted while running " + String.join(" ", command), e);
+        }
+    }
+
+    /**
+     * Runs a command like {@link #run}, and also records when each line of its standard output arrived: one line per
+     * output line in {@code times}, holding the milliseconds since the start. Use it for output without timestamps of its
+     * own, such as the agent transcript.
+     *
+     * @param command the command, never empty
+     * @param options where to run it and where its output goes
+     * @param times   file that receives the arrival times (appended)
+     * @return the outcome
+     */
+    static ProcessResult runRecordingLineTimes(List<String> command, ProcessOptions options, Path times) {
+        var builder = new ProcessBuilder(command).directory(options.directory().toFile());
+        builder.environment().putAll(options.environment());
+        options.removedEnvironment().forEach(builder.environment()::remove);
+        createParent(options.stdout());
+        createParent(times);
+        builder.redirectOutput(ProcessBuilder.Redirect.PIPE);
+        if (options.stderr() == null) {
+            builder.redirectErrorStream(true);
+        } else {
+            createParent(options.stderr());
+            builder.redirectError(ProcessBuilder.Redirect.appendTo(options.stderr().toFile()));
+        }
+        builder.redirectInput(ProcessBuilder.Redirect.from(nullDevice()));
+        var start = Instant.now();
+        try {
+            var process = builder.start();
+            var copier = Thread.ofVirtual().start(() -> copyLines(process, options.stdout(), times, start));
+            var finished = process.waitFor(options.timeout().toMillis(), TimeUnit.MILLISECONDS);
+            if (!finished) {
+                destroy(process);
+            }
+            // Background processes the command started can keep the pipe open; don't wait for them.
+            if (!copier.join(Duration.ofSeconds(10))) {
+                process.getInputStream().close();
+                copier.join(Duration.ofSeconds(5));
+            }
+            return new ProcessResult(finished ? process.exitValue() : -1, !finished, Duration.between(start, Instant.now()));
+        } catch (IOException e) {
+            throw new UncheckedIOException("Cannot start " + String.join(" ", command), e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while running " + String.join(" ", command), e);
+        }
+    }
+
+    private static void copyLines(Process process, Path stdout, Path times, Instant start) {
+        try (var reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
+             var output = Files.newBufferedWriter(stdout, StandardCharsets.UTF_8,
+                     StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+             var arrivals = Files.newBufferedWriter(times, StandardCharsets.UTF_8,
+                     StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                output.write(line);
+                output.newLine();
+                arrivals.write(Long.toString(Duration.between(start, Instant.now()).toMillis()));
+                arrivals.newLine();
+                output.flush();
+                arrivals.flush();
+            }
+        } catch (IOException e) {
+            // The stream is closed on purpose when background processes keep it open after the command ended; the
+            // lines read so far are kept, and the parser ignores arrival times that do not match the transcript.
+            FileTrees.append(times.resolveSibling("process-runner.log"),
+                    "stopped copying output of the process: " + e + System.lineSeparator());
         }
     }
 

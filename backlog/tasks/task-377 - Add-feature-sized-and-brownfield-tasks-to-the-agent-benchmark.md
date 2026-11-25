@@ -1,7 +1,7 @@
 ---
 id: TASK-377
 title: Add feature-sized and brownfield tasks to the agent benchmark
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-24 10:00'
 labels:
@@ -38,3 +38,27 @@ where small models drift, fall back to plain Spring or work around generated cod
 - [ ] #6 A documented, opt-in way to run the quick tier on a schedule (for example a manually triggered GitHub workflow with a repository secret) tracks regressions between releases
 - [ ] #7 `benchmark.md` describes the tiers and how to add a brownfield task
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Analysis (2026-11-25):
+
+- **Tiers.** `task.yml` gets `tier: quick | feature | brownfield` (default `quick`, so the existing 32 tasks need no
+  change). Every `TaskResult` records its tier (old `report.json` files read as `quick`). `--tasks` also matches tier
+  names, so `--tasks quick` runs the quick tier. `report.md` gets a "By tier" table and `compare` a pass-rate row per
+  tier.
+- **Brownfield base.** Brownfield tasks name a base application (`base: shop`) from `benchmark/apps/<name>/`
+  (`app.yml` with description and modules, `project/` overlaid on the template before the starter). The `shop` app is
+  a snapshot of the showcase core (catalog, customers, ordering, invoicing, inventory; Postgres + Kafka + security),
+  renamed to `com.example.shop`, without the Avro/Streams slices, the capability test framework and the hand-written
+  order-history controller. A snapshot instead of a live copy keeps runs comparable over time.
+- **Metrics.** Claude Code's stream-json has no timestamps, so `ClaudeCodeAgent` records the arrival time of every
+  transcript line in `transcript.times`; the parser takes the first tool result of a Maven Bash call that is not an
+  error and shows no build or test failure as the first green build. Overrides are counted from guardrail violations
+  (`generated-class-override`, hand-written controller, repository, persistence, consumer, JPA), as distinct files.
+- **Schedule.** A `workflow_dispatch` GitHub workflow runs the quick tier with the `ANTHROPIC_API_KEY` secret; a weekly
+  schedule only runs when the repository variable `BENCHMARK_SCHEDULE` is `true`.
+- **Baselines.** Running `claude` from inside this cloud session is denied by the session's permission policy, so
+  baselines for the new tiers have to be recorded from a machine (or the workflow) with an API key.
+<!-- SECTION:PLAN:END -->

@@ -5,8 +5,9 @@ import java.nio.file.Path;
 import java.util.stream.Collectors;
 
 /**
- * Creates the project an agent works in: the template, overlaid with the task's starting project and the context
- * setup, committed to a fresh git repository so the harness can see what the agent changed.
+ * Creates the project an agent works in: the template, overlaid with the task's base application (brownfield tasks),
+ * the task's starting project and the context setup, committed to a fresh git repository so the harness can see what
+ * the agent changed.
  *
  * <p>Workspaces live outside the Prefab repository, so the agent cannot stumble on hidden tests or reference
  * solutions.
@@ -34,6 +35,7 @@ final class WorkspaceFactory {
     Git create(BenchmarkTask task, ContextSetup context, Path directory, Path log) {
         FileTrees.delete(directory);
         FileTrees.copy(paths.template(), directory);
+        task.base().ifPresent(app -> FileTrees.copy(app.project(), directory));
         if (Files.isDirectory(task.starter())) {
             FileTrees.copy(task.starter(), directory);
         }

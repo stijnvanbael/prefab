@@ -119,7 +119,7 @@ final class BenchmarkRunner {
             ProcessReaper.killProcessesIn(workspace);
             if (outcome.status() == Agent.Status.RATE_LIMITED) {
                 log("FAIL   %s rate limited", name);
-                return new TaskResult(task.id(), task.category(), attempt, false, outcome,
+                return new TaskResult(task.id(), task.category(), task.tier(), attempt, false, outcome,
                         new AcceptanceRunner.AcceptanceResult(List.of(new AcceptanceRunner.CheckResult("agent", false,
                                 outcome.message(), true)), List.of(), List.of(), null, List.of(), false),
                         Duration.ZERO, new TaskResult.Classification(FailureCategory.TEST_OR_INFRASTRUCTURE, "heuristic",
@@ -130,7 +130,7 @@ final class BenchmarkRunner {
             var acceptance = new AcceptanceRunner(Maven.create(environment), paths.acceptanceSupport()).check(task, workspace, git, logs);
             var acceptanceDuration = Duration.between(acceptanceStart, Instant.now());
             var passed = acceptance.passed() && !outcome.contaminated();
-            var result = new TaskResult(task.id(), task.category(), attempt, passed, outcome, acceptance,
+            var result = new TaskResult(task.id(), task.category(), task.tier(), attempt, passed, outcome, acceptance,
                     acceptanceDuration, null, logs.toString());
             if (!passed) {
                 result = result.withFailure(outcome.contaminated()
@@ -154,8 +154,8 @@ final class BenchmarkRunner {
             var acceptance = new AcceptanceRunner.AcceptanceResult(
                     List.of(new AcceptanceRunner.CheckResult("harness", false, e.toString(), true)),
                     List.of(), List.of(), null, List.of(), false);
-            return new TaskResult(task.id(), task.category(), attempt, false, failedOutcome, acceptance, Duration.ZERO,
-                    new TaskResult.Classification(FailureCategory.TEST_OR_INFRASTRUCTURE, "heuristic",
+            return new TaskResult(task.id(), task.category(), task.tier(), attempt, false, failedOutcome, acceptance,
+                    Duration.ZERO, new TaskResult.Classification(FailureCategory.TEST_OR_INFRASTRUCTURE, "heuristic",
                             "the harness failed: " + e.getMessage(), List.of(e.toString())),
                     logs.toString());
         }
@@ -171,9 +171,9 @@ final class BenchmarkRunner {
         var acceptance = new AcceptanceRunner.AcceptanceResult(
                 List.of(new AcceptanceRunner.CheckResult("agent", false, outcome.message(), true)),
                 List.of(), List.of(), null, List.of(), false);
-        return new TaskResult(task.id(), task.category(), attempt, false, outcome, acceptance, Duration.ZERO,
-                new TaskResult.Classification(FailureCategory.TEST_OR_INFRASTRUCTURE, "heuristic", outcome.message(),
-                        List.of()),
+        return new TaskResult(task.id(), task.category(), task.tier(), attempt, false, outcome, acceptance,
+                Duration.ZERO, new TaskResult.Classification(FailureCategory.TEST_OR_INFRASTRUCTURE, "heuristic",
+                outcome.message(), List.of()),
                 run.directory().resolve("attempts").resolve(task.id() + "-" + attempt).toString());
     }
 

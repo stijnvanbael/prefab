@@ -58,7 +58,8 @@ record ClaudeCodeAgent(String model, String executable, List<String> extraArgs, 
                 run.workspace(), environment, REMOVED_ENVIRONMENT,
                 transcript, run.logs().resolve("agent-stderr.log"), run.task().timeout().plus(GRACE));
         try {
-            return outcome(run, transcript, ProcessRunner.run(isolation.wrap(command, run.workspace(), stage), options));
+            return outcome(run, transcript, ProcessRunner.runRecordingLineTimes(
+                    isolation.wrap(command, run.workspace(), stage), options, TranscriptParser.timesFile(transcript)));
         } finally {
             FileTrees.delete(stage);
             FileTrees.delete(agentTemp);
@@ -74,7 +75,7 @@ record ClaudeCodeAgent(String model, String executable, List<String> extraArgs, 
                 : process.timedOut() ? "killed after " + run.task().timeout()
                 : "agent exited with code " + process.exitCode() + " without a result, see agent-stderr.log";
         return new AgentOutcome(status, parsed.usage(), parsed.turns(), parsed.buildAttempts(), parsed.costUsd(),
-                process.duration(), parsed.contaminated(), message);
+                process.duration(), parsed.contaminated(), message, parsed.firstGreenBuild());
     }
 
     private static Path createTempDirectory(String prefix) {

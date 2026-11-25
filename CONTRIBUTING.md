@@ -78,6 +78,33 @@ mvn install -DskipTests
 mvn verify
 ```
 
+### Preparing a Maven Central release
+
+The Release workflow runs `release.sh` on `main`. It builds the full reactor, including showcase variants and the
+benchmark, and stages a signed Central bundle without uploading it. `release/central-artifacts.txt` is the explicit
+allowlist of published coordinates and classifiers. Before the script commits or pushes a release tag, the guard checks
+the complete ZIP, nonempty signature files, source and Javadoc JARs, and checksums. Central validates the signatures
+cryptographically after upload. The script rechecks and uploads those exact ZIP bytes using the Central Publisher API.
+`MAVEN_USERNAME` and `MAVEN_PASSWORD` must contain the Central user token; the existing GPG signing credentials must
+also be configured.
+
+The upload remains user-managed: the script waits for Central validation, not final publication. Publish the
+validated deployment in the Central Portal. Its deployment ID is printed by the script. If validation or the upload
+fails after the release commit/tag was pushed, inspect the tag and the Central Portal before retrying; an upload may
+have succeeded even if the response was lost. Resolve or drop the existing deployment deliberately, and resume the
+next-development version only after deciding how to recover. If staging or the guard fails before the push, inspect
+the working-tree version edits and correct the cause before trying again. Never republish an already released GAV.
+
+When adding or removing a public artifact, review `release/central-artifacts.txt` alongside its POM. Keep internal
+examples and benchmark out of the bundle, but do not remove them from the reactor. Run the guard's focused tests with:
+
+```bash
+mkdir -p target/release-tools
+javac -d target/release-tools release/ReleaseBundle.java release/ReleasePublisher.java release/ReleaseBundleTest.java
+java -cp target/release-tools ReleaseBundleTest
+bash release/test-release-flow.sh
+```
+
 ### Building a single module
 
 ```bash
@@ -293,4 +320,3 @@ The entry point is [backlog/docs/developer-guide.md](backlog/docs/developer-guid
    full test suite.
 7. **Open a pull request** against `main` — include a brief description of *why* the change is needed
    and a reference to the backlog task ID.
-

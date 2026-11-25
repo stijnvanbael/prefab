@@ -42,6 +42,8 @@ next_development_version="$2"
 validate_version "Release version" "$release_version"
 validate_version "Next development version" "$next_development_version"
 [[ "$release_version" != "$next_development_version" ]] || fail "Release version and next development version must differ."
+[[ "${MAVEN_USERNAME:-}" =~ [^[:space:]] ]] || fail "MAVEN_USERNAME must contain the Central user token username."
+[[ "${MAVEN_PASSWORD:-}" =~ [^[:space:]] ]] || fail "MAVEN_PASSWORD must contain the Central user token password."
 
 current_branch=$(git branch --show-current)
 [[ "$current_branch" == "main" ]] || fail "Release must run from main, found $current_branch."
@@ -68,15 +70,20 @@ if grep -R -n --include pom.xml -- '-SNAPSHOT' . >/dev/null; then
     fail "Snapshot versions remain in pom.xml files after setting the release version."
 fi
 
-mvn --no-transfer-progress clean package
+mvn --no-transfer-progress clean deploy -P '!development' -DskipUpload=true
+bundle="target/central-publishing/central-bundle.zip"
+manifest="release/central-artifacts.txt"
+javac -d target/release-tools release/ReleaseBundle.java release/ReleasePublisher.java
+java -cp target/release-tools ReleasePublisher verify "$manifest" "$bundle" "$release_version"
+
 git add .
 git diff --cached --quiet && fail "Release version update produced no changes to commit."
 git commit -m "Release version $release_version"
 git tag "$release_version"
 git push --dry-run origin main "refs/tags/$release_version" >/dev/null
-git push origin main --tags
+git push origin main "refs/tags/$release_version"
 
-mvn --no-transfer-progress deploy -DskipTests -P '!development'
+java -cp target/release-tools ReleasePublisher upload "$manifest" "$bundle" "$release_version"
 
 next_snapshot_version="$next_development_version-SNAPSHOT"
 mvn --no-transfer-progress versions:set -DnewVersion="$next_snapshot_version" -DgenerateBackupPoms=false

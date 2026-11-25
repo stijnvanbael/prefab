@@ -1,0 +1,23 @@
+# Artifact ID, packaging, and optional additional classifier.
+prefab-parent pom
+prefab-annotation-processor jar
+prefab-async-api jar
+prefab-avro jar
+prefab-avro-processor jar
+prefab-core jar
+prefab-kafka jar
+prefab-mongodb jar
+prefab-openapi jar
+prefab-postgres jar
+prefab-pubsub jar
+prefab-security jar
+prefab-sns-sqs jar
+prefab-streams jar
+prefab-streams-engine jar tests
+prefab-streams-kafka jar
+prefab-streams-mongodb jar
+prefab-streams-postgres jar
+prefab-streams-pubsub jar
+prefab-streams-sns-sqs jar
+prefab-terraform jar
+prefab-test jar

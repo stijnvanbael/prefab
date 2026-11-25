@@ -1,0 +1,17 @@
+# A local Qwen model served by Ollama through its Anthropic-compatible endpoint. Claude Code stays the agent.
+# Adjust `model` to the tag you pulled (`ollama list`). Start the server with a context window of at least 32k, for
+# example `OLLAMA_CONTEXT_LENGTH=32768 ollama serve`: Claude Code's system prompt alone overflows Ollama's default.
+description: Local Qwen via Ollama (Anthropic-compatible endpoint), the initial baseline model
+model: qwen3-coder:30b
+env:
+  ANTHROPIC_BASE_URL: http://localhost:11434
+  ANTHROPIC_AUTH_TOKEN: ollama
+  ANTHROPIC_API_KEY: ""
+  # Claude Code uses a small model for side calls; without these it would ask the endpoint for a Claude model.
+  ANTHROPIC_DEFAULT_HAIKU_MODEL: qwen3-coder:30b
+  ANTHROPIC_DEFAULT_SONNET_MODEL: qwen3-coder:30b
+  ANTHROPIC_DEFAULT_OPUS_MODEL: qwen3-coder:30b
+  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+# A local model is several times slower than a hosted one, and one GPU serves one attempt well.
+timeoutFactor: 3
+parallel: 1

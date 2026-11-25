@@ -11,6 +11,7 @@ labels:
 dependencies:
   - TASK-343
   - TASK-344
+  - TASK-392
 priority: high
 type: docs
 ordinal: 191000
@@ -59,6 +60,8 @@ Related: TASK-148 AC #5 (extract compilable snippets from examples), TASK-337 (s
 - Acceptance criteria #1-#5 are implemented. Criterion #6 remains blocked: the configured environment has no
   Claude Code CLI or Anthropic API key, so no benchmark runs or results were produced. Do not treat the existing
   cheat-sheet/full-docs baselines as a recipes comparison.
+- Direction change (2026-11-25): the initial baseline model is a local Qwen (pluggable model profiles, TASK-391) because
+  Haiku runs exhaust the token budget. AC #6 is recorded through TASK-392; Haiku follows in TASK-389.
 <!-- SECTION:NOTES:END -->
 
 ## Acceptance Criteria
@@ -68,5 +71,5 @@ Related: TASK-148 AC #5 (extract compilable snippets from examples), TASK-337 (s
 - [x] #3 Every code example in a recipe is compiled (and where relevant tested) by the build, so a breaking API change fails the build instead of leaving an outdated recipe
 - [x] #4 An index maps intents to recipes so an agent can pick the right one without reading the others
 - [x] #5 Recipes use only the current recommended API; deprecated annotations and attributes do not appear
-- [ ] #6 Benchmark results from TASK-343 are recorded for Haiku with cheat sheet plus recipes, compared to cheat sheet alone and to the full docs
+- [ ] #6 Benchmark results from TASK-343 are recorded for the baseline model (local Qwen, TASK-391 and TASK-392) with cheat sheet plus recipes, compared to cheat sheet alone and to the full docs; Haiku runs follow in TASK-389
 <!-- AC:END -->

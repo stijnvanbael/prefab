@@ -30,6 +30,11 @@ Related: completed TASK-168 (compilation performance) and TASK-307 (multi-round 
 - Planned native JPS scenario matrix (not yet run): in `examples/mongodb`, edit/add/rename/delete aggregate components and nested records; in `examples/avro`, edit/add/delete `@Avsc` event contracts and schema inputs; in `examples/kafka`, `examples/pubsub`, and `examples/sns-sqs`, edit/add/delete event handlers and topics. Trigger ordinary IntelliJ Build Project after each change and compare generated Java/resources with a clean Maven build.
 - Native IntelliJ incremental edit/add/rename/delete scenarios and clean-build comparisons remain unverified. Do not remove the existing IDE guidance until those runs demonstrate the supported native workflow.
 - Next, rerun tests across annotation-processor, Avro, Kafka, Pub/Sub and SNS/SQS; then document precise reproduction steps and either execute native IDEA scenarios or record the external IDE limitation.
+- Execution plan (2026-11-25): the native IntelliJ scenarios need a real IDE, so they run from GitHub Copilot's agent
+  inside IntelliJ IDEA rather than from a cloud session. Write the scenario matrix as a self-contained runbook
+  (steps, expected generated files, a result table per scenario, IDE/JDK/Maven versions) so the IDE agent can follow
+  it and report evidence, then fold the results back into this task. The README guidance changes only after those
+  results.
 <!-- SECTION:ANALYSIS:END -->
 
 ## Acceptance Criteria

@@ -1,6 +1,8 @@
 spring:
   application:
     name: prefab.showcase-inmemory
+  profiles:
+    default: local
   kafka:
     properties:
       # Avro events (payments, shipments) need a schema registry next to Kafka

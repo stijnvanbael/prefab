@@ -71,6 +71,7 @@ final class AgentContextRenderer {
         appendAggregates(out, manifests, polymorphicManifests, active);
         appendEvents(out);
         appendConfiguration(out, active);
+        appendLocalVerification(out);
         return out.toString();
     }
 
@@ -205,6 +206,13 @@ final class AgentContextRenderer {
         }
         out.append("## Required configuration\n\n");
         properties.forEach(property -> out.append("- `%s`\n".formatted(property)));
+    }
+
+    private static void appendLocalVerification(StringBuilder out) {
+        out.append("## Local verification\n\n")
+                .append("When `prefab-test` is a test dependency, run `mvn test-compile spring-boot:test-run` ")
+                .append("to start the app on in-memory repositories and an in-process event bus without Docker. ")
+                .append("Use the printed base URL and docs links to verify the running app.\n");
     }
 
     private record Capability(String name, String marker, String hint, List<String> properties) {

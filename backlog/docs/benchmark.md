@@ -167,6 +167,7 @@ copy:                          # repository files or directories copied into the
 | `docs-folder` | The same docs copied to `docs/prefab/`, with a short CLAUDE.md that points to them. Read on demand. |
 | `cheat-sheet` | Only the [agent cheat sheet](agent-cheat-sheet.md) (about 2k tokens) in CLAUDE.md, always loaded. |
 | `recipes` | Cheat sheet plus the recipe index in CLAUDE.md; recipes and their verified source examples are copied and opened on demand. |
+| `local-run` | Cheat sheet plus an explicit instruction to start the in-memory application and verify an affected endpoint over HTTP. |
 
 The `recipes` context is configured but does not yet have a recorded Haiku run; see TASK-346 AC #6. Do not treat
 the cheat-sheet or full-docs baselines as results for this context.

@@ -19,6 +19,7 @@ or exercised by the Maven build, so the recipe cannot silently drift from the te
 | Handle an event across matching aggregates | [Event handling: multicast](event-handling-multicast.md) |
 | Add repository queries | [Repository mixins](repository-mixins.md) |
 | Secure generated endpoints | [Endpoint security](endpoint-security.md) |
+| Run the app locally without infrastructure | [Run an application locally](run-app-locally.md) |
 | Scope data to a tenant | [Multi-tenancy](multi-tenancy.md) |
 | Upload or download binary data | [Binary fields](binary-fields.md) |
 | Track who created or changed an aggregate | [Audit fields](audit-fields.md) |

@@ -604,6 +604,8 @@ See [Plugin selection](annotation-reference.md#generate) for the other ways to s
 
 Read `target/prefab/agent-context.md` first, before opening generated sources. Treat it as the index of what
 exists: change behaviour by editing the annotated domain types and recompiling, never by editing generated code.
+When `prefab-test` is a test dependency, use `mvn test-compile spring-boot:test-run` to run the application against
+the in-memory repositories and event bus; use the printed URL and docs links to verify behaviour over HTTP.
 
 ---
 

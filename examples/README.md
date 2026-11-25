@@ -198,6 +198,11 @@ showcase, generated for Postgres + Kafka (with the Avro slice), but without `pre
 (`prefab-streams` and `prefab-streams-engine`, no broker), and lists the gaps in its capabilities file:
 `KAFKA_STREAMS_BREAKOUT` (TASK-374, `breakout` hands over the Kafka Streams API, which the engine does not have) and
 `SCHEMA_REGISTRY_API` (TASK-375, the mock schema registry has no HTTP endpoint). Its own
+`LocalApplicationSmokeTest` starts the showcase as a real web application on a random port, verifies the docs and
+checks that customer registration reaches the order-history handler through the in-memory serialized event bus. It is
+part of the normal CI build and needs no Docker. For a live demo with sample data, run
+`mvn test-compile spring-boot:test-run -Dspring-boot.run.profiles=local,local-demo` from the variant; the test-scoped
+seed runner adds a sample category without packaging demo data into production.
 `InMemoryOrderSalesAnalyticsIntegrationTest` places orders through the REST API and checks the revenue that the
 topology publishes on the bus.
 `showcase-mongodb` also runs in memory (`prefab.test.containers: false`): the generated MongoDB index configuration

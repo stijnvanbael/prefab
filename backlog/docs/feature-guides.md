@@ -26,6 +26,7 @@
 - [7.18 Aggregate-bound frontend views](#718-aggregate-bound-frontend-views)
 - [7.19 Security and API Documentation](#719-security-and-api-documentation)
 - [7.20 Integration Tests: In-memory or Containers](#720-integration-tests-in-memory-or-containers)
+- [7.21 Run an Application Locally without Infrastructure](#721-run-an-application-locally-without-infrastructure)
 
 ---
 
@@ -2265,3 +2266,33 @@ In earlier Prefab releases `@IntegrationTest` always ran on containers. To keep 
 `prefab.test.containers: true` in `src/test/resources/application-test.yml`. This repository does that for all
 examples except `examples/showcase-inmemory`, which proves the in-memory backend on the showcase (see
 [examples/README.md](../../examples/README.md#technology-coverage)).
+
+## 7.21 Run an Application Locally without Infrastructure
+
+`prefab-test` can run an application, not only its integration tests, on the same in-memory backend. Add it with test
+scope and run this command from the application directory:
+
+```shell
+mvn test-compile spring-boot:test-run
+```
+
+The Spring Boot Maven plugin starts the main application using the test runtime classpath. The default
+`prefab.test.containers=false` mode supplies in-memory repositories and the synchronous event bus; events still pass
+through the platform serializers and reach the application's own `@EventHandler`s. Nothing is persisted between
+process runs. The startup log reports the bound base URL, docs URLs available on the classpath, and which in-memory
+backends are active.
+
+OpenAPI and AsyncAPI routes are served when their modules are present. They remain subject to the application's normal
+security rules. The showcase's `local` profile uses HTTP Basic with Spring Boot's generated development password; its
+production profile keeps JWT resource-server security. Do not copy local authentication settings to production.
+
+Seeding is application-specific and optional: add a test-source `ApplicationRunner` guarded by a local-only profile and
+write sample records through Prefab's generated repositories. The `showcase-inmemory` variant includes a
+`local-demo`-profile runner that seeds one category; the smoke test starts the real web application without Docker,
+checks the docs endpoints and verifies a serialized customer event creates its order-history projection.
+Start the seed profile with
+`mvn test-compile spring-boot:test-run -Dspring-boot.run.profiles=local,local-demo`.
+
+For AI-assisted work, compile first, start the app with this command, then use the printed URL to inspect an endpoint
+and available documentation. The generated `target/prefab/agent-context.md` and the
+[agent cheat sheet](agent-cheat-sheet.md) carry the same verification guidance.

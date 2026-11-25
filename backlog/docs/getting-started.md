@@ -61,6 +61,27 @@ Spring Data JDBC repository, request/response records, and a Flyway migration sc
 
 ---
 
+## Run the application locally without infrastructure
+
+Add `prefab-test` as a test-scoped dependency (as you would for `@IntegrationTest`), then start the application from its
+Maven project directory:
+
+```shell
+mvn test-compile spring-boot:test-run
+```
+
+Spring Boot runs the application with the test classpath. Prefab's in-memory repositories and event bus replace the
+database and broker; no Docker, database, broker, generated launcher, or extra configuration is needed. State is
+ephemeral and disappears when the process stops. The startup log prints the base URL, available OpenAPI/Swagger and
+AsyncAPI URLs, and the active in-memory backends.
+
+The local run does not weaken application security. Use the application's own local authentication setup; the showcase
+defaults to its `local` profile, which uses HTTP Basic and Spring Boot's generated development password. Never use a
+local profile as a production security configuration. To start with example data, add a test-source `ApplicationRunner`
+and activate an app-specific profile such as `local-demo`; the showcase variant demonstrates this pattern.
+
+---
+
 ## Next Steps
 
 - [Annotation Reference](annotation-reference.md) — full reference for every annotation
@@ -68,4 +89,3 @@ Spring Data JDBC repository, request/response records, and a Flyway migration sc
 - [Generated Artefacts](generated-artefacts.md) — what gets generated and how
 - [Feature Guides](feature-guides.md) — hands-on guides for every feature
 - [Module Dependency Matrix](modules.md) — which modules to add for each feature
-

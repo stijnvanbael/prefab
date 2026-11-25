@@ -62,6 +62,7 @@ class AgentContextPluginTest {
                 .contains("**MongoDB persistence**")
                 .contains("`spring.kafka.bootstrap-servers`")
                 .contains("`spring.data.mongodb.uri`")
+                .contains("`mvn test-compile spring-boot:test-run`")
                 .contains("collection `order`")
                 .doesNotContain("Pub/Sub events")
                 .doesNotContain("SNS/SQS events")

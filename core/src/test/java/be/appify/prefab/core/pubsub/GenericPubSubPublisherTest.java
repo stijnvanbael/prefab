@@ -13,9 +13,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -42,7 +45,7 @@ class GenericPubSubPublisherTest {
         when(pubSubUtil.ensureTopicExists(anyString())).thenAnswer(inv -> "projects/test/" + inv.getArgument(0));
         when(serializer.serialize(anyString(), any())).thenReturn(new byte[]{1, 2, 3});
         when(pubSubUtil.keyFor(any())).thenReturn(Optional.empty());
-        when(pubSubTemplate.publish(anyString(), any(PubsubMessage.class)))
+        lenient().when(pubSubTemplate.publish(anyString(), any(PubsubMessage.class)))
                 .thenReturn(CompletableFuture.completedFuture("msg-id"));
     }
 
@@ -113,5 +116,20 @@ class GenericPubSubPublisherTest {
         assertThat(captor.getValue().getAttributesMap())
                 .containsEntry("type", TestEvent.class.getName());
     }
-}
 
+    @Test
+    @DisplayName("dispatch_givenPublishFails_throwsErrorNamingTheTopicAndKeepingTheCause")
+    void dispatch_givenPublishFails_throwsErrorNamingTheTopicAndKeepingTheCause() {
+        var event = new TestEvent("6");
+        var cause = new IllegalStateException("UNAVAILABLE");
+        when(pubSubUtil.topicsForDispatch(event)).thenReturn(List.of("my-topic"));
+        when(pubSubTemplate.publish(anyString(), any(PubsubMessage.class)))
+                .thenReturn(CompletableFuture.failedFuture(cause));
+
+        assertThatThrownBy(() -> publisher.dispatch(event))
+                .isInstanceOf(CompletionException.class)
+                .hasMessageContaining("projects/test/my-topic")
+                .hasMessageContaining("make sure Pub/Sub is available")
+                .hasCause(cause);
+    }
+}

@@ -121,7 +121,6 @@
         <dependency>
             <groupId>be.appify.prefab</groupId>
             <artifactId>prefab-streams-engine</artifactId>
-            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>be.appify.prefab</groupId>

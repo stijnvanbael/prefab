@@ -64,6 +64,13 @@ Generated tests are emitted to `target/prefab-test-sources` alongside the existi
 
 ## Implementation Notes
 <!-- SECTION:NOTES:BEGIN -->
+- CI follow-up: generated event tests inject in-memory `MessageCodec` beans, which are absent when a module selects
+  containers via `application-test.yml`. Generate both event and security conformance tests with a test-property
+  override selecting the in-memory backend; verify against a showcase module that normally selects containers.
+  The container-configured showcase also uses Prefab Streams, so `prefab-test` must bring the in-process Streams
+  engine transitively: otherwise forcing in-memory mode leaves its `PrefabStreams` dependency unsatisfied.
+  The showcase smoke passed for the generated customer event and security classes with
+  `application-test.yml` still selecting containers, alongside the generator regression tests.
 - Added the default-enabled `conformanceTest` opt-out to `@Aggregate` and `@Event`.
 - Added `ConformanceTestPlugin`: one generated security test class per aggregate checks anonymous and authenticated
   access for its exposed endpoints; one event test class per event binding round-trips each concrete record through

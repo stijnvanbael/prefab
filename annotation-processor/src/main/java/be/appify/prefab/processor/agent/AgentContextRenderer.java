@@ -80,6 +80,7 @@ final class AgentContextRenderer {
         out.append("## Generated conformance tests\n\n")
                 .append("With `prefab-test` on the test classpath, Prefab generates tests for public endpoint ")
                 .append("security (when Spring Security is enabled) and event serialization round-trips. ")
+                .append("These tests run in memory even when the module selects containers. ")
                 .append("Opt out per aggregate or event with `conformanceTest = false` on `@Aggregate` or `@Event`.\n\n");
     }
 

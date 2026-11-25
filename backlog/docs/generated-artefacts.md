@@ -676,7 +676,8 @@ When `prefab-test` is on the test classpath, the annotation processor generates 
 - `{Aggregate}SecurityConformanceTest` checks anonymous and authenticated access for every public REST endpoint.
 - `{Event}EventConformanceTest` round-trips each concrete event record through the registered platform codec.
 
-These are ordinary JUnit integration tests and run with `mvn verify` using the default in-memory test backend. They
+These are ordinary JUnit integration tests and run with `mvn verify` using the in-memory test backend, even when the
+module configures its other tests to use containers. They
 check framework wiring, not business behavior. Set `@Aggregate(conformanceTest = false)` or
 `@Event(conformanceTest = false)` to opt out for one aggregate or event. Migration replay validation is independent
 of these test opt-outs.

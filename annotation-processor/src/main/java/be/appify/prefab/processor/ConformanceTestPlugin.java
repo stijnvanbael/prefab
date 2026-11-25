@@ -14,6 +14,7 @@ import be.appify.prefab.core.domain.TypedEvent;
 import be.appify.prefab.processor.event.EventBindings;
 import be.appify.prefab.processor.rest.ControllerUtil;
 import be.appify.prefab.processor.rest.ExposureResolver;
+import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.FieldSpec;
@@ -39,6 +40,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 public final class ConformanceTestPlugin implements PrefabPlugin {
     private static final ClassName INTEGRATION_TEST =
             ClassName.get("be.appify.prefab.test", "IntegrationTest");
+    private static final ClassName TEST_PROPERTY_SOURCE =
+            ClassName.get("org.springframework.test.context", "TestPropertySource");
     private static final ClassName ASSERTIONS = ClassName.get("org.assertj.core.api", "Assertions");
     private static final ClassName JUNIT_TEST = ClassName.get("org.junit.jupiter.api", "Test");
     private static final ClassName MOCK_MVC = ClassName.get("org.springframework.test.web.servlet", "MockMvc");
@@ -87,6 +90,7 @@ public final class ConformanceTestPlugin implements PrefabPlugin {
         var type = TypeSpec.classBuilder(testName)
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(INTEGRATION_TEST)
+                .addAnnotation(inMemoryTestProperty())
                 .addField(FieldSpec.builder(MOCK_MVC, "mockMvc", Modifier.PRIVATE)
                         .addAnnotation(Autowired.class)
                         .build());
@@ -239,6 +243,7 @@ public final class ConformanceTestPlugin implements PrefabPlugin {
         var type = TypeSpec.classBuilder(testName)
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(INTEGRATION_TEST)
+                .addAnnotation(inMemoryTestProperty())
                 .addField(FieldSpec.builder(ParameterizedTypeName.get(ClassName.get(List.class), MESSAGE_CODEC),
                                 "codecs", Modifier.PRIVATE)
                         .addAnnotation(Autowired.class)
@@ -251,6 +256,12 @@ public final class ConformanceTestPlugin implements PrefabPlugin {
         }
         writer.setPreferredElement(originatingElement);
         writer.writeFile(binding.packageName(), testName, type.build());
+    }
+
+    private static AnnotationSpec inMemoryTestProperty() {
+        return AnnotationSpec.builder(TEST_PROPERTY_SOURCE)
+                .addMember("properties", "$S", "prefab.test.containers=false")
+                .build();
     }
 
     private MethodSpec eventRoundTripTest(TypeManifest binding, TypeManifest payloadType, String topic, int index) {

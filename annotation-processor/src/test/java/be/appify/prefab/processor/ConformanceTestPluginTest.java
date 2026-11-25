@@ -68,6 +68,10 @@ class ConformanceTestPluginTest {
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "test/conformance/InvoiceSecurityConformanceTest.java")
                 .contentsAsUtf8String()
                 .contains("assertEndpointSecurity(\"POST\", \"/invoices\", false, \"\", \"\")");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "test/conformance/InvoiceSecurityConformanceTest.java")
+                .contentsAsUtf8String()
+                .contains("@TestPropertySource(\n        properties = \"prefab.test.containers=false\"\n)");
 
         assertThat(compilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "test/conformance/InvoiceEventEventConformanceTest.java")
@@ -77,6 +81,10 @@ class ConformanceTestPluginTest {
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "test/conformance/InvoiceEventEventConformanceTest.java")
                 .contentsAsUtf8String()
                 .contains("codec.encode(\"invoice-events\", expected).decode()");
+        assertThat(compilation)
+                .generatedFile(StandardLocation.CLASS_OUTPUT, "test/conformance/InvoiceEventEventConformanceTest.java")
+                .contentsAsUtf8String()
+                .contains("@TestPropertySource(\n        properties = \"prefab.test.containers=false\"\n)");
         assertThat(compilation)
                 .generatedFile(StandardLocation.CLASS_OUTPUT, "test/conformance/InvoiceEventEventConformanceTest.java")
                 .contentsAsUtf8String()

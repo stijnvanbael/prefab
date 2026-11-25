@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: @@ARTIFACT_ID@@
+  profiles:
+    default: local
+
+error.handling:
+  exception-logging: WITH_STACKTRACE

@@ -43,6 +43,10 @@ copy:
     to: examples/showcase/src/test/java/be/appify/prefab/example/showcase/invoicing/InvoiceIntegrationTest.java
   - from: examples/showcase/src/test/java/be/appify/prefab/example/showcase/ShowcaseSecurityAndDocumentationIntegrationTest.java
     to: examples/showcase/src/test/java/be/appify/prefab/example/showcase/ShowcaseSecurityAndDocumentationIntegrationTest.java
+  - from: examples/showcase-inmemory/src/test/java/be/appify/prefab/example/showcase/ShowcaseLocalDemoData.java
+    to: examples/showcase-inmemory/src/test/java/be/appify/prefab/example/showcase/ShowcaseLocalDemoData.java
+  - from: examples/showcase-inmemory/src/test/java/be/appify/prefab/example/showcase/LocalApplicationSmokeTest.java
+    to: examples/showcase-inmemory/src/test/java/be/appify/prefab/example/showcase/LocalApplicationSmokeTest.java
   - from: annotation-processor/src/test/resources/tenant/project/source/Project.java
     to: annotation-processor/src/test/resources/tenant/project/source/Project.java
   - from: annotation-processor/src/test/java/be/appify/prefab/processor/tenant/TenantPluginTest.java

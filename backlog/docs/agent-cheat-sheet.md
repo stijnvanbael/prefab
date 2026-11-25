@@ -80,6 +80,7 @@ Setup: `@EnablePrefab` on the `@SpringBootApplication` class. Add only the modul
 | Large text, index, JSON column | `@Text`, `@Indexed`, `@DbDocument` |
 | Rename a column, set a default | `@DbRename`, `@DbDefaultValue` |
 | Hide an aggregate's HTTP endpoints | `@Aggregate(exposure = Exposure.INTERNAL)` |
+| Run the app locally without Docker | Add `prefab-test` in test scope; run `mvn test-compile spring-boot:test-run`, then use the logged base URL/docs URLs to check behaviour |
 | Test one aggregate's logic and events | Plain JUnit; `@ExtendWith(PublishedEventsExtension.class)` + `CapturingDomainEventPublisher` parameter |
 | Test through HTTP | `@IntegrationTest` (prefab-test) and `@Autowired {Aggregate}Client`. Runs in memory, no Docker; Prefab Streams topologies run in memory too when `prefab-streams-engine` is on the classpath. Add `containers = true` only for a test that needs real database or broker behaviour |
 
@@ -99,6 +100,8 @@ Setup: `@EnablePrefab` on the `@SpringBootApplication` class. Add only the modul
   Prefab reports hand-written controllers, entities, repositories and migrations that duplicate an aggregate at
   compile time; those opt-outs are for human decisions.
 - Do **not** silence a Prefab compiler error by deleting the annotation. Read the message and fix the cause.
+- Do **not** assume an endpoint is public in a local run; security remains enabled and local credentials/profile are
+  application-specific. Never enable a permissive local setup in production.
 
 ## When Prefab can't express it
 

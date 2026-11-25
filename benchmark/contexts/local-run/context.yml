@@ -1,0 +1,4 @@
+description: Compact cheat sheet with an explicit instruction to verify the running app locally.
+instructions:
+  - repo: backlog/docs/agent-cheat-sheet.md
+  - context: CLAUDE.md

@@ -15,6 +15,7 @@ class RecipeDocumentationTest {
     private static final List<Path> VERIFIED_SOURCE_ROOTS = List.of(
             PATHS.repository().resolve("examples/showcase/src/main/java"),
             PATHS.repository().resolve("examples/showcase/src/test/java"),
+            PATHS.repository().resolve("examples/showcase-inmemory/src/test/java"),
             PATHS.repository().resolve("annotation-processor/src/test/java"),
             PATHS.repository().resolve("annotation-processor/src/test/resources/tenant/project/source"));
 

@@ -3,6 +3,7 @@ category: brownfield-feature
 tier: brownfield
 base: shop
 timeoutMinutes: 45
+maxTurns: 150
 notes: >
   Reference: a Review aggregate nested under Product (@Parent; the nested path comes from the type name), a ReviewPosted event that
   Product handles @ByReference, two counters on Product with @DbDefaultValue("0") because the product table already

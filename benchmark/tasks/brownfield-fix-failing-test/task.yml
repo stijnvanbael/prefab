@@ -3,6 +3,7 @@ category: brownfield-fix-test
 tier: brownfield
 base: shop
 timeoutMinutes: 40
+maxTurns: 150
 notes: >
   The starter adds "discontinue a product" with a @Multicast handler on StockLevel that keeps the default
   failWhenEmpty = true, so discontinuing a product without a stock level fails (and would be retried and

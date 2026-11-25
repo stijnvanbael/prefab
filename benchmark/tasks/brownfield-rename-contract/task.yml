@@ -3,6 +3,7 @@ category: brownfield-contract
 tier: brownfield
 base: shop
 timeoutMinutes: 40
+maxTurns: 150
 notes: >
   Reference: rename the record component to manufacturer with @DbRename("brand") and add a @Computed brand() for
   responses. The hidden tests also read the migration scripts on the classpath: the column must be renamed, not

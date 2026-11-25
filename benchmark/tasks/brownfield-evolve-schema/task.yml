@@ -3,6 +3,7 @@ category: brownfield-schema
 tier: brownfield
 base: shop
 timeoutMinutes: 40
+maxTurns: 150
 notes: >
   Reference: a non-null enum component with @DbDefaultValue("BRONZE"), so the generated migration adds the column
   with a default for existing rows, plus an admin-only @Update. The hidden tests read the migration scripts on the

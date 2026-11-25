@@ -3,6 +3,7 @@ category: brownfield-feature
 tier: brownfield
 base: shop
 timeoutMinutes: 45
+maxTurns: 150
 notes: >
   Reference: StockLevel publishes StockRunningLow when an order takes the available stock below 5; a new
   RestockRequest aggregate is created from that event (static @EventHandler), has admin-only reads and a fulfilment

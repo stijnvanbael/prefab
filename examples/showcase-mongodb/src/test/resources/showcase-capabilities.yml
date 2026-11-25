@@ -1,8 +1,10 @@
 # Capabilities this variant does not support. Every capability that is not listed is supported.
-# Each gap needs a reason and the backlog task that tracks it, e.g.:
+# Each gap needs a reason and the backlog task that tracks it.
 #
-# unsupported:
-#   STREAMS:
-#     reason: no Pub/Sub backend for Prefab Streams
-#     task: TASK-341
+# Integration tests of this variant run in memory (prefab.test.containers=false, see application-test.yml), so it
+# shares the gap of the in-memory test backend.
 variant: showcase-mongodb
+unsupported:
+  SCHEMA_REGISTRY_API:
+    reason: Avro events use the mock schema registry in memory, which has no HTTP endpoint to list subjects
+    task: TASK-375

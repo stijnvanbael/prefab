@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: @@ARTIFACT_ID@@
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Tokens are issued by the company identity provider; the keys are only fetched when a token is validated.
+          jwk-set-uri: https://login.example.com/.well-known/jwks.json

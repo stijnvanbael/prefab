@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -24,7 +25,8 @@ public final class BenchmarkCli {
                            --model <id>           model to test (required for --agent claude), e.g. claude-haiku-5-5
                            --context <name>       documentation setup from benchmark/contexts (default: none)
                            --agent <name>         claude (default), reference or noop
-                           --tasks <globs>        comma-separated task ids or categories, globs allowed (default: all)
+                           --tasks <globs>        comma-separated task ids, categories or tiers (quick, feature,
+                                                  brownfield), globs allowed (default: all)
                            --repeat <n>           attempts per task (default: 1)
                            --parallel <n>         attempts running at the same time (default: 2)
                            --triage-model <id>    let this model classify failures (default: heuristics only)
@@ -182,7 +184,11 @@ public final class BenchmarkCli {
     private static int list(BenchmarkPaths paths) {
         var tasks = new TaskCatalog(paths.tasks()).all();
         System.out.printf("%d tasks:%n", tasks.size());
-        tasks.forEach(task -> System.out.printf("  %-40s %-18s %s%n", task.id(), task.category(), task.title()));
+        tasks.forEach(task -> System.out.printf("  %-40s %-11s %-18s %s%n", task.id(), task.tier().id(),
+                task.category(), task.title()));
+        System.out.println("\nTiers:");
+        Arrays.stream(Tier.values()).forEach(tier -> System.out.printf("  %-20s %d tasks%n", tier.id(),
+                tasks.stream().filter(task -> task.tier() == tier).count()));
         System.out.println("\nContexts:");
         ContextSetup.available(paths.contexts()).forEach(name -> System.out.printf("  %-20s %s%n", name,
                 ContextSetup.load(paths.contexts(), name).description()));
@@ -212,7 +218,10 @@ public final class BenchmarkCli {
         return 0;
     }
 
-    /** Recomputes tokens, turns, builds and cost from the kept transcripts, so parser fixes apply to old runs. */
+    /**
+     * Recomputes tokens, turns, builds, cost and the time to the first green build from the kept transcripts, so
+     * parser fixes apply to old runs.
+     */
     private static RunReport refreshAgentMetrics(RunReport report, BenchmarkPaths paths) {
         var markers = ClaudeCodeAgent.forbiddenMarkers(paths.repository());
         return report.withResults(report.results().stream().map(result -> {
@@ -224,9 +233,11 @@ public final class BenchmarkCli {
             var agent = result.agent();
             var refreshed = new Agent.AgentOutcome(agent.status(), parsed.usage(), parsed.turns(),
                     parsed.buildAttempts(), parsed.costUsd(), agent.duration(), agent.contaminated(),
-                    parsed.complete() ? parsed.finalMessage() : agent.message());
-            return new TaskResult(result.taskId(), result.category(), result.attempt(), result.passed(), refreshed,
-                    result.acceptance(), result.acceptanceDuration(), result.failure(), result.logs());
+                    parsed.complete() ? parsed.finalMessage() : agent.message(),
+                    parsed.firstGreenBuild().or(agent::firstGreenBuild));
+            return new TaskResult(result.taskId(), result.category(), result.tier(), result.attempt(),
+                    result.passed(), refreshed, result.acceptance(), result.acceptanceDuration(), result.failure(),
+                    result.logs());
         }).toList());
     }
 

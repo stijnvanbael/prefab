@@ -9,7 +9,9 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 import tools.jackson.databind.DeserializationFeature;
@@ -18,6 +20,7 @@ import tools.jackson.dataformat.yaml.YAMLMapper;
 /**
  * Loads benchmark tasks from {@code benchmark/tasks}. Each task directory contains a {@code task.yml} and a
  * {@code prompt.md}, plus {@code starter/}, {@code hidden/}, {@code reference/} and optionally {@code mutants/}.
+ * Brownfield tasks name a base application from {@code benchmark/apps} that their starter is overlaid on.
  */
 final class TaskCatalog {
     static final int DEFAULT_TIMEOUT_MINUTES = 30;
@@ -47,9 +50,9 @@ final class TaskCatalog {
     }
 
     /**
-     * Tasks whose id or category matches one of the glob patterns, or all tasks when there are no patterns.
+     * Tasks whose id, category or tier matches one of the glob patterns, or all tasks when there are no patterns.
      *
-     * @param patterns glob patterns such as {@code rest-*} or {@code events-publish-on-create}
+     * @param patterns glob patterns such as {@code rest-*}, {@code events-publish-on-create} or {@code quick}
      * @return the matching tasks, sorted by id
      * @throws IllegalArgumentException if a pattern matches no task, which is almost always a typo
      */
@@ -62,7 +65,8 @@ final class TaskCatalog {
         for (var pattern : patterns) {
             var matcher = FileSystems.getDefault().getPathMatcher("glob:" + pattern);
             var matches = tasks.stream()
-                    .filter(task -> matcher.matches(Path.of(task.id())) || matcher.matches(Path.of(task.category())))
+                    .filter(task -> matcher.matches(Path.of(task.id())) || matcher.matches(Path.of(task.category()))
+                            || matcher.matches(Path.of(task.tier().id())))
                     .toList();
             if (matches.isEmpty()) {
                 throw new IllegalArgumentException("No task matches '" + pattern + "'");
@@ -77,7 +81,9 @@ final class TaskCatalog {
         try {
             var spec = YAML.readValue(directory.resolve("task.yml").toFile(), TaskSpec.class);
             var prompt = Files.readString(directory.resolve("prompt.md")).strip();
-            var task = spec.toTask(id, prompt, directory);
+            var base = Optional.ofNullable(spec.base())
+                    .map(name -> BaseApp.load(directory.toAbsolutePath().getParent().resolveSibling("apps"), name));
+            var task = spec.toTask(id, prompt, base, directory);
             validate(task);
             return task;
         } catch (IOException e) {
@@ -99,6 +105,9 @@ final class TaskCatalog {
                 throw new IllegalArgumentException("missing mutant directory mutants/" + mutant);
             }
         }
+        if (task.tier() == Tier.BROWNFIELD && task.base().isEmpty()) {
+            throw new IllegalArgumentException("a brownfield task needs a base application");
+        }
         var unknownRules = task.guardrails().stream().filter(rule -> !Guardrails.RULE_IDS.contains(rule)).toList();
         if (!unknownRules.isEmpty()) {
             throw new IllegalArgumentException("unknown guardrail rules " + unknownRules + ", known: " + Guardrails.RULE_IDS);
@@ -108,6 +117,8 @@ final class TaskCatalog {
     record TaskSpec(
             String title,
             String category,
+            Tier tier,
+            String base,
             List<PrefabModule> modules,
             Integer timeoutMinutes,
             Integer maxTurns,
@@ -115,15 +126,19 @@ final class TaskCatalog {
             @JsonProperty("allowGuardrails") List<String> allowGuardrails,
             String notes
     ) {
-        BenchmarkTask toTask(String id, String prompt, Path directory) {
+        BenchmarkTask toTask(String id, String prompt, Optional<BaseApp> baseApp, Path directory) {
             Objects.requireNonNull(title, "title is required");
             Objects.requireNonNull(category, "category is required");
             var acceptanceSpec = acceptance == null ? new AcceptanceSpec(null, null, null, null, null) : acceptance;
+            var allModules = new HashSet<PrefabModule>(modules == null ? List.of() : modules);
+            baseApp.ifPresent(app -> allModules.addAll(app.modules()));
             return new BenchmarkTask(
                     id,
                     title,
                     category,
-                    Set.copyOf(modules == null ? List.of() : modules),
+                    tier == null ? Tier.QUICK : tier,
+                    baseApp,
+                    allModules,
                     prompt,
                     Duration.ofMinutes(timeoutMinutes == null ? DEFAULT_TIMEOUT_MINUTES : timeoutMinutes),
                     maxTurns == null ? DEFAULT_MAX_TURNS : maxTurns,

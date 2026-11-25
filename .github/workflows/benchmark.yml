@@ -1,0 +1,92 @@
+# Runs the agent benchmark (backlog/docs/benchmark.md, "Running on a schedule"). Opt-in: it needs the repository secret
+# ANTHROPIC_API_KEY, runs when started by hand, and runs on its weekly schedule only when the repository variable
+# BENCHMARK_SCHEDULE is 'true'.
+name: Agent benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Model under test
+        default: claude-haiku-5-5
+      context:
+        description: Documentation setup from benchmark/contexts
+        default: cheat-sheet
+      tasks:
+        description: Task ids, categories or tiers (quick, feature, brownfield)
+        default: quick
+      repeat:
+        description: Attempts per task
+        default: '1'
+  schedule:
+    - cron: '23 2 * * 1'
+
+concurrency:
+  group: agent-benchmark
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    if: github.event_name == 'workflow_dispatch' || vars.BENCHMARK_SCHEDULE == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      MODEL: ${{ inputs.model || 'claude-haiku-5-5' }}
+      CONTEXT: ${{ inputs.context || 'cheat-sheet' }}
+      TASKS: ${{ inputs.tasks || 'quick' }}
+      REPEAT: ${{ inputs.repeat || '1' }}
+      RESULTS: benchmark/results/ci-${{ github.run_id }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Claude Code
+        run: npm install --global @anthropic-ai/claude-code
+
+      - name: Check the API key
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::Add the repository secret ANTHROPIC_API_KEY to run the benchmark."
+            exit 1
+          fi
+
+      - name: Run the benchmark
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          benchmark/run.sh run --model "$MODEL" --context "$CONTEXT" --tasks "$TASKS" --repeat "$REPEAT" \
+            --parallel 2 --results "$RESULTS"
+
+      - name: Summarise
+        if: always()
+        run: |
+          if [ -f "$RESULTS/report.md" ]; then
+            sed -n '1,/^## Failure categories/p' "$RESULTS/report.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload the report and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ github.run_id }}
+          path: ${{ env.RESULTS }}
+          if-no-files-found: ignore
+          retention-days: 90

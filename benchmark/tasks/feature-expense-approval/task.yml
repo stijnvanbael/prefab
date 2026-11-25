@@ -1,0 +1,10 @@
+title: Expense claims with approval and reimbursement across three roles
+category: feature-workflow
+tier: feature
+modules: [postgres, kafka, security]
+timeoutMinutes: 45
+maxTurns: 150
+notes: >
+  Reference: ExpenseClaim (role-restricted create, approval and rejection, @CreatedBy with an AuditContextProvider
+  that reads the Spring Security principal) publishes ClaimApproved; a Reimbursement is created from it (static
+  @EventHandler) and publishes ReimbursementPaid when finance pays it, which the claim handles @ByReference.

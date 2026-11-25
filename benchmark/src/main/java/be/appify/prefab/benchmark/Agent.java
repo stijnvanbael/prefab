@@ -3,6 +3,7 @@ package be.appify.prefab.benchmark;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 
 /** Something that works on a benchmark task in a workspace: an AI coding agent, or a stand-in used for validation. */
 sealed interface Agent permits ClaudeCodeAgent, ReferenceAgent, NoopAgent {
@@ -47,6 +48,8 @@ sealed interface Agent permits ClaudeCodeAgent, ReferenceAgent, NoopAgent {
      * @param duration      wall-clock time
      * @param contaminated  whether the agent looked at the Prefab benchmark sources (hidden tests, references)
      * @param message       final message of the agent or error description
+     * @param firstGreenBuild time from the start of the run until the agent's first successful Maven build; empty
+     *                      when it never had one or the time is unknown
      */
     record AgentOutcome(
             Status status,
@@ -56,8 +59,19 @@ sealed interface Agent permits ClaudeCodeAgent, ReferenceAgent, NoopAgent {
             double costUsd,
             Duration duration,
             boolean contaminated,
-            String message
+            String message,
+            Optional<Duration> firstGreenBuild
     ) {
+        public AgentOutcome {
+            firstGreenBuild = firstGreenBuild == null ? Optional.empty() : firstGreenBuild;
+        }
+
+        /** An outcome without a known time to the first green build. */
+        AgentOutcome(Status status, TokenUsage usage, int turns, int buildAttempts, double costUsd, Duration duration,
+                boolean contaminated, String message) {
+            this(status, usage, turns, buildAttempts, costUsd, duration, contaminated, message, Optional.empty());
+        }
+
         static AgentOutcome instant(String message) {
             return new AgentOutcome(Status.COMPLETED, TokenUsage.NONE, 0, 0, 0, Duration.ZERO, false, message);
         }

@@ -49,6 +49,10 @@ final class Guardrails {
 
     static final Set<String> RULE_IDS = RULES.stream().map(Rule::id).collect(Collectors.toUnmodifiableSet());
 
+    /** Rules that mean the agent replaced generated code, or hand-wrote an alternative to it. */
+    static final Set<String> OVERRIDE_RULES = Set.of("generated-class-override", "hand-written-controller", "jpa",
+            "spring-data-repository", "hand-written-persistence", "hand-written-consumer");
+
     private static final Pattern AGGREGATE = Pattern.compile("@Aggregate\\b[\\s\\S]*?\\b(record|class)\\s+(\\w+)");
     private static final String MIGRATION_DIRECTORY = "src/main/resources/db/migration/";
 

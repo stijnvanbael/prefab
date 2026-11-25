@@ -1,0 +1,11 @@
+title: Loyalty points with earning, tiers and redemptions checked by another aggregate
+category: feature-workflow
+tier: feature
+modules: [postgres, kafka, security]
+timeoutMinutes: 45
+maxTurns: 150
+notes: >
+  Reference: a saga over events. Purchase publishes PointsEarned, which LoyaltyAccount handles @ByReference (points
+  and tier rules in the record). Redemption starts PENDING and publishes RedemptionRequested; the account decides and
+  publishes a sealed RedemptionDecision (Approved or Rejected), which the Redemption handles @ByReference. A redemption
+  cannot check the balance itself because a constructor cannot read another aggregate.

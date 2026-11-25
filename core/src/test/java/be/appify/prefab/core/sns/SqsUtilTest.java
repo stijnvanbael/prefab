@@ -19,6 +19,7 @@ import software.amazon.awssdk.services.sqs.model.DeleteMessageResponse;
 import software.amazon.awssdk.services.sqs.model.Message;
 import software.amazon.awssdk.services.sqs.model.MessageSystemAttributeName;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -145,6 +146,22 @@ class SqsUtilTest {
         assertNull(events.getFirst());
         verify(sqsClient).deleteMessage(any(DeleteMessageRequest.class));
         verify(deserializer, never()).deserialize(anyString(), anyString(), any());
+    }
+
+    @Test
+    void messageStaysOnTheQueueWithoutThrowingWhenRetriesAreExhausted() {
+        var sqsClient = deletingClient();
+        var deserializer = deserializerFor("{\"value\":1}", Map.of());
+        when(deserializer.deserialize("topic", "body", UnmappedEvent.class)).thenReturn(new UnmappedEvent());
+        var sqsUtil = sqsUtil(sqsClient, deserializer);
+        var request = new SqsSubscriptionRequest<>("topic", "queue", UnmappedEvent.class, event -> {
+            throw new IllegalStateException("cannot be processed");
+        });
+
+        assertDoesNotThrow(() ->
+                sqsUtil.processMessage(request, "queue-url", message("body", "1700000000000", "group-7")));
+
+        verify(sqsClient, never()).deleteMessage(any(DeleteMessageRequest.class));
     }
 
     private static SqsAsyncClient deletingClient() {

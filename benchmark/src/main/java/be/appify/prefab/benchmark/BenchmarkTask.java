@@ -4,6 +4,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -13,7 +14,10 @@ import java.util.Set;
  * @param id         directory name, unique and stable (used in reports)
  * @param title      one-line summary
  * @param category   use case the task exercises, e.g. {@code rest-crud} or {@code events-handling}
- * @param modules    Prefab modules the starting project depends on
+ * @param tier       how big the task is; reports show pass rates per tier
+ * @param base       the application in {@code benchmark/apps/} that the starting project is built on (brownfield
+ *                   tasks); empty when the task starts from the template alone
+ * @param modules    Prefab modules the starting project depends on, including those of the base application
  * @param prompt     what the agent is asked to do
  * @param timeout    maximum agent run time
  * @param maxTurns   maximum number of agent turns
@@ -25,6 +29,8 @@ record BenchmarkTask(
         String id,
         String title,
         String category,
+        Tier tier,
+        Optional<BaseApp> base,
         Set<PrefabModule> modules,
         String prompt,
         Duration timeout,

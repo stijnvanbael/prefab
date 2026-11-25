@@ -10,7 +10,7 @@
 |------------------------|-------------------------------|--------------------|------------------------------------------------|
 | `core`                 | `prefab-core`                 | **Always**         | Framework types, annotations, interfaces       |
 | `streams`              | `prefab-streams`              | Streams DSL        | Backend-neutral stream DSL and test API        |
-| `streams-engine`       | `prefab-streams-engine`       | Streams without Kafka | In-process streams engine and in-memory test harness |
+| `streams-engine`       | `prefab-streams-engine`       | Streams without Kafka | In-process streams engine and in-memory test harness; also runs the topologies of `@IntegrationTest` in memory |
 | `streams-postgres`     | `prefab-streams-postgres`     | Streams state on Postgres | Postgres state, inbox, outbox and relay lease for the in-process engine |
 | `streams-mongodb`      | `prefab-streams-mongodb`      | Streams state on MongoDB | MongoDB state, inbox, outbox and relay lease for the in-process engine (replica set required) |
 | `streams-pubsub`       | `prefab-streams-pubsub`       | Streams on Pub/Sub | Pub/Sub source and sink for the in-process engine |
@@ -27,7 +27,7 @@
 | `security`             | `prefab-security`             | Security           | Spring Security + OAuth2 integration           |
 | `openapi`              | `prefab-openapi`              | OpenAPI docs       | SpringDoc OpenAPI / Swagger UI                 |
 | `async-api`            | `prefab-async-api`            | AsyncAPI docs      | AsyncAPI specification generation              |
-| `test`                 | `prefab-test`                 | Testing            | `@IntegrationTest` on an in-memory backend (default) or Testcontainers, test event consumers and assertions; see [Feature Guides 7.20](feature-guides.md#720-integration-tests-in-memory-or-containers) |
+| `test`                 | `prefab-test`                 | Testing            | `@IntegrationTest` on an in-memory backend (default; persistence, event bus and Prefab Streams topologies) or Testcontainers, test event consumers and assertions; see [Feature Guides 7.20](feature-guides.md#720-integration-tests-in-memory-or-containers) |
 | `terraform`            | `prefab-terraform`            | GCP infra          | Compile-time GCP Terraform configuration generation |
 
 ---

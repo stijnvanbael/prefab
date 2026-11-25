@@ -1,0 +1,5 @@
+description: >
+  A web shop (catalog, customers, ordering, invoicing, inventory) on Postgres, Kafka and Spring Security. A snapshot of
+  the core of examples/showcase (TASK-337), taken on 2026-11-25, renamed to com.example.shop, without its Avro and
+  Streams slices, its capability test framework and its hand-written order-history controller.
+modules: [postgres, kafka, security]

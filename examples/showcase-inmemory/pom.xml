@@ -14,7 +14,7 @@
     <name>Prefab Showcase Example: In-memory test backend, Postgres + Kafka</name>
 
     <properties>
-        <showcase.streams.skip>true</showcase.streams.skip>
+        <showcase.streams.skip>false</showcase.streams.skip>
         <showcase.kafka.streams.skip>true</showcase.kafka.streams.skip>
         <showcase.avro.skip>false</showcase.avro.skip>
     </properties>
@@ -27,6 +27,15 @@
         <dependency>
             <groupId>be.appify.prefab</groupId>
             <artifactId>prefab-kafka</artifactId>
+        </dependency>
+        <!-- Prefab Streams runs on the in-memory bus through the in-process engine; there is no streams-kafka here -->
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-streams</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-streams-engine</artifactId>
         </dependency>
         <dependency>
             <groupId>be.appify.prefab</groupId>

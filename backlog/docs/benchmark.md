@@ -11,17 +11,23 @@ The question it answers: *can a small, cheap model such as Claude Haiku develop 
 what stops it?* Every failure is classified, so each one points to a follow-up: a doc gap, a misleading diagnostic,
 an API that is easy to misuse, or a place where the model fell back to plain Spring code.
 
+Tasks come in three [tiers](#tiers): quick single-feature tasks, feature-sized user stories and brownfield changes to
+an existing application. Reports show the pass rate per tier.
+
 ---
 
 ## Contents
 
 - [Requirements](#requirements)
 - [Running the benchmark](#running-the-benchmark)
+- [Tiers](#tiers)
 - [How an attempt works](#how-an-attempt-works)
 - [Context setups](#context-setups)
 - [Reading the report](#reading-the-report)
 - [Classifying failures](#classifying-failures)
 - [Adding a task](#adding-a-task)
+- [Adding a brownfield task](#adding-a-brownfield-task)
+- [Running on a schedule](#running-on-a-schedule)
 - [Reproducibility](#reproducibility)
 - [Isolation and known limitations](#isolation-and-known-limitations)
 - [Recorded baselines](#recorded-baselines)
@@ -35,11 +41,12 @@ an API that is easy to misuse, or a place where the model fell back to plain Spr
   credentials are needed**: nothing talks to AWS, GCP or a real identity provider.
 - The Claude Code CLI (`claude`), logged in or with `ANTHROPIC_API_KEY` set. Only `run` needs it; `validate`,
   `list`, `compare` and `classify` work without it.
-- **Usage budget.** A full run is 32 agent sessions. On a Claude subscription, two Haiku runs in parallel used up a
-  5-hour usage limit within minutes, so prefer an API key for baselines, run one setup at a time, or pick tasks with
-  `--tasks`. When the API answers with a usage or rate limit (HTTP 429), the harness stops starting new attempts,
-  marks the remaining ones as skipped, flags the report as not meaningful and exits with code 3. After the limit
-  resets, continue with `benchmark/run.sh run --resume benchmark/results/<run-id>`.
+- **Usage budget.** The quick tier alone is 33 agent sessions; the feature and brownfield tiers add 14 longer ones. On
+  a Claude subscription, two Haiku runs in parallel used up a 5-hour usage limit within minutes, so prefer an API key
+  for baselines, run one setup at a time, or pick tasks with `--tasks`. When the API answers with a usage or rate
+  limit (HTTP 429), the harness stops starting new attempts, marks the remaining ones as skipped, flags the report as
+  not meaningful and exits with code 3. After the limit resets, continue with `benchmark/run.sh run --resume
+  benchmark/results/<run-id>`.
 
 ## Running the benchmark
 
@@ -62,6 +69,10 @@ benchmark/run.sh run --model claude-haiku-5-5 --context none --tasks 'rest-*,eve
 ```
 
 ```bash
+benchmark/run.sh run --model claude-haiku-5-5 --context cheat-sheet --tasks feature,brownfield --repeat 3
+```
+
+```bash
 benchmark/run.sh compare benchmark/results/*/report.json --output /tmp/comparison.md
 ```
 
@@ -74,7 +85,7 @@ checked out. Set `BENCHMARK_SKIP_INSTALL=1` to skip that step when nothing chang
 | `--model` | (required) | Model to test, passed to `claude --model`, e.g. `claude-haiku-5-5`, `claude-sonnet-5-5`. |
 | `--context` | `none` | Documentation setup from `benchmark/contexts/`. |
 | `--agent` | `claude` | `claude`, or the stand-ins `reference` (applies the reference solution) and `noop` (changes nothing). |
-| `--tasks` | all | Comma-separated task ids or categories; globs such as `events-*` work. |
+| `--tasks` | all | Comma-separated task ids, categories or tiers (`quick`, `feature`, `brownfield`); globs such as `events-*` work. |
 | `--repeat` | 1 | Attempts per task. Use 3 or more when comparing setups (see [Reproducibility](#reproducibility)). |
 | `--parallel` | 2 | Attempts running at the same time. Each needs about 2 CPU cores and 3 GB of memory. |
 | `--triage-model` | none | Let this model classify failures (see [Classifying failures](#classifying-failures)). |
@@ -87,11 +98,30 @@ checked out. Set `BENCHMARK_SKIP_INSTALL=1` to skip that step when nothing chang
 `validate` runs every task twice, with stand-in agents. The reference solution must pass and the unchanged starting
 project must fail. Run it after changing a task or Prefab itself. A task that no longer validates measures nothing.
 
+## Tiers
+
+The 33 quick tasks are one feature on a tiny starting project each, done in a minute or two. Every documentation setup
+passes almost all of them (see [Recorded baselines](#recorded-baselines)), so they no longer show whether a doc change
+helps. Real work is bigger: a feature across several aggregates from a product-style spec, or a change to code the
+agent did not write. That is where small models drift, fall back to plain Spring or work around generated code.
+`tier` in `task.yml` says which kind a task is:
+
+| Tier | Tasks | What the agent gets | What it measures |
+|---|---|---|---|
+| `quick` (default) | 33 | A tiny starter and a prompt that names the contract | Whether the model knows the Prefab way for one intent; regressions |
+| `feature` | 8 | An empty project and a user story with acceptance criteria, in product language | Designing several aggregates, events and handlers, often with security or tenancy |
+| `brownfield` | 6 | The `shop` application (`benchmark/apps/shop`) plus a starter, and a change request or bug report | Reading existing code, then adding a feature, changing a contract, evolving a schema that holds data, fixing a failing test or a reported bug |
+
+`run` without `--tasks` runs every tier. Use `--tasks quick` for the regression run (it is what the
+[schedule](#running-on-a-schedule) runs) and `--tasks feature,brownfield` to compare documentation setups. Feature and
+brownfield tasks take longer: they allow 40 to 45 minutes and 150 turns.
+
 ## How an attempt works
 
 1. **Workspace.** The harness copies `benchmark/template` (a standalone Spring Boot + Prefab Maven project), overlays
-   the task's `starter/`, applies the context setup, and commits the result to a fresh git repository outside the
-   Prefab checkout.
+   the task's base application (`benchmark/apps/<base>/project`, brownfield tasks only) and then the task's
+   `starter/`, applies the context setup, and commits the result to a fresh git repository outside the Prefab
+   checkout.
 2. **Agent.** Claude Code runs headless in the workspace:
    `claude -p <preamble + prompt> --model <model> --output-format stream-json --permission-mode bypassPermissions
    --setting-sources project --disallowedTools WebFetch,WebSearch --max-turns <n>`. Only the workspace's own
@@ -157,17 +187,27 @@ context that reproduces the setup step, so the benchmark measures what users get
 - **Cost**, **tokens** (input including prompt-cache reads and writes, and output), and the median **turns**,
   **builds** (Maven invocations by the agent, a proxy for compile-and-fix retries) and **agent time**
   (wall-clock time).
+- **Median time to first green build**: from the start of the agent until the first Maven command it ran that
+  succeeded, over the attempts that had one ("40s (28/32 attempts)"). A command counts as green when Claude Code does
+  not report it as an error and its output shows no build failure, compilation error or failing test. Claude Code's
+  stream has no timestamps, so the harness records when each transcript line arrived in `transcript.times`; runs
+  recorded before that file existed show `-`.
+- **Generated classes overridden or hand-written**: the number of files in which the agent replaced a class Prefab
+  generates or hand-wrote an alternative (controller, repository, persistence code, message listener, JPA entity),
+  counted from the guardrail violations, with the number of attempts that had any. Rules a task allows are not
+  counted.
 - **Contaminated attempts**: the agent read the benchmark's own sources (hidden tests or reference solutions). These
   attempts count as failed.
 
-The summary is followed by failure counts per category, pass counts per task category, one row per attempt (checks
-passed `+` or failed `-`, metrics, failure category), and, for every failure, the evidence: failed checks, guardrail
-violations and compiler errors. The workspace of a failed attempt is kept, so you can open it, run Maven and read the
-diff (`agent.diff`) and the transcript (`transcript.jsonl`).
+The summary is followed by a **By tier** table (pass rate with confidence interval, median turns, time to first green
+build and overrides per tier), failure counts per category, pass counts per task category, one row per attempt (tier,
+checks passed `+` or failed `-`, metrics including first green build and overrides, failure category), and, for every
+failure, the evidence: failed checks, guardrail violations and compiler errors. The workspace of a failed attempt is
+kept, so you can open it, run Maven and read the diff (`agent.diff`) and the transcript (`transcript.jsonl`).
 
-`compare` puts several runs side by side: pass rate, cost, turns and failure categories per run, then one row per
-task with `PASS n/n`, `FAIL 0/n` or `FLAKY k/n`, plus the failure category abbreviations (`doc`, `diag`, `api`,
-`spring`, `infra`).
+`compare` puts several runs side by side: pass rate, cost, turns, time to first green build, overrides, the pass rate
+of every tier and failure categories per run, then one row per task with `PASS n/n`, `FAIL 0/n` or `FLAKY k/n`, plus
+the failure category abbreviations (`doc`, `diag`, `api`, `spring`, `infra`).
 
 ## Classifying failures
 
@@ -220,7 +260,9 @@ benchmark/tasks/events-multicast/
 ```yaml
 title: Update many aggregates from one event
 category: events-handling      # used for per-category pass rates and --tasks selection
-modules: [postgres, kafka]     # postgres, mongodb, kafka, avro, avro-processor, security, openapi
+tier: quick                    # quick (default), feature or brownfield
+base: shop                     # brownfield tasks only: the application in benchmark/apps the starter is overlaid on
+modules: [postgres, kafka]     # postgres, mongodb, kafka, avro, avro-processor, streams, streams-engine, security, openapi
 timeoutMinutes: 30             # default 30
 maxTurns: 100                  # default 100
 allowGuardrails: []            # guardrail rules this task legitimately breaks
@@ -239,6 +281,10 @@ Guidelines:
 - **Write the prompt like a developer would.** State the observable contract: package and type names the hidden
   tests rely on, HTTP paths, JSON fields, topics and event components. Do not name Prefab annotations; finding the
   Prefab way is what the benchmark measures.
+- **Feature tasks are user stories.** Start from an empty project (a starter only for configuration, such as the
+  OAuth2 resource server), give the package, a user story and numbered acceptance criteria in product language, and
+  combine several aggregates with events and handlers, security or tenancy. Say where results may lag behind
+  (asynchronous handlers), and test that with `Api.eventually`. Give them `timeoutMinutes: 45` and `maxTurns: 150`.
 - **Test over HTTP.** Hidden tests are `@IntegrationTest` classes named `*AcceptanceTest`. Use
   `benchmark.support.Api` from `benchmark/acceptance-support` (create, get, put, multipart, read JSON paths, and
   `eventually` for asynchronous event handling). Reference generated types only when the prompt names them, such as an
@@ -252,8 +298,59 @@ Guidelines:
 - **When Prefab's public behaviour changes,** update or add the affected tasks in the same change, and rerun
   `validate`.
 
-The harness's unit tests (`mvn -pl benchmark test`) check that the catalogue still has at least 30 valid tasks, that
-the required use cases are covered, and that no hidden test leaks into a starting project.
+The harness's unit tests (`mvn -pl benchmark test`) check that the catalogue still has at least 32 quick, 8 feature and
+6 brownfield tasks, that the required use cases are covered, that every brownfield task has a base application, and
+that no hidden test leaks into a starting project or a base application.
+
+## Adding a brownfield task
+
+A brownfield task changes an application the agent did not write. Base applications live in `benchmark/apps/<name>/`:
+
+```
+benchmark/apps/shop/
+├── app.yml         # description (and where the snapshot came from) and the Prefab modules it needs
+└── project/        # overlaid on benchmark/template before the task's starter
+```
+
+`shop` is a snapshot of the core of the showcase (TASK-337): catalog, customers, ordering, invoicing and inventory on
+Postgres, Kafka and Spring Security, renamed to `com.example.shop`, with its own integration tests (including the
+`Shop` test helper) and its released schema committed as `src/main/resources/db/migration/V1__generated.sql`. It is a
+copy, not a link: a brownfield task must start from the same code in every run, or runs months apart are no longer
+comparable. Do not change a base application in place; add a new one (for example `shop-2027`) and move tasks to it
+deliberately, re-recording their baselines.
+
+To add a task:
+
+1. Set `tier: brownfield` and `base: shop` in `task.yml`. The base application's modules are added to the task's own.
+2. Put only what the task changes in `starter/`: an injected bug, a colleague's half-finished change, a failing test.
+   Files there replace the base application's files with the same path.
+3. Write the prompt as the request a developer would get: a bug report, a change request with compatibility
+   constraints, a user story. Say that the application is in production when the schema holds data, and that the
+   existing tests must keep passing.
+4. Hidden tests may use the base application's generated test clients and test helpers, or `benchmark.support.Api`.
+   A hidden test with the same content as a failing test in the starter (under another class name) stops the agent
+   from deleting or weakening that test. To check that a schema change keeps existing data, read the migration scripts
+   on the classpath (`classpath*:db/migration/*.sql`, which covers committed and generated ones) and assert on the
+   statements, for example a `RENAME COLUMN` and no `DROP COLUMN`, or a default on a new `NOT NULL` column: the
+   in-memory test backend runs no migrations.
+5. `reference/` holds the changed files only. Validate with `benchmark/run.sh validate --tasks <id>` and check in the
+   starter attempt's `acceptance.log` that it fails for the intended reason, not a compile error.
+
+## Running on a schedule
+
+`.github/workflows/benchmark.yml` runs the benchmark on GitHub Actions to track regressions between releases. It is
+opt-in:
+
+1. Add the repository secret `ANTHROPIC_API_KEY` (an API key, not a subscription: see [Requirements](#requirements)).
+2. Start it from the Actions tab ("Agent benchmark", "Run workflow"). By default it runs the quick tier with Haiku and
+   the `cheat-sheet` context; the inputs choose another model, context, tasks or number of repeats.
+3. To run it every Monday as well, set the repository variable `BENCHMARK_SCHEDULE` to `true`. Without it the
+   schedule does nothing.
+
+The job writes the summary of `report.md` to the run's summary page and uploads the report and all attempt logs as an
+artifact. Download `report.json` and use `compare` against an earlier run to see which tasks changed. GitHub runners
+are not root, so the agent is not isolated from the checkout; contamination detection still marks attempts that read
+benchmark sources (see [Isolation](#isolation-and-known-limitations)).
 
 ## Reproducibility
 
@@ -386,4 +483,27 @@ and `20261124-111212-claude-haiku-5-5-none`.
   real infrastructure (`mixin-custom-sql`, `mongodb-crud`, the Avro tasks) fail in both setups for reasons that
   have nothing to do with the agent. The `none` run was also flagged contaminated on `avro-publish-and-handle`.
   Repeat both setups on a machine with Docker, with `--repeat 3`, before drawing conclusions about correctness.
+### Feature and brownfield tiers: not yet recorded
+
+The 14 feature and brownfield tasks (TASK-377) validate: every reference solution passes and every starting project
+fails. They were written and validated in a cloud container that may not start nested Claude Code sessions, so no
+model baselines exist yet. Record them with an API key, for example:
+
+```bash
+benchmark/run.sh run --model claude-haiku-5-5 --context full-docs --tasks feature,brownfield --repeat 3
+```
+
+```bash
+benchmark/run.sh run --model claude-haiku-5-5 --context docs-folder --tasks feature,brownfield --repeat 3
+```
+
+```bash
+benchmark/run.sh run --model claude-sonnet-5-5 --context full-docs --tasks feature,brownfield --repeat 3
+```
+
+Writing the tasks already surfaced three problems an agent would hit: the annotation reference documents
+`@DbRename(oldName = ...)`, which does not compile, and suggests quoting `@DbDefaultValue` string values, which stores
+the quotes (TASK-386); two equality filters on one field with different parameter names do not compile (TASK-387); and
+a generated migration re-adds a foreign key that an earlier migration declared inline (TASK-388). Recording the
+baselines is TASK-389.
 <!-- BASELINES:END -->

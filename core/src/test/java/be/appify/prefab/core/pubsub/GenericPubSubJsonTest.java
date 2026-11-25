@@ -26,6 +26,7 @@ import org.springframework.core.convert.support.DefaultConversionService;
 import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -157,7 +158,7 @@ class GenericPubSubJsonTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void rawSubscriptionNacksWhenConsumerFails() {
+    void rawSubscriptionNacksWithoutThrowingWhenConsumerFails() {
         var admin = mock(PubSubAdmin.class);
         var subscriber = mock(PubSubSubscriberTemplate.class);
         when(admin.getTopic(anyString())).thenReturn(com.google.pubsub.v1.Topic.getDefaultInstance());
@@ -173,7 +174,7 @@ class GenericPubSubJsonTest {
         var message = mock(BasicAcknowledgeablePubsubMessage.class);
         when(message.getPubsubMessage()).thenReturn(PubsubMessage.getDefaultInstance());
 
-        assertThatThrownBy(() -> callback.getValue().accept(message)).isInstanceOf(RuntimeException.class);
+        assertThatCode(() -> callback.getValue().accept(message)).doesNotThrowAnyException();
 
         verify(message, never()).ack();
         verify(message).nack();

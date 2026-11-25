@@ -19,6 +19,54 @@ class TaskCatalogTest {
     }
 
     @Test
+    void tiersHaveEnoughTasksToMeasureADifference() {
+        var tiers = catalog.all().stream().collect(Collectors.groupingBy(BenchmarkTask::tier, Collectors.counting()));
+
+        assertThat(tiers.get(Tier.QUICK)).isGreaterThanOrEqualTo(32);
+        assertThat(tiers.get(Tier.FEATURE)).isGreaterThanOrEqualTo(8);
+        assertThat(tiers.get(Tier.BROWNFIELD)).isGreaterThanOrEqualTo(6);
+    }
+
+    @Test
+    void brownfieldTasksStartFromABaseApplicationAndQuickTasksDoNot() {
+        assertThat(catalog.all()).allSatisfy(task -> {
+            assertThat(task.base().isPresent()).as(task.id()).isEqualTo(task.tier() == Tier.BROWNFIELD);
+            task.base().ifPresent(app -> assertThat(task.modules()).as(task.id()).containsAll(app.modules()));
+        });
+    }
+
+    @Test
+    void selectMatchesTiers() {
+        assertThat(catalog.select(List.of("brownfield"))).isNotEmpty()
+                .allMatch(task -> task.tier() == Tier.BROWNFIELD);
+        assertThat(catalog.select(List.of("quick"))).hasSize((int) catalog.all().stream()
+                .filter(task -> task.tier() == Tier.QUICK).count());
+    }
+
+    @Test
+    void loadRejectsBrownfieldTasksWithoutBase(@org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        var task = directory.resolve("tasks/no-base");
+        Files.createDirectories(task.resolve("hidden"));
+        Files.createDirectories(task.resolve("reference"));
+        Files.writeString(task.resolve("task.yml"), "title: No base\ncategory: brownfield-bugfix\ntier: brownfield\n");
+        Files.writeString(task.resolve("prompt.md"), "Fix it");
+
+        assertThatThrownBy(() -> TaskCatalog.load(task)).hasMessageContaining("base application");
+    }
+
+    @Test
+    void loadRejectsUnknownBaseApplications(@org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        var task = directory.resolve("tasks/unknown-base");
+        Files.createDirectories(task.resolve("hidden"));
+        Files.createDirectories(task.resolve("reference"));
+        Files.writeString(task.resolve("task.yml"),
+                "title: Unknown\ncategory: brownfield-bugfix\ntier: brownfield\nbase: nowhere\n");
+        Files.writeString(task.resolve("prompt.md"), "Fix it");
+
+        assertThatThrownBy(() -> TaskCatalog.load(task)).hasMessageContaining("nowhere");
+    }
+
+    @Test
     void tasksCoverTheMainPrefabUseCases() {
         var categories = catalog.all().stream().map(BenchmarkTask::category).collect(Collectors.toSet());
 
@@ -39,6 +87,8 @@ class TaskCatalogTest {
         assertThat(catalog.all()).allSatisfy(task -> AcceptanceRunner.hiddenTestClasses(task).forEach(testClass -> {
             var file = testClass.replace('.', '/') + ".java";
             assertThat(task.starter().resolve("src/test/java").resolve(file)).as(task.id()).doesNotExist();
+            task.base().ifPresent(app ->
+                    assertThat(app.project().resolve("src/test/java").resolve(file)).as(task.id()).doesNotExist());
         }));
     }
 

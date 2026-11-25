@@ -1,0 +1,9 @@
+title: Library lending with books, members and loans
+category: feature-events
+tier: feature
+modules: [postgres, kafka]
+timeoutMinutes: 45
+maxTurns: 150
+notes: >
+  Reference: three aggregates; Loan publishes a sealed LoanEvent (Started, Returned) and Book and Member keep their
+  counters up to date with @ByReference handlers. Returning a loan twice must not count twice.

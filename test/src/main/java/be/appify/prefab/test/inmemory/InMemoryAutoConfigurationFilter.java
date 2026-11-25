@@ -59,6 +59,8 @@ public class InMemoryAutoConfigurationFilter implements AutoConfigurationImportF
             "be.appify.prefab.core.kafka.KafkaConfiguration",
             "be.appify.prefab.core.pubsub.PubSubConfiguration",
             "be.appify.prefab.core.sns.SnsConfiguration",
+            // Prefab Streams on a broker: in memory the in-process engine runs on the bus instead
+            "be.appify.prefab.streams.kafka.StreamsConfiguration",
             // prefab-test container auto-configurations
             "be.appify.prefab.test.persistence.PostgresTestAutoConfiguration",
             "be.appify.prefab.test.kafka.KafkaTestcontainerAutoConfiguration",

@@ -34,6 +34,27 @@ class WorkspaceFactoryTest {
     }
 
     @Test
+    void brownfieldWorkspacesStartFromTheBaseApplicationWithTheStarterOnTop() throws Exception {
+        var task = TaskCatalog.load(PATHS.tasks().resolve("brownfield-bug-deactivation"));
+        var workspace = directory.resolve("project");
+
+        var git = new WorkspaceFactory(PATHS, new ProjectVersions("9.9.9", "4.1.2", "21"))
+                .create(task, ContextSetup.load(PATHS.contexts(), "none"), workspace, directory.resolve("git.log"));
+
+        assertThat(Files.readString(workspace.resolve("pom.xml")))
+                .contains("<artifactId>prefab-postgres</artifactId>")
+                .contains("<artifactId>prefab-kafka</artifactId>")
+                .contains("<artifactId>prefab-security</artifactId>");
+        assertThat(workspace.resolve("src/main/java/com/example/shop/catalog/Product.java")).exists();
+        assertThat(workspace.resolve("src/test/java/com/example/shop/support/Shop.java")).exists();
+        assertThat(workspace.resolve("src/main/resources/db/migration/V1__generated.sql")).exists();
+        assertThat(Files.readString(workspace.resolve("src/main/java/com/example/shop/ordering/Order.java")))
+                .isEqualTo(Files.readString(task.starter().resolve("src/main/java/com/example/shop/ordering/Order.java")));
+        assertThat(Files.readString(workspace.resolve("src/main/resources/application.yml"))).doesNotContain("@@");
+        assertThat(git.changesSince(WorkspaceFactory.STARTER_TAG)).isEmpty();
+    }
+
+    @Test
     void contextsAssembleTheirInstructions() throws Exception {
         var none = ContextSetup.load(PATHS.contexts(), "none");
         var fullDocs = ContextSetup.load(PATHS.contexts(), "full-docs");

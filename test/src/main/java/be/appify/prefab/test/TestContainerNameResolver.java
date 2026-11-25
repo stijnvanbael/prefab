@@ -1,8 +1,8 @@
 package be.appify.prefab.test;
 
 import java.util.Arrays;
+import java.util.UUID;
 
-import com.github.dockerjava.api.model.Container;
 import org.springframework.core.env.PropertyResolver;
 import org.testcontainers.DockerClientFactory;
 
@@ -14,6 +14,8 @@ import org.testcontainers.DockerClientFactory;
  * {@code appName} is derived from {@code spring.application.name}.
  */
 public final class TestContainerNameResolver {
+
+    private static final int UNIQUE_SUFFIX_LENGTH = 8;
 
     private TestContainerNameResolver() {
     }
@@ -38,6 +40,28 @@ public final class TestContainerNameResolver {
             return customName;
         }
         return generateDefaultName(propertyResolver, containerType);
+    }
+
+    /**
+     * Resolves a container name that is unique to one Spring context.
+     *
+     * <p>Use this for containers that cannot be shared between contexts, such as the Pub/Sub emulator, whose
+     * topics and subscriptions would otherwise be shared by every cached test context in the JVM. The resolved
+     * name (see {@link #resolveContainerName}) is extended with a random suffix, so starting a container never
+     * conflicts with, and never has to remove, the container of another context that Spring's test context cache
+     * still holds. Containers left behind by a crashed JVM are removed by Testcontainers' resource reaper.
+     *
+     * @param propertyResolver the property resolver to fetch configuration values
+     * @param containerType the type of container (e.g. "pubsub")
+     * @param customNameProperty the property key to check for a custom base name
+     * @return the resolved container name followed by {@code _<random suffix>}
+     */
+    public static String resolveUniqueContainerName(
+            PropertyResolver propertyResolver,
+            String containerType,
+            String customNameProperty) {
+        var suffix = UUID.randomUUID().toString().substring(0, UNIQUE_SUFFIX_LENGTH);
+        return "%s_%s".formatted(resolveContainerName(propertyResolver, containerType, customNameProperty), suffix);
     }
 
     /**
@@ -71,31 +95,6 @@ public final class TestContainerNameResolver {
     public static String resolveApplicationIdentifier(PropertyResolver propertyResolver) {
         var appName = propertyResolver.getProperty("spring.application.name", "application");
         return appName.toLowerCase().replaceAll("[.\\-]", "_");
-    }
-
-    /**
-     * Removes an existing Docker container that already uses the target name.
-     *
-     * <p>When fixed names are used, Testcontainers may try to create a new container whose configuration
-     * hash differs from an already existing one (for example due to network differences), which leads to
-     * a Docker 409 conflict. Removing the stale container avoids startup failures on repeated runs.</p>
-     *
-     * @param containerName the container name without leading slash
-     */
-    public static void removeConflictingContainer(String containerName) {
-        var dockerClient = DockerClientFactory.instance().client();
-        var dockerName = "/" + containerName;
-        var existingContainerId = dockerClient.listContainersCmd()
-                .withShowAll(true)
-                .exec()
-                .stream()
-                .filter(container -> Arrays.asList(container.getNames() == null ? new String[0] : container.getNames()).contains(dockerName))
-                .map(Container::getId)
-                .findFirst();
-
-        existingContainerId.ifPresent(containerId -> dockerClient.removeContainerCmd(containerId)
-                .withForce(true)
-                .exec());
     }
 
     /**

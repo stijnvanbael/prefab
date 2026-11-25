@@ -1,0 +1,6 @@
+title: Running revenue per customer with a stream, tested in memory
+category: streams
+modules: [postgres, kafka, streams, streams-engine]
+notes: >
+  Streams run in memory on the in-process engine over the in-memory event bus (TASK-374), so the hidden test needs no
+  Docker. The prompt must not name prefab-streams-kafka: in memory mode it is not used.

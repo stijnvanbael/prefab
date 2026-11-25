@@ -13,6 +13,8 @@ enum PrefabModule {
     KAFKA("prefab-kafka", "compile"),
     AVRO("prefab-avro", "compile"),
     AVRO_PROCESSOR("prefab-avro-processor", "provided"),
+    STREAMS("prefab-streams", "compile"),
+    STREAMS_ENGINE("prefab-streams-engine", "compile"),
     SECURITY("prefab-security", "compile"),
     OPENAPI("prefab-openapi", "compile");
 

@@ -1,0 +1,11 @@
+title: Find and fix a bug from a support report in an existing shop
+category: brownfield-bugfix
+tier: brownfield
+base: shop
+timeoutMinutes: 40
+maxTurns: 150
+notes: >
+  The starter's Order.onCustomerDeactivated builds the cancelled order itself instead of calling cancel(), so no
+  OrderEvent.Cancelled is published and the invoice and stock handlers never run. The fix is one line in the record;
+  a hand-written listener or a new handler on Invoice/StockLevel for CustomerDeactivated also passes the tests but
+  duplicates the cancellation rules.

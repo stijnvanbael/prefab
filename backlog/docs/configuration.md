@@ -19,6 +19,12 @@
 Prefab includes Spring Boot Actuator by default through `prefab-core`.
 If you need to expose more or fewer endpoints, override these with your own application properties.
 
+On Pub/Sub and SNS/SQS, a message whose retries are exhausted is logged at error level and handed back to the broker
+(nack on Pub/Sub; on SQS the message stays on the queue until its visibility timeout expires). The broker then
+redelivers it or moves it to the dead-letter topic or queue. Nothing is thrown on the subscriber thread, so such a
+failure never surfaces as an uncaught exception in an unrelated thread or test. The Pub/Sub emulator does not
+dead-letter: an event that can never succeed is redelivered for as long as the context runs.
+
 ---
 
 ## Kafka Configuration
@@ -123,7 +129,7 @@ Auto-configurations (all gated on `PrefabCoreConfiguration`):
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| `prefab.test.containers` | `false` | `true` starts Testcontainers; `false` (the default) runs in memory: drops the store and broker auto-configurations (DataSource, JDBC, Flyway, Data JDBC, MongoDB, Kafka, Pub/Sub, SNS/SQS and their Prefab counterparts) and registers a resource-less transaction manager. |
+| `prefab.test.containers` | `false` | `true` starts Testcontainers; `false` (the default) runs in memory: drops the store and broker auto-configurations (DataSource, JDBC, Flyway, Data JDBC, MongoDB, Kafka, Pub/Sub, SNS/SQS and their Prefab counterparts) and registers a resource-less transaction manager. With `prefab-streams-engine` on the classpath it also drops `StreamsConfiguration` (Kafka Streams) and runs the Prefab Streams topologies on the in-process engine over the in-memory bus (see [Feature Guides, 7.20](feature-guides.md#prefab-streams-in-memory)). |
 
 In-memory is the default: without the property, `@IntegrationTest` needs no Docker. Set `prefab.test.containers: true` in `src/test/resources/application-test.yml` to run every test of a module on Testcontainers (the examples in this repository do this to keep real-infrastructure coverage).
 
@@ -145,7 +151,7 @@ Kafka also uses a reusable Docker network with the same default naming pattern s
 | Kafka | `kafka_<appName>` | ✅ | Configured with `.withReuse(true)` and a reusable named Docker network |
 | Schema Registry | `schema_registry_<appName>` | ✅ | Enabled when `prefab.test.schema-registry.enabled=true`; disabled by default |
 | LocalStack (SNS/SQS) | `localstack_<appName>` | ✅ | Configured with `.withReuse(true)` |
-| Pub/Sub Emulator | `pubsub_<appName>` | ❌ | **Reuse disabled** to prevent state corruption; containers are destroyed after each test run |
+| Pub/Sub Emulator | `pubsub_<appName>_<random suffix>` | ❌ | **Reuse disabled** to prevent state corruption; every Spring context gets its own emulator, which is destroyed with the context |
 
 ### Configuration Properties
 
@@ -158,7 +164,7 @@ Each container name can be customized via a `prefab.test.*` property. If not set
 | `prefab.test.kafka.network-name` | `kafka_<appName>` | Override the reusable Kafka Docker network name |
 | `prefab.test.schema-registry.container-name` | `schema_registry_<appName>` | Override Schema Registry container name |
 | `prefab.test.localstack.container-name` | `localstack_<appName>` | Override LocalStack container name |
-| `prefab.test.pubsub.container-name` | `pubsub_<appName>` | Override Pub/Sub Emulator container name |
+| `prefab.test.pubsub.container-name` | `pubsub_<appName>` | Override the base name of the Pub/Sub Emulator container; a random suffix is always appended |
 
 ### Example: Override Postgres Container Name
 
@@ -176,6 +182,18 @@ prefab:
 ```
 
 With this configuration, the Postgres container will be named `my_postgres_test` instead of the default `postgres_my_service`.
+
+### Pub/Sub Emulator per Context
+
+Topics and subscriptions of the Pub/Sub emulator are not shared between Spring contexts: when one JVM holds several
+cached test contexts (for example two `@IntegrationTest` configurations), each context starts its own emulator with a
+unique container name. Starting a context therefore never removes the emulator of another context.
+
+Publishing in a test fails instead of blocking when the emulator stops answering. Unless one of
+`spring.cloud.gcp.pubsub.publisher.retry.total-timeout-seconds`, `...initial-rpc-timeout-seconds` or
+`...max-rpc-timeout-seconds` is set, the test support defaults them to 20, 5 and 20 seconds. Set all three yourself to
+choose another bound (the Pub/Sub client requires a total timeout of at least 10 seconds and a maximum RPC timeout
+that is not shorter than the initial one).
 
 ### Benefits of Fixed Container Names
 

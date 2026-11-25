@@ -1,0 +1,11 @@
+title: Rename a field of a released API and schema, keeping old clients and existing data
+category: brownfield-contract
+tier: brownfield
+base: shop
+timeoutMinutes: 40
+maxTurns: 150
+notes: >
+  Reference: rename the record component to manufacturer with @DbRename("brand") and add a @Computed brand() for
+  responses. The hidden tests also read the migration scripts on the classpath: the column must be renamed, not
+  dropped and re-added. Keeping ?brand= as a second filter parameter is not part of the task because two equality
+  filters on one field do not compile (TASK-387).

@@ -96,7 +96,7 @@ recorded failures.
 
 **Cause:** `@IntegrationTest` runs in memory by default now: no Postgres, MongoDB or broker container is started.
 Tests that depend on database constraints (unique indexes, foreign keys, column sizes), rollbacks, native queries,
-broker retries or dead-letter topics, Prefab Streams or a real schema registry pass or fail differently.
+broker retries or dead-letter topics, Kafka-native Streams breakout operators or a real schema registry pass or fail differently.
 
 **Fix:** Add `containers = true` to those test classes (`@IntegrationTest(containers = true)`), or set
 `prefab.test.containers: true` in `application-test.yml` to keep the previous behaviour for the whole module. See

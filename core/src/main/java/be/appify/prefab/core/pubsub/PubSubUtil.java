@@ -263,8 +263,9 @@ public class PubSubUtil implements PubSubSubscriptions {
             });
         } catch (RetryException e) {
             message.nack();
+            // Not rethrown: the listener runs on an executor, so nobody can handle the exception. The nack hands the
+            // message back to Pub/Sub, which redelivers it or routes it to the dead-letter topic.
             log.error("Retries exhausted when processing Pub/Sub message: {}", message, e);
-            throw new RuntimeException(e);
         }
     }
 

@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 /** Renders a {@link RunReport} as Markdown, and compares several runs side by side. */
@@ -38,6 +39,8 @@ final class MarkdownReport {
                 Statistics.median(results.stream().map(result -> result.agent().buildAttempts()).toList()),
                 Statistics.formatDuration(Duration.ofSeconds((long) Statistics.median(
                         results.stream().map(result -> result.agent().duration().toSeconds()).toList())))));
+        row(md, "Median time to first green build", medianFirstGreenBuild(results));
+        row(md, "Generated classes overridden or hand-written", overrides(results));
         var notRun = results.stream().filter(result -> result.agent().status() == Agent.Status.RATE_LIMITED
                 || result.agent().status() == Agent.Status.SKIPPED).count();
         if (notRun > 0) {
@@ -47,6 +50,17 @@ final class MarkdownReport {
             row(md, "**Contaminated attempts**", results.stream().filter(result -> result.agent().contaminated())
                     .map(TaskResult::key).collect(Collectors.joining(", ")));
         }
+
+        md.append("\n## By tier\n\n")
+                .append("| Tier | Passed | 95% CI | Median turns | Median time to first green build | Overrides |\n")
+                .append("|---|---|---|---|---|---|\n");
+        byTier(results).forEach((tier, attempts) -> md.append("| ").append(tier.id())
+                .append(" | ").append(passed(attempts)).append('/').append(attempts.size())
+                .append(" | ").append(passRate(attempts).format())
+                .append(" | ").append("%.0f".formatted(Statistics.median(attempts.stream().map(r -> r.agent().turns()).toList())))
+                .append(" | ").append(medianFirstGreenBuild(attempts))
+                .append(" | ").append(overrides(attempts))
+                .append(" |\n"));
 
         md.append("\n## Failure categories\n\n| Category | Attempts |\n|---|---|\n");
         var categories = results.stream().filter(result -> result.failure() != null)
@@ -61,16 +75,20 @@ final class MarkdownReport {
                         .append(attempts.size()).append(" |\n"));
 
         md.append("\n## Attempts\n\n")
-                .append("| Task | # | Result | Checks | Turns | Builds | Tokens in/out | Cost | Agent time | Failure |\n")
-                .append("|---|---|---|---|---|---|---|---|---|---|\n");
+                .append("| Task | Tier | # | Result | Checks | Turns | Builds | First green | Overrides | Tokens in/out | Cost"
+                        + " | Agent time | Failure |\n")
+                .append("|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
         for (var result : results) {
             var agent = result.agent();
             md.append("| ").append(result.taskId())
+                    .append(" | ").append(result.tier().id())
                     .append(" | ").append(result.attempt())
                     .append(" | ").append(result.passed() ? "PASS" : "FAIL")
                     .append(" | ").append(checkSummary(result))
                     .append(" | ").append(agent.turns())
                     .append(" | ").append(agent.buildAttempts())
+                    .append(" | ").append(agent.firstGreenBuild().map(Statistics::formatDuration).orElse("-"))
+                    .append(" | ").append(result.overrides())
                     .append(" | ").append("%,d / %,d".formatted(agent.usage().totalInput(), agent.usage().output()))
                     .append(" | ").append("$%.2f".formatted(agent.costUsd()))
                     .append(" | ").append(Statistics.formatDuration(agent.duration()))
@@ -109,6 +127,21 @@ final class MarkdownReport {
         md.append("| Median turns | ").append(reports.stream()
                 .map(report -> "%.0f".formatted(Statistics.median(report.results().stream().map(r -> r.agent().turns()).toList())))
                 .collect(Collectors.joining(" | "))).append(" |\n");
+        md.append("| Median time to first green build | ").append(reports.stream()
+                .map(report -> medianFirstGreenBuild(report.results()))
+                .collect(Collectors.joining(" | "))).append(" |\n");
+        md.append("| Generated classes overridden or hand-written | ").append(reports.stream()
+                .map(report -> overrides(report.results()))
+                .collect(Collectors.joining(" | "))).append(" |\n");
+        var tiers = reports.stream().flatMap(report -> report.results().stream()).map(TaskResult::tier)
+                .collect(Collectors.toCollection(TreeSet::new));
+        for (var tier : tiers) {
+            md.append("| Pass rate, ").append(tier.id()).append(" tier | ").append(reports.stream()
+                    .map(report -> byTier(report.results()).getOrDefault(tier, List.of()))
+                    .map(attempts -> attempts.isEmpty() ? "-"
+                            : "%d/%d %s".formatted(passed(attempts), attempts.size(), passRate(attempts).format()))
+                    .collect(Collectors.joining(" | "))).append(" |\n");
+        }
         for (var category : FailureCategory.values()) {
             md.append("| ").append(category).append(" | ").append(reports.stream()
                     .map(report -> Long.toString(report.results().stream()
@@ -128,6 +161,36 @@ final class MarkdownReport {
             md.append(" |\n");
         });
         return md.toString();
+    }
+
+    private static Map<Tier, List<TaskResult>> byTier(List<TaskResult> results) {
+        return results.stream().collect(Collectors.groupingBy(TaskResult::tier, TreeMap::new, Collectors.toList()));
+    }
+
+    private static long passed(List<TaskResult> attempts) {
+        return attempts.stream().filter(TaskResult::passed).count();
+    }
+
+    private static Statistics.Interval passRate(List<TaskResult> attempts) {
+        return Statistics.wilson(passed(attempts), attempts.size());
+    }
+
+    /** Median over the attempts that had a green build, with how many of them did. */
+    private static String medianFirstGreenBuild(List<TaskResult> results) {
+        var times = results.stream().flatMap(result -> result.agent().firstGreenBuild().stream())
+                .map(Duration::toSeconds).toList();
+        if (times.isEmpty()) {
+            return "-";
+        }
+        return "%s (%d/%d attempts)".formatted(Statistics.formatDuration(Duration.ofSeconds((long) Statistics.median(times))),
+                times.size(), results.size());
+    }
+
+    /** Total files with overridden or hand-written generated code, with the number of attempts that had any. */
+    private static String overrides(List<TaskResult> results) {
+        var total = results.stream().mapToLong(TaskResult::overrides).sum();
+        var attempts = results.stream().filter(result -> result.overrides() > 0).count();
+        return "%d (in %d attempts)".formatted(total, attempts);
     }
 
     private static String cell(List<TaskResult> attempts) {

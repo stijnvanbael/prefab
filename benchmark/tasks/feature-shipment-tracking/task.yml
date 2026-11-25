@@ -1,0 +1,10 @@
+title: Shipment tracking with carrier scans and delivery notifications
+category: feature-events
+tier: feature
+modules: [postgres, kafka]
+timeoutMinutes: 45
+maxTurns: 150
+notes: >
+  Reference: Scan is nested under Shipment (@Parent) and publishes ScanRecorded; Shipment applies the status rules in
+  a @ByReference handler and publishes ShipmentDelivered once; a DeliveryNotification is created from that event
+  (static @EventHandler) and listed with an equality filter on the order number.

@@ -36,6 +36,11 @@
             <groupId>be.appify.prefab</groupId>
             <artifactId>prefab-streams-kafka</artifactId>
         </dependency>
+        <!-- In-memory test mode runs the streams slice on the in-process engine -->
+        <dependency>
+            <groupId>be.appify.prefab</groupId>
+            <artifactId>prefab-streams-engine</artifactId>
+        </dependency>
         <dependency>
             <groupId>be.appify.prefab</groupId>
             <artifactId>prefab-avro</artifactId>

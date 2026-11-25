@@ -5,6 +5,6 @@ prefab:
   dlt.retries:
     initial-interval-ms: 10
   test:
-    containers: true
+    containers: false
     schema-registry:
       enabled: true

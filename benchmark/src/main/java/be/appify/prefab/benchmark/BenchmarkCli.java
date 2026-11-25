@@ -22,13 +22,16 @@ public final class BenchmarkCli {
 
             Commands:
               run        Run tasks with an agent and write a report
-                           --model <id>           model to test (required for --agent claude), e.g. claude-haiku-5-5
+                           --model <id>           model to test, e.g. claude-haiku-5-5 (needs --model or --profile
+                                                  for --agent claude)
+                           --profile <name>       model profile from benchmark/models: model, endpoint, timeouts
+                                                  (a local Qwen via Ollama, for example); --model overrides its model
                            --context <name>       documentation setup from benchmark/contexts (default: none)
                            --agent <name>         claude (default), reference or noop
                            --tasks <globs>        comma-separated task ids, categories or tiers (quick, feature,
                                                   brownfield), globs allowed (default: all)
                            --repeat <n>           attempts per task (default: 1)
-                           --parallel <n>         attempts running at the same time (default: 2)
+                           --parallel <n>         attempts running at the same time (default: 2, or the profile's)
                            --triage-model <id>    let this model classify failures (default: heuristics only)
                            --results <dir>        report directory (default: benchmark/results/<run-id>)
                            --work-dir <dir>       workspace directory (default: <tmp>/prefab-benchmark/<run-id>)
@@ -81,14 +84,14 @@ public final class BenchmarkCli {
         var claude = arguments.option("claude", "claude");
         var startedAt = Instant.now();
         var context = ContextSetup.load(paths.contexts(), arguments.option("context", "none"));
-        var model = arguments.option("model").orElse(agentName);
+        var profile = agentName.equals("claude") ? profile(paths, arguments, null) : null;
+        var model = profile != null ? profile.name() : arguments.option("model").orElse(agentName);
         var runId = RUN_ID_TIME.format(startedAt) + "-" + sanitize(model) + "-" + context.name();
         var workDirectory = workDirectory(arguments, runId);
         var isolation = isolation(paths, arguments, workDirectory);
         var agent = switch (agentName) {
-            case "claude" -> new ClaudeCodeAgent(
-                    arguments.option("model").orElseThrow(() -> new IllegalArgumentException("--model is required")),
-                    claude, List.of(), ClaudeCodeAgent.forbiddenMarkers(paths.repository()), isolation);
+            case "claude" -> new ClaudeCodeAgent(profile, claude,
+                    ClaudeCodeAgent.forbiddenMarkers(paths.repository()), isolation);
             case "reference" -> new ReferenceAgent();
             case "noop" -> new NoopAgent();
             default -> throw new IllegalArgumentException("Unknown agent " + agentName);
@@ -100,8 +103,9 @@ public final class BenchmarkCli {
                     + " and unshare); attempts that read benchmark sources are marked contaminated");
         }
         var resultsDirectory = Path.of(arguments.option("results", paths.results().resolve(runId).toString()));
-        var options = new BenchmarkRunner.Options(arguments.intOption("repeat", 1), arguments.intOption("parallel", 2),
-                triage, arguments.flag("keep-workspaces"));
+        var parallel = arguments.intOption("parallel", profile != null ? profile.parallel() : 2);
+        var options = new BenchmarkRunner.Options(arguments.intOption("repeat", 1), parallel, triage,
+                arguments.flag("keep-workspaces"));
         var report = runner(paths, options).run(tasks, agent, context,
                 runInfo(paths, runId, startedAt, resultsDirectory, workDirectory));
         writeReport(report, resultsDirectory);
@@ -112,6 +116,19 @@ public final class BenchmarkCli {
             System.out.println("The run stopped early because the model API reported a usage or rate limit.");
         }
         return limited ? 3 : 0;
+    }
+
+    /**
+     * Resolves the model to drive: a named profile (whose model {@code --model} may override), or a plain model id.
+     * A resumed run passes the model of the run it continues; a profile with endpoint settings must be named again.
+     */
+    private static ModelProfile profile(BenchmarkPaths paths, CliArguments arguments, String fallbackModel) {
+        var model = arguments.option("model");
+        return arguments.option("profile")
+                .map(name -> ModelProfile.load(paths.models(), name))
+                .map(profile -> model.map(profile::withModel).orElse(profile))
+                .orElseGet(() -> ModelProfile.hosted(model.or(() -> java.util.Optional.ofNullable(fallbackModel))
+                        .orElseThrow(() -> new IllegalArgumentException("--model or --profile is required"))));
     }
 
     /**
@@ -133,10 +150,11 @@ public final class BenchmarkCli {
         }
         var context = ContextSetup.load(paths.contexts(), previous.context());
         var workDirectory = workDirectory(arguments, previous.runId());
-        var agent = new ClaudeCodeAgent(previous.model(), arguments.option("claude", "claude"), List.of(),
+        var profile = profile(paths, arguments, previous.model());
+        var agent = new ClaudeCodeAgent(profile, arguments.option("claude", "claude"),
                 ClaudeCodeAgent.forbiddenMarkers(paths.repository()), isolation(paths, arguments, workDirectory));
-        var options = new BenchmarkRunner.Options(previous.repeat(), arguments.intOption("parallel", 2), null,
-                arguments.flag("keep-workspaces"));
+        var options = new BenchmarkRunner.Options(previous.repeat(), arguments.intOption("parallel", profile.parallel()),
+                null, arguments.flag("keep-workspaces"));
         System.out.printf("Resuming %d attempts of %s%n", redo.size(), previous.runId());
         var rerun = runner(paths, options).runAttempts(redo, agent, context, new BenchmarkRunner.RunInfo(previous.runId(),
                 previous.startedAt(), resultsDirectory, workDirectory, previous.prefabVersion(), previous.gitCommit()));
@@ -189,6 +207,9 @@ public final class BenchmarkCli {
         System.out.println("\nTiers:");
         Arrays.stream(Tier.values()).forEach(tier -> System.out.printf("  %-20s %d tasks%n", tier.id(),
                 tasks.stream().filter(task -> task.tier() == tier).count()));
+        System.out.println("\nModel profiles:");
+        ModelProfile.available(paths.models()).forEach(name -> System.out.printf("  %-20s %s%n", name,
+                ModelProfile.load(paths.models(), name).description()));
         System.out.println("\nContexts:");
         ContextSetup.available(paths.contexts()).forEach(name -> System.out.printf("  %-20s %s%n", name,
                 ContextSetup.load(paths.contexts(), name).description()));

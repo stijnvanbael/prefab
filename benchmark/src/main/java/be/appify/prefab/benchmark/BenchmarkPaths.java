@@ -37,6 +37,10 @@ record BenchmarkPaths(Path repository) {
         return benchmark().resolve("contexts");
     }
 
+    Path models() {
+        return benchmark().resolve("models");
+    }
+
     Path results() {
         return benchmark().resolve("results");
     }

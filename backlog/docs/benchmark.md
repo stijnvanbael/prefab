@@ -82,18 +82,57 @@ checked out. Set `BENCHMARK_SKIP_INSTALL=1` to skip that step when nothing chang
 
 | Option | Default | Meaning |
 |---|---|---|
-| `--model` | (required) | Model to test, passed to `claude --model`, e.g. `claude-haiku-5-5`, `claude-sonnet-5-5`. |
+| `--model` | (required unless `--profile`) | Model to test, passed to `claude --model`, e.g. `claude-haiku-5-5`, `claude-sonnet-5-5`. |
+| `--profile` | none | Model profile from `benchmark/models/` (model, endpoint, timeouts); see [Model profiles](#model-profiles). `--model` overrides the profile's model. |
 | `--context` | `none` | Documentation setup from `benchmark/contexts/`. |
 | `--agent` | `claude` | `claude`, or the stand-ins `reference` (applies the reference solution) and `noop` (changes nothing). |
 | `--tasks` | all | Comma-separated task ids, categories or tiers (`quick`, `feature`, `brownfield`); globs such as `events-*` work. |
 | `--repeat` | 1 | Attempts per task. Use 3 or more when comparing setups (see [Reproducibility](#reproducibility)). |
-| `--parallel` | 2 | Attempts running at the same time. Each needs about 2 CPU cores and 3 GB of memory. |
+| `--parallel` | 2 (or the profile's) | Attempts running at the same time. Each needs about 2 CPU cores and 3 GB of memory. |
 | `--triage-model` | none | Let this model classify failures (see [Classifying failures](#classifying-failures)). |
 | `--results` | `benchmark/results/<run-id>` | Where the report and logs go. |
 | `--work-dir` | `<tmp>/prefab-benchmark/<run-id>` | Where the workspaces go. Keep this outside the repository. |
 | `--hide` | none | Extra comma-separated paths hidden from the agent (see [Isolation](#isolation-and-known-limitations)). |
 | `--resume <run-dir>` | none | Continue a run that a usage limit stopped: rerun its rate-limited and skipped attempts with the same model and context, and merge them into its report. |
 | `--keep-workspaces` | off | Keep the workspaces of passed attempts. Failed ones are always kept. |
+
+### Model profiles
+
+The agent is always Claude Code, but the model behind it is pluggable. A profile in `benchmark/models/<name>.yml`
+names the model and, when it is not served by the hosted API, where it is served. `benchmark/run.sh list` shows the
+profiles. Without `--profile`, `--model <id>` works as before.
+
+| Field | Default | Meaning |
+|---|---|---|
+| `model` | (required) | Passed to `claude --model`. |
+| `env` | none | Environment variables for the agent process only, for example the endpoint. Maven and acceptance runs do not see them. |
+| `args` | none | Extra arguments for the Claude Code CLI. |
+| `timeoutFactor` | 1 | Multiplies each task's timeout, for models slower than the hosted default. |
+| `parallel` | 2 | Default for `--parallel`. |
+
+The initial baseline model is a local Qwen coder served by Ollama (`qwen-local`), so documentation setups can be
+compared without spending API tokens. Haiku and Sonnet profiles are shipped for the hosted runs. To use another model,
+copy a profile and change `model` and `env`.
+
+```bash
+OLLAMA_CONTEXT_LENGTH=32768 ollama serve
+```
+
+```bash
+benchmark/run.sh run --profile qwen-local --context cheat-sheet --tasks feature --repeat 3
+```
+
+Things to know about a local model:
+
+- Ollama must run with a context window of at least 32k tokens. Its default is too small for Claude Code's system
+  prompt, and attempts then fail in confusing ways.
+- Pick a model with reliable tool calling. A model that cannot drive the tools scores 0 and shows nothing about
+  the documentation.
+- Cost columns read zero; compare turns, builds and pass rate.
+- Do not compare pass rates across models. Compare documentation setups on the same model. A result on a weaker model
+  shows whether a setup helps; it does not predict Haiku's absolute pass rate.
+- Check the Anthropic-compatible endpoint of your Ollama version with a single task before starting a long run:
+  `benchmark/run.sh run --profile qwen-local --context none --tasks <one task id>`.
 
 `validate` runs every task twice, with stand-in agents. The reference solution must pass and the unchanged starting
 project must fail. Run it after changing a task or Prefab itself. A task that no longer validates measures nothing.
@@ -169,7 +208,7 @@ copy:                          # repository files or directories copied into the
 | `recipes` | Cheat sheet plus the recipe index in CLAUDE.md; recipes and their verified source examples are copied and opened on demand. |
 | `local-run` | Cheat sheet plus an explicit instruction to start the in-memory application and verify an affected endpoint over HTTP. |
 
-The `recipes` context is configured but does not yet have a recorded Haiku run; see TASK-346 AC #6. Do not treat
+The `recipes` context is configured but does not yet have a recorded run; see TASK-392 (Qwen baseline) and TASK-389 (Haiku). Do not treat
 the cheat-sheet or full-docs baselines as results for this context.
 
 The compact agent cheat sheet (TASK-344) has the `cheat-sheet` context. The `recipes` context makes the TASK-346
@@ -380,8 +419,8 @@ confidence intervals barely overlap. Use `--repeat 3` for decisions, and compare
   It cannot browse the web.
 - Attempts in different slots share the local Maven repository and the CPU. A heavily loaded machine makes agent
   time and build time longer, but not pass rates (timeouts are generous).
-- The benchmark measures Claude Code as the agent. The `Agent` interface is small, so another agent CLI can be
-  added as another implementation.
+- The benchmark measures Claude Code as the agent. The model is pluggable through [model profiles](#model-profiles);
+  the `Agent` interface is small, so another agent CLI can be added as another implementation.
 
 ## Recorded baselines
 

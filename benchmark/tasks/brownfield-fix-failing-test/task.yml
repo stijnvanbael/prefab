@@ -1,0 +1,10 @@
+title: Fix a failing test after a colleague's change to an existing shop
+category: brownfield-fix-test
+tier: brownfield
+base: shop
+timeoutMinutes: 40
+notes: >
+  The starter adds "discontinue a product" with a @Multicast handler on StockLevel that keeps the default
+  failWhenEmpty = true, so discontinuing a product without a stock level fails (and would be retried and
+  dead-lettered). The hidden test is a copy of the failing test in the starter, so deleting or weakening that test
+  does not help. The fix is failWhenEmpty = false.

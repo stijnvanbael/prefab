@@ -15,6 +15,7 @@ import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterSpec;
+import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeSpec;
 
 import java.util.ArrayList;
@@ -31,6 +32,8 @@ import static be.appify.prefab.processor.CaseUtil.toSnakeCase;
 class MongoIndexWriter {
     private static final ClassName MONGO_TEMPLATE =
             ClassName.get("org.springframework.data.mongodb.core", "MongoTemplate");
+    private static final ClassName OBJECT_PROVIDER =
+            ClassName.get("org.springframework.beans.factory", "ObjectProvider");
     private static final ClassName INDEX =
             ClassName.get("org.springframework.data.mongodb.core.index", "Index");
     private static final ClassName TEXT_INDEX = ClassName.get(
@@ -52,7 +55,7 @@ class MongoIndexWriter {
 
         var constructor = MethodSpec.constructorBuilder()
                 .addModifiers(Modifier.PUBLIC)
-                .addParameter(MONGO_TEMPLATE, "mongoTemplate");
+                .addParameter(ParameterizedTypeName.get(OBJECT_PROVIDER, MONGO_TEMPLATE), "mongoTemplates");
         if (manifests.stream().anyMatch(manifest -> !FullTextFields.weightsOf(manifest).isEmpty())) {
             constructor.addParameter(ParameterSpec.builder(String.class, "fullTextLanguage")
                     .addAnnotation(AnnotationSpec.builder(Value.class)
@@ -62,6 +65,8 @@ class MongoIndexWriter {
                     .build());
         }
 
+        // Without a MongoTemplate (in-memory test mode) there is no database to index, so nothing is created.
+        constructor.beginControlFlow("mongoTemplates.ifAvailable(mongoTemplate ->");
         for (ClassManifest manifest : manifests) {
             fieldIndexesOf(manifest, null).forEach(index ->
                     constructor.addStatement(
@@ -75,6 +80,7 @@ class MongoIndexWriter {
             );
             textIndexOf(constructor, manifest);
         }
+        constructor.endControlFlow(")");
 
         var type = TypeSpec.classBuilder("MongoIndexConfiguration")
                 .addModifiers(Modifier.PUBLIC)

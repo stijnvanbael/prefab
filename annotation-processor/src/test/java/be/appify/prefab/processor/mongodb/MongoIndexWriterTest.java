@@ -75,6 +75,19 @@ class MongoIndexWriterTest {
     }
 
     @Test
+    void indexesAreOnlyCreatedWhenAMongoTemplateIsAvailable() {
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("mongodb/indexed/source/Product.java"));
+        assertThat(compilation).succeeded();
+        var config = assertThat(compilation)
+                .generatedSourceFile("mongodb.indexed.infrastructure.mongodb.MongoIndexConfiguration")
+                .contentsAsUtf8String();
+        config.contains("public MongoIndexConfiguration(ObjectProvider<MongoTemplate> mongoTemplates)");
+        config.contains("mongoTemplates.ifAvailable(mongoTemplate -> {");
+    }
+
+    @Test
     void generatedClassIsConfiguration() {
         var compilation = javac()
                 .withProcessors(new PrefabProcessor())

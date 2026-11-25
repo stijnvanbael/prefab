@@ -2191,6 +2191,9 @@ class UserStatusIntegrationTest { ... }
   Postgres and MongoDB ranking.
 - `@Version` is checked: saving a stale copy throws `OptimisticLockingFailureException` (HTTP 409).
 - State is cleared before each test, as with containers.
+- On MongoDB applications the generated `MongoIndexConfiguration` creates no indexes in memory mode: it only runs
+  when a `MongoTemplate` bean exists, and the Mongo auto-configurations are dropped in memory mode. Index and
+  full-text index behaviour is therefore verified with `containers = true`.
 
 ### Events in memory
 

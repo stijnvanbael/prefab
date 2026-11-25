@@ -177,7 +177,7 @@ table, so after changing a capability file, paste that between the markers.
 | STREAMS | ✅ | ✅ | ✅ | ✅ | ✅ |
 | KAFKA_STREAMS_BREAKOUT | ✅ | ❌ [TASK-374](../backlog/completed/task-374%20-%20Prefab-Streams-on-the-in-memory-test-bus.md) | ✅ | ❌ [TASK-341](../backlog/completed/task-341%20-%20Prefab-Streams-backend-for-Google-Pub-Sub.md) | ❌ [TASK-342](../backlog/completed/task-342%20-%20Prefab-Streams-backend-for-AWS-SNS-SQS.md) |
 | AVRO | ✅ | ✅ | ✅ | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) |
-| SCHEMA_REGISTRY_API | ✅ | ❌ [TASK-375](../backlog/tasks/task-375%20-%20Inspect-registered-Avro-schemas-in-memory.md) | ✅ | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) |
+| SCHEMA_REGISTRY_API | ✅ | ❌ [TASK-375](../backlog/tasks/task-375%20-%20Inspect-registered-Avro-schemas-in-memory.md) | ❌ [TASK-375](../backlog/tasks/task-375%20-%20Inspect-registered-Avro-schemas-in-memory.md) | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) |
 | SECURITY | ✅ | ✅ | ✅ | ✅ | ✅ |
 | OPENAPI | ✅ | ✅ | ✅ | ✅ | ✅ |
 | ASYNCAPI | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -187,7 +187,7 @@ table, so after changing a capability file, paste that between the markers.
 
 `@IntegrationTest` runs on an in-memory backend by default (see
 [Feature Guides, 7.20](../backlog/docs/feature-guides.md#720-integration-tests-in-memory-or-containers)). To keep
-real-infrastructure coverage in CI, the reference `showcase`, `showcase-mongodb`, `showcase-pubsub` and `showcase-sns-sqs` set
+real-infrastructure coverage in CI, the reference `showcase`, `showcase-pubsub` and `showcase-sns-sqs` set
 `prefab.test.containers: true` in their `application-test.yml`, so they run on Testcontainers. A test that needs real
 infrastructure in a module that already sets the property says so in a comment rather than with
 `@IntegrationTest(containers = true)`: the annotation would only start a second Spring context.
@@ -200,6 +200,9 @@ showcase, generated for Postgres + Kafka (with the Avro slice), but without `pre
 `SCHEMA_REGISTRY_API` (TASK-375, the mock schema registry has no HTTP endpoint). Its own
 `InMemoryOrderSalesAnalyticsIntegrationTest` places orders through the REST API and checks the revenue that the
 topology publishes on the bus.
+`showcase-mongodb` also runs in memory (`prefab.test.containers: false`): the generated MongoDB index configuration
+creates no indexes without a `MongoTemplate` (TASK-381), and the Kafka-native breakout topology is left out of the
+application context because the engine does not support `breakout`. It shares the `SCHEMA_REGISTRY_API` gap.
 The reference showcase and `showcase-inmemory` cover the same sources on real and in-memory infrastructure.
 
 ## Adding a variant

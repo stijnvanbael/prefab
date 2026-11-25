@@ -6,8 +6,10 @@ import be.appify.prefab.core.domain.EventType;
 import be.appify.prefab.core.serialization.ConcreteEventSupport;
 import com.google.cloud.spring.pubsub.PubSubAdmin;
 import com.google.cloud.spring.pubsub.core.PubSubTemplate;
+import com.google.pubsub.v1.PubsubMessage;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,7 +62,17 @@ public class GenericPubSubPublisher implements DomainEventDispatcher {
             var qualifiedTopic = fullyQualifiedTopicCache.computeIfAbsent(resolvedTopic, pubSubUtil::ensureTopicExists);
             log.debug("Publishing event {} on topic {}", event, qualifiedTopic);
             var message = encoder.encode(PubSubUtil.simpleTopicName(qualifiedTopic), event);
+            publish(qualifiedTopic, message);
+        }
+    }
+
+    private void publish(String qualifiedTopic, PubsubMessage message) {
+        try {
             pubSubTemplate.publish(qualifiedTopic, message).join();
+        } catch (CompletionException e) {
+            throw new CompletionException(
+                    "Failed to publish to Pub/Sub topic [%s], make sure Pub/Sub is available at the specified endpoint"
+                            .formatted(qualifiedTopic), e.getCause() != null ? e.getCause() : e);
         }
     }
 }

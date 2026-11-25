@@ -72,6 +72,13 @@ public @interface Event {
      */
     String minSupportedVersion() default "";
 
+    /**
+     * Whether Prefab should generate an event serialization conformance test for this event.
+     *
+     * @return {@code false} to opt out of this event's generated serialization test
+     */
+    boolean conformanceTest() default true;
+
     /** The supported messaging platforms. */
     enum Platform {
         /**

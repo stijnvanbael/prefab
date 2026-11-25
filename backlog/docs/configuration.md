@@ -129,7 +129,7 @@ Auto-configurations (all gated on `PrefabCoreConfiguration`):
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| `prefab.test.containers` | `false` | `true` starts Testcontainers; `false` (the default) runs in memory: drops the store and broker auto-configurations (DataSource, JDBC, Flyway, Data JDBC, MongoDB, Kafka, Pub/Sub, SNS/SQS and their Prefab counterparts) and registers a resource-less transaction manager. With `prefab-streams-engine` on the classpath it also drops `StreamsConfiguration` (Kafka Streams) and runs the Prefab Streams topologies on the in-process engine over the in-memory bus (see [Feature Guides, 7.20](feature-guides.md#prefab-streams-in-memory)). |
+| `prefab.test.containers` | `false` | `true` starts Testcontainers; `false` (the default) runs in memory: drops the store and broker auto-configurations (DataSource, JDBC, Flyway, Data JDBC, MongoDB, Kafka, Pub/Sub, SNS/SQS and their Prefab counterparts) and registers a resource-less transaction manager. It also drops `StreamsConfiguration` (Kafka Streams) and runs Prefab Streams topologies on the in-process engine supplied by `prefab-test` over the in-memory bus (see [Feature Guides, 7.20](feature-guides.md#prefab-streams-in-memory)). |
 
 In-memory is the default: without the property, `@IntegrationTest` needs no Docker. Set `prefab.test.containers: true` in `src/test/resources/application-test.yml` to run every test of a module on Testcontainers (the examples in this repository do this to keep real-infrastructure coverage).
 

@@ -1104,7 +1104,7 @@ Prefab provides a backend-neutral Streams DSL (`prefab-streams`) with Kafka and 
 | `prefab-streams-sns-sqs` | SNS/SQS source and sink, `StreamBackend` `sns-sqs` and auto-configuration for the in-process engine | No                |
 | `prefab-streams-kafka` | `KafkaPrefabStreams`, serdes, `KafkaStreamBreakoutAdapter`, the Kafka test harness and the `StreamsConfiguration` auto-configuration | Yes               |
 
-Applications that only test in memory need `prefab-streams-engine` instead of a broker backend, see
+Applications that only test in memory get `prefab-streams-engine` from `prefab-test` instead of needing a broker backend, see
 [Prefab Streams in memory](#prefab-streams-in-memory). Add `prefab-streams-kafka` to run the DSL on Kafka Streams; it brings `prefab-streams` along. Application code that
 only declares topologies compiles against `prefab-streams` and does not import any Kafka type. Broker backends are
 separate artifacts that implement the same DSL.
@@ -2167,6 +2167,12 @@ review the default Content Security Policy before permitting inline styles or sc
 in-memory backend and needs no Docker**; a test class or a whole module opts into real infrastructure
 (Testcontainers) when it needs it.
 
+When `prefab-test` is on the test classpath, Prefab also generates conformance tests for each aggregate's public REST
+endpoint security and each event's platform-serializer round-trip. They run as regular integration tests in
+in-memory mode even when the module selects containers; `prefab-test` supplies the in-process Streams engine for
+applications using Prefab Streams. Opt out per type with `@Aggregate(conformanceTest = false)` or
+`@Event(conformanceTest = false)`. They validate wiring rather than application-specific behavior.
+
 | Mode | How to select | What runs |
 |---|---|---|
 | In memory (default) | nothing, or `prefab.test.containers=false` | Prefab's own `ConcurrentHashMap` repositories instead of Postgres/MongoDB, a synchronous in-process event bus instead of Kafka, Pub/Sub and SNS/SQS |
@@ -2214,8 +2220,8 @@ class UserStatusIntegrationTest { ... }
 
 ### Prefab Streams in memory
 
-With `prefab-streams` and `prefab-streams-engine` on the classpath (test scope is enough), the topologies of the
-application run in memory on the in-process engine, so applications with streams get container-free integration tests.
+With `prefab-test` on the test classpath, the topologies of the application run in memory on the included in-process
+engine, so applications with streams get container-free integration tests.
 Do not add `prefab-streams-kafka` for this: in memory mode its `StreamsConfiguration` is dropped, because Kafka Streams
 needs a broker, and the engine runs instead. The auto-configuration (`InMemoryStreamsAutoConfiguration`) wires:
 

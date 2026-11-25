@@ -24,4 +24,11 @@ public @interface Aggregate {
      * @return the custom plural form, or an empty string to use the default Inflector-derived plural
      */
     String plural() default "";
+
+    /**
+     * Whether Prefab should generate a REST security conformance test for this aggregate.
+     *
+     * @return {@code false} to opt out of this aggregate's generated security test
+     */
+    boolean conformanceTest() default true;
 }

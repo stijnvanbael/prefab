@@ -580,6 +580,8 @@ The location is stable and lives outside `target/classes`, so the file is never 
   Spring Security, OpenAPI, AsyncAPI, Kafka Streams). Capabilities that are not on the classpath are omitted.
 - **Aggregates**: per aggregate the HTTP endpoints (method and path), the events it handles with their topics,
   the table or collection it is stored in, and the generated test helpers (`{Name}Client`, Mothers, assertions).
+- **Generated conformance tests**: when `prefab-test` is on the test classpath, the endpoint security and event
+  serialization tests generated for the model, with the per-type opt-out.
 - **Events**: every `@Event` type of the compilation with its topics and, for Avro, the serialization.
 - **Required configuration**: the application properties the active capabilities need at runtime.
 
@@ -663,3 +665,19 @@ The checks run as part of every normal build; they need no extra goal.
 
 A finding means Prefab already covers the code: delete it and change the annotated domain types instead. Only add
 `@SuppressWarnings("prefab.handwritten")` or `-- prefab:manual` when a human has decided the duplicate is intentional.
+
+---
+
+## 6.14 Generated Conformance Tests
+
+When `prefab-test` is on the test classpath, the annotation processor generates test-source checks in
+`target/prefab-test-sources/`:
+
+- `{Aggregate}SecurityConformanceTest` checks anonymous and authenticated access for every public REST endpoint.
+- `{Event}EventConformanceTest` round-trips each concrete event record through the registered platform codec.
+
+These are ordinary JUnit integration tests and run with `mvn verify` using the in-memory test backend, even when the
+module configures its other tests to use containers. They
+check framework wiring, not business behavior. Set `@Aggregate(conformanceTest = false)` or
+`@Event(conformanceTest = false)` to opt out for one aggregate or event. Migration replay validation is independent
+of these test opt-outs.

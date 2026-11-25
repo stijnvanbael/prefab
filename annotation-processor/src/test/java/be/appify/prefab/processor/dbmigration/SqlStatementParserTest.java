@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class SqlStatementParserTest {
 
@@ -63,6 +64,27 @@ class SqlStatementParserTest {
         assertNotNull(column.foreignKey());
     }
 
+    @Test
+    void droppingNonExistingColumnFailsWithMigrationDiagnostic() {
+        var tables = new HashMap<String, Table>();
+        tables.put("chapter", tableWithForeignKey());
+
+        var error = assertThrows(MigrationSqlException.class,
+                () -> new SqlStatementParser().parse("ALTER TABLE chapter DROP COLUMN missing;", tables));
+
+        assertTrue(error.getMessage().contains("Cannot drop non-existing column: missing"));
+    }
+
+    @Test
+    void dropColumnIfExistsAllowsAbsentColumn() {
+        var tables = new HashMap<String, Table>();
+        tables.put("chapter", tableWithForeignKey());
+
+        new SqlStatementParser().parse("ALTER TABLE chapter DROP COLUMN IF EXISTS missing;", tables);
+
+        assertTrue(tables.get("chapter").getColumn("missing").isEmpty());
+    }
+
     private Table tableWithForeignKey() {
         return new Table(
                 "chapter",
@@ -75,4 +97,3 @@ class SqlStatementParserTest {
         );
     }
 }
-

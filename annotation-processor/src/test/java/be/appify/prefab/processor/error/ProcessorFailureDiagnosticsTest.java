@@ -155,12 +155,12 @@ class ProcessorFailureDiagnosticsTest {
     }
 
     @Test
-    @DisplayName("an existing migration with invalid SQL yields an error naming the file and a corrective action")
-    void invalidExistingMigration_reportsFileAndFix() throws IOException {
+    @DisplayName("an invalid migration transition yields an error naming the file and a corrective action")
+    void invalidMigrationTransition_reportsFileAndFix() throws IOException {
         var classpath = Files.createTempDirectory("prefab-failure-migration");
         var migrations = Files.createDirectories(classpath.resolve(Path.of("db", "migration")));
-        Files.writeString(migrations.resolve("V1__baseline.sql"), "");
-        Files.writeString(migrations.resolve("V2__broken.sql"), "ALTER TABLE \"missing\" ADD COLUMN x INT;");
+        Files.writeString(migrations.resolve("V1__baseline.sql"), "CREATE TABLE chapter (id VARCHAR(255));");
+        Files.writeString(migrations.resolve("V2__broken.sql"), "ALTER TABLE chapter DROP COLUMN missing;");
 
         var compilation = javac().withProcessors(new PrefabProcessor())
                 .withOptions(classpathOptionsWith(classpath))
@@ -169,6 +169,7 @@ class ProcessorFailureDiagnosticsTest {
         assertThat(compilation).failed();
         assertTrue(errors(compilation).stream().anyMatch(message ->
                         message.contains("V2__broken.sql") && message.contains("cannot interpret database migration")
+                                && message.contains("Cannot drop non-existing column: missing")
                                 && message.contains("Suggested fix") && !message.contains("Internal error")),
                 () -> "Unexpected diagnostics: " + errors(compilation));
     }

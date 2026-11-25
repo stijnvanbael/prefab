@@ -2,6 +2,7 @@ be.appify.prefab.processor.dbmigration.DbMigrationPlugin
 be.appify.prefab.processor.mongodb.MongoMigrationPlugin
 be.appify.prefab.processor.mongodb.MongoIndexPlugin
 be.appify.prefab.processor.event.SerializationPlugin
+be.appify.prefab.processor.ConformanceTestPlugin
 be.appify.prefab.processor.event.asyncapi.EventSchemaDocumentationPlugin
 be.appify.prefab.processor.event.handler.StaticEventHandlerPlugin
 be.appify.prefab.processor.event.handler.byreference.ByReferenceEventHandlerPlugin

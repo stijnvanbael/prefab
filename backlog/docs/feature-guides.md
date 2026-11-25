@@ -2167,6 +2167,11 @@ review the default Content Security Policy before permitting inline styles or sc
 in-memory backend and needs no Docker**; a test class or a whole module opts into real infrastructure
 (Testcontainers) when it needs it.
 
+When `prefab-test` is on the test classpath, Prefab also generates conformance tests for each aggregate's public REST
+endpoint security and each event's platform-serializer round-trip. They run as regular integration tests in the
+default in-memory mode; opt out per type with `@Aggregate(conformanceTest = false)` or
+`@Event(conformanceTest = false)`. They validate wiring rather than application-specific behavior.
+
 | Mode | How to select | What runs |
 |---|---|---|
 | In memory (default) | nothing, or `prefab.test.containers=false` | Prefab's own `ConcurrentHashMap` repositories instead of Postgres/MongoDB, a synchronous in-process event bus instead of Kafka, Pub/Sub and SNS/SQS |

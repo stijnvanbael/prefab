@@ -50,6 +50,8 @@ class AgentContextPluginTest {
 
         assertThat(markdown)
                 .contains("- `OrderEvent` on topic `orders`")
+                .contains("## Generated conformance tests")
+                .contains("Opt out per aggregate or event with `conformanceTest = false`")
                 .contains("- Handles: `OrderEvent.Placed` via `on()`");
     }
 

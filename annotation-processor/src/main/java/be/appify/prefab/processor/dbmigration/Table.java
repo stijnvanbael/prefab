@@ -191,7 +191,11 @@ record Table(
 
     private void applyDropExpression(AlterExpression expr, Map<String, Column> columns) {
         if (expr.hasColumn()) {
-            columns.remove(expr.getColumnName());
+            var columnName = expr.getColumnName().replace("\"", "");
+            if (!columns.containsKey(columnName) && !expr.isUsingIfExists()) {
+                throw new IllegalStateException("Cannot drop non-existing column: " + columnName);
+            }
+            columns.remove(columnName);
         } else if (isNotBlank(expr.getConstraintName())) {
             columns.values().stream()
                     .filter(c -> c.foreignKey() != null && IdentifierShortener.foreignKeyConstraintName(name, c.name())

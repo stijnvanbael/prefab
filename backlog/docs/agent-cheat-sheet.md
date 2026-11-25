@@ -83,6 +83,7 @@ Setup: `@EnablePrefab` on the `@SpringBootApplication` class. Add only the modul
 | Run the app locally without Docker | Add `prefab-test` in test scope; run `mvn test-compile spring-boot:test-run`, then use the logged base URL/docs URLs to check behaviour |
 | Test one aggregate's logic and events | Plain JUnit; `@ExtendWith(PublishedEventsExtension.class)` + `CapturingDomainEventPublisher` parameter |
 | Test through HTTP | `@IntegrationTest` (prefab-test) and `@Autowired {Aggregate}Client`. Runs in memory, no Docker; Prefab Streams topologies run in memory too when `prefab-streams-engine` is on the classpath. Add `containers = true` only for a test that needs real database or broker behaviour |
+| Check generated wiring | Prefab generates in-memory security and event-serialization conformance tests; use `@Aggregate(conformanceTest = false)` or `@Event(conformanceTest = false)` to opt out per type |
 
 ## Do not
 

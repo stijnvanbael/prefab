@@ -34,6 +34,7 @@ Marks a class as an aggregate root — the primary domain entity managed by Pref
 |-----------|------|---------|-------------|
 | `exposure` | `Exposure` | `Exposure.PUBLIC` | Default HTTP exposure for aggregate operations; operation annotations may override it. |
 | `plural` | `String` | `""` | Custom plural for generated paths and names. |
+| `conformanceTest` | `boolean` | `true` | Generate an endpoint security conformance test; set to `false` to opt out for this aggregate. |
 
 `Exposure.INTERNAL` keeps generated service, repository and request/response artefacts while suppressing aggregate
 controller endpoints and their OpenAPI/test-client methods. A view may still expose a separately secured endpoint
@@ -907,6 +908,7 @@ event types are declared in dependency modules.
 | `platform`      | `Event.Platform`      | `DERIVED`        | Messaging platform. Auto-detected when only one is configured.                                                                                           |
 | `serialization` | `Event.Serialization` | `JSON`           | Serialization format (`JSON` or `AVRO`).                                                                                                                 |
 | `typeArguments` | `Class<?>[]` | `{}` | Ordered concrete arguments for this binding of a generic event declaration. Repeat `@Event` for each parameterisation; each owns its topics, platform, format, versions and fan-out. |
+| `conformanceTest` | `boolean` | `true` | Generate an event serialization round-trip test; set to `false` to opt out for this event binding. |
 
 ```java
 @Event(topic = {"customer-changed", "customer-audit"}, typeArguments = Customer.class,

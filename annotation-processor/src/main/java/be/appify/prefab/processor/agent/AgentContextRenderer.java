@@ -69,10 +69,18 @@ final class AgentContextRenderer {
                 .append("domain types instead and recompile.\n\n");
         appendCapabilities(out, active);
         appendAggregates(out, manifests, polymorphicManifests, active);
+        appendConformanceTests(out);
         appendEvents(out);
         appendConfiguration(out, active);
         appendLocalVerification(out);
         return out.toString();
+    }
+
+    private static void appendConformanceTests(StringBuilder out) {
+        out.append("## Generated conformance tests\n\n")
+                .append("With `prefab-test` on the test classpath, Prefab generates tests for public endpoint ")
+                .append("security (when Spring Security is enabled) and event serialization round-trips. ")
+                .append("Opt out per aggregate or event with `conformanceTest = false` on `@Aggregate` or `@Event`.\n\n");
     }
 
     private boolean isActive(Capability capability) {

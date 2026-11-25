@@ -61,6 +61,31 @@ Spring Data JDBC repository, request/response records, and a Flyway migration sc
 
 ---
 
+## Fast Build Feedback
+
+During development, compile the application without starting test contexts:
+
+```bash
+mvn -DskipTests compile
+```
+
+Then run only the test class for the change (replace the example class with yours):
+
+```bash
+mvn -Dtest=ProductIntegrationTest test
+```
+
+Run the complete verification before sharing the change:
+
+```bash
+mvn verify
+```
+
+For multi-module projects with independent modules, `mvn -T 2 verify` can build modules concurrently. It does not
+speed up a single-module application; use it only when the project's tests are safe to run across modules in parallel.
+
+---
+
 ## Run the application locally without infrastructure
 
 Add `prefab-test` as a test-scoped dependency (as you would for `@IntegrationTest`), then start the application from its

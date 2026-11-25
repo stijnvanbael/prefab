@@ -1,0 +1,12 @@
+title: Online auctions with bids, a highest-bid rule and sales on closing
+category: feature-security
+tier: feature
+modules: [postgres, kafka, security]
+timeoutMinutes: 45
+maxTurns: 150
+notes: >
+  Reference: Auction (seller-only create and closing, @CreatedBy seller) keeps the highest bid by handling BidPlaced
+  @ByReference and applying the bidding rule in the record; Bid records the bidder with @CreatedBy and an
+  AuditContextProvider; closing publishes AuctionClosed, from which a Sale is created (static @EventHandler) only when
+  there is a winning bid. Audit fields are filled after the @Create constructor runs, so events published there
+  cannot carry the bidder: the auction refers to the winning bid instead.

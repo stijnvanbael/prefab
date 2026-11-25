@@ -1,0 +1,10 @@
+title: Multi-tenant helpdesk with tickets, comments and status flow
+category: feature-tenancy
+tier: feature
+modules: [postgres, kafka]
+timeoutMinutes: 45
+maxTurns: 150
+notes: >
+  Reference: Ticket and Comment carry a @TenantId filled from a header-based TenantContextProvider; Comment is nested
+  under Ticket (@Parent) and publishes CommentAdded, which Ticket handles @ByReference to count comments and move an
+  open ticket to IN_PROGRESS. The event handler runs outside the request, so it must not depend on the tenant context.

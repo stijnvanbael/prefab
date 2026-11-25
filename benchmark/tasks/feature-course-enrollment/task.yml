@@ -1,0 +1,11 @@
+title: Course enrollment with withdrawal and cascading course cancellation
+category: feature-events
+tier: feature
+modules: [postgres, kafka]
+timeoutMinutes: 45
+maxTurns: 150
+notes: >
+  Reference: Enrollment publishes a sealed EnrollmentEvent (Enrolled, Withdrawn, Cancelled) that Course and Student
+  handle @ByReference; Course publishes CourseCancelled, which Enrollment handles with @Multicast over a
+  findByCourse mixin and failWhenEmpty = false (a course without enrollments is normal). The cancellation cascades
+  over three events.

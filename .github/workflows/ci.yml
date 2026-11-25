@@ -25,3 +25,10 @@ jobs:
         env:
           TESTCONTAINERS_REUSE_ENABLE: 'true'
         run: mvn --batch-mode verify -Dgpg.skip=true
+
+      - name: Test release bundle guard
+        run: |
+          mkdir -p target/release-tools
+          javac -d target/release-tools release/ReleaseBundle.java release/ReleasePublisher.java release/ReleaseBundleTest.java
+          java -cp target/release-tools ReleaseBundleTest
+          bash release/test-release-flow.sh

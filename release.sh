@@ -42,6 +42,8 @@ next_development_version="$2"
 validate_version "Release version" "$release_version"
 validate_version "Next development version" "$next_development_version"
 [[ "$release_version" != "$next_development_version" ]] || fail "Release version and next development version must differ."
+[[ "${MAVEN_USERNAME:-}" =~ [^[:space:]] ]] || fail "MAVEN_USERNAME must contain the Central user token username."
+[[ "${MAVEN_PASSWORD:-}" =~ [^[:space:]] ]] || fail "MAVEN_PASSWORD must contain the Central user token password."
 
 current_branch=$(git branch --show-current)
 [[ "$current_branch" == "main" ]] || fail "Release must run from main, found $current_branch."

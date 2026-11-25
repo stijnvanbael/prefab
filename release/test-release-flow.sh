@@ -52,6 +52,17 @@ export PATH="$work/bin:$PATH" TRACE="$work/trace" VERSION_FILE="$work/version"
 
 cd "$work"
 printf '0.13.3-SNAPSHOT\n' > "$VERSION_FILE"
+export MAVEN_USERNAME='test-user' MAVEN_PASSWORD=''
+if bash release.sh 0.13.3 0.13.4; then
+    echo "Expected missing Central credentials to fail" >&2
+    exit 1
+fi
+if [[ -s "$TRACE" ]]; then
+    echo "Release started despite missing Central credentials" >&2
+    exit 1
+fi
+
+export MAVEN_PASSWORD='test-password'
 export FAIL_VERIFY=true
 if bash release.sh 0.13.3 0.13.4; then
     echo "Expected a failed bundle verification" >&2

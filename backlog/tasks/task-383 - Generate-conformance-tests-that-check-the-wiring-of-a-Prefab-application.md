@@ -71,6 +71,7 @@ Generated tests are emitted to `target/prefab-test-sources` alongside the existi
   endpoint/topic.
 - During compile-time migration replay, dropping an absent column now fails unless the statement uses
   `DROP COLUMN IF EXISTS`. The processor reports the migration filename and invalid transition.
+  TASK-390 tracks broader compile-time validation of PostgreSQL schema transitions.
 - Updated generated-artefact, integration-test, database migration, cheat-sheet and testing-recipe documentation.
   Existing benchmark tasks `security-public-endpoints` and `events-sealed-hierarchy` exercise the two generated-test
   checks; the task descriptions already match the target behavior.

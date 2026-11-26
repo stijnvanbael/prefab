@@ -52,14 +52,26 @@ public class EventTypeRegistrarWriter {
      * @param event the event type manifest
      */
     public void writeRegistrar(TypeManifest event) {
-        fileOutput.setOriginatingElements(event.asElement());
+        var element = event.asElement();
+        var output = fileOutput;
+        for (var owner = element; owner != null;
+             owner = owner.getEnclosingElement() instanceof TypeElement enclosing ? enclosing : null) {
+            if (owner.getModifiers().contains(Modifier.PRIVATE)) {
+                context.logError("An @Event and its enclosing types must be accessible to a registrar in the same package.", element);
+                return;
+            }
+            if (!owner.getModifiers().contains(Modifier.PUBLIC)) {
+                output = new OutputTargetFileOutput(context, "", OutputTarget.MAIN);
+            }
+        }
+        output.setOriginatingElements(element);
         for (var annotation : event.asElement().getAnnotationsByType(Event.class)) {
             var binding = EventBindings.typeOf(event.asElement(), annotation, context);
             var simpleName = event.simpleName().replace(".", "") + EventBindings.suffix(binding);
             var name = registrarName(simpleName);
             var type = buildRegistrarType(event.packageName(), name, annotation.topic(), annotation.serialization(),
                     annotation.publishTo(), simpleName, binding.asTypeName(), keyField(binding, context));
-            fileOutput.writeFile(event.packageName(), name, type);
+            output.writeFile(event.packageName(), name, type);
         }
     }
 

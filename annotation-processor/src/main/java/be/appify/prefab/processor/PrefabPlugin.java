@@ -54,6 +54,13 @@ public interface PrefabPlugin {
     }
 
     /**
+     * Finalizes resources after the last successful processing round. Do not generate Java types
+     * for the current compilation here: javac will not process them in another round.
+     */
+    default void finishProcessing() {
+    }
+
+    /**
      * Write controller code for the given manifest.
      *
      * @param manifest

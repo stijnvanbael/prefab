@@ -63,19 +63,21 @@ public class JavaFileWriter implements FileOutput {
      */
     @Override
     public void writeFile(String packagePrefix, String typeName, TypeSpec type) {
-        if (!GeneratedFiles.defer(processingEnvironment, () -> write(packagePrefix, typeName, type))) {
-            write(packagePrefix, typeName, type);
+        var owners = originatingElements;
+        Runnable write = () -> write(packagePrefix, typeName, type, owners);
+        if (!GeneratedFiles.defer(processingEnvironment, write)) {
+            write.run();
         }
     }
 
-    private void write(String packagePrefix, String typeName, TypeSpec type) {
+    private void write(String packagePrefix, String typeName, TypeSpec type, List<TypeElement> owners) {
         try {
             var packageName = !isBlank(packageSuffix) ? "%s.%s".formatted(packagePrefix, packageSuffix) : packagePrefix;
             var qualifiedName = "%s.%s".formatted(packageName, typeName);
             JavaFileObject builderFile;
             try {
                 builderFile = processingEnvironment.getFiler()
-                        .createSourceFile(qualifiedName, originatingElements.toArray(TypeElement[]::new));
+                        .createSourceFile(qualifiedName, owners.toArray(TypeElement[]::new));
             } catch (FilerException e) {
                 if (indicatesFileAlreadyExists(e)) {
                     if (!wasGeneratedByProcessor(qualifiedName)) {
@@ -87,7 +89,7 @@ public class JavaFileWriter implements FileOutput {
                     }
                     return;
                 }
-                throw new PrefabProcessingException(originatingElements.stream().findFirst().orElse(null), "Prefab",
+                throw new PrefabProcessingException(owners.stream().findFirst().orElse(null), "Prefab",
                         "cannot create generated source file %s: %s".formatted(qualifiedName, e.getMessage()),
                         "check that no other annotation processor generates the same type and that the output"
                                 + " directory is writable",
@@ -103,7 +105,7 @@ public class JavaFileWriter implements FileOutput {
             }
             markAsGeneratedByProcessor(qualifiedName);
         } catch (IOException e) {
-            throw new PrefabProcessingException(originatingElements.stream().findFirst().orElse(null), "Prefab",
+            throw new PrefabProcessingException(owners.stream().findFirst().orElse(null), "Prefab",
                     "cannot write generated source file %s.%s: %s".formatted(packagePrefix, typeName, e.getMessage()),
                     "check that the compiler output directory exists, is writable and has free disk space",
                     e);

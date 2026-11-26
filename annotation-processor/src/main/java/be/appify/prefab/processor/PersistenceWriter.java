@@ -1,6 +1,5 @@
 package be.appify.prefab.processor;
 
-import be.appify.prefab.core.annotations.RepositoryMixin;
 import be.appify.prefab.core.annotations.OutputTarget;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
@@ -8,11 +7,9 @@ import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.type.MirroredTypeException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.CrudRepository;
@@ -44,15 +41,10 @@ class PersistenceWriter {
 
     private void writeRepository(ClassManifest manifest) {
         var repositoryName = "%sRepository".formatted(manifest.simpleName());
-        var mixins = context.roundEnvironment().getElementsAnnotatedWith(RepositoryMixin.class)
-                .stream()
-                .filter(element -> TypeManifest.of(element.asType(), context.processingEnvironment())
-                        .annotationsOfType(RepositoryMixin.class).stream().anyMatch(annotation ->
-                                manifest.type().equals(getMirroredType(annotation::value))))
-                .toList();
+        var mixins = context.incrementalState().mixins().forAggregate(manifest.type());
         fileWriter.setOriginatingElements(Stream.concat(
                         Stream.of(manifest.type().asElement()),
-                        mixins.stream().filter(TypeElement.class::isInstance).map(TypeElement.class::cast))
+                        mixins.stream())
                 .distinct()
                 .toArray(TypeElement[]::new));
         var type = TypeSpec.interfaceBuilder(repositoryName)
@@ -70,16 +62,10 @@ class PersistenceWriter {
 
     private void writePolymorphicRepository(PolymorphicAggregateManifest manifest) {
         var repositoryName = "%sRepository".formatted(manifest.simpleName());
-        fileWriter.setOriginatingElements(manifest.type().asElement());
-        var mixins = context.roundEnvironment().getElementsAnnotatedWith(RepositoryMixin.class)
-                .stream()
-                .filter(element -> TypeManifest.of(element.asType(), context.processingEnvironment())
-                        .annotationsOfType(RepositoryMixin.class).stream().anyMatch(annotation ->
-                                manifest.type().equals(getMirroredType(annotation::value))))
-                .toList();
+        var mixins = context.incrementalState().mixins().forAggregate(manifest.type());
         fileWriter.setOriginatingElements(Stream.concat(
                         Stream.of(manifest.type().asElement()),
-                        mixins.stream().filter(TypeElement.class::isInstance).map(TypeElement.class::cast))
+                        mixins.stream())
                 .distinct()
                 .toArray(TypeElement[]::new));
         var type = TypeSpec.interfaceBuilder(repositoryName)
@@ -101,14 +87,6 @@ class PersistenceWriter {
                         .addParameter(ParameterSpec.builder(Pageable.class, "pageable").build())
                         .returns(pageOf(manifest.type().asTypeName()))
                         .build()));
-    }
-
-    private TypeManifest getMirroredType(Supplier<Class<?>> getter) {
-        try {
-            return TypeManifest.of(getter.get(), context.processingEnvironment());
-        } catch (MirroredTypeException e) {
-            return TypeManifest.of(e.getTypeMirror(), context.processingEnvironment());
-        }
     }
 
     private void findByParentMethod(ClassManifest manifest, TypeSpec.Builder type) {

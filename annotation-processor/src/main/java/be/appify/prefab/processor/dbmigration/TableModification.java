@@ -11,7 +11,7 @@ interface TableModification {
     static List<TableModification> from(String table, Column original, Column desired) {
         if (original != null && desired != null) {
             var modifications = new ArrayList<TableModification>();
-            if (!original.type().equals(desired.type())) {
+            if (!original.type().toSql().equals(desired.type().toSql())) {
                 modifications.add(new AlterColumn(original.name(),
                         new ColumnModification.ChangeType(original.name(), desired.type())));
             }

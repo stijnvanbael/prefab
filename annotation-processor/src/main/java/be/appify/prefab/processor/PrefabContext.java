@@ -50,6 +50,7 @@ public class PrefabContext {
     private final Set<String> currentCompilationTypeNames;
     private final GenerateAnnotationValidator generateAnnotationValidator;
     private final PrefabConfiguration configuration;
+    private final IncrementalBuildState incrementalState;
 
     // Memoized per-round event views; each computed at most once per PrefabContext instance.
     private List<TypeElement> memoizedCurrentCompilationEventElements;
@@ -119,6 +120,16 @@ public class PrefabContext {
             Set<ExecutableElement> inheritedDeferredEventHandlers,
             Set<String> currentCompilationTypeNames
     ) {
+        this(processingEnvironment, plugins, roundEnvironment, inheritedDeferredEventHandlers,
+                currentCompilationTypeNames, new IncrementalBuildState());
+    }
+
+    PrefabContext(
+            ProcessingEnvironment processingEnvironment, List<PrefabPlugin> plugins, RoundEnvironment roundEnvironment,
+            Set<ExecutableElement> inheritedDeferredEventHandlers, Set<String> currentCompilationTypeNames,
+            IncrementalBuildState incrementalState
+    ) {
+        this.incrementalState = incrementalState;
         this.processingEnvironment = processingEnvironment;
         this.errorReporter = new ErrorReporter(processingEnvironment);
         this.guard = new ProcessingGuard(errorReporter);
@@ -130,6 +141,10 @@ public class PrefabContext {
         this.configuration = new PrefabConfiguration(processingEnvironment.getOptions());
         requestParameterBuilder = new RequestParameterBuilder(plugins);
         requestParameterMapper = new RequestParameterMapper(plugins);
+    }
+
+    IncrementalBuildState incrementalState() {
+        return incrementalState;
     }
 
     /**

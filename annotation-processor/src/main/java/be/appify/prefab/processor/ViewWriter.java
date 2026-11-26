@@ -1,6 +1,7 @@
 package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.core.annotations.rest.Create;
 import be.appify.prefab.core.annotations.rest.GetById;
 import be.appify.prefab.core.annotations.rest.GetList;
@@ -22,6 +23,7 @@ import com.palantir.javapoet.TypeSpec;
 import java.security.Principal;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.processing.RoundEnvironment;
@@ -182,7 +184,7 @@ final class ViewWriter {
                             : new FieldMismatch(viewField.name(), aggregateField.get().type().simpleName(),
                             viewField.type().simpleName());
                 })
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .toList();
         var allFieldsMatch = matchingFields.isEmpty();
         if (allFieldsMatch) {
@@ -521,8 +523,9 @@ final class ViewWriter {
                         .returns(view.type().asTypeName())
                         .addStatement("return builder().build()")
                         .build());
-        new OutputTargetFileOutput(context, null, be.appify.prefab.core.annotations.OutputTarget.TEST)
-                .writeFile(view.packageName(), view.simpleName() + "Mother", mother.build());
+        var writer = new OutputTargetFileOutput(context, null, OutputTarget.TEST);
+        writer.setPreferredElement(viewElement);
+        writer.writeFile(view.packageName(), view.simpleName() + "Mother", mother.build());
     }
 
     private static CodeBlock defaultValue(VariableManifest field) {

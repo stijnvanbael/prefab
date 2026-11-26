@@ -102,6 +102,7 @@ public class PrefabProcessor extends AbstractProcessor {
     private final Set<String> processedAdditionalFilesPolymorphicAggregates = new LinkedHashSet<>();
     private final Set<String> seenEventElementNames = new LinkedHashSet<>();
     private final Set<String> currentCompilationTypeNames = new LinkedHashSet<>();
+    private final IncrementalBuildState incrementalState = new IncrementalBuildState();
 
     // Plugins whose initContext failed; calling them again would only produce consequent errors.
     private final Set<PrefabPlugin> failedPlugins = new LinkedHashSet<>();
@@ -125,7 +126,9 @@ public class PrefabProcessor extends AbstractProcessor {
                 plugins,
                 environment,
                 deferredEventHandlers,
-                currentCompilationTypeNames);
+                currentCompilationTypeNames,
+                incrementalState);
+        incrementalState.observe(context);
         var validEvents = context.eventElementsFromCurrentCompilation()
                 .map(element -> EventBindings.validate(element, context))
                 .toList().stream().allMatch(Boolean::booleanValue);
@@ -166,6 +169,18 @@ public class PrefabProcessor extends AbstractProcessor {
         }
         deferredEventHandlers.clear();
         deferredEventHandlers.addAll(context.newlyDeferredEventHandlers());
+        if (environment.processingOver() && !environment.errorRaised()) {
+            var finished = true;
+            for (var plugin : plugins) {
+                // A globally disabled plugin may still have been enabled on a single aggregate.
+                if (!runPlugin(context, plugin, PrefabPlugin::finishProcessing)) {
+                    finished = false;
+                }
+            }
+            if (finished && failedAggregateNames.isEmpty()) {
+                incrementalState.finish();
+            }
+        }
     }
 
     private boolean runPlugin(PrefabContext context, PrefabPlugin plugin, Consumer<PrefabPlugin> hook) {

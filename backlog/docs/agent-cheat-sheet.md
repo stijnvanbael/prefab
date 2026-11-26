@@ -34,22 +34,39 @@ Read compiler output when a build fails: Prefab diagnostics say what to fix.
 ## Minimal aggregate
 
 ```java
+package com.example.catalog;
+
+import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.rest.Create;
+import be.appify.prefab.core.annotations.rest.Delete;
+import be.appify.prefab.core.annotations.rest.Filter;
+import be.appify.prefab.core.annotations.rest.GetById;
+import be.appify.prefab.core.annotations.rest.GetList;
+import be.appify.prefab.core.annotations.rest.Update;
+import be.appify.prefab.core.service.Reference;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import java.math.BigDecimal;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
+
 @Aggregate
 @GetById
 @GetList
 public record Product(
-        @Id Reference<Product> id,        // org.springframework.data.annotation.Id
-        @Version long version,            // org.springframework.data.annotation.Version
+        @Id Reference<Product> id,
+        @Version long version,
         @Filter String name,
         BigDecimal price
 ) {
-    @Create
-    public Product(String name, BigDecimal price) {
+    @Create  // validation goes on these parameters, not on the record components
+    public Product(@NotBlank @Size(max = 100) String name, @NotNull BigDecimal price) {
         this(Reference.create(), 0L, name, price);
     }
 
     @Update
-    public Product rename(String name) {  // returns the new state
+    public Product rename(@NotBlank String name) {  // returns the new state
         return new Product(id, version, name, price);
     }
 
@@ -58,8 +75,19 @@ public record Product(
 }
 ```
 
-Annotations: `be.appify.prefab.core.annotations` (`@Aggregate`, `@EventHandler`, `@Event`, …) and
-`be.appify.prefab.core.annotations.rest` (`@Create`, `@Update`, `@Delete`, `@GetById`, `@GetList`, `@Filter`, …).
+Packages (all under `be.appify.prefab`; `Reference` is not generated):
+
+| Package | Types |
+|---|---|
+| `core.annotations` | `@Aggregate`, `@Event`, `@EventHandler`, `@ByReference`, `@Multicast`, `@RepositoryMixin`, `@Computed`, `@TenantId`, `Exposure` |
+| `core.annotations.rest` | `@Create`, `@Update`, `@Delete`, `@GetById`, `@GetList`, `@Filter`, `@Parent`, `@Security`, `@Autocomplete`, `@SortOrder`, `@Download` |
+| `core.service` | `Reference` |
+| `core.domain` | `EventPublisher`, `Binary` |
+| `core.audit` | `AuditInfo` |
+| `core.spring` | `@EnablePrefab` |
+| `test` | `@IntegrationTest` |
+| `test.domain` | `PublishedEventsExtension`, `CapturingDomainEventPublisher` |
+
 Setup: `@EnablePrefab` on the `@SpringBootApplication` class. Add only the modules you need
 (`prefab-core`, `prefab-annotation-processor`, `prefab-postgres` or `prefab-mongodb`, `prefab-kafka`,
 `prefab-security`, `prefab-test`).
@@ -75,7 +103,7 @@ Setup: `@EnablePrefab` on the `@SpringBootApplication` class. Add only the modul
 | A read-only derived value in responses | `@Computed` on a public no-arg method |
 | A custom action (e.g. `POST /invoices/{id}/pay`) | `@Update(path = "/pay", method = "POST")` on a method that returns the new state |
 | Nested resource (`/orders/{id}/lines`) | `@Parent Reference<Order>` field on the child |
-| Reject invalid input | Jakarta validation (`@NotNull`, `@Size`, …) on constructor/method parameters |
+| Reject invalid input | Jakarta validation (`@NotBlank`, `@NotNull`, `@Size`, …) on the `@Create` constructor / `@Update` method parameters; on record components it is not applied |
 | Reference another aggregate | `Reference<Other>` field, never a JPA relation |
 | Publish an event | `@Event(topic = "…")` record + `private static final EventPublisher<E> P = EventPublisher.bind(E.class)`, then `P.publish(event)` in a constructor or update method |
 | React to an event: create an aggregate | `@EventHandler public static Agg on(Event e)` |

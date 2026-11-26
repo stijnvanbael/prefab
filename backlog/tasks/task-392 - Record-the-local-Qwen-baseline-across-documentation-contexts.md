@@ -118,6 +118,13 @@ again sat on record components, not `@Create` parameters. It deleted its own fai
 summary" + another verification command until it stopped. Second import miss of the same kind (`@Parent` before):
 the cheat sheet should give the full import of every type it uses.
 
+**Cheat sheet with full imports (2026-11-26, run `20261126-115004`).** The cheat-sheet example now carries its imports,
+a table gives the package of every type, and validation sits on `@Create` parameters. Step 1 FAIL again, 1/3 hidden
+tests, 38 turns, 9 builds, 1m59s (fewest so far). Both fixes worked: `Reference` imported correctly first time,
+validation on the constructor parameters. New failure: `@Create` on the record instead of the constructor. Prefab
+accepts that silently and generates no create endpoint, while `agent-context.md` lists `POST /books (create)`; Qwen
+trusted it, deleted its failing client test, and reported success. Filed as TASK-394 (Prefab bug, not a doc gap).
+
 Proposal before running the context matrix:
 1. Re-run the ladder with a larger Ollama context window (`OLLAMA_CONTEXT_LENGTH=131072`). Input per turn was
    ~20-22k tokens against a 32k window; Ollama truncates the oldest tokens when a prompt overflows, which would drop

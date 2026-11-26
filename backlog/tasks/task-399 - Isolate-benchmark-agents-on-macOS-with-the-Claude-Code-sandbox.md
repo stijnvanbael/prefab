@@ -36,8 +36,10 @@ folders broadly (configurable), not just the repository root.
 
 Side effect seen in the TASK-392 baseline: the sandbox also blocks the Docker socket, so the agent's own tests can
 only use Prefab's in-memory backend (an agent noticed and switched). Hidden tests run outside the sandbox and are
-unaffected, but hosted runs without the sandbox can use Testcontainers. Allow the Docker socket (for example
-`sandbox.network.allowUnixSockets`) or document the difference.
+unaffected, but hosted runs without the sandbox can use Testcontainers. This is not harmless: an agent spent over an hour on one quick task investigating why the prompt's "Docker is
+available" did not hold. Verified fix: `"network": {"allowUnixSockets": ["~/.docker/run/docker.sock",
+"/var/run/docker.sock"], "allowLocalBinding": true}` makes `docker ps` and localhost connections work inside the
+sandbox while repository reads stay blocked.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

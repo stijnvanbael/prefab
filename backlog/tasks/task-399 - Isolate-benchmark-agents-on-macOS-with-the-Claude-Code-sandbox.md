@@ -33,6 +33,11 @@ Hiding only the checkout is not enough: with the repo root denied, a Qwen 3.8 at
 `~/IdeaProjects/appify/` and read another application built with Prefab (`energy-balancer`), which is just as much a
 leak. The TASK-392 baseline therefore denies all of `~/IdeaProjects`. The harness should deny the user's source
 folders broadly (configurable), not just the repository root.
+
+Side effect seen in the TASK-392 baseline: the sandbox also blocks the Docker socket, so the agent's own tests can
+only use Prefab's in-memory backend (an agent noticed and switched). Hidden tests run outside the sandbox and are
+unaffected, but hosted runs without the sandbox can use Testcontainers. Allow the Docker socket (for example
+`sandbox.network.allowUnixSockets`) or document the difference.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

@@ -40,6 +40,15 @@ unaffected, but hosted runs without the sandbox can use Testcontainers. This is 
 available" did not hold. Verified fix: `"network": {"allowUnixSockets": ["~/.docker/run/docker.sock",
 "/var/run/docker.sock"], "allowLocalBinding": true}` makes `docker ps` and localhost connections work inside the
 sandbox while repository reads stay blocked.
+
+More leak sources found in the TASK-392 baseline, each read by an agent that passed the hidden tests:
+- another full checkout in `/private/tmp/prefab-310.*` (left by a different session), including `benchmark/tasks/*/reference`;
+- earlier runs' kept workspaces under `$TMPDIR/prefab-benchmark/`, among them `validate-*-reference`, which holds the
+  reference solution of every task.
+`/tmp` itself cannot be denied, because Claude Code's own temp directories (`prefab-benchmark-agent-tmp-*`) live
+there. The harness should give each run a fresh work directory, deny the shared work root and other runs' agent
+temp directories, deny both `/var` and `/private/var` (and `/tmp` and `/private/tmp`) spellings in permission rules,
+and ideally remove `validate` workspaces after validation.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

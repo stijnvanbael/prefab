@@ -422,6 +422,37 @@ confidence intervals barely overlap. Use `--repeat 3` for decisions, and compare
 - The benchmark measures Claude Code as the agent. The model is pluggable through [model profiles](#model-profiles);
   the `Agent` interface is small, so another agent CLI can be added as another implementation.
 
+## Prefab edit/compile/test measurements (TASK-384)
+
+Warm local builds on Temurin JDK 25 / Maven 3.9.11 measured the showcase with:
+
+```bash
+mvn --no-transfer-progress -pl examples/showcase-inmemory -am verify
+mvn --no-transfer-progress -T 2 -pl examples/showcase-inmemory -am verify
+```
+
+Three runs of the first command took 88.00s, 86.03s and 85.93s (median 86.03s). With `-T 2`, they took
+64.05s, 64.53s and 64.74s (median 64.53s), a 25.0% reduction. This is measured for this multi-module reactor;
+parallelism is not expected to help a single-module application. One `-T 4` run took 63.46s, too small a
+difference from `-T 2` to justify the extra concurrency. One offline `-o -T 2` run took 64.77s and did not help.
+Three `mvn -N validate` startup/no-op samples had a median of 0.74s.
+
+The showcase used one Spring test context before and after the regression check (cache `missCount=1`; the check
+passed after 104 tests, 0 failures, 0 errors and 4 skips). The observed showcase context startup was 1.485s.
+The benchmark template's `rest-create-and-get` validation passed its three hidden tests in 3.75s; the unchanged
+starter failed as expected in 3.24s.
+
+The measurements do not provide a complete phase-by-phase split. Maven's compiler plugin runs annotation
+processing inside the same `javac` invocation as compilation and does not report those durations separately.
+JUnit test-report durations and application-context startup are observable, but vary with host load and must not
+be subtracted from total Maven wall time as if they were sequential phases. A diagnostic post-change build with
+Spring cache DEBUG logging took 65.27s, but is not comparable to the baseline. Two further post-change samples
+took 260.24s and 487.79s while the host was heavily loaded; they are not valid performance measurements, so no
+post-change median is claimed.
+
+The TASK-343 Haiku 5.5 `cheat-sheet` baseline recorded median 4 Maven builds and 1m19s agent time. No
+post-change model run is recorded, so the agent-time/build-count effect of the guidance remains unverified.
+
 ## Recorded baselines
 
 Recorded runs live in `benchmark/results/<run-id>/` (`report.md`, `report.json` and, after review,

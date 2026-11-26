@@ -19,8 +19,17 @@ Flyway migrations (`V…__*.sql`), and `{Aggregate}Client` test helpers (`target
 After a compile, read `target/prefab/agent-context.md` first: it lists this project's aggregates, endpoints,
 events, tables and test helpers, so you need not browse generated sources.
 
-Business rules live in the record's methods. Change behaviour by changing annotations or the record, then run
-`mvn compile` and read the compiler output: Prefab errors say what to fix.
+Business rules live in the record's methods. Change behaviour by changing annotations or the record, then use a
+focused build loop:
+
+1. `mvn -DskipTests compile` checks the model and generated production code without starting test contexts.
+2. `mvn -Dtest=ProductIntegrationTest test` runs only the relevant test class (substitute its actual name).
+3. Run `mvn verify` before finishing so the complete test suite is checked.
+
+For a multi-module reactor with independent modules and concurrency-safe tests, `mvn -T 2 verify` can shorten the
+full build. It reduced the measured in-memory showcase median by 25%; it does not speed up single-module builds.
+
+Read compiler output when a build fails: Prefab diagnostics say what to fix.
 
 ## Minimal aggregate
 

@@ -7,6 +7,7 @@ import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.Generate;
 import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.processor.PrefabContext;
+import be.appify.prefab.processor.CompilerResources;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.error.PrefabProcessingException;
@@ -15,9 +16,6 @@ import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.TypeName;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -212,7 +210,7 @@ public class AvscPlugin implements PrefabPlugin {
     }
 
     private Schema parseSchema(String path, Element originatingElement) {
-        try (var stream = openResource(path)) {
+        try (var stream = CompilerResources.open(context.processingEnvironment().getFiler(), path, getClass().getClassLoader()).orElse(null)) {
             if (stream == null) {
                 context.processingEnvironment().getMessager().printMessage(
                         Diagnostic.Kind.ERROR,
@@ -229,14 +227,6 @@ public class AvscPlugin implements PrefabPlugin {
                     originatingElement);
             return null;
         }
-    }
-
-    private InputStream openResource(String path) throws IOException {
-        var stream = getClass().getClassLoader().getResourceAsStream(path);
-        if (stream != null) return stream;
-        var file = Path.of("src/main/resources", path);
-        if (Files.exists(file)) return Files.newInputStream(file);
-        return null;
     }
 
     private static String capitalize(String name) {

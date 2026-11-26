@@ -11,6 +11,7 @@ import be.appify.prefab.core.annotations.AvroSchema;
 import be.appify.prefab.processor.AnnotationManifest;
 import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
+import be.appify.prefab.processor.CompilerResources;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
 import be.appify.prefab.processor.error.PrefabProcessingException;
@@ -20,8 +21,6 @@ import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -308,11 +307,7 @@ class EventSchemaFactoryWriter {
     }
 
     private InputStream openResource(String path) throws IOException {
-        var stream = getClass().getClassLoader().getResourceAsStream(path);
-        if (stream != null) return stream;
-        var file = Path.of("src/main/resources", path);
-        if (Files.exists(file)) return Files.newInputStream(file);
-        return null;
+        return CompilerResources.open(context.processingEnvironment().getFiler(), path, getClass().getClassLoader()).orElse(null);
     }
 
     /**

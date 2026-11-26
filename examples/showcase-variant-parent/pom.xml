@@ -63,6 +63,16 @@
     </dependencies>
 
     <build>
+        <!-- Declare the inputs in the project model, not only in a lifecycle execution:
+             a native IDE build copies resources without running build-helper:add-resource. -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>${showcase.directory}/src/avro/resources</directory>
+            </resource>
+        </resources>
         <plugins>
             <!-- Start from a fresh copy, so sources deleted from the showcase do not linger in a variant -->
             <plugin>
@@ -260,20 +270,6 @@
                                 <source>${showcase.directory}/src/streams-kafka/java</source>
                                 <source>${showcase.directory}/src/avro/java</source>
                             </sources>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>add-showcase-avro-resources</id>
-                        <phase>generate-resources</phase>
-                        <goals>
-                            <goal>add-resource</goal>
-                        </goals>
-                        <configuration>
-                            <resources>
-                                <resource>
-                                    <directory>${showcase.directory}/src/avro/resources</directory>
-                                </resource>
-                            </resources>
                         </configuration>
                     </execution>
                     <execution>

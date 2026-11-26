@@ -1,5 +1,5 @@
 ---
-id: TASK-393
+id: TASK-397
 title: Report energy cost instead of API cost for local model profiles
 status: To Do
 assignee: []

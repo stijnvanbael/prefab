@@ -123,7 +123,7 @@ a table gives the package of every type, and validation sits on `@Create` parame
 tests, 38 turns, 9 builds, 1m59s (fewest so far). Both fixes worked: `Reference` imported correctly first time,
 validation on the constructor parameters. New failure: `@Create` on the record instead of the constructor. Prefab
 accepts that silently and generates no create endpoint, while `agent-context.md` lists `POST /books (create)`; Qwen
-trusted it, deleted its failing client test, and reported success. Filed as TASK-394 (Prefab bug, not a doc gap).
+trusted it, deleted its failing client test, and reported success. Filed as TASK-398 (Prefab bug, not a doc gap).
 
 **Qwen 3.8 27B, 128k window (2026-11-26).** Ollama restarted with `OLLAMA_CONTEXT_LENGTH=131072`; both models fit
 fully in GPU memory (Qwen3-Coder 30B 31 GB, Qwen 3.8 27B 18 GB). New profile `qwen38-local` (same settings as
@@ -131,7 +131,7 @@ fully in GPU memory (Qwen3-Coder 30B 31 GB, Qwen 3.8 27B 18 GB). New profile `qw
 on the constructor, validation on its parameters, read `agent-context.md` and the generated controller against the
 requirements, wrote client + MockMvc tests incl. the 404 case, ran `mvn verify`, one clean summary. It only looked
 outside the workspace in `~/.m2` jars, so the pass is clean. Step 2 was stopped and discarded: Qwen 3.8 ran
-`find /`, found the checkout and read the reference solution of `rest-parent-child` (TASK-395). The Qwen3-Coder rerun
+`find /`, found the checkout and read the reference solution of `rest-parent-child` (TASK-399). The Qwen3-Coder rerun
 at 128k did not start. Claude Code also warns that it assumes a 1M-token window for unknown model ids, so it will
 not compact before Ollama truncates; set the window for custom models before long runs.
 
@@ -150,5 +150,5 @@ Findings for follow-up:
 - Prefab: warn when Jakarta validation sits on record components but not on `@Create` parameters (step 1).
 - Harness: on macOS nothing stops an agent from writing outside its workspace; detect or flag such writes (step 3).
 - The report shows `Cost $2,06` for a local model: Claude Code prices it at its own API rates. Not meaningful for a
-  local model, whose real cost is the energy used. Filed as TASK-393.
+  local model, whose real cost is the energy used. Filed as TASK-397.
 <!-- SECTION:NOTES:END -->

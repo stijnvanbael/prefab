@@ -9,4 +9,5 @@ notes: >
   with a default for existing rows, plus an admin-only @Update. The hidden tests read the migration scripts on the
   classpath: a NOT NULL column without a default (or a backfill) fails on a table with rows. A hand-written V2
   migration that backfills the column also passes, with a guardrail warning. The annotation reference wrongly
-  suggests @DbDefaultValue("'BRONZE'"), which stores the quotes (TASK-386).
+  suggests @DbDefaultValue("'BRONZE'"), which stores the quotes (TASK-386). The released V1 also has an inline
+  foreign key; the hidden migration assertion guards against re-adding it as a later table constraint (TASK-388).

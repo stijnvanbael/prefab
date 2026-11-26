@@ -60,6 +60,9 @@ class LoyaltyTierAcceptanceTest {
         var statements = migrations.split(";");
 
         assertThat(migrations).contains("add column loyalty_tier");
+        assertThat(migrations)
+                .as("the released inline foreign key is not re-added as a table constraint")
+                .doesNotContain("add constraint customer_order_history_entry_customer_order_history_fk");
         var backfilled = Pattern.compile("add column loyalty_tier [^;]*default '?bronze'?").matcher(migrations).find()
                 || Pattern.compile("update customer set loyalty_tier ?= ?'bronze'").matcher(migrations).find();
         assertThat(backfilled).as("existing customers get BRONZE (a column default or an UPDATE)").isTrue();

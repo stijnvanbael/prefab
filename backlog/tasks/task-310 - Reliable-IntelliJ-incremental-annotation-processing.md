@@ -131,12 +131,51 @@ are not committed. Still open for AC #3/#5: native scenarios 2, 4 and 7 of the r
 migration fix; the README and troubleshooting table describe the workflow observed so far and must be corrected if
 those runs disagree.
 
-2026-11-26 follow-up probes: the local Maven incremental compiler verified the three remaining scenario shapes, but
-these are not native JPS results. A constructor-only `@Create` edit regenerated `CreateCategoryRequest` with
-`@Size(max=101)`. Adding an event source generated its assert, mother and conformance helpers; renaming the source
-generated only the renamed helpers and registrar, with no obsolete `IncrementalProbe*` files left behind. Adding a
-`ProductRepositoryMixin` method followed by an aggregate edit, with two consecutive compiles, retained the mixin on
-the generated repository. `IncrementalCompilationTest` passes in isolation. The full annotation-processor Maven suite
-still has an unrelated Windows failure in `AgentContextPluginTest` caused by a `/C:/...` path. Native IntelliJ/JPS
-scenarios 2, 4 and 7 therefore remain unverified.
+2026-11-26 follow-up Maven probes (not native JPS): a constructor-only `@Create` edit regenerated
+`CreateCategoryRequest` with `@Size(max=101)`. Adding and renaming a top-level event generated the renamed helpers
+and registrar without obsolete `IncrementalProbe*` files; this did not exercise the runbook's nested event. A
+`ProductRepositoryMixin` method and the aggregate were edited together before two consecutive compiles; the generated
+repository retained the mixin, but this did not test the separate-edit sequence. `IncrementalCompilationTest` passes
+in isolation. The full annotation-processor Maven suite has an unrelated Windows failure in `AgentContextPluginTest`
+caused by a `/C:/...` path (TASK-370). The probe cleanup ran Maven `clean` across the selected reactor, so native
+outputs needed a fresh baseline. At that point, native IntelliJ/JPS scenarios 2, 4 and 7 were still unverified.
+
+2026-11-26 native JPS follow-up: IDEA 2026.3 (IU-263.7307.200), project SDK `temurin-24` currently points to
+Temurin 25.0.1; the JPS log confirms javac 25.0.1 and incremental Make. Maven 3.9.16 runs on Temurin 25.0.1.
+After a successful native Rebuild Project, exercised:
+
+- #2: changed only the Category `@Create` parameter from 100 to 101. Native Build Project succeeded and
+  `CreateCategoryRequest` has `@Size(max=101)`.
+- #4: added `IncrementalProbe.Added`, recompiled all four showcase production roots and built, then renamed it to
+  `Renamed`, recompiled those roots and built. Both builds succeeded; renamed helpers and classes exist and no
+  `Added` artifacts remain. AsyncAPI has 16 channels and migrations contain all 13 tables (12 aggregate roots and
+  one nested table).
+- #7: added `ProductRepositoryMixin.existsByName`, built, then separately changed the Product name component's
+  maximum length from 255 to 254 and built again. Both builds succeeded; the generated repository still extends
+  the mixin and the product migration contains `VARCHAR (254)`.
+
+For each final state, compared against a separate clean Maven clone at the same commit: generated Java and test
+helpers, migration files, parsed AsyncAPI JSON, event baselines, and main/test class-file paths all matched.
+Counts were 130/116 generated main/helper files and 219/218 main/test classes for #2 and #7; #4 had 132/120
+generated main/helper files and 223/224 main/test classes. Native compilation emitted the existing `@Update`
+deprecation warning. The probe sources were restored, a final native Build Project succeeded, the Category request
+is back to 100, the Product column to 255, 15 baseline channels remain, and no probe files remain in showcase
+outputs. These results cover the stated scenarios, not every possible edit; at that point record-component-only
+and Avro dependent-accessor clean-reference comparisons still needed explicit evidence before closing AC #3 and #5.
+
+Additional native checks: #1, changing only the Category record component's `@Size` to 101, succeeded and matched
+the clean Maven reference across the same output sets. The migration uses `VARCHAR (101)` while the constructor's
+request remains `@Size(max=100)`.
+
+#6 failed with IDEA 2026.3/JPS javac 25.0.1. Changed only `shipment-dispatched.avsc` from `trackingNumber` to
+`trackingCode` and ran Build Project: the copied resource changed while the generated record still had
+`trackingNumber`. Updated the dependent test accessor, recompiled `ShipmentEvent.java` successfully, and then ran
+Build Project. The build failed because `target/classes/db/migration/V2__generated.sql` contains an `ALTER TABLE`
+for `customer_order_history_entry` while `V1__generated.sql` and `prefab-aggregates.txt` are absent. A clean Maven
+build of the same schema and test edit succeeds and has the V1 migration and manifest instead. Generated Java,
+test-helper Java, parsed AsyncAPI, and event-baseline files match the clean reference, but only 6 of 219 main class
+paths remain after the failed JPS build. Do not mark the Avro workflow or AC #3/#5 as verified. The failing output
+was captured under the session's `files/jps-avro-failed` directory for investigation. The misleading suggested fix
+for this replay-state failure is tracked separately in TASK-394. The schema and dependent test source were restored;
+after a native rebuild, a further JPS Make succeeded and `V1__generated.sql` and the aggregate manifest are present.
 <!-- SECTION:NOTES:END -->

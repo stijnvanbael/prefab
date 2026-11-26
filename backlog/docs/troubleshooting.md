@@ -289,18 +289,23 @@ Verify `maven.compiler.release` is set to `21`. Run `mvn clean compile` to force
 IntelliJ's native build (JPS, without Maven delegation) recompiles only the sources that changed. Prefab keeps
 aggregated outputs complete across such builds (see [§6.15 Incremental Build
 Metadata](generated-artefacts.md#615-incremental-build-metadata)), but JPS decides which sources javac receives.
-Verified behaviour with IntelliJ IDEA 2026.3 and its bundled javac:
+The following workflow was observed for selected scenarios with IntelliJ IDEA 2026.3 and the project-configured
+javac (24 and 25.0.1); it is not a guarantee for every possible edit:
 
 | Change                                                                       | What to run                                                                   |
 |------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
 | Edit a model, `@Create`/`@Update` signature or annotation attribute          | **Build Project**                                                             |
 | Add, rename or delete a model, nested record or event (generated file names change) | **Recompile** the module's production source roots, then **Build Project** |
-| Edit only an Avro schema (`.avsc`) used by an `@Avsc` contract              | **Build Project**, then **Recompile** the `@Avsc` contract interface         |
+| Edit only an Avro schema (`.avsc`) used by an `@Avsc` contract              | Native incremental builds are not reliable for this case; see below          |
 
 After adding or renaming a type, the first Build Project can report a missing generated test helper because JPS
-discovers newly generated test sources only on the next build; a second Build Project succeeds.
+may discover newly generated test sources only on the next build; try a second Build Project.
+
+For an `.avsc`-only edit, Build Project can copy the schema without regenerating the event. Recompiling the
+`@Avsc` contract and then building has also been observed to leave the generated migration incomplete and fail
+the build. Until [TASK-310](../tasks/task-310%20-%20Reliable-IntelliJ-incremental-annotation-processing.md) is
+resolved, use a clean Maven build for this case and verify the resulting migration.
 
 If output still looks stale, run **Build > Rebuild Project**, or `mvn clean compile` from the command line.
 Delegating builds to Maven (`Settings > Build, Execution, Deployment > Build Tools > Maven > Runner`) always behaves
 like a command-line build.
-

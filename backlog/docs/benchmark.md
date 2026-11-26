@@ -110,34 +110,47 @@ profiles. Without `--profile`, `--model <id>` works as before.
 | `timeoutFactor` | 1 | Multiplies each task's timeout, for models slower than the hosted default. |
 | `parallel` | 2 | Default for `--parallel`. |
 
-The initial baseline model is a local Qwen coder served by Ollama (`qwen-local`), so documentation setups can be
-compared without spending API tokens. Haiku and Sonnet profiles are shipped for the hosted runs. To use another model,
-copy a profile and change `model` and `env`.
+The baseline model is Qwen 3.8 27B served by Ollama (`qwen38-local`), so documentation setups can be compared
+without spending API tokens. `qwen-local` (Qwen3-Coder 30B) is kept as a weaker local model: it failed every quick
+task it tried, so it does not separate setups (see [Recorded baselines](#recorded-baselines)). Haiku and Sonnet
+profiles are shipped for the hosted runs. To use another model, copy a profile and change `model` and `env`.
 
 ```bash
-OLLAMA_CONTEXT_LENGTH=32768 ollama serve
+OLLAMA_CONTEXT_LENGTH=131072 ollama serve
 ```
 
+With the macOS app, set the variable with `launchctl setenv OLLAMA_CONTEXT_LENGTH 131072`, then quit and reopen the
+app; `ollama ps` shows the context each loaded model got.
+
 ```bash
-benchmark/run.sh run --profile qwen-local --context cheat-sheet --tasks feature --repeat 3
+benchmark/run.sh run --profile qwen38-local --context cheat-sheet --tasks feature --repeat 3
 ```
 
 Things to know about a local model:
 
-- Ollama must run with a context window of at least 32k tokens. Its default is too small for Claude Code's system
-  prompt, and attempts then fail in confusing ways.
+- Ollama must run with a context window of at least 32k tokens; use 128k. Its default is too small for Claude Code's
+  system prompt, and attempts then fail in confusing ways. `full-docs` (about 60k tokens) only fits in a 128k window.
+  On 48 GB of unified memory both Qwen models stay fully on the GPU at 128k.
+- Claude Code does not know the context window of a custom model id and assumes 1M tokens, so it will not compact a
+  long session before Ollama truncates it. Keep that in mind for the long feature and brownfield tasks.
 - Keep the agent's own prompt small. Claude Code's full tool set and its auto-memory section take about 12k tokens
-  before any task or docs. `qwen-local` therefore passes `--tools Bash,Read,Edit,Write` and sets
+  before any task or docs. Both Qwen profiles therefore pass `--tools Bash,Read,Edit,Write` and set
   `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`, which brings the starting prompt to about 3.4k tokens. Without the latter,
   Qwen took the memory directory (`~/.claude/projects/<mangled path>/memory`) for its working directory and wrote
   its code there (TASK-392). Copy both settings into any profile for a small model.
 - Pick a model with reliable tool calling. A model that cannot drive the tools scores 0 and shows nothing about
   the documentation.
-- Cost columns read zero; compare turns, builds and pass rate.
+- The cost column shows what Claude Code would charge at API prices, which means nothing for a local model; compare
+  turns, builds, agent time and pass rate (TASK-397 replaces it with an energy estimate).
+- On macOS the harness cannot hide the repository (see [Isolation](#isolation-and-known-limitations)), and local
+  agents do search the disk: in TASK-392 they read reference solutions in the checkout, in another checkout under
+  `/tmp` and in kept workspaces of earlier runs, and code of another Prefab application. Until TASK-399 is done, pass
+  Claude Code sandbox settings through a local, uncommitted copy of the profile (`args: ["--settings", ...]`) that
+  denies reads of your source folders, the shared work directory and stray checkouts, and allows the Docker socket.
 - Do not compare pass rates across models. Compare documentation setups on the same model. A result on a weaker model
   shows whether a setup helps; it does not predict Haiku's absolute pass rate.
 - Check the Anthropic-compatible endpoint of your Ollama version with a single task before starting a long run:
-  `benchmark/run.sh run --profile qwen-local --context none --tasks <one task id>`.
+  `benchmark/run.sh run --profile qwen38-local --context none --tasks <one task id>`.
 
 `validate` runs every task twice, with stand-in agents. The reference solution must pass and the unchanged starting
 project must fail. Run it after changing a task or Prefab itself. A task that no longer validates measures nothing.

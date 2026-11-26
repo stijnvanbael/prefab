@@ -1,7 +1,8 @@
 # A local Qwen model served by Ollama through its Anthropic-compatible endpoint. Claude Code stays the agent.
-# Adjust `model` to the tag you pulled (`ollama list`). Start the server with a context window of at least 32k, for
-# example `OLLAMA_CONTEXT_LENGTH=32768 ollama serve`: Claude Code's system prompt alone overflows Ollama's default.
-description: Local Qwen via Ollama (Anthropic-compatible endpoint), the initial baseline model
+# Adjust `model` to the tag you pulled (`ollama list`). Start the server with a context window of at least 32k (128k
+# for full-docs), for example `OLLAMA_CONTEXT_LENGTH=131072 ollama serve`: Claude Code's system prompt alone overflows
+# Ollama's default.
+description: Local Qwen3-Coder 30B via Ollama, a weaker local model (failed the quick tasks in TASK-392)
 model: qwen3-coder:30b
 env:
   ANTHROPIC_BASE_URL: http://localhost:11434

@@ -1,8 +1,9 @@
 # A local Qwen 3.8 27B (dense) model served by Ollama through its Anthropic-compatible endpoint. Claude Code stays
 # the agent. Same harness settings as qwen-local, so the two models can be compared (TASK-392).
-# Adjust `model` to the tag you pulled (`ollama list`). Start the server with a context window of at least 32k, for
-# example `OLLAMA_CONTEXT_LENGTH=32768 ollama serve`: Claude Code's system prompt alone overflows Ollama's default.
-description: Local Qwen 3.8 27B via Ollama, compared with qwen-local on the same harness settings
+# Adjust `model` to the tag you pulled (`ollama list`). Start the server with a context window of at least 32k (128k
+# for full-docs), for example `OLLAMA_CONTEXT_LENGTH=131072 ollama serve`: Claude Code's system prompt alone overflows
+# Ollama's default.
+description: Local Qwen 3.8 27B via Ollama, the baseline model for comparing documentation setups
 model: qwen3.8:27b
 env:
   ANTHROPIC_BASE_URL: http://localhost:11434

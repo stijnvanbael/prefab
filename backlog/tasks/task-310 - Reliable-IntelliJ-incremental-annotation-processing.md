@@ -130,4 +130,13 @@ in README, troubleshooting and generated-artefacts §6.15. The IDE probe edits (
 are not committed. Still open for AC #3/#5: native scenarios 2, 4 and 7 of the runbook have not been rerun since the
 migration fix; the README and troubleshooting table describe the workflow observed so far and must be corrected if
 those runs disagree.
+
+2026-11-26 follow-up probes: the local Maven incremental compiler verified the three remaining scenario shapes, but
+these are not native JPS results. A constructor-only `@Create` edit regenerated `CreateCategoryRequest` with
+`@Size(max=101)`. Adding an event source generated its assert, mother and conformance helpers; renaming the source
+generated only the renamed helpers and registrar, with no obsolete `IncrementalProbe*` files left behind. Adding a
+`ProductRepositoryMixin` method followed by an aggregate edit, with two consecutive compiles, retained the mixin on
+the generated repository. `IncrementalCompilationTest` passes in isolation. The full annotation-processor Maven suite
+still has an unrelated Windows failure in `AgentContextPluginTest` caused by a `/C:/...` path. Native IntelliJ/JPS
+scenarios 2, 4 and 7 therefore remain unverified.
 <!-- SECTION:NOTES:END -->

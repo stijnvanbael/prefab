@@ -2,6 +2,7 @@ package be.appify.prefab.processor;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -42,6 +43,7 @@ class IncrementalCompilationTest {
         assertThat(Files.readString(migration)).contains("\"product\"", "\"category\"");
 
         // The IDE deletes the outputs owned by the recompiled source, including the shared migration.
+        deleteOutputsOf("Product");
         Files.delete(migration);
         compile(write("shop/Product.java", aggregate("Product", "label")));
 
@@ -54,6 +56,8 @@ class IncrementalCompilationTest {
         var shipped = write("shop/OrderShipped.java", event("OrderShipped", "orders.shipped"));
         compile(created, shipped);
 
+        deleteOutputsOf("OrderCreated");
+        Files.delete(classes.resolve("META-INF/async-api/asyncapi.json"));
         compile(write("shop/OrderCreated.java", event("OrderCreated", "orders.placed")));
 
         assertThat(asyncApi()).contains("orders.placed", "orders.shipped").doesNotContain("orders.created");
@@ -68,7 +72,8 @@ class IncrementalCompilationTest {
         assertThat(shippedAssert).exists();
 
         Files.delete(shipped);
-        deleteClassesOf("OrderShipped");
+        deleteOutputsOf("OrderShipped");
+        deleteOutputsOf("OrderCreated");
         compile(write("shop/OrderCreated.java", event("OrderCreated", "orders.placed")));
 
         assertThat(asyncApi()).contains("orders.placed").doesNotContain("orders.shipped");
@@ -83,6 +88,7 @@ class IncrementalCompilationTest {
         var helper = module.resolve("target/prefab-test-sources/shop/OrderCreatedAssert.java");
         var before = Files.getLastModifiedTime(helper);
 
+        deleteOutputsOf("OrderCreated");
         compile(created);
 
         assertThat(Files.getLastModifiedTime(helper)).isEqualTo(before);
@@ -129,10 +135,13 @@ class IncrementalCompilationTest {
         return Files.readString(classes.resolve("META-INF/async-api/asyncapi.json"));
     }
 
-    private void deleteClassesOf(String simpleName) throws IOException {
-        try (Stream<Path> files = Files.walk(module.resolve("target"))) {
-            for (var file : files.filter(path -> path.getFileName().toString().startsWith(simpleName)).toList()) {
-                Files.delete(file);
+    /** Deletes the class and Filer outputs of a type before recompiling it, as JPS and Maven do. */
+    private void deleteOutputsOf(String simpleName) throws IOException {
+        for (var directory : List.of(classes, generatedSources)) {
+            try (Stream<Path> files = Files.walk(directory)) {
+                for (var file : files.filter(path -> path.getFileName().toString().startsWith(simpleName)).toList()) {
+                    Files.delete(file);
+                }
             }
         }
     }
@@ -145,10 +154,11 @@ class IncrementalCompilationTest {
             fileManager.setLocationFromPaths(StandardLocation.SOURCE_OUTPUT, List.of(generatedSources));
             var options = List.of("-classpath", classes + File.pathSeparator + System.getProperty("java.class.path"),
                     "-proc:full");
-            var task = compiler.getTask(null, fileManager, diagnostics, options, null,
+            var output = new StringWriter();
+            var task = compiler.getTask(output, fileManager, diagnostics, options, null,
                     fileManager.getJavaFileObjects(sources));
             task.setProcessors(List.of(new PrefabProcessor()));
-            assertThat(task.call()).as(() -> diagnostics.getDiagnostics().toString()).isTrue();
+            assertThat(task.call()).as(() -> output + diagnostics.getDiagnostics().toString()).isTrue();
         }
     }
 }

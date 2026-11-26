@@ -29,3 +29,12 @@ Running the full Maven reactor and the complete `examples/showcase-pubsub` modul
 - [ ] #2 Late events from prior tests cannot terminate or starve the subscriber used by subsequent tests.
 - [ ] #3 Missing projections in production retain the intended retry and dead-letter behavior.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-26: reproduced on `origin/main` (a9b1d9bc) with a full `mvn verify` in a fresh worktree: three tests of
+`CustomerOrderHistoryIntegrationTest` time out (20 s / 30 s awaits, empty history). The same test passes 4/4 when run
+alone with `-pl examples/showcase-pubsub -am -Dtest=CustomerOrderHistoryIntegrationTest`. Seen while verifying
+TASK-310, whose generated sources for the Pub/Sub variant are identical to main's.
+<!-- SECTION:NOTES:END -->

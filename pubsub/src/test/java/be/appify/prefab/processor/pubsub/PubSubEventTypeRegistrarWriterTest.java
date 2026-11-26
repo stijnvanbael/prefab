@@ -9,9 +9,25 @@ import static be.appify.prefab.processor.pubsub.ProcessorTestUtil.generatedSourc
 import static be.appify.prefab.processor.pubsub.ProcessorTestUtil.sourceOf;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
+import static com.google.testing.compile.JavaFileObjects.forSourceString;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class PubSubEventTypeRegistrarWriterTest {
+
+    @Test
+    void registrarCanAccessAnEventInAPackagePrivateEnclosingType() throws IOException {
+        var compilation = javac().withProcessors(new PrefabProcessor()).compile(forSourceString("sample.Events", """
+                package sample;
+                import be.appify.prefab.core.annotations.Event;
+                class Events {
+                    @Event(topic = "updates") public record Update(String value) {}
+                }
+                """));
+
+        assertThat(compilation).succeeded();
+        assertThat(generatedSourceOf(compilation, "sample.EventsUpdateEventTypeRegistrar"))
+                .contains("Events.Update.class");
+    }
 
     @Test
     void singleEventType() throws IOException {

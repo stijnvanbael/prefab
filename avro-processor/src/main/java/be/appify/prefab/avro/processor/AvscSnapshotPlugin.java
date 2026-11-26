@@ -2,6 +2,7 @@ package be.appify.prefab.avro.processor;
 
 import be.appify.prefab.core.annotations.EventSnapshot;
 import be.appify.prefab.processor.PrefabContext;
+import be.appify.prefab.processor.CompilerResources;
 import be.appify.prefab.processor.BuilderWriter;
 import be.appify.prefab.processor.PrefabPlugin;
 import com.palantir.javapoet.ArrayTypeName;
@@ -13,9 +14,6 @@ import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -115,7 +113,7 @@ public class AvscSnapshotPlugin implements PrefabPlugin {
     }
 
     private Schema parse(String path, TypeElement element) {
-        try (var stream = open(path)) {
+        try (var stream = CompilerResources.open(context.processingEnvironment().getFiler(), path, getClass().getClassLoader()).orElse(null)) {
             if (stream == null) {
                 error("AVSC file not found: '%s'. Ensure it is on the classpath.".formatted(path), element);
                 return null;
@@ -125,15 +123,6 @@ public class AvscSnapshotPlugin implements PrefabPlugin {
             error("Failed to read or parse AVSC file '%s': %s".formatted(path, e.getMessage()), element);
             return null;
         }
-    }
-
-    private InputStream open(String path) throws IOException {
-        var stream = getClass().getClassLoader().getResourceAsStream(path);
-        if (stream != null) {
-            return stream;
-        }
-        var file = Path.of("src/main/resources", path);
-        return Files.exists(file) ? Files.newInputStream(file) : null;
     }
 
     private void write(JavaFile file, TypeElement element, String typeName) {

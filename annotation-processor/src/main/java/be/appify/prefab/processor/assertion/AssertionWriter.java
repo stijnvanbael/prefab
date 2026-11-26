@@ -5,7 +5,7 @@ import be.appify.prefab.core.annotations.OutputTarget;
 import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.OutputTargetFileOutput;
 import be.appify.prefab.processor.PrefabContext;
-import be.appify.prefab.processor.FileOutput;
+import be.appify.prefab.processor.SourceContributions;
 import be.appify.prefab.processor.TypeManifest;
 import be.appify.prefab.processor.VariableManifest;
 import com.palantir.javapoet.ClassName;
@@ -22,11 +22,10 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Stream;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -47,13 +46,13 @@ class AssertionWriter {
 
     private final PrefabContext context;
     private final Set<String> writtenTypes;
-    private final Map<String, List<AssertionEntry>> entriesByPackage;
-    private final FileOutput fileWriter;
+    private final SourceContributions<AssertionEntry> entries;
+    private final OutputTargetFileOutput fileWriter;
 
-    AssertionWriter(PrefabContext context, Set<String> writtenTypes, Map<String, List<AssertionEntry>> entriesByPackage) {
+    AssertionWriter(PrefabContext context, Set<String> writtenTypes, SourceContributions<AssertionEntry> entries) {
         this.context = context;
         this.writtenTypes = writtenTypes;
-        this.entriesByPackage = entriesByPackage;
+        this.entries = entries;
         this.fileWriter = new OutputTargetFileOutput(context, null, OutputTarget.TEST);
     }
 
@@ -69,7 +68,6 @@ class AssertionWriter {
                                 .map(method -> VariableManifest.ofMethod(method, context.processingEnvironment())))
                 .toList();
         if (writeAssertClass(responsePackage, assertName, subjectType, assertFields, manifest.type().asElement())) {
-            addEntry(responsePackage, subjectType, ClassName.get(responsePackage, assertName));
             manifest.fields().forEach(field -> writeNestedAssertFor(field.type(), manifest.type().asElement()));
             manifest.methodsWith(Computed.class).stream()
                     .map(method -> TypeManifest.of(method.getReturnType(), context.processingEnvironment()))
@@ -91,8 +89,8 @@ class AssertionWriter {
         }
     }
 
-    void writeAssertionsClass(String packageName, List<AssertionEntry> entries) {
-        var qualifiedName = packageName + ".Assertions";
+    void writeAssertionsClass(String packageName, List<AssertionEntry> entries, TypeElement[] owners) {
+        var qualifiedName = fileWriter.target() + ":" + packageName + ".Assertions";
         if (!writtenTypes.add(qualifiedName)) {
             return;
         }
@@ -100,25 +98,11 @@ class AssertionWriter {
                 .addModifiers(Modifier.PUBLIC)
                 .addMethod(privateConstructor())
                 .addMethods(entries.stream()
-                        .map(entry -> assertThatDelegateMethod(entry.subjectType(), entry.assertType()))
+                        .map(entry -> assertThatDelegateMethod(entry.subjectType(), ClassName.get(packageName, entry.assertName())))
                         .toList())
                 .build();
-        var originatingElements = findOriginatingElements(packageName);
-        if (originatingElements.length > 0) {
-            fileWriter.setOriginatingElements(originatingElements);
-        }
+        fileWriter.setOriginatingElements(owners);
         fileWriter.writeFile(packageName, "Assertions", typeSpec);
-    }
-
-    private TypeElement[] findOriginatingElements(String packageName) {
-        return context.roundEnvironment().getRootElements().stream()
-                .filter(TypeElement.class::isInstance)
-                .map(TypeElement.class::cast)
-                .filter(e -> {
-                    var qn = e.getQualifiedName().toString();
-                    return qn.startsWith(packageName + ".");
-                })
-                .toArray(TypeElement[]::new);
     }
 
     private void writeEventTypeAssert(TypeManifest eventType, TypeElement preferredElement) {
@@ -135,7 +119,6 @@ class AssertionWriter {
                                 .map(method -> VariableManifest.ofMethod(method, context.processingEnvironment())))
                 .toList();
         if (writeAssertClass(packageName, assertName, subjectType, assertFields, preferredElement)) {
-            addEntry(packageName, subjectType, ClassName.get(packageName, assertName));
             eventType.fields().forEach(field -> writeNestedAssertFor(field.type(), preferredElement));
             eventType.methodsWith(Computed.class).stream()
                     .map(method -> TypeManifest.of(method.getReturnType(), context.processingEnvironment()))
@@ -155,7 +138,6 @@ class AssertionWriter {
                                     .map(method -> VariableManifest.ofMethod(method, context.processingEnvironment())))
                     .toList();
             if (writeAssertClass(packageName, assertName, subjectType, assertFields, preferredElement)) {
-                addEntry(packageName, subjectType, ClassName.get(packageName, assertName));
                 type.fields().forEach(field -> writeNestedAssertFor(field.type(), preferredElement));
                 type.methodsWith(Computed.class).stream()
                         .map(method -> TypeManifest.of(method.getReturnType(), context.processingEnvironment()))
@@ -184,9 +166,17 @@ class AssertionWriter {
             List<VariableManifest> fields,
             TypeElement preferredElement
     ) {
-        var qualifiedName = packageName + "." + assertName;
-        if (!writtenTypes.add(qualifiedName)) {
+        var qualifiedName = fileWriter.target() + ":" + packageName + "." + assertName;
+        var raw = subjectType instanceof ParameterizedTypeName p ? p.rawType() : (ClassName) subjectType;
+        int arity = subjectType instanceof ParameterizedTypeName p ? p.typeArguments().size() : 0;
+        entries.add(preferredElement, new AssertionEntry(packageName, raw.simpleNames(), arity, assertName, fileWriter.target()));
+        // Visit the nested graph once per contributing source, even when another source emitted the helper.
+        if (!writtenTypes.add(qualifiedName + ":" + preferredElement.getQualifiedName())) {
             return false;
+        }
+        if (!writtenTypes.add(qualifiedName)) {
+            fileWriter.alsoOwnedBy(packageName, assertName, preferredElement);
+            return true;
         }
         var assertType = ClassName.get(packageName, assertName);
         var selfTypePlaceholder = TypeVariableName.get("SELF");
@@ -418,11 +408,6 @@ class AssertionWriter {
                 .build();
     }
 
-    private void addEntry(String packageName, TypeName subjectType, ClassName assertType) {
-        entriesByPackage.computeIfAbsent(packageName, k -> new CopyOnWriteArrayList<>())
-                .add(new AssertionEntry(subjectType, assertType));
-    }
-
     private boolean isNestedRecordType(TypeManifest type) {
         if (!type.isRecord()) return false;
         if (type.isStandardType()) return false;
@@ -432,6 +417,11 @@ class AssertionWriter {
         return !type.is(BigDecimal.class);
     }
 
-    record AssertionEntry(TypeName subjectType, ClassName assertType) {
+    record AssertionEntry(String packageName, List<String> simpleNames, int arity, String assertName, OutputTarget target) {
+        TypeName subjectType() {
+            var raw = ClassName.get(packageName, simpleNames.getFirst(), simpleNames.stream().skip(1).toArray(String[]::new));
+            return arity == 0 ? raw : ParameterizedTypeName.get(raw,
+                    Collections.nCopies(arity, WildcardTypeName.subtypeOf(Object.class)).toArray(TypeName[]::new));
+        }
     }
 }

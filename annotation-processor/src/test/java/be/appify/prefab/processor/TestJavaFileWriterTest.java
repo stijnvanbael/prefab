@@ -15,27 +15,19 @@ class TestJavaFileWriterTest {
     @TempDir
     File tempDir;
     @Test
-    void skipsWritingWhenFileAlreadyExists() throws Exception {
+    void regeneratesChangedOutputButDoesNotTouchUnchangedOutput() throws Exception {
         var outputPath = new File(tempDir, "target/prefab-test-sources/com/example");
         outputPath.mkdirs();
         var existingFile = new File(outputPath, "MyClass.java");
         Files.writeString(existingFile.toPath(), "// existing content");
-        var captured = new ByteArrayOutputStream();
-        var originalOut = System.out;
-        System.setOut(new PrintStream(captured));
-        try {
-            var writer = new TestJavaFileWriterFixture(tempDir.getAbsolutePath());
-            writer.writeFile("com.example", "MyClass", TypeSpec.classBuilder("MyClass")
-                    .addModifiers(Modifier.PUBLIC)
-                    .build());
-        } finally {
-            System.setOut(originalOut);
-        }
-        assertTrue(captured.toString().contains("MyClass"), "Expected skip message to mention MyClass");
-        assertTrue(captured.toString().contains("already exists"), "Expected skip message to mention 'already exists'");
-        assertTrue(existingFile.exists(), "Existing file should still be present");
-        assertTrue(Files.readString(existingFile.toPath()).contains("// existing content"),
-                "Existing file contents should be unchanged");
+        var writer = new TestJavaFileWriterFixture(tempDir.getAbsolutePath());
+        var type = TypeSpec.classBuilder("MyClass").addModifiers(Modifier.PUBLIC).build();
+        writer.writeFile("com.example", "MyClass", type);
+        assertTrue(Files.readString(existingFile.toPath()).contains("public class MyClass"));
+        var time = java.nio.file.attribute.FileTime.fromMillis(1000L);
+        Files.setLastModifiedTime(existingFile.toPath(), time);
+        writer.writeFile("com.example", "MyClass", type);
+        assertEquals(time, Files.getLastModifiedTime(existingFile.toPath()));
     }
     @Test
     void skipsWritingWhenManualOverrideExistsInSrcTestJava() throws Exception {
@@ -43,11 +35,14 @@ class TestJavaFileWriterTest {
         manualOverridePath.mkdirs();
         var manualFile = new File(manualOverridePath, "MyClass.java");
         Files.writeString(manualFile.toPath(), "// manual override");
+        var writer = new TestJavaFileWriterFixture(tempDir.getAbsolutePath());
+        var staleOutput = tempDir.toPath().resolve("target/prefab-test-sources/com/example/MyClass.java");
+        Files.createDirectories(staleOutput.getParent());
+        Files.writeString(staleOutput, "old generated output");
         var captured = new ByteArrayOutputStream();
         var originalOut = System.out;
         System.setOut(new PrintStream(captured));
         try {
-            var writer = new TestJavaFileWriterFixture(tempDir.getAbsolutePath());
             writer.writeFile("com.example", "MyClass", TypeSpec.classBuilder("MyClass")
                     .addModifiers(Modifier.PUBLIC)
                     .build());
@@ -56,6 +51,7 @@ class TestJavaFileWriterTest {
         }
         var generatedFile = new File(tempDir, "target/prefab-test-sources/com/example/MyClass.java");
         assertFalse(generatedFile.exists(), "Generated file should not be created when manual override exists in src/test/java");
+        assertEquals("// manual override", Files.readString(manualFile.toPath()));
         assertTrue(captured.toString().contains("MyClass"), "Expected skip message to mention MyClass");
         assertTrue(captured.toString().contains("src/test/java"), "Expected skip message to mention src/test/java");
     }

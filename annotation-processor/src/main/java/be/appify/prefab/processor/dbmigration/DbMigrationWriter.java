@@ -51,42 +51,39 @@ class DbMigrationWriter {
         this.context = context;
     }
 
-    void writeDbMigration(
-            ProcessingEnvironment processingEnvironment,
-            List<ClassManifest> classManifests
-    ) {
-        writeDbMigration(processingEnvironment, classManifests, List.of());
+    MigrationInput input(ClassManifest manifest) {
+        warnUnconstrainedStringFields(manifest);
+        var manifests = List.of(manifest);
+        return new MigrationInput(manifest.qualifiedName(), desiredDatabaseState(manifests, List.of()),
+                hasFuzzyAutocompleteFields(manifests, List.of()) || hasFuzzyFullText(manifests));
     }
 
-    Set<String> writeDbMigration(
-            ProcessingEnvironment processingEnvironment,
-            List<ClassManifest> classManifests,
-            List<PolymorphicAggregateManifest> polymorphicManifests
-    ) {
-        warnUnconstrainedStringFields(classManifests);
+    MigrationInput input(PolymorphicAggregateManifest manifest) {
+        var manifests = List.of(manifest);
+        return new MigrationInput(manifest.type().asElement().getQualifiedName().toString(),
+                desiredDatabaseState(List.of(), manifests), hasFuzzyAutocompleteFields(List.of(), manifests));
+    }
+
+    Set<String> writeDbMigration(List<MigrationInput> inputs, Element[] owners) {
+        var processingEnvironment = context.processingEnvironment();
         var currentDatabaseState = currentDatabaseState(processingEnvironment);
-        var desiredDatabaseState = desiredDatabaseState(classManifests, polymorphicManifests);
+        var desiredDatabaseState = sortByDependencies(inputs.stream().flatMap(input -> input.tables().stream()).toList());
         try {
             var changes = detectChanges(currentDatabaseState.tables(), desiredDatabaseState);
 
             // Add extension enabling if there are fuzzy autocomplete or fuzzy full-text fields
-            if (hasFuzzyAutocompleteFields(classManifests, polymorphicManifests) || hasFuzzyFullText(classManifests)) {
+            if (inputs.stream().anyMatch(MigrationInput::trigrams)) {
                 changes.add(0, new DatabaseChange.EnableExtension("pg_trgm"));
             }
 
             if (!changes.isEmpty()) {
-                writeChanges(processingEnvironment, classManifests, polymorphicManifests, changes,
-                        currentDatabaseState.version());
+                writeChanges(owners, changes, currentDatabaseState.version());
             }
         } catch (TableModification.MigrationValidationException e) {
             processingEnvironment.getMessager().printMessage(
                     Diagnostic.Kind.ERROR, e.getMessage(), e.element());
         }
         return desiredDatabaseState.stream().map(Table::name).collect(Collectors.toUnmodifiableSet());
-    }
-
-    private void warnUnconstrainedStringFields(List<ClassManifest> classManifests) {
-        classManifests.forEach(this::warnUnconstrainedStringFields);
     }
 
     private void warnUnconstrainedStringFields(ClassManifest manifest) {
@@ -98,14 +95,13 @@ class DbMigrationWriter {
     }
 
     private void writeChanges(
-            ProcessingEnvironment processingEnvironment,
-            List<ClassManifest> sortedManifests,
-            List<PolymorphicAggregateManifest> polymorphicManifests,
+            Element[] owners,
             List<DatabaseChange> changes,
             int version
     ) {
         try {
-            var resource = createResource(processingEnvironment, sortedManifests, polymorphicManifests, version + 1);
+            var resource = context.processingEnvironment().getFiler().createResource(StandardLocation.CLASS_OUTPUT, "",
+                    "db/migration/V%d__generated.sql".formatted(version + 1), owners);
             try (var writer = resource.openWriter()) {
                 for (DatabaseChange change : changes) {
                     writer.write(change.toSql());
@@ -288,7 +284,7 @@ class DbMigrationWriter {
             tables.add(rootTable);
             tables.addAll(childTablesForPolymorphicManifest(rootTable, manifest));
         });
-        return sortByDependencies(tables);
+        return tables;
     }
 
     private List<Table> childTablesForPolymorphicManifest(Table rootTable, PolymorphicAggregateManifest manifest) {
@@ -769,24 +765,6 @@ class DbMigrationWriter {
             }
         }
         return result;
-    }
-
-    private FileObject createResource(
-            ProcessingEnvironment processingEnvironment,
-            List<ClassManifest> classManifests,
-            List<PolymorphicAggregateManifest> polymorphicManifests,
-            int version
-    ) throws IOException {
-        var elements = Stream.concat(
-                classManifests.stream().map(manifest -> manifest.type().asElement()),
-                polymorphicManifests.stream().map(manifest -> manifest.type().asElement())
-        ).toArray(Element[]::new);
-        return processingEnvironment.getFiler().createResource(
-                StandardLocation.CLASS_OUTPUT,
-                "",
-                "db/migration/V%d__generated.sql".formatted(version),
-                elements
-        );
     }
 
     record DatabaseState(List<Table> tables, int version) {

@@ -22,7 +22,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.processing.FilerException;
 import javax.lang.model.element.Element;
 import javax.tools.StandardLocation;
 
@@ -59,7 +58,7 @@ class EventSchemaDocumentationWriter {
      * @param consumedEventTypes
      *         event types that are consumed (i.e., have an {@code @EventHandler} method)
      */
-    void writeDocumentation(List<TypeManifest> events, Set<TypeManifest> consumedEventTypes) {
+    void writeDocumentation(List<TypeManifest> events, Set<String> consumedEventTypes, Element[] owners) {
         var eventsByTopic = groupByTopic(events, consumedEventTypes);
 
         Map<String, ObjectNode> schemas = new LinkedHashMap<>();
@@ -72,7 +71,7 @@ class EventSchemaDocumentationWriter {
                 });
 
         var asyncApiJson = buildAsyncApiJson(eventsByTopic, messages, schemas);
-        writeResource(asyncApiJson, events);
+        writeResource(asyncApiJson, owners);
     }
 
     private ObjectNode buildAsyncApiJson(
@@ -111,11 +110,11 @@ class EventSchemaDocumentationWriter {
         return root;
     }
 
-    private Map<String, List<EventInfo>> groupByTopic(List<TypeManifest> events, Set<TypeManifest> consumed) {
+    private Map<String, List<EventInfo>> groupByTopic(List<TypeManifest> events, Set<String> consumed) {
         Map<String, List<EventInfo>> result = new LinkedHashMap<>();
         for (var event : events) {
             var annotation = EventBindings.annotationFor(event);
-            var isConsumed = consumed.contains(event);
+            var isConsumed = consumed.contains(EventBindings.identityOf(event.asTypeName()));
             for (var topic : annotation.topic()) {
                 result.computeIfAbsent(topic, k -> new ArrayList<>()).add(new EventInfo(event, isConsumed));
             }
@@ -331,11 +330,8 @@ class EventSchemaDocumentationWriter {
         };
     }
 
-    private void writeResource(ObjectNode asyncApiJson, List<TypeManifest> events) {
+    private void writeResource(ObjectNode asyncApiJson, Element[] originatingElements) {
         try {
-            var originatingElements = events.stream()
-                    .map(TypeManifest::asElement)
-                    .toArray(Element[]::new);
             var resource = context.processingEnvironment().getFiler().createResource(
                     StandardLocation.CLASS_OUTPUT,
                     "",
@@ -349,8 +345,6 @@ class EventSchemaDocumentationWriter {
                 jsonString = jsonString.replaceAll("\"\\s*:\\s*", "\": ");
                 writer.write(jsonString);
             }
-        } catch (FilerException e) {
-            // File already written in a previous processing round; skip.
         } catch (IOException e) {
             throw new PrefabProcessingException(null, "Prefab",
                     "cannot write META-INF/async-api/asyncapi.json: %s".formatted(e.getMessage()),

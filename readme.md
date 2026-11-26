@@ -231,6 +231,9 @@ and the [backlog](backlog/tasks) for work that is planned but not yet implemente
 
 ## IDE support
 
-Enable annotation processing in your IDE. IntelliJ IDEA can delegate builds to Maven under
-`Settings > Build, Execution, Deployment > Build Tools > Maven > Runner`; IDE partial compilation may not run the
-processor in the same way as a Maven build.
+Enable annotation processing in your IDE. IntelliJ IDEA's native **Build Project** has been verified for selected
+edits to existing models. When an edit adds, renames or deletes a model, nested record or event, recompile the
+module's production sources first; see [Troubleshooting](backlog/docs/troubleshooting.md#intellij-idea-generated-output-is-missing-or-out-of-date-after-build-project)
+for the verified workflow and its limits. `.avsc`-only changes still require a clean Maven build (TASK-395).
+Delegating builds to Maven (`Settings > Build, Execution, Deployment > Build Tools > Maven > Runner`) always matches
+a command-line build.

@@ -4,6 +4,10 @@ import be.appify.prefab.core.annotations.DbDefaultValue;
 import be.appify.prefab.core.annotations.DbRename;
 import be.appify.prefab.core.util.IdentifierShortener;
 import be.appify.prefab.processor.VariableManifest;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.util.StdConverter;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -15,13 +19,29 @@ import net.sf.jsqlparser.statement.create.table.ColumnDefinition;
 
 record Column(
         String name,
-        DataType type,
+        @JsonSerialize(converter = StoreType.class) @JsonDeserialize(converter = ReadType.class) DataType type,
         boolean nullable,
         ForeignKeyReference foreignKey,
         String defaultValue,
         String oldName,
-        Element sourceElement
+        @JsonIgnore Element sourceElement
 ) {
+    // Store the SQL contract, not the implementation class of a plugin-provided DataType.
+    record StoredType(String sql, boolean requiresQuoting) implements DataType {
+        @Override public String toSql() { return sql; }
+        @Override public String toString() { return sql; }
+    }
+
+    static final class StoreType extends StdConverter<DataType, StoredType> {
+        @Override public StoredType convert(DataType value) {
+            return new StoredType(value.toSql(), value.requiresQuoting());
+        }
+    }
+
+    static final class ReadType extends StdConverter<StoredType, DataType> {
+        @Override public DataType convert(StoredType value) { return value; }
+    }
+
     Column(String name, DataType type, boolean nullable, ForeignKeyReference foreignKey, String defaultValue) {
         this(name, type, nullable, foreignKey, defaultValue, null, null);
     }
@@ -135,7 +155,7 @@ record Column(
         if (this == o) return true;
         if (!(o instanceof Column other)) return false;
         return Objects.equals(name, other.name)
-                && Objects.equals(type, other.type)
+                && type.toSql().equals(other.type.toSql())
                 && nullable == other.nullable
                 && Objects.equals(foreignKey, other.foreignKey)
                 && Objects.equals(defaultValue, other.defaultValue);
@@ -146,7 +166,7 @@ record Column(
 
     @Override
     public int hashCode() {
-        return Objects.hash(name, type, nullable, foreignKey, defaultValue);
+        return Objects.hash(name, type.toSql(), nullable, foreignKey, defaultValue);
     }
 
     String formattedDefaultValue() {

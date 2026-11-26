@@ -9,7 +9,6 @@ import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 import javax.tools.StandardLocation;
 import java.io.IOException;
-import java.io.StringWriter;
 import java.nio.file.FileSystemNotFoundException;
 import java.util.Arrays;
 import java.util.List;
@@ -47,15 +46,11 @@ class AggregateManifestFile {
      * set <em>and</em> its type can still be resolved on the classpath. If the type is gone from the
      * classpath the aggregate was intentionally deleted and is not counted as missing.</p>
      */
-    boolean isComplete(
-            List<ClassManifest> classManifests,
-            List<PolymorphicAggregateManifest> polymorphicManifests
-    ) {
+    boolean isComplete(Set<String> currentAggregates) {
         var knownAggregates = readKnownAggregates();
         if (knownAggregates.isEmpty()) {
             return true;
         }
-        var currentAggregates = aggregateNames(classManifests, polymorphicManifests);
         var missingAggregates = knownAggregates.stream()
                 .filter(name -> !currentAggregates.contains(name))
                 .filter(this::existsOnClasspath)
@@ -75,19 +70,14 @@ class AggregateManifestFile {
      * Persists the current set of aggregate names so that future incremental builds can compare
      * against them.
      */
-    void save(List<ClassManifest> classManifests, List<PolymorphicAggregateManifest> polymorphicManifests) {
-        var names = aggregateNames(classManifests, polymorphicManifests);
-        var originatingElements = Stream.concat(
-                classManifests.stream().map(manifest -> manifest.type().asElement()),
-                polymorphicManifests.stream().map(manifest -> manifest.type().asElement())
-        ).toArray(Element[]::new);
+    void save(Set<String> names, Element[] originatingElements) {
         try {
             var resource = processingEnvironment.getFiler().createResource(
                     StandardLocation.CLASS_OUTPUT, MANIFEST_PACKAGE, MANIFEST_NAME, originatingElements);
-            var writer = new StringWriter();
-            names.forEach(name -> writer.write(name + "\n"));
             try (var out = resource.openWriter()) {
-                out.write(writer.toString());
+                for (var name : names.stream().sorted().toList()) {
+                    out.write(name + "\n");
+                }
             }
         } catch (IOException e) {
             processingEnvironment.getMessager().printMessage(
@@ -118,16 +108,5 @@ class AggregateManifestFile {
         return element != null;
     }
 
-    private static Set<String> aggregateNames(
-            List<ClassManifest> classManifests,
-            List<PolymorphicAggregateManifest> polymorphicManifests
-    ) {
-        return Stream.concat(
-                classManifests.stream().map(ClassManifest::qualifiedName),
-                polymorphicManifests.stream().map(m -> m.packageName() + "." + m.simpleName())
-        ).collect(Collectors.toSet());
-    }
 }
-
-
 

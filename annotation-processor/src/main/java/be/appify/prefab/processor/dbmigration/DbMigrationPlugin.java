@@ -5,8 +5,11 @@ import be.appify.prefab.processor.ClassManifest;
 import be.appify.prefab.processor.PolymorphicAggregateManifest;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
+import be.appify.prefab.processor.SourceContributions;
 import java.util.List;
-import java.util.stream.Stream;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import javax.lang.model.element.Element;
 
 /**
  * Prefab plugin that generates database migration scripts based on the @DbMigration annotation.
@@ -23,6 +26,7 @@ public class DbMigrationPlugin implements PrefabPlugin {
     private DbMigrationWriter dbMigrationWriter;
     private DbColumnConverterContributorWriter converterContributorWriter;
     private PrefabContext context;
+    private final SourceContributions<MigrationInput> inputs = new SourceContributions<>(MigrationInput.class);
 
     /** Creates a new instance of DbMigrationPlugin. */
     public DbMigrationPlugin() {
@@ -56,27 +60,31 @@ public class DbMigrationPlugin implements PrefabPlugin {
                 .filter(PolymorphicAggregateManifest::isDbMigrationEnabled)
                 .toList();
         converterContributorWriter.writeContributors(manifests);
-        if (classManifests.isEmpty() && polyManifests.isEmpty()) {
-            return;
-        }
-        var manifestFile = new AggregateManifestFile(context.processingEnvironment());
-        if (!manifestFile.isComplete(classManifests, polyManifests)) {
-            return;
-        }
-        var manualMigrationCheck = ManualMigrationCheck.scan(context);
-        var managedTables = dbMigrationWriter.writeDbMigration(
-                context.processingEnvironment(), classManifests, polyManifests);
-        manualMigrationCheck.check(managedTables, aggregateNames(classManifests, polyManifests));
-        manifestFile.save(classManifests, polyManifests);
+        classManifests.forEach(m -> inputs.add(m.type().asElement(), dbMigrationWriter.input(m)));
+        polyManifests.forEach(m -> inputs.add(m.type().asElement(), dbMigrationWriter.input(m)));
     }
 
-    private static List<String> aggregateNames(
-            List<ClassManifest> manifests,
-            List<PolymorphicAggregateManifest> polymorphicManifests
-    ) {
-        return Stream.concat(
-                manifests.stream().map(ClassManifest::simpleName),
-                polymorphicManifests.stream().map(PolymorphicAggregateManifest::simpleName)).toList();
+    @Override
+    public void finishProcessing() {
+        if (!JDBC_INCLUDED) {
+            return;
+        }
+        var merged = inputs.merge(context);
+        if (merged.isEmpty()) {
+            return;
+        }
+        var schema = merged.values().stream().flatMap(List::stream).toList();
+        var names = schema.stream().map(MigrationInput::name).collect(Collectors.toSet());
+        var manifestFile = new AggregateManifestFile(context.processingEnvironment());
+        if (!manifestFile.isComplete(names)) {
+            return;
+        }
+        var owners = merged.keySet().stream().map(context.processingEnvironment().getElementUtils()::getTypeElement)
+                .filter(Objects::nonNull).toArray(Element[]::new);
+        var check = ManualMigrationCheck.scan(context);
+        check.check(dbMigrationWriter.writeDbMigration(schema, owners),
+                names.stream().map(name -> name.substring(name.lastIndexOf('.') + 1)).toList());
+        manifestFile.save(names, owners);
     }
 
     private boolean isDbMigrationEnabled(ClassManifest manifest) {

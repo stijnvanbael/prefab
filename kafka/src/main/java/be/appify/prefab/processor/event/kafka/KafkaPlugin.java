@@ -5,6 +5,7 @@ import be.appify.prefab.core.annotations.AvscFiles;
 import be.appify.prefab.core.annotations.Event;
 import be.appify.prefab.core.annotations.EventHandlerConfig;
 import be.appify.prefab.processor.ClassManifest;
+import be.appify.prefab.processor.CompilerResources;
 import be.appify.prefab.processor.PrefabContext;
 import be.appify.prefab.processor.PrefabPlugin;
 import be.appify.prefab.processor.TypeManifest;
@@ -25,9 +26,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -194,7 +192,7 @@ public class KafkaPlugin implements PrefabPlugin {
     }
 
     private Schema parseAvscSchema(String path, TypeElement originatingElement) {
-        try (var stream = openResource(path)) {
+        try (var stream = CompilerResources.open(context.processingEnvironment().getFiler(), path, getClass().getClassLoader()).orElse(null)) {
             if (stream == null) {
                 context.logError("AVSC file not found: '" + path + "'", originatingElement);
                 return null;
@@ -204,14 +202,6 @@ public class KafkaPlugin implements PrefabPlugin {
             context.logError("Failed to read AVSC file '" + path + "': " + e.getMessage(), originatingElement);
             return null;
         }
-    }
-
-    private InputStream openResource(String path) throws IOException {
-        var stream = getClass().getClassLoader().getResourceAsStream(path);
-        if (stream != null)
-            return stream;
-        var file = Path.of("src/main/resources", path);
-        return Files.exists(file) ? Files.newInputStream(file) : null;
     }
 
     static boolean platformIsKafka(Event event, Element element, PrefabContext context) {

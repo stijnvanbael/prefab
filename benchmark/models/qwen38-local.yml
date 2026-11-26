@@ -1,0 +1,24 @@
+# A local Qwen 3.8 27B (dense) model served by Ollama through its Anthropic-compatible endpoint. Claude Code stays
+# the agent. Same harness settings as qwen-local, so the two models can be compared (TASK-392).
+# Adjust `model` to the tag you pulled (`ollama list`). Start the server with a context window of at least 32k, for
+# example `OLLAMA_CONTEXT_LENGTH=32768 ollama serve`: Claude Code's system prompt alone overflows Ollama's default.
+description: Local Qwen 3.8 27B via Ollama, compared with qwen-local on the same harness settings
+model: qwen3.8:27b
+env:
+  ANTHROPIC_BASE_URL: http://localhost:11434
+  ANTHROPIC_AUTH_TOKEN: ollama
+  ANTHROPIC_API_KEY: ""
+  # Claude Code uses a small model for side calls; without these it would ask the endpoint for a Claude model.
+  ANTHROPIC_DEFAULT_HAIKU_MODEL: qwen3.8:27b
+  ANTHROPIC_DEFAULT_SONNET_MODEL: qwen3.8:27b
+  ANTHROPIC_DEFAULT_OPUS_MODEL: qwen3.8:27b
+  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+  # The auto-memory section names ~/.claude/projects/<mangled path>/memory; a small model takes that for its working
+  # directory and writes its code there instead of into the project (TASK-392).
+  CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1"
+# Only the tools a coding task needs: the full set (cron, worktrees, agents, review tools, ...) triples the system
+# prompt to about 12k tokens of a 32k window, and Qwen calls tools it has no use for.
+args: ["--tools", "Bash,Read,Edit,Write"]
+# A local model is several times slower than a hosted one, and one GPU serves one attempt well.
+timeoutFactor: 3
+parallel: 1

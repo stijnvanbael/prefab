@@ -125,6 +125,16 @@ validation on the constructor parameters. New failure: `@Create` on the record i
 accepts that silently and generates no create endpoint, while `agent-context.md` lists `POST /books (create)`; Qwen
 trusted it, deleted its failing client test, and reported success. Filed as TASK-394 (Prefab bug, not a doc gap).
 
+**Qwen 3.8 27B, 128k window (2026-11-26).** Ollama restarted with `OLLAMA_CONTEXT_LENGTH=131072`; both models fit
+fully in GPU memory (Qwen3-Coder 30B 31 GB, Qwen 3.8 27B 18 GB). New profile `qwen38-local` (same settings as
+`qwen-local`, only the model differs). Step 1 `rest-create-and-get` **PASS** (run `20261126-120036`, ~4 min): `@Create`
+on the constructor, validation on its parameters, read `agent-context.md` and the generated controller against the
+requirements, wrote client + MockMvc tests incl. the 404 case, ran `mvn verify`, one clean summary. It only looked
+outside the workspace in `~/.m2` jars, so the pass is clean. Step 2 was stopped and discarded: Qwen 3.8 ran
+`find /`, found the checkout and read the reference solution of `rest-parent-child` (TASK-395). The Qwen3-Coder rerun
+at 128k did not start. Claude Code also warns that it assumes a 1M-token window for unknown model ids, so it will
+not compact before Ollama truncates; set the window for custom models before long runs.
+
 Proposal before running the context matrix:
 1. Re-run the ladder with a larger Ollama context window (`OLLAMA_CONTEXT_LENGTH=131072`). Input per turn was
    ~20-22k tokens against a 32k window; Ollama truncates the oldest tokens when a prompt overflows, which would drop

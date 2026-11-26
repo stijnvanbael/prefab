@@ -401,8 +401,15 @@ Prefab: Skipping generation of be.appify.example.ProductClient — manual overri
         src/test/java/be/appify/example/ProductClient.java
 ```
 
+When an override appears, Prefab also deletes any copy it generated earlier in `target/prefab-test-sources/`,
+so the two never compile side by side.
+
 > **Note:** The manual override file is never auto-updated by Prefab. If the aggregate's API
 > changes (new `@Create`, `@Update`, etc.) you must update the manual file yourself.
+
+Files in `target/prefab-test-sources/` belong to Prefab: a changed helper is rewritten (an unchanged one keeps its
+timestamp), and a helper whose source was deleted is removed on the next successful compilation. Place hand-written
+helpers under `src/test/java/`, never in `target/`.
 
 ---
 
@@ -681,3 +688,27 @@ module configures its other tests to use containers. They
 check framework wiring, not business behavior. Set `@Aggregate(conformanceTest = false)` or
 `@Event(conformanceTest = false)` to opt out for one aggregate or event. Migration replay validation is independent
 of these test opt-outs.
+
+---
+
+## 6.15 Incremental Build Metadata
+
+IDE builds such as IntelliJ IDEA's (JPS) pass javac only the changed sources of a module, and delete the outputs
+those sources own first. Several Prefab outputs combine inputs from many sources: the Flyway migration and its
+aggregate manifest, `META-INF/async-api/asyncapi.json`, the `Assertions` factories, repository mixin bindings and
+the files in `target/prefab-test-sources/`. To rebuild them completely from a partial compilation, Prefab records
+each source's contribution in the module's `target/` directory:
+
+| File                                              | Contents                                                 |
+|---------------------------------------------------|----------------------------------------------------------|
+| `target/prefab/incremental-v1/{main,test}/*.json` | Per-source inputs of each aggregated output              |
+| `target/prefab/test-sources-{main,test}.json`     | Which sources own each file in `target/prefab-test-sources/` |
+
+On each compilation Prefab replaces the entries of the sources javac received, drops entries whose source file no
+longer exists, and keeps the rest. The files are written only after a compilation without errors, so a failed build
+never records partial inputs. `mvn clean` removes them along with the rest of `target/`; the next full build
+recreates them. They are build metadata, not artefacts: do not edit or commit them.
+
+Metadata is only kept for sources under a standard `src/<set>/java/` directory. Outside that layout (for example
+in-memory compilation in tests) Prefab generates from the sources of the current compilation alone.
+

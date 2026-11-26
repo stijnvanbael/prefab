@@ -283,3 +283,24 @@ and that the dead-letter configuration is correct so retries do not block indefi
 
 **Fix:** Ensure `prefab-annotation-processor` is declared with `<scope>provided</scope>` in `pom.xml`.
 Verify `maven.compiler.release` is set to `21`. Run `mvn clean compile` to force regeneration.
+
+## IntelliJ IDEA: generated output is missing or out of date after Build Project
+
+IntelliJ's native build (JPS, without Maven delegation) recompiles only the sources that changed. Prefab keeps
+aggregated outputs complete across such builds (see [§6.15 Incremental Build
+Metadata](generated-artefacts.md#615-incremental-build-metadata)), but JPS decides which sources javac receives.
+Verified behaviour with IntelliJ IDEA 2026.3 and its bundled javac:
+
+| Change                                                                       | What to run                                                                   |
+|------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
+| Edit a model, `@Create`/`@Update` signature or annotation attribute          | **Build Project**                                                             |
+| Add, rename or delete a model, nested record or event (generated file names change) | **Recompile** the module's production source roots, then **Build Project** |
+| Edit only an Avro schema (`.avsc`) used by an `@Avsc` contract              | **Build Project**, then **Recompile** the `@Avsc` contract interface         |
+
+After adding or renaming a type, the first Build Project can report a missing generated test helper because JPS
+discovers newly generated test sources only on the next build; a second Build Project succeeds.
+
+If output still looks stale, run **Build > Rebuild Project**, or `mvn clean compile` from the command line.
+Delegating builds to Maven (`Settings > Build, Execution, Deployment > Build Tools > Maven > Runner`) always behaves
+like a command-line build.
+

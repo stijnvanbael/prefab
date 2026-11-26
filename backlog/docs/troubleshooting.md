@@ -303,8 +303,8 @@ may discover newly generated test sources only on the next build; try a second B
 
 For an `.avsc`-only edit, Build Project can copy the schema without regenerating the event. Recompiling the
 `@Avsc` contract and then building has also been observed to leave the generated migration incomplete and fail
-the build. Until [TASK-310](../tasks/task-310%20-%20Reliable-IntelliJ-incremental-annotation-processing.md) is
-resolved, use a clean Maven build for this case and verify the resulting migration.
+the build. Until [TASK-395](../tasks/task-395%20-%20Preserve-Avro-schema-only-native-IDE-incremental-builds.md)
+is resolved, use a clean Maven build for this case and verify the resulting migration.
 
 If output still looks stale, run **Build > Rebuild Project**, or `mvn clean compile` from the command line.
 Delegating builds to Maven (`Settings > Build, Execution, Deployment > Build Tools > Maven > Runner`) always behaves

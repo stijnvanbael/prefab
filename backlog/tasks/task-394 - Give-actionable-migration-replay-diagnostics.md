@@ -11,6 +11,7 @@ labels:
 dependencies: []
 references:
   - TASK-310
+  - TASK-395
   - TASK-390
   - backlog/docs/database-migrations.md
 priority: medium
@@ -30,7 +31,8 @@ missing prerequisite as unsupported syntax and could encourage removing a migrat
 Distinguish a supported statement that is invalid against the replayed migration history from SQL that cannot be
 parsed or modeled. Give guidance appropriate to the actual failure, without claiming to know why an earlier
 migration or table is missing. TASK-310 tracks the separate incremental-build problem that led to this particular
-missing generated migration; TASK-390 tracks broader validation of migration transitions.
+missing generated migration; TASK-395 follows up the remaining Avro-only JPS scenario; TASK-390 tracks broader
+validation of migration transitions.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Analysis

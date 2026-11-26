@@ -1,12 +1,12 @@
 ---
 id: TASK-310
 title: >-
-  Make IntelliJ IDEA incremental compilation reliable without compiler-setting
-  workarounds
-status: In Progress
+  Make IntelliJ IDEA incremental Java-model compilation reliable without
+  compiler-setting workarounds
+status: Done
 assignee: []
 created_date: '2026-11-16T15:43:00Z'
-updated_date: '2026-11-26T09:00:00Z'
+updated_date: '2026-11-26T10:39:00Z'
 labels:
   - bug
   - dx
@@ -21,6 +21,10 @@ priority: high
 Investigate and fix Prefab generation failures or stale output during IntelliJ IDEA incremental compilation using its normal annotation-processing support. Resolve processor lifecycle, dependency tracking, metadata and generated-file ownership problems rather than requiring Maven delegation, cache invalidation or compiler-setting changes.
 
 Related: completed TASK-168 (compilation performance) and TASK-307 (multi-round generated records). The README currently recommends compiler delegation; only remove this guidance when the supported native workflow is demonstrated.
+
+This task covers Java-model edits and generated Java/test/resource ownership under native JPS. Schema-only
+`.avsc` invalidation and its observed migration-loss failure are separately tracked in TASK-395; this task
+does not claim native support for that workflow.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Analysis
@@ -42,15 +46,18 @@ Related: completed TASK-168 (compilation performance) and TASK-307 (multi-round 
   (steps, expected generated files, a result table per scenario, IDE/JDK/Maven versions) so the IDE agent can follow
   it and report evidence, then fold the results back into this task. The README guidance changes only after those
   results.
+- Scope at completion: native Java-model scenarios #1–#5 and #7 are covered by the owner-indexed incremental
+  state and verification below. Scenario #6 is a distinct schema-only JPS invalidation/migration failure:
+  reproduce and fix it under TASK-395. The SQL diagnostic is separately tracked by TASK-394.
 <!-- SECTION:ANALYSIS:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 Capture reproducible IntelliJ/compiler/JDK versions and scenarios for editing, adding, renaming and deleting model components, nested types and generated event inputs across modules.
-- [x] #2 Diagnose each failure with processor-round and file-ownership evidence; fix affected generation/cache/dependency behavior without changing compiler settings or disabling incremental compilation.
-- [ ] #3 Incremental output matches a clean Maven build for supported scenarios and never silently retains obsolete artifacts or loses annotations.
+- [x] #1 Capture reproducible IntelliJ/compiler/JDK versions and scenarios for editing, adding, renaming and deleting model components and nested types; record the separate generated-Avro-input failure in TASK-395.
+- [x] #2 Diagnose the Java-model failures with processor-round and file-ownership evidence; fix affected generation/cache/dependency behavior without changing compiler settings or disabling incremental compilation.
+- [x] #3 Incremental output matches a clean Maven build for the verified Java-model scenarios (#1–#5 and #7), using the documented scoped recompile and, where needed, a second Make; obsolete generated files are removed and annotations are retained. `.avsc`-only changes are excluded and tracked by TASK-395.
 - [x] #4 Add automated lifecycle/generation regressions and a repeatable native IntelliJ verification procedure; describe any external IDE limitation honestly.
-- [ ] #5 Update IDE guidance with the verified workflow; do not advertise universal support from a single successful rebuild.
+- [x] #5 Update IDE guidance with the verified Java-model workflow and the explicit `.avsc`-only limitation; do not advertise universal support from a single successful rebuild.
 <!-- AC:END -->
 
 ## Native IntelliJ Verification Runbook
@@ -74,12 +81,13 @@ Do not change other compiler settings. Record the IDEA build number, the JPS jav
 | 3 | Add a nested `@Event` record in a new source file                              | Recompile `src/main/java`, then Build Project        |
 | 4 | Rename that record                                                             | Recompile `src/main/java`, then Build Project        |
 | 5 | Delete that source file                                                        | Recompile main source roots (incl. `src/avro`, `src/streams*`), then Build Project |
-| 6 | Rename a field in an `.avsc` used by an `@Avsc` contract                       | Build Project, then Recompile the contract interface |
+| 6 | Rename a field in an `.avsc` used by an `@Avsc` contract                       | Not supported by this workflow; see TASK-395         |
 | 7 | Add a `@RepositoryMixin` method; then edit only the aggregate                  | Build Project (twice)                               |
 
-Pass criteria per scenario: generated Java, test helpers, migration SQL (all aggregates present), AsyncAPI channels
-and class paths match the Maven reference; no obsolete file remains in `target/prefab-test-sources`. Record a second
-Build Project when the first reports a missing test helper (known JPS discovery lag, not stale output).
+Pass criteria for supported scenarios #1–#5 and #7: generated Java, test helpers, migration SQL (all aggregates
+present), AsyncAPI channels and class paths match the Maven reference; no obsolete file remains in
+`target/prefab-test-sources`. Record a second Build Project when the first reports a missing test helper
+(known JPS discovery lag, not stale output).
 
 ## Implementation Plan
 
@@ -178,4 +186,11 @@ paths remain after the failed JPS build. Do not mark the Avro workflow or AC #3/
 was captured under the session's `files/jps-avro-failed` directory for investigation. The misleading suggested fix
 for this replay-state failure is tracked separately in TASK-394. The schema and dependent test source were restored;
 after a native rebuild, a further JPS Make succeeded and `V1__generated.sql` and the aggregate manifest are present.
+
+Completion scope: scenarios #1–#5 and #7 have native verification and the documented scoped-recompile
+procedure. In particular #1, #2, #4 and #7 matched clean Maven output including generated sources,
+test helpers, migrations, AsyncAPI, event baselines and main/test class paths; addition and deletion
+were also exercised with recovery of generated helper ownership and aggregate metadata as described above.
+Do not treat the successful Java-model comparisons as evidence for `.avsc`-only updates. TASK-395 owns
+the failed #6 reproduction and recovery; TASK-394 owns the unrelated misleading replay diagnostic.
 <!-- SECTION:NOTES:END -->

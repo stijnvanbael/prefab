@@ -135,6 +135,11 @@ outside the workspace in `~/.m2` jars, so the pass is clean. Step 2 was stopped 
 at 128k did not start. Claude Code also warns that it assumes a 1M-token window for unknown model ids, so it will
 not compact before Ollama truncates; set the window for custom models before long runs.
 
+**Baseline scope agreed with the owner (2026-11-26).** Model: Qwen 3.8 27B. Tasks: `rest-create-and-get`,
+`rest-validation`, `rest-parent-child`, `events-publish-on-create`, `events-multicast`, `mixin-derived-query`; five
+contexts; one attempt each (30 attempts), with an uncommitted sandboxed copy of the profile standing in for TASK-399.
+The `none` context is recorded once as the reference; later rounds only compare docs and other aids.
+
 Proposal before running the context matrix:
 1. Re-run the ladder with a larger Ollama context window (`OLLAMA_CONTEXT_LENGTH=131072`). Input per turn was
    ~20-22k tokens against a 32k window; Ollama truncates the oldest tokens when a prompt overflows, which would drop

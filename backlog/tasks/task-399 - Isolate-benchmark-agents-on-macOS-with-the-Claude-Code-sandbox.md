@@ -28,6 +28,11 @@ Verified by hand (Claude Code 2.1.332, macOS): passing
 makes a Bash read of the repo fail with "Operation not permitted" and the Read tool refuse it, while
 `mvn clean verify` in a workspace under the system temp directory still succeeds and `~/.m2` stays readable. Note
 that permission rules need the `//` prefix for absolute paths; `Read(/Users/...)` did not apply.
+
+Hiding only the checkout is not enough: with the repo root denied, a Qwen 3.8 attempt went up to
+`~/IdeaProjects/appify/` and read another application built with Prefab (`energy-balancer`), which is just as much a
+leak. The TASK-392 baseline therefore denies all of `~/IdeaProjects`. The harness should deny the user's source
+folders broadly (configurable), not just the repository root.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

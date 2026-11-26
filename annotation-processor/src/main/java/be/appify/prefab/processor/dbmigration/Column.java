@@ -79,7 +79,7 @@ record Column(
                 name.replace("\"", ""),
                 parsedType,
                 Collections.indexOfSubList(columnSpecs, NOT_NULL) == -1,
-                columnSpecs.contains("REFERENCES") ? ForeignKeyReference.fromColumnSpecs(columnSpecs) : null,
+                ForeignKeyReference.fromColumnSpecs(columnSpecs).orElse(null),
                 rawDefault,
                 null,
                 null

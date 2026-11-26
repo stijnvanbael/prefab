@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.HashMap;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -12,6 +13,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class SqlStatementParserTest {
+
+    @Test
+    void inlineForeignKeyIsRecordedInColumnState() {
+        var tables = new HashMap<String, Table>();
+        var sql = """
+                CREATE TABLE "customer_order_history_entry" (
+                  "customer_order_history" VARCHAR (255) NOT NULL REFERENCES "customer_order_history"("id"),
+                  "order" VARCHAR (255) NOT NULL
+                );
+                """;
+        new SqlStatementParser().parse(sql, tables);
+
+        var table = tables.get("customer_order_history_entry");
+        var foreignKey = table.getColumn("customer_order_history")
+                .orElseThrow()
+                .foreignKey();
+        assertEquals(new ForeignKeyReference("customer_order_history", "id"), foreignKey);
+    }
 
     @Test
     void dropTableStatementRemovesTableFromReplayedState() {

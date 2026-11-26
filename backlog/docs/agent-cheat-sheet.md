@@ -100,7 +100,8 @@ Setup: `@EnablePrefab` on the `@SpringBootApplication` class. Add only the modul
 - Do **not** write JPA `@Entity`, `@Table`, `@OneToMany` or Lombok. Aggregates are records; use `Reference<T>`.
 - Do **not** write `@KafkaListener` or `KafkaTemplate` code. Use `@Event` and `@EventHandler`.
 - Do **not** write Flyway migrations by hand. Prefab generates `V…__*.sql` from the record. Never edit an
-  applied migration; to change the schema, change the record (use `@DbRename` for renames).
+  applied migration; to change the schema, change the record (use `@DbRename` for renames). Prefab replays inline
+  and table-level `REFERENCES` clauses from versioned SQL when deriving later migration deltas.
 - Do **not** edit anything under `target/` (`target/generated-sources`, `target/prefab-test-sources`): it is
   overwritten on every build. Do not copy generated classes into `src/` to "fix" them.
 - Do **not** hand-write request/response DTOs. Use the generated `Create…Request` and `…Response` records.

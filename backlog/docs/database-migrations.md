@@ -39,6 +39,8 @@ This reconstruction is only as useful as the SQL parser's understanding of the s
 manual SQL compatible with the migration parser and compile after adding it. A Flyway-valid statement that the
 processor cannot interpret can prevent generation or make the reconstructed schema incomplete; a clean build and
 review of the generated delta are essential.
+Inline column-level `REFERENCES` clauses are replayed as foreign keys too, so a later unrelated model change does
+not add the same parent-reference constraint again.
 
 ### Hand-written migrations for managed tables
 

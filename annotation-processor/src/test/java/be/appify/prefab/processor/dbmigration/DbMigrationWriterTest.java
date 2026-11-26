@@ -881,6 +881,28 @@ class DbMigrationWriterTest {
     }
 
     @Test
+    void inlineForeignKeyInExistingMigrationIsNotReaddedAfterModelChange() throws IOException {
+        var source = sourceOf("dbmigration/nestedlists/source/Order.java");
+        var baseline = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(source);
+        assertThat(baseline).succeeded();
+        var baselineSql = generatedMigrationContent(baseline, "db/migration/V1__generated.sql");
+        Truth.assertThat(baselineSql).contains("REFERENCES \"order\"(\"id\")");
+
+        var existingMigration = classpathWithMigration("V1__generated.sql", baselineSql);
+        var changedModelCompilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .withOptions(classpathOptionsWith(existingMigration))
+                .compile(sourceOf("dbmigration/nestedlists/changed/Order.java"));
+
+        assertThat(changedModelCompilation).succeeded();
+        var delta = generatedMigrationContent(changedModelCompilation, "db/migration/V2__generated.sql");
+        Truth.assertThat(delta).contains("sku");
+        Truth.assertThat(delta).doesNotContain("ADD CONSTRAINT");
+    }
+
+    @Test
     void renamedMigrationOnClasspathDoesNotGenerateDuplicateMigration() throws IOException {
         var baselineCompilation = javac()
                 .withProcessors(new PrefabProcessor())

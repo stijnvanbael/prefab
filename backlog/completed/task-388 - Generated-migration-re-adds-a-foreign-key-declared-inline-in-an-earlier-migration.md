@@ -1,13 +1,15 @@
 ---
 id: TASK-388
 title: Generated migration re-adds a foreign key declared inline in an earlier migration
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-25 06:05'
 labels:
   - persistence
   - migrations
 dependencies: []
+references:
+  - TASK-395
 priority: medium
 type: bug
 ordinal: 213000
@@ -38,6 +40,12 @@ generated script.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Replaying a migration with an inline `REFERENCES` clause records the foreign key, so no later migration adds it again
-- [ ] #2 A processor test covers a model change on top of a committed migration that has an inline foreign key
+- [x] #1 Replaying a migration with an inline `REFERENCES` clause records the foreign key, so no later migration adds it again
+- [x] #2 A processor test covers a model change on top of a committed migration that has an inline foreign key
 <!-- AC:END -->
+
+## Implementation Notes
+
+- JSqlParser can return a column-level inline reference such as `REFERENCES "order"("id")` as one column-spec entry. `ForeignKeyReference` now parses the combined clause as well as the separate-token representation, and `Column` records the resulting reference in the replayed state.
+- `SqlStatementParserTest.inlineForeignKeyIsRecordedInColumnState` verifies the parsed column model. `DbMigrationWriterTest.inlineForeignKeyInExistingMigrationIsNotReaddedAfterModelChange` compiles a V1 containing an inline child-table reference, adds a model field, and verifies V2 contains the new column without an `ADD CONSTRAINT`.
+- The parser and processor regressions passed through IntelliJ's native JPS runner.

@@ -296,15 +296,15 @@ javac (24 and 25.0.1); it is not a guarantee for every possible edit:
 |------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
 | Edit a model, `@Create`/`@Update` signature or annotation attribute          | **Build Project**                                                             |
 | Add, rename or delete a model, nested record or event (generated file names change) | **Recompile** the module's production source roots, then **Build Project** |
-| Edit only an Avro schema (`.avsc`) used by an `@Avsc` contract              | Native incremental builds are not reliable for this case; see below          |
+| Edit an Avro schema (`.avsc`) used by an `@Avsc` contract                   | **Recompile** the owning `@Avsc` Java contract, then **Build Project**        |
 
 After adding or renaming a type, the first Build Project can report a missing generated test helper because JPS
 may discover newly generated test sources only on the next build; try a second Build Project.
 
-For an `.avsc`-only edit, Build Project can copy the schema without regenerating the event. Recompiling the
-`@Avsc` contract and then building has also been observed to leave the generated migration incomplete and fail
-the build. Until [TASK-395](../tasks/task-395%20-%20Preserve-Avro-schema-only-native-IDE-incremental-builds.md)
-is resolved, use a clean Maven build for this case and verify the resulting migration.
+An `.avsc` file is a classpath resource, not a javac source input, so an IDE may copy a schema-only change without
+invoking the annotation processor. Explicitly compiling the Java contract annotated with `@Avsc` makes the processor
+read the updated resource; then run the ordinary incremental build. This scoped-compile workflow was verified with
+IntelliJ IDEA 2026.3/JPS and is not tied to Maven delegation or an IntelliJ plugin.
 
 If output still looks stale, run **Build > Rebuild Project**, or `mvn clean compile` from the command line.
 Delegating builds to Maven (`Settings > Build, Execution, Deployment > Build Tools > Maven > Runner`) always behaves

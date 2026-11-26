@@ -100,6 +100,15 @@ does keep it on Prefab (guardrails passed in steps 1-3, against a plain-Spring f
 step 1 and 2 failures point at concrete, small doc fixes. But from step 3 on, tool use (wrong absolute paths) fails
 before Prefab knowledge matters.
 
+**Smaller agent prompt (2026-11-26).** Measured on a one-line prompt against Ollama: Claude Code's default
+starting prompt is ~11.8k tokens (20 tools, 44 skills/commands; the ladder's longest prompts reached 30-42k, past the
+32k window). `--tools Bash,Read,Edit,Write` brings it to ~3.9k; `--disable-slash-commands` saves nothing. Asked to
+quote its working directory, Qwen quoted the auto-memory path `~/.claude/projects/<mangled path>/memory/` in both
+setups: that, not truncation alone, is where the invented `...-1-project` paths came from.
+`CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` (or `autoMemoryEnabled: false`) removes it and brings the prompt to ~3.4k.
+Both are now in `benchmark/models/qwen-local.yml` only, so hosted baselines stay comparable. Next: re-run ladder
+steps 1-3 with the slim profile at 32k before considering a larger window.
+
 Proposal before running the context matrix:
 1. Re-run the ladder with a larger Ollama context window (`OLLAMA_CONTEXT_LENGTH=131072`). Input per turn was
    ~20-22k tokens against a 32k window; Ollama truncates the oldest tokens when a prompt overflows, which would drop

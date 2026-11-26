@@ -126,6 +126,11 @@ Things to know about a local model:
 
 - Ollama must run with a context window of at least 32k tokens. Its default is too small for Claude Code's system
   prompt, and attempts then fail in confusing ways.
+- Keep the agent's own prompt small. Claude Code's full tool set and its auto-memory section take about 12k tokens
+  before any task or docs. `qwen-local` therefore passes `--tools Bash,Read,Edit,Write` and sets
+  `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`, which brings the starting prompt to about 3.4k tokens. Without the latter,
+  Qwen took the memory directory (`~/.claude/projects/<mangled path>/memory`) for its working directory and wrote
+  its code there (TASK-392). Copy both settings into any profile for a small model.
 - Pick a model with reliable tool calling. A model that cannot drive the tools scores 0 and shows nothing about
   the documentation.
 - Cost columns read zero; compare turns, builds and pass rate.

@@ -12,6 +12,12 @@ env:
   ANTHROPIC_DEFAULT_SONNET_MODEL: qwen3-coder:30b
   ANTHROPIC_DEFAULT_OPUS_MODEL: qwen3-coder:30b
   CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+  # The auto-memory section names ~/.claude/projects/<mangled path>/memory; a small model takes that for its working
+  # directory and writes its code there instead of into the project (TASK-392).
+  CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1"
+# Only the tools a coding task needs: the full set (cron, worktrees, agents, review tools, ...) triples the system
+# prompt to about 12k tokens of a 32k window, and Qwen calls tools it has no use for.
+args: ["--tools", "Bash,Read,Edit,Write"]
 # A local model is several times slower than a hosted one, and one GPU serves one attempt well.
 timeoutFactor: 3
 parallel: 1

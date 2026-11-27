@@ -481,16 +481,39 @@ passed after 104 tests, 0 failures, 0 errors and 4 skips). The observed showcase
 The benchmark template's `rest-create-and-get` validation passed its three hidden tests in 3.75s; the unchanged
 starter failed as expected in 3.24s.
 
-The measurements do not provide a complete phase-by-phase split. Maven's compiler plugin runs annotation
-processing inside the same `javac` invocation as compilation and does not report those durations separately.
-JUnit test-report durations and application-context startup are observable, but vary with host load and must not
-be subtracted from total Maven wall time as if they were sequential phases. A diagnostic post-change build with
-Spring cache DEBUG logging took 65.27s, but is not comparable to the baseline. Two further post-change samples
-took 260.24s and 487.79s while the host was heavily loaded; they are not valid performance measurements, so no
-post-change median is claimed.
+Phase split of a serial `mvn verify` of the showcase and its reactor (Maven timestamps per plugin execution, 89.2s
+in total):
 
-The TASK-343 Haiku 5.5 `cheat-sheet` baseline recorded median 4 Maven builds and 1m19s agent time. No
-post-change model run is recorded, so the agent-time/build-count effect of the guidance remains unverified.
+| Phase | Time | Share |
+|---|---|---|
+| `surefire:test`, all modules | 83.8s | 94% |
+| `compiler:compile` | 2.8s | 3.2% |
+| `compiler:testCompile` | 1.5s | 1.7% |
+| signing, jar, javadoc, sources, resources | 1.1s | 1% |
+
+Surefire is by far the largest part: `prefab-annotation-processor` 24.3s, `prefab-test` 17.7s, the showcase 10.9s, the
+other modules 3-7s each. The slowest single test classes are `PubSubPublishTimeoutTest` (10.2s, a timeout test) and
+`DbMigrationWriterTest` (4.1s). Six Spring contexts start in the whole reactor; the showcase starts one (1.485s).
+A clean `compile` of the showcase module, annotation processing included, takes 1.5s and `testCompile` 0.6s
+(three runs: 1.48s, 1.54s, 1.47s and 0.61s, 0.60s, 0.66s). Annotation processing cannot be timed separately: the
+module's sources reference the generated classes, so a `-proc:none` compile does not succeed, and processing runs
+inside the same `javac` invocation. Since processing is part of a 1.5s compile, it is not where the build time goes;
+the lever is test execution and reactor parallelism (`-T 2`).
+
+Agent effect, measured on the reference model (Qwen 3.8 27B, `qwen38-local`, `cheat-sheet`, the six quick tasks of
+the context ladder below, one attempt per task, one at a time). Before: run `20261126-155010`, after:
+`20261127-101327` plus `20261127-105216` (`events-multicast` rerun, see below).
+
+| | Passed | Median turns | Median builds | Median agent time |
+|---|---|---|---|---|
+| Before (TASK-392 baseline) | 6/6 | 31 | 5 | 8m32s |
+| After | 6/6 | 30 | 4.5 | 5m51s |
+
+Median agent time dropped by 31% and median builds by half a build; with one attempt per task and attempt times
+ranging from 3m to 14m, this is an indication and not a significant difference. The first `events-multicast` attempt
+read the reference solution and hidden tests from a stale copy of the repository in `/tmp` that the sandbox did not
+hide, so the harness correctly failed it as contaminated. It was rerun with `--hide` on that path and passed. The
+TASK-343 Haiku numbers (median 4 builds, 1m19s) are no longer used as the reference.
 
 ## Recorded baselines
 

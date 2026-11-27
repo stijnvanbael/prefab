@@ -44,8 +44,6 @@ public final class AggregateEndpoints {
         var basePath = "/" + ControllerUtil.pathOf(manifest);
         var endpoints = new ArrayList<Endpoint>();
         var type = manifest.element();
-        Optional.ofNullable(type.getAnnotation(Create.class))
-                .ifPresent(create -> endpoints.add(endpoint(create.method(), basePath + create.path(), "create")));
         manifest.constructorsWith(Create.class).forEach(constructor -> {
             var create = constructor.getAnnotation(Create.class);
             endpoints.add(endpoint(create.method(), basePath + create.path(), "create"));

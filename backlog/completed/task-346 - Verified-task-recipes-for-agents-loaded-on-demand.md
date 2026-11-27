@@ -1,7 +1,7 @@
 ---
 id: TASK-346
 title: 'Verified task recipes for agents, loaded on demand'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-20 20:14'
 labels:
@@ -67,6 +67,8 @@ Related: TASK-148 AC #5 (extract compilable snippets from examples), TASK-337 (s
   `full-docs` 6/6, 24 turns, 7 builds, 17m52s, 14.9M (6 quick tasks, one attempt each). Recipes were fastest on five
   of six tasks. See `backlog/docs/benchmark.md`, "2026-11-26: local Qwen 3.8 27B across documentation contexts".
   Haiku runs follow in TASK-389.
+- Closed (2026-11-27): all acceptance criteria are met. The recipes are verified by the build, and the model-run criterion is
+  recorded on the local Qwen 3.8 baseline (TASK-392); Haiku comparisons are tracked separately in TASK-389.
 <!-- SECTION:NOTES:END -->
 
 ## Acceptance Criteria

@@ -1,7 +1,7 @@
 ---
 id: TASK-382
 title: Run a Prefab application locally without infrastructure
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-24 10:00'
 labels:
@@ -81,4 +81,6 @@ runner and credentials are available in this environment.
   Same pass rate and turns; starting the app cost time on `rest-create-and-get` and `events-publish-on-create` and
   saved it on `rest-parent-child` and `events-multicast`. See `backlog/docs/benchmark.md`, "2026-11-26: local Qwen
   3.8 27B across documentation contexts".
+- Closed (2026-11-27): all acceptance criteria are met. The `local-run` context is recorded on the local Qwen 3.8
+  baseline (TASK-392); Haiku comparisons are tracked separately in TASK-389.
 <!-- SECTION:NOTES:END -->

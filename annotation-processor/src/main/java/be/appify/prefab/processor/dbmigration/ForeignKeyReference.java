@@ -75,8 +75,10 @@ record ForeignKeyReference(
 
     static ForeignKeyReference fromIndex(ForeignKeyIndex index) {
         return new ForeignKeyReference(
-                index.getTable().getName(),
-                index.getReferencedColumnNames()
+                index.getTable().getName().replace("\"", ""),
+                index.getReferencedColumnNames().stream()
+                        .map(column -> column.replace("\"", ""))
+                        .toList()
         );
     }
 

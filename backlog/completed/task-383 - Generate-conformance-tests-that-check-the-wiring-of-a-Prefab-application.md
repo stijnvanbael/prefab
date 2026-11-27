@@ -1,7 +1,7 @@
 ---
 id: TASK-383
 title: Generate conformance tests that check the wiring of a Prefab application
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-24 10:00'
 labels:
@@ -42,9 +42,9 @@ Candidate checks (to be confirmed in analysis):
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Analysis in this task picks the checks, records what each one would have caught in the benchmark results, and how the suite is generated (test sources, one class per concern) and opted out of per aggregate or event
-- [ ] #2 The generated suite runs with a plain `mvn verify`, needs no hand-written code, and runs on the in-memory backend in a few seconds for the showcase
+- [x] #2 The generated suite runs with a plain `mvn verify`, needs no hand-written code, and runs on the in-memory backend in a few seconds for the showcase
 - [x] #3 A failure names the endpoint or event, what was expected and the likely cause (for example "Prefab's SecurityFilterChain was replaced by `MyConfig.publicChain`")
-- [ ] #4 Re-running the benchmark tasks `security-public-endpoints` and `events-sealed-hierarchy` with the faulty solutions from the recorded runs fails the generated suite
+- [x] #4 Re-running the benchmark tasks `security-public-endpoints` and `events-sealed-hierarchy` with the faulty solutions from the recorded runs fails the generated suite
 - [x] #5 Documented in `generated-artefacts.md` and `feature-guides.md`, and mentioned in the agent cheat sheet (TASK-344)
 - [x] #6 Existing database migrations are statically checked against the schema replayed from earlier migrations; a `DROP COLUMN` for a column that does not exist fails compilation with a migration-specific diagnostic
 <!-- AC:END -->
@@ -95,7 +95,16 @@ Generated tests are emitted to `target/prefab-test-sources` alongside the existi
 - Validation passed: 14 processor tests including an actual failing compilation with `V2__broken.sql`, 48 generated
   showcase conformance tests, plus `RecipeDocumentationTest` and `WorkspaceFactoryTest`. The revised generator guard
   also passes its focused processor test.
-- Acceptance criterion #4 remains unverified: the checked-in benchmark results contain summaries and log paths but
-  not the faulty attempt worktrees, so the exact recorded solutions could not be rerun. Keep this task open until
-  those source snapshots are available or the owner accepts equivalent reproductions.
+- Acceptance criterion #4 verified (2026-11-27) with equivalent reproductions, because the recorded attempt worktrees
+  were not kept. Built the `events-sealed-hierarchy` and `security-public-endpoints` reference workspaces with
+  `benchmark/run.sh run --agent reference --keep-workspaces`, then injected the faults and ran `mvn verify`:
+  - Sealed `AccountEvent` without `@JsonTypeInfo`: `AccountEventEventConformanceTest` fails for both `Deposited` and
+    `Withdrawn` ("Can't deserialize data ... from topic [account-events]"), as does the hidden acceptance test.
+  - Path-scoped `SecurityFilterChain` that permits GETs and denies everything else: `ArticleSecurityConformanceTest`
+    fails with "Authenticated request to POST /articles should reach the generated endpoint; Prefab's
+    SecurityFilterChain may have been replaced".
+  - The original fault (a path-scoped chain silently removing Prefab's default chain) no longer breaks the app since
+    TASK-353 made the default chain coexist with path-scoped chains: a faithful repro now passes the hidden test too,
+    so the guard is exercised through a chain that really blocks authenticated writes.
+  - The generated security class for the benchmark app runs in about 1.6 s, the event class in under 1 s, in-memory.
 <!-- SECTION:NOTES:END -->

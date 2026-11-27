@@ -26,9 +26,9 @@
 
 | Category | Attempts |
 |---|---|
-| DOC_GAP | 1 |
+| DOC_GAP | 0 |
 | MISLEADING_DIAGNOSTIC | 0 |
-| API_MISUSE | 0 |
+| API_MISUSE | 1 |
 | PLAIN_SPRING_FALLBACK | 0 |
 | TEST_OR_INFRASTRUCTURE | 0 |
 
@@ -42,13 +42,13 @@
 
 | Task | Tier | # | Result | Checks | Turns | Builds | First green | Overrides | Tokens in/out | Cost | Agent time | Failure |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| rest-create-and-get | quick | 1 | FAIL | +guardrails -hidden-tests | 35 | 10 | 59s | 0 | 714.502 / 4.725 | $0,59 | 2m27s | DOC_GAP |
+| rest-create-and-get | quick | 1 | FAIL | +guardrails -hidden-tests | 35 | 10 | 59s | 0 | 714.502 / 4.725 | $0,59 | 2m27s | API_MISUSE |
 
 ## Failures
 
 ### rest-create-and-get#1
 
-**DOC_GAP** (heuristic): the project builds but behaves differently than asked; review the diff to confirm
+**API_MISUSE** (manual): Put @NotBlank/@Max on the record components instead of the @Create parameters, so a missing title returned 201; @Max on a String instead of @Size. The cheat sheet stated the rule (heuristic said DOC_GAP). 
 
 - `hidden-tests: 2/3 passed; com.example.catalog.BookAcceptanceTest.titleIsRequired: Status expected:<400> but was:<201>`
 

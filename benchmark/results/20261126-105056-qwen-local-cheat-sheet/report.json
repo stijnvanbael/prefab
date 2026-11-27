@@ -59,8 +59,8 @@
     "acceptanceDuration" : "PT3.997829S",
     "failure" : {
       "category" : "DOC_GAP",
-      "source" : "heuristic",
-      "rationale" : "the project builds but behaves differently than asked; review the diff to confirm",
+      "source" : "manual",
+      "rationale" : "Added @Parent Reference<Project> itself, imported it from be.appify.prefab.core.annotations (it lives in .rest), read the compile error as \"@Parent is not available\", removed it and reported a nested resource it had not built. The cheat sheet listed .rest annotations with \"...\" and did not name @Parent; fixed by the import table.\n",
       "evidence" : [ "hidden-tests: 0/3 passed; com.example.planning.ProjectTasksAcceptanceTest.tasksAreListedPerProject: Status expected:<201> but was:<404> | com.example.planning.ProjectTasksAcceptanceTest.taskCanBeCompleted: Status expected:<201> but was:<404> | com.example.planning.ProjectTasksAcceptanceTest.taskIsOnlyReachableThroughItsOwnProject: Status expected:<201> but was:<404>" ]
     },
     "logs" : "/Users/stijnvanbael/IdeaProjects/appify/prefab/benchmark/results/20261126-105056-qwen-local-cheat-sheet/attempts/rest-parent-child-1"

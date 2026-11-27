@@ -48,7 +48,7 @@
 
 ### rest-create-and-get#1
 
-**PLAIN_SPRING_FALLBACK** (heuristic): the agent wrote code Prefab is meant to generate
+**PLAIN_SPRING_FALLBACK** (manual): Without docs, hand-wrote a JPA entity, controller and DTO, removed validation instead of adding the starter, added H2 for its own tests and reported success after stopping them. 
 
 - `guardrails: jpa in src/main/java/com/example/catalog/Book.java; hand-written-controller in src/main/java/com/example/catalog/BookController.java; spring-data-repository in src/main/java/com/example/catalog/BookRepository.java`
 - `hidden-tests: 0/3 passed; com.example.catalog.BookAcceptanceTest.titleIsRequired: Failed to load ApplicationContext for [WebMergedContextConfiguration@31b741e2 testClass = com.example.catalog.BookAcceptanceTest, locations = [], classes = [com.example.Application], contextInitializerClasses = [], activeProfiles = ["test"], propertySourceDescriptors = [], propertySourceProperties = ["org.springframe...`

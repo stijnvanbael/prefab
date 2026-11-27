@@ -28,9 +28,9 @@
 |---|---|
 | DOC_GAP | 0 |
 | MISLEADING_DIAGNOSTIC | 0 |
-| API_MISUSE | 1 |
+| API_MISUSE | 0 |
 | PLAIN_SPRING_FALLBACK | 0 |
-| TEST_OR_INFRASTRUCTURE | 0 |
+| TEST_OR_INFRASTRUCTURE | 1 |
 
 ## By task category
 
@@ -42,13 +42,13 @@
 
 | Task | Tier | # | Result | Checks | Turns | Builds | First green | Overrides | Tokens in/out | Cost | Agent time | Failure |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| events-publish-on-create | quick | 1 | FAIL | +guardrails -hidden-tests | 49 | 7 | 41s | 0 | 932.035 / 6.036 | $0,73 | 2m44s | API_MISUSE |
+| events-publish-on-create | quick | 1 | FAIL | +guardrails -hidden-tests | 49 | 7 | 41s | 0 | 932.035 / 6.036 | $0,73 | 2m44s | TEST_OR_INFRASTRUCTURE |
 
 ## Failures
 
 ### events-publish-on-create#1
 
-**API_MISUSE** (heuristic): the hidden tests do not compile against the generated API: names or shapes differ from the prompt
+**TEST_OR_INFRASTRUCTURE** (manual): Agent harness setup, not Prefab: Claude Code auto-memory named ~/.claude/projects/<mangled path>/memory, which Qwen took for its working directory, so every edit went outside the workspace and agent.diff is empty (heuristic said API_MISUSE). Fixed by disabling auto-memory in the profile. 
 
 - `hidden-tests: hidden tests did not run (build or compile failure)`
 - `build: [ERROR] /private/var/folders/z6/vvn2vyjd5v76z549q44zytf80000gn/T/prefab-benchmark/20261126-110041-qwen-local-cheat-sheet/events-publish-on-create-1/project/src/test/java/com/example/ordering/OrderPlacedAcceptanceTest.java:[20,19] cannot find symbol`

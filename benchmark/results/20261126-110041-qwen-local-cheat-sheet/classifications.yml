@@ -1,0 +1,6 @@
+events-publish-on-create#1:
+  category: TEST_OR_INFRASTRUCTURE
+  note: >
+    Agent harness setup, not Prefab: Claude Code auto-memory named ~/.claude/projects/<mangled path>/memory, which Qwen
+    took for its working directory, so every edit went outside the workspace and agent.diff is empty (heuristic said
+    API_MISUSE). Fixed by disabling auto-memory in the profile.

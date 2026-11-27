@@ -1,0 +1,5 @@
+rest-create-and-get#1:
+  category: API_MISUSE
+  note: >
+    Put @NotBlank/@Max on the record components instead of the @Create parameters, so a missing title returned 201;
+    @Max on a String instead of @Size. The cheat sheet stated the rule (heuristic said DOC_GAP).

@@ -1,0 +1,6 @@
+rest-parent-child#1:
+  category: DOC_GAP
+  note: >
+    Added @Parent Reference<Project> itself, imported it from be.appify.prefab.core.annotations (it lives in .rest),
+    read the compile error as "@Parent is not available", removed it and reported a nested resource it had not built.
+    The cheat sheet listed .rest annotations with "..." and did not name @Parent; fixed by the import table.

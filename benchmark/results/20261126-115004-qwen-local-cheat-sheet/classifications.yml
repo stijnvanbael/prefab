@@ -1,0 +1,5 @@
+rest-create-and-get#1:
+  category: MISLEADING_DIAGNOSTIC
+  note: >
+    Put @Create on the record instead of the constructor. Prefab compiled it without a diagnostic, generated no create
+    endpoint, and agent-context.md still listed POST /books (create), which the agent trusted (TASK-398).

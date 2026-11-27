@@ -26,8 +26,8 @@
 
 | Category | Attempts |
 |---|---|
-| DOC_GAP | 1 |
-| MISLEADING_DIAGNOSTIC | 0 |
+| DOC_GAP | 0 |
+| MISLEADING_DIAGNOSTIC | 1 |
 | API_MISUSE | 0 |
 | PLAIN_SPRING_FALLBACK | 0 |
 | TEST_OR_INFRASTRUCTURE | 0 |
@@ -42,13 +42,13 @@
 
 | Task | Tier | # | Result | Checks | Turns | Builds | First green | Overrides | Tokens in/out | Cost | Agent time | Failure |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| rest-create-and-get | quick | 1 | FAIL | +guardrails -hidden-tests | 38 | 9 | 19s | 0 | 530.809 / 5.872 | $0,47 | 1m59s | DOC_GAP |
+| rest-create-and-get | quick | 1 | FAIL | +guardrails -hidden-tests | 38 | 9 | 19s | 0 | 530.809 / 5.872 | $0,47 | 1m59s | MISLEADING_DIAGNOSTIC |
 
 ## Failures
 
 ### rest-create-and-get#1
 
-**DOC_GAP** (heuristic): the project builds but behaves differently than asked; review the diff to confirm
+**MISLEADING_DIAGNOSTIC** (manual): Put @Create on the record instead of the constructor. Prefab compiled it without a diagnostic, generated no create endpoint, and agent-context.md still listed POST /books (create), which the agent trusted (TASK-398). 
 
 - `hidden-tests: 1/3 passed; com.example.catalog.BookAcceptanceTest.titleIsRequired: Status expected:<400> but was:<404> | com.example.catalog.BookAcceptanceTest.createdBookCanBeRetrieved: Status expected:<201> but was:<404>`
 

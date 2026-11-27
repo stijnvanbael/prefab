@@ -48,7 +48,7 @@
 
 ### rest-parent-child#1
 
-**DOC_GAP** (heuristic): the project builds but behaves differently than asked; review the diff to confirm
+**DOC_GAP** (manual): Added @Parent Reference<Project> itself, imported it from be.appify.prefab.core.annotations (it lives in .rest), read the compile error as "@Parent is not available", removed it and reported a nested resource it had not built. The cheat sheet listed .rest annotations with "..." and did not name @Parent; fixed by the import table. 
 
 - `hidden-tests: 0/3 passed; com.example.planning.ProjectTasksAcceptanceTest.tasksAreListedPerProject: Status expected:<201> but was:<404> | com.example.planning.ProjectTasksAcceptanceTest.taskCanBeCompleted: Status expected:<201> but was:<404> | com.example.planning.ProjectTasksAcceptanceTest.taskIsOnlyReachableThroughItsOwnProject: Status expected:<201> but was:<404>`
 

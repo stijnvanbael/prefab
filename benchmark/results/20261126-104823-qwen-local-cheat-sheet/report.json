@@ -61,9 +61,9 @@
     },
     "acceptanceDuration" : "PT3.659553S",
     "failure" : {
-      "category" : "DOC_GAP",
-      "source" : "heuristic",
-      "rationale" : "the project builds but behaves differently than asked; review the diff to confirm",
+      "category" : "API_MISUSE",
+      "source" : "manual",
+      "rationale" : "Put @NotBlank/@Max on the record components instead of the @Create parameters, so a missing title returned 201; @Max on a String instead of @Size. The cheat sheet stated the rule (heuristic said DOC_GAP).\n",
       "evidence" : [ "hidden-tests: 2/3 passed; com.example.catalog.BookAcceptanceTest.titleIsRequired: Status expected:<400> but was:<201>" ]
     },
     "logs" : "/Users/stijnvanbael/IdeaProjects/appify/prefab/benchmark/results/20261126-104823-qwen-local-cheat-sheet/attempts/rest-create-and-get-1"

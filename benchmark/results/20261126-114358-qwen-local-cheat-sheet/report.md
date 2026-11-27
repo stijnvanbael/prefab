@@ -48,7 +48,7 @@
 
 ### rest-create-and-get#1
 
-**DOC_GAP** (heuristic): the project builds but behaves differently than asked; review the diff to confirm
+**DOC_GAP** (manual): Imported be.appify.prefab.core.Reference (actual package core.service), decided Reference was generated, replaced it with a String id set to null, so POST returned 500. The cheat sheet did not give the package; fixed by the import table. 
 
 - `hidden-tests: 1/3 passed; com.example.catalog.BookAcceptanceTest.titleIsRequired: Status expected:<400> but was:<500> | com.example.catalog.BookAcceptanceTest.createdBookCanBeRetrieved: Status expected:<201> but was:<500>`
 

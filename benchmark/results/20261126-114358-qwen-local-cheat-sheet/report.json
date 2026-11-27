@@ -59,8 +59,8 @@
     "acceptanceDuration" : "PT3.624723S",
     "failure" : {
       "category" : "DOC_GAP",
-      "source" : "heuristic",
-      "rationale" : "the project builds but behaves differently than asked; review the diff to confirm",
+      "source" : "manual",
+      "rationale" : "Imported be.appify.prefab.core.Reference (actual package core.service), decided Reference was generated, replaced it with a String id set to null, so POST returned 500. The cheat sheet did not give the package; fixed by the import table.\n",
       "evidence" : [ "hidden-tests: 1/3 passed; com.example.catalog.BookAcceptanceTest.titleIsRequired: Status expected:<400> but was:<500> | com.example.catalog.BookAcceptanceTest.createdBookCanBeRetrieved: Status expected:<201> but was:<500>" ]
     },
     "logs" : "/Users/stijnvanbael/IdeaProjects/appify/prefab/benchmark/results/20261126-114358-qwen-local-cheat-sheet/attempts/rest-create-and-get-1"

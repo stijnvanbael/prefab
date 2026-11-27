@@ -11,6 +11,3 @@ unsupported:
   AVRO:
     reason: SNS/SQS payloads are bare Avro binary without a writer schema
     task: TASK-275
-  SCHEMA_REGISTRY_API:
-    reason: there is no Kafka schema registry on SNS/SQS, and the Avro slice does not run here
-    task: TASK-275

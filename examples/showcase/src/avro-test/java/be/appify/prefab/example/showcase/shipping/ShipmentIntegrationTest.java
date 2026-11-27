@@ -1,24 +1,19 @@
 package be.appify.prefab.example.showcase.shipping;
 
-import be.appify.prefab.example.showcase.capability.RequiresCapability;
 import be.appify.prefab.example.showcase.ordering.OrderClient;
 import be.appify.prefab.example.showcase.shipping.infrastructure.http.ShipmentResponse;
 import be.appify.prefab.example.showcase.support.Shop;
+import be.appify.prefab.example.showcase.support.SchemaRegistrySubjects;
 import be.appify.prefab.test.EventConsumer;
 import be.appify.prefab.test.IntegrationTest;
 import be.appify.prefab.test.TestEventConsumer;
 import java.math.BigDecimal;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.util.Objects;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.data.domain.Pageable;
 
-import static be.appify.prefab.example.showcase.capability.Capability.SCHEMA_REGISTRY_API;
 import static java.time.Duration.ofSeconds;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -36,11 +31,10 @@ class ShipmentIntegrationTest {
     OrderClient orders;
     @Autowired
     Shop shop;
+    @Autowired
+    KafkaProperties kafkaProperties;
     @TestEventConsumer(topic = "showcase.shipment")
     EventConsumer<ShipmentDispatched> dispatched;
-    // Only configured when a real registry runs: not in memory
-    @Value("${spring.kafka.producer.properties.schema.registry.url:}")
-    String schemaRegistryUrl;
 
     @Test
     void placeOrder_preparesAShipmentThatWaitsForDispatch() throws Exception {
@@ -68,7 +62,6 @@ class ShipmentIntegrationTest {
     }
 
     @Test
-    @RequiresCapability(SCHEMA_REGISTRY_API)
     void dispatch_registersTheEventSchemaInTheSchemaRegistry() throws Exception {
         var orderId = placeOrder();
         var shipmentId = shipmentOf(orderId).id().id();
@@ -76,7 +69,9 @@ class ShipmentIntegrationTest {
         shipments.dispatch(shipmentId, "DHL", "JD0002");
 
         await().atMost(ofSeconds(30)).untilAsserted(() ->
-                assertThat(registrySubjects()).as("schema registry subjects").containsIgnoringCase("showcase.shipment"));
+                assertThat(SchemaRegistrySubjects.list(kafkaProperties))
+                        .as("schema registry subjects")
+                        .contains("showcase.shipment-value"));
     }
 
     private String placeOrder() throws Exception {
@@ -88,9 +83,4 @@ class ShipmentIntegrationTest {
                 .getContent().stream().findFirst().orElse(null), Objects::nonNull);
     }
 
-    private String registrySubjects() throws Exception {
-        return HttpClient.newHttpClient().send(
-                HttpRequest.newBuilder(URI.create(schemaRegistryUrl + "/subjects")).build(),
-                HttpResponse.BodyHandlers.ofString()).body();
-    }
 }

@@ -7,6 +7,3 @@ unsupported:
   KAFKA_STREAMS_BREAKOUT:
     reason: breakout hands over the Kafka Streams API, and the in-memory backend runs streams on the in-process engine
     task: TASK-374
-  SCHEMA_REGISTRY_API:
-    reason: Avro events use the mock schema registry in memory, which has no HTTP endpoint to list subjects
-    task: TASK-375

@@ -141,7 +141,7 @@ Things to know about a local model:
 - Pick a model with reliable tool calling. A model that cannot drive the tools scores 0 and shows nothing about
   the documentation.
 - The cost column shows what Claude Code would charge at API prices, which means nothing for a local model; compare
-  turns, builds, agent time and pass rate (TASK-397 replaces it with an energy estimate).
+  turns, builds, agent time and pass rate (TASK-397 replaces it with an energy-based cost estimate).
 - On macOS the harness cannot hide the repository (see [Isolation](#isolation-and-known-limitations)), and local
   agents do search the disk: in TASK-392 they read reference solutions in the checkout, in another checkout under
   `/tmp` and in kept workspaces of earlier runs, and code of another Prefab application. Until TASK-399 is done, pass
@@ -226,9 +226,12 @@ copy:                          # repository files or directories copied into the
 | `recipes` | Cheat sheet plus the recipe index in CLAUDE.md; recipes and their verified source examples are copied and opened on demand. |
 | `local-run` | Cheat sheet plus an explicit instruction to start the in-memory application and verify an affected endpoint over HTTP. |
 
-The `recipes` context has a recorded run on the local Qwen 3.8 baseline (see
-[Recorded baselines](#recorded-baselines)); the Haiku run follows in TASK-389. Do not treat the earlier Haiku
-cheat-sheet or full-docs baselines as results for this context.
+**`recipes` is the baseline context** (decision-014): measure new aids and documentation changes against it, not
+against `cheat-sheet` or `full-docs`. It was the fastest and cheapest setup on the local Qwen 3.8 baseline with the
+same pass rate as the others (see [Recorded baselines](#recorded-baselines)); that lead is not yet statistically
+confirmed. Record `none` once per model as a reference. The Haiku `recipes` run follows in TASK-389; do not treat the
+earlier Haiku cheat-sheet or full-docs baselines as results for this context. The `--context` default stays `none`, so
+pass `--context recipes` explicitly.
 
 The compact agent cheat sheet (TASK-344) has the `cheat-sheet` context. The `recipes` context makes the TASK-346
 recipe index available in the always-loaded instructions and copies recipe files to `docs/prefab/recipes/`, with
@@ -605,9 +608,12 @@ What it shows:
 - **Qwen 3.8 passes all six quick tasks in every setup, including without docs.** No task's outcome differs between
   contexts, so these tasks no longer separate setups on pass rate for this model; compare speed here, and use the
   feature and brownfield tiers (TASK-389) for pass rates.
-- **Recipes are the best aid on this model**: fastest on five of six tasks, a third less agent time than the cheat
-  sheet alone and the fewest tokens. `local-run` is about as fast as the cheat sheet; starting the app costs time on
-  `rest-create-and-get` and `events-publish-on-create`.
+- **Recipes are the best aid measured so far, not yet a clear winner**: fastest on five of six tasks against both the
+  cheat sheet and `local-run`, a third less agent time than the cheat sheet alone and the fewest tokens, with the same
+  pass rate. With one attempt per cell, five of six happens by chance about 11% of the time, so confirm with
+  `--repeat 3` or the feature tier. Because recipes include the cheat sheet and cost nothing in pass rate, `recipes`
+  is now the baseline context (decision-014). `local-run` is about as fast as the cheat sheet; starting the app costs
+  time on `rest-create-and-get` and `events-publish-on-create`.
 - **Full docs cost more than they save on a local model.** They give the fewest turns, but each turn re-reads a ~60k
   token prompt, so median agent time is twice the cheat sheet's and tokens triple.
 - **Without docs it still gets there, slowly.** 2.3x the turns of the cheat sheet and 3.6x its agent time; it

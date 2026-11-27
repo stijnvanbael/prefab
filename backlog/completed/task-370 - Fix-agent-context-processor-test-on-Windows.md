@@ -32,4 +32,5 @@ the test compiles its fixture; the same URI handling should work on Windows and 
 <!-- SECTION:NOTES:BEGIN -->
 - Extracted the filename from the URI path using URI `/` separators instead of converting the URI path directly to a platform `Path`.
 - Verified the regression on Windows: `AgentContextPluginTest` passes all 7 tests, including the filesystem-output case.
+- A full reactor test attempt could not complete because pulling the Showcase Schema Registry container image stalled; leave the full suite to CI.
 <!-- SECTION:NOTES:END -->

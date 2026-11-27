@@ -1,0 +1,3 @@
+title: Fix a build broken by @Create on the aggregate type
+category: diagnostics
+modules: [postgres]

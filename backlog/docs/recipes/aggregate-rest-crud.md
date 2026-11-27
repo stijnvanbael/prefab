@@ -6,6 +6,7 @@ Annotate the record with `@Aggregate`, then add `@Create`, `@GetById`, `@GetList
 
 **Rules**
 - Use `@Id Reference<Product>` and `@Version long version`; keep the aggregate immutable.
+- Put `@Create` on the constructor, never on the record type: a type-level `@Create` is a compile error on aggregates.
 - Use Jakarta validation on constructor and operation parameters.
 - Run `mvn test` to compile the model, generate endpoints and test the generated client.
 

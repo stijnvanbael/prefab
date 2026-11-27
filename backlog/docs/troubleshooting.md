@@ -164,6 +164,16 @@ mismatch triggers `ConflictException`.
 
 ---
 
+## Error: `[@Create] X: @Create cannot be placed on an @Aggregate type`
+
+**Cause:** `@Create` was put on the `@Aggregate` record itself. It compiles for `@ViewOf` create forms, but on an
+aggregate it generates no create endpoint, so `POST /…` would answer `404`.
+
+**Fix:** Move `@Create` to the constructor that creates the aggregate. On an `@AsyncCommit` aggregate, annotate a
+public static factory method instead. `@Create` on a `@ViewOf` record is unaffected.
+
+---
+
 ## Error: `Compilation error: @TenantId field must not appear in @Create or @Update parameters`
 
 **Cause:** A `@TenantId` field was included in a `@Create` constructor or `@Update` method.

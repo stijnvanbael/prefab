@@ -1,7 +1,7 @@
 ---
 id: TASK-398
 title: Reject type-level @Create on an aggregate
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-26 13:00'
 labels:
@@ -31,8 +31,21 @@ The `@Create` Javadoc already says that on a synchronous aggregate the target mu
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `@Create` on an `@Aggregate` type is a compile error that says to annotate the constructor (or, for `@AsyncCommit`, a public static factory method)
-- [ ] #2 `@Create` on a `@ViewOf` type keeps working
-- [ ] #3 `agent-context.md` only lists endpoints that are actually generated; a test covers the type-level case
-- [ ] #4 The annotation reference and troubleshooting docs mention the new diagnostic
+- [x] #1 `@Create` on an `@Aggregate` type is a compile error that says to annotate the constructor (or, for `@AsyncCommit`, a public static factory method)
+- [x] #2 `@Create` on a `@ViewOf` type keeps working
+- [x] #3 `agent-context.md` only lists endpoints that are actually generated; a test covers the type-level case
+- [x] #4 The annotation reference and troubleshooting docs mention the new diagnostic
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+- `PrefabProcessor.validateNoTypeLevelCreateOnAggregates` reports `[@Create] X: @Create cannot be placed on an
+  @Aggregate type` with a suggested fix (constructor, or public static factory method for `@AsyncCommit`). Types
+  without `@Aggregate` (the `@ViewOf` create forms) are untouched.
+- `AggregateEndpoints` no longer lists a type-level `@Create`, so `agent-context.md` only advertises generated endpoints.
+- Tests: `TypeLevelCreateTest` (both diagnostics, constructor still compiles, agent context has no create endpoint);
+  `ViewOfIntegrationTest` and `AgentContextPluginTest` still pass.
+- Docs: annotation reference, troubleshooting, cheat sheet ("Do not"), `aggregate-rest-crud` recipe.
+- Benchmark: new task `diagnostic-type-level-create`.
+<!-- SECTION:NOTES:END -->

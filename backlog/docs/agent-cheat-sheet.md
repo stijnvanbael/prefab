@@ -132,6 +132,8 @@ Setup: `@EnablePrefab` on the `@SpringBootApplication` class. Add only the modul
   and table-level `REFERENCES` clauses from versioned SQL when deriving later migration deltas.
 - Do **not** edit anything under `target/` (`target/generated-sources`, `target/prefab-test-sources`): it is
   overwritten on every build. Do not copy generated classes into `src/` to "fix" them.
+- Do **not** put `@Create` on the `@Aggregate` record itself; annotate the constructor (a public static factory
+  method for `@AsyncCommit`). On the type it is a compile error.
 - Do **not** hand-write request/response DTOs. Use the generated `Create…Request` and `…Response` records.
 - Do **not** use deprecated `PublishesEvents.publish(...)` / `DomainEventPublisher.publish(...)`.
 - Do **not** add setters, `getX()` accessors or mutable fields. Records are immutable; accessors are `name()`.

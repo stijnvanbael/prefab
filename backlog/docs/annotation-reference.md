@@ -294,6 +294,10 @@ On a record annotated with `@ViewOf`, type-level `@Create` declares a create for
 POST endpoint. This shorthand currently supports aggregates with one request-based `@Create` constructor and no
 parent or custom create path.
 
+Type-level `@Create` is valid only on `@ViewOf` records. On an `@Aggregate` type it is a compile error
+(`[@Create] Book: @Create cannot be placed on an @Aggregate type`), because no create endpoint would be generated:
+move the annotation to the constructor (for `@AsyncCommit` aggregates, a public static factory method).
+
 ---
 
 ### `@Update`

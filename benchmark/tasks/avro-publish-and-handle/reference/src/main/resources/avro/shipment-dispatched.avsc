@@ -1,0 +1,8 @@
+{
+  "type": "record",
+  "name": "ShipmentDispatched",
+  "namespace": "com.example.shipping",
+  "fields": [
+    {"name": "trackingNumber", "type": "string"}
+  ]
+}

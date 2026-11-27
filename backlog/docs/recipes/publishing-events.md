@@ -7,6 +7,7 @@ Declare a record with `@Event(topic = "...")`. Bind one publisher handle as a `s
 **Rules**
 - Include the aggregate reference in the event when consumers need to correlate it.
 - Put `@PartitioningKey` on the stable key used to order related events.
+- For code-first Avro events, the schema namespace defaults to the Java package; use `@AvroSchema(namespace = "...")` to override it.
 - Test the event payload and the state transition that caused publication.
 
 **Common mistake:** using deprecated `PublishesEvents` or publishing directly through `DomainEventPublisher`. Use `EventPublisher.bind(Event.class)` and its `publish` method.

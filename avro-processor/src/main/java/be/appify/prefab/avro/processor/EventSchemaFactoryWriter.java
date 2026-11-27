@@ -106,9 +106,27 @@ class EventSchemaFactoryWriter {
         if (directOrNestedMatch.isPresent()) {
             return directOrNestedMatch;
         }
-        return index.size() == 1
+        return index.size() == 1 && belongsToAvscContract(event)
                 ? Optional.of(index.keySet().iterator().next())
                 : Optional.empty();
+    }
+
+    private boolean belongsToAvscContract(TypeManifest event) {
+        if (!(event.asElement() instanceof TypeElement eventType)) {
+            return false;
+        }
+
+        var type = eventType;
+        while (true) {
+            if (type.getAnnotation(Avsc.class) != null
+                    || avscPathsFromImplementedInterfaces(type).findAny().isPresent()) {
+                return true;
+            }
+            if (!(type.getEnclosingElement() instanceof TypeElement enclosingType)) {
+                return false;
+            }
+            type = enclosingType;
+        }
     }
 
     /**

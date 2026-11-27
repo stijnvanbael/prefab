@@ -373,6 +373,8 @@ When the `@ByReference` handler finds no aggregate, the static handler creates i
 
 Define event records with `@Event(serialization = AVRO)`. The processor generates Avro schema and
 converters automatically.
+For code-first records, the Avro namespace defaults to the Java package; use `@AvroSchema(namespace = "...")`
+to override it. An unrelated AVSC file in the same module does not change that default.
 
 When multiple AVRO events share an `@Event`-annotated supertype, Prefab also generates a
 `GenericRecord -> Supertype` converter. It dispatches by Avro schema name to the concrete subtype

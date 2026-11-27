@@ -246,4 +246,24 @@ class EventSchemaFactoryWriterTest {
                 .contentsAsUtf8String()
                 .contains("LogicalTypes.decimal(14, 4)");
     }
+
+    @Test
+    void codeFirstEventKeepsItsNamespaceWhenCompilationContainsOneAvscFile() {
+        var codeFirstEvent = JavaFileObjects.forSourceString("codefirst.CodeFirstEvent", """
+                package codefirst;
+
+                import be.appify.prefab.core.annotations.Event;
+
+                @Event(topic = "code-first", serialization = Event.Serialization.AVRO)
+                public record CodeFirstEvent(String value) {}
+                """);
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .compile(sourceOf("event/avsc/simple/source/SimpleAvsc.java"), codeFirstEvent);
+
+        assertThat(compilation).succeeded();
+        assertThat(generatedSourceOf(
+                compilation, "codefirst.infrastructure.avro.CodeFirstEventSchemaFactory"))
+                .contains("Schema.createRecord(\"CodeFirstEvent\", null, \"codefirst\", false");
+    }
 }

@@ -39,6 +39,7 @@ class SalePaidAvroAcceptanceTest {
                 Api.number(api.get("/cash-registers/{id}", register), "$.cashInDrawer")).isCloseTo(20.0, within(0.001)));
         assertThat(Api.number(api.get("/cash-registers/{id}", other), "$.cashInDrawer")).isCloseTo(0.0, within(0.001));
         assertSchemaRegistered("sales");
+        assertSalePaidSchemaNamespace();
     }
 
     private void assertSchemaRegistered(String fragment) throws Exception {
@@ -46,5 +47,12 @@ class SalePaidAvroAcceptanceTest {
                 HttpRequest.newBuilder(URI.create(registryUrl + "/subjects")).build(),
                 HttpResponse.BodyHandlers.ofString());
         assertThat(response.body()).as("schema registry subjects (events must be Avro)").containsIgnoringCase(fragment);
+    }
+
+    private void assertSalePaidSchemaNamespace() throws Exception {
+        var response = HttpClient.newHttpClient().send(
+                HttpRequest.newBuilder(URI.create(registryUrl + "/subjects/sales-value/versions/latest")).build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertThat(response.body()).as("SalePaid Avro schema").contains("\"com.example.retail\"");
     }
 }

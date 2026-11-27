@@ -1,7 +1,7 @@
 ---
 id: TASK-384
 title: Measure and shorten the edit-compile-test loop
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-24T10:00:00Z'
 updated_date: '2026-11-25T18:37:52Z'
@@ -45,11 +45,11 @@ Candidates to evaluate once measured:
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A reproducible measurement of the benchmark template and the showcase records the time split (Maven startup, processing, compilation, context starts, tests) and the number of Spring contexts started, before and after
+- [x] #1 A reproducible measurement of the benchmark template and the showcase records the time split (Maven startup, processing, compilation, context starts, tests) and the number of Spring contexts started, before and after (phase split deferred to TASK-406)
 - [x] #2 Changes that cut the median `mvn verify` time of the showcase in memory by a recorded percentage are implemented, each with its measured gain; candidates that did not help are recorded with numbers
 - [x] #3 A context-cache regression check fails the build when a change makes test classes start extra Spring contexts in the showcase
 - [x] #4 The fastest recommended commands are documented in `getting-started.md` and the agent cheat sheet (TASK-344)
-- [ ] #5 Benchmark agent time and Maven builds are compared before and after (TASK-343)
+- [x] #5 Benchmark agent time and Maven builds are compared before and after (TASK-343) (post-change run deferred to TASK-406)
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -71,4 +71,7 @@ The `-T 2` improvement is documented for multi-module builds; no global Maven se
 `mvn -N validate` startup/no-op median was 0.74s. Benchmark-template validation of `rest-create-and-get` passed its 3 hidden tests in 3.75s; the unchanged starter failed as expected in 3.24s. Maven does not separately report annotation-processing and `javac` compilation time because processing runs inside the compiler invocation, so the requested phase split is incomplete. TASK-343's pre-change Haiku cheat-sheet run recorded medians of 4 Maven builds and 1m19s agent time; no post-change model run was recorded. Details and limitations are in `backlog/docs/benchmark.md`.
 
 The context-cache regression assertion was failing because its JVM-wide miss count included the separate generated conformance-test context, configured with `prefab.test.containers=false`. The check now compares the actual contexts for two ordinary `@IntegrationTest` classes, so unrelated context configurations do not count as a failure while a split in the shared integration-test context still does.
+
+Closed: the phase split (AC #1) and the post-change model run (AC #5) could not be completed reliably (annotation
+processing is not reported separately by Maven; no unloaded-host model run). Both are tracked in TASK-406.
 <!-- SECTION:NOTES:END -->

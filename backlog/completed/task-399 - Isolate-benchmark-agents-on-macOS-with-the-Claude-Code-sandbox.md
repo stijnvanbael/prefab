@@ -1,7 +1,7 @@
 ---
 id: TASK-399
 title: Isolate benchmark agents on macOS with the Claude Code sandbox
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-26 13:15'
 labels:
@@ -51,10 +51,61 @@ temp directories, deny both `/var` and `/private/var` (and `/tmp` and `/private/
 and ideally remove `validate` workspaces after validation.
 <!-- SECTION:DESCRIPTION:END -->
 
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Analysis (2026-11-27, Claude Code 2.1.332, macOS), verified by hand with `claude -p` and a Bash probe:
+- `sandbox.filesystem.allowRead` re-allows a path inside a `denyRead` path. A whole folder (the shared work root, the
+  user's source folder) can therefore be hidden while the attempt's own workspace stays visible, so the workspace does
+  not have to move.
+- Hiding all of `/tmp` breaks the agent: its shell cannot write its cwd file in its own temp directory even when
+  re-allowed. Instead, every attempt's Claude Code temp directory goes under one root (`/tmp/prefab-benchmark-agent`),
+  which is hidden with only the attempt's own directory re-allowed (real `/private/tmp` paths).
+- Maven Central (HTTPS), `~/.m2` writes and the Docker socket work inside the sandbox with
+  `network.allowUnixSockets` and `allowLocalBinding`.
+- Permission deny rules (Read/Edit/Grep/Glob tools) have no re-allow. For a hidden folder that contains an allowed
+  path, the harness denies each of its children except the ones leading to the allowed path (snapshot at start; the
+  sandbox still covers what appears later). Rules are written for both `/private/var` and `/var` (and `/tmp`)
+  spellings.
+
+Design:
+1. `Isolation` becomes a sealed interface: `MountNamespace` (Linux root + unshare, unchanged), `ClaudeSandbox`
+   (macOS: `--settings` with sandbox + permission deny rules) and `None`.
+2. Hidden by default: the repository, the folder that holds the checkout (sibling projects such as other Prefab apps;
+   skipped when it is the home directory or `/`), the shared work root, `--hide` paths, and for the sandbox the
+   agent-temp root.
+3. A profile that passes its own `--settings` conflicts with the sandbox settings; the run fails with a clear message.
+<!-- SECTION:PLAN:END -->
+
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 When kernel isolation is unavailable, `ClaudeCodeAgent` passes sandbox and deny settings that hide the repository root (and any `--hide` paths) from the agent
-- [ ] #2 The agent can still build and run its own tests in the workspace (Maven, `~/.m2`, in-memory tests), and a reference attempt still passes
-- [ ] #3 An attempt that tries to read the repository gets "Operation not permitted" or a permission refusal; the run is no longer only flagged after the fact
-- [ ] #4 `benchmark.md` "Isolation and known limitations" describes the macOS behaviour
+- [x] #1 When kernel isolation is unavailable, `ClaudeCodeAgent` passes sandbox and deny settings that hide the repository root (and any `--hide` paths) from the agent
+- [x] #2 The agent can still build and run its own tests in the workspace (Maven, `~/.m2`, in-memory tests), and a reference attempt still passes
+- [x] #3 An attempt that tries to read the repository gets "Operation not permitted" or a permission refusal; the run is no longer only flagged after the fact
+- [x] #4 `benchmark.md` "Isolation and known limitations" describes the macOS behaviour
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+- `Isolation` is a sealed interface: `MountNamespace` (Linux root, unchanged), `ClaudeSandbox` (macOS) and `None`.
+  `ClaudeSandbox.agentArguments` builds one `--settings` JSON: sandbox enabled, no unsandboxed fallback, `denyRead`
+  for the hidden paths plus the agent-temp root, `allowRead` for the workspace and the attempt's temp directory, the
+  Docker sockets and local binding allowed, and `Read`/`Edit` deny rules (`//path` and `//path/**`, both
+  `/private/var` and `/var` spellings). For a hidden folder that holds the workspace, every other entry is denied as
+  found at the start of the attempt.
+- `ClaudeCodeAgent` puts each attempt's temp directory under `/tmp/prefab-benchmark-agent`, adds the isolation
+  arguments, keeps them in the attempt's `isolation-arguments.txt`, and refuses a profile that passes its own
+  `--settings` when the sandbox is active.
+- `BenchmarkCli` also hides the folder that holds the checkout (other applications next to it), unless that is the
+  home directory or `/`, and prints what is hidden and how.
+- Verified on macOS (Claude Code 2.1.332): a Haiku attempt on `rest-create-and-get` with `cheat-sheet` passed in about
+  1 minute, running `mvn compile` and `mvn test` (3 tests) in the workspace. A probe with the generated settings got
+  `Operation not permitted` for `head` on a reference solution and `ls` on the source folder, and "File is in a
+  directory that is denied by your permission settings" from the Read tool.
+- Not done: removing `validate` workspaces. The work root that holds them is now hidden, so they no longer leak.
+  Hiding all of `/tmp` is not possible (the agent's own shell breaks), so a stray checkout there needs `--hide`; the
+  transcript scan still flags `benchmark/tasks/` reads.
+- The local, git-excluded `benchmark/models/qwen38-sandboxed.yml` stand-in is now obsolete; with its `--settings` the
+  run refuses to start. Use `qwen38-local`.
+<!-- SECTION:NOTES:END -->

@@ -7,6 +7,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Command-line entry point of the Prefab agent benchmark. Run it through {@code benchmark/run.sh}; see
@@ -36,7 +37,8 @@ public final class BenchmarkCli {
                            --results <dir>        report directory (default: benchmark/results/<run-id>)
                            --work-dir <dir>       workspace directory (default: <tmp>/prefab-benchmark/<run-id>)
                            --claude <path>        Claude Code CLI executable (default: claude)
-                           --hide <paths>         extra comma-separated paths to hide from the agent
+                           --hide <paths>         extra comma-separated paths to hide from the agent (the
+                                                  repository, the folder holding it and the work root always are)
                            --keep-workspaces      keep workspaces of passed attempts too
                            --resume <run-dir>     rerun the rate-limited and skipped attempts of an earlier run
               validate   Check every task: the reference solution must pass, the starting project must fail
@@ -98,9 +100,8 @@ public final class BenchmarkCli {
         };
         var tasks = new TaskCatalog(paths.tasks()).select(arguments.listOption("tasks"));
         var triage = arguments.option("triage-model").map(triageModel -> new Triage(triageModel, claude)).orElse(null);
-        if (agent instanceof ClaudeCodeAgent && !isolation.enabled()) {
-            System.out.println("warning: cannot hide the repository from the agent on this machine (needs Linux, root"
-                    + " and unshare); attempts that read benchmark sources are marked contaminated");
+        if (agent instanceof ClaudeCodeAgent) {
+            describe(isolation);
         }
         var resultsDirectory = Path.of(arguments.option("results", paths.results().resolve(runId).toString()));
         var parallel = arguments.intOption("parallel", profile != null ? profile.parallel() : 2);
@@ -127,7 +128,7 @@ public final class BenchmarkCli {
         return arguments.option("profile")
                 .map(name -> ModelProfile.load(paths.models(), name))
                 .map(profile -> model.map(profile::withModel).orElse(profile))
-                .orElseGet(() -> ModelProfile.hosted(model.or(() -> java.util.Optional.ofNullable(fallbackModel))
+                .orElseGet(() -> ModelProfile.hosted(model.or(() -> Optional.ofNullable(fallbackModel))
                         .orElseThrow(() -> new IllegalArgumentException("--model or --profile is required"))));
     }
 
@@ -280,13 +281,39 @@ public final class BenchmarkCli {
     }
 
     /**
-     * Hides the repository, the parent of this run's work directory (other runs' workspaces) and any {@code --hide}
-     * paths. The default work directory lives in its own {@code <tmp>/prefab-benchmark} folder for this reason.
+     * Hides the repository, the folder that holds it (sibling checkouts and other Prefab applications), the parent of
+     * this run's work directory (other runs' workspaces) and any {@code --hide} paths. The default work directory lives
+     * in its own {@code <tmp>/prefab-benchmark} folder for this reason.
      */
     private static Isolation isolation(BenchmarkPaths paths, CliArguments arguments, Path workDirectory) {
-        var hidden = new ArrayList<Path>(List.of(paths.repository(), workDirectory.toAbsolutePath().getParent()));
+        var hidden = new ArrayList<Path>(List.of(paths.repository()));
+        sourceFolder(paths.repository()).ifPresent(hidden::add);
+        hidden.add(workDirectory.toAbsolutePath().getParent());
         arguments.listOption("hide").stream().map(Path::of).forEach(hidden::add);
         return Isolation.hiding(hidden);
+    }
+
+    /**
+     * The folder that holds the checkout, unless that is the home directory or the file system root: hiding those
+     * would hide the JDK, {@code ~/.m2} and Claude Code's own configuration as well.
+     */
+    static Optional<Path> sourceFolder(Path repository) {
+        var parent = repository.toAbsolutePath().normalize().getParent();
+        var home = Path.of(System.getProperty("user.home")).toAbsolutePath().normalize();
+        return Optional.ofNullable(parent)
+                .filter(folder -> folder.getParent() != null && !home.startsWith(folder));
+    }
+
+    private static void describe(Isolation isolation) {
+        switch (isolation) {
+            case Isolation.MountNamespace namespace ->
+                    System.out.println("Hiding from the agent (mount namespace): " + namespace.hidden());
+            case Isolation.ClaudeSandbox sandbox ->
+                    System.out.println("Hiding from the agent (Claude Code sandbox): " + sandbox.hidden());
+            case Isolation.None none -> System.out.println("warning: cannot hide the repository from the agent on this"
+                    + " machine (needs macOS, or Linux with root and unshare); attempts that read benchmark sources are"
+                    + " marked contaminated");
+        }
     }
 
     private static Path workDirectory(CliArguments arguments, String runId) {

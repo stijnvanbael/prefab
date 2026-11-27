@@ -1,0 +1,344 @@
+{
+  "runId" : "20261126-165026-qwen38-sandboxed-recipes",
+  "startedAt" : "2026-11-26T16:50:26.317695Z",
+  "agent" : "claude-code/qwen3.8:27b",
+  "model" : "qwen3.8:27b",
+  "context" : "recipes",
+  "prefabVersion" : "0.13.3-SNAPSHOT",
+  "gitCommit" : "72640df8-dirty",
+  "repeat" : 1,
+  "results" : [ {
+    "taskId" : "events-multicast",
+    "category" : "events-handling",
+    "tier" : "quick",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 19278,
+        "output" : 11066,
+        "cacheRead" : 690333,
+        "cacheCreation" : 0
+      },
+      "turns" : 39,
+      "buildAttempts" : 6,
+      "costUsd" : 0.7182065,
+      "duration" : "PT6M25.952834S",
+      "contaminated" : false,
+      "message" : "The task is complete. Here's a summary of what I implemented.\n\n## Changes\n\nThe wiring was a textbook `@Multicast` (update many aggregates from one event), following the verified `Order` example. I made three changes:\n\n**1. `PriceWatch.java` — added the multicast handler**\n```java\n@EventHandler\n@Multicast(queryMethod = \"findByProduct\", parameters = \"product\", failWhenEmpty = false)\npublic PriceWatch onPriceChanged(PriceChanged event) {\n    return new PriceWatch(id, version, email, product, event.price());\n}\n```\nPrefab generates the consumer for topic `prices` and, for each `PriceChanged`, calls the query method to find the target watches, then applies this handler to each, returning the new state with `currentPrice` set to the new price. `failWhenEmpty = false` makes \"no watches for this product\" a successful no-op instead of a retry/dead-letter.\n\n**2. `PriceWatchRepositoryMixin.java` — new query**\n```java\n@RepositoryMixin(PriceWatch.class)\npublic interface PriceWatchRepositoryMixin {\n    List<PriceWatch> findByProduct(Reference<Product> product);\n}\n```\nThis is the query that defines the target set — only watches of the changed product, so watches of other products are untouched.\n\n**3. `PriceWatchOnPriceChangedIntegrationTest.java` — behavior test**\n- `changePrice_updatesAllWatchesOfThatProductAndLeavesOthersUnchanged`: two watches of one product get updated to the new price; a watch of another product is left unchanged.\n- `changePrice_productWithoutWatches_doesNotFail`: a product with no watches is handled as a no-op without throwing.\n\n## Verification\n\nThe generated agent context confirms `PriceWatch` now *Handles `PriceChanged` via `onPriceChanged()` on topic `prices`*, and the generated `PriceWatchService.onPriceChanged` returns early on an empty query. `mvn verify` is green: the generated `PriceChangedEventConformanceTest` plus the two new integration tests pass (3 tests, 0 failures). `GET /price-watches/{id}` (existing `@GetById`) exposes `currentPrice`.",
+      "firstGreenBuild" : "PT2M48.279S"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/watch/PriceWatch.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/watch/PriceWatchRepositoryMixin.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/watch/PriceWatchOnPriceChangedIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT4.454134S",
+    "failure" : null,
+    "logs" : "/Users/stijnvanbael/IdeaProjects/appify/prefab/benchmark/results/20261126-165026-qwen38-sandboxed-recipes/attempts/events-multicast-1"
+  }, {
+    "taskId" : "events-publish-on-create",
+    "category" : "events-publishing",
+    "tier" : "quick",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 23512,
+        "output" : 12628,
+        "cacheRead" : 712112,
+        "cacheCreation" : 0
+      },
+      "turns" : 46,
+      "buildAttempts" : 4,
+      "costUsd" : 0.789316,
+      "duration" : "PT7M39.089938S",
+      "contaminated" : false,
+      "message" : "The full build passes, including Prefab's generated `OrderPlacedEventConformanceTest` (which checks the JSON serialization round-trip and event wiring) and my `OrderPlacedEventTest`.\n\n## Summary\n\nOther services can now be notified when an order is placed. Two changes in `com.example.ordering`:\n\n**`OrderPlaced.java` (new)** — the event record published to Kafka topic `orders`:\n\n```java\n@Event(topic = \"orders\", serialization = Event.Serialization.JSON)\npublic record OrderPlaced(\n        @PartitioningKey Reference<Order> order,\n        String customer,\n        BigDecimal total\n) {\n}\n```\n\n- `topic = \"orders\"` → events land on the Kafka topic `orders` (prefab-kafka on the classpath selects Kafka).\n- `@PartitioningKey Reference<Order> order` → the order reference is the partition key, so all events of the same order go to the same partition and stay ordered.\n- `serialization = Event.Serialization.JSON` → JSON payload (JSON is also the default, but this states the requirement explicitly).\n\n**`Order.java`** — publish on create, in the `@Create` constructor that backs `POST /orders`:\n\n```java\nprivate static final EventPublisher<OrderPlaced> PLACED = EventPublisher.bind(OrderPlaced.class);\n\n@Create\npublic Order(@NotNull String customer, @NotNull BigDecimal total) {\n    this(Reference.create(), 0L, customer, total);\n    PLACED.publish(new OrderPlaced(id, customer, total));\n}\n```\n\nThe publish uses the modern `EventPublisher.bind(...)`/`publish(...)` API (not the deprecated `PublishesEvents`/`DomainEventPublisher`).\n\n**Test** — `OrderPlacedEventTest` (plain JUnit + `PublishedEventsExtension`/`CapturingDomainEventPublisher`) verifies that creating an order publishes exactly one `OrderPlaced` carrying the new order's reference, customer and total.\n\nVerification: `mvn verify` → **BUILD SUCCESS** (2 tests: the generated `OrderPlacedEventConformanceTest` for JSON serialization/event wiring, plus `OrderPlacedEventTest`). `target/prefab/agent-context.md` confirms \"OrderPlaced on topic `orders`\" via Kafka.",
+      "firstGreenBuild" : "PT4M34.654S"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/ordering/Order.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/ordering/OrderPlaced.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/ordering/OrderPlacedEventTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT3.864222S",
+    "failure" : null,
+    "logs" : "/Users/stijnvanbael/IdeaProjects/appify/prefab/benchmark/results/20261126-165026-qwen38-sandboxed-recipes/attempts/events-publish-on-create-1"
+  }, {
+    "taskId" : "mixin-derived-query",
+    "category" : "repository-mixins",
+    "tier" : "quick",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 10194,
+        "output" : 8211,
+        "cacheRead" : 319100,
+        "cacheCreation" : 0
+      },
+      "turns" : 26,
+      "buildAttempts" : 5,
+      "costUsd" : 0.41579499999999997,
+      "duration" : "PT4M20.687445S",
+      "contaminated" : false,
+      "message" : "Done. The only change is the new mixin interface.\n\n## What I did\n\nPrefab generates the base `com.example.ordering.application.OrderRepository` from the `Order` aggregate (it `extends CrudRepository<Order, String>, PagingAndSortingRepository<...>`). The correct Prefab idiom for adding queries is a `@RepositoryMixin` interface — *not* a second Spring Data repository. I created:\n\n`src/main/java/com/example/ordering/application/OrderRepositoryMixin.java`\n\n```java\n@RepositoryMixin(Order.class)\npublic interface OrderRepositoryMixin {\n    List<Order> findByCustomerEmail(String customerEmail);\n    long countByStatus(OrderStatus status);\n}\n```\n\nBoth are Spring Data derived queries over existing `Order` fields (`customerEmail`, `status`).\n\n## Verification\n\nAfter compiling, Prefab merged the mixin into the generated repository — `target/.../application/OrderRepository.java` now reads:\n\n```java\npublic interface OrderRepository extends CrudRepository<Order, String>,\n        PagingAndSortingRepository<Order, String>, OrderRepositoryMixin { }\n```\n\nSo the two methods are callable through `com.example.ordering.application.OrderRepository` by other beans, and there is exactly one repository for orders. `mvn clean verify` reports **BUILD SUCCESS**; the project compiles cleanly. (The repo has no test classes of its own, so no tests run.)\n\nI used a `@RepositoryMixin` rather than hand-writing a `@Repository` — per the recipe, declaring a second Spring Data repository for the aggregate is the documented common mistake, and it would have conflicted with the generated `OrderRepository`.",
+      "firstGreenBuild" : "PT1M26.775S"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/ordering/application/OrderRepositoryMixin.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT3.979781S",
+    "failure" : null,
+    "logs" : "/Users/stijnvanbael/IdeaProjects/appify/prefab/benchmark/results/20261126-165026-qwen38-sandboxed-recipes/attempts/mixin-derived-query-1"
+  }, {
+    "taskId" : "rest-create-and-get",
+    "category" : "rest-crud",
+    "tier" : "quick",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 17393,
+        "output" : 7389,
+        "cacheRead" : 347680,
+        "cacheCreation" : 0
+      },
+      "turns" : 23,
+      "buildAttempts" : 3,
+      "costUsd" : 0.44553,
+      "duration" : "PT4M36.306521S",
+      "contaminated" : false,
+      "message" : "Done. The full suite passes with `BUILD SUCCESS`.\n\n## Summary\n\nI added a Prefab `Book` aggregate to the app.\n\n**`src/main/java/com/example/catalog/Book.java`** — the domain type, in package `com.example.catalog`:\n- `@Aggregate` with `@Id Reference<Book> id` and `@Version long version`.\n- Fields: `title` (`@NotBlank @Size(max = 200)`), `author` (`@NotBlank`), `isbn` (`@NotBlank`), and `publicationYear` (an `int`).\n- `@Create` constructor for `POST /books`, plus `@GetById` for `GET /books/{id}`. Validation lives on the constructor parameters, as Prefab requires.\n\nPrefab generated (under `target/`, not hand-written): `BookController`, `BookService`, `CreateBookRequest`/`BookResponse`, the repository, the `book` table migration, and a `BookClient` test helper.\n\n**`src/test/java/com/example/catalog/BookIntegrationTest.java`** — an `@IntegrationTest` using the generated `BookClient`, verifying that a created book can be retrieved by id with all five fields intact, and that an unknown id returns 404.\n\nVerified behavior, confirmed against the generated controller:\n- `POST /books` → `201 Created` with a `Location` header ending in `/books/{id}` (the client's `createBook` asserts `isCreated()` and reads the id from `Location`).\n- `GET /books/{id}` → the book JSON with `id`, `title`, `author`, `isbn`, `publicationYear`, or `404` when absent.\n- Storage is PostgreSQL (`prefab-postgres` on the classpath; Prefab generates the `book` table migration).\n\n`mvn -DskipTests compile`, `mvn -Dtest=BookIntegrationTest test`, and `mvn verify` all succeed (2 tests, 0 failures). The trailing `IOException` about `surefire-stijnvanbael` in the log is a sandbox temp-directory cleanup quirk at JVM shutdown — the build itself reports `BUILD SUCCESS`.",
+      "firstGreenBuild" : "PT1M57.363S"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "3/3 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/catalog/Book.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/catalog/BookIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 3,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT3.834655S",
+    "failure" : null,
+    "logs" : "/Users/stijnvanbael/IdeaProjects/appify/prefab/benchmark/results/20261126-165026-qwen38-sandboxed-recipes/attempts/rest-create-and-get-1"
+  }, {
+    "taskId" : "rest-parent-child",
+    "category" : "rest-crud",
+    "tier" : "quick",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 21867,
+        "output" : 15815,
+        "cacheRead" : 798252,
+        "cacheCreation" : 0
+      },
+      "turns" : 41,
+      "buildAttempts" : 6,
+      "costUsd" : 0.903836,
+      "duration" : "PT9M25.043551S",
+      "contaminated" : false,
+      "message" : "Done. The `Task` aggregate is implemented as a nested resource of `Project`, and the full build passes.\n\n## What I added\n\n**`src/main/java/com/example/planning/Task.java`** — a Prefab aggregate:\n- `@Parent @NotNull Reference<Project> project` makes it a sub-resource, so the project id travels in the path (`/projects/{projectId}/...`).\n- `@NotBlank String title` (required) and `boolean done`.\n- `@Create Task(project, title)` sets `done = false` at creation.\n- `@Update(path = \"/complete\", method = \"POST\") Task complete()` returns the new state with `done = true`.\n- `@GetById` + `@GetList` give the by-id and paged endpoints.\n\n**`src/test/java/com/example/planning/TaskIntegrationTest.java`** — a `@IntegrationTest` using the generated `ProjectClient`/`TaskClient`, covering create (201, not done), blank-title rejection, per-project listing, and complete (done=true).\n\n## Verification\n\nPrefab generated exactly the four required endpoints (confirmed in `target/prefab/agent-context.md` and the generated `TaskController`):\n- `POST /projects/{projectId}/tasks` → `201 Created`, `Location: /projects/{projectId}/tasks/{id}`, body `{\"title\": ...}` (the `@Parent` id comes from the path, not the body).\n- `GET /projects/{projectId}/tasks/{id}` → `TaskResponse` exposing `id`, `title`, `done` (plus `version`/`project`).\n- `GET /projects/{projectId}/tasks` → Spring Data `PagedModel` whose `content` array holds that project's tasks only.\n- `POST /projects/{projectId}/tasks/{id}/complete` → `200 OK`.\n\n`mvn verify` → **BUILD SUCCESS**, `TaskIntegrationTest` 4/4 passing. No hand-written controllers, entities, migrations, or DTOs — everything came from the annotated record.\n\nOne implementation note worth flagging: `Project`'s id is itself a `Reference<Project>`, so the create constructor passes `project.id()` directly rather than wrapping it in `new Reference<>(...)` — the obvious `new Reference<>(project.id())` form doesn't compile.",
+      "firstGreenBuild" : "PT5M18.487S"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "3/3 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/planning/Task.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/planning/TaskIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 3,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT4.19276S",
+    "failure" : null,
+    "logs" : "/Users/stijnvanbael/IdeaProjects/appify/prefab/benchmark/results/20261126-165026-qwen38-sandboxed-recipes/attempts/rest-parent-child-1"
+  }, {
+    "taskId" : "rest-validation",
+    "category" : "rest-crud",
+    "tier" : "quick",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 19951,
+        "output" : 6617,
+        "cacheRead" : 245007,
+        "cacheCreation" : 0
+      },
+      "turns" : 20,
+      "buildAttempts" : 3,
+      "costUsd" : 0.38768349999999996,
+      "duration" : "PT4M22.515408S",
+      "contaminated" : false,
+      "message" : "Done. The validation is in place and the full build passes.\n\n## What I changed\n\n**`src/main/java/com/example/crm/Customer.java`** — added Jakarta validation to the `@Create` constructor parameters (Prefab requires validation on the constructor parameters, not the record components; these propagate onto the generated `CreateCustomerRequest`):\n\n```java\n@Create\npublic Customer(@NotBlank @Size(max = 100) String name, @NotBlank @Email String email) {\n    this(Reference.create(), 0L, name, email);\n}\n```\n\nThis makes `POST /customers` reject invalid input with `400 Bad Request` before anything is persisted:\n- `name` — `@NotBlank` (required, not blank) + `@Size(max = 100)` (at most 100 chars)\n- `email` — `@NotBlank` (required) + `@Email` (valid e-mail address)\n\nValid requests are unaffected — the request still binds and creates the customer with `201 Created`.\n\n**`src/test/java/com/example/crm/CustomerIntegrationTest.java`** (new) — a `@IntegrationTest` using the generated `CustomerClient`, covering:\n- valid `name`/`email` → created and retrievable (`201`)\n- blank name → `400`\n- missing (`null`) name → `400`\n- name of 101 chars → `400`\n- missing email → `400`\n- invalid email (`\"not-an-email\"`) → `400`\n\n## Verification\n- `mvn -DskipTests compile` — clean (model and generated code compile).\n- `mvn -Dtest=CustomerIntegrationTest test` — 6/6 pass.\n- `mvn verify` — **BUILD SUCCESS**, all tests green. (The `ForkStarter IOException` lines in the log are a benign sandbox temp-directory artifact; the build reports success regardless.)\n\nThe change is minimal and idiomatic to Prefab — no hand-written controllers, DTOs, or migrations. No `prefab-security` or `@Event` types exist in this project, so no extra conformance test classes are generated; my integration test is the only test class, and it passes.",
+      "firstGreenBuild" : "PT2M7.765S"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "7/7 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/crm/Customer.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/crm/CustomerIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 7,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT3.729771S",
+    "failure" : null,
+    "logs" : "/Users/stijnvanbael/IdeaProjects/appify/prefab/benchmark/results/20261126-165026-qwen38-sandboxed-recipes/attempts/rest-validation-1"
+  } ]
+}

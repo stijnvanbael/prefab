@@ -1,0 +1,5 @@
+rest-create-and-get#1:
+  category: PLAIN_SPRING_FALLBACK
+  note: >
+    Without docs, hand-wrote a JPA entity, controller and DTO, removed validation instead of adding the starter, added
+    H2 for its own tests and reported success after stopping them.

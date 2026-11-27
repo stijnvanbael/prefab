@@ -1,0 +1,66 @@
+{
+  "runId" : "20261126-120036-qwen38-local-cheat-sheet",
+  "startedAt" : "2026-11-26T12:00:36.618448Z",
+  "agent" : "claude-code/qwen3.8:27b",
+  "model" : "qwen3.8:27b",
+  "context" : "cheat-sheet",
+  "prefabVersion" : "0.13.3-SNAPSHOT",
+  "gitCommit" : "e3fc826a-dirty",
+  "repeat" : 1,
+  "results" : [ {
+    "taskId" : "rest-create-and-get",
+    "category" : "rest-crud",
+    "tier" : "quick",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 18322,
+        "output" : 9537,
+        "cacheRead" : 261497,
+        "cacheCreation" : 0
+      },
+      "turns" : 23,
+      "buildAttempts" : 3,
+      "costUsd" : 0.4607835000000002,
+      "duration" : "PT4M4.592227S",
+      "contaminated" : false,
+      "message" : "Done. The book catalogue is implemented and verified.\n\n## What I added\n\n**`src/main/java/com/example/catalog/Book.java`** — the `Book` aggregate record (the only domain code; Prefab generates the controller, service, repository, request/response DTOs and the DB migration):\n\n```java\n@Aggregate\n@GetById\npublic record Book(\n        @Id Reference<Book> id,\n        @Version long version,\n        String title,\n        String author,\n        String isbn,\n        Integer publicationYear\n) {\n    @Create\n    public Book(\n            @NotBlank @Size(max = 200) String title,\n            @NotBlank String author,\n            @NotBlank String isbn,\n            @NotNull Integer publicationYear\n    ) {\n        this(Reference.create(), 0L, title, author, isbn, publicationYear);\n    }\n}\n```\n\nValidation lives on the `@Create` constructor parameters (per the cheat sheet), enforcing title ≤ 200 chars and all fields required.\n\n**`src/test/java/com/example/catalog/BookIntegrationTest.java`** — an `@IntegrationTest` covering create→get and the 404 path.\n\n## How the requirements are met (from generated code I inspected)\n\n- **`POST /books`** → `ResponseEntity.created(URI.create(\"/books/\" + id))`: `201 Created` with a `Location` header ending in the new id.\n- **`GET /books/{id}`** → returns `BookResponse` (fields `id`, `title`, `author`, `isbn`, `publicationYear`, plus `version`) or `404 Not Found` when absent.\n- **PostgreSQL storage** — `prefab-postgres` is on the classpath; the processor generated `target/classes/db/migration/V1__generated.sql` creating the `book` table (`id` PK, `version`, `title`/`author`/`isbn` VARCHAR NOT NULL, `publication_year` INTEGER NOT NULL).\n\n## Verification\n\n- `mvn -DskipTests compile` — clean (only unrelated JDK/guice warnings).\n- `mvn -Dtest=BookIntegrationTest test` — 2 passed.\n- `mvn verify` (full suite, including Prefab's generated conformance tests) — **BUILD SUCCESS**, 2 tests, 0 failures.\n\nNo `target/` files were edited, and no controller/service/repository/entity/migration was hand-written. Nothing is committed, as that wasn't requested.",
+      "firstGreenBuild" : "PT1M21.182S"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "3/3 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/catalog/Book.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/catalog/BookIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 3,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT3.78538S",
+    "failure" : null,
+    "logs" : "/Users/stijnvanbael/IdeaProjects/appify/prefab/benchmark/results/20261126-120036-qwen38-local-cheat-sheet/attempts/rest-create-and-get-1"
+  } ]
+}

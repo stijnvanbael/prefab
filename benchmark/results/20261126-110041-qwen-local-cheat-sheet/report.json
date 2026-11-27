@@ -1,0 +1,65 @@
+{
+  "runId" : "20261126-110041-qwen-local-cheat-sheet",
+  "startedAt" : "2026-11-26T11:00:41.626360Z",
+  "agent" : "claude-code/qwen3-coder:30b",
+  "model" : "qwen3-coder:30b",
+  "context" : "cheat-sheet",
+  "prefabVersion" : "0.13.3-SNAPSHOT",
+  "gitCommit" : "a9b1d9bc-dirty",
+  "repeat" : 1,
+  "results" : [ {
+    "taskId" : "events-publish-on-create",
+    "category" : "events-publishing",
+    "tier" : "quick",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 24293,
+        "output" : 6036,
+        "cacheRead" : 907742,
+        "cacheCreation" : 0
+      },
+      "turns" : 49,
+      "buildAttempts" : 7,
+      "costUsd" : 0.7262359999999998,
+      "duration" : "PT2M44.734844S",
+      "contaminated" : false,
+      "message" : "## Task Completion Summary\n\nI have successfully implemented the requirement to publish a Kafka event whenever an order is placed. Here's what was accomplished:\n\n### Implementation Details\n\n1. **Created OrderPlaced Event Record**:\n   - Created `OrderPlaced.java` with fields: `order` (Reference<Order>), `customer` (String), and `total` (BigDecimal)\n   - Annotated with `@Event(topic = \"orders\")` to publish to the Kafka topic \"orders\"\n\n2. **Modified Order Aggregate**:\n   - Updated `Order.java` to include event publishing logic\n   - Added `EventPublisher<OrderPlaced>` field to publish events\n   - Modified the `@Create` constructor to automatically publish the event after order creation\n\n3. **Key Features**:\n   - Events published automatically on order creation via POST /orders\n   - Published to Kafka topic \"orders\" \n   - Proper partitioning by order reference (same order always goes to same partition)\n   - JSON serialization of event payload\n\n### Verification\n- Project compiles successfully with `mvn clean compile`\n- All tests pass with `mvn test` \n- Prefab generates all necessary code including controllers, services, repositories, and test helpers\n- Implementation follows Prefab's documented patterns for event publishing\n\nThe implementation is complete and meets all requirements. When an order is created, a Kafka message will be published to the \"orders\" topic containing the order reference, customer name, and total amount, with events for the same order consistently landing on the same partition.",
+      "firstGreenBuild" : "PT41.752S"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : false,
+        "detail" : "hidden tests did not run (build or compile failure)",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ ],
+      "hiddenTests" : {
+        "reportsFound" : 0,
+        "tests" : 0,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ "[ERROR] /private/var/folders/z6/vvn2vyjd5v76z549q44zytf80000gn/T/prefab-benchmark/20261126-110041-qwen-local-cheat-sheet/events-publish-on-create-1/project/src/test/java/com/example/ordering/OrderPlacedAcceptanceTest.java:[20,19] cannot find symbol" ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT1.870735S",
+    "failure" : {
+      "category" : "TEST_OR_INFRASTRUCTURE",
+      "source" : "manual",
+      "rationale" : "Agent harness setup, not Prefab: Claude Code auto-memory named ~/.claude/projects/<mangled path>/memory, which Qwen took for its working directory, so every edit went outside the workspace and agent.diff is empty (heuristic said API_MISUSE). Fixed by disabling auto-memory in the profile.\n",
+      "evidence" : [ "hidden-tests: hidden tests did not run (build or compile failure)", "build: [ERROR] /private/var/folders/z6/vvn2vyjd5v76z549q44zytf80000gn/T/prefab-benchmark/20261126-110041-qwen-local-cheat-sheet/events-publish-on-create-1/project/src/test/java/com/example/ordering/OrderPlacedAcceptanceTest.java:[20,19] cannot find symbol" ]
+    },
+    "logs" : "/Users/stijnvanbael/IdeaProjects/appify/prefab/benchmark/results/20261126-110041-qwen-local-cheat-sheet/attempts/events-publish-on-create-1"
+  } ]
+}

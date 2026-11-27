@@ -1,0 +1,6 @@
+rest-create-and-get#1:
+  category: DOC_GAP
+  note: >
+    Imported be.appify.prefab.core.Reference (actual package core.service), decided Reference was generated, replaced
+    it with a String id set to null, so POST returned 500. The cheat sheet did not give the package; fixed by the
+    import table.

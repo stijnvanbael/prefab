@@ -44,7 +44,7 @@ launcher in test sources, or ship it in `prefab-test`.
 - [x] #4 Optional seed data at startup (for example from a `src/test/resources` file or the generated mothers of TASK-102), so a fresh app is not empty
 - [x] #5 The startup log lists the base URL, the docs URLs and which backends are in memory, and the per-project agent context (TASK-345) and agent cheat sheet (TASK-344) tell agents to use this to check their work
 - [x] #6 The showcase starts this way in CI as a smoke test; documented in `getting-started.md` and `feature-guides.md`
-- [ ] #7 A benchmark context or preamble variant that mentions local runs is compared against the baseline (TASK-343, recorded on the local Qwen model through TASK-392), recording turns, builds and pass rate
+- [x] #7 A benchmark context or preamble variant that mentions local runs is compared against the baseline (TASK-343, recorded on the local Qwen model through TASK-392), recording turns, builds and pass rate
 <!-- AC:END -->
 
 ## Analysis
@@ -76,4 +76,9 @@ runner and credentials are available in this environment.
 - Verification passed: `mvn -f examples/showcase-inmemory/pom.xml -Dtest=LocalApplicationSmokeTest test` (1 test); `mvn -pl benchmark "-Dtest=RecipeDocumentationTest,WorkspaceFactoryTest" test` (5 tests); targeted `AgentContextPluginTest` (1 test); and `git diff --check`. A live `spring-boot:test-run` with `local,local-demo` also started and logged the base URL and in-memory backends.
 - AC #7 remains open. The `local-run` benchmark context is discoverable, but the benchmark agent CLI (`claude`) is unavailable here, so no comparable model run or turns/builds/pass-rate result can be recorded. The existing cheat-sheet baseline is not a like-for-like comparison.
 - Direction change (2026-11-25): AC #7 is recorded on the local Qwen baseline (TASK-391, TASK-392) rather than Haiku.
+- AC #7 recorded through TASK-392 (2026-11-26) on the local baseline model Qwen 3.8 27B: `local-run` 6/6, median 31
+  turns, 4 builds, 7m53s, against `cheat-sheet` 6/6, 31 turns, 5 builds, 8m32s (6 quick tasks, one attempt each).
+  Same pass rate and turns; starting the app cost time on `rest-create-and-get` and `events-publish-on-create` and
+  saved it on `rest-parent-child` and `events-multicast`. See `backlog/docs/benchmark.md`, "2026-11-26: local Qwen
+  3.8 27B across documentation contexts".
 <!-- SECTION:NOTES:END -->

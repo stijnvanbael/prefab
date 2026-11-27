@@ -75,7 +75,7 @@ class ModelProfileTest {
     void listsTheShippedProfiles() {
         var shipped = Path.of("models");
 
-        assertThat(ModelProfile.available(shipped)).contains("qwen-local", "haiku", "sonnet");
+        assertThat(ModelProfile.available(shipped)).contains("qwen-local", "qwen38-local", "haiku", "sonnet");
         ModelProfile.available(shipped).forEach(name -> assertThat(ModelProfile.load(shipped, name).model()).isNotBlank());
     }
 }

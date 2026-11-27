@@ -1,0 +1,71 @@
+{
+  "runId" : "20261126-104823-qwen-local-cheat-sheet",
+  "startedAt" : "2026-11-26T10:48:23.665892Z",
+  "agent" : "claude-code/qwen3-coder:30b",
+  "model" : "qwen3-coder:30b",
+  "context" : "cheat-sheet",
+  "prefabVersion" : "0.13.3-SNAPSHOT",
+  "gitCommit" : "a9b1d9bc-dirty",
+  "repeat" : 1,
+  "results" : [ {
+    "taskId" : "rest-create-and-get",
+    "category" : "rest-crud",
+    "tier" : "quick",
+    "attempt" : 1,
+    "passed" : false,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 26350,
+        "output" : 4725,
+        "cacheRead" : 688152,
+        "cacheCreation" : 0
+      },
+      "turns" : 35,
+      "buildAttempts" : 10,
+      "costUsd" : 0.5939509999999999,
+      "duration" : "PT2M27.0085S",
+      "contaminated" : false,
+      "message" : "I've successfully implemented the book catalogue functionality for this Spring Boot application using Prefab. The implementation includes:\n\n1. **Book Aggregate**: Created a `Book` record in the `com.example.catalog` package with:\n   - Required fields: title (max 200 characters), author, ISBN, and publication year\n   - Proper validation constraints using Jakarta Validation annotations\n   - Correct Prefab annotations for REST endpoints\n\n2. **REST Endpoints**:\n   - `POST /books` - Creates a new book and returns `201 Created` with a `Location` header\n   - `GET /books/{id}` - Retrieves a book by ID, returning 404 if not found\n\n3. **Database Integration**:\n   - Uses PostgreSQL persistence via Prefab's `prefab-postgres` module\n   - Automatically generates Flyway migrations for the database schema\n   - Properly configured repository and service layers\n\nThe implementation has been thoroughly tested and verified to work correctly:\n- Compilation succeeds without errors (`mvn -DskipTests compile`)\n- All tests pass (`mvn test`)\n- The generated endpoints work correctly according to the specification\n\nThe book catalogue is now fully functional with proper REST API endpoints for creating and retrieving books, stored in a PostgreSQL database. The implementation follows all Prefab best practices including proper validation, correct use of Reference types, and automatic generation of controllers, services, and test helpers.",
+      "firstGreenBuild" : "PT59.379S"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : false,
+        "detail" : "2/3 passed; com.example.catalog.BookAcceptanceTest.titleIsRequired: Status expected:<400> but was:<201>",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "A",
+        "path" : "src/main/java/com/example/catalog/Book.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/catalog/BookIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 3,
+        "failed" : 1,
+        "skipped" : 0,
+        "failures" : [ "com.example.catalog.BookAcceptanceTest.titleIsRequired: Status expected:<400> but was:<201>" ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT3.659553S",
+    "failure" : {
+      "category" : "API_MISUSE",
+      "source" : "manual",
+      "rationale" : "Put @NotBlank/@Max on the record components instead of the @Create parameters, so a missing title returned 201; @Max on a String instead of @Size. The cheat sheet stated the rule (heuristic said DOC_GAP).\n",
+      "evidence" : [ "hidden-tests: 2/3 passed; com.example.catalog.BookAcceptanceTest.titleIsRequired: Status expected:<400> but was:<201>" ]
+    },
+    "logs" : "/Users/stijnvanbael/IdeaProjects/appify/prefab/benchmark/results/20261126-104823-qwen-local-cheat-sheet/attempts/rest-create-and-get-1"
+  } ]
+}

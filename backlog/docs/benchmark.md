@@ -226,8 +226,9 @@ copy:                          # repository files or directories copied into the
 | `recipes` | Cheat sheet plus the recipe index in CLAUDE.md; recipes and their verified source examples are copied and opened on demand. |
 | `local-run` | Cheat sheet plus an explicit instruction to start the in-memory application and verify an affected endpoint over HTTP. |
 
-The `recipes` context is configured but does not yet have a recorded run; see TASK-392 (Qwen baseline) and TASK-389 (Haiku). Do not treat
-the cheat-sheet or full-docs baselines as results for this context.
+The `recipes` context has a recorded run on the local Qwen 3.8 baseline (see
+[Recorded baselines](#recorded-baselines)); the Haiku run follows in TASK-389. Do not treat the earlier Haiku
+cheat-sheet or full-docs baselines as results for this context.
 
 The compact agent cheat sheet (TASK-344) has the `cheat-sheet` context. The `recipes` context makes the TASK-346
 recipe index available in the always-loaded instructions and copies recipe files to `docs/prefab/recipes/`, with
@@ -572,6 +573,55 @@ and `20261124-111212-claude-haiku-5-5-none`.
   real infrastructure (`mixin-custom-sql`, `mongodb-crud`, the Avro tasks) fail in both setups for reasons that
   have nothing to do with the agent. The `none` run was also flagged contaminated on `avro-publish-and-handle`.
   Repeat both setups on a machine with Docker, with `--repeat 3`, before drawing conclusions about correctness.
+### 2026-11-26: local Qwen 3.8 27B across documentation contexts (TASK-392), 6 quick tasks
+
+Prefab `0.13.3-SNAPSHOT`, profile `qwen38-local` (Qwen 3.8 27B, Ollama 0.40.16, 128k window, Apple-silicon Mac with
+48 GB), one attempt per task and context, one at a time, through a local sandboxed copy of the profile that hides the
+user's source folders (TASK-399 stand-in). Tasks: `rest-create-and-get`, `rest-validation`, `rest-parent-child`,
+`events-publish-on-create`, `events-multicast`, `mixin-derived-query`. Comparison:
+[`benchmark/results/comparison-2026-11-26-qwen38.md`](../../benchmark/results/comparison-2026-11-26-qwen38.md).
+
+| Setup | Run | Passed | Median turns | Median builds | Median agent time | Input tokens |
+|---|---|---|---|---|---|---|
+| `none` (reference, recorded once) | `20261126-204151` | 6/6 | 72 | 8 | 30m46s | 17.0M |
+| `cheat-sheet` | `20261126-155010` | 6/6 | 31 | 5 | 8m32s | 5.0M |
+| `recipes` | `20261126-165026` | 6/6 | 33 | 5 | **5m30s** | **3.2M** |
+| `local-run` | `20261126-172744` | 6/6 | 31 | 4 | 7m53s | 4.7M |
+| `full-docs` | `20261126-182614` | 6/6 | 24 | 7 | 17m52s | 14.9M |
+
+Agent time per task (turns in brackets):
+
+| Task | `none` | `cheat-sheet` | `recipes` | `local-run` | `full-docs` |
+|---|---|---|---|---|---|
+| `rest-create-and-get` | 90m30s (73) | 5m42s (26) | 4m36s (23) | 14m26s (29) | 15m40s (23) |
+| `rest-validation` | 8m31s (41) | 6m01s (25) | 4m22s (20) | 5m58s (29) | 27m07s (24) |
+| `rest-parent-child` | 26m21s (70) | 9m29s (35) | 9m25s (41) | 7m33s (43) | 20m05s (38) |
+| `events-publish-on-create` | 38m30s (75) | 13m12s (37) | 7m39s (46) | 15m40s (60) | 15m24s (23) |
+| `events-multicast` | 35m12s (78) | 17m46s (54) | 6m25s (39) | 8m14s (32) | 44m25s (52) |
+| `mixin-derived-query` | 11m35s (45) | 7m36s (26) | 4m20s (26) | 6m09s (27) | 12m26s (21) |
+
+What it shows:
+
+- **Qwen 3.8 passes all six quick tasks in every setup, including without docs.** No task's outcome differs between
+  contexts, so these tasks no longer separate setups on pass rate for this model; compare speed here, and use the
+  feature and brownfield tiers (TASK-389) for pass rates.
+- **Recipes are the best aid on this model**: fastest on five of six tasks, a third less agent time than the cheat
+  sheet alone and the fewest tokens. `local-run` is about as fast as the cheat sheet; starting the app costs time on
+  `rest-create-and-get` and `events-publish-on-create`.
+- **Full docs cost more than they save on a local model.** They give the fewest turns, but each turn re-reads a ~60k
+  token prompt, so median agent time is twice the cheat sheet's and tokens triple.
+- **Without docs it still gets there, slowly.** 2.3x the turns of the cheat sheet and 3.6x its agent time; it
+  reverse-engineers Prefab from the jars (`javap`) and generated sources. `rest-create-and-get` used 90 of its 90
+  minutes.
+- **No guardrail, override or contamination flags** in the 30 recorded attempts. Attempts that read the benchmark's
+  reference solutions were discarded before recording, and the sandbox was widened until none did (TASK-399).
+
+Before this run, `qwen-local` (Qwen3-Coder 30B) was tried on a ladder of four tasks with the cheat sheet. It failed
+every attempt: invented paths outside the workspace, wrong imports read as missing features, validation on record
+components, false success claims. That run led to the slimmer profile (`--tools`, no auto-memory), full imports and
+validation placement in the cheat sheet, and TASK-398 (a type-level `@Create` compiles silently and
+`agent-context.md` lists an endpoint that is not generated). Per-attempt notes are in TASK-392.
+
 ### Feature and brownfield tiers: not yet recorded
 
 The 14 feature and brownfield tasks (TASK-377) validate: every reference solution passes and every starting project

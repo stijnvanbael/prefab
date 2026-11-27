@@ -1,7 +1,7 @@
 ---
 id: TASK-392
 title: Record the local Qwen baseline across documentation contexts
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-25 12:00'
 labels:
@@ -33,9 +33,9 @@ Haiku follow-up in TASK-389.
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 A one-task pilot on `qwen-local` completes through the agent and acceptance steps, confirming endpoint, context window and tool calling
-- [ ] #2 Runs for `none`, `cheat-sheet`, `recipes`, `local-run` and `full-docs` with `--repeat 3` are recorded in `benchmark/results/` and classified, with turns, builds and pass rate compared
-- [ ] #3 `benchmark.md` records the Qwen baseline and lists the tasks whose outcome differs between contexts, and the TASK-346 and TASK-382 notes reference it
-- [ ] #4 If Qwen fails nearly everything or passes nearly everything, the result says so and proposes another model profile instead of drawing conclusions
+- [x] #2 Runs for `none`, `cheat-sheet`, `recipes`, `local-run` and `full-docs` with `--repeat 3` are recorded in `benchmark/results/` and classified, with turns, builds and pass rate compared
+- [x] #3 `benchmark.md` records the Qwen baseline and lists the tasks whose outcome differs between contexts, and the TASK-346 and TASK-382 notes reference it
+- [x] #4 If Qwen fails nearly everything or passes nearly everything, the result says so and proposes another model profile instead of drawing conclusions
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -140,15 +140,30 @@ not compact before Ollama truncates; set the window for custom models before lon
 contexts; one attempt each (30 attempts), with an uncommitted sandboxed copy of the profile standing in for TASK-399.
 The `none` context is recorded once as the reference; later rounds only compare docs and other aids.
 
-Proposal before running the context matrix:
-1. Re-run the ladder with a larger Ollama context window (`OLLAMA_CONTEXT_LENGTH=131072`). Input per turn was
-   ~20-22k tokens against a 32k window; Ollama truncates the oldest tokens when a prompt overflows, which would drop
-   the system prompt that names the working directory and could explain the invented paths. It is also needed for
-   `full-docs` (~60k tokens) to be measured at all.
-2. If paths still go wrong, try a second local profile with `qwen3.6:27b` (already pulled, supports tools and
-   thinking) before falling back to a hosted model.
-3. Only then run the five contexts with `--repeat 3`, on a task subset the owner can afford in machine time
-   (quick attempts take 2-15 min on this machine, feature tasks far longer).
+**Result (2026-11-27).** The agreed baseline ran to completion: 30/30 attempts passed with Qwen 3.8 27B, no
+guardrail, override or contamination flags. Reports in `benchmark/results/20261126-*-qwen38-sandboxed-*`, comparison in
+`benchmark/results/comparison-2026-11-26-qwen38.md`, write-up in `benchmark.md` ("2026-11-26: local Qwen 3.8 27B
+across documentation contexts").
+
+| Context | Passed | Median turns | Median builds | Median agent time | Input tokens |
+|---|---|---|---|---|---|
+| `none` | 6/6 | 72 | 8 | 30m46s | 17.0M |
+| `cheat-sheet` | 6/6 | 31 | 5 | 8m32s | 5.0M |
+| `recipes` | 6/6 | 33 | 5 | 5m30s | 3.2M |
+| `local-run` | 6/6 | 31 | 4 | 7m53s | 4.7M |
+| `full-docs` | 6/6 | 24 | 7 | 17m52s | 14.9M |
+
+- AC #2 deviates from the written criterion by owner decision: six quick tasks, one attempt each, instead of
+  `--repeat 3` on everything (the full matrix would take 7-10 days on this machine). All Qwen3-Coder failures are
+  classified by hand (`classifications.yml`); the Qwen 3.8 baseline has no failures to classify.
+- AC #3: no task's outcome differs between contexts; only speed does (recipes fastest on five of six tasks).
+- AC #4: Qwen3-Coder 30B failed nearly everything and Qwen 3.8 27B passes nearly everything on quick tasks. Proposed
+  instead of drawing pass-rate conclusions: Qwen 3.8 (`qwen38-local`) becomes the baseline profile, quick tasks are
+  compared on time, turns and tokens, and pass rates are compared on the feature and brownfield tiers (TASK-389), where
+  Qwen 3.8 should not saturate.
+- Isolation was the main obstacle: agents read reference solutions through the host filesystem until the sandbox
+  covered `~/IdeaProjects`, a stray checkout in `/tmp` and earlier runs' kept workspaces, and blocking Docker made one
+  attempt stall for an hour. All findings are in TASK-399; contaminated runs were discarded, not recorded.
 
 Findings for follow-up:
 - Cheat sheet: name `@Parent` in the `be.appify.prefab.core.annotations.rest` import list (step 2).

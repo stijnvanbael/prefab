@@ -1,7 +1,7 @@
 ---
 id: TASK-368
 title: Write generated test clients for aggregates that publish AVSC-generated events to prefab-test-sources
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-23 15:30'
 labels:
@@ -27,7 +27,14 @@ Fix the root path lookup so it is stable across rounds (e.g. remember the root o
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The test client of an aggregate that publishes an AVSC-generated event is written to `target/prefab-test-sources`
-- [ ] #2 A processor test covers the case
-- [ ] #3 `ShipmentIntegrationTest` uses the generated `ShipmentClient`
+- [x] #1 The test client of an aggregate that publishes an AVSC-generated event is written to `target/prefab-test-sources`
+- [x] #2 A processor test covers the case
+- [x] #3 `ShipmentIntegrationTest` uses the generated `ShipmentClient`
 <!-- AC:END -->
+
+## Implementation Notes
+
+- Added an AVSC processor regression test covering an aggregate that references an AVSC-generated event and asserting that its client is written to `target/prefab-test-sources`, not `target/classes`.
+- Updated `ShipmentIntegrationTest` to use the generated `ShipmentClient` for shipment lookup and dispatch.
+- The existing incremental root caching in `IncrementalBuildState` preserves the project root across deferred processing rounds, which makes the regression pass.
+- Validation: `AvscIncrementalCompilationTest` and showcase `test-compile` pass.

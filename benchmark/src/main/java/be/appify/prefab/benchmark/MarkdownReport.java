@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -26,15 +27,15 @@ final class MarkdownReport {
         row(md, "Context", report.context());
         row(md, "Prefab", report.prefabVersion() + " @ " + report.gitCommit());
         row(md, "Started", report.startedAt().toString());
-        row(md, "Attempts", "%d (%d tasks x %d)".formatted(results.size(),
+        row(md, "Attempts", format("%d (%d tasks x %d)", results.size(),
                 results.stream().map(TaskResult::taskId).distinct().count(), report.repeat()));
-        row(md, "**Pass rate**", "**%d/%d = %s**".formatted(report.passedCount(), results.size(), report.passRate().format()));
+        row(md, "**Pass rate**", format("**%d/%d = %s**", report.passedCount(), results.size(), report.passRate().format()));
         row(md, "Tasks passed in every attempt", Long.toString(stableTasks(results)));
-        row(md, "Cost", "$%.2f".formatted(results.stream().mapToDouble(result -> result.agent().costUsd()).sum()));
-        row(md, "Tokens (input incl. cache / output)", "%,d / %,d".formatted(
+        row(md, "Cost", format("$%.2f", results.stream().mapToDouble(result -> result.agent().costUsd()).sum()));
+        row(md, "Tokens (input incl. cache / output)", format("%,d / %,d", 
                 results.stream().mapToLong(result -> result.agent().usage().totalInput()).sum(),
                 results.stream().mapToLong(result -> result.agent().usage().output()).sum()));
-        row(md, "Median turns / builds / agent time", "%.0f / %.0f / %s".formatted(
+        row(md, "Median turns / builds / agent time", format("%.0f / %.0f / %s", 
                 Statistics.median(results.stream().map(result -> result.agent().turns()).toList()),
                 Statistics.median(results.stream().map(result -> result.agent().buildAttempts()).toList()),
                 Statistics.formatDuration(Duration.ofSeconds((long) Statistics.median(
@@ -57,7 +58,7 @@ final class MarkdownReport {
         byTier(results).forEach((tier, attempts) -> md.append("| ").append(tier.id())
                 .append(" | ").append(passed(attempts)).append('/').append(attempts.size())
                 .append(" | ").append(passRate(attempts).format())
-                .append(" | ").append("%.0f".formatted(Statistics.median(attempts.stream().map(r -> r.agent().turns()).toList())))
+                .append(" | ").append(format("%.0f", Statistics.median(attempts.stream().map(r -> r.agent().turns()).toList())))
                 .append(" | ").append(medianFirstGreenBuild(attempts))
                 .append(" | ").append(overrides(attempts))
                 .append(" |\n"));
@@ -89,8 +90,8 @@ final class MarkdownReport {
                     .append(" | ").append(agent.buildAttempts())
                     .append(" | ").append(agent.firstGreenBuild().map(Statistics::formatDuration).orElse("-"))
                     .append(" | ").append(result.overrides())
-                    .append(" | ").append("%,d / %,d".formatted(agent.usage().totalInput(), agent.usage().output()))
-                    .append(" | ").append("$%.2f".formatted(agent.costUsd()))
+                    .append(" | ").append(format("%,d / %,d", agent.usage().totalInput(), agent.usage().output()))
+                    .append(" | ").append(format("$%.2f", agent.costUsd()))
                     .append(" | ").append(Statistics.formatDuration(agent.duration()))
                     .append(" | ").append(result.failure() == null ? "" : result.failure().category())
                     .append(" |\n");
@@ -119,13 +120,13 @@ final class MarkdownReport {
         md.append(reports.stream().map(MarkdownReport::label).collect(Collectors.joining(" | "))).append(" |\n|---|");
         md.append("---|".repeat(reports.size())).append('\n');
         md.append("| **Pass rate** | ").append(reports.stream()
-                .map(report -> "**%d/%d** %s".formatted(report.passedCount(), report.results().size(), report.passRate().format()))
+                .map(report -> format("**%d/%d** %s", report.passedCount(), report.results().size(), report.passRate().format()))
                 .collect(Collectors.joining(" | "))).append(" |\n");
         md.append("| Cost | ").append(reports.stream()
-                .map(report -> "$%.2f".formatted(report.results().stream().mapToDouble(r -> r.agent().costUsd()).sum()))
+                .map(report -> format("$%.2f", report.results().stream().mapToDouble(r -> r.agent().costUsd()).sum()))
                 .collect(Collectors.joining(" | "))).append(" |\n");
         md.append("| Median turns | ").append(reports.stream()
-                .map(report -> "%.0f".formatted(Statistics.median(report.results().stream().map(r -> r.agent().turns()).toList())))
+                .map(report -> format("%.0f", Statistics.median(report.results().stream().map(r -> r.agent().turns()).toList())))
                 .collect(Collectors.joining(" | "))).append(" |\n");
         md.append("| Median time to first green build | ").append(reports.stream()
                 .map(report -> medianFirstGreenBuild(report.results()))
@@ -139,7 +140,7 @@ final class MarkdownReport {
             md.append("| Pass rate, ").append(tier.id()).append(" tier | ").append(reports.stream()
                     .map(report -> byTier(report.results()).getOrDefault(tier, List.of()))
                     .map(attempts -> attempts.isEmpty() ? "-"
-                            : "%d/%d %s".formatted(passed(attempts), attempts.size(), passRate(attempts).format()))
+                            : format("%d/%d %s", passed(attempts), attempts.size(), passRate(attempts).format()))
                     .collect(Collectors.joining(" | "))).append(" |\n");
         }
         for (var category : FailureCategory.values()) {
@@ -182,7 +183,7 @@ final class MarkdownReport {
         if (times.isEmpty()) {
             return "-";
         }
-        return "%s (%d/%d attempts)".formatted(Statistics.formatDuration(Duration.ofSeconds((long) Statistics.median(times))),
+        return format("%s (%d/%d attempts)", Statistics.formatDuration(Duration.ofSeconds((long) Statistics.median(times))),
                 times.size(), results.size());
     }
 
@@ -190,7 +191,7 @@ final class MarkdownReport {
     private static String overrides(List<TaskResult> results) {
         var total = results.stream().mapToLong(TaskResult::overrides).sum();
         var attempts = results.stream().filter(result -> result.overrides() > 0).count();
-        return "%d (in %d attempts)".formatted(total, attempts);
+        return format("%d (in %d attempts)", total, attempts);
     }
 
     private static String cell(List<TaskResult> attempts) {
@@ -203,7 +204,7 @@ final class MarkdownReport {
                 .distinct()
                 .collect(Collectors.joining(","));
         var status = passed == attempts.size() ? "PASS" : passed == 0 ? "FAIL" : "FLAKY";
-        return "%s %d/%d%s".formatted(status, passed, attempts.size(), categories.isEmpty() ? "" : " " + categories);
+        return format("%s %d/%d%s", status, passed, attempts.size(), categories.isEmpty() ? "" : " " + categories);
     }
 
     private static String abbreviation(FailureCategory category) {
@@ -243,5 +244,10 @@ final class MarkdownReport {
     private static String code(String text) {
         var single = text.replace("\n", " ").replace("`", "'");
         return single.length() > 400 ? single.substring(0, 400) + "..." : single;
+    }
+
+    /** Formats numbers the same way on every machine, whatever its locale ({@code $0.25}, not {@code $0,25}). */
+    private static String format(String pattern, Object... arguments) {
+        return String.format(Locale.ROOT, pattern, arguments);
     }
 }

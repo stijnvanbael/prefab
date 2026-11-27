@@ -92,7 +92,7 @@ checked out. Set `BENCHMARK_SKIP_INSTALL=1` to skip that step when nothing chang
 | `--triage-model` | none | Let this model classify failures (see [Classifying failures](#classifying-failures)). |
 | `--results` | `benchmark/results/<run-id>` | Where the report and logs go. |
 | `--work-dir` | `<tmp>/prefab-benchmark/<run-id>` | Where the workspaces go. Keep this outside the repository. |
-| `--hide` | none | Extra comma-separated paths hidden from the agent (see [Isolation](#isolation-and-known-limitations)). |
+| `--hide` | none | Extra comma-separated paths hidden from the agent, on top of the repository, the folder that holds it and the work root (see [Isolation](#isolation-and-known-limitations)). |
 | `--resume <run-dir>` | none | Continue a run that a usage limit stopped: rerun its rate-limited and skipped attempts with the same model and context, and merge them into its report. |
 | `--keep-workspaces` | off | Keep the workspaces of passed attempts. Failed ones are always kept. |
 
@@ -142,11 +142,11 @@ Things to know about a local model:
   the documentation.
 - The cost column shows what Claude Code would charge at API prices, which means nothing for a local model; compare
   turns, builds, agent time and pass rate (TASK-397 replaces it with an energy-based cost estimate).
-- On macOS the harness cannot hide the repository (see [Isolation](#isolation-and-known-limitations)), and local
-  agents do search the disk: in TASK-392 they read reference solutions in the checkout, in another checkout under
-  `/tmp` and in kept workspaces of earlier runs, and code of another Prefab application. Until TASK-399 is done, pass
-  Claude Code sandbox settings through a local, uncommitted copy of the profile (`args: ["--settings", ...]`) that
-  denies reads of your source folders, the shared work directory and stray checkouts, and allows the Docker socket.
+- Local agents do search the disk: in TASK-392 they read reference solutions in the checkout, in another checkout
+  under `/tmp` and in kept workspaces of earlier runs, and code of another Prefab application. On macOS the harness
+  hides these through Claude Code's sandbox (see [Isolation](#isolation-and-known-limitations)); pass `--hide` for
+  source folders or checkouts elsewhere. A profile must not pass its own `--settings`: they would replace the
+  sandbox settings, so the run refuses to start.
 - Do not compare pass rates across models. Compare documentation setups on the same model. A result on a weaker model
   shows whether a setup helps; it does not predict Haiku's absolute pass rate.
 - Check the Anthropic-compatible endpoint of your Ollama version with a single task before starting a long run:
@@ -428,13 +428,30 @@ confidence intervals barely overlap. Use `--repeat 3` for decisions, and compare
 ## Isolation and known limitations
 
 - **Agents search the file system.** In the first runs, Haiku without docs found the Prefab checkout and read a
-  task's reference solution. On Linux as root, the agent therefore runs in a private mount namespace
-  (`unshare --mount`): the repository, the parent of the run's work directory (other runs' workspaces) and any
-  `--hide` paths are covered by an empty tmpfs, and only the attempt's own workspace is visible. Docker keeps working
-  because containers are started by the daemon. Keep the work directory in a folder of its own (the default
-  `<tmp>/prefab-benchmark/<run-id>` is), and pass `--hide` for other places with Prefab sources or benchmark output.
-  Where isolation is unavailable, the harness warns. In every case, tool calls are scanned for the repository path and
-  `benchmark/tasks/`, and an attempt that touches them is marked contaminated and fails.
+  task's reference solution; later a local model ran `find /` and read another Prefab application next to the
+  checkout. The harness therefore hides, from every attempt: the repository, the folder that holds it (sibling
+  checkouts and applications; skipped when that folder is your home directory or `/`), the parent of the run's work
+  directory (other runs' workspaces, including `validate` runs with every reference solution) and any `--hide`
+  paths. Keep the work directory in a folder of its own (the default `<tmp>/prefab-benchmark/<run-id>` is), and pass
+  `--hide` for other places with Prefab sources or benchmark output, such as a source folder higher up or a stray
+  checkout under `/tmp`. The run prints what it hides and how.
+  - **Linux as root:** the agent runs in a private mount namespace (`unshare --mount`) in which every hidden path is
+    covered by an empty tmpfs, and only the attempt's own workspace is visible. Docker keeps working because
+    containers are started by the daemon.
+  - **macOS:** the harness passes Claude Code's sandbox settings (`--settings`). The agent's shell commands run with
+    reads of the hidden paths denied by the operating system (`Operation not permitted`), and its file tools (Read,
+    Edit, Grep, Glob) are refused by permission deny rules, written for both the `/private/var` and `/var` (and
+    `/tmp`) spellings. The sandbox re-allows the attempt's own workspace and Claude Code temp directory, even when
+    they lie in a hidden folder. For the file tools, which have no re-allow, the harness denies every other entry of
+    such a folder as found when the attempt starts; a run that starts later in the same folder is still covered by
+    the sandbox. Every attempt's Claude Code temp directory lives under `/tmp/prefab-benchmark-agent`, which is hidden
+    too, so parallel attempts cannot read each other's tool output. Maven Central, `~/.m2`, the Docker socket and
+    local ports stay reachable, so the agent's tests can use Testcontainers as well as the in-memory backend. The
+    settings are kept in the attempt's `isolation-arguments.txt`.
+  - **Elsewhere** (GitHub runners, Linux without root): isolation is unavailable and the harness warns.
+
+  In every case, tool calls are scanned for the repository path and `benchmark/tasks/`, and an attempt that touches
+  them is marked contaminated and fails.
 - `run.sh` installs Prefab without the example modules and removes `*-example` artifacts from `~/.m2`. Without that,
   agents decompiled example jars, which application developers don't have.
 - The agent can read the Prefab jars in `~/.m2` (classes, generated sources in its own `target/`), like any user.

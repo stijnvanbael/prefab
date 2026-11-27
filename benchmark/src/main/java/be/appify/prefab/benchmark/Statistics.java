@@ -2,6 +2,7 @@ package be.appify.prefab.benchmark;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 
 /** Small statistics helpers for reports. */
 final class Statistics {
@@ -40,7 +41,7 @@ final class Statistics {
 
     static String formatDuration(Duration duration) {
         long seconds = duration.toSeconds();
-        return seconds >= 60 ? "%dm%02ds".formatted(seconds / 60, seconds % 60) : seconds + "s";
+        return seconds >= 60 ? String.format(Locale.ROOT, "%dm%02ds", seconds / 60, seconds % 60) : seconds + "s";
     }
 
     /**
@@ -52,7 +53,8 @@ final class Statistics {
      */
     record Interval(double rate, double lower, double upper) {
         String format() {
-            return "%.0f%% (95%% CI %.0f-%.0f%%)".formatted(rate * 100, lower * 100, upper * 100);
+            return String.format(Locale.ROOT, "%.0f%% (95%% CI %.0f-%.0f%%)", rate * 100, lower * 100, upper * 100);
         }
     }
+
 }

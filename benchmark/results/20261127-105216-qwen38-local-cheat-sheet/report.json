@@ -1,0 +1,69 @@
+{
+  "runId" : "20261127-105216-qwen38-local-cheat-sheet",
+  "startedAt" : "2026-11-27T10:52:16.221772Z",
+  "agent" : "claude-code/qwen3.8:27b",
+  "model" : "qwen3.8:27b",
+  "context" : "cheat-sheet",
+  "prefabVersion" : "0.13.3-SNAPSHOT",
+  "gitCommit" : "bc4a1669-dirty",
+  "repeat" : 1,
+  "results" : [ {
+    "taskId" : "events-multicast",
+    "category" : "events-handling",
+    "tier" : "quick",
+    "attempt" : 1,
+    "passed" : true,
+    "agent" : {
+      "status" : "COMPLETED",
+      "usage" : {
+        "input" : 41269,
+        "output" : 20278,
+        "cacheRead" : 1529886,
+        "cacheCreation" : 0
+      },
+      "turns" : 53,
+      "buildAttempts" : 4,
+      "costUsd" : 1.478238,
+      "duration" : "PT14M20.106895S",
+      "contaminated" : false,
+      "message" : "The task is complete and verified. Here's what I did.\n\n## Solution\n\nThe \"update many aggregates from one event\" requirement is Prefab's **multicast** pattern. I made two changes to `PriceWatch` and added a test.\n\n**1. Multicast handler on the `PriceWatch` record** (`PriceWatch.java`)\n\n```java\n@EventHandler\n@Multicast(queryMethod = \"findByProduct\", parameters = \"product\", failWhenEmpty = false)\npublic PriceWatch onPriceChanged(PriceChanged event) {\n    return new PriceWatch(id, version, email, product, event.price());\n}\n```\n\nPrefab generates a handler that does `priceWatchRepository.findByProduct(event.product())`, and if any are found, maps each through `onPriceChanged` and `saveAll`s them. So every watch of the changed product gets the new `currentPrice`; the `findByProduct` query scopes it to that product, so other products' watches are untouched. `failWhenEmpty = false` makes an empty result a no-op `return` instead of throwing — so a product with no watches is acknowledged without a retry or dead-letter.\n\n**2. The query the handler relies on** (`PriceWatchRepositoryMixin.java`)\n\n```java\n@RepositoryMixin(PriceWatch.class)\npublic interface PriceWatchRepositoryMixin {\n    List<PriceWatch> findByProduct(Reference<Product> product);\n}\n```\n\n**3. Integration test** (`PriceWatchIntegrationTest.java`, `@IntegrationTest`, in-memory, no Docker) covering both watches of one product being updated while a different product's watch stays put, and a price change for a product with no watches succeeding.\n\n## Why this is right\n\nI confirmed against the decompiled Prefab processor (`MulticastEventHandlerWriter`): the generated `PriceWatchService.onPriceChanged` reads `findByProduct(event.product())`, returns early when empty (because `failWhenEmpty = false`), otherwise saves the updated watches. `GET /price-watches/{id}` already exposes `currentPrice` via the existing `@GetById`.\n\n## Verification\n\n- `mvn -o -DskipTests compile` → BUILD SUCCESS; generated wiring confirmed in `target/prefab/agent-context.md` (\"PriceWatch … Handles: `PriceChanged` via `onPriceChanged()` on topic `prices`\").\n- `mvn -o verify` → BUILD SUCCESS, **3 tests, 0 failures, 0 errors** (my 2 tests + the Prefab-generated `PriceChangedEventConformanceTest`).\n\nNo controllers, services, repositories, entities, or migrations were hand-written — everything beyond the record annotations and the one mixin interface is Prefab-generated.",
+      "firstGreenBuild" : "PT6M55.274S"
+    },
+    "acceptance" : {
+      "checks" : [ {
+        "name" : "guardrails",
+        "passed" : true,
+        "detail" : "no blocking violations",
+        "infrastructure" : false
+      }, {
+        "name" : "hidden-tests",
+        "passed" : true,
+        "detail" : "1/1 passed",
+        "infrastructure" : false
+      } ],
+      "violations" : [ ],
+      "changes" : [ {
+        "status" : "M",
+        "path" : "src/main/java/com/example/watch/PriceWatch.java"
+      }, {
+        "status" : "A",
+        "path" : "src/main/java/com/example/watch/PriceWatchRepositoryMixin.java"
+      }, {
+        "status" : "A",
+        "path" : "src/test/java/com/example/watch/PriceWatchIntegrationTest.java"
+      } ],
+      "hiddenTests" : {
+        "reportsFound" : 1,
+        "tests" : 1,
+        "failed" : 0,
+        "skipped" : 0,
+        "failures" : [ ]
+      },
+      "buildErrors" : [ ],
+      "dockerUnavailable" : false
+    },
+    "acceptanceDuration" : "PT4.274055S",
+    "failure" : null,
+    "logs" : "/Users/stijnvanbael/IdeaProjects/appify/prefab/benchmark/results/20261127-105216-qwen38-local-cheat-sheet/attempts/events-multicast-1"
+  } ]
+}

@@ -45,11 +45,11 @@ Candidates to evaluate once measured:
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 A reproducible measurement of the benchmark template and the showcase records the time split (Maven startup, processing, compilation, context starts, tests) and the number of Spring contexts started, before and after (phase split deferred to TASK-406)
+- [x] #1 A reproducible measurement of the benchmark template and the showcase records the time split (Maven startup, processing, compilation, context starts, tests) and the number of Spring contexts started, before and after
 - [x] #2 Changes that cut the median `mvn verify` time of the showcase in memory by a recorded percentage are implemented, each with its measured gain; candidates that did not help are recorded with numbers
 - [x] #3 A context-cache regression check fails the build when a change makes test classes start extra Spring contexts in the showcase
 - [x] #4 The fastest recommended commands are documented in `getting-started.md` and the agent cheat sheet (TASK-344)
-- [x] #5 Benchmark agent time and Maven builds are compared before and after (TASK-343) (post-change run deferred to TASK-406)
+- [x] #5 Benchmark agent time and Maven builds are compared before and after (TASK-343)
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -72,6 +72,10 @@ The `-T 2` improvement is documented for multi-module builds; no global Maven se
 
 The context-cache regression assertion was failing because its JVM-wide miss count included the separate generated conformance-test context, configured with `prefab.test.containers=false`. The check now compares the actual contexts for two ordinary `@IntegrationTest` classes, so unrelated context configurations do not count as a failure while a split in the shared integration-test context still does.
 
-Closed: the phase split (AC #1) and the post-change model run (AC #5) could not be completed reliably (annotation
-processing is not reported separately by Maven; no unloaded-host model run). Both are tracked in TASK-406.
+Completed 2026-11-27. Phase split (serial showcase `mvn verify`, 89.2s): surefire 94%, compile 3.2%, testCompile 1.7%;
+a clean showcase compile including annotation processing takes 1.5s, and processing cannot be timed separately.
+Post-change agent measurement on the reference model (Qwen 3.8 27B, `cheat-sheet`, six quick tasks): 6/6, median 30
+turns, 4.5 builds, 5m51s agent time, against 31 turns, 5 builds and 8m32s before (runs `20261127-101327` and
+`20261127-105216`). One attempt was contaminated by a stale repo copy in `/tmp` and rerun with `--hide`. The
+earlier Haiku comparison is superseded. Details in `backlog/docs/benchmark.md`.
 <!-- SECTION:NOTES:END -->

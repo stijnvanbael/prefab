@@ -1,6 +1,7 @@
 package be.appify.prefab.processor;
 
 import be.appify.prefab.core.annotations.Aggregate;
+import be.appify.prefab.core.annotations.AsyncCommit;
 import be.appify.prefab.core.annotations.EventHandler;
 import be.appify.prefab.core.annotations.EventSnapshot;
 import be.appify.prefab.core.annotations.Computed;
@@ -39,6 +40,7 @@ import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedOptions;
 import javax.lang.model.SourceVersion;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
@@ -157,6 +159,7 @@ public class PrefabProcessor extends AbstractProcessor {
         validateGenerateAnnotationsEagerly(context, environment);
         validateComputedMethods(environment);
         validateSecurityAnnotations(environment);
+        validateNoTypeLevelCreateOnAggregates(environment);
         var writtenAggregates = writeAggregates(context, aggregates);
         var writtenPolymorphicAggregates = writePolymorphicAggregates(context, polymorphicAggregates);
         context.guard().run(PROCESSOR_COMPONENT, null, () -> viewWriter.writeViews(context, environment));
@@ -254,6 +257,29 @@ public class PrefabProcessor extends AbstractProcessor {
                                 method);
                     }
                 });
+    }
+
+    /**
+     * {@code @Create} is allowed on a type only for {@code @ViewOf} create forms. On an aggregate it would compile
+     * without generating a create endpoint, so reject it and point at the constructor or factory method instead.
+     */
+    private void validateNoTypeLevelCreateOnAggregates(RoundEnvironment environment) {
+        environment.getElementsAnnotatedWith(Create.class).stream()
+                .filter(element -> element.getKind().isClass() || element.getKind() == ElementKind.RECORD)
+                .filter(element -> element.getAnnotation(Aggregate.class) != null)
+                .forEach(type -> processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+                        "[@Create] " + type.getSimpleName() + ": @Create cannot be placed on an @Aggregate type, "
+                                + "so no create endpoint would be generated.\n"
+                                + "Suggested fix: " + createTargetAdvice(type),
+                        type));
+    }
+
+    private static String createTargetAdvice(Element type) {
+        return type.getAnnotation(AsyncCommit.class) != null
+                ? "move @Create to a public static factory method of " + type.getSimpleName()
+                + " (an @AsyncCommit aggregate creates through a factory method)"
+                : "move @Create to the constructor of " + type.getSimpleName()
+                + " that creates the aggregate (for @AsyncCommit aggregates, a public static factory method)";
     }
 
     private void validateSecurityAnnotations(RoundEnvironment environment) {

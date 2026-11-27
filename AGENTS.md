@@ -53,7 +53,10 @@ When the work is done, do this yourself without waiting to be asked:
 
 1. `git fetch origin main && git rebase origin/main`. Resolve conflicts by keeping both sides' intent;
    never drop someone else's change to make the rebase pass.
-2. Re-run the full build and test suite **after** the rebase, not only before it.
+2. Run focused build and test checks that cover the change **after** the rebase. Leave the full test
+   suite to CI. Run tests that require containers only when they are necessary to verify the change;
+   if pulling a required container image times out, stop local container-dependent verification and
+   rely on CI rather than retrying the full suite.
 3. `git push --force-with-lease -u origin <branch>` (plain `git push` if the branch was never pushed).
 4. Open a pull request against `main` titled in conventional-commits style. The description says *why* the
    change is needed and references the backlog task ID.
@@ -68,7 +71,7 @@ watching (`unsubscribe_pr_activity`) only when the PR is merged or closed, or th
 
 Checklist before saying "done":
 
-- [ ] Full test suite passes reliably (not just the changed tests); no failing or flaky tests
+- [ ] Focused tests pass locally; CI runs the full test suite
 - [ ] Zero compiler warnings, no unused imports or dead code, no TODO/FIXME in committed code
 - [ ] `backlog/docs/` updated if a feature, annotation, artefact, extension point or config property changed
 - [ ] If public behaviour changed: the affected agent cheat sheet entry and recipe are updated, and a benchmark

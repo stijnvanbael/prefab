@@ -18,9 +18,20 @@ parses their schema statements to build the prior state. It does **not** connect
 replaying migration SQL into the processor's in-memory schema model; it is not Flyway's `baseline` operation.
 Suffixes such as `__baseline` are ordinary filename labels and receive no special treatment.
 
-During replay, Prefab validates schema transitions as well as parsing SQL. For example, dropping a column that is not
-present in the reconstructed table is a compile-time error naming the migration; use `DROP COLUMN IF EXISTS` when
-the column is intentionally optional. This catches an invalid migration history before Flyway attempts to execute it.
+During replay, Prefab validates supported schema transitions against the state produced by earlier statements, including
+statements earlier in the same migration. Compilation rejects duplicate table, column, index, and supported named
+constraint definitions; table or column renames to occupied names; and unguarded drops of missing tables, columns,
+indexes, or supported named constraints. Index and key declarations are checked for modeled local columns and
+foreign-key referenced tables and columns. For an optional operation, PostgreSQL guards such as `IF EXISTS` and
+`IF NOT EXISTS` are treated as no-ops when their target already has the requested state; replay keeps the prior
+definition rather than replacing it.
+
+These checks use only schema facts reconstructed from versioned SQL and do not connect to PostgreSQL, inspect existing
+data, validate DML, or guarantee that arbitrary PostgreSQL SQL will execute. Prefab models table/column operations,
+indexes, primary keys, and supported foreign keys; it does not inspect arbitrary index expressions. DML statements are
+ignored for schema replay. A schema-changing statement the parser cannot model stops compilation with a diagnostic
+that names the migration and offending statement rather than silently generating from an incomplete schema. Keep
+manual migrations within the documented parser support and compile after changing them.
 
 If there is a schema delta, the annotation processor writes one file for the discovered aggregate changes to
 `db/migration/V{next}__generated.sql` in compiler output (normally `target/classes/db/migration/`). The first version

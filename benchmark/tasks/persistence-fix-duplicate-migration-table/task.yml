@@ -1,0 +1,10 @@
+title: Guard a duplicate table creation in a released migration history
+category: brownfield-schema
+tier: brownfield
+base: shop
+timeoutMinutes: 30
+maxTurns: 100
+modules: [postgres]
+notes: >
+  Exercises compile-time rejection of duplicate tables and preservation of the prior replayed schema for
+  CREATE TABLE IF NOT EXISTS. A successful solution leaves the released model unchanged and emits no V3 delta.

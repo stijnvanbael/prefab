@@ -71,7 +71,7 @@ class ShipmentIntegrationTest {
         await().atMost(ofSeconds(30)).untilAsserted(() ->
                 assertThat(SchemaRegistrySubjects.list(kafkaProperties))
                         .as("schema registry subjects")
-                        .contains("showcase.shipment"));
+                        .contains("showcase.shipment-value"));
     }
 
     private String placeOrder() throws Exception {

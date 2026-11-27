@@ -45,4 +45,9 @@ capability from the in-memory variant.
 - Updated the payment and shipment schema-registration tests to run in both modes.
 - Removed `SCHEMA_REGISTRY_API` and its in-memory capability gaps; updated the coverage matrix documentation.
 - Verified with `mvn -pl examples/showcase,examples/showcase-inmemory -am -DskipTests test-compile`.
+- Assertions match Confluent's actual subject naming `<topic>-value` (`showcase.payment-value`,
+  `showcase.shipment-value`); main's earlier check only substring-matched `showcase.payment`, so it passed
+  without checking exact subjects.
+- Ran `PaymentIntegrationTest` + `ShipmentIntegrationTest` in both `examples/showcase` (Testcontainers Kafka +
+  schema registry) and `examples/showcase-inmemory` (in-memory Kafka + Confluent mock registry): green.
 <!-- DOD:END -->

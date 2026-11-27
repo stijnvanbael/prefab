@@ -45,7 +45,7 @@ class PaymentIntegrationTest {
 
         assertThat(SchemaRegistrySubjects.list(kafkaProperties))
                 .as("schema registry subjects")
-                .contains("showcase.payment");
+                .contains("showcase.payment-value");
     }
 
     @Test

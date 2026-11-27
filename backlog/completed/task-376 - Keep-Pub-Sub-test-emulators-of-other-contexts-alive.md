@@ -76,5 +76,5 @@ daemon); it runs in CI.
 the expected image, so two contexts in one JVM are fine **when Testcontainers reuse is enabled** (CI sets
 `TESTCONTAINERS_REUSE_ENABLE=true`). With reuse disabled, `withReuse(true)` is ignored, the second context creates a
 container with the same name and Docker answers 409. That is a different problem (no hang, a clear error) and is
-tracked in TASK-386.
+tracked in TASK-404.
 <!-- SECTION:NOTES:END -->

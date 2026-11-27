@@ -129,7 +129,10 @@ Setup: `@EnablePrefab` on the `@SpringBootApplication` class. Add only the modul
 - Do **not** write `@KafkaListener` or `KafkaTemplate` code. Use `@Event` and `@EventHandler`.
 - Do **not** write Flyway migrations by hand. Prefab generates `V…__*.sql` from the record. Never edit an
   applied migration; to change the schema, change the record (use `@DbRename` for renames). Prefab replays inline
-  and table-level `REFERENCES` clauses from versioned SQL when deriving later migration deltas.
+  and table-level `REFERENCES` clauses from versioned SQL when deriving later migration deltas. Versioned schema
+  changes are checked at compile time for duplicate and missing objects, occupied rename targets, and supported
+  index/key references; use PostgreSQL `IF EXISTS` / `IF NOT EXISTS` only when an operation should be a no-op.
+  Unsupported schema-changing SQL is reported with the migration and statement instead of being silently modeled.
 - Do **not** edit anything under `target/` (`target/generated-sources`, `target/prefab-test-sources`): it is
   overwritten on every build. Do not copy generated classes into `src/` to "fix" them.
 - Do **not** put `@Create` on the `@Aggregate` record itself; annotate the constructor (a public static factory

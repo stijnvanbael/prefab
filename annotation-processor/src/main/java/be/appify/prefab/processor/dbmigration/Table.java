@@ -24,25 +24,36 @@ record Table(
         List<String> primaryKey,
         String oldName,
         List<Index> indexes,
-        List<ForeignKeyConstraint> foreignKeys
+        List<ForeignKeyConstraint> foreignKeys,
+        List<NamedConstraint> namedConstraints
 ) {
     private static final List<String> PRIMARY_KEY = List.of("PRIMARY", "KEY");
     private static final String FOREIGN_KEY = "FOREIGN KEY";
 
+    record NamedConstraint(String name, String type, List<String> columns) {
+    }
+
     Table(String name, List<Column> columns, List<String> primaryKey) {
-        this(name, columns, primaryKey, null, List.of(), List.of());
+        this(name, columns, primaryKey, null, List.of(), List.of(), List.of());
     }
 
     Table(String name, List<Column> columns, List<String> primaryKey, String oldName) {
-        this(name, columns, primaryKey, oldName, List.of(), List.of());
+        this(name, columns, primaryKey, oldName, List.of(), List.of(), List.of());
     }
 
     Table(String name, List<Column> columns, List<String> primaryKey, List<Index> indexes) {
-        this(name, columns, primaryKey, null, indexes, List.of());
+        this(name, columns, primaryKey, null, indexes, List.of(), List.of());
     }
 
     Table(String name, List<Column> columns, List<String> primaryKey, String oldName, List<Index> indexes) {
-        this(name, columns, primaryKey, oldName, indexes, List.of());
+        this(name, columns, primaryKey, oldName, indexes, List.of(), List.of());
+    }
+
+    Table(
+            String name, List<Column> columns, List<String> primaryKey, String oldName, List<Index> indexes,
+            List<ForeignKeyConstraint> foreignKeys
+    ) {
+        this(name, columns, primaryKey, oldName, indexes, foreignKeys, namedForeignKeys(foreignKeys));
     }
 
     static Table fromCreateTable(CreateTable createTable) {
@@ -54,7 +65,8 @@ record Table(
                 primaryKey(createTable),
                 null,
                 List.of(),
-                foreignKeys(createTable)
+                foreignKeys(createTable),
+                namedConstraints(createTable)
         );
     }
 
@@ -68,6 +80,37 @@ record Table(
                         createTable.getTable().getName().replace("\"", ""),
                         (ForeignKeyIndex) index))
                 .toList();
+    }
+
+    private static List<NamedConstraint> namedConstraints(CreateTable createTable) {
+        if (createTable.getIndexes() == null || createTable.getIndexes().isEmpty()) {
+            return namedForeignKeys(foreignKeys(createTable));
+        }
+        var constraints = new ArrayList<>(createTable.getIndexes().stream()
+                .filter(index -> index.getName() != null)
+                .map(index -> new NamedConstraint(
+                        normalizeIdentifier(index.getName()),
+                        index.getType(),
+                        index.getColumnsNames() == null
+                                ? List.of()
+                                : index.getColumnsNames().stream().map(Table::normalizeIdentifier).toList()))
+                .toList());
+        var namedNames = constraints.stream().map(NamedConstraint::name).collect(Collectors.toSet());
+        namedForeignKeys(foreignKeys(createTable)).stream()
+                .filter(constraint -> namedNames.add(constraint.name()))
+                .forEach(constraints::add);
+        return List.copyOf(constraints);
+    }
+
+    private static List<NamedConstraint> namedForeignKeys(List<ForeignKeyConstraint> foreignKeys) {
+        return foreignKeys.stream()
+                .map(foreignKey -> new NamedConstraint(
+                        foreignKey.name(), FOREIGN_KEY, foreignKey.columnNames()))
+                .toList();
+    }
+
+    private static String normalizeIdentifier(String identifier) {
+        return identifier.replace("\"", "");
     }
 
     private static List<String> primaryKey(CreateTable createTable) {
@@ -94,13 +137,39 @@ record Table(
     public Table apply(Alter alter) {
         var newColumns = mapColumns(alter);
         var newName = extractNewTableName(alter);
+        var newForeignKeys = new ArrayList<>(foreignKeys);
+        var newNamedConstraints = new ArrayList<>(namedConstraints);
+        var newPrimaryKey = new ArrayList<>(primaryKey);
+        alter.getAlterExpressions().forEach(expr -> {
+            if (expr.getOperation() == AlterOperation.ADD && expr.getIndex() instanceof ForeignKeyIndex foreignKeyIndex) {
+                var foreignKey = ForeignKeyConstraint.fromIndex(name, foreignKeyIndex);
+                newForeignKeys.add(foreignKey);
+                if (foreignKeyIndex.getName() != null) {
+                    newNamedConstraints.add(new NamedConstraint(
+                            foreignKey.name(), FOREIGN_KEY, foreignKey.columnNames()));
+                }
+            } else if (expr.getOperation() == AlterOperation.DROP && expr.getConstraintName() != null) {
+                var constraintName = normalizeIdentifier(expr.getConstraintName());
+                var dropped = newNamedConstraints.stream()
+                        .filter(constraint -> constraint.name().equals(constraintName))
+                        .findFirst();
+                dropped.ifPresent(constraint -> {
+                    newNamedConstraints.remove(constraint);
+                    if (constraint.type() != null && constraint.type().contains("PRIMARY KEY")) {
+                        newPrimaryKey.clear();
+                    }
+                });
+                newForeignKeys.removeIf(foreignKey -> foreignKey.name().equals(constraintName));
+            }
+        });
         return new Table(
                 newName != null ? newName : name,
                 newColumns,
-                primaryKey,
+                List.copyOf(newPrimaryKey),
                 null,
                 indexes,
-                foreignKeys
+                List.copyOf(newForeignKeys),
+                List.copyOf(newNamedConstraints)
         );
     }
 
@@ -115,27 +184,48 @@ record Table(
     public Table withAddedIndex(Index index) {
         var newIndexes = new ArrayList<>(indexes);
         newIndexes.add(index);
-        return new Table(name, columns, primaryKey, null, List.copyOf(newIndexes), foreignKeys);
+        return new Table(name, columns, primaryKey, null, List.copyOf(newIndexes), foreignKeys, namedConstraints);
     }
 
     public Table withRemovedIndex(String indexName) {
         var newIndexes = indexes.stream()
                 .filter(idx -> !idx.name().equals(indexName))
                 .toList();
-        return new Table(name, columns, primaryKey, null, newIndexes, foreignKeys);
+        return new Table(name, columns, primaryKey, null, newIndexes, foreignKeys, namedConstraints);
     }
 
     public Table withDroppedConstraint(String constraintName) {
+        var normalizedName = normalizeIdentifier(constraintName);
+        var dropped = namedConstraints.stream()
+                .filter(constraint -> constraint.name().equals(normalizedName))
+                .findFirst();
         var newColumns = columns.stream()
-                .map(c -> c.foreignKey() != null
-                        && IdentifierShortener.foreignKeyConstraintName(name, c.name()).equals(constraintName)
+                .map(c -> c.foreignKey() != null && (
+                        IdentifierShortener.foreignKeyConstraintName(name, c.name()).equals(normalizedName)
+                                || dropped.map(constraint -> constraint.columns().contains(c.name())).orElse(false))
                         ? c.withForeignKey(null)
                         : c)
                 .toList();
         var newForeignKeys = foreignKeys.stream()
-                .filter(foreignKey -> !foreignKey.name().equals(constraintName))
+                .filter(foreignKey -> !foreignKey.name().equals(normalizedName))
                 .toList();
-        return new Table(name, newColumns, primaryKey, null, indexes, newForeignKeys);
+        var newNamedConstraints = namedConstraints.stream()
+                .filter(constraint -> !constraint.name().equals(normalizedName))
+                .toList();
+        var newPrimaryKey = dropped
+                .filter(constraint -> constraint.type() != null && constraint.type().contains("PRIMARY KEY"))
+                .isPresent()
+                ? List.<String>of()
+                : primaryKey;
+        return new Table(name, newColumns, newPrimaryKey, null, indexes, newForeignKeys, newNamedConstraints);
+    }
+
+    public boolean hasConstraint(String constraintName) {
+        var normalizedName = normalizeIdentifier(constraintName);
+        return namedConstraints.stream().anyMatch(constraint -> constraint.name().equals(normalizedName))
+                || foreignKeys.stream().anyMatch(constraint -> constraint.name().equals(normalizedName))
+                || columns.stream().anyMatch(column -> column.foreignKey() != null
+                && IdentifierShortener.foreignKeyConstraintName(name, column.name()).equals(normalizedName));
     }
 
     public Optional<Index> getIndex(String name) {
@@ -146,9 +236,10 @@ record Table(
 
     private List<Column> mapColumns(Alter alter) {
         var columns = this.columns.stream()
-                .collect(Collectors.toMap(Column::name, c -> c, (v1, v2) -> {
-                    throw new RuntimeException(String.format("Duplicate key for values %s and %s", v1, v2));
-                }, LinkedHashMap::new));
+                .collect(Collectors.toMap(
+                        Column::name, c -> c, (v1, v2) -> {
+                            throw new RuntimeException(String.format("Duplicate key for values %s and %s", v1, v2));
+                        }, LinkedHashMap::new));
         alter.getAlterExpressions().forEach(expr -> {
             switch (expr.getOperation()) {
                 case AlterOperation.ADD -> applyAddExpression(expr, columns);
@@ -169,8 +260,13 @@ record Table(
         if (original == null) {
             throw new IllegalStateException("Cannot rename non-existing column: " + oldName);
         }
+        if (columns.containsKey(newName)) {
+            throw new IllegalStateException("Cannot rename column " + oldName + " to " + newName
+                    + ": a column with that name already exists");
+        }
         columns.remove(oldName);
-        var renamed = new Column(newName, original.type(), original.nullable(), original.foreignKey(),
+        var renamed = new Column(
+                newName, original.type(), original.nullable(), original.foreignKey(),
                 original.defaultValue(), null);
         columns.put(newName, renamed);
     }
@@ -197,9 +293,14 @@ record Table(
             }
             columns.remove(columnName);
         } else if (isNotBlank(expr.getConstraintName())) {
+            var constraintName = normalizeIdentifier(expr.getConstraintName());
+            var constraint = namedConstraints.stream()
+                    .filter(candidate -> candidate.name().equals(constraintName))
+                    .findFirst();
             columns.values().stream()
-                    .filter(c -> c.foreignKey() != null && IdentifierShortener.foreignKeyConstraintName(name, c.name())
-                            .equals(expr.getConstraintName()))
+                    .filter(c -> c.foreignKey() != null && (
+                            IdentifierShortener.foreignKeyConstraintName(name, c.name()).equals(constraintName)
+                                    || constraint.map(candidate -> candidate.columns().contains(c.name())).orElse(false)))
                     .findFirst()
                     .ifPresent(column -> {
                         var modified = column.withForeignKey(null);
@@ -213,6 +314,12 @@ record Table(
     private static void applyAddExpression(AlterExpression expr, Map<String, Column> columns) {
         if (expr.hasColumn()) {
             var column = Column.fromAddColumn(expr);
+            if (columns.containsKey(column.name())) {
+                if (expr.isUseIfNotExists()) {
+                    return;
+                }
+                throw new IllegalStateException("Cannot add column " + column.name() + ": it already exists");
+            }
             columns.put(column.name(), column);
         } else if (expr.getIndex() != null) {
             if (!expr.getIndex().getType().equals(FOREIGN_KEY)) {

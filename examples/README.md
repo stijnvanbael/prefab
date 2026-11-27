@@ -177,7 +177,6 @@ table, so after changing a capability file, paste that between the markers.
 | STREAMS | ✅ | ✅ | ✅ | ✅ | ✅ |
 | KAFKA_STREAMS_BREAKOUT | ✅ | ❌ [TASK-374](../backlog/completed/task-374%20-%20Prefab-Streams-on-the-in-memory-test-bus.md) | ✅ | ❌ [TASK-341](../backlog/completed/task-341%20-%20Prefab-Streams-backend-for-Google-Pub-Sub.md) | ❌ [TASK-342](../backlog/completed/task-342%20-%20Prefab-Streams-backend-for-AWS-SNS-SQS.md) |
 | AVRO | ✅ | ✅ | ✅ | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) |
-| SCHEMA_REGISTRY_API | ✅ | ❌ [TASK-375](../backlog/tasks/task-375%20-%20Inspect-registered-Avro-schemas-in-memory.md) | ❌ [TASK-375](../backlog/tasks/task-375%20-%20Inspect-registered-Avro-schemas-in-memory.md) | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) | ❌ [TASK-275](../backlog/tasks/task-275%20-%20Make-Avro-payloads-self-describing-on-Pub-Sub-and-SNS-SQS.md) |
 | SECURITY | ✅ | ✅ | ✅ | ✅ | ✅ |
 | OPENAPI | ✅ | ✅ | ✅ | ✅ | ✅ |
 | ASYNCAPI | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -196,8 +195,7 @@ infrastructure in a module that already sets the property says so in a comment r
 showcase, generated for Postgres + Kafka (with the Avro slice), but without `prefab.test.containers`. Its tests pass
 **without Docker**. It runs the common Streams slice on the in-process engine, wired to the in-memory event bus
 (`prefab-streams` and `prefab-streams-engine`, no broker), and lists the gaps in its capabilities file:
-`KAFKA_STREAMS_BREAKOUT` (TASK-374, `breakout` hands over the Kafka Streams API, which the engine does not have) and
-`SCHEMA_REGISTRY_API` (TASK-375, the mock schema registry has no HTTP endpoint). Its own
+`KAFKA_STREAMS_BREAKOUT` (TASK-374, `breakout` hands over the Kafka Streams API, which the engine does not have). Its own
 `LocalApplicationSmokeTest` starts the showcase as a real web application on a random port, verifies the docs and
 checks that customer registration reaches the order-history handler through the in-memory serialized event bus. It is
 part of the normal CI build and needs no Docker. For a live demo with sample data, run
@@ -207,7 +205,7 @@ seed runner adds a sample category without packaging demo data into production.
 topology publishes on the bus.
 `showcase-mongodb` also runs in memory (`prefab.test.containers: false`): the generated MongoDB index configuration
 creates no indexes without a `MongoTemplate` (TASK-381), and the Kafka-native breakout topology is left out of the
-application context because the engine does not support `breakout`. It shares the `SCHEMA_REGISTRY_API` gap.
+application context because the engine does not support `breakout`.
 The reference showcase and `showcase-inmemory` cover the same sources on real and in-memory infrastructure.
 
 ## Adding a variant

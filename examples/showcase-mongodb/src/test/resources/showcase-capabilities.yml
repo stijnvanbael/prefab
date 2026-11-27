@@ -5,6 +5,3 @@
 # shares the gap of the in-memory test backend.
 variant: showcase-mongodb
 unsupported:
-  SCHEMA_REGISTRY_API:
-    reason: Avro events use the mock schema registry in memory, which has no HTTP endpoint to list subjects
-    task: TASK-375

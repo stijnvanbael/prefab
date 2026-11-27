@@ -1,7 +1,7 @@
 ---
 id: TASK-375
 title: Inspect registered Avro schemas in memory
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-24 09:30'
 labels:
@@ -28,13 +28,21 @@ capability from the in-memory variant.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A test helper lists the registered Avro subjects in both modes
-- [ ] #2 The two showcase tests use it, and `SCHEMA_REGISTRY_API` is removed from `Capability` and the variants
+- [x] #1 A test helper lists the registered Avro subjects in both modes
+- [x] #2 The two showcase tests use it, and `SCHEMA_REGISTRY_API` is removed from `Capability` and the variants
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 All acceptance criteria are tested
-- [ ] #2 The build is green
-- [ ] #3 Code is clean (refactored)
+- [x] #1 All acceptance criteria are tested
+- [x] #2 The build is green
+- [x] #3 Code is clean (refactored)
+
+## Implementation notes
+
+- Added the shared `SchemaRegistrySubjects` test helper, using Confluent's mock client for the in-memory
+  `schema-url` scope and `CachedSchemaRegistryClient` for container-backed HTTP registries.
+- Updated the payment and shipment schema-registration tests to run in both modes.
+- Removed `SCHEMA_REGISTRY_API` and its in-memory capability gaps; updated the coverage matrix documentation.
+- Verified with `mvn -pl examples/showcase,examples/showcase-inmemory -am -DskipTests test-compile`.
 <!-- DOD:END -->

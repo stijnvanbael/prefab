@@ -1,20 +1,15 @@
 package be.appify.prefab.example.showcase.payment;
 
 import be.appify.prefab.example.showcase.payment.infrastructure.http.ReceiptResponse;
-import be.appify.prefab.example.showcase.capability.RequiresCapability;
+import be.appify.prefab.example.showcase.support.SchemaRegistrySubjects;
 import be.appify.prefab.test.IntegrationTest;
 import java.math.BigDecimal;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.data.domain.Pageable;
 
-import static be.appify.prefab.example.showcase.capability.Capability.SCHEMA_REGISTRY_API;
 import static java.time.Duration.ofSeconds;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -30,9 +25,8 @@ class PaymentIntegrationTest {
     PaymentClient payments;
     @Autowired
     ReceiptClient receipts;
-    // Only configured when a real registry runs: not in memory
-    @Value("${spring.kafka.producer.properties.schema.registry.url:}")
-    String schemaRegistryUrl;
+    @Autowired
+    KafkaProperties kafkaProperties;
 
     @Test
     void createPayment_publishesAnAvroEventThatIsConsumedAndDecoded() throws Exception {
@@ -45,16 +39,13 @@ class PaymentIntegrationTest {
     }
 
     @Test
-    @RequiresCapability(SCHEMA_REGISTRY_API)
     void createPayment_registersTheEventSchemaInTheSchemaRegistry() throws Exception {
         var paymentId = payments.createPayment(invoiceId(), BigDecimal.TEN, PaymentMethod.CASH);
         receiptOf(paymentId);
 
-        var subjects = HttpClient.newHttpClient().send(
-                HttpRequest.newBuilder(URI.create(schemaRegistryUrl + "/subjects")).build(),
-                HttpResponse.BodyHandlers.ofString()).body();
-
-        assertThat(subjects).as("schema registry subjects").containsIgnoringCase("showcase.payment");
+        assertThat(SchemaRegistrySubjects.list(kafkaProperties))
+                .as("schema registry subjects")
+                .contains("showcase.payment");
     }
 
     @Test

@@ -106,6 +106,60 @@ class AvscIncrementalCompilationTest {
         assertThat(manifest).exists();
     }
 
+    @Test
+    void avscGeneratedEventAggregateWritesTestClientToPrefabTestSources() throws IOException {
+        var schema = classes.resolve("avro/order-created.avsc");
+        Files.createDirectories(schema.getParent());
+        Files.writeString(schema, """
+                {
+                  "type": "record",
+                  "name": "OrderCreated",
+                  "namespace": "shop",
+                  "fields": [
+                    {"name": "orderId", "type": "string"}
+                  ]
+                }
+                """);
+        var event = writeSource("shop/OrderEvent.java", """
+                package shop;
+
+                import be.appify.prefab.core.annotations.Avsc;
+                import be.appify.prefab.core.annotations.Event;
+
+                @Event(topic = "orders.created", serialization = Event.Serialization.AVRO)
+                @Avsc("avro/order-created.avsc")
+                public interface OrderEvent {
+                }
+                """);
+        var aggregate = writeSource("shop/Order.java", """
+                package shop;
+
+                import be.appify.prefab.core.annotations.Aggregate;
+                import be.appify.prefab.core.annotations.rest.GetById;
+                import be.appify.prefab.core.service.Reference;
+                import jakarta.validation.constraints.NotNull;
+                import org.springframework.data.annotation.Id;
+                import org.springframework.data.annotation.Version;
+
+                @Aggregate
+                @GetById
+                public record Order(
+                        @Id Reference<Order> id,
+                        @Version long version,
+                        @NotNull String description,
+                        OrderCreated lastEvent
+                ) {
+                }
+                """);
+
+        compile(event, aggregate);
+
+        assertThat(module.resolve("target/prefab-test-sources/shop/OrderClient.java"))
+                .exists();
+        assertThat(classes.resolve("shop/OrderClient.java"))
+                .doesNotExist();
+    }
+
     private static String schema(String field) {
         return """
                 {

@@ -60,7 +60,7 @@ Related: TASK-148 AC #5 (extract compilable snippets from examples), TASK-337 (s
 - Acceptance criteria #1-#5 are implemented. Criterion #6 remains blocked: the configured environment has no
   Claude Code CLI or Anthropic API key, so no benchmark runs or results were produced. Do not treat the existing
   cheat-sheet/full-docs baselines as a recipes comparison.
-- Direction change (2026-11-25): the initial baseline model is a local Qwen (pluggable model profiles, TASK-391) because
+- Direction change (2026-11-25): the initial baseline model is a local Qwen (pluggable model profiles, TASK-402) because
   Haiku runs exhaust the token budget. AC #6 is recorded through TASK-392; Haiku follows in TASK-389.
 - AC #6 recorded through TASK-392 (2026-11-26) on the local baseline model Qwen 3.8 27B: `recipes` 6/6, median 33
   turns, 5 builds, 5m30s, 3.2M input tokens, against `cheat-sheet` 6/6, 31 turns, 5 builds, 8m32s, 5.0M and
@@ -76,5 +76,5 @@ Related: TASK-148 AC #5 (extract compilable snippets from examples), TASK-337 (s
 - [x] #3 Every code example in a recipe is compiled (and where relevant tested) by the build, so a breaking API change fails the build instead of leaving an outdated recipe
 - [x] #4 An index maps intents to recipes so an agent can pick the right one without reading the others
 - [x] #5 Recipes use only the current recommended API; deprecated annotations and attributes do not appear
-- [x] #6 Benchmark results from TASK-343 are recorded for the baseline model (local Qwen, TASK-391 and TASK-392) with cheat sheet plus recipes, compared to cheat sheet alone and to the full docs; Haiku runs follow in TASK-389
+- [x] #6 Benchmark results from TASK-343 are recorded for the baseline model (local Qwen, TASK-402 and TASK-392) with cheat sheet plus recipes, compared to cheat sheet alone and to the full docs; Haiku runs follow in TASK-389
 <!-- AC:END -->

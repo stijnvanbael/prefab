@@ -25,7 +25,7 @@ TASK-377 added 8 feature and 6 brownfield benchmark tasks and validated them wit
 record model runs: the cloud session it was built in may not start nested Claude Code sessions. Without baselines we
 do not know whether the new tiers separate the documentation setups the way the saturated quick tier no longer does.
 
-The initial baseline now runs on a local Qwen (TASK-391, TASK-392) to save tokens. This task is the hosted-model
+The initial baseline now runs on a local Qwen (TASK-402, TASK-392) to save tokens. This task is the hosted-model
 follow-up and stays small on purpose. Record, with an API key and Docker, `--repeat 3`:
 
 - Haiku 5.5 (`--profile haiku`) on the `brownfield` tier, with `full-docs` and `docs-folder`;

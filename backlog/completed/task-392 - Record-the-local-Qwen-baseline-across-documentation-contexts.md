@@ -9,7 +9,7 @@ labels:
   - testing
   - documentation
 dependencies:
-  - TASK-391
+  - TASK-402
 references:
   - backlog/docs/benchmark.md
 priority: high
@@ -20,7 +20,7 @@ ordinal: 217000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Record the initial benchmark baseline with the `qwen-local` profile (TASK-391) instead of Haiku, so documentation
+Record the initial benchmark baseline with the `qwen-local` profile (TASK-402) instead of Haiku, so documentation
 setups can be compared without spending API tokens. This closes the model-run criteria of TASK-346 (#6, recipes) and
 TASK-382 (#7, local-run). Compare setups on the same model; do not compare pass rates between models.
 

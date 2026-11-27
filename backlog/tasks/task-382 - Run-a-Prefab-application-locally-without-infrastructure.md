@@ -75,7 +75,7 @@ runner and credentials are available in this environment.
 - Documented the `spring-boot:test-run` workflow, local authentication, optional test-only seed profile, and live HTTP verification in the getting-started guide, feature guide, recipe, agent cheat sheet, generated agent context, and benchmark context.
 - Verification passed: `mvn -f examples/showcase-inmemory/pom.xml -Dtest=LocalApplicationSmokeTest test` (1 test); `mvn -pl benchmark "-Dtest=RecipeDocumentationTest,WorkspaceFactoryTest" test` (5 tests); targeted `AgentContextPluginTest` (1 test); and `git diff --check`. A live `spring-boot:test-run` with `local,local-demo` also started and logged the base URL and in-memory backends.
 - AC #7 remains open. The `local-run` benchmark context is discoverable, but the benchmark agent CLI (`claude`) is unavailable here, so no comparable model run or turns/builds/pass-rate result can be recorded. The existing cheat-sheet baseline is not a like-for-like comparison.
-- Direction change (2026-11-25): AC #7 is recorded on the local Qwen baseline (TASK-391, TASK-392) rather than Haiku.
+- Direction change (2026-11-25): AC #7 is recorded on the local Qwen baseline (TASK-402, TASK-392) rather than Haiku.
 - AC #7 recorded through TASK-392 (2026-11-26) on the local baseline model Qwen 3.8 27B: `local-run` 6/6, median 31
   turns, 4 builds, 7m53s, against `cheat-sheet` 6/6, 31 turns, 5 builds, 8m32s (6 quick tasks, one attempt each).
   Same pass rate and turns; starting the app cost time on `rest-create-and-get` and `events-publish-on-create` and

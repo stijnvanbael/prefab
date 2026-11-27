@@ -1,7 +1,7 @@
 ---
 id: TASK-369
 title: Do not apply the single AVSC file to events that are not defined by it
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-23 17:00'
 labels:
@@ -26,6 +26,12 @@ Restrict the fallback to events that really belong to the AVSC (nested in or imp
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A code-first Avro event in a module with one AVSC file keeps the namespace of its own package
-- [ ] #2 A processor test covers the mixed case
+- [x] #1 A code-first Avro event in a module with one AVSC file keeps the namespace of its own package
+- [x] #2 A processor test covers the mixed case
 <!-- AC:END -->
+
+## Implementation Notes
+
+`EventSchemaFactoryWriter.findAvscPath()` now applies the single-file fallback only to types related to an `@Avsc` contract (an implementation or a type nested in/under that contract). Added a mixed compile regression test proving an unrelated code-first event keeps its Java package as the Avro namespace. Updated the Avro guide, cheat sheet, publishing recipe, and the Avro publish-and-handle benchmark to cover the mixed case.
+
+Verification: `mvn -pl avro-processor -am test` and `mvn -pl benchmark -am "-Dtest=RecipeDocumentationTest,WorkspaceFactoryTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` both passed.

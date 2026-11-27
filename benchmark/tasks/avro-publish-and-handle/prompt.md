@@ -7,3 +7,7 @@ with `POST /sales/{id}/pay`. The company's event platform requires Avro (with th
 - The cash register of the sale handles that event and adds the amount to its `cashInDrawer`.
 
 `GET /cash-registers/{id}` shows `cashInDrawer`.
+
+The application also contains an unrelated shipment event contract defined by AVSC in
+`com.example.shipping`. Keep `SalePaid` code-first and ensure its Avro namespace remains `com.example.retail`;
+the shipment schema must not supply the namespace for this event.

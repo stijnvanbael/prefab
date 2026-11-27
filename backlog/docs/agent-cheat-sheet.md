@@ -106,6 +106,7 @@ Setup: `@EnablePrefab` on the `@SpringBootApplication` class. Add only the modul
 | Reject invalid input | Jakarta validation (`@NotBlank`, `@NotNull`, `@Size`, …) on the `@Create` constructor / `@Update` method parameters; on record components it is not applied |
 | Reference another aggregate | `Reference<Other>` field, never a JPA relation |
 | Publish an event | `@Event(topic = "…")` record + `private static final EventPublisher<E> P = EventPublisher.bind(E.class)`, then `P.publish(event)` in a constructor or update method |
+| Set a code-first Avro namespace | Defaults to the Java package; use `@AvroSchema(namespace = "…")` to override |
 | React to an event: create an aggregate | `@EventHandler public static Agg on(Event e)` |
 | React to an event: update one aggregate | `@EventHandler @ByReference(property = "ref")` instance method |
 | React to an event: update many aggregates | `@EventHandler @Multicast(queryMethod = "findByX", parameters = "x")` + `@RepositoryMixin` with `findByX`; set `failWhenEmpty = false` when no matches is normal (default fails/retries) |

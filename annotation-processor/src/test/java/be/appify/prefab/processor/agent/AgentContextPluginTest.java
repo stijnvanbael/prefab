@@ -113,7 +113,8 @@ class AgentContextPluginTest {
 
     private static Path copyTo(Path directory, JavaFileObject source) {
         try {
-            var name = Path.of(source.toUri().getPath()).getFileName().toString();
+            var uriPath = source.toUri().getPath();
+            var name = uriPath.substring(uriPath.lastIndexOf('/') + 1);
             var target = directory.resolve(name);
             Files.writeString(target, source.getCharContent(true));
             return target;

@@ -291,6 +291,17 @@ class SqlStatementParserTest {
     }
 
     @Test
+    void unsupportedStatementIsClassifiedAndPreservesItsCause() {
+        var error = assertThrows(
+                MigrationSqlException.class,
+                () -> new SqlStatementParser().parse(
+                        "CREATE VIEW chapter_view AS SELECT id FROM chapter;", new HashMap<>()));
+
+        assertEquals(MigrationSqlException.Kind.UNSUPPORTED_SQL, error.kind());
+        assertNotNull(error.getCause());
+    }
+
+    @Test
     void guardedDropsAndAltersOfMissingTablesAreNoOps() {
         var tables = new HashMap<String, Table>();
         new SqlStatementParser().parse(
@@ -306,6 +317,8 @@ class SqlStatementParserTest {
         var error = assertThrows(
                 MigrationSqlException.class,
                 () -> new SqlStatementParser().parse(sql, new HashMap<>()));
+        assertEquals(MigrationSqlException.Kind.REPLAY_STATE, error.kind());
+        assertNotNull(error.getCause());
         var statements = sql.strip().split(";");
         var offendingStatement = statements[statements.length - 1].isBlank()
                 ? statements[statements.length - 2].trim()

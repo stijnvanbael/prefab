@@ -1,7 +1,7 @@
 ---
 id: TASK-394
 title: Give actionable diagnostics for migration replay failures
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-26 11:31'
 labels:
@@ -46,9 +46,16 @@ arbitrary exception message text.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 For a supported `ALTER TABLE` whose target is absent from replayed history, the compiler diagnostic identifies the migration, statement, table and missing prerequisite, and suggests checking earlier migrations and their order without asserting an unproven cause.
-- [ ] #2 Supported statements that fail other replay-state checks receive a relevant explanation rather than a blanket unsupported-SQL suggestion; genuinely unparseable or unsupported SQL retains distinct, actionable guidance.
-- [ ] #3 Diagnostics preserve the original cause and do not recommend renaming or moving a migration outside Flyway's versioned naming convention as a generic remedy.
-- [ ] #4 Automated processor tests cover the reported missing-table case, a different invalid replay transition, and a genuinely unsupported or unparseable statement, alongside a valid ordered migration history.
-- [ ] #5 Update the database migration troubleshooting guidance to reflect the resulting diagnostic categories and safe remedies.
+- [x] #1 For a supported `ALTER TABLE` whose target is absent from replayed history, the compiler diagnostic identifies the migration, statement, table and missing prerequisite, and suggests checking earlier migrations and their order without asserting an unproven cause.
+- [x] #2 Supported statements that fail other replay-state checks receive a relevant explanation rather than a blanket unsupported-SQL suggestion; genuinely unparseable or unsupported SQL retains distinct, actionable guidance.
+- [x] #3 Diagnostics preserve the original cause and do not recommend renaming or moving a migration outside Flyway's versioned naming convention as a generic remedy.
+- [x] #4 Automated processor tests cover the reported missing-table case, a different invalid replay transition, and a genuinely unsupported or unparseable statement, alongside a valid ordered migration history.
+- [x] #5 Update the database migration troubleshooting guidance to reflect the resulting diagnostic categories and safe remedies.
 <!-- AC:END -->
+
+## Implementation Notes
+
+- Classified replay-state violations separately from SQL parse/model failures using typed migration exceptions.
+- Replay diagnostics now identify the migration and statement and direct users to verify prerequisites and version order; unsupported SQL has separate parser/model guidance. Both retain their cause chain.
+- Added processor coverage for a missing-table `ALTER TABLE`, a duplicate-column transition, unsupported `CREATE VIEW`, and a valid ordered history; documented the diagnostic categories in the migration guide and troubleshooting guide.
+- Verified with `mvn -pl annotation-processor -am -Dtest=DbMigrationWriterTest,SqlStatementParserTest -Dsurefire.failIfNoSpecifiedTests=false test` (84 tests passed), followed by the parser suite after adding the cause-chain assertion (17 tests passed).

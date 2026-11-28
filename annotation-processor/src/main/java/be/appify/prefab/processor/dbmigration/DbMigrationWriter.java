@@ -251,12 +251,18 @@ class DbMigrationWriter {
                     "cannot read database migration %s: %s".formatted(file, e.getMessage()),
                     "check that the file is readable and valid UTF-8", e);
         } catch (MigrationSqlException e) {
-            throw new PrefabProcessingException(null, "Prefab",
-                    "cannot interpret database migration %s: %s".formatted(file, e.getMessage()),
-                    "fix the SQL in this migration so it only uses statements Prefab understands (CREATE TABLE,"
-                            + " ALTER TABLE on existing tables, CREATE/DROP INDEX, DROP TABLE), or move hand-written"
-                            + " SQL to a migration file that does not follow the V<n>__*.sql naming scheme",
-                    e);
+            var replayStateFailure = e.kind() == MigrationSqlException.Kind.REPLAY_STATE;
+            var message = replayStateFailure
+                    ? "cannot replay database migration %s: %s".formatted(file, e.getMessage())
+                    : "cannot interpret database migration %s: %s".formatted(file, e.getMessage());
+            var suggestedFix = replayStateFailure
+                    ? "check that required tables, columns, indexes, or constraints are created by earlier"
+                            + " versioned migrations and that the migration files are ordered as intended; then"
+                            + " make the statement valid for the replayed schema state"
+                    : "use SQL that Prefab can parse and model for schema replay (CREATE TABLE, ALTER TABLE,"
+                            + " CREATE/DROP INDEX, DROP TABLE), or keep schema-changing SQL within the documented"
+                            + " migration parser support";
+            throw new PrefabProcessingException(null, "Prefab", message, suggestedFix, e);
         }
     }
 

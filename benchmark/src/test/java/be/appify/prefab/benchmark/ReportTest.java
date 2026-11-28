@@ -3,8 +3,11 @@ package be.appify.prefab.benchmark;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,6 +40,25 @@ class ReportTest {
                 .contains("| DOC_GAP | 1 |")
                 .contains("### rest-b#1")
                 .contains("$0.50");
+    }
+
+    @Test
+    @ResourceLock(Resources.LOCALE)
+    void markdownFormattingIsIndependentOfDefaultLocale() {
+        var originalLocale = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("nl-BE"));
+
+            var markdown = MarkdownReport.render(report);
+
+            assertThat(markdown)
+                    .contains("| Cost | $0.50 |")
+                    .contains("| Tokens (input incl. cache / output) | 2,300 / 40 |")
+                    .contains("1,150 / 20")
+                    .contains("50% (95% CI 9-91%)");
+        } finally {
+            Locale.setDefault(originalLocale);
+        }
     }
 
     @Test

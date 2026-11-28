@@ -44,6 +44,13 @@ unsupported-SQL explanation and suggested fix. Classify failures using their act
 arbitrary exception message text.
 <!-- SECTION:ANALYSIS:END -->
 
+### CI follow-up
+
+CI exposed an existing assertion in `ProcessorFailureDiagnosticsTest` that still expects `cannot interpret database
+migration` for a supported invalid transition. Update that assertion to require the replay-state category,
+prerequisite/order guidance, and retained statement/cause context, while rejecting the unsupported-SQL category.
+Run the diagnostic suite together with the migration writer and parser suites.
+
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 For a supported `ALTER TABLE` whose target is absent from replayed history, the compiler diagnostic identifies the migration, statement, table and missing prerequisite, and suggests checking earlier migrations and their order without asserting an unproven cause.
@@ -59,3 +66,4 @@ arbitrary exception message text.
 - Replay diagnostics now identify the migration and statement and direct users to verify prerequisites and version order; unsupported SQL has separate parser/model guidance. Both retain their cause chain.
 - Added processor coverage for a missing-table `ALTER TABLE`, a duplicate-column transition, unsupported `CREATE VIEW`, and a valid ordered history; documented the diagnostic categories in the migration guide and troubleshooting guide.
 - Verified with `mvn -pl annotation-processor -am -Dtest=DbMigrationWriterTest,SqlStatementParserTest -Dsurefire.failIfNoSpecifiedTests=false test` (84 tests passed), followed by the parser suite after adding the cause-chain assertion (17 tests passed).
+- CI follow-up: corrected the stale replay-category assertion in `ProcessorFailureDiagnosticsTest` and strengthened its checks for statement, cause, and prerequisite/order guidance. The diagnostic, migration writer, and parser suites pass together (107 tests); no production behavior changed.

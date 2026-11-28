@@ -956,13 +956,109 @@ class DbMigrationWriterTest {
         Truth.assertThat(deltaMigration).doesNotContain("CREATE TABLE \"product\"");
     }
 
+    @Test
+    void missingTableInReplayedStateHasActionableMigrationDiagnostic() throws IOException {
+        var classpath = classpathWithMigrations(
+                "V1__baseline.sql", "",
+                "V2__generated.sql", """
+                        ALTER TABLE "customer_order_history_entry"
+                            ADD CONSTRAINT customer_order_history_entry_fk
+                            FOREIGN KEY (customer_order_history) REFERENCES customer_order_history (id);
+                        """);
+
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .withOptions(classpathOptionsWith(classpath))
+                .compile(sourceOf("dbmigration/indexed/source/Product.java"));
+
+        assertThat(compilation).hadErrorContaining("cannot replay database migration");
+        assertThat(compilation).hadErrorContaining("V2__generated.sql");
+        assertThat(compilation).hadErrorContaining("ALTER TABLE \"customer_order_history_entry\"");
+        assertThat(compilation).hadErrorContaining("customer_order_history_entry");
+        assertThat(compilation).hadErrorContaining("not present in the replayed migration state");
+        assertThat(compilation).hadErrorContaining("earlier versioned migrations");
+        assertThat(compilation).hadErrorContaining("ordered as intended");
+        assertThat(compilation).hadErrorContaining("Suggested fix:");
+        Truth.assertThat(compilation.errors().toString()).doesNotContain("cannot interpret database migration");
+        Truth.assertThat(compilation.errors().toString()).doesNotContain("move hand-written SQL");
+    }
+
+    @Test
+    void invalidReplayTransitionHasStateSpecificDiagnostic() throws IOException {
+        var classpath = classpathWithMigrations(
+                "V1__baseline.sql", """
+                        CREATE TABLE product (id VARCHAR(255));
+                        ALTER TABLE product ADD COLUMN id VARCHAR(255);
+                        """);
+
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .withOptions(classpathOptionsWith(classpath))
+                .compile(sourceOf("dbmigration/indexed/source/Product.java"));
+
+        assertThat(compilation).hadErrorContaining("cannot replay database migration");
+        assertThat(compilation).hadErrorContaining(
+                "Cannot add column id to table product: it already exists");
+        Truth.assertThat(compilation.errors().toString()).doesNotContain("cannot interpret database migration");
+        Truth.assertThat(compilation.errors().toString()).doesNotContain("Suggested fix: use SQL");
+    }
+
+    @Test
+    void unsupportedSchemaStatementHasDistinctDiagnostic() throws IOException {
+        var classpath = classpathWithMigrations(
+                "V1__baseline.sql", "CREATE VIEW product_view AS SELECT id FROM product;");
+
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .withOptions(classpathOptionsWith(classpath))
+                .compile(sourceOf("dbmigration/indexed/source/Product.java"));
+
+        assertThat(compilation).hadErrorContaining("cannot interpret database migration");
+        assertThat(compilation).hadErrorContaining("CREATE VIEW product_view AS SELECT id FROM product");
+        assertThat(compilation).hadErrorContaining("Prefab cannot model schema statement of type");
+        assertThat(compilation).hadErrorContaining("use SQL that Prefab can parse and model");
+        Truth.assertThat(compilation.errors().toString()).doesNotContain("cannot replay database migration");
+        Truth.assertThat(compilation.errors().toString()).doesNotContain("move hand-written SQL");
+    }
+
+    @Test
+    void orderedMigrationsReplaySuccessfully() throws IOException {
+        var classpath = classpathWithMigrations(
+                "V1__initial_schema.sql", """
+                        CREATE TABLE customer_order_history (id VARCHAR(255) PRIMARY KEY);
+                        CREATE TABLE customer_order_history_entry (
+                            id VARCHAR(255),
+                            customer_order_history VARCHAR(255)
+                        );
+                        """,
+                "V2__add_history_reference.sql", """
+                        ALTER TABLE customer_order_history_entry
+                            ADD CONSTRAINT customer_order_history_entry_fk
+                            FOREIGN KEY (customer_order_history) REFERENCES customer_order_history (id);
+                        """);
+
+        var compilation = javac()
+                .withProcessors(new PrefabProcessor())
+                .withOptions(classpathOptionsWith(classpath))
+                .compile(sourceOf("dbmigration/indexed/source/Product.java"));
+
+        assertThat(compilation).succeeded();
+    }
+
     private static Path classpathWithMigration(String migrationName, String migrationSql) throws IOException {
+        var versionPrefix = migrationName.substring(0, migrationName.indexOf("__"));
+        return classpathWithMigrations(versionPrefix + "__baseline.sql", "", migrationName, migrationSql);
+    }
+
+    private static Path classpathWithMigrations(String... migrationNamesAndSql) throws IOException {
         var classpathDirectory = Files.createTempDirectory("prefab-db-migration-classpath");
         var migrationDirectory = classpathDirectory.resolve(Path.of("db", "migration"));
         Files.createDirectories(migrationDirectory);
-        var versionPrefix = migrationName.substring(0, migrationName.indexOf("__"));
-        Files.writeString(migrationDirectory.resolve(versionPrefix + "__baseline.sql"), "");
-        Files.writeString(migrationDirectory.resolve(migrationName), migrationSql);
+        for (var index = 0; index < migrationNamesAndSql.length; index += 2) {
+            Files.writeString(
+                    migrationDirectory.resolve(migrationNamesAndSql[index]),
+                    migrationNamesAndSql[index + 1]);
+        }
         return classpathDirectory;
     }
 

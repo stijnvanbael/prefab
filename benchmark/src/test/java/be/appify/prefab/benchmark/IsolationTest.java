@@ -17,22 +17,30 @@ import static org.assertj.core.api.Assertions.assertThat;
 class IsolationTest {
 
     @Test
-    void wrapsTheCommandInAPrivateMountNamespace() {
-        var isolation = new Isolation.MountNamespace(List.of(Path.of("/repo"), Path.of("/work")));
+    void wrapsTheCommandInAPrivateMountNamespace(@TempDir Path temporaryDirectory) {
+        var repository = temporaryDirectory.resolve("repo");
+        var work = temporaryDirectory.resolve("work");
+        var workspace = work.resolve("run/task/project");
+        var stage = temporaryDirectory.resolve("stage");
+        var isolation = new Isolation.MountNamespace(List.of(repository, work));
 
-        var command = isolation.wrap(List.of("claude", "-p", "hi"), Path.of("/work/run/task/project"), Path.of("/tmp/stage"));
+        var command = isolation.wrap(List.of("claude", "-p", "hi"), workspace, stage);
 
         assertThat(command).startsWith("unshare", "--mount", "--propagation", "private", "--", "sh", "-c");
         assertThat(command.subList(8, command.size()))
-                .containsExactly("isolate", "/work/run/task/project", "/tmp/stage", "/repo", "/work", "--",
-                        "claude", "-p", "hi");
-        assertThat(isolation.agentArguments(Path.of("/w"), Path.of("/t"))).isEmpty();
+                .containsExactly("isolate", workspace.toAbsolutePath().normalize().toString(),
+                        stage.toAbsolutePath().normalize().toString(),
+                        repository.toAbsolutePath().normalize().toString(), work.toAbsolutePath().normalize().toString(),
+                        "--", "claude", "-p", "hi");
+        assertThat(isolation.agentArguments(workspace, stage)).isEmpty();
     }
 
     @Test
-    void leavesTheCommandAloneWhenDisabled() {
-        assertThat(Isolation.none().wrap(List.of("claude"), Path.of("/w"), Path.of("/s"))).containsExactly("claude");
-        assertThat(Isolation.none().agentArguments(Path.of("/w"), Path.of("/t"))).isEmpty();
+    void leavesTheCommandAloneWhenDisabled(@TempDir Path temporaryDirectory) {
+        var workspace = temporaryDirectory.resolve("workspace");
+        var stage = temporaryDirectory.resolve("stage");
+        assertThat(Isolation.none().wrap(List.of("claude"), workspace, stage)).containsExactly("claude");
+        assertThat(Isolation.none().agentArguments(workspace, stage)).isEmpty();
         assertThat(Isolation.none().enabled()).isFalse();
     }
 
@@ -96,19 +104,22 @@ class IsolationTest {
 
         @Test
         void deniesBothSpellingsOfLinkedSystemFolders() throws IOException {
-            var linked = Path.of("/tmp").toRealPath();
-            if (!linked.toString().startsWith("/private")) {
+            var hidden = Files.createDirectory(root.resolve("linked-system-folder"));
+            var realPath = hidden.toRealPath().toString();
+            if (!realPath.startsWith("/private/")) {
                 return;
             }
-            var hidden = Files.createTempDirectory(Path.of("/tmp"), "isolation-test-");
-            try {
-                var rules = strings(settings(List.of(hidden)).at("/permissions/deny"));
-
-                assertThat(rules).contains("Read(//private/tmp/" + hidden.getFileName() + "/**)",
-                        "Read(//tmp/" + hidden.getFileName() + "/**)");
-            } finally {
-                Files.delete(hidden);
+            var linkedRoot = List.of("/var/", "/tmp/", "/etc/").stream()
+                    .filter(root -> realPath.startsWith("/private" + root))
+                    .findFirst();
+            if (linkedRoot.isEmpty()) {
+                return;
             }
+
+            var rules = strings(settings(List.of(hidden)).at("/permissions/deny"));
+            var alternatePath = realPath.substring("/private".length());
+
+            assertThat(rules).contains("Read(/" + realPath + "/**)", "Read(/" + alternatePath + "/**)");
         }
 
         @Test

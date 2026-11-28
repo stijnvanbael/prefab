@@ -78,6 +78,22 @@ Generated subscribers create one subscription per topic, named
 so the topic is part of the name. This also holds for topics that are `${...}` placeholders or `#{...}`
 SpEL expressions resolving to several topics: every resolved topic gets its own subscription.
 
+### Message processing
+
+A received message is processed on the subscription's executor. On consumer success it is acknowledged once; on
+failure the retry policy is applied, then the message is negatively acknowledged for redelivery and, after the
+configured attempts, dead-lettering (see retry/dead-letter properties above). Nothing is rethrown on the subscriber
+thread and a poison message can neither terminate nor starve the subscriber; a consumer is never re-invoked after it
+has succeeded. Missing projections keep this fail-and-retry behavior — they are not silently dropped.
+
+### Test isolation
+
+On real Pub/Sub infrastructure (`prefab.test.containers=true`), `prefab-test`'s `PubSubTestExecutionListener`
+runs before persistence cleanup before every test: it stops delivery, lets in-flight messages settle, discards any
+unprocessed backlog, and recreates every subscription empty and re-subscribed. Events from earlier tests cannot leak
+into later ones once their targets have been removed; production retry and dead-letter policy is unchanged. No-op in
+in-memory mode. (`PubSubUtil.resetSubscriptions()` performs the reset.)
+
 **Migrating from 0.11.9 and earlier:** subscriptions used to be named `{handler-class}-on-{event-type}`,
 without the topic. After upgrading, the new subscriptions are created on startup. They only receive messages
 published after they exist; anything still unacknowledged on an old subscription stays there. To avoid losing

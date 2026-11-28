@@ -14,12 +14,15 @@ import com.google.pubsub.v1.RetryPolicy;
 import com.google.pubsub.v1.Subscription;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
-import org.springframework.core.retry.RetryException;
 import org.springframework.core.retry.RetryTemplate;
 import org.springframework.stereotype.Component;
 
@@ -47,6 +50,8 @@ public class PubSubUtil implements PubSubSubscriptions {
     private final EventRegistry eventRegistry;
     private final String deadLetterTopicName;
     private final RetryTemplate retryTemplate;
+    private final List<ActiveSubscription> activeSubscriptions = new CopyOnWriteArrayList<>();
+    private final AtomicInteger inFlightMessages = new AtomicInteger();
 
     /**
      * Constructs a new PubSubUtil.
@@ -120,13 +125,59 @@ public class PubSubUtil implements PubSubSubscriptions {
      */
     public <T> Subscriber subscribeWithHandle(SubscriptionRequest<T> request) {
         var topicName = ensureTopicExists(request.topic());
-        var subscriptionName = ensureSubscriptionExists(
-                request.subscription(),
-                topicName,
-                request.isUsingDefaultDeadLetterPolicy() ? deadLetterPolicy(deadLetterTopicName) : request.deadLetterPolicy()
-        );
-        return subscriberTemplate.subscribe(subscriptionName, message ->
-                request.executor().execute(() -> consume(request, message)));
+        var deadLetterPolicy =
+                request.isUsingDefaultDeadLetterPolicy() ? deadLetterPolicy(deadLetterTopicName) : request.deadLetterPolicy();
+        var subscriptionName = ensureSubscriptionExists(request.subscription(), topicName, deadLetterPolicy);
+        return doSubscribe(request, subscriptionName);
+    }
+
+    private <T> Subscriber doSubscribe(SubscriptionRequest<T> request, String subscriptionName) {
+        var subscriber = subscriberTemplate.subscribe(subscriptionName, message -> dispatch(request, message));
+        activeSubscriptions.add(new ActiveSubscription(request, request.subscription(), new AtomicReference<>(subscriber)));
+        return subscriber;
+    }
+
+    /**
+     * Hands a received message to the subscription's executor. A message can never be lost or terminate the
+     * subscriber: if it cannot be handed off, it is negatively acknowledged and nothing is rethrown.
+     */
+    private <T> void dispatch(SubscriptionRequest<T> request, BasicAcknowledgeablePubsubMessage message) {
+        inFlightMessages.incrementAndGet();
+        try {
+            request.executor().execute(() -> {
+                try {
+                    consume(request, message);
+                } finally {
+                    inFlightMessages.decrementAndGet();
+                }
+            });
+        } catch (Throwable e) {
+            inFlightMessages.decrementAndGet();
+            log.warn("Could not hand off Pub/Sub message for processing: {}", message.getPubsubMessage(), e);
+            nackQuietly(message);
+        }
+    }
+
+    /**
+     * Resets every active subscription for test isolation: stops delivery, waits for in-flight messages to settle,
+     * discards any unprocessed backlog, and recreates the subscription empty and re-subscribed.
+     * <p>
+     * Production processing semantics are unchanged; this only drops messages that were never delivered yet, so
+     * events published by earlier tests cannot leak into later ones once their targets have been removed.
+     */
+    public void resetSubscriptions() {
+        var snapshot = List.copyOf(activeSubscriptions);
+        snapshot.forEach(active -> stopQuietly(active.subscriber().get()));
+        awaitQuiescent();
+        activeSubscriptions.clear();
+        for (var active : snapshot) {
+            try {
+                deleteSubscription(active.subscription());
+                subscribeWithHandle(active.request());
+            } catch (Throwable e) {
+                log.warn("Could not reset Pub/Sub subscription [{}]: {}", active.subscription(), e.getMessage(), e);
+            }
+        }
     }
 
     /**
@@ -243,17 +294,23 @@ public class PubSubUtil implements PubSubSubscriptions {
         }
     }
 
+    /**
+     * Processes one message. Consumer success is acknowledged exactly once, outside the retryable, so a successful
+     * consumer is never invoked again. Any failure after the retry policy is exhausted hands the message back to
+     * Pub/Sub with a negative acknowledgement: it is redelivered and, after the configured number of attempts,
+     * routed to the dead-letter topic. Nothing is rethrown; a poison message can never terminate or starve the
+     * subscriber. Genuinely missing projections therefore keep their fail-and-retry-and-dead-letter behavior.
+     */
     private <T> void consume(SubscriptionRequest<T> request, BasicAcknowledgeablePubsubMessage message) {
+        var pubsubMessage = message.getPubsubMessage();
         try {
             request.retryTemplate().orElse(this.retryTemplate).execute(() -> {
-                var pubsubMessage = message.getPubsubMessage();
                 try {
                     if (request.rawConsumer().isPresent()) {
                         request.rawConsumer().orElseThrow().accept(pubsubMessage);
                     } else {
                         decoder.decode(request, pubsubMessage).ifPresent(request.consumer());
                     }
-                    message.ack();
                 } catch (Exception e) {
                     log.warn("Error processing Pub/Sub message: {}, cause: {}", truncate(pubsubMessage.getData().toStringUtf8(), 200),
                             e.getCause() != null ? e.getCause().getMessage() : e.getMessage(), e);
@@ -261,13 +318,60 @@ public class PubSubUtil implements PubSubSubscriptions {
                 }
                 return null;
             });
-        } catch (RetryException e) {
-            message.nack();
+            ackQuietly(message);
+        } catch (Throwable e) {
             // Not rethrown: the listener runs on an executor, so nobody can handle the exception. The nack hands the
             // message back to Pub/Sub, which redelivers it or routes it to the dead-letter topic.
             log.error("Retries exhausted when processing Pub/Sub message: {}", message, e);
+            nackQuietly(message);
         }
     }
+
+    private static void ackQuietly(BasicAcknowledgeablePubsubMessage message) {
+        try {
+            message.ack();
+        } catch (Throwable e) {
+            log.warn("Could not acknowledge Pub/Sub message: {}", message.getPubsubMessage(), e);
+        }
+    }
+
+    private static void nackQuietly(BasicAcknowledgeablePubsubMessage message) {
+        try {
+            message.nack();
+        } catch (Throwable e) {
+            log.warn("Could not negatively acknowledge Pub/Sub message: {}", message.getPubsubMessage(), e);
+        }
+    }
+
+    private static void stopQuietly(Subscriber subscriber) {
+        if (subscriber == null) {
+            return;
+        }
+        try {
+            subscriber.stopAsync();
+            subscriber.awaitTerminated(5, TimeUnit.SECONDS);
+        } catch (Throwable e) {
+            log.warn("Could not stop Pub/Sub subscriber [{}]: {}", subscriber.getSubscriptionNameString(), e.getMessage(), e);
+        }
+    }
+
+    private void awaitQuiescent() {
+        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+        while (inFlightMessages.get() > 0 && System.nanoTime() < deadlineNanos) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+    }
+
+    /** A live subscription, retained so test isolation can stop and recreate it without restarting the application. */
+    private record ActiveSubscription(
+            SubscriptionRequest<?> request,
+            String subscription,
+            AtomicReference<Subscriber> subscriber) {}
 
     private String ensureSubscriptionExists(String subscription, String fullyQualifiedTopic, DeadLetterPolicy deadLetterPolicy) {
         var subscriptionName = ProjectSubscriptionName.of(projectId, subscription).toString();

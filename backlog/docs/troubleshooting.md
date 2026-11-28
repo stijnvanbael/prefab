@@ -233,6 +233,23 @@ Never edit a migration that has already been applied. See the
 [Database Migration Lifecycle guide](database-migrations.md) for generation, Flyway checksums, MongoDB behavior,
 and test-only reset limitations.
 
+## Migration replay fails during compilation
+
+**Cause:** PostgreSQL migrations are replayed from versioned SQL available on the compile classpath. A diagnostic
+beginning with `cannot replay database migration` means Prefab parsed and modeled the statement, but it is invalid
+for the schema state reconstructed up to that point. For example, an `ALTER TABLE` may target a table that is not
+present in that replayed state. This does not establish why a prerequisite is unavailable. A diagnostic beginning
+with `cannot interpret database migration` means the statement could not be parsed or is outside Prefab's modeled
+schema operations.
+
+**Fix:** For replay-state failures, check that prerequisite tables, columns, indexes, or constraints are created by
+earlier versioned migrations and that the files are ordered as intended; then correct the transition for that
+reconstructed state. For parse/model failures, rewrite only the unsupported schema operation using a form supported
+by the documented parser model; if that is not possible, the parser needs support for the operation before schema
+replay can continue. Keep the versioned migration in Flyway's discovery, and do not rename or move a migration as a
+generic response to a replay failure. See the
+[Database Migration Lifecycle guide](database-migrations.md) for supported replay behavior.
+
 ---
 
 ## Error: `[Prefab] ...: this hand-written ... duplicates ...` (controller, entity or repository)

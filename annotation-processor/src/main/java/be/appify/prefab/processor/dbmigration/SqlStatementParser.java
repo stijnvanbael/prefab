@@ -1,6 +1,7 @@
 package be.appify.prefab.processor.dbmigration;
 
 import net.sf.jsqlparser.parser.CCJSqlParser;
+import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.alter.Alter;
 import net.sf.jsqlparser.statement.alter.AlterExpression;
 import net.sf.jsqlparser.statement.alter.AlterOperation;
@@ -73,13 +74,12 @@ class SqlStatementParser {
         } catch (MigrationSqlException e) {
             throw e;
         } catch (Exception e) {
-            throw new MigrationSqlException(
-                    "statement '%s' failed: %s".formatted(sql, e.getMessage()), e);
+            throw MigrationSqlException.replayState(sql, e);
         }
     }
 
-    private void applyParsedStatement(String sql, Map<String, Table> tables) throws Exception {
-        var statement = new CCJSqlParser(sql).Statement();
+    private void applyParsedStatement(String sql, Map<String, Table> tables) {
+        var statement = parseSqlStatement(sql);
         if (statement instanceof Insert || statement instanceof Update || statement instanceof Delete) {
             // Migration DML does not change the schema facts used to generate a migration.
             return;
@@ -95,8 +95,17 @@ class SqlStatementParser {
         } else if (statement instanceof Drop drop && "TABLE".equalsIgnoreCase(drop.getType())) {
             applyDropTable(drop, tables);
         } else {
-            throw new IllegalStateException("Prefab cannot model schema statement of type "
-                    + statement.getClass().getSimpleName());
+            throw MigrationSqlException.unsupportedSql(sql,
+                    new IllegalStateException("Prefab cannot model schema statement of type "
+                            + statement.getClass().getSimpleName()));
+        }
+    }
+
+    private static Statement parseSqlStatement(String sql) {
+        try {
+            return new CCJSqlParser(sql).Statement();
+        } catch (Exception e) {
+            throw MigrationSqlException.unsupportedSql(sql, e);
         }
     }
 
@@ -236,7 +245,8 @@ class SqlStatementParser {
             if (alter.isUseTableIfExists()) {
                 return;
             }
-            throw new IllegalStateException("Cannot alter missing table " + tableName);
+            throw new IllegalStateException("Cannot alter table " + tableName
+                    + ": it is not present in the replayed migration state");
         }
         validateAlter(alter, table, tables);
         var updated = table.apply(alter);

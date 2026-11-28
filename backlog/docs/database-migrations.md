@@ -28,10 +28,14 @@ definition rather than replacing it.
 
 These checks use only schema facts reconstructed from versioned SQL and do not connect to PostgreSQL, inspect existing
 data, validate DML, or guarantee that arbitrary PostgreSQL SQL will execute. Prefab models table/column operations,
-indexes, primary keys, and supported foreign keys; it does not inspect arbitrary index expressions. DML statements are
-ignored for schema replay. A schema-changing statement the parser cannot model stops compilation with a diagnostic
-that names the migration and offending statement rather than silently generating from an incomplete schema. Keep
-manual migrations within the documented parser support and compile after changing them.
+indexes, primary keys, and supported foreign keys; it does not inspect arbitrary index expressions. DML statements
+are ignored for schema replay. A schema-changing statement the parser cannot parse or model stops compilation with
+a diagnostic that names the migration and offending statement. A supported statement that is invalid for the
+reconstructed state is reported separately, with the replay conflict and guidance to check the prerequisite objects
+and order in earlier versioned migrations. Neither diagnostic establishes whether a file is missing, misordered, or
+otherwise unavailable to the processor; keep the versioned migration history complete and compile after changing it.
+See [migration replay diagnostics](troubleshooting.md#migration-replay-fails-during-compilation) for how to act on
+each category.
 
 If there is a schema delta, the annotation processor writes one file for the discovered aggregate changes to
 `db/migration/V{next}__generated.sql` in compiler output (normally `target/classes/db/migration/`). The first version
@@ -48,8 +52,9 @@ the same Flyway directory; avoid making the same schema change in both.
 
 This reconstruction is only as useful as the SQL parser's understanding of the scripts. Keep schema-changing
 manual SQL compatible with the migration parser and compile after adding it. A Flyway-valid statement that the
-processor cannot interpret can prevent generation or make the reconstructed schema incomplete; a clean build and
-review of the generated delta are essential.
+processor cannot interpret can prevent generation; a supported statement that fails replay validation means the
+current reconstructed history does not satisfy its prerequisite. A clean build and review of the generated delta
+are essential.
 Inline column-level `REFERENCES` clauses are replayed as foreign keys too, so a later unrelated model change does
 not add the same parent-reference constraint again.
 

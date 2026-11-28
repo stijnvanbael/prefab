@@ -182,9 +182,15 @@ class ProcessorFailureDiagnosticsTest {
         assertThat(compilation).failed();
         assertTrue(
                 errors(compilation).stream().anyMatch(message ->
-                        message.contains("V2__broken.sql") && message.contains("cannot interpret database migration")
+                        message.contains("V2__broken.sql") && message.contains("cannot replay database migration")
+                                && message.contains("ALTER TABLE chapter DROP COLUMN missing")
                                 && message.contains("Cannot drop non-existing column: missing")
-                                && message.contains("Suggested fix") && !message.contains("Internal error")),
+                                && message.contains("Suggested fix")
+                                && message.contains("earlier versioned migrations")
+                                && message.contains("ordered as intended")
+                                && message.contains("Caused by:")
+                                && !message.contains("cannot interpret database migration")
+                                && !message.contains("Internal error")),
                 () -> "Unexpected diagnostics: " + errors(compilation));
     }
 

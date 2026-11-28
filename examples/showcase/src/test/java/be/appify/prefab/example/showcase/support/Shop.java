@@ -17,6 +17,9 @@ import static org.awaitility.Awaitility.await;
 /**
  * Sets up the data an order needs, through the generated test clients. Multicast handlers use the default fail-and-retry behavior for
  * empty results unless they explicitly opt out, so a test only places orders for customers and products that have their projections.
+ * Events can outlive a test; on real brokers {@code prefab-test} resets subscriptions between tests so late events from a
+ * prior test cannot reach a later one with an empty table, and production retry/dead-letter for genuinely missing
+ * projections is unchanged.
  */
 @Component
 public class Shop {

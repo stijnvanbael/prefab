@@ -4,6 +4,7 @@ org.springframework.test.context.TestExecutionListener=\
   be.appify.prefab.test.inmemory.messaging.InMemoryEventConsumerExecutionListener,\
   be.appify.prefab.test.inmemory.streams.InMemoryStreamsTestExecutionListener,\
   be.appify.prefab.test.pubsub.TestSubscriberExecutionListener,\
+  be.appify.prefab.test.pubsub.PubSubTestExecutionListener,\
   be.appify.prefab.test.sns.TestSqsSubscriberExecutionListener,\
   be.appify.prefab.test.persistence.PersistenceTestExecutionListener,\
   be.appify.prefab.test.mongodb.MongoDbTestExecutionListener,\
